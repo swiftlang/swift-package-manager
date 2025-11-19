@@ -38,7 +38,7 @@ public struct BuiltTestProduct: Codable {
         guard let bundlePath = hierarchySequence.first(where: { $0.basename.hasSuffix(pathExtension) }) else {
             fatalError("could not find test bundle path from '\(binaryPath)'")
         }
-        
+
         return bundlePath
     }
 

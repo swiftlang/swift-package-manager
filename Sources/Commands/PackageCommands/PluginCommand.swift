@@ -91,7 +91,7 @@ struct PluginCommand: AsyncSwiftCommand {
                 }
                 return parts[1]
                     .split(separator: ",")
-                    .compactMap{ String($0).spm_chuzzle() }
+                    .compactMap { String($0).spm_chuzzle() }
                     .compactMap { Int($0) }
             }
 
@@ -203,13 +203,13 @@ struct PluginCommand: AsyncSwiftCommand {
         // merge the relevant plugin execution options
         let pluginOptions = options.merged(with: pluginArguments.pluginOptions)
         // sandbox is special since its generic not a specific plugin option
-        swiftCommandState.shouldDisableSandbox = swiftCommandState.shouldDisableSandbox || pluginArguments.globalOptions.security
-            .shouldDisableSandbox
+        swiftCommandState.shouldDisableSandbox =
+            swiftCommandState.shouldDisableSandbox
+            || pluginArguments.globalOptions.security
+                .shouldDisableSandbox
 
         let buildSystemKind =
-            pluginArguments.globalOptions.build.buildSystem != .native ?
-                pluginArguments.globalOptions.build.buildSystem :
-                swiftCommandState.options.build.buildSystem
+            pluginArguments.globalOptions.build.buildSystem != .native ? pluginArguments.globalOptions.build.buildSystem : swiftCommandState.options.build.buildSystem
 
         // At this point we know we found exactly one command plugin, so we run it. In SwiftPM CLI, we have only one root package.
         try await PluginCommand.run(
@@ -267,24 +267,24 @@ struct PluginCommand: AsyncSwiftCommand {
 
                 switch $0 {
                 case .writeToPackageDirectory(let reason):
-                    guard !options.allowWritingToPackageDirectory else { return } // permission already granted
+                    guard !options.allowWritingToPackageDirectory else { return }  // permission already granted
                     permissionString = "write to the package directory"
                     reasonString = reason
                     remedyOption = "--allow-writing-to-package-directory"
                 case .allowNetworkConnections(let scope, let reason):
-                    guard scope != .none else { return } // no need to prompt
-                    guard options.allowNetworkConnections != .init(scope) else { return } // permission already granted
+                    guard scope != .none else { return }  // no need to prompt
+                    guard options.allowNetworkConnections != .init(scope) else { return }  // permission already granted
 
                     switch scope {
                     case .all, .local:
-                        let portsString = scope.ports
-                            .isEmpty ? "on all ports" :
-                            "on ports: \(scope.ports.map { "\($0)" }.joined(separator: ", "))"
+                        let portsString =
+                            scope.ports
+                                .isEmpty ? "on all ports" : "on ports: \(scope.ports.map { "\($0)" }.joined(separator: ", "))"
                         permissionString = "allow \(scope.label) network connections \(portsString)"
                     case .docker, .unixDomainSocket:
                         permissionString = "allow \(scope.label) connections"
                     case .none:
-                        permissionString = "" // should not be reached
+                        permissionString = ""  // should not be reached
                     }
 
                     reasonString = reason
@@ -326,11 +326,13 @@ struct PluginCommand: AsyncSwiftCommand {
         }
 
         // Make sure that the package path is read-only unless it's covered by any of the explicitly writable directories.
-        let readOnlyDirectories = writableDirectories
-            .contains { package.path.isDescendantOfOrEqual(to: $0) } ? [] : [package.path]
+        let readOnlyDirectories =
+            writableDirectories
+                .contains { package.path.isDescendantOfOrEqual(to: $0) } ? [] : [package.path]
 
         // Use the directory containing the compiler as an additional search directory, and add the $PATH.
-        let toolSearchDirs = [try swiftCommandState.getTargetToolchain().swiftCompilerPath.parentDirectory]
+        let toolSearchDirs =
+            [try swiftCommandState.getTargetToolchain().swiftCompilerPath.parentDirectory]
             + getEnvSearchPaths(pathString: Environment.current[.path], currentWorkingDirectory: .none)
 
         var buildParameters = try swiftCommandState.toolsBuildParameters

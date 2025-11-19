@@ -31,11 +31,11 @@ public final class PackageGraphResultXCTest {
     }
 
     public func check(roots: PackageIdentity..., file: StaticString = #file, line: UInt = #line) {
-        XCTAssertEqual(graph.rootPackages.map{$0.identity }.sorted(), roots.sorted(), file: file, line: line)
+        XCTAssertEqual(graph.rootPackages.map { $0.identity }.sorted(), roots.sorted(), file: file, line: line)
     }
 
     public func check(packages: PackageIdentity..., file: StaticString = #file, line: UInt = #line) {
-        XCTAssertEqual(graph.packages.map {$0.identity }.sorted(), packages.sorted(), file: file, line: line)
+        XCTAssertEqual(graph.packages.map { $0.identity }.sorted(), packages.sorted(), file: file, line: line)
     }
 
     public func check(modules: String..., file: StaticString = #file, line: UInt = #line) {
@@ -43,7 +43,11 @@ public final class PackageGraphResultXCTest {
             graph.allModules
                 .filter { $0.type != .test }
                 .map { $0.name }
-                .sorted(), modules.sorted(), file: file, line: line)
+                .sorted(),
+            modules.sorted(),
+            file: file,
+            line: line
+        )
     }
 
     public func check(products: String..., file: StaticString = #file, line: UInt = #line) {
@@ -132,9 +136,13 @@ public final class PackageGraphResultXCTest {
     public func check(testModules: String..., file: StaticString = #file, line: UInt = #line) {
         XCTAssertEqual(
             graph.allModules
-                .filter{ $0.type == .test }
-                .map{ $0.name }
-                .sorted(), testModules.sorted(), file: file, line: line)
+                .filter { $0.type == .test }
+                .map { $0.name }
+                .sorted(),
+            testModules.sorted(),
+            file: file,
+            line: line
+        )
     }
 
     public func find(package: PackageIdentity) -> ResolvedPackage? {
@@ -143,7 +151,8 @@ public final class PackageGraphResultXCTest {
 
     private func reachableBuildTargets(in environment: BuildEnvironment) throws -> IdentifiableSet<ResolvedModule> {
         let inputTargets = graph.inputPackages.lazy.flatMap { $0.modules }
-        let recursiveBuildTargetDependencies = try inputTargets
+        let recursiveBuildTargetDependencies =
+            try inputTargets
             .flatMap { try $0.recursiveDependencies(satisfying: environment) }
             .compactMap { $0.module }
         return IdentifiableSet(inputTargets).union(recursiveBuildTargetDependencies)
@@ -200,7 +209,9 @@ public final class ResolvedTargetResultXCTest {
 
     public func checkDerivedPlatforms(_ platforms: [String: String], file: StaticString = #file, line: UInt = #line) {
         let derived = platforms.map {
-            let platform = PlatformRegistry.default.platformByName[$0.key] ?? PackageModel.Platform
+            let platform =
+                PlatformRegistry.default.platformByName[$0.key]
+                ?? PackageModel.Platform
                 .custom(name: $0.key, oldestSupportedVersion: $0.value)
             return self.target.getSupportedPlatform(for: platform, usingXCTest: self.target.type == .test)
         }

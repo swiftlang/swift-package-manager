@@ -16,7 +16,7 @@ import Foundation
 import TSCBasic
 
 #if canImport(FoundationXML)
-import FoundationXML
+    import FoundationXML
 #endif
 import class PackageModel.Manifest
 
@@ -93,7 +93,7 @@ public struct XcodeWorkspaceLoader: WorkspaceLoader {
             didStartElement elementName: String,
             namespaceURI: String?,
             qualifiedName qName: String?,
-            attributes attributeDict: [String : String] = [:]
+            attributes attributeDict: [String: String] = [:]
         ) {
             guard elementName == "FileRef" else { return }
             guard let location = attributeDict["location"] else { return }

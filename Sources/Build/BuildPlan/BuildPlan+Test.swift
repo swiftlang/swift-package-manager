@@ -17,14 +17,11 @@ import struct LLBuildManifest.TestDiscoveryTool
 import struct LLBuildManifest.TestEntryPointTool
 import struct PackageGraph.ModulesGraph
 
-@_spi(SwiftPMInternal)
-import struct PackageGraph.ResolvedPackage
+@_spi(SwiftPMInternal) import struct PackageGraph.ResolvedPackage
 
-@_spi(SwiftPMInternal)
-import struct PackageGraph.ResolvedProduct
+@_spi(SwiftPMInternal) import struct PackageGraph.ResolvedProduct
 
-@_spi(SwiftPMInternal)
-import struct PackageGraph.ResolvedModule
+@_spi(SwiftPMInternal) import struct PackageGraph.ResolvedModule
 
 import struct PackageModel.Sources
 import enum PackageModel.BuildSettings
@@ -100,7 +97,7 @@ extension BuildPlan {
                 let discoveryTarget = SwiftModule(
                     name: discoveryTargetName,
                     dependencies: testProduct.underlying.modules.map { .module($0, conditions: []) },
-                    packageAccess: true, // test target is allowed access to package decls by default
+                    packageAccess: true,  // test target is allowed access to package decls by default
                     testDiscoverySrc: Sources(paths: discoveryPaths, root: discoveryDerivedDir),
                     buildSettings: discoveryBuildSettings,
                     implicit: true
@@ -157,7 +154,7 @@ extension BuildPlan {
                     name: testProduct.name,
                     type: .library,
                     dependencies: testProduct.underlying.modules.map { .module($0, conditions: []) } + swiftTargetDependencies,
-                    packageAccess: true, // test target is allowed access to package decls
+                    packageAccess: true,  // test target is allowed access to package decls
                     testEntryPointSources: entryPointSources,
                     buildSettings: entryPointBuildSettings
                 )

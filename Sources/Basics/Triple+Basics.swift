@@ -162,7 +162,7 @@ extension Triple {
         case .wasi:
             return ".wasm"
         default:
-          break
+            break
         }
 
         guard let objectFormat = self.objectFormat else {
@@ -228,12 +228,7 @@ extension Triple {
             return true
         }
 
-        if
-            self.arch == triple.arch &&
-            self.vendor == triple.vendor &&
-            self.os == triple.os &&
-            self.environment == triple.environment
-        {
+        if self.arch == triple.arch && self.vendor == triple.vendor && self.os == triple.os && self.environment == triple.environment {
             return self.osVersion >= triple.osVersion
         } else {
             return false
@@ -246,11 +241,11 @@ extension Triple: CustomStringConvertible {
 }
 
 extension Triple: Equatable {
-    public static func ==(lhs: Triple, rhs: Triple) -> Bool {
-      lhs.arch == rhs.arch
-        && lhs.vendor == rhs.vendor
-        && lhs.os == rhs.os
-        && lhs.environment == rhs.environment
-        && lhs.osVersion == rhs.osVersion
+    public static func == (lhs: Triple, rhs: Triple) -> Bool {
+        lhs.arch == rhs.arch
+            && lhs.vendor == rhs.vendor
+            && lhs.os == rhs.os
+            && lhs.environment == rhs.environment
+            && lhs.osVersion == rhs.osVersion
     }
 }

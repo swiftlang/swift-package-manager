@@ -21,7 +21,7 @@ public struct PackageIndexAndCollections: Closable {
     private let index: PackageIndexProtocol
     private let collections: PackageCollectionsProtocol
     private let observabilityScope: ObservabilityScope
-    
+
     public init(
         indexConfiguration: PackageIndexConfiguration = .init(),
         collectionsConfiguration: PackageCollections.Configuration = .init(),
@@ -43,7 +43,7 @@ public struct PackageIndexAndCollections: Closable {
                 managed: true
             )
         )
-        
+
         self.index = index
         self.collections = PackageCollections(
             configuration: collectionsConfiguration,
@@ -53,13 +53,13 @@ public struct PackageIndexAndCollections: Closable {
         )
         self.observabilityScope = observabilityScope
     }
-    
+
     init(index: PackageIndexProtocol, collections: PackageCollectionsProtocol, observabilityScope: ObservabilityScope) {
         self.index = index
         self.collections = collections
         self.observabilityScope = observabilityScope
     }
-    
+
     public func close() throws {
         if let index = self.index as? Closable {
             try index.close()
@@ -68,16 +68,15 @@ public struct PackageIndexAndCollections: Closable {
             try collections.close()
         }
     }
-    
+
     // MARK: - Package collection specific APIs
-    
+
     public func listCollections(
         identifiers: Set<PackageCollectionsModel.CollectionIdentifier>? = nil
     ) async throws -> [PackageCollectionsModel.Collection] {
         try await self.collections.listCollections(identifiers: identifiers)
     }
 
-    
     public func refreshCollections() async throws -> [PackageCollectionsModel.CollectionSource] {
         try await self.collections.refreshCollections()
     }
@@ -97,7 +96,7 @@ public struct PackageIndexAndCollections: Closable {
             trustConfirmationProvider: trustConfirmationProvider
         )
     }
-    
+
     public func removeCollection(
         _ source: PackageCollectionsModel.CollectionSource
     ) async throws {
@@ -115,7 +114,7 @@ public struct PackageIndexAndCollections: Closable {
     ) async throws -> PackageCollectionsModel.PackageSearchResult {
         try await self.collections.listPackages(collections: collections)
     }
-    
+
     public func listTargets(
         collections: Set<PackageCollectionsModel.CollectionIdentifier>? = nil
     ) async throws -> PackageCollectionsModel.TargetListResult {
@@ -134,21 +133,19 @@ public struct PackageIndexAndCollections: Closable {
         )
     }
 
-
     // MARK: - Package index specific APIs
 
     /// Indicates if package index is configured.
     public func isIndexEnabled() -> Bool {
         self.index.isEnabled
     }
-    
+
     public func listPackagesInIndex(
         offset: Int,
         limit: Int
     ) async throws -> PackageCollectionsModel.PaginatedPackageList {
         try await self.index.listPackages(offset: offset, limit: limit)
     }
-
 
     // MARK: - APIs that make use of both package index and collections
 
@@ -178,7 +175,6 @@ public struct PackageIndexAndCollections: Closable {
         // then merge the supplementary metadata with data coming from collections. The package
         // must belong to at least one collection.
         async let collectionsResult = self.collections.getPackageMetadata(identity: identity, location: location, collections: collections)
-
 
         do {
             let indexPackageMetadata = try await indexResult
@@ -227,12 +223,16 @@ public struct PackageIndexAndCollections: Closable {
                 do {
                     let collectionsSearchResult = try await pendingcollectionPackages
 
-                    let indexItems = Dictionary(uniqueKeysWithValues: indexSearchResult.items.map {
-                        (SearchResultItemKey(identity: $0.package.identity, location: $0.package.location), $0)
-                    })
-                    let collectionItems = Dictionary(uniqueKeysWithValues: collectionsSearchResult.items.map {
-                        (SearchResultItemKey(identity: $0.package.identity, location: $0.package.location), $0)
-                    })
+                    let indexItems = Dictionary(
+                        uniqueKeysWithValues: indexSearchResult.items.map {
+                            (SearchResultItemKey(identity: $0.package.identity, location: $0.package.location), $0)
+                        }
+                    )
+                    let collectionItems = Dictionary(
+                        uniqueKeysWithValues: collectionsSearchResult.items.map {
+                            (SearchResultItemKey(identity: $0.package.identity, location: $0.package.location), $0)
+                        }
+                    )
 
                     // An array of combined results, with index items listed first.
                     var items = [PackageCollectionsModel.PackageSearchResult.Item]()
@@ -294,7 +294,7 @@ public struct PackageIndexAndCollections: Closable {
             }
         }
     }
-    
+
     private enum Source: Hashable {
         case index
         case collections
@@ -303,10 +303,10 @@ public struct PackageIndexAndCollections: Closable {
 
 struct PackageIndexMetadataProvider: PackageMetadataProvider, Closable {
     typealias ProviderContainer = (provider: PackageMetadataProvider, managed: Bool)
-    
+
     let index: PackageIndex
     let alternativeContainer: ProviderContainer
-    
+
     var alternative: PackageMetadataProvider {
         self.alternativeContainer.provider
     }
@@ -321,7 +321,7 @@ struct PackageIndexMetadataProvider: PackageMetadataProvider, Closable {
             return await self.alternative.get(identity: identity, location: location)
         }
     }
-    
+
     func close() throws {
         guard self.alternativeContainer.managed else {
             return

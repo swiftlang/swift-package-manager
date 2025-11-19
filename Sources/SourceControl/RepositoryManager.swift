@@ -65,7 +65,7 @@ public class RepositoryManager: Cancellable {
         fileSystem: FileSystem,
         path: Basics.AbsolutePath,
         provider: RepositoryProvider,
-        cachePath: Basics.AbsolutePath? =  .none,
+        cachePath: Basics.AbsolutePath? = .none,
         cacheLocalPackages: Bool = false,
         maxConcurrentOperations: Int? = .none,
         initializationWarningHandler: (String) -> Void,
@@ -418,7 +418,8 @@ public class RepositoryManager: Cancellable {
             repository: handle.repository,
             sourcePath: self.path.appending(handle.subpath),
             at: destinationPath,
-            editable: editable)
+            editable: editable
+        )
     }
 
     /// Removes the repository.
@@ -602,7 +603,6 @@ fileprivate actor RepositoryManagerDelegateProxy {
     }
 }
 
-
 extension RepositoryManager.RepositoryHandle: CustomStringConvertible {
     public var description: String {
         return "<\(type(of: self)) subpath:\(subpath)>"
@@ -646,44 +646,48 @@ extension RepositorySpecifier {
 }
 
 #if canImport(SystemConfiguration)
-import SystemConfiguration
+    import SystemConfiguration
 
-private struct Reachability {
-    let reachability: SCNetworkReachability
+    private struct Reachability {
+        let reachability: SCNetworkReachability
 
-    init?() {
-        var emptyAddress = sockaddr()
-        emptyAddress.sa_len = UInt8(MemoryLayout<sockaddr>.size)
-        emptyAddress.sa_family = sa_family_t(AF_INET)
+        init?() {
+            var emptyAddress = sockaddr()
+            emptyAddress.sa_len = UInt8(MemoryLayout<sockaddr>.size)
+            emptyAddress.sa_family = sa_family_t(AF_INET)
 
-        guard let reachability = withUnsafePointer(to: &emptyAddress, {
-            SCNetworkReachabilityCreateWithAddress(nil, UnsafePointer($0))
-        }) else {
-            return nil
+            guard
+                let reachability = withUnsafePointer(
+                    to: &emptyAddress,
+                    {
+                        SCNetworkReachabilityCreateWithAddress(nil, UnsafePointer($0))
+                    }
+                )
+            else {
+                return nil
+            }
+            self.reachability = reachability
         }
-        self.reachability = reachability
+
+        var connectionRequired: Bool {
+            var flags = SCNetworkReachabilityFlags()
+            let hasFlags = withUnsafeMutablePointer(to: &flags) {
+                SCNetworkReachabilityGetFlags(reachability, UnsafeMutablePointer($0))
+            }
+            guard hasFlags else { return false }
+            guard flags.contains(.reachable) else {
+                return true
+            }
+            return flags.contains(.connectionRequired) || flags.contains(.transientConnection)
+        }
     }
 
-    var connectionRequired: Bool {
-        var flags = SCNetworkReachabilityFlags()
-        let hasFlags = withUnsafeMutablePointer(to: &flags) {
-            SCNetworkReachabilityGetFlags(reachability, UnsafeMutablePointer($0))
-        }
-        guard hasFlags else { return false }
-        guard flags.contains(.reachable) else {
-            return true
-        }
-        return flags.contains(.connectionRequired) || flags.contains(.transientConnection)
+    fileprivate func isOffline(_ error: Swift.Error) -> Bool {
+        return Reachability()?.connectionRequired == true
     }
-}
-
-fileprivate func isOffline(_ error: Swift.Error) -> Bool {
-    return Reachability()?.connectionRequired == true
-}
 #else
-fileprivate func isOffline(_ error: Swift.Error) -> Bool {
-    // TODO: Find a better way to determine reachability on non-Darwin platforms.
-    return "\(error)".contains("Could not resolve host")
-}
+    fileprivate func isOffline(_ error: Swift.Error) -> Bool {
+        // TODO: Find a better way to determine reachability on non-Darwin platforms.
+        return "\(error)".contains("Could not resolve host")
+    }
 #endif
-

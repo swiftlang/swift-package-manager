@@ -32,17 +32,23 @@ final class ClangTargetBuildDescriptionTests: XCTestCase {
         let linuxParameters = mockBuildParameters(destination: .target, toolchain: toolchain, triple: .arm64Linux)
         let androidParameters = mockBuildParameters(destination: .target, toolchain: toolchain, triple: .arm64Android)
 
-        let macDescription = try makeTargetBuildDescription("swift-corelibs-foundation",
-                                                            buildParameters: macosParameters)
+        let macDescription = try makeTargetBuildDescription(
+            "swift-corelibs-foundation",
+            buildParameters: macosParameters
+        )
         XCTAssertFalse(try macDescription.basicArguments().contains("\(macosParameters.toolchain.swiftResourcesPath!)"))
 
-        let linuxDescription = try makeTargetBuildDescription("swift-corelibs-foundation",
-                                                              buildParameters: linuxParameters)
+        let linuxDescription = try makeTargetBuildDescription(
+            "swift-corelibs-foundation",
+            buildParameters: linuxParameters
+        )
         print(try linuxDescription.basicArguments())
         XCTAssertTrue(try linuxDescription.basicArguments().contains("\(linuxParameters.toolchain.swiftResourcesPath!)"))
 
-        let androidDescription = try makeTargetBuildDescription("swift-corelibs-foundation",
-                                                                buildParameters: androidParameters)
+        let androidDescription = try makeTargetBuildDescription(
+            "swift-corelibs-foundation",
+            buildParameters: androidParameters
+        )
         XCTAssertTrue(try androidDescription.basicArguments().contains("\(androidParameters.toolchain.swiftResourcesPath!)"))
     }
 
@@ -76,49 +82,59 @@ final class ClangTargetBuildDescriptionTests: XCTestCase {
         )
     }
 
-    private func makeTargetBuildDescription(_ packageName: String,
-                                            buildParameters: BuildParameters? = nil,
-                                            usesSourceControl: Bool = false) throws -> ClangModuleBuildDescription {
+    private func makeTargetBuildDescription(
+        _ packageName: String,
+        buildParameters: BuildParameters? = nil,
+        usesSourceControl: Bool = false
+    ) throws -> ClangModuleBuildDescription {
         let observability = ObservabilitySystem.makeForTesting(verbose: false)
 
         let manifest: Manifest
         if usesSourceControl {
             manifest = Manifest.createLocalSourceControlManifest(
-                displayName: packageName, path: AbsolutePath("/\(packageName)"))
+                displayName: packageName,
+                path: AbsolutePath("/\(packageName)")
+            )
         } else {
             manifest = Manifest.createRootManifest(
                 displayName: packageName,
                 toolsVersion: .v5,
-                targets: [try TargetDescription(name: "dummy")])
+                targets: [try TargetDescription(name: "dummy")]
+            )
         }
 
         let target = try makeResolvedTarget()
 
-        let package = Package(identity: .plain(packageName),
-                              manifest: manifest,
-                              path: .root,
-                              targets: [target.underlying],
-                              products: [],
-                              targetSearchPath: .root,
-                              testTargetSearchPath: .root)
+        let package = Package(
+            identity: .plain(packageName),
+            manifest: manifest,
+            path: .root,
+            targets: [target.underlying],
+            products: [],
+            targetSearchPath: .root,
+            testTargetSearchPath: .root
+        )
 
         return try ClangModuleBuildDescription(
-            package: .init(underlying: package,
-                           defaultLocalization: nil,
-                           supportedPlatforms: [],
-                           dependencies: [],
-                           enabledTraits: [],
-                           modules: .init([target]),
-                           products: [],
-                           registryMetadata: nil,
-                           platformVersionProvider: .init(implementation: .minimumDeploymentTargetDefault)),
+            package: .init(
+                underlying: package,
+                defaultLocalization: nil,
+                supportedPlatforms: [],
+                dependencies: [],
+                enabledTraits: [],
+                modules: .init([target]),
+                products: [],
+                registryMetadata: nil,
+                platformVersionProvider: .init(implementation: .minimumDeploymentTargetDefault)
+            ),
             target: target,
             toolsVersion: .current,
-            buildParameters: buildParameters ?? mockBuildParameters(
-                destination: .target,
-                toolchain: try UserToolchain.default,
-                indexStoreMode: .on
-            ),
+            buildParameters: buildParameters
+                ?? mockBuildParameters(
+                    destination: .target,
+                    toolchain: try UserToolchain.default,
+                    indexStoreMode: .on
+                ),
             fileSystem: localFileSystem,
             observabilityScope: observability.topScope
         )

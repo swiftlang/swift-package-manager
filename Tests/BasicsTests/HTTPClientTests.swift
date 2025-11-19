@@ -23,7 +23,7 @@ class HTTPClientXCTest: XCTestCase {
         let counter = SendableBox(0)
         let lastCall = SendableBox<Date>(Date())
         let maxAttempts = 5
-        let errorCode = Int.random(in: 500 ..< 600)
+        let errorCode = Int.random(in: 500..<600)
         let delay = SendableTimeInterval.milliseconds(100)
 
         let httpClient = HTTPClient { _, _ in
@@ -46,13 +46,12 @@ class HTTPClientXCTest: XCTestCase {
     }
 }
 
-
 struct HTTPClientTests {
     @Test
     func head() async throws {
         let url = URL("http://test")
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
-        let responseStatus = Int.random(in: 201 ..< 500)
+        let responseStatus = Int.random(in: 201..<500)
         let responseHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
         let responseBody: Data? = nil
 
@@ -73,7 +72,7 @@ struct HTTPClientTests {
     func testGet() async throws {
         let url = URL("http://test")
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
-        let responseStatus = Int.random(in: 201 ..< 500)
+        let responseStatus = Int.random(in: 201..<500)
         let responseHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
         let responseBody = Data(UUID().uuidString.utf8)
 
@@ -95,7 +94,7 @@ struct HTTPClientTests {
         let url = URL("http://test")
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
         let requestBody = Data(UUID().uuidString.utf8)
-        let responseStatus = Int.random(in: 201 ..< 500)
+        let responseStatus = Int.random(in: 201..<500)
         let responseHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
         let responseBody = Data(UUID().uuidString.utf8)
 
@@ -118,7 +117,7 @@ struct HTTPClientTests {
         let url = URL("http://test")
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
         let requestBody = Data(UUID().uuidString.utf8)
-        let responseStatus = Int.random(in: 201 ..< 500)
+        let responseStatus = Int.random(in: 201..<500)
         let responseHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
         let responseBody = Data(UUID().uuidString.utf8)
 
@@ -140,7 +139,7 @@ struct HTTPClientTests {
     func delete() async throws {
         let url = URL("http://test")
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
-        let responseStatus = Int.random(in: 201 ..< 500)
+        let responseStatus = Int.random(in: 201..<500)
         let responseHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
         let responseBody = Data(UUID().uuidString.utf8)
 
@@ -250,7 +249,7 @@ struct HTTPClientTests {
 
     @Test
     func validResponseCodes() async throws {
-        let statusCode = Int.random(in: 201 ..< 500)
+        let statusCode = Int.random(in: 201..<500)
 
         let httpClient = HTTPClient { _, _ in
             throw HTTPClientError.badResponseStatusCode(statusCode)
@@ -267,19 +266,19 @@ struct HTTPClientTests {
     @Test
     func hostCircuitBreaker() async throws {
         let maxErrors = 5
-        let errorCode = Int.random(in: 500 ..< 600)
+        let errorCode = Int.random(in: 500..<600)
         let age = SendableTimeInterval.seconds(5)
 
         let host = "http://tes-\(UUID().uuidString).com"
         let configuration = HTTPClientConfiguration(circuitBreakerStrategy: .hostErrors(maxErrors: maxErrors, age: age))
         let httpClient = HTTPClient(configuration: configuration) { _, _ in
-                .init(statusCode: errorCode)
+            .init(statusCode: errorCode)
         }
 
         // make the initial errors
         do {
             let counter = SendableBox(0)
-            for index in (0 ..< maxErrors) {
+            for index in (0..<maxErrors) {
                 let response = try await httpClient.get(URL("\(host)/\(index)/foo"))
                 await counter.increment()
                 #expect(response.statusCode == errorCode)
@@ -290,8 +289,8 @@ struct HTTPClientTests {
 
         // these should all circuit break
         let counter = SendableBox(0)
-        let total = Int.random(in: 10 ..< 20)
-        for index in (0 ..< total) {
+        let total = Int.random(in: 10..<20)
+        for index in (0..<total) {
             do {
                 let response = try await httpClient.get(URL("\(host)/\(index)/foo"))
                 Issue.record("unexpected success \(response)")
@@ -309,7 +308,7 @@ struct HTTPClientTests {
     @Test
     func hostCircuitBreakerAging() async throws {
         let maxErrors = 5
-        let errorCode = Int.random(in: 500 ..< 600)
+        let errorCode = Int.random(in: 500..<600)
         let ageInMilliseconds = 100
 
         let host = "http://tes-\(UUID().uuidString).com"
@@ -332,7 +331,7 @@ struct HTTPClientTests {
         // make the initial errors
         do {
             let counter = SendableBox(0)
-            for index in (0 ..< maxErrors) {
+            for index in (0..<maxErrors) {
                 let response = try await httpClient.get(URL("\(host)/\(index)/error"))
                 await counter.increment()
                 #expect(response.statusCode == errorCode)
@@ -342,10 +341,10 @@ struct HTTPClientTests {
         }
 
         // these should not circuit break since they are deliberately aged
-        let total = Int.random(in: 10 ..< 20)
+        let total = Int.random(in: 10..<20)
         let count = ThreadSafeBox<Int>(0)
 
-        for index in (0 ..< total) {
+        for index in (0..<total) {
             // age it
             let sleepInterval = SendableTimeInterval.milliseconds(ageInMilliseconds)
             try await Task.sleep(nanoseconds: UInt64(sleepInterval.nanoseconds()!))
@@ -361,7 +360,7 @@ struct HTTPClientTests {
     func hTTPClientHeaders() async throws {
         var headers = HTTPClientHeaders()
 
-        let items = (1 ... Int.random(in: 10 ... 20)).map { index in HTTPClientHeaders.Item(name: "header-\(index)", value: UUID().uuidString) }
+        let items = (1...Int.random(in: 10...20)).map { index in HTTPClientHeaders.Item(name: "header-\(index)", value: UUID().uuidString) }
         headers.add(items)
 
         #expect(headers.count == items.count)
@@ -373,7 +372,7 @@ struct HTTPClientTests {
         #expect(headers.count == items.count)
 
         let name = UUID().uuidString
-        let values = (1 ... Int.random(in: 10 ... 20)).map { "value-\($0)" }
+        let values = (1...Int.random(in: 10...20)).map { "value-\($0)" }
         values.forEach { value in
             headers.add(name: name, value: value)
         }
@@ -387,15 +386,15 @@ struct HTTPClientTests {
 
         let httpClient = HTTPClient { request, progress in
             switch request.method {
-                case .head:
-                    return .init(
-                        statusCode: 200,
-                        headers: .init([.init(name: "Content-Length", value: "0")])
-                    )
-                case .get:
-                    try progress?(Int64(maxSize * 2), 0)
-                default:
-                    Issue.record("method should match")
+            case .head:
+                return .init(
+                    statusCode: 200,
+                    headers: .init([.init(name: "Content-Length", value: "0")])
+                )
+            case .get:
+                try progress?(Int64(maxSize * 2), 0)
+            default:
+                Issue.record("method should match")
             }
 
             fatalError("unreachable")

@@ -101,7 +101,7 @@ final class ResolvedModuleDependencyTests: XCTestCase {
             name: "t6",
             deps: t4,
             t5
-        ) // same as above, but these two swapped
+        )  // same as above, but these two swapped
 
         // precise order is not important, but it is important that the following are true
         let t6rd = try t6.recursiveModuleDependencies().map(\.id)

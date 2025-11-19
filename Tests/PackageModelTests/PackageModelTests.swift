@@ -12,8 +12,7 @@
 
 import Basics
 
-@_spi(SwiftPMInternal)
-@testable import PackageModel
+@_spi(SwiftPMInternal) @testable import PackageModel
 
 import func TSCBasic.withTemporaryFile
 import XCTest
@@ -104,9 +103,9 @@ final class PackageModelTests: XCTestCase {
     func testWindowsLibrarianSelection() throws {
 
         #if os(Windows)
-        let suffix = ".exe"
+            let suffix = ".exe"
         #else
-        let suffix = ""
+            let suffix = ""
         #endif
 
         let triple = try Triple("x86_64-unknown-windows-msvc")
@@ -125,13 +124,17 @@ final class PackageModelTests: XCTestCase {
                 try fs.writeFileContents(not, bytes: ByteString(contents))
 
                 #if !os(Windows)
-                try fs.chmod(.executable, path: lld, options: [])
-                try fs.chmod(.executable, path: not, options: [])
+                    try fs.chmod(.executable, path: lld, options: [])
+                    try fs.chmod(.executable, path: not, options: [])
                 #endif
 
                 try XCTAssertEqual(
                     UserToolchain.determineLibrarian(
-                        triple: triple, binDirectories: [bin], useXcrun: false, environment: [:], searchPaths: [],
+                        triple: triple,
+                        binDirectories: [bin],
+                        useXcrun: false,
+                        environment: [:],
+                        searchPaths: [],
                         extraSwiftFlags: ["-Xswiftc", "-use-ld=lld"],
                         fileSystem: fs
                     ),
@@ -140,7 +143,11 @@ final class PackageModelTests: XCTestCase {
 
                 try XCTAssertEqual(
                     UserToolchain.determineLibrarian(
-                        triple: triple, binDirectories: [bin], useXcrun: false, environment: [:], searchPaths: [],
+                        triple: triple,
+                        binDirectories: [bin],
+                        useXcrun: false,
+                        environment: [:],
+                        searchPaths: [],
                         extraSwiftFlags: ["-Xswiftc", "-use-ld=not-link"],
                         fileSystem: fs
                     ),
@@ -149,7 +156,11 @@ final class PackageModelTests: XCTestCase {
 
                 try XCTAssertThrowsError(
                     UserToolchain.determineLibrarian(
-                        triple: triple, binDirectories: [bin], useXcrun: false, environment: [:], searchPaths: [],
+                        triple: triple,
+                        binDirectories: [bin],
+                        useXcrun: false,
+                        environment: [:],
+                        searchPaths: [],
                         extraSwiftFlags: [],
                         fileSystem: fs
                     )
@@ -160,43 +171,43 @@ final class PackageModelTests: XCTestCase {
 
     func testDetermineSwiftCompilers() throws {
         let fs = localFileSystem
-            try withTemporaryDirectory(removeTreeOnDeinit: true) { tmp in
-                // When swiftc is not in the toolchain bin directory, UserToolchain
-                // should find it in the system PATH search paths in the order they
-                // are specified.
-                let toolchainPath = tmp.appending("swift.xctoolchain")
-                let toolchainBinDir = toolchainPath.appending(components: "usr", "bin")
-                // Create the toolchain bin directory, but don't put swiftc in it.
-                try fs.createDirectory(toolchainBinDir, recursive: true)
+        try withTemporaryDirectory(removeTreeOnDeinit: true) { tmp in
+            // When swiftc is not in the toolchain bin directory, UserToolchain
+            // should find it in the system PATH search paths in the order they
+            // are specified.
+            let toolchainPath = tmp.appending("swift.xctoolchain")
+            let toolchainBinDir = toolchainPath.appending(components: "usr", "bin")
+            // Create the toolchain bin directory, but don't put swiftc in it.
+            try fs.createDirectory(toolchainBinDir, recursive: true)
 
-                // Create a directory with two swiftc binaries in it.
-                let binDirs = ["bin1", "bin2"].map { tmp.appending($0) }
-                #if os(Windows)
+            // Create a directory with two swiftc binaries in it.
+            let binDirs = ["bin1", "bin2"].map { tmp.appending($0) }
+            #if os(Windows)
                 let exeSuffix = ".exe"
-                #else
+            #else
                 let exeSuffix = ""
-                #endif
-                let expectedExecuable = "swiftc\(exeSuffix)" // Files that end with .exe are considered executable on Windows.
-                for binDir in binDirs {
-                    try fs.createDirectory(binDir)
-                    let binFile = binDir.appending(expectedExecuable)
-                    try fs.writeFileContents(binFile, bytes: ByteString(Self.tinyPEBytes))
-                    XCTAssertTrue(fs.exists(binFile), "File '\(binFile)' does not exist when it should")
-                    #if !os(Windows)
+            #endif
+            let expectedExecuable = "swiftc\(exeSuffix)"  // Files that end with .exe are considered executable on Windows.
+            for binDir in binDirs {
+                try fs.createDirectory(binDir)
+                let binFile = binDir.appending(expectedExecuable)
+                try fs.writeFileContents(binFile, bytes: ByteString(Self.tinyPEBytes))
+                XCTAssertTrue(fs.exists(binFile), "File '\(binFile)' does not exist when it should")
+                #if !os(Windows)
                     try fs.chmod(.executable, path: binFile, options: [])
-                    #endif
-                }
-
-                let compilers = try UserToolchain.determineSwiftCompilers(
-                    binDirectories: [toolchainBinDir],
-                    useXcrun: false,
-                    environment: [:],
-                    searchPaths: binDirs,
-                    fileSystem: fs
-                )
-
-                // The first swiftc in the search paths should be chosen.
-                XCTAssertEqual(compilers.compile, binDirs.first?.appending(expectedExecuable))
+                #endif
             }
+
+            let compilers = try UserToolchain.determineSwiftCompilers(
+                binDirectories: [toolchainBinDir],
+                useXcrun: false,
+                environment: [:],
+                searchPaths: binDirs,
+                fileSystem: fs
+            )
+
+            // The first swiftc in the search paths should be chosen.
+            XCTAssertEqual(compilers.compile, binDirs.first?.appending(expectedExecuable))
+        }
     }
 }

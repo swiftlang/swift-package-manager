@@ -19,9 +19,9 @@ struct ResetConfiguration: ConfigurationSubcommand {
     static let configuration = CommandConfiguration(
         commandName: "reset",
         abstract: """
-        Resets configuration properties currently applied to a given Swift SDK and target triple. If no specific \
-        property is specified, all of them are reset for the Swift SDK.
-        """
+            Resets configuration properties currently applied to a given Swift SDK and target triple. If no specific \
+            property is specified, all of them are reset for the Swift SDK.
+            """
     )
 
     @OptionGroup(visibility: .hidden)
@@ -47,9 +47,9 @@ struct ResetConfiguration: ConfigurationSubcommand {
 
     @Argument(
         help: """
-        An identifier of an already installed Swift SDK. Use the `list` subcommand to see all available \
-        identifiers.
-        """
+            An identifier of an already installed Swift SDK. Use the `list` subcommand to see all available \
+            identifiers.
+            """
     )
     var sdkID: String
 
@@ -112,9 +112,9 @@ struct ResetConfiguration: ConfigurationSubcommand {
             } else {
                 observabilityScope.emit(
                     info: """
-                    All configuration properties of Swift SDK `\(sdkID)` for target triple \
-                    `\(targetTriple)` were successfully reset.
-                    """
+                        All configuration properties of Swift SDK `\(sdkID)` for target triple \
+                        `\(targetTriple)` were successfully reset.
+                        """
                 )
             }
         } else {
@@ -124,9 +124,9 @@ struct ResetConfiguration: ConfigurationSubcommand {
 
             observabilityScope.emit(
                 info: """
-                These properties of Swift SDK `\(sdkID)` for target triple \
-                `\(targetTriple)` were successfully reset: \(resetProperties.joined(separator: ", ")).
-                """
+                    These properties of Swift SDK `\(sdkID)` for target triple \
+                    `\(targetTriple)` were successfully reset: \(resetProperties.joined(separator: ", ")).
+                    """
             )
         }
     }

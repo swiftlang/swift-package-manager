@@ -15,8 +15,7 @@ import Build
 import Commands
 import SPMBuildCore
 
-@_spi(SwiftPMInternal)
-import DriverSupport
+@_spi(SwiftPMInternal) import DriverSupport
 
 import Foundation
 import PackageModel
@@ -134,8 +133,11 @@ struct APIDiffTests {
                 string: "API breakage: class Qux has generic signature change from <T> to <T, U>\n"
             )
             await expectThrowsCommandExecutionError(
-                try await execute(["diagnose-api-breaking-changes", "1.2.3", "--breakage-allowlist-path", customAllowlistPath.pathString],
-                            packagePath: packageRoot, buildSystem: buildSystem)
+                try await execute(
+                    ["diagnose-api-breaking-changes", "1.2.3", "--breakage-allowlist-path", customAllowlistPath.pathString],
+                    packagePath: packageRoot,
+                    buildSystem: buildSystem
+                )
             ) { error in
                 #expect(!error.stdout.contains("💔 API breakage: class Qux has generic signature change from <T> to <T, U>"))
                 #expect(error.stdout.contains("1 breaking change detected in Qux"))
@@ -237,8 +239,11 @@ struct APIDiffTests {
 
             // Test diagnostics
             await expectThrowsCommandExecutionError(
-                try await execute(["diagnose-api-breaking-changes", "1.2.3", "--targets", "NotATarget", "Exec", "--products", "NotAProduct", "Exec"],
-                            packagePath: packageRoot, buildSystem: buildSystem)
+                try await execute(
+                    ["diagnose-api-breaking-changes", "1.2.3", "--targets", "NotATarget", "Exec", "--products", "NotAProduct", "Exec"],
+                    packagePath: packageRoot,
+                    buildSystem: buildSystem
+                )
             ) { error in
                 #expect(error.stderr.contains("error: no such product 'NotAProduct'"))
                 #expect(error.stderr.contains("error: no such target 'NotATarget'"))
@@ -260,15 +265,17 @@ struct APIDiffTests {
             try await fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
                 let packageRoot = fixturePath.appending("CTargetDep")
                 // Overwrite the existing decl.
-                try localFileSystem.writeFileContents(packageRoot.appending(components: "Sources", "Bar", "Bar.swift"), string:
-                    """
-                    import Foo
+                try localFileSystem.writeFileContents(
+                    packageRoot.appending(components: "Sources", "Bar", "Bar.swift"),
+                    string:
+                        """
+                        import Foo
 
-                    public func bar() -> String {
-                        foo()
-                        return "hello, world!"
-                    }
-                    """
+                        public func bar() -> String {
+                            foo()
+                            return "hello, world!"
+                        }
+                        """
                 )
                 await expectThrowsCommandExecutionError(try await execute(["diagnose-api-breaking-changes", "1.2.3"], packagePath: packageRoot, buildSystem: buildSystem)) { error in
                     #expect(error.stdout.contains("1 breaking change detected in Bar"))
@@ -344,24 +351,26 @@ struct APIDiffTests {
                     packageRoot.appending(components: "Sources", "Foo", "Foo.swift"),
                     string: #"public let foo = "All new module!""#
                 )
-                try localFileSystem.writeFileContents(packageRoot.appending("Package.swift"), string:
-                    """
-                    // swift-tools-version:4.2
-                    import PackageDescription
+                try localFileSystem.writeFileContents(
+                    packageRoot.appending("Package.swift"),
+                    string:
+                        """
+                        // swift-tools-version:4.2
+                        import PackageDescription
 
-                    let package = Package(
-                        name: "Bar",
-                        products: [
-                            .library(name: "Baz", targets: ["Baz"]),
-                            .library(name: "Qux", targets: ["Qux", "Foo"]),
-                        ],
-                        targets: [
-                            .target(name: "Baz"),
-                            .target(name: "Qux"),
-                            .target(name: "Foo")
-                        ]
-                    )
-                    """
+                        let package = Package(
+                            name: "Bar",
+                            products: [
+                                .library(name: "Baz", targets: ["Baz"]),
+                                .library(name: "Qux", targets: ["Qux", "Foo"]),
+                            ],
+                            targets: [
+                                .target(name: "Baz"),
+                                .target(name: "Qux"),
+                                .target(name: "Foo")
+                            ]
+                        )
+                        """
                 )
                 let (output, _) = try await execute(["diagnose-api-breaking-changes", "1.2.3"], packagePath: packageRoot, buildSystem: buildSystem)
                 #expect(output.contains("No breaking changes detected in Baz"))
@@ -407,9 +416,11 @@ struct APIDiffTests {
                 try repo.stage(file: "Foo.swift")
                 try repo.commit(message: "Add foo")
                 await expectThrowsCommandExecutionError(
-                    try await execute(["diagnose-api-breaking-changes", "main", "--baseline-dir", baselineDir.pathString],
-                                      packagePath: packageRoot,
-                                      buildSystem: buildSystem)
+                    try await execute(
+                        ["diagnose-api-breaking-changes", "main", "--baseline-dir", baselineDir.pathString],
+                        packagePath: packageRoot,
+                        buildSystem: buildSystem
+                    )
                 ) { error in
                     #expect(error.stdout.contains("1 breaking change detected in Foo"))
                     #expect(error.stdout.contains("💔 API breakage: func foo() has been removed"))
@@ -424,9 +435,11 @@ struct APIDiffTests {
                 try repo.stage(file: "Foo.swift")
                 try repo.commit(message: "Add foo")
                 try repo.checkout(revision: .init(identifier: "feature"))
-                let (output, _) = try await execute(["diagnose-api-breaking-changes", "main", "--baseline-dir", baselineDir.pathString],
-                                                    packagePath: packageRoot,
-                                                    buildSystem: buildSystem)
+                let (output, _) = try await execute(
+                    ["diagnose-api-breaking-changes", "main", "--baseline-dir", baselineDir.pathString],
+                    packagePath: packageRoot,
+                    buildSystem: buildSystem
+                )
                 #expect(output.contains("No breaking changes detected in Foo"))
             }
         }
@@ -485,10 +498,14 @@ struct APIDiffTests {
 
             var initialTimestamp: Date?
             try await expectThrowsCommandExecutionError(
-                try await execute(["diagnose-api-breaking-changes", "1.2.3",
-                             "--baseline-dir", baselineDir.pathString],
-                            packagePath: packageRoot,
-                                 buildSystem: buildSystem)
+                try await execute(
+                    [
+                        "diagnose-api-breaking-changes", "1.2.3",
+                        "--baseline-dir", baselineDir.pathString,
+                    ],
+                    packagePath: packageRoot,
+                    buildSystem: buildSystem
+                )
             ) { error in
                 #expect(error.stdout.contains("1 breaking change detected in Foo"))
                 #expect(error.stdout.contains("💔 API breakage: func foo() has been removed"))
@@ -500,10 +517,14 @@ struct APIDiffTests {
             try await Task.sleep(for: .seconds(1))
 
             try await expectThrowsCommandExecutionError(
-                try await execute(["diagnose-api-breaking-changes", "1.2.3",
-                             "--baseline-dir", baselineDir.pathString],
-                            packagePath: packageRoot,
-                                 buildSystem: buildSystem)
+                try await execute(
+                    [
+                        "diagnose-api-breaking-changes", "1.2.3",
+                        "--baseline-dir", baselineDir.pathString,
+                    ],
+                    packagePath: packageRoot,
+                    buildSystem: buildSystem
+                )
             ) { error in
                 #expect(error.stdout.contains("1 breaking change detected in Foo"))
                 #expect(error.stdout.contains("💔 API breakage: func foo() has been removed"))
@@ -515,10 +536,14 @@ struct APIDiffTests {
             try await Task.sleep(for: .seconds(1))
 
             await expectThrowsCommandExecutionError(
-                try await execute(["diagnose-api-breaking-changes", "1.2.3",
-                             "--baseline-dir", baselineDir.pathString, "--regenerate-baseline"],
-                            packagePath: packageRoot,
-                                 buildSystem: buildSystem)
+                try await execute(
+                    [
+                        "diagnose-api-breaking-changes", "1.2.3",
+                        "--baseline-dir", baselineDir.pathString, "--regenerate-baseline",
+                    ],
+                    packagePath: packageRoot,
+                    buildSystem: buildSystem
+                )
             ) { error in
                 #expect(error.stdout.contains("1 breaking change detected in Foo"))
                 #expect(error.stdout.contains("💔 API breakage: func foo() has been removed"))

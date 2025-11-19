@@ -13,8 +13,7 @@
 import Basics
 import PackageGraph
 
-@_spi(SwiftPMInternal)
-import PackageModel
+@_spi(SwiftPMInternal) import PackageModel
 
 import OrderedCollections
 import SPMBuildCore
@@ -180,9 +179,9 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         switch self.product.type {
         case .macro:
             #if BUILD_MACROS_AS_DYLIBS
-            derivedProductType = .library(.dynamic)
+                derivedProductType = .library(.dynamic)
             #else
-            derivedProductType = .executable
+                derivedProductType = .executable
             #endif
         default:
             derivedProductType = self.product.type
@@ -200,7 +199,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
 
         switch derivedProductType {
         case .macro:
-            throw InternalError("macro not supported") // should never be reached
+            throw InternalError("macro not supported")  // should never be reached
         case .library(.automatic):
             throw InternalError("automatic library not supported")
         case .library(.static):
@@ -245,7 +244,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
             // Support for linking tests against executables is conditional on the tools
             // version of the package that defines the executable product.
             let executableTarget = try product.executableModule
-            if let target = executableTarget.underlying as? SwiftModule, 
+            if let target = executableTarget.underlying as? SwiftModule,
                 self.toolsVersion >= .v5_5,
                 self.buildParameters.driverParameters.canRenameEntrypointFunctionName,
                 target.supportsTestableExecutablesFeature
@@ -290,13 +289,13 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
             var strictMemorySafety = false
             for target in self.product.modules {
                 let swiftSettings = target.underlying.buildSettingsDescription.filter { $0.tool == .swift }
-              for kind in swiftSettings.map(\.kind) {
-                if case let .enableExperimentalFeature(feature) = kind {
-                    experimentalFeatures.append(feature)
-                } else if kind == .strictMemorySafety {
-                    strictMemorySafety = true
+                for kind in swiftSettings.map(\.kind) {
+                    if case let .enableExperimentalFeature(feature) = kind {
+                        experimentalFeatures.append(feature)
+                    } else if kind == .strictMemorySafety {
+                        strictMemorySafety = true
+                    }
                 }
-              }
             }
 
             for feature in experimentalFeatures {
@@ -393,9 +392,9 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
 
         // Library search path for the toolchain's copy of SwiftSyntax.
         #if BUILD_MACROS_AS_DYLIBS
-        if product.type == .macro {
-            args += try ["-L", defaultBuildParameters.toolchain.hostLibDir.pathString]
-        }
+            if product.type == .macro {
+                args += try ["-L", defaultBuildParameters.toolchain.hostLibDir.pathString]
+            }
         #endif
 
         return self.stripInvalidArguments(args)
@@ -406,16 +405,20 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         var flags: [String] = []
 
         // Linked libraries.
-        let libraries = OrderedSet(self.staticTargets.reduce([]) {
-            $0 + self.buildParameters.createScope(for: $1).evaluate(.LINK_LIBRARIES)
-        })
+        let libraries = OrderedSet(
+            self.staticTargets.reduce([]) {
+                $0 + self.buildParameters.createScope(for: $1).evaluate(.LINK_LIBRARIES)
+            }
+        )
         flags += libraries.map { "-l" + $0 }
 
         // Linked frameworks.
         if self.buildParameters.triple.supportsFrameworks {
-            let frameworks = OrderedSet(self.staticTargets.reduce([]) {
-                $0 + self.buildParameters.createScope(for: $1).evaluate(.LINK_FRAMEWORKS)
-            })
+            let frameworks = OrderedSet(
+                self.staticTargets.reduce([]) {
+                    $0 + self.buildParameters.createScope(for: $1).evaluate(.LINK_FRAMEWORKS)
+                }
+            )
             flags += frameworks.flatMap { ["-framework", $0] }
         }
 
@@ -445,7 +448,7 @@ extension ProductBuildDescription: Identifiable {
 }
 
 extension SortedArray where Element == AbsolutePath {
-    public static func +=<S: Sequence>(lhs: inout SortedArray, rhs: S) where S.Iterator.Element == AbsolutePath {
+    public static func += <S: Sequence>(lhs: inout SortedArray, rhs: S) where S.Iterator.Element == AbsolutePath {
         lhs.insert(contentsOf: rhs)
     }
 }

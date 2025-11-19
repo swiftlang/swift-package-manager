@@ -18,10 +18,10 @@ package struct DeprecatedSwiftSDKConfigurationCommand: ParsableCommand {
     package static let configuration = CommandConfiguration(
         commandName: "configuration",
         abstract: """
-        Deprecated: use `swift sdk configure` instead.
+            Deprecated: use `swift sdk configure` instead.
 
-        Manages configuration options for installed Swift SDKs.
-        """,
+            Manages configuration options for installed Swift SDKs.
+            """,
         subcommands: [
             ResetConfiguration.self,
             SetConfiguration.self,

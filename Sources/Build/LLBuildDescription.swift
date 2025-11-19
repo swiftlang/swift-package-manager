@@ -107,7 +107,8 @@ public struct BuildDescription: Codable {
         self.testEntryPointCommands = testEntryPointCommands
         self.copyCommands = copyCommands
         self.writeCommands = writeCommands
-        self.explicitTargetDependencyImportCheckingMode = plan.destinationBuildParameters.driverParameters
+        self.explicitTargetDependencyImportCheckingMode =
+            plan.destinationBuildParameters.driverParameters
             .explicitTargetDependencyImportCheckingMode
         self.traitConfiguration = traitConfiguration
         self.targetDependencyMap = try plan.targets

@@ -22,11 +22,11 @@ struct PackageIndex: PackageIndexProtocol, Closable {
     private let httpClient: LegacyHTTPClient
     private let callbackQueue: DispatchQueue
     private let observabilityScope: ObservabilityScope
-    
+
     private let decoder: JSONDecoder
 
     private let cache: SQLiteBackedCache<CacheValue>?
-    
+
     var isEnabled: Bool {
         self.configuration.enabled && self.configuration.url != .none
     }
@@ -41,9 +41,9 @@ struct PackageIndex: PackageIndexProtocol, Closable {
         self.httpClient = customHTTPClient ?? Self.makeDefaultHTTPClient()
         self.callbackQueue = callbackQueue
         self.observabilityScope = observabilityScope
-        
+
         self.decoder = JSONDecoder.makeWithDefaults()
-        
+
         if configuration.cacheTTLInSeconds > 0 {
             var cacheConfig = SQLiteBackedCacheConfiguration()
             cacheConfig.maxSizeInMegabytes = configuration.cacheMaxSizeInMegabytes
@@ -56,7 +56,7 @@ struct PackageIndex: PackageIndexProtocol, Closable {
             self.cache = nil
         }
     }
-    
+
     func close() throws {
         try self.cache?.close()
     }
@@ -67,7 +67,8 @@ struct PackageIndex: PackageIndexProtocol, Closable {
     ) async throws -> PackageCollectionsModel.PackageMetadata {
         let url = try await self.urlIfConfigured()
         if let cached = try? self.cache?.get(key: identity.description),
-           cached.dispatchTime + DispatchTimeInterval.seconds(self.configuration.cacheTTLInSeconds) > DispatchTime.now() {
+            cached.dispatchTime + DispatchTimeInterval.seconds(self.configuration.cacheTTLInSeconds) > DispatchTime.now()
+        {
             return (package: cached.package, collections: [], provider: self.createContext(host: url.host, error: nil))
         }
 
@@ -99,7 +100,7 @@ struct PackageIndex: PackageIndexProtocol, Closable {
             throw PackageIndexError.invalidResponse(metadataURL, "Invalid status code: \(response.statusCode)")
         }
     }
-    
+
     func findPackages(
         _ query: String
     ) async throws -> PackageCollectionsModel.PackageSearchResult {
@@ -109,7 +110,7 @@ struct PackageIndex: PackageIndexProtocol, Closable {
         }
         urlComponents.path = (urlComponents.path.last == "/" ? "" : "/") + "search"
         urlComponents.queryItems = [
-            URLQueryItem(name: "q", value: query),
+            URLQueryItem(name: "q", value: query)
         ]
 
         // TODO: rdar://87582621 call package index's search API
@@ -177,7 +178,7 @@ struct PackageIndex: PackageIndexProtocol, Closable {
         }
         return url
     }
-    
+
     private func createContext(host: String?, error: Error?) -> PackageMetadataProviderContext? {
         let name = host ?? "package index"
         return PackageMetadataProviderContext(
@@ -187,7 +188,7 @@ struct PackageIndex: PackageIndexProtocol, Closable {
             isAuthTokenConfigured: true
         )
     }
-    
+
     private static func makeDefaultHTTPClient() -> LegacyHTTPClient {
         let client = LegacyHTTPClient()
         // TODO: make these defaults configurable?

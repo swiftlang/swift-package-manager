@@ -58,31 +58,31 @@ final class WorkspaceTests: XCTestCase {
                         MockTarget(name: "BarTests", dependencies: ["Bar"], type: .test),
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo", "Bar"]),
+                        MockProduct(name: "Foo", modules: ["Foo", "Bar"])
                     ],
                     dependencies: [
-                        .sourceControl(path: "./Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(path: "./Baz", requirement: .upToNextMajor(from: "1.0.0"))
                     ]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "Baz",
                     targets: [
-                        MockTarget(name: "Baz"),
+                        MockTarget(name: "Baz")
                     ],
                     products: [
-                        MockProduct(name: "Baz", modules: ["Baz"]),
+                        MockProduct(name: "Baz", modules: ["Baz"])
                     ],
                     versions: ["1.0.0", "1.5.0"]
                 ),
                 MockPackage(
                     name: "Quix",
                     targets: [
-                        MockTarget(name: "Quix"),
+                        MockTarget(name: "Quix")
                     ],
                     products: [
-                        MockProduct(name: "Quix", modules: ["Quix"]),
+                        MockProduct(name: "Quix", modules: ["Quix"])
                     ],
                     versions: ["1.0.0", "1.2.0"]
                 ),
@@ -123,25 +123,25 @@ final class WorkspaceTests: XCTestCase {
         XCTAssertMatch(
             workspace.delegate.events,
             [
-                "will load manifest for localSourceControl package: \(sandbox.appending(components: "pkgs", "Quix")) (identity: quix)",
+                "will load manifest for localSourceControl package: \(sandbox.appending(components: "pkgs", "Quix")) (identity: quix)"
             ]
         )
         XCTAssertMatch(
             workspace.delegate.events,
             [
-                "did load manifest for localSourceControl package: \(sandbox.appending(components: "pkgs", "Quix")) (identity: quix)",
+                "did load manifest for localSourceControl package: \(sandbox.appending(components: "pkgs", "Quix")) (identity: quix)"
             ]
         )
         XCTAssertMatch(
             workspace.delegate.events,
             [
-                "will load manifest for localSourceControl package: \(sandbox.appending(components: "pkgs", "Baz")) (identity: baz)",
+                "will load manifest for localSourceControl package: \(sandbox.appending(components: "pkgs", "Baz")) (identity: baz)"
             ]
         )
         XCTAssertMatch(
             workspace.delegate.events,
             [
-                "did load manifest for localSourceControl package: \(sandbox.appending(components: "pkgs", "Baz")) (identity: baz)",
+                "did load manifest for localSourceControl package: \(sandbox.appending(components: "pkgs", "Baz")) (identity: baz)"
             ]
         )
 
@@ -238,13 +238,13 @@ final class WorkspaceTests: XCTestCase {
 
             do {
                 let ws = try createWorkspace(
-                """
-                // swift-tools-version:6.0
-                import PackageDescription
-                let package = Package(
-                    name: "foo"
-                )
-                """
+                    """
+                    // swift-tools-version:6.0
+                    import PackageDescription
+                    let package = Package(
+                        name: "foo"
+                    )
+                    """
                 )
 
                 XCTAssertMatch(try ws.interpreterFlags(for: packageManifest), [.equal("-swift-version"), .equal("6")])
@@ -252,13 +252,13 @@ final class WorkspaceTests: XCTestCase {
 
             do {
                 let ws = try createWorkspace(
-                """
-                // swift-tools-version:6.1
-                import PackageDescription
-                let package = Package(
-                    name: "foo"
-                )
-                """
+                    """
+                    // swift-tools-version:6.1
+                    import PackageDescription
+                    let package = Package(
+                        name: "foo"
+                    )
+                    """
                 )
 
                 XCTAssertMatch(try ws.interpreterFlags(for: packageManifest), [.equal("-swift-version"), .equal("6")])
@@ -267,13 +267,13 @@ final class WorkspaceTests: XCTestCase {
 
             do {
                 let ws = try createWorkspace(
-                """
-                // swift-tools-version:6.2
-                import PackageDescription
-                let package = Package(
-                    name: "foo"
-                )
-                """
+                    """
+                    // swift-tools-version:6.2
+                    import PackageDescription
+                    let package = Package(
+                        name: "foo"
+                    )
+                    """
                 )
 
                 XCTAssertMatch(try ws.interpreterFlags(for: packageManifest), [.equal("-swift-version"), .equal("6")])
@@ -350,13 +350,13 @@ final class WorkspaceTests: XCTestCase {
             try localFileSystem.writeFileContents(
                 pkgDir.appending("Package.swift"),
                 string: """
-                // swift-tools-version:4.0
-                import PackageDescription
-                #error("An error in MyPkg")
-                let package = Package(
-                    name: "MyPkg"
-                )
-                """
+                    // swift-tools-version:4.0
+                    import PackageDescription
+                    #error("An error in MyPkg")
+                    let package = Package(
+                        name: "MyPkg"
+                    )
+                    """
             )
             let workspace = try Workspace(
                 fileSystem: localFileSystem,
@@ -396,21 +396,21 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Foo",
                     targets: [
-                        MockTarget(name: "Foo", dependencies: ["Baz"]),
+                        MockTarget(name: "Foo", dependencies: ["Baz"])
                     ],
                     products: [],
                     dependencies: [
-                        .sourceControl(path: "./Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(path: "./Baz", requirement: .upToNextMajor(from: "1.0.0"))
                     ]
                 ),
                 MockPackage(
                     name: "Bar",
                     targets: [
-                        MockTarget(name: "Bar", dependencies: ["Baz"]),
+                        MockTarget(name: "Bar", dependencies: ["Baz"])
                     ],
                     products: [],
                     dependencies: [
-                        .sourceControl(path: "./Baz", requirement: .exact("1.0.1")),
+                        .sourceControl(path: "./Baz", requirement: .exact("1.0.1"))
                     ]
                 ),
             ],
@@ -418,13 +418,13 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Baz",
                     targets: [
-                        MockTarget(name: "Baz"),
+                        MockTarget(name: "Baz")
                     ],
                     products: [
-                        MockProduct(name: "Baz", modules: ["Baz"]),
+                        MockProduct(name: "Baz", modules: ["Baz"])
                     ],
                     versions: ["1.0.0", "1.0.1", "1.0.3", "1.0.5", "1.0.8"]
-                ),
+                )
             ]
         )
 
@@ -453,18 +453,18 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Foo",
                     targets: [
-                        MockTarget(name: "Foo", dependencies: ["Baz"]),
+                        MockTarget(name: "Foo", dependencies: ["Baz"])
                     ],
                     products: [],
                     dependencies: [
-                        .sourceControl(path: "bazzz", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(path: "bazzz", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     toolsVersion: .v5
                 ),
                 MockPackage(
                     name: "Bar",
                     targets: [
-                        MockTarget(name: "Bar"),
+                        MockTarget(name: "Bar")
                     ],
                     products: []
                 ),
@@ -472,10 +472,10 @@ final class WorkspaceTests: XCTestCase {
                     name: "Baz",
                     path: "Overridden/bazzz",
                     targets: [
-                        MockTarget(name: "Baz"),
+                        MockTarget(name: "Baz")
                     ],
                     products: [
-                        MockProduct(name: "Baz", modules: ["Baz"]),
+                        MockProduct(name: "Baz", modules: ["Baz"])
                     ]
                 ),
             ],
@@ -484,13 +484,13 @@ final class WorkspaceTests: XCTestCase {
                     name: "Baz",
                     path: "bazzz",
                     targets: [
-                        MockTarget(name: "Baz"),
+                        MockTarget(name: "Baz")
                     ],
                     products: [
-                        MockProduct(name: "Baz", modules: ["Baz"]),
+                        MockProduct(name: "Baz", modules: ["Baz"])
                     ],
                     versions: ["1.0.0", "1.0.1", "1.0.3", "1.0.5", "1.0.8"]
-                ),
+                )
             ]
         )
 
@@ -515,7 +515,7 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Foo",
                     targets: [
-                        MockTarget(name: "Foo", dependencies: []),
+                        MockTarget(name: "Foo", dependencies: [])
                     ],
                     products: [],
                     dependencies: []
@@ -524,7 +524,7 @@ final class WorkspaceTests: XCTestCase {
                     name: "Foo",
                     path: "Nested/Foo",
                     targets: [
-                        MockTarget(name: "Foo", dependencies: []),
+                        MockTarget(name: "Foo", dependencies: [])
                     ],
                     products: [],
                     dependencies: []
@@ -556,7 +556,7 @@ final class WorkspaceTests: XCTestCase {
                         MockTarget(
                             name: "FooTarget",
                             dependencies: [.product(name: "BarProduct", package: "BarPackage")]
-                        ),
+                        )
                     ],
                     products: [],
                     dependencies: [
@@ -564,7 +564,7 @@ final class WorkspaceTests: XCTestCase {
                             name: "BarPackage",
                             path: "bar-package",
                             requirement: .upToNextMajor(from: "1.0.0")
-                        ),
+                        )
                     ],
                     toolsVersion: .v5
                 ),
@@ -572,10 +572,10 @@ final class WorkspaceTests: XCTestCase {
                     name: "BarPackage",
                     path: "bar-package",
                     targets: [
-                        MockTarget(name: "BarTarget"),
+                        MockTarget(name: "BarTarget")
                     ],
                     products: [
-                        MockProduct(name: "BarProduct", modules: ["BarTarget"]),
+                        MockProduct(name: "BarProduct", modules: ["BarTarget"])
                     ],
                     versions: ["1.0.0", "1.0.1"]
                 ),
@@ -585,13 +585,13 @@ final class WorkspaceTests: XCTestCase {
                     name: "BarPackage",
                     path: "bar-package",
                     targets: [
-                        MockTarget(name: "BarTarget"),
+                        MockTarget(name: "BarTarget")
                     ],
                     products: [
-                        MockProduct(name: "BarProduct", modules: ["BarTarget"]),
+                        MockProduct(name: "BarProduct", modules: ["BarTarget"])
                     ],
                     versions: ["1.0.0", "1.0.1"]
-                ),
+                )
             ]
         )
 
@@ -601,7 +601,7 @@ final class WorkspaceTests: XCTestCase {
                 .localSourceControl(
                     path: "\(sandbox)/pkgs/bar-package",
                     requirement: .upToNextMajor(from: "1.0.0")
-                ),
+                )
             ]
         ) { graph, diagnostics in
             PackageGraphTesterXCTest(graph) { result in
@@ -625,11 +625,11 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Foo",
                     targets: [
-                        MockTarget(name: "Foo", dependencies: ["BazAB"]),
+                        MockTarget(name: "Foo", dependencies: ["BazAB"])
                     ],
                     products: [],
                     dependencies: [
-                        .sourceControl(path: "./Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(path: "./Baz", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     toolsVersion: .v5
                 ),
@@ -640,7 +640,7 @@ final class WorkspaceTests: XCTestCase {
                         MockTarget(name: "BazB"),
                     ],
                     products: [
-                        MockProduct(name: "BazAB", modules: ["BazA", "BazB"]),
+                        MockProduct(name: "BazAB", modules: ["BazA", "BazB"])
                     ]
                 ),
             ],
@@ -648,13 +648,13 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Baz",
                     targets: [
-                        MockTarget(name: "Baz"),
+                        MockTarget(name: "Baz")
                     ],
                     products: [
-                        MockProduct(name: "Baz", modules: ["Baz"]),
+                        MockProduct(name: "Baz", modules: ["Baz"])
                     ],
                     versions: ["1.0.0"]
-                ),
+                )
             ]
         )
 
@@ -686,11 +686,11 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Foo",
                     targets: [
-                        MockTarget(name: "Foo", dependencies: ["Baz"]),
+                        MockTarget(name: "Foo", dependencies: ["Baz"])
                     ],
                     products: [],
                     dependencies: [
-                        .sourceControl(path: "./Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(path: "./Baz", requirement: .upToNextMajor(from: "1.0.0"))
                     ]
                 ),
                 MockPackage(
@@ -700,7 +700,7 @@ final class WorkspaceTests: XCTestCase {
                         MockTarget(name: "BazB"),
                     ],
                     products: [
-                        MockProduct(name: "Baz", modules: ["BazA", "BazB"]),
+                        MockProduct(name: "Baz", modules: ["BazA", "BazB"])
                     ]
                 ),
             ],
@@ -708,13 +708,13 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Baz",
                     targets: [
-                        MockTarget(name: "Baz"),
+                        MockTarget(name: "Baz")
                     ],
                     products: [
-                        MockProduct(name: "Baz", modules: ["Baz"]),
+                        MockProduct(name: "Baz", modules: ["Baz"])
                     ],
                     versions: ["1.0.0"]
-                ),
+                )
             ]
         )
 
@@ -774,23 +774,23 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Foo",
                     targets: [
-                        MockTarget(name: "Foo", dependencies: ["Bar"]),
+                        MockTarget(name: "Foo", dependencies: ["Bar"])
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo"]),
+                        MockProduct(name: "Foo", modules: ["Foo"])
                     ],
                     dependencies: [
-                        .sourceControl(path: "./Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(path: "./Bar", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     versions: ["1.0.0"]
                 ),
                 MockPackage(
                     name: "Bar",
                     targets: [
-                        MockTarget(name: "Bar"),
+                        MockTarget(name: "Bar")
                     ],
                     products: [
-                        MockProduct(name: "Bar", modules: ["Bar"]),
+                        MockProduct(name: "Bar", modules: ["Bar"])
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -836,36 +836,36 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "A",
                     targets: [
-                        MockTarget(name: "A", dependencies: ["AA"]),
+                        MockTarget(name: "A", dependencies: ["AA"])
                     ],
                     products: [
-                        MockProduct(name: "A", modules: ["A"]),
+                        MockProduct(name: "A", modules: ["A"])
                     ],
                     dependencies: [
-                        .sourceControl(path: "./AA", requirement: .exact("1.0.0")),
+                        .sourceControl(path: "./AA", requirement: .exact("1.0.0"))
                     ],
                     versions: ["1.0.0"]
                 ),
                 MockPackage(
                     name: "A",
                     targets: [
-                        MockTarget(name: "A", dependencies: ["AA"]),
+                        MockTarget(name: "A", dependencies: ["AA"])
                     ],
                     products: [
-                        MockProduct(name: "A", modules: ["A"]),
+                        MockProduct(name: "A", modules: ["A"])
                     ],
                     dependencies: [
-                        .sourceControl(path: "./AA", requirement: .exact("2.0.0")),
+                        .sourceControl(path: "./AA", requirement: .exact("2.0.0"))
                     ],
                     versions: ["1.0.1"]
                 ),
                 MockPackage(
                     name: "AA",
                     targets: [
-                        MockTarget(name: "AA"),
+                        MockTarget(name: "AA")
                     ],
                     products: [
-                        MockProduct(name: "AA", modules: ["AA"]),
+                        MockProduct(name: "AA", modules: ["AA"])
                     ],
                     versions: ["1.0.0", "2.0.0"]
                 ),
@@ -875,7 +875,7 @@ final class WorkspaceTests: XCTestCase {
         // Resolve when A = 1.0.0.
         do {
             let deps: [MockDependency] = [
-                .sourceControl(path: "./A", requirement: .exact("1.0.0"), products: .specific(["A"])),
+                .sourceControl(path: "./A", requirement: .exact("1.0.0"), products: .specific(["A"]))
             ]
             try await workspace.checkPackageGraph(deps: deps) { graph, diagnostics in
                 PackageGraphTesterXCTest(graph) { result in
@@ -898,7 +898,7 @@ final class WorkspaceTests: XCTestCase {
         // Resolve when A = 1.0.1.
         do {
             let deps: [MockDependency] = [
-                .sourceControl(path: "./A", requirement: .exact("1.0.1"), products: .specific(["A"])),
+                .sourceControl(path: "./A", requirement: .exact("1.0.1"), products: .specific(["A"]))
             ]
             try await workspace.checkPackageGraph(deps: deps) { graph, diagnostics in
                 PackageGraphTesterXCTest(graph) { result in
@@ -938,36 +938,36 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "A",
                     targets: [
-                        MockTarget(name: "A", dependencies: ["AA"]),
+                        MockTarget(name: "A", dependencies: ["AA"])
                     ],
                     products: [
-                        MockProduct(name: "A", modules: ["A"]),
+                        MockProduct(name: "A", modules: ["A"])
                     ],
                     dependencies: [
-                        .sourceControl(path: "./AA", requirement: .exact("1.0.0")),
+                        .sourceControl(path: "./AA", requirement: .exact("1.0.0"))
                     ],
                     versions: ["1.0.0"]
                 ),
                 MockPackage(
                     name: "B",
                     targets: [
-                        MockTarget(name: "B", dependencies: ["AA"]),
+                        MockTarget(name: "B", dependencies: ["AA"])
                     ],
                     products: [
-                        MockProduct(name: "B", modules: ["B"]),
+                        MockProduct(name: "B", modules: ["B"])
                     ],
                     dependencies: [
-                        .sourceControl(path: "./AA", requirement: .exact("2.0.0")),
+                        .sourceControl(path: "./AA", requirement: .exact("2.0.0"))
                     ],
                     versions: ["1.0.0"]
                 ),
                 MockPackage(
                     name: "AA",
                     targets: [
-                        MockTarget(name: "AA"),
+                        MockTarget(name: "AA")
                     ],
                     products: [
-                        MockProduct(name: "AA", modules: ["AA"]),
+                        MockProduct(name: "AA", modules: ["AA"])
                     ],
                     versions: ["1.0.0", "2.0.0"]
                 ),
@@ -1002,7 +1002,7 @@ final class WorkspaceTests: XCTestCase {
                     name: "A",
                     targets: [MockTarget(name: "A")],
                     products: []
-                ),
+                )
             ],
             packages: []
         )
@@ -1023,7 +1023,7 @@ final class WorkspaceTests: XCTestCase {
             resolvedPackages: [bRef: v1_5, cRef: v2],
             managedDependencies: [
                 bPackagePath: .sourceControlCheckout(packageRef: bRef, state: v1_5, subpath: bPath)
-                    .edited(subpath: bPath, unmanagedPath: .none),
+                    .edited(subpath: bPath, unmanagedPath: .none)
             ]
         )
 
@@ -1036,7 +1036,7 @@ final class WorkspaceTests: XCTestCase {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let bPath = RelativePath("B")
-        let v1Requirement: SourceControlRequirement = .range("1.0.0" ..< "2.0.0")
+        let v1Requirement: SourceControlRequirement = .range("1.0.0"..<"2.0.0")
         let v1 = CheckoutState.version("1.0.0", revision: Revision(identifier: "hello"))
 
         let workspace = try await MockWorkspace(
@@ -1051,7 +1051,7 @@ final class WorkspaceTests: XCTestCase {
                         .sourceControl(path: "./B", requirement: v1Requirement),
                         .sourceControl(path: "./C", requirement: v1Requirement),
                     ]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
@@ -1084,7 +1084,7 @@ final class WorkspaceTests: XCTestCase {
         try await workspace.set(
             resolvedPackages: [bRef: v1],
             managedDependencies: [
-                bPackagePath: .sourceControlCheckout(packageRef: bRef, state: v1, subpath: bPath),
+                bPackagePath: .sourceControlCheckout(packageRef: bRef, state: v1, subpath: bPath)
             ]
         )
 
@@ -1098,7 +1098,7 @@ final class WorkspaceTests: XCTestCase {
         let fs = InMemoryFileSystem()
         let bPath = RelativePath("B")
         let cPath = RelativePath("C")
-        let v1Requirement: SourceControlRequirement = .range("1.0.0" ..< "2.0.0")
+        let v1Requirement: SourceControlRequirement = .range("1.0.0"..<"2.0.0")
         let branchRequirement: SourceControlRequirement = .branch("master")
         let v1_5 = CheckoutState.version("1.0.5", revision: Revision(identifier: "hello"))
 
@@ -1114,328 +1114,7 @@ final class WorkspaceTests: XCTestCase {
                         .sourceControl(path: "./B", requirement: v1Requirement),
                         .sourceControl(path: "./C", requirement: branchRequirement),
                     ]
-                ),
-            ],
-            packages: [
-                MockPackage(
-                    name: "B",
-                    targets: [MockTarget(name: "B")],
-                    products: [MockProduct(name: "B", modules: ["B"])],
-                    versions: [nil, "1.0.0", "1.0.5", "2.0.0"]
-                ),
-                MockPackage(
-                    name: "C",
-                    targets: [MockTarget(name: "C")],
-                    products: [MockProduct(name: "C", modules: ["C"])],
-                    versions: [nil, "1.0.0", "1.0.5", "2.0.0"]
-                ),
-            ]
-        )
-
-        let bPackagePath = try workspace.pathToPackage(withName: "B")
-        let bRef = PackageReference.localSourceControl(
-            identity: PackageIdentity(path: bPackagePath),
-            path: bPackagePath
-        )
-
-        let cPackagePath = try workspace.pathToPackage(withName: "C")
-        let cRef = PackageReference.localSourceControl(
-            identity: PackageIdentity(path: cPackagePath),
-            path: cPackagePath
-        )
-
-        try await workspace.set(
-            resolvedPackages: [bRef: v1_5, cRef: v1_5],
-            managedDependencies: [
-                bPackagePath: .sourceControlCheckout(packageRef: bRef, state: v1_5, subpath: bPath),
-                cPackagePath: .sourceControlCheckout(packageRef: cRef, state: v1_5, subpath: cPath),
-            ]
-        )
-
-        let result = try await workspace.checkPrecomputeResolution()
-        XCTAssertNoDiagnostics(result.diagnostics)
-        XCTAssertEqual(result.result, .required(reason: .packageRequirementChange(
-            package: cRef,
-            state: .sourceControlCheckout(v1_5),
-            requirement: .revision("master")
-        )))
-    }
-
-    func testPrecomputeResolution_requirementChange_versionToRevision() async throws {
-        let sandbox = AbsolutePath("/tmp/ws/")
-        let fs = InMemoryFileSystem()
-        let cPath = RelativePath("C")
-        let v1_5 = CheckoutState.version("1.0.5", revision: Revision(identifier: "hello"))
-
-        let testWorkspace = try await MockWorkspace(
-            sandbox: sandbox,
-            fileSystem: fs,
-            roots: [
-                MockPackage(
-                    name: "A",
-                    targets: [MockTarget(name: "A")],
-                    products: [],
-                    dependencies: [
-                        .sourceControl(path: "./C", requirement: .revision("hello")),
-                    ]
-                ),
-            ],
-            packages: [
-                MockPackage(
-                    name: "C",
-                    targets: [MockTarget(name: "C")],
-                    products: [MockProduct(name: "C", modules: ["C"])],
-                    versions: [nil, "1.0.0", "1.0.5", "2.0.0"]
-                ),
-            ]
-        )
-
-        let cPackagePath = try testWorkspace.pathToPackage(withName: "C")
-        let cRef = PackageReference.localSourceControl(
-            identity: PackageIdentity(path: cPackagePath),
-            path: cPackagePath
-        )
-
-        try await testWorkspace.set(
-            resolvedPackages: [cRef: v1_5],
-            managedDependencies: [
-                cPackagePath: .sourceControlCheckout(packageRef: cRef, state: v1_5, subpath: cPath),
-            ]
-        )
-
-        let result = try await testWorkspace.checkPrecomputeResolution()
-        XCTAssertNoDiagnostics(result.diagnostics)
-        XCTAssertEqual(result.result, .required(reason: .packageRequirementChange(
-            package: cRef,
-            state: .sourceControlCheckout(v1_5),
-            requirement: .revision("hello")
-        )))
-    }
-
-    func testPrecomputeResolution_requirementChange_localToBranch() async throws {
-        let sandbox = AbsolutePath("/tmp/ws/")
-        let fs = InMemoryFileSystem()
-        let bPath = RelativePath("B")
-        let v1Requirement: SourceControlRequirement = .range("1.0.0" ..< "2.0.0")
-        let masterRequirement: SourceControlRequirement = .branch("master")
-        let v1_5 = CheckoutState.version("1.0.5", revision: Revision(identifier: "hello"))
-
-        let workspace = try await MockWorkspace(
-            sandbox: sandbox,
-            fileSystem: fs,
-            roots: [
-                MockPackage(
-                    name: "A",
-                    targets: [MockTarget(name: "A")],
-                    products: [],
-                    dependencies: [
-                        .sourceControl(path: "./B", requirement: v1Requirement),
-                        .sourceControl(path: "./C", requirement: masterRequirement),
-                    ]
-                ),
-            ],
-            packages: [
-                MockPackage(
-                    name: "B",
-                    targets: [MockTarget(name: "B")],
-                    products: [MockProduct(name: "B", modules: ["B"])],
-                    versions: [nil, "1.0.0", "1.0.5", "2.0.0"]
-                ),
-                MockPackage(
-                    name: "C",
-                    targets: [MockTarget(name: "C")],
-                    products: [MockProduct(name: "C", modules: ["C"])],
-                    versions: [nil, "1.0.0", "1.0.5", "2.0.0"]
-                ),
-            ]
-        )
-
-        let bPackagePath = try workspace.pathToPackage(withName: "B")
-        let bRef = PackageReference.localSourceControl(
-            identity: PackageIdentity(path: bPackagePath),
-            path: bPackagePath
-        )
-
-        let cPackagePath = try workspace.pathToPackage(withName: "C")
-        let cRef = PackageReference.localSourceControl(
-            identity: PackageIdentity(path: cPackagePath),
-            path: cPackagePath
-        )
-
-        try await workspace.set(
-            resolvedPackages: [bRef: v1_5],
-            managedDependencies: [
-                bPackagePath: .sourceControlCheckout(packageRef: bRef, state: v1_5, subpath: bPath),
-                cPackagePath: .fileSystem(packageRef: cRef),
-            ]
-        )
-
-        let result = try await workspace.checkPrecomputeResolution()
-        XCTAssertNoDiagnostics(result.diagnostics)
-        XCTAssertEqual(result.result, .required(reason: .packageRequirementChange(
-            package: cRef,
-            state: .fileSystem(cPackagePath),
-            requirement: .revision("master")
-        )))
-    }
-
-    func testPrecomputeResolution_requirementChange_versionToLocal() async throws {
-        let sandbox = AbsolutePath("/tmp/ws/")
-        let fs = InMemoryFileSystem()
-        let bPath = RelativePath("B")
-        let cPath = RelativePath("C")
-        let v1Requirement: SourceControlRequirement = .range("1.0.0" ..< "2.0.0")
-        let v1_5 = CheckoutState.version("1.0.5", revision: Revision(identifier: "hello"))
-
-        let workspace = try await MockWorkspace(
-            sandbox: sandbox,
-            fileSystem: fs,
-            roots: [
-                MockPackage(
-                    name: "A",
-                    targets: [MockTarget(name: "A")],
-                    products: [],
-                    dependencies: [
-                        .sourceControl(path: "./B", requirement: v1Requirement),
-                        .fileSystem(path: "./C"),
-                    ]
-                ),
-            ],
-            packages: [
-                MockPackage(
-                    name: "B",
-                    targets: [MockTarget(name: "B")],
-                    products: [MockProduct(name: "B", modules: ["B"])],
-                    versions: [nil, "1.0.0", "1.0.5", "2.0.0"]
-                ),
-                MockPackage(
-                    name: "C",
-                    targets: [MockTarget(name: "C")],
-                    products: [MockProduct(name: "C", modules: ["C"])],
-                    versions: [nil, "1.0.0", "1.0.5", "2.0.0"]
-                ),
-            ]
-        )
-
-        let bPackagePath = try workspace.pathToPackage(withName: "B")
-        let bRef = PackageReference.localSourceControl(
-            identity: PackageIdentity(path: bPackagePath),
-            path: bPackagePath
-        )
-
-        let cPackagePath = try workspace.pathToPackage(withName: "C")
-        let cRef = PackageReference.localSourceControl(
-            identity: PackageIdentity(path: cPackagePath),
-            path: cPackagePath
-        )
-
-        try await workspace.set(
-            resolvedPackages: [bRef: v1_5, cRef: v1_5],
-            managedDependencies: [
-                bPackagePath: .sourceControlCheckout(packageRef: bRef, state: v1_5, subpath: bPath),
-                cPackagePath: .sourceControlCheckout(packageRef: cRef, state: v1_5, subpath: cPath),
-            ]
-        )
-
-        let result = try await workspace.checkPrecomputeResolution()
-        XCTAssertNoDiagnostics(result.diagnostics)
-        XCTAssertEqual(result.result, .required(reason: .packageRequirementChange(
-            package: cRef,
-            state: .sourceControlCheckout(v1_5),
-            requirement: .unversioned
-        )))
-    }
-
-    func testPrecomputeResolution_requirementChange_branchToLocal() async throws {
-        let sandbox = AbsolutePath("/tmp/ws/")
-        let fs = InMemoryFileSystem()
-        let bPath = RelativePath("B")
-        let cPath = RelativePath("C")
-        let v1Requirement: SourceControlRequirement = .range("1.0.0" ..< "2.0.0")
-        let v1_5 = CheckoutState.version("1.0.5", revision: Revision(identifier: "hello"))
-        let master = CheckoutState.branch(name: "master", revision: Revision(identifier: "master"))
-
-        let workspace = try await MockWorkspace(
-            sandbox: sandbox,
-            fileSystem: fs,
-            roots: [
-                MockPackage(
-                    name: "A",
-                    targets: [MockTarget(name: "A")],
-                    products: [],
-                    dependencies: [
-                        .sourceControl(path: "./B", requirement: v1Requirement),
-                        .fileSystem(path: "./C"),
-                    ]
-                ),
-            ],
-            packages: [
-                MockPackage(
-                    name: "B",
-                    targets: [MockTarget(name: "B")],
-                    products: [MockProduct(name: "B", modules: ["B"])],
-                    versions: [nil, "1.0.0", "1.0.5", "2.0.0"]
-                ),
-                MockPackage(
-                    name: "C",
-                    targets: [MockTarget(name: "C")],
-                    products: [MockProduct(name: "C", modules: ["C"])],
-                    versions: [nil, "1.0.0", "1.0.5", "2.0.0"]
-                ),
-            ]
-        )
-
-        let bPackagePath = try workspace.pathToPackage(withName: "B")
-        let bRef = PackageReference.localSourceControl(
-            identity: PackageIdentity(path: bPackagePath),
-            path: bPackagePath
-        )
-
-        let cPackagePath = try workspace.pathToPackage(withName: "C")
-        let cRef = PackageReference.localSourceControl(
-            identity: PackageIdentity(path: cPackagePath),
-            path: cPackagePath
-        )
-
-        try await workspace.set(
-            resolvedPackages: [bRef: v1_5, cRef: master],
-            managedDependencies: [
-                bPackagePath: .sourceControlCheckout(packageRef: bRef, state: v1_5, subpath: bPath),
-                cPackagePath: .sourceControlCheckout(packageRef: cRef, state: master, subpath: cPath),
-            ]
-        )
-
-        let result = try await workspace.checkPrecomputeResolution()
-        XCTAssertNoDiagnostics(result.diagnostics)
-        XCTAssertEqual(result.result, .required(reason: .packageRequirementChange(
-            package: cRef,
-            state: .sourceControlCheckout(master),
-            requirement: .unversioned
-        )))
-    }
-
-    func testPrecomputeResolution_other() async throws {
-        let sandbox = AbsolutePath("/tmp/ws/")
-        let fs = InMemoryFileSystem()
-        let bPath = RelativePath("B")
-        let cPath = RelativePath("C")
-        let v1Requirement: SourceControlRequirement = .range("1.0.0" ..< "2.0.0")
-        let v2Requirement: SourceControlRequirement = .range("2.0.0" ..< "3.0.0")
-        let v1_5 = CheckoutState.version("1.0.5", revision: Revision(identifier: "hello"))
-
-        let workspace = try await MockWorkspace(
-            sandbox: sandbox,
-            fileSystem: fs,
-            roots: [
-                MockPackage(
-                    name: "A",
-                    targets: [MockTarget(name: "A")],
-                    products: [],
-                    dependencies: [
-                        .sourceControl(path: "./B", requirement: v1Requirement),
-                        .sourceControl(path: "./C", requirement: v2Requirement),
-                    ]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
@@ -1477,9 +1156,357 @@ final class WorkspaceTests: XCTestCase {
         XCTAssertNoDiagnostics(result.diagnostics)
         XCTAssertEqual(
             result.result,
-            .required(reason: .other(
-                "Dependencies could not be resolved because no versions of \'c\' match the requirement 2.0.0..<3.0.0 and root depends on \'c\' 2.0.0..<3.0.0."
-            ))
+            .required(
+                reason: .packageRequirementChange(
+                    package: cRef,
+                    state: .sourceControlCheckout(v1_5),
+                    requirement: .revision("master")
+                )
+            )
+        )
+    }
+
+    func testPrecomputeResolution_requirementChange_versionToRevision() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+        let cPath = RelativePath("C")
+        let v1_5 = CheckoutState.version("1.0.5", revision: Revision(identifier: "hello"))
+
+        let testWorkspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "A",
+                    targets: [MockTarget(name: "A")],
+                    products: [],
+                    dependencies: [
+                        .sourceControl(path: "./C", requirement: .revision("hello"))
+                    ]
+                )
+            ],
+            packages: [
+                MockPackage(
+                    name: "C",
+                    targets: [MockTarget(name: "C")],
+                    products: [MockProduct(name: "C", modules: ["C"])],
+                    versions: [nil, "1.0.0", "1.0.5", "2.0.0"]
+                )
+            ]
+        )
+
+        let cPackagePath = try testWorkspace.pathToPackage(withName: "C")
+        let cRef = PackageReference.localSourceControl(
+            identity: PackageIdentity(path: cPackagePath),
+            path: cPackagePath
+        )
+
+        try await testWorkspace.set(
+            resolvedPackages: [cRef: v1_5],
+            managedDependencies: [
+                cPackagePath: .sourceControlCheckout(packageRef: cRef, state: v1_5, subpath: cPath)
+            ]
+        )
+
+        let result = try await testWorkspace.checkPrecomputeResolution()
+        XCTAssertNoDiagnostics(result.diagnostics)
+        XCTAssertEqual(
+            result.result,
+            .required(
+                reason: .packageRequirementChange(
+                    package: cRef,
+                    state: .sourceControlCheckout(v1_5),
+                    requirement: .revision("hello")
+                )
+            )
+        )
+    }
+
+    func testPrecomputeResolution_requirementChange_localToBranch() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+        let bPath = RelativePath("B")
+        let v1Requirement: SourceControlRequirement = .range("1.0.0"..<"2.0.0")
+        let masterRequirement: SourceControlRequirement = .branch("master")
+        let v1_5 = CheckoutState.version("1.0.5", revision: Revision(identifier: "hello"))
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "A",
+                    targets: [MockTarget(name: "A")],
+                    products: [],
+                    dependencies: [
+                        .sourceControl(path: "./B", requirement: v1Requirement),
+                        .sourceControl(path: "./C", requirement: masterRequirement),
+                    ]
+                )
+            ],
+            packages: [
+                MockPackage(
+                    name: "B",
+                    targets: [MockTarget(name: "B")],
+                    products: [MockProduct(name: "B", modules: ["B"])],
+                    versions: [nil, "1.0.0", "1.0.5", "2.0.0"]
+                ),
+                MockPackage(
+                    name: "C",
+                    targets: [MockTarget(name: "C")],
+                    products: [MockProduct(name: "C", modules: ["C"])],
+                    versions: [nil, "1.0.0", "1.0.5", "2.0.0"]
+                ),
+            ]
+        )
+
+        let bPackagePath = try workspace.pathToPackage(withName: "B")
+        let bRef = PackageReference.localSourceControl(
+            identity: PackageIdentity(path: bPackagePath),
+            path: bPackagePath
+        )
+
+        let cPackagePath = try workspace.pathToPackage(withName: "C")
+        let cRef = PackageReference.localSourceControl(
+            identity: PackageIdentity(path: cPackagePath),
+            path: cPackagePath
+        )
+
+        try await workspace.set(
+            resolvedPackages: [bRef: v1_5],
+            managedDependencies: [
+                bPackagePath: .sourceControlCheckout(packageRef: bRef, state: v1_5, subpath: bPath),
+                cPackagePath: .fileSystem(packageRef: cRef),
+            ]
+        )
+
+        let result = try await workspace.checkPrecomputeResolution()
+        XCTAssertNoDiagnostics(result.diagnostics)
+        XCTAssertEqual(
+            result.result,
+            .required(
+                reason: .packageRequirementChange(
+                    package: cRef,
+                    state: .fileSystem(cPackagePath),
+                    requirement: .revision("master")
+                )
+            )
+        )
+    }
+
+    func testPrecomputeResolution_requirementChange_versionToLocal() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+        let bPath = RelativePath("B")
+        let cPath = RelativePath("C")
+        let v1Requirement: SourceControlRequirement = .range("1.0.0"..<"2.0.0")
+        let v1_5 = CheckoutState.version("1.0.5", revision: Revision(identifier: "hello"))
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "A",
+                    targets: [MockTarget(name: "A")],
+                    products: [],
+                    dependencies: [
+                        .sourceControl(path: "./B", requirement: v1Requirement),
+                        .fileSystem(path: "./C"),
+                    ]
+                )
+            ],
+            packages: [
+                MockPackage(
+                    name: "B",
+                    targets: [MockTarget(name: "B")],
+                    products: [MockProduct(name: "B", modules: ["B"])],
+                    versions: [nil, "1.0.0", "1.0.5", "2.0.0"]
+                ),
+                MockPackage(
+                    name: "C",
+                    targets: [MockTarget(name: "C")],
+                    products: [MockProduct(name: "C", modules: ["C"])],
+                    versions: [nil, "1.0.0", "1.0.5", "2.0.0"]
+                ),
+            ]
+        )
+
+        let bPackagePath = try workspace.pathToPackage(withName: "B")
+        let bRef = PackageReference.localSourceControl(
+            identity: PackageIdentity(path: bPackagePath),
+            path: bPackagePath
+        )
+
+        let cPackagePath = try workspace.pathToPackage(withName: "C")
+        let cRef = PackageReference.localSourceControl(
+            identity: PackageIdentity(path: cPackagePath),
+            path: cPackagePath
+        )
+
+        try await workspace.set(
+            resolvedPackages: [bRef: v1_5, cRef: v1_5],
+            managedDependencies: [
+                bPackagePath: .sourceControlCheckout(packageRef: bRef, state: v1_5, subpath: bPath),
+                cPackagePath: .sourceControlCheckout(packageRef: cRef, state: v1_5, subpath: cPath),
+            ]
+        )
+
+        let result = try await workspace.checkPrecomputeResolution()
+        XCTAssertNoDiagnostics(result.diagnostics)
+        XCTAssertEqual(
+            result.result,
+            .required(
+                reason: .packageRequirementChange(
+                    package: cRef,
+                    state: .sourceControlCheckout(v1_5),
+                    requirement: .unversioned
+                )
+            )
+        )
+    }
+
+    func testPrecomputeResolution_requirementChange_branchToLocal() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+        let bPath = RelativePath("B")
+        let cPath = RelativePath("C")
+        let v1Requirement: SourceControlRequirement = .range("1.0.0"..<"2.0.0")
+        let v1_5 = CheckoutState.version("1.0.5", revision: Revision(identifier: "hello"))
+        let master = CheckoutState.branch(name: "master", revision: Revision(identifier: "master"))
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "A",
+                    targets: [MockTarget(name: "A")],
+                    products: [],
+                    dependencies: [
+                        .sourceControl(path: "./B", requirement: v1Requirement),
+                        .fileSystem(path: "./C"),
+                    ]
+                )
+            ],
+            packages: [
+                MockPackage(
+                    name: "B",
+                    targets: [MockTarget(name: "B")],
+                    products: [MockProduct(name: "B", modules: ["B"])],
+                    versions: [nil, "1.0.0", "1.0.5", "2.0.0"]
+                ),
+                MockPackage(
+                    name: "C",
+                    targets: [MockTarget(name: "C")],
+                    products: [MockProduct(name: "C", modules: ["C"])],
+                    versions: [nil, "1.0.0", "1.0.5", "2.0.0"]
+                ),
+            ]
+        )
+
+        let bPackagePath = try workspace.pathToPackage(withName: "B")
+        let bRef = PackageReference.localSourceControl(
+            identity: PackageIdentity(path: bPackagePath),
+            path: bPackagePath
+        )
+
+        let cPackagePath = try workspace.pathToPackage(withName: "C")
+        let cRef = PackageReference.localSourceControl(
+            identity: PackageIdentity(path: cPackagePath),
+            path: cPackagePath
+        )
+
+        try await workspace.set(
+            resolvedPackages: [bRef: v1_5, cRef: master],
+            managedDependencies: [
+                bPackagePath: .sourceControlCheckout(packageRef: bRef, state: v1_5, subpath: bPath),
+                cPackagePath: .sourceControlCheckout(packageRef: cRef, state: master, subpath: cPath),
+            ]
+        )
+
+        let result = try await workspace.checkPrecomputeResolution()
+        XCTAssertNoDiagnostics(result.diagnostics)
+        XCTAssertEqual(
+            result.result,
+            .required(
+                reason: .packageRequirementChange(
+                    package: cRef,
+                    state: .sourceControlCheckout(master),
+                    requirement: .unversioned
+                )
+            )
+        )
+    }
+
+    func testPrecomputeResolution_other() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+        let bPath = RelativePath("B")
+        let cPath = RelativePath("C")
+        let v1Requirement: SourceControlRequirement = .range("1.0.0"..<"2.0.0")
+        let v2Requirement: SourceControlRequirement = .range("2.0.0"..<"3.0.0")
+        let v1_5 = CheckoutState.version("1.0.5", revision: Revision(identifier: "hello"))
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "A",
+                    targets: [MockTarget(name: "A")],
+                    products: [],
+                    dependencies: [
+                        .sourceControl(path: "./B", requirement: v1Requirement),
+                        .sourceControl(path: "./C", requirement: v2Requirement),
+                    ]
+                )
+            ],
+            packages: [
+                MockPackage(
+                    name: "B",
+                    targets: [MockTarget(name: "B")],
+                    products: [MockProduct(name: "B", modules: ["B"])],
+                    versions: [nil, "1.0.0", "1.0.5", "2.0.0"]
+                ),
+                MockPackage(
+                    name: "C",
+                    targets: [MockTarget(name: "C")],
+                    products: [MockProduct(name: "C", modules: ["C"])],
+                    versions: [nil, "1.0.0", "1.0.5", "2.0.0"]
+                ),
+            ]
+        )
+
+        let bPackagePath = try workspace.pathToPackage(withName: "B")
+        let bRef = PackageReference.localSourceControl(
+            identity: PackageIdentity(path: bPackagePath),
+            path: bPackagePath
+        )
+
+        let cPackagePath = try workspace.pathToPackage(withName: "C")
+        let cRef = PackageReference.localSourceControl(
+            identity: PackageIdentity(path: cPackagePath),
+            path: cPackagePath
+        )
+
+        try await workspace.set(
+            resolvedPackages: [bRef: v1_5, cRef: v1_5],
+            managedDependencies: [
+                bPackagePath: .sourceControlCheckout(packageRef: bRef, state: v1_5, subpath: bPath),
+                cPackagePath: .sourceControlCheckout(packageRef: cRef, state: v1_5, subpath: cPath),
+            ]
+        )
+
+        let result = try await workspace.checkPrecomputeResolution()
+        XCTAssertNoDiagnostics(result.diagnostics)
+        XCTAssertEqual(
+            result.result,
+            .required(
+                reason: .other(
+                    "Dependencies could not be resolved because no versions of \'c\' match the requirement 2.0.0..<3.0.0 and root depends on \'c\' 2.0.0..<3.0.0."
+                )
+            )
         )
     }
 
@@ -1488,8 +1515,8 @@ final class WorkspaceTests: XCTestCase {
         let fs = InMemoryFileSystem()
         let bPath = RelativePath("B")
         let cPath = RelativePath("C")
-        let v1Requirement: SourceControlRequirement = .range("1.0.0" ..< "2.0.0")
-        let v2Requirement: SourceControlRequirement = .range("2.0.0" ..< "3.0.0")
+        let v1Requirement: SourceControlRequirement = .range("1.0.0"..<"2.0.0")
+        let v2Requirement: SourceControlRequirement = .range("2.0.0"..<"3.0.0")
         let v1_5 = CheckoutState.version("1.0.5", revision: Revision(identifier: "hello"))
         let v2 = CheckoutState.version("2.0.0", revision: Revision(identifier: "hello"))
 
@@ -1505,7 +1532,7 @@ final class WorkspaceTests: XCTestCase {
                         .sourceControl(path: "./B", requirement: v1Requirement),
                         .sourceControl(path: "./C", requirement: v2Requirement),
                     ]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
@@ -1583,47 +1610,47 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root",
                     targets: [
-                        MockTarget(name: "Root", dependencies: ["Foo"]),
+                        MockTarget(name: "Root", dependencies: ["Foo"])
                     ],
                     products: [
-                        MockProduct(name: "Root", modules: ["Root"]),
+                        MockProduct(name: "Root", modules: ["Root"])
                     ],
                     dependencies: [
-                        .sourceControl(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0"))
                     ]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "Foo",
                     targets: [
-                        MockTarget(name: "Foo", dependencies: ["Bar"]),
+                        MockTarget(name: "Foo", dependencies: ["Bar"])
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo"]),
+                        MockProduct(name: "Foo", modules: ["Foo"])
                     ],
                     dependencies: [
-                        .sourceControl(path: "./Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(path: "./Bar", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     versions: ["1.0.0"]
                 ),
                 MockPackage(
                     name: "Foo",
                     targets: [
-                        MockTarget(name: "Foo"),
+                        MockTarget(name: "Foo")
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo"]),
+                        MockProduct(name: "Foo", modules: ["Foo"])
                     ],
                     versions: ["1.5.0"]
                 ),
                 MockPackage(
                     name: "Bar",
                     targets: [
-                        MockTarget(name: "Bar"),
+                        MockTarget(name: "Bar")
                     ],
                     products: [
-                        MockProduct(name: "Bar", modules: ["Bar"]),
+                        MockProduct(name: "Bar", modules: ["Bar"])
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -1632,7 +1659,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Do an initial run, capping at Foo at 1.0.0.
         let deps: [MockDependency] = [
-            .sourceControl(path: "./Foo", requirement: .exact("1.0.0"), products: .specific(["Foo"])),
+            .sourceControl(path: "./Foo", requirement: .exact("1.0.0"), products: .specific(["Foo"]))
         ]
         try await workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
             PackageGraphTesterXCTest(graph) { result in
@@ -1684,34 +1711,34 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root",
                     targets: [
-                        MockTarget(name: "Root", dependencies: ["Foo"]),
+                        MockTarget(name: "Root", dependencies: ["Foo"])
                     ],
                     products: [
-                        MockProduct(name: "Root", modules: ["Root"]),
+                        MockProduct(name: "Root", modules: ["Root"])
                     ],
                     dependencies: [
-                        .sourceControl(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0"))
                     ]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "Foo",
                     targets: [
-                        MockTarget(name: "Foo"),
+                        MockTarget(name: "Foo")
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo"]),
+                        MockProduct(name: "Foo", modules: ["Foo"])
                     ],
                     versions: ["1.0.0"]
                 ),
                 MockPackage(
                     name: "Foo",
                     targets: [
-                        MockTarget(name: "Foo"),
+                        MockTarget(name: "Foo")
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo"]),
+                        MockProduct(name: "Foo", modules: ["Foo"])
                     ],
                     versions: ["1.5.0"]
                 ),
@@ -1720,7 +1747,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Do an initial run, capping at Foo at 1.0.0.
         let deps: [MockDependency] = [
-            .sourceControl(path: "./Foo", requirement: .exact("1.0.0"), products: .specific(["Foo"])),
+            .sourceControl(path: "./Foo", requirement: .exact("1.0.0"), products: .specific(["Foo"]))
         ]
 
         try await workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
@@ -1738,14 +1765,14 @@ final class WorkspaceTests: XCTestCase {
         try await workspace.checkUpdateDryRun(roots: ["Root"]) { changes, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
             #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
-            let stateChange = Workspace.PackageStateChange
-                .updated(.init(requirement: .version(Version("1.5.0")), products: .specific(["Foo"])))
+                let stateChange = Workspace.PackageStateChange
+                    .updated(.init(requirement: .version(Version("1.5.0")), products: .specific(["Foo"])))
             #else
-            let stateChange = Workspace.PackageStateChange
-                .updated(.init(requirement: .version(Version("1.5.0")), products: .everything))
+                let stateChange = Workspace.PackageStateChange
+                    .updated(.init(requirement: .version(Version("1.5.0")), products: .everything))
             #endif
 
-            let path = sandbox.appending(components: ["pkgs","Foo"])
+            let path = sandbox.appending(components: ["pkgs", "Foo"])
             let expectedChange = (
                 PackageReference.localSourceControl(identity: PackageIdentity(path: path), path: path),
                 stateChange
@@ -1779,50 +1806,50 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root",
                     targets: [
-                        MockTarget(name: "Root", dependencies: ["Foo"]),
+                        MockTarget(name: "Root", dependencies: ["Foo"])
                     ],
                     products: [
-                        MockProduct(name: "Root", modules: ["Root"]),
+                        MockProduct(name: "Root", modules: ["Root"])
                     ],
                     dependencies: [
-                        .sourceControl(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0"))
                     ]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "Foo",
                     targets: [
-                        MockTarget(name: "Foo", dependencies: ["Bar"]),
+                        MockTarget(name: "Foo", dependencies: ["Bar"])
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo"]),
+                        MockProduct(name: "Foo", modules: ["Foo"])
                     ],
                     dependencies: [
-                        .sourceControl(path: "./Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(path: "./Bar", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     versions: ["1.5.0"]
                 ),
                 MockPackage(
                     name: "Foo",
                     targets: [
-                        MockTarget(name: "Foo", dependencies: ["Bar"]),
+                        MockTarget(name: "Foo", dependencies: ["Bar"])
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo"]),
+                        MockProduct(name: "Foo", modules: ["Foo"])
                     ],
                     dependencies: [
-                        .sourceControl(path: "./Bar", requirement: .upToNextMinor(from: "1.0.0")),
+                        .sourceControl(path: "./Bar", requirement: .upToNextMinor(from: "1.0.0"))
                     ],
                     versions: ["1.0.0"]
                 ),
                 MockPackage(
                     name: "Bar",
                     targets: [
-                        MockTarget(name: "Bar"),
+                        MockTarget(name: "Bar")
                     ],
                     products: [
-                        MockProduct(name: "Bar", modules: ["Bar"]),
+                        MockProduct(name: "Bar", modules: ["Bar"])
                     ],
                     versions: ["1.0.0", "1.2.0"]
                 ),
@@ -1831,7 +1858,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Do an initial run, capping at Foo at 1.0.0.
         let deps: [MockDependency] = [
-            .sourceControl(path: "./Foo", requirement: .exact("1.0.0"), products: .specific(["Foo"])),
+            .sourceControl(path: "./Foo", requirement: .exact("1.0.0"), products: .specific(["Foo"]))
         ]
         try await workspace.checkPackageGraph(roots: ["Root"], deps: deps) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
@@ -1883,27 +1910,27 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root",
                     targets: [
-                        MockTarget(name: "Root", dependencies: ["Foo"]),
+                        MockTarget(name: "Root", dependencies: ["Foo"])
                     ],
                     products: [
-                        MockProduct(name: "Root", modules: ["Root"]),
+                        MockProduct(name: "Root", modules: ["Root"])
                     ],
                     dependencies: [
-                        .sourceControl(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0"))
                     ]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "Foo",
                     targets: [
-                        MockTarget(name: "Foo"),
+                        MockTarget(name: "Foo")
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo"]),
+                        MockProduct(name: "Foo", modules: ["Foo"])
                     ],
                     versions: ["1.0.0"]
-                ),
+                )
             ]
         )
 
@@ -1962,21 +1989,21 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root1",
                     targets: [
-                        MockTarget(name: "Root1", dependencies: ["Foo"]),
+                        MockTarget(name: "Root1", dependencies: ["Foo"])
                     ],
                     products: [],
                     dependencies: [
-                        .sourceControl(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0"))
                     ]
                 ),
                 MockPackage(
                     name: "Root2",
                     targets: [
-                        MockTarget(name: "Root2", dependencies: ["Bar"]),
+                        MockTarget(name: "Root2", dependencies: ["Bar"])
                     ],
                     products: [],
                     dependencies: [
-                        .sourceControl(path: "./Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(path: "./Bar", requirement: .upToNextMajor(from: "1.0.0"))
                     ]
                 ),
             ],
@@ -2041,7 +2068,7 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root1",
                     targets: [
-                        MockTarget(name: "Root1", dependencies: ["Foo", "Bar", "Baz", "Bam"]),
+                        MockTarget(name: "Root1", dependencies: ["Foo", "Bar", "Baz", "Bam"])
                     ],
                     products: [],
                     dependencies: [
@@ -2050,16 +2077,16 @@ final class WorkspaceTests: XCTestCase {
                         .sourceControl(path: "./Baz", requirement: .upToNextMajor(from: "1.0.0")),
                         .sourceControl(path: "./Bam", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "Foo",
                     targets: [
-                        MockTarget(name: "Foo", dependencies: ["Bar", "Baz"]),
+                        MockTarget(name: "Foo", dependencies: ["Bar", "Baz"])
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo"]),
+                        MockProduct(name: "Foo", modules: ["Foo"])
                     ],
                     dependencies: [
                         .sourceControl(path: "./Bar", requirement: .upToNextMajor(from: "1.0.0")),
@@ -2071,13 +2098,13 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Baz",
                     targets: [
-                        MockTarget(name: "Baz", dependencies: ["Bam"]),
+                        MockTarget(name: "Baz", dependencies: ["Bam"])
                     ],
                     products: [
-                        MockProduct(name: "Baz", modules: ["Baz"]),
+                        MockProduct(name: "Baz", modules: ["Baz"])
                     ],
                     dependencies: [
-                        .sourceControl(path: "./Bam", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(path: "./Bam", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -2110,32 +2137,32 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root",
                     targets: [
-                        MockTarget(name: "Root", dependencies: ["Foo"]),
+                        MockTarget(name: "Root", dependencies: ["Foo"])
                     ],
                     products: [],
                     dependencies: [
-                        .sourceControl(path: "./Foo", requirement: .branch("develop")),
+                        .sourceControl(path: "./Foo", requirement: .branch("develop"))
                     ]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "Foo",
                     targets: [
-                        MockTarget(name: "Foo"),
+                        MockTarget(name: "Foo")
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo"]),
+                        MockProduct(name: "Foo", modules: ["Foo"])
                     ],
                     versions: ["develop"]
                 ),
                 MockPackage(
                     name: "Bar",
                     targets: [
-                        MockTarget(name: "Bar"),
+                        MockTarget(name: "Bar")
                     ],
                     products: [
-                        MockProduct(name: "Bar", modules: ["Bar"]),
+                        MockProduct(name: "Bar", modules: ["Bar"])
                     ],
                     versions: ["boo"]
                 ),
@@ -2148,7 +2175,7 @@ final class WorkspaceTests: XCTestCase {
 
         // We request Bar via revision.
         let deps: [MockDependency] = [
-            .sourceControl(path: "./Bar", requirement: .revision(barRevision), products: .specific(["Bar"])),
+            .sourceControl(path: "./Bar", requirement: .revision(barRevision), products: .specific(["Bar"]))
         ]
         try await workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
             PackageGraphTesterXCTest(graph) { result in
@@ -2174,25 +2201,25 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root",
                     targets: [
-                        MockTarget(name: "Root", dependencies: ["Foo"]),
+                        MockTarget(name: "Root", dependencies: ["Foo"])
                     ],
                     products: [],
                     dependencies: [
-                        .sourceControl(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0"))
                     ]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "Foo",
                     targets: [
-                        MockTarget(name: "Foo"),
+                        MockTarget(name: "Foo")
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo"]),
+                        MockProduct(name: "Foo", modules: ["Foo"])
                     ],
                     versions: ["1.0.0", "1.2.3"]
-                ),
+                )
             ]
         )
 
@@ -2247,16 +2274,16 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root",
                     targets: [
-                        MockTarget(name: "Root", dependencies: ["Foo"]),
+                        MockTarget(name: "Root", dependencies: ["Foo"])
                     ],
                     products: [],
                     dependencies: [
-                        .sourceControl(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0"))
                     ]
-                ),
+                )
             ],
             packages: [
-                .genericPackage(named: "Foo"),
+                .genericPackage(named: "Foo")
             ]
         )
 
@@ -2293,26 +2320,26 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root",
                     targets: [
-                        MockTarget(name: "Root", dependencies: ["Foo"]),
+                        MockTarget(name: "Root", dependencies: ["Foo"])
                     ],
                     products: [],
                     dependencies: [
-                        .sourceControl(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0"))
                     ]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "Foo",
                     targets: [
-                        MockTarget(name: "Foo"),
+                        MockTarget(name: "Foo")
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo"]),
+                        MockProduct(name: "Foo", modules: ["Foo"])
                     ],
                     versions: ["1.0.0"],
                     toolsVersion: .v3
-                ),
+                )
             ]
         )
 
@@ -2334,21 +2361,21 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Foo",
                     targets: [
-                        MockTarget(name: "Foo"),
+                        MockTarget(name: "Foo")
                     ],
                     products: []
                 ),
                 MockPackage(
                     name: "Bar",
                     targets: [
-                        MockTarget(name: "Bar"),
+                        MockTarget(name: "Bar")
                     ],
                     products: []
                 ),
                 MockPackage(
                     name: "Baz",
                     targets: [
-                        MockTarget(name: "Baz"),
+                        MockTarget(name: "Baz")
                     ],
                     products: []
                 ),
@@ -2402,7 +2429,6 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-
     func testEditDependency() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
@@ -2414,33 +2440,33 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root",
                     targets: [
-                        MockTarget(name: "Root", dependencies: ["Foo", "Bar"]),
+                        MockTarget(name: "Root", dependencies: ["Foo", "Bar"])
                     ],
                     products: [],
                     dependencies: [
                         .sourceControl(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0")),
                         .sourceControl(path: "./Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "Foo",
                     targets: [
-                        MockTarget(name: "Foo"),
+                        MockTarget(name: "Foo")
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo"]),
+                        MockProduct(name: "Foo", modules: ["Foo"])
                     ],
                     versions: ["1.0.0", nil]
                 ),
                 MockPackage(
                     name: "Bar",
                     targets: [
-                        MockTarget(name: "Bar"),
+                        MockTarget(name: "Bar")
                     ],
                     products: [
-                        MockProduct(name: "Bar", modules: ["Bar"]),
+                        MockProduct(name: "Bar", modules: ["Bar"])
                     ],
                     versions: ["1.0.0", nil]
                 ),
@@ -2526,16 +2552,16 @@ final class WorkspaceTests: XCTestCase {
                             name: "Root",
                             dependencies: ["Foo"],
                             settings: [
-                                .init(tool: .swift, kind: .unsafeFlags(["-F", "/tmp"])),
+                                .init(tool: .swift, kind: .unsafeFlags(["-F", "/tmp"]))
                             ]
-                        ),
+                        )
                     ],
                     products: [],
                     dependencies: [
                         // Must be a branch or revision for unsafe flags
-                        .sourceControl(path: "./Foo", requirement: .revision("1.0.0")),
+                        .sourceControl(path: "./Foo", requirement: .revision("1.0.0"))
                     ]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
@@ -2544,15 +2570,15 @@ final class WorkspaceTests: XCTestCase {
                         MockTarget(
                             name: "Foo",
                             settings: [
-                                .init(tool: .swift, kind: .unsafeFlags(["-F", "/tmp"])),
+                                .init(tool: .swift, kind: .unsafeFlags(["-F", "/tmp"]))
                             ]
-                        ),
+                        )
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo"]),
+                        MockProduct(name: "Foo", modules: ["Foo"])
                     ],
                     versions: ["1.0.0", nil]
-                ),
+                )
             ]
         )
 
@@ -2585,25 +2611,25 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root",
                     targets: [
-                        MockTarget(name: "Root", dependencies: ["Foo"]),
+                        MockTarget(name: "Root", dependencies: ["Foo"])
                     ],
                     products: [],
                     dependencies: [
-                        .sourceControl(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0"))
                     ]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "Foo",
                     targets: [
-                        MockTarget(name: "Foo"),
+                        MockTarget(name: "Foo")
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo"]),
+                        MockProduct(name: "Foo", modules: ["Foo"])
                     ],
                     versions: ["1.0.0", nil]
-                ),
+                )
             ]
         )
 
@@ -2649,18 +2675,18 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Foo",
                     targets: [
-                        MockTarget(name: "Foo"),
+                        MockTarget(name: "Foo")
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo"]),
+                        MockProduct(name: "Foo", modules: ["Foo"])
                     ],
                     versions: ["1.0.0", nil]
-                ),
+                )
             ]
         )
 
         let deps: [MockDependency] = [
-            .sourceControl(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0"), products: .specific(["Foo"])),
+            .sourceControl(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0"), products: .specific(["Foo"]))
         ]
         let ws = try workspace.getOrCreateWorkspace()
 
@@ -2722,33 +2748,33 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root",
                     targets: [
-                        MockTarget(name: "Root", dependencies: ["Foo", "Bar"]),
+                        MockTarget(name: "Root", dependencies: ["Foo", "Bar"])
                     ],
                     products: [],
                     dependencies: [
                         .sourceControl(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0")),
                         .sourceControl(path: "./Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "Foo",
                     targets: [
-                        MockTarget(name: "Foo"),
+                        MockTarget(name: "Foo")
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo"]),
+                        MockProduct(name: "Foo", modules: ["Foo"])
                     ],
                     versions: ["1.0.0", "1.2.0", "1.3.2"]
                 ),
                 MockPackage(
                     name: "Bar",
                     targets: [
-                        MockTarget(name: "Bar"),
+                        MockTarget(name: "Bar")
                     ],
                     products: [
-                        MockProduct(name: "Bar", modules: ["Bar"]),
+                        MockProduct(name: "Bar", modules: ["Bar"])
                     ],
                     versions: ["1.0.0", nil]
                 ),
@@ -2756,7 +2782,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         let deps: [MockDependency] = [
-            .sourceControl(path: "./Foo", requirement: .exact("1.0.0"), products: .specific(["Foo"])),
+            .sourceControl(path: "./Foo", requirement: .exact("1.0.0"), products: .specific(["Foo"]))
         ]
         // Load the graph.
         try await workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
@@ -2843,45 +2869,45 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root",
                     targets: [
-                        MockTarget(name: "Root", dependencies: ["Foo"]),
+                        MockTarget(name: "Root", dependencies: ["Foo"])
                     ],
                     products: [],
                     dependencies: [
-                        .sourceControl(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0"))
                     ]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "Foo",
                     targets: [
-                        MockTarget(name: "Foo"),
+                        MockTarget(name: "Foo")
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo"]),
+                        MockProduct(name: "Foo", modules: ["Foo"])
                     ],
                     versions: ["1.0.0"]
                 ),
                 MockPackage(
                     name: "Foo",
                     targets: [
-                        MockTarget(name: "Foo", dependencies: ["Bar"]),
+                        MockTarget(name: "Foo", dependencies: ["Bar"])
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo"]),
+                        MockProduct(name: "Foo", modules: ["Foo"])
                     ],
                     dependencies: [
-                        .sourceControl(path: "./Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(path: "./Bar", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     versions: [nil]
                 ),
                 MockPackage(
                     name: "Bar",
                     targets: [
-                        MockTarget(name: "Bar"),
+                        MockTarget(name: "Bar")
                     ],
                     products: [
-                        MockProduct(name: "Bar", modules: ["Bar"]),
+                        MockProduct(name: "Bar", modules: ["Bar"])
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -2901,7 +2927,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         let deps: [MockDependency] = [
-            .fileSystem(path: "./Foo", products: .specific(["Foo"])),
+            .fileSystem(path: "./Foo", products: .specific(["Foo"]))
         ]
         try await workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
             PackageGraphTesterXCTest(graph) { result in
@@ -2928,27 +2954,27 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Foo",
                     targets: [
-                        MockTarget(name: "Foo", dependencies: ["Bar"]),
+                        MockTarget(name: "Foo", dependencies: ["Bar"])
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo"]),
+                        MockProduct(name: "Foo", modules: ["Foo"])
                     ],
                     dependencies: [
-                        .sourceControl(path: "./Bar", requirement: .exact("1.0.0")),
+                        .sourceControl(path: "./Bar", requirement: .exact("1.0.0"))
                     ]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "Bar",
                     targets: [
-                        MockTarget(name: "Bar"),
+                        MockTarget(name: "Bar")
                     ],
                     products: [
-                        MockProduct(name: "Bar", modules: ["Bar"]),
+                        MockProduct(name: "Bar", modules: ["Bar"])
                     ],
                     versions: ["1.0.0", "1.5.0"]
-                ),
+                )
             ]
         )
 
@@ -3014,32 +3040,32 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root",
                     targets: [
-                        MockTarget(name: "Root", dependencies: ["Foo"]),
+                        MockTarget(name: "Root", dependencies: ["Foo"])
                     ],
                     products: [],
                     dependencies: [
-                        .sourceControl(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0"))
                     ]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "Foo",
                     targets: [
-                        MockTarget(name: "Foo"),
+                        MockTarget(name: "Foo")
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo"]),
+                        MockProduct(name: "Foo", modules: ["Foo"])
                     ],
                     versions: ["1.0.0", nil]
                 ),
                 MockPackage(
                     name: "Bar",
                     targets: [
-                        MockTarget(name: "Bar"),
+                        MockTarget(name: "Bar")
                     ],
                     products: [
-                        MockProduct(name: "Bar", modules: ["Bar"]),
+                        MockProduct(name: "Bar", modules: ["Bar"])
                     ],
                     versions: ["1.0.0", nil]
                 ),
@@ -3079,7 +3105,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Try resolving a bad graph.
         let deps: [MockDependency] = [
-            .sourceControl(path: "./Bar", requirement: .exact("1.1.0"), products: .specific(["Bar"])),
+            .sourceControl(path: "./Bar", requirement: .exact("1.1.0"), products: .specific(["Bar"]))
         ]
 
         // Replicate earlier workspace, include Bar dependency in target so that dependency resolution can include it.
@@ -3090,32 +3116,32 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root",
                     targets: [
-                        MockTarget(name: "Root", dependencies: ["Foo", "Bar"]),
+                        MockTarget(name: "Root", dependencies: ["Foo", "Bar"])
                     ],
                     products: [],
                     dependencies: [
-                        .sourceControl(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0"))
                     ]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "Foo",
                     targets: [
-                        MockTarget(name: "Foo"),
+                        MockTarget(name: "Foo")
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo"]),
+                        MockProduct(name: "Foo", modules: ["Foo"])
                     ],
                     versions: ["1.0.0", nil]
                 ),
                 MockPackage(
                     name: "Bar",
                     targets: [
-                        MockTarget(name: "Bar"),
+                        MockTarget(name: "Bar")
                     ],
                     products: [
-                        MockProduct(name: "Bar", modules: ["Bar"]),
+                        MockProduct(name: "Bar", modules: ["Bar"])
                     ],
                     versions: ["1.0.0", nil]
                 ),
@@ -3139,26 +3165,29 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root",
                     targets: [
-                        MockTarget(name: "Root", dependencies: [
-                            .product(name: "Foo", package: "foo"),
-                            .product(name: "Bar", package: "bar"),
-                        ]),
+                        MockTarget(
+                            name: "Root",
+                            dependencies: [
+                                .product(name: "Foo", package: "foo"),
+                                .product(name: "Bar", package: "bar"),
+                            ]
+                        )
                     ],
                     dependencies: [
                         .sourceControl(url: "https://scm.com/org/foo", requirement: .upToNextMajor(from: "1.0.0")),
                         .sourceControl(url: "https://scm.com/org/bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "Foo",
                     url: "https://scm.com/org/foo",
                     targets: [
-                        MockTarget(name: "Foo"),
+                        MockTarget(name: "Foo")
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo"]),
+                        MockProduct(name: "Foo", modules: ["Foo"])
                     ],
                     versions: [nil, "1.0.0", "1.1.0"]
                 ),
@@ -3166,10 +3195,10 @@ final class WorkspaceTests: XCTestCase {
                     name: "Bar",
                     url: "https://scm.com/org/bar",
                     targets: [
-                        MockTarget(name: "Bar"),
+                        MockTarget(name: "Bar")
                     ],
                     products: [
-                        MockProduct(name: "Bar", modules: ["Bar"]),
+                        MockProduct(name: "Bar", modules: ["Bar"])
                     ],
                     versions: ["1.0.0", "1.1.0", "1.2.0"]
                 ),
@@ -3230,27 +3259,27 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root",
                     targets: [
-                        MockTarget(name: "Root", dependencies: ["Foo"]),
+                        MockTarget(name: "Root", dependencies: ["Foo"])
                     ],
                     products: [
-                        MockProduct(name: "Root", modules: ["Root"]),
+                        MockProduct(name: "Root", modules: ["Root"])
                     ],
                     dependencies: [
-                        .sourceControl(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0"))
                     ]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "Foo",
                     targets: [
-                        MockTarget(name: "Foo"),
+                        MockTarget(name: "Foo")
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo"]),
+                        MockProduct(name: "Foo", modules: ["Foo"])
                     ],
                     versions: ["1.5.0"]
-                ),
+                )
             ],
             skipDependenciesUpdates: true
         )
@@ -3287,29 +3316,29 @@ final class WorkspaceTests: XCTestCase {
                         .fileSystem(path: "./Bar"),
                         .sourceControl(path: "./Baz", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "Bar",
                     targets: [
-                        MockTarget(name: "Bar"),
+                        MockTarget(name: "Bar")
                     ],
                     products: [
-                        MockProduct(name: "Bar", modules: ["Bar"]),
+                        MockProduct(name: "Bar", modules: ["Bar"])
                     ],
                     versions: ["1.0.0", "1.5.0", nil]
                 ),
                 MockPackage(
                     name: "Baz",
                     targets: [
-                        MockTarget(name: "Baz", dependencies: ["Bar"]),
+                        MockTarget(name: "Baz", dependencies: ["Bar"])
                     ],
                     products: [
-                        MockProduct(name: "Baz", modules: ["Baz"]),
+                        MockProduct(name: "Baz", modules: ["Baz"])
                     ],
                     dependencies: [
-                        .sourceControl(path: "./Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(path: "./Bar", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     versions: ["1.0.0", "1.5.0"]
                 ),
@@ -3346,7 +3375,6 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-
     func testLocalDependencyTransitive() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
@@ -3363,31 +3391,31 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        .sourceControl(path: "./Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(path: "./Bar", requirement: .upToNextMajor(from: "1.0.0"))
                     ]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "Bar",
                     targets: [
-                        MockTarget(name: "Bar", dependencies: ["Baz"]),
+                        MockTarget(name: "Bar", dependencies: ["Baz"])
                     ],
                     products: [
-                        MockProduct(name: "Bar", modules: ["Bar"]),
+                        MockProduct(name: "Bar", modules: ["Bar"])
                     ],
                     dependencies: [
-                        .fileSystem(path: "./Baz"),
+                        .fileSystem(path: "./Baz")
                     ],
                     versions: ["1.0.0", "1.5.0", nil]
                 ),
                 MockPackage(
                     name: "Baz",
                     targets: [
-                        MockTarget(name: "Baz"),
+                        MockTarget(name: "Baz")
                     ],
                     products: [
-                        MockProduct(name: "Baz", modules: ["Baz"]),
+                        MockProduct(name: "Baz", modules: ["Baz"])
                     ],
                     versions: ["1.0.0", "1.5.0", nil]
                 ),
@@ -3420,25 +3448,25 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Foo",
                     targets: [
-                        MockTarget(name: "Foo", dependencies: ["Bar"]),
+                        MockTarget(name: "Foo", dependencies: ["Bar"])
                     ],
                     products: [],
                     dependencies: [
-                        .sourceControl(path: "./Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(path: "./Bar", requirement: .upToNextMajor(from: "1.0.0"))
                     ]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "Bar",
                     targets: [
-                        MockTarget(name: "Bar"),
+                        MockTarget(name: "Bar")
                     ],
                     products: [
-                        MockProduct(name: "Bar", modules: ["Bar"]),
+                        MockProduct(name: "Bar", modules: ["Bar"])
                     ],
                     versions: ["1.0.0", "1.5.0", nil]
-                ),
+                )
             ]
         )
 
@@ -3455,7 +3483,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Override with local package and run update.
         let deps: [MockDependency] = [
-            .fileSystem(path: "./Bar", products: .specific(["Bar"])),
+            .fileSystem(path: "./Bar", products: .specific(["Bar"]))
         ]
         try await workspace.checkUpdate(roots: ["Foo"], deps: deps) { diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
@@ -3484,16 +3512,15 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Foo",
                     targets: [
-                        MockTarget(name: "Foo", dependencies: []),
+                        MockTarget(name: "Foo", dependencies: [])
                     ],
                     products: [],
                     dependencies: [
-                        .fileSystem(path: "Bar"),
+                        .fileSystem(path: "Bar")
                     ]
-                ),
+                )
             ],
-            packages: [
-            ]
+            packages: []
         )
 
         try await workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
@@ -3524,23 +3551,23 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root",
                     targets: [
-                        MockTarget(name: "Root", dependencies: []),
+                        MockTarget(name: "Root", dependencies: [])
                     ],
                     products: [],
                     dependencies: []
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "Foo",
                     targets: [
-                        MockTarget(name: "Foo"),
+                        MockTarget(name: "Foo")
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo"]),
+                        MockProduct(name: "Foo", modules: ["Foo"])
                     ],
                     versions: ["develop", "1.0.0"]
-                ),
+                )
             ]
         )
 
@@ -3548,7 +3575,7 @@ final class WorkspaceTests: XCTestCase {
         // without running swift package update.
 
         var deps: [MockDependency] = [
-            .sourceControl(path: "./Foo", requirement: .branch("develop"), products: .specific(["Foo"])),
+            .sourceControl(path: "./Foo", requirement: .branch("develop"), products: .specific(["Foo"]))
         ]
         try await workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
             PackageGraphTesterXCTest(graph) { result in
@@ -3562,7 +3589,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         deps = [
-            .sourceControl(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0"), products: .specific(["Foo"])),
+            .sourceControl(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0"), products: .specific(["Foo"]))
         ]
         try await workspace.checkPackageGraph(roots: ["Root"], deps: deps) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
@@ -3572,7 +3599,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         deps = [
-            .sourceControl(path: "./Foo", requirement: .branch("develop"), products: .specific(["Foo"])),
+            .sourceControl(path: "./Foo", requirement: .branch("develop"), products: .specific(["Foo"]))
         ]
         try await workspace.checkPackageGraph(roots: ["Root"], deps: deps) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
@@ -3593,23 +3620,23 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root",
                     targets: [
-                        MockTarget(name: "Root", dependencies: []),
+                        MockTarget(name: "Root", dependencies: [])
                     ],
                     products: [],
                     dependencies: []
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "Foo",
                     targets: [
-                        MockTarget(name: "Foo"),
+                        MockTarget(name: "Foo")
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo"]),
+                        MockProduct(name: "Foo", modules: ["Foo"])
                     ],
                     versions: ["develop", "1.0.0", nil]
-                ),
+                )
             ]
         )
 
@@ -3617,7 +3644,7 @@ final class WorkspaceTests: XCTestCase {
         // without running swift package update.
 
         var deps: [MockDependency] = [
-            .fileSystem(path: "./Foo", products: .specific(["Foo"])),
+            .fileSystem(path: "./Foo", products: .specific(["Foo"]))
         ]
         try await workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
             PackageGraphTesterXCTest(graph) { result in
@@ -3631,7 +3658,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         deps = [
-            .sourceControl(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0"), products: .specific(["Foo"])),
+            .sourceControl(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0"), products: .specific(["Foo"]))
         ]
         try await workspace.checkPackageGraph(roots: ["Root"], deps: deps) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
@@ -3641,7 +3668,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         deps = [
-            .fileSystem(path: "./Foo", products: .specific(["Foo"])),
+            .fileSystem(path: "./Foo", products: .specific(["Foo"]))
         ]
         try await workspace.checkPackageGraph(roots: ["Root"], deps: deps) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
@@ -3662,20 +3689,20 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root",
                     targets: [
-                        MockTarget(name: "Root", dependencies: []),
+                        MockTarget(name: "Root", dependencies: [])
                     ],
                     products: [],
                     dependencies: []
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "Foo",
                     targets: [
-                        MockTarget(name: "Foo"),
+                        MockTarget(name: "Foo")
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo"]),
+                        MockProduct(name: "Foo", modules: ["Foo"])
                     ],
                     versions: [nil]
                 ),
@@ -3683,10 +3710,10 @@ final class WorkspaceTests: XCTestCase {
                     name: "Foo",
                     path: "Foo2",
                     targets: [
-                        MockTarget(name: "Foo"),
+                        MockTarget(name: "Foo")
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo"]),
+                        MockProduct(name: "Foo", modules: ["Foo"])
                     ],
                     versions: [nil]
                 ),
@@ -3697,7 +3724,7 @@ final class WorkspaceTests: XCTestCase {
         // different locations works correctly.
 
         var deps: [MockDependency] = [
-            .fileSystem(path: "./Foo", products: .specific(["Foo"])),
+            .fileSystem(path: "./Foo", products: .specific(["Foo"]))
         ]
         try await workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
             PackageGraphTesterXCTest(graph) { result in
@@ -3711,7 +3738,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         deps = [
-            .fileSystem(path: "./Foo2", products: .specific(["Foo"])),
+            .fileSystem(path: "./Foo2", products: .specific(["Foo"]))
         ]
         try await workspace.checkPackageGraph(roots: ["Root"], deps: deps) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
@@ -3734,20 +3761,20 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root",
                     targets: [
-                        MockTarget(name: "Root", dependencies: []),
+                        MockTarget(name: "Root", dependencies: [])
                     ],
                     products: [],
                     dependencies: []
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "Foo",
                     targets: [
-                        MockTarget(name: "Foo"),
+                        MockTarget(name: "Foo")
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo"]),
+                        MockProduct(name: "Foo", modules: ["Foo"])
                     ],
                     versions: [nil]
                 ),
@@ -3755,10 +3782,10 @@ final class WorkspaceTests: XCTestCase {
                     name: "Foo",
                     path: "Nested/Foo",
                     targets: [
-                        MockTarget(name: "Foo"),
+                        MockTarget(name: "Foo")
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo"]),
+                        MockProduct(name: "Foo", modules: ["Foo"])
                     ],
                     versions: [nil]
                 ),
@@ -3766,7 +3793,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         var deps: [MockDependency] = [
-            .fileSystem(path: "./Foo", products: .specific(["Foo"])),
+            .fileSystem(path: "./Foo", products: .specific(["Foo"]))
         ]
         try await workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
             PackageGraphTesterXCTest(graph) { result in
@@ -3784,7 +3811,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         deps = [
-            .fileSystem(path: "./Nested/Foo", products: .specific(["Foo"])),
+            .fileSystem(path: "./Nested/Foo", products: .specific(["Foo"]))
         ]
         try await workspace.checkPackageGraph(roots: ["Root"], deps: deps) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
@@ -3811,21 +3838,21 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root",
                     targets: [
-                        MockTarget(name: "Root", dependencies: []),
+                        MockTarget(name: "Root", dependencies: [])
                     ],
                     products: [],
                     dependencies: []
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "Foo",
                     url: "https://scm.com/org/foo",
                     targets: [
-                        MockTarget(name: "Foo"),
+                        MockTarget(name: "Foo")
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo"]),
+                        MockProduct(name: "Foo", modules: ["Foo"])
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -3833,10 +3860,10 @@ final class WorkspaceTests: XCTestCase {
                     name: "Foo",
                     url: "https://scm.com/other/foo",
                     targets: [
-                        MockTarget(name: "OtherFoo"),
+                        MockTarget(name: "OtherFoo")
                     ],
                     products: [
-                        MockProduct(name: "OtherFoo", modules: ["OtherFoo"]),
+                        MockProduct(name: "OtherFoo", modules: ["OtherFoo"])
                     ],
                     versions: ["1.1.0"]
                 ),
@@ -3844,7 +3871,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         var deps: [MockDependency] = [
-            .sourceControl(url: "https://scm.com/org/foo", requirement: .exact("1.0.0")),
+            .sourceControl(url: "https://scm.com/org/foo", requirement: .exact("1.0.0"))
         ]
         try await workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
@@ -3863,7 +3890,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         deps = [
-            .sourceControl(url: "https://scm.com/other/foo", requirement: .exact("1.1.0")),
+            .sourceControl(url: "https://scm.com/other/foo", requirement: .exact("1.1.0"))
         ]
         try await workspace.checkPackageGraph(roots: ["Root"], deps: deps) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
@@ -3889,28 +3916,28 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root",
                     targets: [
-                        MockTarget(name: "Root", dependencies: []),
+                        MockTarget(name: "Root", dependencies: [])
                     ],
                     products: [],
                     dependencies: []
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "Foo",
                     targets: [
-                        MockTarget(name: "Foo"),
+                        MockTarget(name: "Foo")
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo"]),
+                        MockProduct(name: "Foo", modules: ["Foo"])
                     ],
                     versions: ["1.0.0"]
-                ),
+                )
             ]
         )
 
         let deps: [MockDependency] = [
-            .sourceControl(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0"), products: .specific(["Foo"])),
+            .sourceControl(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0"), products: .specific(["Foo"]))
         ]
         try await workspace.checkPackageGraph(roots: ["Root"], deps: deps) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
@@ -3948,7 +3975,7 @@ final class WorkspaceTests: XCTestCase {
                     MockPackage(
                         name: "Root1",
                         targets: [
-                            MockTarget(name: "Root1", dependencies: ["Foo"]),
+                            MockTarget(name: "Root1", dependencies: ["Foo"])
                         ],
                         products: [],
                         dependencies: [
@@ -3956,14 +3983,14 @@ final class WorkspaceTests: XCTestCase {
                                 path: "./Foo",
                                 requirement: .upToNextMajor(from: "1.0.0"),
                                 products: .specific(["Foo"])
-                            ),
+                            )
                         ],
                         toolsVersion: pair.0
                     ),
                     MockPackage(
                         name: "Root2",
                         targets: [
-                            MockTarget(name: "Root2", dependencies: []),
+                            MockTarget(name: "Root2", dependencies: [])
                         ],
                         products: [],
                         dependencies: [],
@@ -3974,13 +4001,13 @@ final class WorkspaceTests: XCTestCase {
                     MockPackage(
                         name: "Foo",
                         targets: [
-                            MockTarget(name: "Foo"),
+                            MockTarget(name: "Foo")
                         ],
                         products: [
-                            MockProduct(name: "Foo", modules: ["Foo"]),
+                            MockProduct(name: "Foo", modules: ["Foo"])
                         ],
                         versions: ["1.0.0"]
-                    ),
+                    )
                 ]
             )
 
@@ -4016,72 +4043,72 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root",
                     targets: [
-                        MockTarget(name: "Root", dependencies: []),
+                        MockTarget(name: "Root", dependencies: [])
                     ],
                     products: [],
                     dependencies: []
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "Foo",
                     url: "https://localhost/org/foo",
                     targets: [
-                        MockTarget(name: "Foo"),
+                        MockTarget(name: "Foo")
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo"]),
+                        MockProduct(name: "Foo", modules: ["Foo"])
                     ],
                     versions: ["1.0.0", "1.1.0"],
-                    revisionProvider: { version in version } // stable revisions
+                    revisionProvider: { version in version }  // stable revisions
                 ),
                 MockPackage(
                     name: "Bar",
                     url: "https://localhost/org/bar",
                     targets: [
-                        MockTarget(name: "Bar"),
+                        MockTarget(name: "Bar")
                     ],
                     products: [
-                        MockProduct(name: "Bar", modules: ["Bar"]),
+                        MockProduct(name: "Bar", modules: ["Bar"])
                     ],
                     versions: ["1.0.0", "1.1.0"],
-                    revisionProvider: { version in version } // stable revisions
+                    revisionProvider: { version in version }  // stable revisions
                 ),
                 MockPackage(
                     name: "Foo",
-                    url: "https://localhost/ORG/FOO", // diff: case
+                    url: "https://localhost/ORG/FOO",  // diff: case
                     targets: [
-                        MockTarget(name: "Foo"),
+                        MockTarget(name: "Foo")
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo"]),
+                        MockProduct(name: "Foo", modules: ["Foo"])
                     ],
                     versions: ["1.0.0", "1.1.0"],
-                    revisionProvider: { version in version } // stable revisions
+                    revisionProvider: { version in version }  // stable revisions
                 ),
                 MockPackage(
                     name: "Foo",
-                    url: "https://localhost/org/foo.git", // diff: .git extension
+                    url: "https://localhost/org/foo.git",  // diff: .git extension
                     targets: [
-                        MockTarget(name: "Foo"),
+                        MockTarget(name: "Foo")
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo"]),
+                        MockProduct(name: "Foo", modules: ["Foo"])
                     ],
                     versions: ["1.0.0", "1.1.0"],
-                    revisionProvider: { version in version } // stable revisions
+                    revisionProvider: { version in version }  // stable revisions
                 ),
                 MockPackage(
                     name: "Bar",
-                    url: "https://localhost/org/bar.git", // diff: .git extension
+                    url: "https://localhost/org/bar.git",  // diff: .git extension
                     targets: [
-                        MockTarget(name: "Bar"),
+                        MockTarget(name: "Bar")
                     ],
                     products: [
-                        MockProduct(name: "Bar", modules: ["Bar"]),
+                        MockProduct(name: "Bar", modules: ["Bar"])
                     ],
                     versions: ["1.0.0", "1.1.0"],
-                    revisionProvider: { version in version } // stable revisions
+                    revisionProvider: { version in version }  // stable revisions
                 ),
             ]
         )
@@ -4264,7 +4291,7 @@ final class WorkspaceTests: XCTestCase {
                                 .product(name: "Foo", package: "foo"),
                                 .product(name: "Bar", package: "bar"),
                             ]
-                        ),
+                        )
                     ],
                     products: [],
                     dependencies: [
@@ -4272,17 +4299,17 @@ final class WorkspaceTests: XCTestCase {
                         .sourceControl(url: "https://localhost/org/bar", requirement: .upToNextMinor(from: "1.1.0")),
                     ],
                     toolsVersion: .v5_10
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "Foo",
                     url: "https://localhost/org/foo",
                     targets: [
-                        MockTarget(name: "Foo"),
+                        MockTarget(name: "Foo")
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo"]),
+                        MockProduct(name: "Foo", modules: ["Foo"])
                     ],
                     versions: ["1.0.0", "1.0.1", "1.1.0", "1.1.1", "1.2.0", "1.2.1", "1.3.0", "1.3.1"]
                 ),
@@ -4290,10 +4317,10 @@ final class WorkspaceTests: XCTestCase {
                     name: "Bar",
                     url: "https://localhost/org/bar",
                     targets: [
-                        MockTarget(name: "Bar"),
+                        MockTarget(name: "Bar")
                     ],
                     products: [
-                        MockProduct(name: "Bar", modules: ["Bar"]),
+                        MockProduct(name: "Bar", modules: ["Bar"])
                     ],
                     versions: ["1.0.0", "1.0.1", "1.1.0", "1.1.1", "1.2.0", "1.2.1", "1.3.0", "1.3.1"]
                 ),
@@ -4301,10 +4328,10 @@ final class WorkspaceTests: XCTestCase {
                     name: "Baz",
                     url: "https://localhost/org/baz",
                     targets: [
-                        MockTarget(name: "Baz"),
+                        MockTarget(name: "Baz")
                     ],
                     products: [
-                        MockProduct(name: "Baz", modules: ["Baz"]),
+                        MockProduct(name: "Baz", modules: ["Baz"])
                     ],
                     versions: ["1.0.0", "1.0.1", "1.1.0", "1.1.1", "1.2.0", "1.2.1", "1.3.0", "1.3.1"]
                 ),
@@ -4417,7 +4444,7 @@ final class WorkspaceTests: XCTestCase {
             try await workspace.closeWorkspace(resetResolvedFile: false)
             // change the dependency requirements
             let changedDeps: [PackageDependency] = [
-                .remoteSourceControl(url: "https://localhost/org/baz", requirement: .upToNextMinor(from: "1.0.0")),
+                .remoteSourceControl(url: "https://localhost/org/baz", requirement: .upToNextMinor(from: "1.0.0"))
             ]
             // run resolution again, but change requirements
             try await workspace.checkPackageGraph(roots: ["Root"], dependencies: changedDeps) { graph, diagnostics in
@@ -4536,29 +4563,35 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Foo",
                     targets: [
-                        MockTarget(name: "Foo", dependencies: [
-                            .product(name: "Dep", package: "dep"),
-                        ]),
+                        MockTarget(
+                            name: "Foo",
+                            dependencies: [
+                                .product(name: "Dep", package: "dep")
+                            ]
+                        )
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo"]),
+                        MockProduct(name: "Foo", modules: ["Foo"])
                     ],
                     dependencies: [
-                        .sourceControl(path: "./Dep", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(path: "./Dep", requirement: .upToNextMajor(from: "1.0.0"))
                     ]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "Dep",
                     targets: [
-                        MockTarget(name: "Dep", dependencies: [
-                            .product(name: "Bar", package: "bar"),
-                            .product(name: "Baz", package: "baz"),
-                        ]),
+                        MockTarget(
+                            name: "Dep",
+                            dependencies: [
+                                .product(name: "Bar", package: "bar"),
+                                .product(name: "Baz", package: "baz"),
+                            ]
+                        )
                     ],
                     products: [
-                        MockProduct(name: "Dep", modules: ["Dep"]),
+                        MockProduct(name: "Dep", modules: ["Dep"])
                     ],
                     dependencies: [
                         .sourceControl(path: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
@@ -4569,20 +4602,20 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "BarMirror",
                     targets: [
-                        MockTarget(name: "Bar"),
+                        MockTarget(name: "Bar")
                     ],
                     products: [
-                        MockProduct(name: "Bar", modules: ["Bar"]),
+                        MockProduct(name: "Bar", modules: ["Bar"])
                     ],
                     versions: ["1.0.0", "1.5.0"]
                 ),
                 MockPackage(
                     name: "BazMirror",
                     targets: [
-                        MockTarget(name: "Baz"),
+                        MockTarget(name: "Baz")
                     ],
                     products: [
-                        MockProduct(name: "Baz", modules: ["Baz"]),
+                        MockProduct(name: "Baz", modules: ["Baz"])
                     ],
                     versions: ["1.0.0", "1.6.0"]
                 ),
@@ -4628,61 +4661,67 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Foo",
                     targets: [
-                        MockTarget(name: "Foo", dependencies: [
-                            .product(name: "Dep", package: "dep"),
-                        ]),
+                        MockTarget(
+                            name: "Foo",
+                            dependencies: [
+                                .product(name: "Dep", package: "dep")
+                            ]
+                        )
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo"]),
+                        MockProduct(name: "Foo", modules: ["Foo"])
                     ],
                     dependencies: [
-                        .sourceControl(path: "./Dep", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(path: "./Dep", requirement: .upToNextMajor(from: "1.0.0"))
                     ]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "Dep",
                     targets: [
-                        MockTarget(name: "Dep", dependencies: [
-                            .product(name: "Bar", package: "bar"),
-                        ]),
+                        MockTarget(
+                            name: "Dep",
+                            dependencies: [
+                                .product(name: "Bar", package: "bar")
+                            ]
+                        )
                     ],
                     products: [
-                        MockProduct(name: "Dep", modules: ["Dep"]),
+                        MockProduct(name: "Dep", modules: ["Dep"])
                     ],
                     dependencies: [
-                        .sourceControl(path: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(path: "Bar", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     versions: ["1.0.0", "1.4.0"]
                 ),
                 MockPackage(
                     name: "Bar",
                     targets: [
-                        MockTarget(name: "Bar"),
+                        MockTarget(name: "Bar")
                     ],
                     products: [
-                        MockProduct(name: "Bar", modules: ["Bar"]),
+                        MockProduct(name: "Bar", modules: ["Bar"])
                     ],
                     versions: ["1.0.0", "1.5.0"]
                 ),
                 MockPackage(
                     name: "Baz",
                     targets: [
-                        MockTarget(name: "Baz"),
+                        MockTarget(name: "Baz")
                     ],
                     products: [
-                        MockProduct(name: "Baz", modules: ["Baz"]),
+                        MockProduct(name: "Baz", modules: ["Baz"])
                     ],
                     versions: ["1.0.0", "1.6.0"]
                 ),
                 MockPackage(
                     name: "BarMirror",
                     targets: [
-                        MockTarget(name: "Bar"),
+                        MockTarget(name: "Bar")
                     ],
                     products: [
-                        MockProduct(name: "Bar", modules: ["Bar"]),
+                        MockProduct(name: "Bar", modules: ["Bar"])
                     ],
                     versions: ["1.0.0", "1.5.0"]
                 ),
@@ -4691,7 +4730,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         let deps: [MockDependency] = [
-            .sourceControl(path: "./Baz", requirement: .upToNextMajor(from: "1.0.0"), products: .specific(["Baz"])),
+            .sourceControl(path: "./Baz", requirement: .upToNextMajor(from: "1.0.0"), products: .specific(["Baz"]))
         ]
 
         try await workspace.checkPackageGraph(roots: ["Foo"], deps: deps) { graph, diagnostics in
@@ -4725,30 +4764,36 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Foo",
                     targets: [
-                        MockTarget(name: "Foo", dependencies: [
-                            .product(name: "Dep", package: "dep"),
-                        ]),
+                        MockTarget(
+                            name: "Foo",
+                            dependencies: [
+                                .product(name: "Dep", package: "dep")
+                            ]
+                        )
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo"]),
+                        MockProduct(name: "Foo", modules: ["Foo"])
                     ],
                     dependencies: [
-                        .sourceControl(url: "https://scm.com/org/dep", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(url: "https://scm.com/org/dep", requirement: .upToNextMajor(from: "1.0.0"))
                     ]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "Dep",
                     url: "https://scm.com/org/dep",
                     targets: [
-                        MockTarget(name: "Dep", dependencies: [
-                            .product(name: "Bar", package: "bar"),
-                            .product(name: "Baz", package: "baz"),
-                        ]),
+                        MockTarget(
+                            name: "Dep",
+                            dependencies: [
+                                .product(name: "Bar", package: "bar"),
+                                .product(name: "Baz", package: "baz"),
+                            ]
+                        )
                     ],
                     products: [
-                        MockProduct(name: "Dep", modules: ["Dep"]),
+                        MockProduct(name: "Dep", modules: ["Dep"])
                     ],
                     dependencies: [
                         .sourceControl(url: "https://scm.com/org/bar", requirement: .upToNextMajor(from: "1.0.0")),
@@ -4760,10 +4805,10 @@ final class WorkspaceTests: XCTestCase {
                     name: "BarMirror",
                     url: "https://scm.com/org/bar-mirror",
                     targets: [
-                        MockTarget(name: "Bar"),
+                        MockTarget(name: "Bar")
                     ],
                     products: [
-                        MockProduct(name: "Bar", modules: ["Bar"]),
+                        MockProduct(name: "Bar", modules: ["Bar"])
                     ],
                     versions: ["1.0.0", "1.5.0"]
                 ),
@@ -4771,10 +4816,10 @@ final class WorkspaceTests: XCTestCase {
                     name: "BazMirror",
                     url: "https://scm.com/org/baz-mirror",
                     targets: [
-                        MockTarget(name: "Baz"),
+                        MockTarget(name: "Baz")
                     ],
                     products: [
-                        MockProduct(name: "Baz", modules: ["Baz"]),
+                        MockProduct(name: "Baz", modules: ["Baz"])
                     ],
                     versions: ["1.0.0", "1.6.0"]
                 ),
@@ -4814,32 +4859,38 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Foo",
                     targets: [
-                        MockTarget(name: "Foo", dependencies: [
-                            .product(name: "Dep", package: "dep"),
-                        ]),
+                        MockTarget(
+                            name: "Foo",
+                            dependencies: [
+                                .product(name: "Dep", package: "dep")
+                            ]
+                        )
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo"]),
+                        MockProduct(name: "Foo", modules: ["Foo"])
                     ],
                     dependencies: [
-                        .sourceControl(url: "https://scm.com/org/dep", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(url: "https://scm.com/org/dep", requirement: .upToNextMajor(from: "1.0.0"))
                     ]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "Dep",
                     url: "https://scm.com/org/dep",
                     targets: [
-                        MockTarget(name: "Dep", dependencies: [
-                            .product(name: "Bar", package: "bar"),
-                        ]),
+                        MockTarget(
+                            name: "Dep",
+                            dependencies: [
+                                .product(name: "Bar", package: "bar")
+                            ]
+                        )
                     ],
                     products: [
-                        MockProduct(name: "Dep", modules: ["Dep"]),
+                        MockProduct(name: "Dep", modules: ["Dep"])
                     ],
                     dependencies: [
-                        .sourceControl(url: "https://scm.com/org/bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(url: "https://scm.com/org/bar", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     versions: ["1.0.0", "1.4.0"]
                 ),
@@ -4847,10 +4898,10 @@ final class WorkspaceTests: XCTestCase {
                     name: "Bar",
                     url: "https://scm.com/org/bar",
                     targets: [
-                        MockTarget(name: "Bar"),
+                        MockTarget(name: "Bar")
                     ],
                     products: [
-                        MockProduct(name: "Bar", modules: ["Bar"]),
+                        MockProduct(name: "Bar", modules: ["Bar"])
                     ],
                     versions: ["1.0.0", "1.5.0"]
                 ),
@@ -4858,10 +4909,10 @@ final class WorkspaceTests: XCTestCase {
                     name: "Baz",
                     url: "https://scm.com/org/baz",
                     targets: [
-                        MockTarget(name: "Baz"),
+                        MockTarget(name: "Baz")
                     ],
                     products: [
-                        MockProduct(name: "Baz", modules: ["Baz"]),
+                        MockProduct(name: "Baz", modules: ["Baz"])
                     ],
                     versions: ["1.0.0", "1.6.0"]
                 ),
@@ -4869,10 +4920,10 @@ final class WorkspaceTests: XCTestCase {
                     name: "BarMirror",
                     url: "https://scm.com/org/bar-mirror",
                     targets: [
-                        MockTarget(name: "Bar"),
+                        MockTarget(name: "Bar")
                     ],
                     products: [
-                        MockProduct(name: "Bar", modules: ["Bar"]),
+                        MockProduct(name: "Bar", modules: ["Bar"])
                     ],
                     versions: ["1.0.0", "1.5.0"]
                 ),
@@ -4885,7 +4936,7 @@ final class WorkspaceTests: XCTestCase {
                 url: "https://scm.com/org/baz",
                 requirement: .upToNextMajor(from: "1.0.0"),
                 products: .specific(["Baz"])
-            ),
+            )
         ]
 
         try await workspace.checkPackageGraph(roots: ["Foo"], deps: deps) { graph, diagnostics in
@@ -4918,29 +4969,32 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Foo",
                     targets: [
-                        MockTarget(name: "Foo", dependencies: [
-                            .product(name: "Bar", package: "bar"),
-                            .product(name: "Baz", package: "baz"),
-                        ]),
+                        MockTarget(
+                            name: "Foo",
+                            dependencies: [
+                                .product(name: "Bar", package: "bar"),
+                                .product(name: "Baz", package: "baz"),
+                            ]
+                        )
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo"]),
+                        MockProduct(name: "Foo", modules: ["Foo"])
                     ],
                     dependencies: [
                         .sourceControl(url: "https://scm.com/org/bar", requirement: .upToNextMajor(from: "1.0.0")),
                         .sourceControl(url: "https://scm.com/org/baz", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "BarMirror",
                     identity: "org.bar-mirror",
                     targets: [
-                        MockTarget(name: "Bar"),
+                        MockTarget(name: "Bar")
                     ],
                     products: [
-                        MockProduct(name: "Bar", modules: ["Bar"]),
+                        MockProduct(name: "Bar", modules: ["Bar"])
                     ],
                     versions: ["1.0.0", "1.5.0"]
                 ),
@@ -4948,10 +5002,10 @@ final class WorkspaceTests: XCTestCase {
                     name: "Baz",
                     url: "https://scm.com/org/baz",
                     targets: [
-                        MockTarget(name: "Baz"),
+                        MockTarget(name: "Baz")
                     ],
                     products: [
-                        MockProduct(name: "Baz", modules: ["Baz"]),
+                        MockProduct(name: "Baz", modules: ["Baz"])
                     ],
                     versions: ["1.0.0", "1.6.0"]
                 ),
@@ -4988,29 +5042,32 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Foo",
                     targets: [
-                        MockTarget(name: "Foo", dependencies: [
-                            .product(name: "Bar", package: "org.bar"),
-                            .product(name: "Baz", package: "org.baz"),
-                        ]),
+                        MockTarget(
+                            name: "Foo",
+                            dependencies: [
+                                .product(name: "Bar", package: "org.bar"),
+                                .product(name: "Baz", package: "org.baz"),
+                            ]
+                        )
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo"]),
+                        MockProduct(name: "Foo", modules: ["Foo"])
                     ],
                     dependencies: [
                         .registry(identity: "org.bar", requirement: .upToNextMajor(from: "1.0.0")),
                         .registry(identity: "org.baz", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "BarMirror",
                     url: "https://scm.com/org/bar-mirror",
                     targets: [
-                        MockTarget(name: "Bar"),
+                        MockTarget(name: "Bar")
                     ],
                     products: [
-                        MockProduct(name: "Bar", modules: ["Bar"]),
+                        MockProduct(name: "Bar", modules: ["Bar"])
                     ],
                     versions: ["1.0.0", "1.5.0"]
                 ),
@@ -5018,10 +5075,10 @@ final class WorkspaceTests: XCTestCase {
                     name: "Baz",
                     identity: "org.baz",
                     targets: [
-                        MockTarget(name: "Baz"),
+                        MockTarget(name: "Baz")
                     ],
                     products: [
-                        MockProduct(name: "Baz", modules: ["Baz"]),
+                        MockProduct(name: "Baz", modules: ["Baz"])
                     ],
                     versions: ["1.0.0", "1.6.0"]
                 ),
@@ -5065,15 +5122,15 @@ final class WorkspaceTests: XCTestCase {
                         MockTarget(
                             name: "Root",
                             dependencies: [
-                                .product(name: "Bar", package: "bar"),
+                                .product(name: "Bar", package: "bar")
                             ]
-                        ),
+                        )
                     ],
                     products: [],
                     dependencies: [
-                        .sourceControl(url: "https://scm.com/org/bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(url: "https://scm.com/org/bar", requirement: .upToNextMajor(from: "1.0.0"))
                     ]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
@@ -5083,15 +5140,15 @@ final class WorkspaceTests: XCTestCase {
                         MockTarget(
                             name: "Bar",
                             dependencies: [
-                                .product(name: "Foo", package: "foo"),
+                                .product(name: "Foo", package: "foo")
                             ]
-                        ),
+                        )
                     ],
                     products: [
-                        MockProduct(name: "Bar", modules: ["Bar"]),
+                        MockProduct(name: "Bar", modules: ["Bar"])
                     ],
                     dependencies: [
-                        .sourceControl(url: "https://scm.com/org/foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(url: "https://scm.com/org/foo", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -5102,15 +5159,15 @@ final class WorkspaceTests: XCTestCase {
                         MockTarget(
                             name: "Bar",
                             dependencies: [
-                                .product(name: "OtherFoo", package: "foo"),
+                                .product(name: "OtherFoo", package: "foo")
                             ]
-                        ),
+                        )
                     ],
                     products: [
-                        MockProduct(name: "Bar", modules: ["Bar"]),
+                        MockProduct(name: "Bar", modules: ["Bar"])
                     ],
                     dependencies: [
-                        .sourceControl(url: "https://scm.com/other/foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(url: "https://scm.com/other/foo", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     versions: ["1.1.0"],
                     toolsVersion: .v5
@@ -5119,10 +5176,10 @@ final class WorkspaceTests: XCTestCase {
                     name: "Foo",
                     url: "https://scm.com/org/foo",
                     targets: [
-                        MockTarget(name: "Foo"),
+                        MockTarget(name: "Foo")
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo"]),
+                        MockProduct(name: "Foo", modules: ["Foo"])
                     ],
                     versions: ["1.0.0"],
                     revisionProvider: { _ in fooRevision }
@@ -5131,10 +5188,10 @@ final class WorkspaceTests: XCTestCase {
                     name: "Foo",
                     url: "https://scm.com/other/foo",
                     targets: [
-                        MockTarget(name: "OtherFoo"),
+                        MockTarget(name: "OtherFoo")
                     ],
                     products: [
-                        MockProduct(name: "OtherFoo", modules: ["OtherFoo"]),
+                        MockProduct(name: "OtherFoo", modules: ["OtherFoo"])
                     ],
                     versions: ["1.0.0"],
                     revisionProvider: { _ in fooRevision }
@@ -5143,7 +5200,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         var deps: [MockDependency] = [
-            .sourceControl(url: "https://scm.com/org/bar", requirement: .exact("1.0.0")),
+            .sourceControl(url: "https://scm.com/org/bar", requirement: .exact("1.0.0"))
         ]
         try await workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
@@ -5173,7 +5230,7 @@ final class WorkspaceTests: XCTestCase {
         await workspace.checkReset { XCTAssertNoDiagnostics($0) }
 
         deps = [
-            .sourceControl(url: "https://scm.com/org/bar", requirement: .exact("1.1.0")),
+            .sourceControl(url: "https://scm.com/org/bar", requirement: .exact("1.1.0"))
         ]
         try await workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
@@ -5211,33 +5268,33 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root",
                     targets: [
-                        MockTarget(name: "Root", dependencies: ["Foo", "Bar"]),
+                        MockTarget(name: "Root", dependencies: ["Foo", "Bar"])
                     ],
                     products: [],
                     dependencies: [
                         .sourceControl(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0")),
                         .sourceControl(path: "./Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "Foo",
                     targets: [
-                        MockTarget(name: "Foo"),
+                        MockTarget(name: "Foo")
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo"]),
+                        MockProduct(name: "Foo", modules: ["Foo"])
                     ],
                     versions: ["1.0.0", "1.2.0", "1.3.2"]
                 ),
                 MockPackage(
                     name: "Bar",
                     targets: [
-                        MockTarget(name: "Bar"),
+                        MockTarget(name: "Bar")
                     ],
                     products: [
-                        MockProduct(name: "Bar", modules: ["Bar"]),
+                        MockProduct(name: "Bar", modules: ["Bar"])
                     ],
                     versions: ["1.0.0", "develop"]
                 ),
@@ -5246,7 +5303,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Load the initial graph.
         let deps: [MockDependency] = [
-            .sourceControl(path: "./Bar", requirement: .revision("develop"), products: .specific(["Bar"])),
+            .sourceControl(path: "./Bar", requirement: .revision("develop"), products: .specific(["Bar"]))
         ]
         try await workspace.checkPackageGraph(roots: ["Root"], deps: deps) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
@@ -5270,10 +5327,14 @@ final class WorkspaceTests: XCTestCase {
             )
 
             let fooRepo = try workspace.repositoryProvider
-                .specifierMap[RepositorySpecifier(path: AbsolutePath(
-                    validating: fooPin.packageRef
-                        .locationString
-                ))]!
+                .specifierMap[
+                    RepositorySpecifier(
+                        path: AbsolutePath(
+                            validating: fooPin.packageRef
+                                .locationString
+                        )
+                    )
+                ]!
             let revision = try fooRepo.resolveRevision(tag: "1.0.0")
             let newState = ResolvedPackagesStore.ResolutionState.version("1.0.0", revision: revision.identifier)
 
@@ -5337,7 +5398,7 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root",
                     targets: [
-                        MockTarget(name: "Root", dependencies: ["Foo", "Bar"]),
+                        MockTarget(name: "Root", dependencies: ["Foo", "Bar"])
                     ],
                     products: [],
                     dependencies: [
@@ -5348,10 +5409,10 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Bar",
                     targets: [
-                        MockTarget(name: "Bar"),
+                        MockTarget(name: "Bar")
                     ],
                     products: [
-                        MockProduct(name: "Bar", modules: ["Bar"]),
+                        MockProduct(name: "Bar", modules: ["Bar"])
                     ]
                 ),
             ],
@@ -5359,13 +5420,13 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Foo",
                     targets: [
-                        MockTarget(name: "Foo"),
+                        MockTarget(name: "Foo")
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo"]),
+                        MockProduct(name: "Foo", modules: ["Foo"])
                     ],
                     versions: ["1.0.0", "1.2.0", "1.3.2"]
-                ),
+                )
             ]
         )
 
@@ -5388,33 +5449,33 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root",
                     targets: [
-                        MockTarget(name: "Root", dependencies: ["Foo", "Bar"]),
+                        MockTarget(name: "Root", dependencies: ["Foo", "Bar"])
                     ],
                     products: [],
                     dependencies: [
                         .sourceControl(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0")),
                         .sourceControl(path: "./Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "Foo",
                     targets: [
-                        MockTarget(name: "Foo"),
+                        MockTarget(name: "Foo")
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo"]),
+                        MockProduct(name: "Foo", modules: ["Foo"])
                     ],
                     versions: ["1.0.0", "1.2.0", "1.3.2"]
                 ),
                 MockPackage(
                     name: "Bar",
                     targets: [
-                        MockTarget(name: "Bar"),
+                        MockTarget(name: "Bar")
                     ],
                     products: [
-                        MockProduct(name: "Bar", modules: ["Bar"]),
+                        MockProduct(name: "Bar", modules: ["Bar"])
                     ],
                     versions: ["1.0.0", "develop"]
                 ),
@@ -5445,25 +5506,25 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root",
                     targets: [
-                        MockTarget(name: "Root", dependencies: ["Foo"]),
+                        MockTarget(name: "Root", dependencies: ["Foo"])
                     ],
                     products: [],
                     dependencies: [
-                        .fileSystem(path: "./Foo"),
+                        .fileSystem(path: "./Foo")
                     ]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "Foo",
                     targets: [
-                        MockTarget(name: "Foo"),
+                        MockTarget(name: "Foo")
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo"]),
+                        MockProduct(name: "Foo", modules: ["Foo"])
                     ],
                     versions: [nil]
-                ),
+                )
             ]
         )
 
@@ -5486,23 +5547,23 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root",
                     targets: [
-                        MockTarget(name: "Root"),
+                        MockTarget(name: "Root")
                     ],
                     products: [],
                     dependencies: []
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "Foo",
                     targets: [
-                        MockTarget(name: "Foo"),
+                        MockTarget(name: "Foo")
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo"]),
+                        MockProduct(name: "Foo", modules: ["Foo"])
                     ],
                     versions: [nil]
-                ),
+                )
             ]
         )
 
@@ -5587,35 +5648,35 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root",
                     targets: [
-                        MockTarget(name: "Root", dependencies: ["Foo"]),
+                        MockTarget(name: "Root", dependencies: ["Foo"])
                     ],
                     products: [],
                     dependencies: [
-                        .sourceControl(path: "./Foo", requirement: .branch("develop")),
+                        .sourceControl(path: "./Foo", requirement: .branch("develop"))
                     ]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "Foo",
                     targets: [
-                        MockTarget(name: "Foo", dependencies: ["Local"]),
+                        MockTarget(name: "Foo", dependencies: ["Local"])
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo"]),
+                        MockProduct(name: "Foo", modules: ["Foo"])
                     ],
                     dependencies: [
-                        .fileSystem(path: "./Local"),
+                        .fileSystem(path: "./Local")
                     ],
                     versions: ["develop"]
                 ),
                 MockPackage(
                     name: "Local",
                     targets: [
-                        MockTarget(name: "Local"),
+                        MockTarget(name: "Local")
                     ],
                     products: [
-                        MockProduct(name: "Local", modules: ["Local"]),
+                        MockProduct(name: "Local", modules: ["Local"])
                     ],
                     versions: [nil]
                 ),
@@ -5646,30 +5707,30 @@ final class WorkspaceTests: XCTestCase {
                     name: "Baz",
                     path: "Overridden/bazzz-master",
                     targets: [
-                        MockTarget(name: "Baz"),
+                        MockTarget(name: "Baz")
                     ],
                     products: [
-                        MockProduct(name: "Baz", modules: ["Baz"]),
+                        MockProduct(name: "Baz", modules: ["Baz"])
                     ]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "Baz",
                     path: "bazzz",
                     targets: [
-                        MockTarget(name: "Baz"),
+                        MockTarget(name: "Baz")
                     ],
                     products: [
-                        MockProduct(name: "Baz", modules: ["Baz"]),
+                        MockProduct(name: "Baz", modules: ["Baz"])
                     ],
                     versions: ["1.0.0"]
-                ),
+                )
             ]
         )
 
         let deps: [MockDependency] = [
-            .sourceControl(path: "./bazzz", requirement: .exact("1.0.0"), products: .specific(["Baz"])),
+            .sourceControl(path: "./bazzz", requirement: .exact("1.0.0"), products: .specific(["Baz"]))
         ]
 
         try await workspace.checkPackageGraphFailure(roots: ["Overridden/bazzz-master"], deps: deps) { diagnostics in
@@ -5695,32 +5756,38 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Foo",
                     targets: [
-                        MockTarget(name: "Foo", dependencies: [
-                            .product(name: "Bar", package: "bar"),
-                            .product(name: "Baz", package: "baz"),
-                        ]),
+                        MockTarget(
+                            name: "Foo",
+                            dependencies: [
+                                .product(name: "Bar", package: "bar"),
+                                .product(name: "Baz", package: "baz"),
+                            ]
+                        )
                     ],
                     products: [],
                     dependencies: [
                         .sourceControl(url: "https://localhost/org/bar", requirement: .upToNextMajor(from: "1.0.0")),
                         .sourceControl(url: "https://localhost/org/baz", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "Bar",
                     url: "https://localhost/org/bar",
                     targets: [
-                        MockTarget(name: "Bar", dependencies: [
-                            .product(name: "Baz", package: "Baz"),
-                        ]),
+                        MockTarget(
+                            name: "Bar",
+                            dependencies: [
+                                .product(name: "Baz", package: "Baz")
+                            ]
+                        )
                     ],
                     products: [
-                        MockProduct(name: "Bar", modules: ["Bar"]),
+                        MockProduct(name: "Bar", modules: ["Bar"])
                     ],
                     dependencies: [
-                        .sourceControl(url: "https://localhost/org/Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(url: "https://localhost/org/Baz", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -5728,10 +5795,10 @@ final class WorkspaceTests: XCTestCase {
                     name: "Baz",
                     url: "https://localhost/org/baz",
                     targets: [
-                        MockTarget(name: "Baz"),
+                        MockTarget(name: "Baz")
                     ],
                     products: [
-                        MockProduct(name: "Baz", modules: ["Baz"]),
+                        MockProduct(name: "Baz", modules: ["Baz"])
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -5739,10 +5806,10 @@ final class WorkspaceTests: XCTestCase {
                     name: "Baz",
                     url: "https://localhost/org/Baz",
                     targets: [
-                        MockTarget(name: "Baz"),
+                        MockTarget(name: "Baz")
                     ],
                     products: [
-                        MockProduct(name: "Baz", modules: ["Baz"]),
+                        MockProduct(name: "Baz", modules: ["Baz"])
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -5789,17 +5856,17 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Bar",
                     targets: [
-                        MockTarget(name: "Bar", settings: [.init(tool: .swift, kind: .unsafeFlags(["-F", "/tmp"]))]),
+                        MockTarget(name: "Bar", settings: [.init(tool: .swift, kind: .unsafeFlags(["-F", "/tmp"]))])
                     ],
                     products: [
-                        MockProduct(name: "Bar", modules: ["Bar"]),
+                        MockProduct(name: "Bar", modules: ["Bar"])
                     ],
                     versions: ["1.0.0", nil],
                 ),
                 MockPackage(
                     name: "Foo",
                     targets: [
-                        MockTarget(name: "Foo", dependencies: ["Bar", "Baz"]),
+                        MockTarget(name: "Foo", dependencies: ["Bar", "Baz"])
                     ],
                     products: [],
                     dependencies: [
@@ -5812,10 +5879,10 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Bar",
                     targets: [
-                        MockTarget(name: "Bar", settings: [.init(tool: .swift, kind: .unsafeFlags(["-F", "/tmp"]))]),
+                        MockTarget(name: "Bar", settings: [.init(tool: .swift, kind: .unsafeFlags(["-F", "/tmp"]))])
                     ],
                     products: [
-                        MockProduct(name: "Bar", modules: ["Bar"]),
+                        MockProduct(name: "Bar", modules: ["Bar"])
                     ],
                     versions: ["1.0.0", nil],
                 ),
@@ -5826,13 +5893,13 @@ final class WorkspaceTests: XCTestCase {
                             name: "Baz",
                             dependencies: ["Bar"],
                             settings: [.init(tool: .swift, kind: .unsafeFlags(["-F", "/tmp"]))]
-                        ),
+                        )
                     ],
                     products: [
-                        MockProduct(name: "Baz", modules: ["Baz"]),
+                        MockProduct(name: "Baz", modules: ["Baz"])
                     ],
                     dependencies: [
-                        .sourceControl(path: "./Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(path: "./Bar", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     versions: ["1.0.0", "1.5.0"],
                     toolsVersion: .minimumRequired
@@ -5875,15 +5942,15 @@ final class WorkspaceTests: XCTestCase {
                                 .product(
                                     name: "Foundation",
                                     package: "swift-corelibs-foundation"
-                                ),
+                                )
                             ]
-                        ),
+                        )
                     ],
                     products: [],
                     dependencies: [
-                        .sourceControl(path: "swift-corelibs-foundation", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(path: "swift-corelibs-foundation", requirement: .upToNextMajor(from: "1.0.0"))
                     ]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
@@ -5892,13 +5959,13 @@ final class WorkspaceTests: XCTestCase {
                         MockTarget(
                             name: "Foundation",
                             settings: [.init(tool: .swift, kind: .unsafeFlags(["-F", "/tmp"]))]
-                        ),
+                        )
                     ],
                     products: [
-                        MockProduct(name: "Foundation", modules: ["Foundation"]),
+                        MockProduct(name: "Foundation", modules: ["Foundation"])
                     ],
                     versions: ["1.0.0", nil]
-                ),
+                )
             ]
         )
 
@@ -5918,49 +5985,49 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root",
                     targets: [
-                        MockTarget(name: "Root", dependencies: ["Foo", "Baz"]),
+                        MockTarget(name: "Root", dependencies: ["Foo", "Baz"])
                     ],
                     products: [],
                     dependencies: [
                         .sourceControl(path: "./Foo", requirement: .branch("master")),
                         .sourceControl(path: "./Baz", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "Foo",
                     targets: [
-                        MockTarget(name: "Foo", dependencies: ["Bar"]),
+                        MockTarget(name: "Foo", dependencies: ["Bar"])
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo"]),
+                        MockProduct(name: "Foo", modules: ["Foo"])
                     ],
                     dependencies: [
-                        .sourceControl(path: "./Bar", requirement: .branch("master")),
+                        .sourceControl(path: "./Bar", requirement: .branch("master"))
                     ],
                     versions: ["master", nil]
                 ),
                 MockPackage(
                     name: "Bar",
                     targets: [
-                        MockTarget(name: "Bar"),
+                        MockTarget(name: "Bar")
                     ],
                     products: [
-                        MockProduct(name: "Bar", modules: ["Bar"]),
+                        MockProduct(name: "Bar", modules: ["Bar"])
                     ],
                     versions: ["master", "1.0.0", nil]
                 ),
                 MockPackage(
                     name: "Baz",
                     targets: [
-                        MockTarget(name: "Baz", dependencies: ["Bar"]),
+                        MockTarget(name: "Baz", dependencies: ["Bar"])
                     ],
                     products: [
-                        MockProduct(name: "Baz", modules: ["Baz"]),
+                        MockProduct(name: "Baz", modules: ["Baz"])
                     ],
                     dependencies: [
-                        .sourceControl(path: "./Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(path: "./Bar", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     versions: ["1.0.0", nil]
                 ),
@@ -6014,14 +6081,14 @@ final class WorkspaceTests: XCTestCase {
 
         let barProducts: [MockProduct]
         #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
-        barProducts = [
-            MockProduct(name: "Bar", modules: ["Bar"]),
-            MockProduct(name: "BarUnused", modules: ["BarUnused"]),
-        ]
+            barProducts = [
+                MockProduct(name: "Bar", modules: ["Bar"]),
+                MockProduct(name: "BarUnused", modules: ["BarUnused"]),
+            ]
         #else
-        // Whether a product is being used does not affect dependency resolution in this case, so we omit the unused
-        // product.
-        barProducts = [MockProduct(name: "Bar", modules: ["Bar"])]
+            // Whether a product is being used does not affect dependency resolution in this case, so we omit the unused
+            // product.
+            barProducts = [MockProduct(name: "Bar", modules: ["Bar"])]
         #endif
 
         let workspace = try await MockWorkspace(
@@ -6041,7 +6108,7 @@ final class WorkspaceTests: XCTestCase {
                         .sourceControl(path: "./TestHelper1", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     toolsVersion: .v5_2
-                ),
+                )
             ],
             packages: [
                 MockPackage(
@@ -6052,7 +6119,7 @@ final class WorkspaceTests: XCTestCase {
                         MockTarget(name: "FooTests", dependencies: ["TestHelper2"], type: .test),
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo1"]),
+                        MockProduct(name: "Foo", modules: ["Foo1"])
                     ],
                     dependencies: [
                         .sourceControl(path: "./TestHelper2", requirement: .upToNextMajor(from: "1.0.0")),
@@ -6079,10 +6146,10 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Baz",
                     targets: [
-                        MockTarget(name: "Baz"),
+                        MockTarget(name: "Baz")
                     ],
                     products: [
-                        MockProduct(name: "Baz", modules: ["Baz"]),
+                        MockProduct(name: "Baz", modules: ["Baz"])
                     ],
                     versions: ["1.0.0"],
                     toolsVersion: .v5_2
@@ -6090,10 +6157,10 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "TestHelper1",
                     targets: [
-                        MockTarget(name: "TestHelper1"),
+                        MockTarget(name: "TestHelper1")
                     ],
                     products: [
-                        MockProduct(name: "TestHelper1", modules: ["TestHelper1"]),
+                        MockProduct(name: "TestHelper1", modules: ["TestHelper1"])
                     ],
                     versions: ["1.0.0"],
                     toolsVersion: .v5_2
@@ -6148,18 +6215,21 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root",
                     targets: [
-                        MockTarget(name: "Foo", dependencies: [
-                            .product(name: "A1", package: "A"),
-                            .product(name: "A2", package: "A"),
-                            .product(name: "B", package: "B"),
-                        ]),
+                        MockTarget(
+                            name: "Foo",
+                            dependencies: [
+                                .product(name: "A1", package: "A"),
+                                .product(name: "A2", package: "A"),
+                                .product(name: "B", package: "B"),
+                            ]
+                        )
                     ],
                     products: [],
                     dependencies: [
                         .sourceControl(path: "./A", requirement: .exact("1.0.0")),
                         .sourceControl(path: "./B", requirement: .exact("1.0.0")),
                     ]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
@@ -6189,10 +6259,10 @@ final class WorkspaceTests: XCTestCase {
                             name: "B",
                             type: .binary,
                             path: "XCFrameworks/B.zip"
-                        ),
+                        )
                     ],
                     products: [
-                        MockProduct(name: "B", modules: ["B"]),
+                        MockProduct(name: "B", modules: ["B"])
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -6239,11 +6309,14 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertTrue(fs.exists(bFrameworkArchivePath))
 
             // Ensure that the temporary folders have been properly created
-            XCTAssertEqual(archiver.extractions.map(\.destinationPath.parentDirectory).sorted(), [
-                sandbox.appending(components: [".build", "artifacts", "extract", "a", "A1"]),
-                sandbox.appending(components: [".build", "artifacts", "extract", "a", "A2"]),
-                sandbox.appending(components: [".build", "artifacts", "extract", "b", "B"]),
-            ])
+            XCTAssertEqual(
+                archiver.extractions.map(\.destinationPath.parentDirectory).sorted(),
+                [
+                    sandbox.appending(components: [".build", "artifacts", "extract", "a", "A1"]),
+                    sandbox.appending(components: [".build", "artifacts", "extract", "a", "A2"]),
+                    sandbox.appending(components: [".build", "artifacts", "extract", "b", "B"]),
+                ]
+            )
 
             // Ensure that the temporary directories have been removed
             XCTAssertTrue(try! fs.getDirectoryContents(sandbox.appending(components: [".build", "artifacts", "extract", "a", "A1"])).isEmpty)
@@ -6359,18 +6432,21 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root",
                     targets: [
-                        MockTarget(name: "Foo", dependencies: [
-                            .product(name: "A1", package: "A"),
-                            .product(name: "A2", package: "A"),
-                            .product(name: "A3", package: "A"),
-                            .product(name: "A4", package: "A"),
-                        ]),
+                        MockTarget(
+                            name: "Foo",
+                            dependencies: [
+                                .product(name: "A1", package: "A"),
+                                .product(name: "A2", package: "A"),
+                                .product(name: "A3", package: "A"),
+                                .product(name: "A4", package: "A"),
+                            ]
+                        )
                     ],
                     products: [],
                     dependencies: [
-                        .sourceControl(path: "./A", requirement: .exact("1.0.0")),
+                        .sourceControl(path: "./A", requirement: .exact("1.0.0"))
                     ]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
@@ -6405,7 +6481,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "A4", modules: ["A4"]),
                     ],
                     versions: ["1.0.0"]
-                ),
+                )
             ],
             binaryArtifactsManager: .init(
                 httpClient: httpClient,
@@ -6593,9 +6669,9 @@ final class WorkspaceTests: XCTestCase {
                             name: "A1",
                             type: .binary,
                             path: "XCFrameworks/archived-does-not-match-target-name.zip"
-                        ),
+                        )
                     ]
-                ),
+                )
             ],
             binaryArtifactsManager: .init(
                 archiver: archiver
@@ -6642,7 +6718,7 @@ final class WorkspaceTests: XCTestCase {
                             path: "ArtifactBundles/A2.zip"
                         ),
                     ]
-                ),
+                )
             ],
             binaryArtifactsManager: .init(
                 archiver: archiver
@@ -6705,7 +6781,7 @@ final class WorkspaceTests: XCTestCase {
                             path: "ArtifactBundles/A2.zip"
                         ),
                     ]
-                ),
+                )
             ],
             binaryArtifactsManager: .init(
                 archiver: archiver
@@ -6742,7 +6818,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-////// STAET ATDIN
+    ////// STAET ATDIN
     func testLocalArchivedArtifactChecksumChange() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
@@ -6784,7 +6860,7 @@ final class WorkspaceTests: XCTestCase {
                             path: "XCFrameworks/A2.zip"
                         ),
                     ]
-                ),
+                )
             ],
             binaryArtifactsManager: .init(
                 archiver: archiver
@@ -6826,9 +6902,12 @@ final class WorkspaceTests: XCTestCase {
 
         try await workspace.checkPackageGraph(roots: ["Root"]) { _, _ in
             // Ensure that only the artifact archive with the changed checksum has been extracted
-            XCTAssertEqual(archiver.extractions.map(\.destinationPath.parentDirectory).sorted(), [
-                sandbox.appending(components: [".build", "artifacts", "extract", "root", "A1"]),
-            ])
+            XCTAssertEqual(
+                archiver.extractions.map(\.destinationPath.parentDirectory).sorted(),
+                [
+                    sandbox.appending(components: [".build", "artifacts", "extract", "root", "A1"])
+                ]
+            )
         }
 
         await workspace.checkManagedArtifacts { result in
@@ -6869,7 +6948,7 @@ final class WorkspaceTests: XCTestCase {
                         .writeFileContents(
                             nestedPath.appending(".DS_Store"),
                             bytes: []
-                        ) // add a file next to the directory
+                        )  // add a file next to the directory
                 default:
                     throw StringError("unexpected archivePath \(archivePath)")
                 }
@@ -6905,7 +6984,7 @@ final class WorkspaceTests: XCTestCase {
                             path: "frameworks/nested2.zip"
                         ),
                     ]
-                ),
+                )
             ],
             binaryArtifactsManager: .init(
                 archiver: archiver
@@ -6928,11 +7007,14 @@ final class WorkspaceTests: XCTestCase {
         try await workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
             XCTAssert(fs.isDirectory(sandbox.appending(components: [".build", "artifacts", "root"])))
-            XCTAssertEqual(archiver.extractions.map(\.destinationPath.parentDirectory).sorted(), [
-                sandbox.appending(components: [".build", "artifacts", "extract", "root", "flat"]),
-                sandbox.appending(components: [".build", "artifacts", "extract", "root", "nested"]),
-                sandbox.appending(components: [".build", "artifacts", "extract", "root", "nested2"]),
-            ])
+            XCTAssertEqual(
+                archiver.extractions.map(\.destinationPath.parentDirectory).sorted(),
+                [
+                    sandbox.appending(components: [".build", "artifacts", "extract", "root", "flat"]),
+                    sandbox.appending(components: [".build", "artifacts", "extract", "root", "nested"]),
+                    sandbox.appending(components: [".build", "artifacts", "extract", "root", "nested2"]),
+                ]
+            )
         }
 
         await workspace.checkManagedArtifacts { result in
@@ -6979,7 +7061,7 @@ final class WorkspaceTests: XCTestCase {
                             path: "ArtifactBundles/A2.artifactbundle"
                         ),
                     ]
-                ),
+                )
             ]
         )
 
@@ -7031,7 +7113,7 @@ final class WorkspaceTests: XCTestCase {
                             path: "ArtifactBundles/incorrect.artifactbundle"
                         ),
                     ]
-                ),
+                )
             ]
         )
 
@@ -7114,18 +7196,21 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root",
                     targets: [
-                        MockTarget(name: "RootTarget", dependencies: [
-                            .product(name: "A1", package: "A"),
-                            .product(name: "A2", package: "A"),
-                            "B",
-                        ]),
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [
+                                .product(name: "A1", package: "A"),
+                                .product(name: "A2", package: "A"),
+                                "B",
+                            ]
+                        )
                     ],
                     products: [],
                     dependencies: [
                         .sourceControl(path: "./A", requirement: .exact("1.0.0")),
                         .sourceControl(path: "./B", requirement: .exact("1.0.0")),
                     ]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
@@ -7158,10 +7243,10 @@ final class WorkspaceTests: XCTestCase {
                             type: .binary,
                             url: "https://b.com/b.zip",
                             checksum: "b0"
-                        ),
+                        )
                     ],
                     products: [
-                        MockProduct(name: "B", modules: ["B"]),
+                        MockProduct(name: "B", modules: ["B"])
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -7169,7 +7254,7 @@ final class WorkspaceTests: XCTestCase {
             binaryArtifactsManager: .init(
                 httpClient: httpClient,
                 archiver: archiver,
-                useCache: false // disable cache
+                useCache: false  // disable cache
             )
         )
 
@@ -7177,21 +7262,30 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertNoDiagnostics(diagnostics)
             XCTAssert(fs.isDirectory(sandbox.appending(components: [".build", "artifacts", "a"])))
             XCTAssert(fs.isDirectory(sandbox.appending(components: [".build", "artifacts", "b"])))
-            XCTAssertEqual(downloads.map(\.key.absoluteString).sorted(), [
-                "https://a.com/a1.zip",
-                "https://a.com/a2.zip",
-                "https://b.com/b.zip",
-            ])
-            XCTAssertEqual(workspace.checksumAlgorithm.hashes.map(\.hexadecimalRepresentation).sorted(), [
-                ByteString([0xA1]).hexadecimalRepresentation,
-                ByteString([0xA2]).hexadecimalRepresentation,
-                ByteString([0xB0]).hexadecimalRepresentation,
-            ])
-            XCTAssertEqual(archiver.extractions.map(\.destinationPath.parentDirectory).sorted(), [
-                sandbox.appending(components: [".build", "artifacts", "extract", "a", "A1"]),
-                sandbox.appending(components: [".build", "artifacts", "extract", "a", "A2"]),
-                sandbox.appending(components: [".build", "artifacts", "extract", "b", "B"]),
-            ])
+            XCTAssertEqual(
+                downloads.map(\.key.absoluteString).sorted(),
+                [
+                    "https://a.com/a1.zip",
+                    "https://a.com/a2.zip",
+                    "https://b.com/b.zip",
+                ]
+            )
+            XCTAssertEqual(
+                workspace.checksumAlgorithm.hashes.map(\.hexadecimalRepresentation).sorted(),
+                [
+                    ByteString([0xA1]).hexadecimalRepresentation,
+                    ByteString([0xA2]).hexadecimalRepresentation,
+                    ByteString([0xB0]).hexadecimalRepresentation,
+                ]
+            )
+            XCTAssertEqual(
+                archiver.extractions.map(\.destinationPath.parentDirectory).sorted(),
+                [
+                    sandbox.appending(components: [".build", "artifacts", "extract", "a", "A1"]),
+                    sandbox.appending(components: [".build", "artifacts", "extract", "a", "A2"]),
+                    sandbox.appending(components: [".build", "artifacts", "extract", "b", "B"]),
+                ]
+            )
             XCTAssertEqual(
                 downloads.map(\.value).sorted(),
                 archiver.extractions.map(\.archivePath).sorted()
@@ -7288,7 +7382,7 @@ final class WorkspaceTests: XCTestCase {
                 case "a2.zip":
                     try createDummyXCFramework(fileSystem: fs, path: destinationPath, name: "A2")
                 case "a3.zip":
-                    fs.createEmptyFiles(at: destinationPath, files: ".DS_Store") // invalid binary artifact
+                    fs.createEmptyFiles(at: destinationPath, files: ".DS_Store")  // invalid binary artifact
                 case "a7.zip":
                     try createDummyXCFramework(fileSystem: fs, path: destinationPath, name: "A7")
                 case "b.zip":
@@ -7311,21 +7405,24 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root",
                     targets: [
-                        MockTarget(name: "RootTarget", dependencies: [
-                            "B",
-                            .product(name: "A1", package: "A"),
-                            .product(name: "A2", package: "A"),
-                            .product(name: "A3", package: "A"),
-                            .product(name: "A4", package: "A"),
-                            .product(name: "A7", package: "A"),
-                        ]),
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [
+                                "B",
+                                .product(name: "A1", package: "A"),
+                                .product(name: "A2", package: "A"),
+                                .product(name: "A3", package: "A"),
+                                .product(name: "A4", package: "A"),
+                                .product(name: "A7", package: "A"),
+                            ]
+                        )
                     ],
                     products: [],
                     dependencies: [
                         .sourceControl(path: "./A", requirement: .exact("1.0.0")),
                         .sourceControl(path: "./B", requirement: .exact("1.0.0")),
                     ]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
@@ -7378,10 +7475,10 @@ final class WorkspaceTests: XCTestCase {
                             type: .binary,
                             url: "https://b.com/b.zip",
                             checksum: "b0"
-                        ),
+                        )
                     ],
                     products: [
-                        MockProduct(name: "B", modules: ["B"]),
+                        MockProduct(name: "B", modules: ["B"])
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -7478,24 +7575,33 @@ final class WorkspaceTests: XCTestCase {
             XCTAssert(!fs.exists(sandbox.appending(components: [".build", "artifacts", "a", "A5", "A5.xcframework"])))
             XCTAssert(fs.exists(sandbox.appending(components: ["pkgs", "a", "XCFrameworks", "A7.xcframework"])))
             XCTAssert(!fs.exists(sandbox.appending(components: [".build", "artifacts", "Foo"])))
-            XCTAssertEqual(downloads.map(\.key.absoluteString).sorted(), [
-                "https://a.com/a2.zip",
-                "https://a.com/a3.zip",
-                "https://a.com/a7.zip",
-                "https://b.com/b.zip",
-            ])
-            XCTAssertEqual(workspace.checksumAlgorithm.hashes.map(\.hexadecimalRepresentation).sorted(), [
-                ByteString([0xA2]).hexadecimalRepresentation,
-                ByteString([0xA3]).hexadecimalRepresentation,
-                ByteString([0xA7]).hexadecimalRepresentation,
-                ByteString([0xB0]).hexadecimalRepresentation,
-            ])
-            XCTAssertEqual(archiver.extractions.map(\.destinationPath.parentDirectory).sorted(), [
-                sandbox.appending(components: [".build", "artifacts", "extract","a", "A2"]),
-                sandbox.appending(components: [".build", "artifacts", "extract","a", "A3"]),
-                sandbox.appending(components: [".build", "artifacts", "extract","a", "A7"]),
-                sandbox.appending(components: [".build", "artifacts", "extract","b", "B"]),
-            ])
+            XCTAssertEqual(
+                downloads.map(\.key.absoluteString).sorted(),
+                [
+                    "https://a.com/a2.zip",
+                    "https://a.com/a3.zip",
+                    "https://a.com/a7.zip",
+                    "https://b.com/b.zip",
+                ]
+            )
+            XCTAssertEqual(
+                workspace.checksumAlgorithm.hashes.map(\.hexadecimalRepresentation).sorted(),
+                [
+                    ByteString([0xA2]).hexadecimalRepresentation,
+                    ByteString([0xA3]).hexadecimalRepresentation,
+                    ByteString([0xA7]).hexadecimalRepresentation,
+                    ByteString([0xB0]).hexadecimalRepresentation,
+                ]
+            )
+            XCTAssertEqual(
+                archiver.extractions.map(\.destinationPath.parentDirectory).sorted(),
+                [
+                    sandbox.appending(components: [".build", "artifacts", "extract", "a", "A2"]),
+                    sandbox.appending(components: [".build", "artifacts", "extract", "a", "A3"]),
+                    sandbox.appending(components: [".build", "artifacts", "extract", "a", "A7"]),
+                    sandbox.appending(components: [".build", "artifacts", "extract", "b", "B"]),
+                ]
+            )
             XCTAssertEqual(
                 downloads.map(\.value).sorted(),
                 archiver.extractions.map(\.archivePath).sorted()
@@ -7614,9 +7720,9 @@ final class WorkspaceTests: XCTestCase {
                             type: .binary,
                             url: "https://a.com/a1.zip",
                             checksum: "a1"
-                        ),
+                        )
                     ]
-                ),
+                )
             ],
             binaryArtifactsManager: .init(
                 httpClient: httpClient,
@@ -7628,17 +7734,26 @@ final class WorkspaceTests: XCTestCase {
         try await workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
             XCTAssert(fs.isDirectory(sandbox.appending(components: [".build", "artifacts", "root"])))
-            XCTAssertEqual(workspace.checksumAlgorithm.hashes.map(\.hexadecimalRepresentation).sorted(), [
-                ByteString([0xA1]).hexadecimalRepresentation,
-            ])
+            XCTAssertEqual(
+                workspace.checksumAlgorithm.hashes.map(\.hexadecimalRepresentation).sorted(),
+                [
+                    ByteString([0xA1]).hexadecimalRepresentation
+                ]
+            )
         }
 
-        XCTAssertEqual(downloads.map(\.0.absoluteString).sorted(), [
-            "https://a.com/a1.zip",
-        ])
-        XCTAssertEqual(archiver.extractions.map(\.destinationPath.parentDirectory).sorted(), [
-            sandbox.appending(components: [".build", "artifacts", "extract", "root", "A1"]),
-        ])
+        XCTAssertEqual(
+            downloads.map(\.0.absoluteString).sorted(),
+            [
+                "https://a.com/a1.zip"
+            ]
+        )
+        XCTAssertEqual(
+            archiver.extractions.map(\.destinationPath.parentDirectory).sorted(),
+            [
+                sandbox.appending(components: [".build", "artifacts", "extract", "root", "A1"])
+            ]
+        )
         XCTAssertEqual(
             downloads.map(\.1).sorted(),
             archiver.extractions.map(\.archivePath).sorted()
@@ -7654,18 +7769,27 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertNoDiagnostics(diagnostics)
             XCTAssert(fs.isDirectory(sandbox.appending(components: [".build", "artifacts", "root"])))
 
-            XCTAssertEqual(workspace.checksumAlgorithm.hashes.map(\.hexadecimalRepresentation).sorted(), [
-                ByteString([0xA1]).hexadecimalRepresentation, ByteString([0xA1]).hexadecimalRepresentation,
-            ])
+            XCTAssertEqual(
+                workspace.checksumAlgorithm.hashes.map(\.hexadecimalRepresentation).sorted(),
+                [
+                    ByteString([0xA1]).hexadecimalRepresentation, ByteString([0xA1]).hexadecimalRepresentation,
+                ]
+            )
         }
 
-        XCTAssertEqual(downloads.map(\.0.absoluteString).sorted(), [
-            "https://a.com/a1.zip", "https://a.com/a1.zip",
-        ])
-        XCTAssertEqual(archiver.extractions.map(\.destinationPath.parentDirectory).sorted(), [
-            sandbox.appending(components: [".build", "artifacts", "extract", "root", "A1"]),
-            sandbox.appending(components: [".build", "artifacts", "extract", "root", "A1"]),
-        ])
+        XCTAssertEqual(
+            downloads.map(\.0.absoluteString).sorted(),
+            [
+                "https://a.com/a1.zip", "https://a.com/a1.zip",
+            ]
+        )
+        XCTAssertEqual(
+            archiver.extractions.map(\.destinationPath.parentDirectory).sorted(),
+            [
+                sandbox.appending(components: [".build", "artifacts", "extract", "root", "A1"]),
+                sandbox.appending(components: [".build", "artifacts", "extract", "root", "A1"]),
+            ]
+        )
         XCTAssertEqual(
             downloads.map(\.1).sorted(),
             archiver.extractions.map(\.archivePath).sorted()
@@ -7705,9 +7829,9 @@ final class WorkspaceTests: XCTestCase {
                             type: .binary,
                             url: artifactUrl,
                             checksum: "a1"
-                        ),
+                        )
                     ]
-                ),
+                )
             ],
             binaryArtifactsManager: .init(
                 httpClient: httpClient
@@ -7731,9 +7855,10 @@ final class WorkspaceTests: XCTestCase {
 
         // make sure the cached artifact is also deleted
         let artifactCacheKey = artifactUrl.spm_mangledToC99ExtendedIdentifier()
-        guard let cachePath = workspace.workspaceLocation?
-            .sharedBinaryArtifactsCacheDirectory?
-            .appending(artifactCacheKey)
+        guard
+            let cachePath = workspace.workspaceLocation?
+                .sharedBinaryArtifactsCacheDirectory?
+                .appending(artifactCacheKey)
         else {
             XCTFail("Required workspace location wasn't found")
             return
@@ -7797,7 +7922,7 @@ final class WorkspaceTests: XCTestCase {
                             checksum: "a3"
                         ),
                     ]
-                ),
+                )
             ],
             binaryArtifactsManager: .init(
                 httpClient: httpClient,
@@ -7911,7 +8036,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: []
-                ),
+                )
             ],
             binaryArtifactsManager: .init(
                 httpClient: httpClient,
@@ -7984,11 +8109,11 @@ final class WorkspaceTests: XCTestCase {
                             type: .binary,
                             url: "https://a.com/a1.zip",
                             checksum: "a1"
-                        ),
+                        )
                     ],
                     products: [],
                     dependencies: []
-                ),
+                )
             ],
             binaryArtifactsManager: .init(
                 httpClient: httpClient,
@@ -8054,11 +8179,11 @@ final class WorkspaceTests: XCTestCase {
                             type: .binary,
                             url: "https://a.com/foo.zip",
                             checksum: "a1"
-                        ),
+                        )
                     ],
                     products: [],
                     dependencies: []
-                ),
+                )
             ],
             binaryArtifactsManager: .init(
                 httpClient: httpClient,
@@ -8084,9 +8209,11 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testArtifactChecksum() async throws {
-        try XCTSkipOnWindows(because: #"""
-        threw error "\tmp\ws doesn't exist in file system" because there is an issue with InMemoryFileSystem readFileContents(...) on Windows
-        """#)
+        try XCTSkipOnWindows(
+            because: #"""
+                threw error "\tmp\ws doesn't exist in file system" because there is an issue with InMemoryFileSystem readFileContents(...) on Windows
+                """#
+        )
 
         let fs = InMemoryFileSystem()
         try fs.createMockToolchain()
@@ -8175,9 +8302,9 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root",
                     targets: [
-                        MockTarget(name: "A", type: .binary, url: "https://a.com/a.zip", checksum: "new-checksum"),
+                        MockTarget(name: "A", type: .binary, url: "https://a.com/a.zip", checksum: "new-checksum")
                     ]
-                ),
+                )
             ],
             binaryArtifactsManager: .init(
                 httpClient: httpClient
@@ -8198,7 +8325,7 @@ final class WorkspaceTests: XCTestCase {
                     ),
                     path: workspace.artifactsDir.appending(components: "Root", "A.xcframework"),
                     kind: .xcframework
-                ),
+                )
             ]
         )
 
@@ -8270,9 +8397,9 @@ final class WorkspaceTests: XCTestCase {
                             type: .binary,
                             url: "https://a.com/b.zip",
                             checksum: "b1"
-                        ),
+                        )
                     ]
-                ),
+                )
             ],
             binaryArtifactsManager: .init(
                 httpClient: httpClient,
@@ -8294,7 +8421,7 @@ final class WorkspaceTests: XCTestCase {
                     ),
                     path: workspace.artifactsDir.appending(components: "Root", "A.xcframework"),
                     kind: .xcframework
-                ),
+                )
             ]
         )
 
@@ -8361,9 +8488,9 @@ final class WorkspaceTests: XCTestCase {
                             type: .binary,
                             url: "https://a.com/a1.zip",
                             checksum: "a1"
-                        ),
+                        )
                     ]
-                ),
+                )
             ],
             binaryArtifactsManager: .init(
                 httpClient: httpClient,
@@ -8373,9 +8500,12 @@ final class WorkspaceTests: XCTestCase {
 
         try await workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            XCTAssertEqual(acceptHeaders.get(), [
-                "application/octet-stream",
-            ])
+            XCTAssertEqual(
+                acceptHeaders.get(),
+                [
+                    "application/octet-stream"
+                ]
+            )
         }
     }
 
@@ -8437,9 +8567,9 @@ final class WorkspaceTests: XCTestCase {
                             type: .binary,
                             url: "https://a.com/a1.zip",
                             checksum: "a1"
-                        ),
+                        )
                     ]
-                ),
+                )
             ],
             binaryArtifactsManager: .init(
                 httpClient: httpClient,
@@ -8526,9 +8656,9 @@ final class WorkspaceTests: XCTestCase {
                             type: .binary,
                             url: "https://a.com/a1.zip",
                             checksum: "a1"
-                        ),
+                        )
                     ]
-                ),
+                )
             ],
             binaryArtifactsManager: .init(
                 httpClient: httpClient,
@@ -8633,39 +8763,45 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root",
                     targets: [
-                        MockTarget(name: "RootTarget", dependencies: [
-                            .product(name: "A", package: "A"),
-                            .product(name: "B", package: "B"),
-                        ]),
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [
+                                .product(name: "A", package: "A"),
+                                .product(name: "B", package: "B"),
+                            ]
+                        )
                     ],
                     products: [],
                     dependencies: [
                         .sourceControl(path: "./A", requirement: .exact("1.0.0")),
                         .sourceControl(path: "./B", requirement: .exact("1.0.0")),
                     ]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "A",
                     targets: [
-                        MockTarget(name: "A", type: .binary, url: "https://a.com/a.zip", checksum: "0a"),
+                        MockTarget(name: "A", type: .binary, url: "https://a.com/a.zip", checksum: "0a")
                     ],
                     products: [
-                        MockProduct(name: "A", modules: ["A"]),
+                        MockProduct(name: "A", modules: ["A"])
                     ],
                     versions: ["1.0.0"]
                 ),
                 MockPackage(
                     name: "B",
                     targets: [
-                        MockTarget(name: "B", dependencies: [
-                            .product(name: "C", package: "C"),
-                            .product(name: "D", package: "D"),
-                        ]),
+                        MockTarget(
+                            name: "B",
+                            dependencies: [
+                                .product(name: "C", package: "C"),
+                                .product(name: "D", package: "D"),
+                            ]
+                        )
                     ],
                     products: [
-                        MockProduct(name: "B", modules: ["B"]),
+                        MockProduct(name: "B", modules: ["B"])
                     ],
                     dependencies: [
                         .sourceControl(path: "./C", requirement: .exact("1.0.0")),
@@ -8676,30 +8812,36 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "C",
                     targets: [
-                        MockTarget(name: "C", dependencies: [
-                            .product(name: "A", package: "A"),
-                        ]),
+                        MockTarget(
+                            name: "C",
+                            dependencies: [
+                                .product(name: "A", package: "A")
+                            ]
+                        )
                     ],
                     products: [
-                        MockProduct(name: "C", modules: ["C"]),
+                        MockProduct(name: "C", modules: ["C"])
                     ],
                     dependencies: [
-                        .sourceControl(path: "./A", requirement: .exact("1.0.0")),
+                        .sourceControl(path: "./A", requirement: .exact("1.0.0"))
                     ],
                     versions: ["1.0.0"]
                 ),
                 MockPackage(
                     name: "D",
                     targets: [
-                        MockTarget(name: "D", dependencies: [
-                            .product(name: "A", package: "A"),
-                        ]),
+                        MockTarget(
+                            name: "D",
+                            dependencies: [
+                                .product(name: "A", package: "A")
+                            ]
+                        )
                     ],
                     products: [
-                        MockProduct(name: "D", modules: ["D"]),
+                        MockProduct(name: "D", modules: ["D"])
                     ],
                     dependencies: [
-                        .sourceControl(path: "./A", requirement: .exact("1.0.0")),
+                        .sourceControl(path: "./A", requirement: .exact("1.0.0"))
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -8714,15 +8856,24 @@ final class WorkspaceTests: XCTestCase {
         try await workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
             XCTAssert(fs.isDirectory(sandbox.appending(components: [".build", "artifacts", "a"])))
-            XCTAssertEqual(downloads.map(\.key.absoluteString).sorted(), [
-                "https://a.com/a.zip",
-            ])
-            XCTAssertEqual(workspace.checksumAlgorithm.hashes.map(\.hexadecimalRepresentation).sorted(), [
-                ByteString([0xA]).hexadecimalRepresentation,
-            ])
-            XCTAssertEqual(archiver.extractions.map(\.destinationPath.parentDirectory).sorted(), [
-                sandbox.appending(components: [".build", "artifacts", "extract", "a", "A"]),
-            ])
+            XCTAssertEqual(
+                downloads.map(\.key.absoluteString).sorted(),
+                [
+                    "https://a.com/a.zip"
+                ]
+            )
+            XCTAssertEqual(
+                workspace.checksumAlgorithm.hashes.map(\.hexadecimalRepresentation).sorted(),
+                [
+                    ByteString([0xA]).hexadecimalRepresentation
+                ]
+            )
+            XCTAssertEqual(
+                archiver.extractions.map(\.destinationPath.parentDirectory).sorted(),
+                [
+                    sandbox.appending(components: [".build", "artifacts", "extract", "a", "A"])
+                ]
+            )
             XCTAssertEqual(
                 downloads.map(\.value).sorted(),
                 archiver.extractions.map(\.archivePath).sorted()
@@ -8817,9 +8968,9 @@ final class WorkspaceTests: XCTestCase {
                             type: .binary,
                             url: "https://a.com/binary.zip",
                             checksum: "01"
-                        ),
+                        )
                     ]
-                ),
+                )
             ],
             binaryArtifactsManager: .init(
                 httpClient: httpClient,
@@ -8897,7 +9048,7 @@ final class WorkspaceTests: XCTestCase {
             }
         })
 
-        let packages = try (0 ... maxConcurrentRequests * 10).map { index in
+        let packages = try (0...maxConcurrentRequests * 10).map { index in
             try MockPackage(
                 name: "library\(index)",
                 targets: [
@@ -8906,10 +9057,10 @@ final class WorkspaceTests: XCTestCase {
                         type: .binary,
                         url: "https://somewhere.com/binary\(index).zip",
                         checksum: "01"
-                    ),
+                    )
                 ],
                 products: [
-                    MockProduct(name: "binary\(index)", modules: ["binary\(index)"]),
+                    MockProduct(name: "binary\(index)", modules: ["binary\(index)"])
                 ],
                 versions: ["1.0.0"]
             )
@@ -8927,13 +9078,13 @@ final class WorkspaceTests: XCTestCase {
                             dependencies: packages.map { package in
                                 .product(name: package.targets.first!.name, package: package.name)
                             }
-                        ),
+                        )
                     ],
                     products: [],
                     dependencies: packages.map { package in
                         .sourceControl(path: "./\(package.name)", requirement: .exact("1.0.0"))
                     }
-                ),
+                )
             ],
             packages: packages,
             binaryArtifactsManager: .init(
@@ -9021,7 +9172,7 @@ final class WorkspaceTests: XCTestCase {
                         .writeFileContents(
                             nestedPath.appending(".DS_Store"),
                             bytes: []
-                        ) // add a file next to the directory
+                        )  // add a file next to the directory
 
                     archiver.extractions
                         .append(MockArchiver.Extraction(archivePath: archivePath, destinationPath: destinationPath))
@@ -9062,7 +9213,7 @@ final class WorkspaceTests: XCTestCase {
                             checksum: "03"
                         ),
                     ]
-                ),
+                )
             ],
             binaryArtifactsManager: .init(
                 httpClient: httpClient,
@@ -9074,21 +9225,30 @@ final class WorkspaceTests: XCTestCase {
         try await workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
             XCTAssert(fs.isDirectory(sandbox.appending(components: [".build", "artifacts", "root"])))
-            XCTAssertEqual(downloads.map(\.key.absoluteString).sorted(), [
-                "https://a.com/flat.zip",
-                "https://a.com/nested.zip",
-                "https://a.com/nested2.zip",
-            ])
-            XCTAssertEqual(workspace.checksumAlgorithm.hashes.map(\.hexadecimalRepresentation).sorted(), [
-                ByteString([0x01]).hexadecimalRepresentation,
-                ByteString([0x02]).hexadecimalRepresentation,
-                ByteString([0x03]).hexadecimalRepresentation,
-            ])
-            XCTAssertEqual(archiver.extractions.map(\.destinationPath.parentDirectory).sorted(), [
-                sandbox.appending(components: [".build", "artifacts", "extract", "root", "flat"]),
-                sandbox.appending(components: [".build", "artifacts", "extract", "root", "nested"]),
-                sandbox.appending(components: [".build", "artifacts", "extract", "root", "nested2"]),
-            ])
+            XCTAssertEqual(
+                downloads.map(\.key.absoluteString).sorted(),
+                [
+                    "https://a.com/flat.zip",
+                    "https://a.com/nested.zip",
+                    "https://a.com/nested2.zip",
+                ]
+            )
+            XCTAssertEqual(
+                workspace.checksumAlgorithm.hashes.map(\.hexadecimalRepresentation).sorted(),
+                [
+                    ByteString([0x01]).hexadecimalRepresentation,
+                    ByteString([0x02]).hexadecimalRepresentation,
+                    ByteString([0x03]).hexadecimalRepresentation,
+                ]
+            )
+            XCTAssertEqual(
+                archiver.extractions.map(\.destinationPath.parentDirectory).sorted(),
+                [
+                    sandbox.appending(components: [".build", "artifacts", "extract", "root", "flat"]),
+                    sandbox.appending(components: [".build", "artifacts", "extract", "root", "nested"]),
+                    sandbox.appending(components: [".build", "artifacts", "extract", "root", "nested2"]),
+                ]
+            )
             XCTAssertEqual(
                 downloads.map(\.value).sorted(),
                 archiver.extractions.map(\.archivePath).sorted()
@@ -9199,7 +9359,7 @@ final class WorkspaceTests: XCTestCase {
                         ),
                     ],
                     products: []
-                ),
+                )
             ],
             binaryArtifactsManager: .init(
                 httpClient: httpClient,
@@ -9210,18 +9370,27 @@ final class WorkspaceTests: XCTestCase {
 
         try await workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            XCTAssertEqual(downloads.map(\.key.absoluteString).sorted(), [
-                "https://a.com/a1.xcframework.zip",
-                "https://a.com/a2.zip.zip",
-            ])
-            XCTAssertEqual(workspace.checksumAlgorithm.hashes.map(\.hexadecimalRepresentation).sorted(), [
-                ByteString([0xA1]).hexadecimalRepresentation,
-                ByteString([0xA2]).hexadecimalRepresentation,
-            ])
-            XCTAssertEqual(archiver.extractions.map(\.destinationPath.parentDirectory).sorted(), [
-                sandbox.appending(components: [".build", "artifacts", "extract", "root", "A1"]),
-                sandbox.appending(components: [".build", "artifacts", "extract", "root", "A2"]),
-            ])
+            XCTAssertEqual(
+                downloads.map(\.key.absoluteString).sorted(),
+                [
+                    "https://a.com/a1.xcframework.zip",
+                    "https://a.com/a2.zip.zip",
+                ]
+            )
+            XCTAssertEqual(
+                workspace.checksumAlgorithm.hashes.map(\.hexadecimalRepresentation).sorted(),
+                [
+                    ByteString([0xA1]).hexadecimalRepresentation,
+                    ByteString([0xA2]).hexadecimalRepresentation,
+                ]
+            )
+            XCTAssertEqual(
+                archiver.extractions.map(\.destinationPath.parentDirectory).sorted(),
+                [
+                    sandbox.appending(components: [".build", "artifacts", "extract", "root", "A1"]),
+                    sandbox.appending(components: [".build", "artifacts", "extract", "root", "A2"]),
+                ]
+            )
             XCTAssertEqual(
                 downloads.map(\.value).sorted(),
                 archiver.extractions.map(\.archivePath).sorted()
@@ -9286,7 +9455,7 @@ final class WorkspaceTests: XCTestCase {
                         ),
                     ],
                     products: []
-                ),
+                )
             ]
         )
 
@@ -9333,7 +9502,7 @@ final class WorkspaceTests: XCTestCase {
             """,
         ]
 
-        let checksumAlgorithm = MockHashAlgorithm() // used in tests
+        let checksumAlgorithm = MockHashAlgorithm()  // used in tests
         let ariFilesChecksums = ariFiles.map { checksumAlgorithm.hash($0).hexadecimalRepresentation }
 
         // returns a dummy file for the requested artifact
@@ -9405,18 +9574,21 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root",
                     targets: [
-                        MockTarget(name: "Foo", dependencies: [
-                            .product(name: "A1", package: "A"),
-                            .product(name: "A2", package: "A"),
-                            "B",
-                        ]),
+                        MockTarget(
+                            name: "Foo",
+                            dependencies: [
+                                .product(name: "A1", package: "A"),
+                                .product(name: "A2", package: "A"),
+                                "B",
+                            ]
+                        )
                     ],
                     products: [],
                     dependencies: [
                         .sourceControl(path: "./A", requirement: .exact("1.0.0")),
                         .sourceControl(path: "./B", requirement: .exact("1.0.0")),
                     ]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
@@ -9449,10 +9621,10 @@ final class WorkspaceTests: XCTestCase {
                             type: .binary,
                             url: "https://b.com/b.zip",
                             checksum: "b0"
-                        ),
+                        )
                     ],
                     products: [
-                        MockProduct(name: "B", modules: ["B"]),
+                        MockProduct(name: "B", modules: ["B"])
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -9469,28 +9641,30 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertNoDiagnostics(diagnostics)
             XCTAssert(fs.isDirectory(sandbox.appending(components: [".build", "artifacts", "a"])))
             XCTAssert(fs.isDirectory(sandbox.appending(components: [".build", "artifacts", "b"])))
-            XCTAssertEqual(downloads.map(\.key.absoluteString).sorted(), [
-                "https://a.com/a1.zip",
-                "https://a.com/a2/a2.zip",
-                "https://b.com/b.zip",
-            ])
+            XCTAssertEqual(
+                downloads.map(\.key.absoluteString).sorted(),
+                [
+                    "https://a.com/a1.zip",
+                    "https://a.com/a2/a2.zip",
+                    "https://b.com/b.zip",
+                ]
+            )
             XCTAssertEqual(
                 checksumAlgorithm.hashes.map(\.hexadecimalRepresentation).sorted(),
-                (
-                    ariFiles.map(ByteString.init(encodingAsUTF8:)) +
-                        ariFiles.map(ByteString.init(encodingAsUTF8:)) +
-                        [
-                            ByteString([0xA1]),
-                            ByteString([0xA2]),
-                            ByteString([0xB0]),
-                        ]
-                ).map(\.hexadecimalRepresentation).sorted()
+                (ariFiles.map(ByteString.init(encodingAsUTF8:)) + ariFiles.map(ByteString.init(encodingAsUTF8:)) + [
+                    ByteString([0xA1]),
+                    ByteString([0xA2]),
+                    ByteString([0xB0]),
+                ]).map(\.hexadecimalRepresentation).sorted()
             )
-            XCTAssertEqual(archiver.extractions.map(\.destinationPath.parentDirectory).sorted(), [
-                sandbox.appending(components: [".build", "artifacts", "extract", "a", "A1"]),
-                sandbox.appending(components: [".build", "artifacts", "extract", "a", "A2"]),
-                sandbox.appending(components: [".build", "artifacts", "extract", "b", "B"]),
-            ])
+            XCTAssertEqual(
+                archiver.extractions.map(\.destinationPath.parentDirectory).sorted(),
+                [
+                    sandbox.appending(components: [".build", "artifacts", "extract", "a", "A1"]),
+                    sandbox.appending(components: [".build", "artifacts", "extract", "a", "A2"]),
+                    sandbox.appending(components: [".build", "artifacts", "extract", "b", "B"]),
+                ]
+            )
             XCTAssertEqual(
                 downloads.map(\.value).sorted(),
                 archiver.extractions.map(\.archivePath).sorted()
@@ -9562,9 +9736,9 @@ final class WorkspaceTests: XCTestCase {
                             type: .binary,
                             url: "https://a.com/a.artifactbundleindex",
                             checksum: "does-not-matter"
-                        ),
+                        )
                     ]
-                ),
+                )
             ],
             binaryArtifactsManager: .init(
                 httpClient: httpClient
@@ -9590,18 +9764,18 @@ final class WorkspaceTests: XCTestCase {
         let hostToolchain = try UserToolchain.mockHostToolchain(fs)
 
         let ari = """
-        {
-            "schemaVersion": "1.0",
-            "archives": [
-                {
-                    "fileName": "a1.zip",
-                    "checksum": "a1",
-                    "supportedTriples": ["\(hostToolchain.targetTriple.tripleString)"]
-                }
-            ]
-        }
-        """
-        let checksumAlgorithm = MockHashAlgorithm() // used in tests
+            {
+                "schemaVersion": "1.0",
+                "archives": [
+                    {
+                        "fileName": "a1.zip",
+                        "checksum": "a1",
+                        "supportedTriples": ["\(hostToolchain.targetTriple.tripleString)"]
+                    }
+                ]
+            }
+            """
+        let checksumAlgorithm = MockHashAlgorithm()  // used in tests
         let ariChecksums = checksumAlgorithm.hash(ari).hexadecimalRepresentation
 
         // returns a dummy files for the requested artifact
@@ -9628,9 +9802,9 @@ final class WorkspaceTests: XCTestCase {
                             type: .binary,
                             url: "https://a.com/a.artifactbundleindex",
                             checksum: "incorrect"
-                        ),
+                        )
                     ]
-                ),
+                )
             ],
             binaryArtifactsManager: .init(
                 httpClient: httpClient
@@ -9665,9 +9839,9 @@ final class WorkspaceTests: XCTestCase {
                             type: .binary,
                             url: "https://a.com/a.artifactbundleindex",
                             checksum: "new-checksum"
-                        ),
+                        )
                     ]
-                ),
+                )
             ]
         )
 
@@ -9685,7 +9859,7 @@ final class WorkspaceTests: XCTestCase {
                     ),
                     path: workspace.artifactsDir.appending(components: "root", "A.xcframework"),
                     kind: .xcframework
-                ),
+                )
             ]
         )
 
@@ -9706,18 +9880,18 @@ final class WorkspaceTests: XCTestCase {
         let hostToolchain = try UserToolchain.mockHostToolchain(fs)
 
         let ari = """
-        {
-            "schemaVersion": "1.0",
-            "archives": [
-                {
-                    "fileName": "a.zip",
-                    "checksum": "a",
-                    "supportedTriples": ["\(hostToolchain.targetTriple.tripleString)"]
-                }
-            ]
-        }
-        """
-        let checksumAlgorithm = MockHashAlgorithm() // used in tests
+            {
+                "schemaVersion": "1.0",
+                "archives": [
+                    {
+                        "fileName": "a.zip",
+                        "checksum": "a",
+                        "supportedTriples": ["\(hostToolchain.targetTriple.tripleString)"]
+                    }
+                ]
+            }
+            """
+        let checksumAlgorithm = MockHashAlgorithm()  // used in tests
         let ariChecksums = checksumAlgorithm.hash(ari).hexadecimalRepresentation
 
         // returns a dummy files for the requested artifact
@@ -9784,9 +9958,9 @@ final class WorkspaceTests: XCTestCase {
                             type: .binary,
                             url: "https://a.com/a.artifactbundleindex",
                             checksum: ariChecksums
-                        ),
+                        )
                     ]
-                ),
+                )
             ],
             binaryArtifactsManager: .init(
                 httpClient: httpClient,
@@ -9813,18 +9987,18 @@ final class WorkspaceTests: XCTestCase {
         let hostToolchain = try UserToolchain.mockHostToolchain(fs)
 
         let ari = """
-        {
-            "schemaVersion": "1.0",
-            "archives": [
-                {
-                    "fileName": "not-found.zip",
-                    "checksum": "a",
-                    "supportedTriples": ["\(hostToolchain.targetTriple.tripleString)"]
-                }
-            ]
-        }
-        """
-        let checksumAlgorithm = MockHashAlgorithm() // used in tests
+            {
+                "schemaVersion": "1.0",
+                "archives": [
+                    {
+                        "fileName": "not-found.zip",
+                        "checksum": "a",
+                        "supportedTriples": ["\(hostToolchain.targetTriple.tripleString)"]
+                    }
+                ]
+            }
+            """
+        let checksumAlgorithm = MockHashAlgorithm()  // used in tests
         let ariChecksums = checksumAlgorithm.hash(ari).hexadecimalRepresentation
 
         // returns a dummy files for the requested artifact
@@ -9857,9 +10031,9 @@ final class WorkspaceTests: XCTestCase {
                             type: .binary,
                             url: "https://a.com/a.artifactbundleindex",
                             checksum: ariChecksums
-                        ),
+                        )
                     ]
-                ),
+                )
             ],
             binaryArtifactsManager: .init(
                 httpClient: httpClient
@@ -9890,18 +10064,18 @@ final class WorkspaceTests: XCTestCase {
         let notHostTriple = hostToolchain.targetTriple == androidTriple ? macTriple : androidTriple
 
         let ari = """
-        {
-            "schemaVersion": "1.0",
-            "archives": [
-                {
-                    "fileName": "a1.zip",
-                    "checksum": "a1",
-                    "supportedTriples": ["\(notHostTriple.tripleString)"]
-                }
-            ]
-        }
-        """
-        let checksumAlgorithm = MockHashAlgorithm() // used in tests
+            {
+                "schemaVersion": "1.0",
+                "archives": [
+                    {
+                        "fileName": "a1.zip",
+                        "checksum": "a1",
+                        "supportedTriples": ["\(notHostTriple.tripleString)"]
+                    }
+                ]
+            }
+            """
+        let checksumAlgorithm = MockHashAlgorithm()  // used in tests
         let ariChecksum = checksumAlgorithm.hash(ari).hexadecimalRepresentation
 
         // returns a dummy files for the requested artifact
@@ -9928,9 +10102,9 @@ final class WorkspaceTests: XCTestCase {
                             type: .binary,
                             url: "https://a.com/a.artifactbundleindex",
                             checksum: ariChecksum
-                        ),
+                        )
                     ]
-                ),
+                )
             ],
             binaryArtifactsManager: .init(
                 httpClient: httpClient
@@ -9960,10 +10134,13 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root",
                     targets: [
-                        MockTarget(name: "RootTarget", dependencies: [
-                            .product(name: "FooProduct", package: "FooUtilityPackage"),
-                            .product(name: "BarProduct", package: "BarUtilityPackage"),
-                        ]),
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [
+                                .product(name: "FooProduct", package: "FooUtilityPackage"),
+                                .product(name: "BarProduct", package: "BarUtilityPackage"),
+                            ]
+                        )
                     ],
                     products: [],
                     dependencies: [
@@ -9979,17 +10156,17 @@ final class WorkspaceTests: XCTestCase {
                         ),
                     ],
                     toolsVersion: .v5
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "FooUtilityPackage",
                     path: "foo/utility",
                     targets: [
-                        MockTarget(name: "FooTarget"),
+                        MockTarget(name: "FooTarget")
                     ],
                     products: [
-                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"])
                     ],
                     versions: ["1.0.0", "2.0.0"]
                 ),
@@ -9998,10 +10175,10 @@ final class WorkspaceTests: XCTestCase {
                     name: "BarUtilityPackage",
                     path: "bar/utility",
                     targets: [
-                        MockTarget(name: "BarTarget"),
+                        MockTarget(name: "BarTarget")
                     ],
                     products: [
-                        MockProduct(name: "BarProduct", modules: ["BarTarget"]),
+                        MockProduct(name: "BarProduct", modules: ["BarTarget"])
                     ],
                     versions: ["1.0.0", "2.0.0"]
                 ),
@@ -10029,10 +10206,13 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root",
                     targets: [
-                        MockTarget(name: "RootTarget", dependencies: [
-                            .product(name: "FooProduct", package: "FooUtilityPackage"),
-                            .product(name: "BarProduct", package: "BarUtilityPackage"),
-                        ]),
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [
+                                .product(name: "FooProduct", package: "FooUtilityPackage"),
+                                .product(name: "BarProduct", package: "BarUtilityPackage"),
+                            ]
+                        )
                     ],
                     products: [],
                     dependencies: [
@@ -10040,17 +10220,17 @@ final class WorkspaceTests: XCTestCase {
                         .sourceControl(path: "bar/utility", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     toolsVersion: .v5
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "FooUtilityPackage",
                     path: "foo/utility",
                     targets: [
-                        MockTarget(name: "FooTarget"),
+                        MockTarget(name: "FooTarget")
                     ],
                     products: [
-                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"])
                     ],
                     versions: ["1.0.0", "2.0.0"]
                 ),
@@ -10059,10 +10239,10 @@ final class WorkspaceTests: XCTestCase {
                     name: "BarUtilityPackage",
                     path: "bar/utility",
                     targets: [
-                        MockTarget(name: "BarTarget"),
+                        MockTarget(name: "BarTarget")
                     ],
                     products: [
-                        MockProduct(name: "BarProduct", modules: ["BarTarget"]),
+                        MockProduct(name: "BarProduct", modules: ["BarTarget"])
                     ],
                     versions: ["1.0.0", "2.0.0"]
                 ),
@@ -10091,10 +10271,13 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root",
                     targets: [
-                        MockTarget(name: "RootTarget", dependencies: [
-                            .product(name: "FooProduct", package: "FooPackage"),
-                            .product(name: "BarProduct", package: "BarPackage"),
-                        ]),
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [
+                                .product(name: "FooProduct", package: "FooPackage"),
+                                .product(name: "BarProduct", package: "BarPackage"),
+                            ]
+                        )
                     ],
                     products: [],
                     dependencies: [
@@ -10110,17 +10293,17 @@ final class WorkspaceTests: XCTestCase {
                         ),
                     ],
                     toolsVersion: .v5
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "FooPackage",
                     path: "foo",
                     targets: [
-                        MockTarget(name: "FooTarget"),
+                        MockTarget(name: "FooTarget")
                     ],
                     products: [
-                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"])
                     ],
                     versions: ["1.0.0", "2.0.0"]
                 ),
@@ -10129,10 +10312,10 @@ final class WorkspaceTests: XCTestCase {
                     name: "BarPackage",
                     path: "bar",
                     targets: [
-                        MockTarget(name: "BarTarget"),
+                        MockTarget(name: "BarTarget")
                     ],
                     products: [
-                        MockProduct(name: "BarProduct", modules: ["BarTarget"]),
+                        MockProduct(name: "BarProduct", modules: ["BarTarget"])
                     ],
                     versions: ["1.0.0", "2.0.0"]
                 ),
@@ -10160,10 +10343,13 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root",
                     targets: [
-                        MockTarget(name: "RootTarget", dependencies: [
-                            "FooProduct",
-                            "BarProduct",
-                        ]),
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [
+                                "FooProduct",
+                                "BarProduct",
+                            ]
+                        )
                     ],
                     products: [],
                     dependencies: [
@@ -10171,17 +10357,17 @@ final class WorkspaceTests: XCTestCase {
                         .sourceControl(path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     toolsVersion: .v5
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "MyPackage",
                     path: "foo",
                     targets: [
-                        MockTarget(name: "FooTarget"),
+                        MockTarget(name: "FooTarget")
                     ],
                     products: [
-                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"])
                     ],
                     versions: ["1.0.0", "2.0.0"]
                 ),
@@ -10189,10 +10375,10 @@ final class WorkspaceTests: XCTestCase {
                     name: "MyPackage",
                     path: "bar",
                     targets: [
-                        MockTarget(name: "BarTarget"),
+                        MockTarget(name: "BarTarget")
                     ],
                     products: [
-                        MockProduct(name: "BarProduct", modules: ["BarTarget"]),
+                        MockProduct(name: "BarProduct", modules: ["BarTarget"])
                     ],
                     versions: ["1.0.0", "2.0.0"]
                 ),
@@ -10215,10 +10401,13 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root",
                     targets: [
-                        MockTarget(name: "RootTarget", dependencies: [
-                            .product(name: "FooProduct", package: "foo"),
-                            .product(name: "BarProduct", package: "bar"),
-                        ]),
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [
+                                .product(name: "FooProduct", package: "foo"),
+                                .product(name: "BarProduct", package: "bar"),
+                            ]
+                        )
                     ],
                     products: [],
                     dependencies: [
@@ -10226,17 +10415,17 @@ final class WorkspaceTests: XCTestCase {
                         .sourceControl(path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     toolsVersion: .v5
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "MyPackage",
                     path: "foo",
                     targets: [
-                        MockTarget(name: "FooTarget"),
+                        MockTarget(name: "FooTarget")
                     ],
                     products: [
-                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"])
                     ],
                     versions: ["1.0.0", "2.0.0"]
                 ),
@@ -10244,10 +10433,10 @@ final class WorkspaceTests: XCTestCase {
                     name: "MyPackage",
                     path: "bar",
                     targets: [
-                        MockTarget(name: "BarTarget"),
+                        MockTarget(name: "BarTarget")
                     ],
                     products: [
-                        MockProduct(name: "BarProduct", modules: ["BarTarget"]),
+                        MockProduct(name: "BarProduct", modules: ["BarTarget"])
                     ],
                     versions: ["1.0.0", "2.0.0"]
                 ),
@@ -10270,10 +10459,13 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root",
                     targets: [
-                        MockTarget(name: "RootTarget", dependencies: [
-                            "FooProduct",
-                            "BarProduct",
-                        ]),
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [
+                                "FooProduct",
+                                "BarProduct",
+                            ]
+                        )
                     ],
                     products: [],
                     dependencies: [
@@ -10281,17 +10473,17 @@ final class WorkspaceTests: XCTestCase {
                         .sourceControl(path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     toolsVersion: .v5
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "foo",
                     path: "foo",
                     targets: [
-                        MockTarget(name: "FooTarget"),
+                        MockTarget(name: "FooTarget")
                     ],
                     products: [
-                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"])
                     ],
                     versions: ["1.0.0", "2.0.0"]
                 ),
@@ -10299,10 +10491,10 @@ final class WorkspaceTests: XCTestCase {
                     name: "foo",
                     path: "bar",
                     targets: [
-                        MockTarget(name: "BarTarget"),
+                        MockTarget(name: "BarTarget")
                     ],
                     products: [
-                        MockProduct(name: "BarProduct", modules: ["BarTarget"]),
+                        MockProduct(name: "BarProduct", modules: ["BarTarget"])
                     ],
                     versions: ["1.0.0", "2.0.0"]
                 ),
@@ -10325,10 +10517,13 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root",
                     targets: [
-                        MockTarget(name: "RootTarget", dependencies: [
-                            "FooProduct",
-                            "BarProduct",
-                        ]),
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [
+                                "FooProduct",
+                                "BarProduct",
+                            ]
+                        )
                     ],
                     products: [],
                     dependencies: [
@@ -10336,17 +10531,17 @@ final class WorkspaceTests: XCTestCase {
                         .sourceControl(path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     toolsVersion: .v5_3
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "foo",
                     path: "foo",
                     targets: [
-                        MockTarget(name: "FooTarget"),
+                        MockTarget(name: "FooTarget")
                     ],
                     products: [
-                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"])
                     ],
                     versions: ["1.0.0", "2.0.0"]
                 ),
@@ -10354,10 +10549,10 @@ final class WorkspaceTests: XCTestCase {
                     name: "foo",
                     path: "bar",
                     targets: [
-                        MockTarget(name: "BarTarget"),
+                        MockTarget(name: "BarTarget")
                     ],
                     products: [
-                        MockProduct(name: "BarProduct", modules: ["BarTarget"]),
+                        MockProduct(name: "BarProduct", modules: ["BarTarget"])
                     ],
                     versions: ["1.0.0", "2.0.0"]
                 ),
@@ -10389,10 +10584,13 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root",
                     targets: [
-                        MockTarget(name: "RootTarget", dependencies: [
-                            .product(name: "FooProduct", package: "foo"),
-                            .product(name: "BarProduct", package: "bar"),
-                        ]),
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [
+                                .product(name: "FooProduct", package: "foo"),
+                                .product(name: "BarProduct", package: "bar"),
+                            ]
+                        )
                     ],
                     products: [],
                     dependencies: [
@@ -10400,17 +10598,17 @@ final class WorkspaceTests: XCTestCase {
                         .sourceControl(path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     toolsVersion: .v5_3
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "foo",
                     path: "foo",
                     targets: [
-                        MockTarget(name: "FooTarget"),
+                        MockTarget(name: "FooTarget")
                     ],
                     products: [
-                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"])
                     ],
                     versions: ["1.0.0", "2.0.0"]
                 ),
@@ -10418,10 +10616,10 @@ final class WorkspaceTests: XCTestCase {
                     name: "foo",
                     path: "bar",
                     targets: [
-                        MockTarget(name: "BarTarget"),
+                        MockTarget(name: "BarTarget")
                     ],
                     products: [
-                        MockProduct(name: "BarProduct", modules: ["BarTarget"]),
+                        MockProduct(name: "BarProduct", modules: ["BarTarget"])
                     ],
                     versions: ["1.0.0", "2.0.0"]
                 ),
@@ -10444,10 +10642,13 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root",
                     targets: [
-                        MockTarget(name: "RootTarget", dependencies: [
-                            "FooProduct",
-                            "BarProduct",
-                        ]),
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [
+                                "FooProduct",
+                                "BarProduct",
+                            ]
+                        )
                     ],
                     products: [],
                     dependencies: [
@@ -10459,17 +10660,17 @@ final class WorkspaceTests: XCTestCase {
                         ),
                     ],
                     toolsVersion: .v5
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "foo",
                     path: "foo",
                     targets: [
-                        MockTarget(name: "FooTarget"),
+                        MockTarget(name: "FooTarget")
                     ],
                     products: [
-                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"])
                     ],
                     versions: ["1.0.0", "2.0.0"]
                 ),
@@ -10477,10 +10678,10 @@ final class WorkspaceTests: XCTestCase {
                     name: "foo",
                     path: "bar",
                     targets: [
-                        MockTarget(name: "BarTarget"),
+                        MockTarget(name: "BarTarget")
                     ],
                     products: [
-                        MockProduct(name: "BarProduct", modules: ["BarTarget"]),
+                        MockProduct(name: "BarProduct", modules: ["BarTarget"])
                     ],
                     versions: ["1.0.0", "2.0.0"]
                 ),
@@ -10508,10 +10709,13 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root",
                     targets: [
-                        MockTarget(name: "RootTarget", dependencies: [
-                            .product(name: "FooProduct", package: "foo"),
-                            .product(name: "BarProduct", package: "foo"),
-                        ]),
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [
+                                .product(name: "FooProduct", package: "foo"),
+                                .product(name: "BarProduct", package: "foo"),
+                            ]
+                        )
                     ],
                     products: [],
                     dependencies: [
@@ -10523,17 +10727,17 @@ final class WorkspaceTests: XCTestCase {
                         ),
                     ],
                     toolsVersion: .v5_3
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "foo",
                     path: "foo",
                     targets: [
-                        MockTarget(name: "FooTarget"),
+                        MockTarget(name: "FooTarget")
                     ],
                     products: [
-                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"])
                     ],
                     versions: ["1.0.0", "2.0.0"]
                 ),
@@ -10541,10 +10745,10 @@ final class WorkspaceTests: XCTestCase {
                     name: "foo",
                     path: "bar",
                     targets: [
-                        MockTarget(name: "BarTarget"),
+                        MockTarget(name: "BarTarget")
                     ],
                     products: [
-                        MockProduct(name: "BarProduct", modules: ["BarTarget"]),
+                        MockProduct(name: "BarProduct", modules: ["BarTarget"])
                     ],
                     versions: ["1.0.0", "2.0.0"]
                 ),
@@ -10572,10 +10776,13 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root",
                     targets: [
-                        MockTarget(name: "RootTarget", dependencies: [
-                            .product(name: "FooUtilityProduct", package: "FooUtilityPackage"),
-                            .product(name: "BarProduct", package: "BarPackage"),
-                        ]),
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [
+                                .product(name: "FooUtilityProduct", package: "FooUtilityPackage"),
+                                .product(name: "BarProduct", package: "BarPackage"),
+                            ]
+                        )
                     ],
                     products: [],
                     dependencies: [
@@ -10591,17 +10798,17 @@ final class WorkspaceTests: XCTestCase {
                         ),
                     ],
                     toolsVersion: .v5
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "FooUtilityPackage",
                     path: "foo/utility",
                     targets: [
-                        MockTarget(name: "FooUtilityTarget"),
+                        MockTarget(name: "FooUtilityTarget")
                     ],
                     products: [
-                        MockProduct(name: "FooUtilityProduct", modules: ["FooUtilityTarget"]),
+                        MockProduct(name: "FooUtilityProduct", modules: ["FooUtilityTarget"])
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -10609,19 +10816,22 @@ final class WorkspaceTests: XCTestCase {
                     name: "BarPackage",
                     path: "bar",
                     targets: [
-                        MockTarget(name: "BarTarget", dependencies: [
-                            .product(name: "OtherUtilityProduct", package: "OtherUtilityPackage"),
-                        ]),
+                        MockTarget(
+                            name: "BarTarget",
+                            dependencies: [
+                                .product(name: "OtherUtilityProduct", package: "OtherUtilityPackage")
+                            ]
+                        )
                     ],
                     products: [
-                        MockProduct(name: "BarProduct", modules: ["BarTarget"]),
+                        MockProduct(name: "BarProduct", modules: ["BarTarget"])
                     ],
                     dependencies: [
                         .sourceControlWithDeprecatedName(
                             name: "OtherUtilityPackage",
                             path: "other/utility",
                             requirement: .upToNextMajor(from: "1.0.0")
-                        ),
+                        )
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -10630,10 +10840,10 @@ final class WorkspaceTests: XCTestCase {
                     name: "OtherUtilityPackage",
                     path: "other/utility",
                     targets: [
-                        MockTarget(name: "OtherUtilityTarget"),
+                        MockTarget(name: "OtherUtilityTarget")
                     ],
                     products: [
-                        MockProduct(name: "OtherUtilityProduct", modules: ["OtherUtilityTarget"]),
+                        MockProduct(name: "OtherUtilityProduct", modules: ["OtherUtilityTarget"])
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -10662,10 +10872,13 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root",
                     targets: [
-                        MockTarget(name: "RootTarget", dependencies: [
-                            .product(name: "HouseProduct", package: "HousePackage"),
-                            .product(name: "ShackProduct", package: "ShackPackage"),
-                        ]),
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [
+                                .product(name: "HouseProduct", package: "HousePackage"),
+                                .product(name: "ShackProduct", package: "ShackPackage"),
+                            ]
+                        )
                     ],
                     products: [],
                     dependencies: [
@@ -10680,20 +10893,23 @@ final class WorkspaceTests: XCTestCase {
                             requirement: .upToNextMajor(from: "1.0.0")
                         ),
                     ]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "HousePackage",
                     path: "house",
                     targets: [
-                        MockTarget(name: "HouseTarget", dependencies: [
-                            .product(name: "BudgetWindowProduct", package: "BudgetWindowPackage"),
-                            .product(name: "PremiumWindowProduct", package: "PremiumWindowPackage"),
-                        ]),
+                        MockTarget(
+                            name: "HouseTarget",
+                            dependencies: [
+                                .product(name: "BudgetWindowProduct", package: "BudgetWindowPackage"),
+                                .product(name: "PremiumWindowProduct", package: "PremiumWindowPackage"),
+                            ]
+                        )
                     ],
                     products: [
-                        MockProduct(name: "HouseProduct", modules: ["HouseTarget"]),
+                        MockProduct(name: "HouseProduct", modules: ["HouseTarget"])
                     ],
                     dependencies: [
                         .sourceControlWithDeprecatedName(
@@ -10713,19 +10929,22 @@ final class WorkspaceTests: XCTestCase {
                     name: "ShackPackage",
                     path: "shack",
                     targets: [
-                        MockTarget(name: "ShackTarget", dependencies: [
-                            .product(name: "StandardGlassProduct", package: "StandardGlassPackage"),
-                        ]),
+                        MockTarget(
+                            name: "ShackTarget",
+                            dependencies: [
+                                .product(name: "StandardGlassProduct", package: "StandardGlassPackage")
+                            ]
+                        )
                     ],
                     products: [
-                        MockProduct(name: "ShackProduct", modules: ["ShackTarget"]),
+                        MockProduct(name: "ShackProduct", modules: ["ShackTarget"])
                     ],
                     dependencies: [
                         .sourceControlWithDeprecatedName(
                             name: "StandardGlassPackage",
                             path: "standard/glass",
                             requirement: .upToNextMajor(from: "1.0.0")
-                        ),
+                        )
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -10733,19 +10952,22 @@ final class WorkspaceTests: XCTestCase {
                     name: "BudgetWindowPackage",
                     path: "budget_window",
                     targets: [
-                        MockTarget(name: "BudgetWindowTarget", dependencies: [
-                            .product(name: "StandardGlassProduct", package: "StandardGlassPackage"),
-                        ]),
+                        MockTarget(
+                            name: "BudgetWindowTarget",
+                            dependencies: [
+                                .product(name: "StandardGlassProduct", package: "StandardGlassPackage")
+                            ]
+                        )
                     ],
                     products: [
-                        MockProduct(name: "BudgetWindowProduct", modules: ["BudgetWindowTarget"]),
+                        MockProduct(name: "BudgetWindowProduct", modules: ["BudgetWindowTarget"])
                     ],
                     dependencies: [
                         .sourceControlWithDeprecatedName(
                             name: "StandardGlassPackage",
                             path: "standard/glass",
                             requirement: .upToNextMajor(from: "1.0.0")
-                        ),
+                        )
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -10753,19 +10975,22 @@ final class WorkspaceTests: XCTestCase {
                     name: "PremiumWindowPackage",
                     path: "premium_window",
                     targets: [
-                        MockTarget(name: "PremiumWindowTarget", dependencies: [
-                            .product(name: "TemperedGlassProduct", package: "TemperedGlassPackage"),
-                        ]),
+                        MockTarget(
+                            name: "PremiumWindowTarget",
+                            dependencies: [
+                                .product(name: "TemperedGlassProduct", package: "TemperedGlassPackage")
+                            ]
+                        )
                     ],
                     products: [
-                        MockProduct(name: "PremiumWindowProduct", modules: ["PremiumWindowTarget"]),
+                        MockProduct(name: "PremiumWindowProduct", modules: ["PremiumWindowTarget"])
                     ],
                     dependencies: [
                         .sourceControlWithDeprecatedName(
                             name: "TemperedGlassPackage",
                             path: "tempered/glass",
                             requirement: .upToNextMajor(from: "1.0.0")
-                        ),
+                        )
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -10773,10 +10998,10 @@ final class WorkspaceTests: XCTestCase {
                     name: "StandardGlassPackage",
                     path: "standard/glass",
                     targets: [
-                        MockTarget(name: "StandardGlassTarget"),
+                        MockTarget(name: "StandardGlassTarget")
                     ],
                     products: [
-                        MockProduct(name: "StandardGlassProduct", modules: ["StandardGlassTarget"]),
+                        MockProduct(name: "StandardGlassProduct", modules: ["StandardGlassTarget"])
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -10786,10 +11011,10 @@ final class WorkspaceTests: XCTestCase {
                     name: "TemperedGlassPackage",
                     path: "tempered/glass",
                     targets: [
-                        MockTarget(name: "TemperedTarget"),
+                        MockTarget(name: "TemperedTarget")
                     ],
                     products: [
-                        MockProduct(name: "TemperedGlassProduct", modules: ["TemperedGlassTarget"]),
+                        MockProduct(name: "TemperedGlassProduct", modules: ["TemperedGlassTarget"])
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -10833,9 +11058,12 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "River",
                     targets: [
-                        MockTarget(name: "RiverTarget", dependencies: [
-                            .product(name: "FlowingWaterProduct", package: "FlowingWaterPackage"),
-                        ]),
+                        MockTarget(
+                            name: "RiverTarget",
+                            dependencies: [
+                                .product(name: "FlowingWaterProduct", package: "FlowingWaterPackage")
+                            ]
+                        )
                     ],
                     products: [],
                     dependencies: [
@@ -10843,15 +11071,18 @@ final class WorkspaceTests: XCTestCase {
                             name: "FlowingWaterPackage",
                             path: "flowing/water",
                             requirement: .upToNextMajor(from: "1.0.0")
-                        ),
+                        )
                     ]
                 ),
                 MockPackage(
                     name: "Lake",
                     targets: [
-                        MockTarget(name: "LakeTarget", dependencies: [
-                            .product(name: "StandingWaterProduct", package: "StandingWaterPackage"),
-                        ]),
+                        MockTarget(
+                            name: "LakeTarget",
+                            dependencies: [
+                                .product(name: "StandingWaterProduct", package: "StandingWaterPackage")
+                            ]
+                        )
                     ],
                     products: [],
                     dependencies: [
@@ -10859,7 +11090,7 @@ final class WorkspaceTests: XCTestCase {
                             name: "StandingWaterPackage",
                             path: "standing/water",
                             requirement: .upToNextMajor(from: "1.0.0")
-                        ),
+                        )
                     ]
                 ),
             ],
@@ -10868,10 +11099,10 @@ final class WorkspaceTests: XCTestCase {
                     name: "FlowingWaterPackage",
                     path: "flowing/water",
                     targets: [
-                        MockTarget(name: "FlowingWaterTarget"),
+                        MockTarget(name: "FlowingWaterTarget")
                     ],
                     products: [
-                        MockProduct(name: "FlowingWaterProduct", modules: ["FlowingWaterTarget"]),
+                        MockProduct(name: "FlowingWaterProduct", modules: ["FlowingWaterTarget"])
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -10881,10 +11112,10 @@ final class WorkspaceTests: XCTestCase {
                     name: "StandingWaterPackage",
                     path: "standing/water",
                     targets: [
-                        MockTarget(name: "StandingWaterTarget"),
+                        MockTarget(name: "StandingWaterTarget")
                     ],
                     products: [
-                        MockProduct(name: "StandingWaterProduct", modules: ["StandingWaterTarget"]),
+                        MockProduct(name: "StandingWaterProduct", modules: ["StandingWaterTarget"])
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -10922,10 +11153,13 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root",
                     targets: [
-                        MockTarget(name: "RootTarget", dependencies: [
-                            .product(name: "FooUtilityProduct", package: "utility"),
-                            .product(name: "BarProduct", package: "bar"),
-                        ]),
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [
+                                .product(name: "FooUtilityProduct", package: "utility"),
+                                .product(name: "BarProduct", package: "bar"),
+                            ]
+                        )
                     ],
                     products: [],
                     dependencies: [
@@ -10933,17 +11167,17 @@ final class WorkspaceTests: XCTestCase {
                         .sourceControl(path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     toolsVersion: .v5
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "FooUtilityPackage",
                     path: "foo/utility",
                     targets: [
-                        MockTarget(name: "FooUtilityTarget"),
+                        MockTarget(name: "FooUtilityTarget")
                     ],
                     products: [
-                        MockProduct(name: "FooUtilityProduct", modules: ["FooUtilityTarget"]),
+                        MockProduct(name: "FooUtilityProduct", modules: ["FooUtilityTarget"])
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -10951,15 +11185,18 @@ final class WorkspaceTests: XCTestCase {
                     name: "BarPackage",
                     path: "bar",
                     targets: [
-                        MockTarget(name: "BarTarget", dependencies: [
-                            .product(name: "OtherUtilityProduct", package: "utility"),
-                        ]),
+                        MockTarget(
+                            name: "BarTarget",
+                            dependencies: [
+                                .product(name: "OtherUtilityProduct", package: "utility")
+                            ]
+                        )
                     ],
                     products: [
-                        MockProduct(name: "BarProduct", modules: ["BarTarget"]),
+                        MockProduct(name: "BarProduct", modules: ["BarTarget"])
                     ],
                     dependencies: [
-                        .sourceControl(path: "other-foo/utility", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(path: "other-foo/utility", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -10968,10 +11205,10 @@ final class WorkspaceTests: XCTestCase {
                     name: "OtherUtilityPackage",
                     path: "other-foo/utility",
                     targets: [
-                        MockTarget(name: "OtherUtilityTarget"),
+                        MockTarget(name: "OtherUtilityTarget")
                     ],
                     products: [
-                        MockProduct(name: "OtherUtilityProduct", modules: ["OtherUtilityTarget"]),
+                        MockProduct(name: "OtherUtilityProduct", modules: ["OtherUtilityTarget"])
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -11008,10 +11245,13 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root",
                     targets: [
-                        MockTarget(name: "RootTarget", dependencies: [
-                            .product(name: "FooProduct", package: "foo"),
-                            .product(name: "BarProduct", package: "bar"),
-                        ]),
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [
+                                .product(name: "FooProduct", package: "foo"),
+                                .product(name: "BarProduct", package: "bar"),
+                            ]
+                        )
                     ],
                     products: [],
                     dependencies: [
@@ -11019,17 +11259,17 @@ final class WorkspaceTests: XCTestCase {
                         .sourceControl(path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     toolsVersion: .v5_6
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "FooPackage",
                     url: "https://github.com/foo/foo",
                     targets: [
-                        MockTarget(name: "FooTarget"),
+                        MockTarget(name: "FooTarget")
                     ],
                     products: [
-                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"])
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -11037,18 +11277,21 @@ final class WorkspaceTests: XCTestCase {
                     name: "BarPackage",
                     path: "bar",
                     targets: [
-                        MockTarget(name: "BarTarget", dependencies: [
-                            .product(name: "FooProduct", package: "foo"),
-                        ]),
+                        MockTarget(
+                            name: "BarTarget",
+                            dependencies: [
+                                .product(name: "FooProduct", package: "foo")
+                            ]
+                        )
                     ],
                     products: [
-                        MockProduct(name: "BarProduct", modules: ["BarTarget"]),
+                        MockProduct(name: "BarProduct", modules: ["BarTarget"])
                     ],
                     dependencies: [
                         .sourceControl(
                             url: "https://github.com/foo/foo.git",
                             requirement: .upToNextMajor(from: "1.0.0")
-                        ),
+                        )
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -11057,10 +11300,10 @@ final class WorkspaceTests: XCTestCase {
                     name: "FooPackage",
                     url: "https://github.com/foo/foo.git",
                     targets: [
-                        MockTarget(name: "FooTarget"),
+                        MockTarget(name: "FooTarget")
                     ],
                     products: [
-                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"])
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -11083,10 +11326,13 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root",
                     targets: [
-                        MockTarget(name: "RootTarget", dependencies: [
-                            .product(name: "FooProduct", package: "foo"),
-                            .product(name: "BarProduct", package: "bar"),
-                        ]),
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [
+                                .product(name: "FooProduct", package: "foo"),
+                                .product(name: "BarProduct", package: "bar"),
+                            ]
+                        )
                     ],
                     products: [],
                     dependencies: [
@@ -11097,17 +11343,17 @@ final class WorkspaceTests: XCTestCase {
                         .sourceControl(path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     toolsVersion: .v5_6
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "FooPackage",
                     url: "https://github.com/foo/foo.git",
                     targets: [
-                        MockTarget(name: "FooTarget"),
+                        MockTarget(name: "FooTarget")
                     ],
                     products: [
-                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"])
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -11115,15 +11361,18 @@ final class WorkspaceTests: XCTestCase {
                     name: "BarPackage",
                     path: "bar",
                     targets: [
-                        MockTarget(name: "BarTarget", dependencies: [
-                            .product(name: "FooProduct", package: "foo"),
-                        ]),
+                        MockTarget(
+                            name: "BarTarget",
+                            dependencies: [
+                                .product(name: "FooProduct", package: "foo")
+                            ]
+                        )
                     ],
                     products: [
-                        MockProduct(name: "BarProduct", modules: ["BarTarget"]),
+                        MockProduct(name: "BarProduct", modules: ["BarTarget"])
                     ],
                     dependencies: [
-                        .sourceControl(url: "http://github.com/foo/foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(url: "http://github.com/foo/foo", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -11132,10 +11381,10 @@ final class WorkspaceTests: XCTestCase {
                     name: "FooPackage",
                     url: "http://github.com/foo/foo",
                     targets: [
-                        MockTarget(name: "FooTarget"),
+                        MockTarget(name: "FooTarget")
                     ],
                     products: [
-                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"])
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -11158,10 +11407,13 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root",
                     targets: [
-                        MockTarget(name: "RootTarget", dependencies: [
-                            .product(name: "FooProduct", package: "foo"),
-                            .product(name: "BarProduct", package: "bar"),
-                        ]),
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [
+                                .product(name: "FooProduct", package: "foo"),
+                                .product(name: "BarProduct", package: "bar"),
+                            ]
+                        )
                     ],
                     products: [],
                     dependencies: [
@@ -11172,17 +11424,17 @@ final class WorkspaceTests: XCTestCase {
                         .sourceControl(path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     toolsVersion: .v5_6
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "FooPackage",
                     url: "https://github.com/foo/foo.git",
                     targets: [
-                        MockTarget(name: "FooTarget"),
+                        MockTarget(name: "FooTarget")
                     ],
                     products: [
-                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"])
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -11190,15 +11442,18 @@ final class WorkspaceTests: XCTestCase {
                     name: "BarPackage",
                     path: "bar",
                     targets: [
-                        MockTarget(name: "BarTarget", dependencies: [
-                            .product(name: "FooProduct", package: "foo"),
-                        ]),
+                        MockTarget(
+                            name: "BarTarget",
+                            dependencies: [
+                                .product(name: "FooProduct", package: "foo")
+                            ]
+                        )
                     ],
                     products: [
-                        MockProduct(name: "BarProduct", modules: ["BarTarget"]),
+                        MockProduct(name: "BarProduct", modules: ["BarTarget"])
                     ],
                     dependencies: [
-                        .sourceControl(url: "git@github.com:foo/foo.git", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(url: "git@github.com:foo/foo.git", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -11207,10 +11462,10 @@ final class WorkspaceTests: XCTestCase {
                     name: "FooPackage",
                     url: "git@github.com:foo/foo.git",
                     targets: [
-                        MockTarget(name: "FooTarget"),
+                        MockTarget(name: "FooTarget")
                     ],
                     products: [
-                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"])
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -11233,10 +11488,13 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root",
                     targets: [
-                        MockTarget(name: "RootTarget", dependencies: [
-                            .product(name: "FooProduct", package: "foo"),
-                            .product(name: "BarProduct", package: "bar"),
-                        ]),
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [
+                                .product(name: "FooProduct", package: "foo"),
+                                .product(name: "BarProduct", package: "bar"),
+                            ]
+                        )
                     ],
                     products: [],
                     dependencies: [
@@ -11247,17 +11505,17 @@ final class WorkspaceTests: XCTestCase {
                         .sourceControl(path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     toolsVersion: .v5_6
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "FooPackage",
                     url: "https://github.enterprise.com/foo/foo",
                     targets: [
-                        MockTarget(name: "FooTarget"),
+                        MockTarget(name: "FooTarget")
                     ],
                     products: [
-                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"])
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -11265,18 +11523,21 @@ final class WorkspaceTests: XCTestCase {
                     name: "BarPackage",
                     path: "bar",
                     targets: [
-                        MockTarget(name: "BarTarget", dependencies: [
-                            .product(name: "FooProduct", package: "foo"),
-                        ]),
+                        MockTarget(
+                            name: "BarTarget",
+                            dependencies: [
+                                .product(name: "FooProduct", package: "foo")
+                            ]
+                        )
                     ],
                     products: [
-                        MockProduct(name: "BarProduct", modules: ["BarTarget"]),
+                        MockProduct(name: "BarProduct", modules: ["BarTarget"])
                     ],
                     dependencies: [
                         .sourceControl(
                             url: "git@github.enterprise.com:foo/foo.git",
                             requirement: .upToNextMajor(from: "1.0.0")
-                        ),
+                        )
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -11285,10 +11546,10 @@ final class WorkspaceTests: XCTestCase {
                     name: "FooPackage",
                     url: "git@github.enterprise.com:foo/foo.git",
                     targets: [
-                        MockTarget(name: "FooTarget"),
+                        MockTarget(name: "FooTarget")
                     ],
                     products: [
-                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"])
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -11311,10 +11572,13 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root",
                     targets: [
-                        MockTarget(name: "RootTarget", dependencies: [
-                            .product(name: "FooProduct", package: "foo"),
-                            .product(name: "BarProduct", package: "bar"),
-                        ]),
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [
+                                .product(name: "FooProduct", package: "foo"),
+                                .product(name: "BarProduct", package: "bar"),
+                            ]
+                        )
                     ],
                     products: [],
                     dependencies: [
@@ -11325,17 +11589,17 @@ final class WorkspaceTests: XCTestCase {
                         .sourceControl(path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     toolsVersion: .v5_6
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "FooPackage",
                     url: "https://github.com/foo/foo.git",
                     targets: [
-                        MockTarget(name: "FooTarget"),
+                        MockTarget(name: "FooTarget")
                     ],
                     products: [
-                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"])
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -11343,18 +11607,21 @@ final class WorkspaceTests: XCTestCase {
                     name: "BarPackage",
                     path: "bar",
                     targets: [
-                        MockTarget(name: "BarTarget", dependencies: [
-                            .product(name: "FooProduct", package: "foo"),
-                        ]),
+                        MockTarget(
+                            name: "BarTarget",
+                            dependencies: [
+                                .product(name: "FooProduct", package: "foo")
+                            ]
+                        )
                     ],
                     products: [
-                        MockProduct(name: "BarProduct", modules: ["BarTarget"]),
+                        MockProduct(name: "BarProduct", modules: ["BarTarget"])
                     ],
                     dependencies: [
                         .sourceControl(
                             url: "https://github.com/foo-moved/foo.git",
                             requirement: .upToNextMajor(from: "1.0.0")
-                        ),
+                        )
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -11363,10 +11630,10 @@ final class WorkspaceTests: XCTestCase {
                     name: "FooPackage",
                     url: "https://github.com/foo-moved/foo.git",
                     targets: [
-                        MockTarget(name: "FooTarget"),
+                        MockTarget(name: "FooTarget")
                     ],
                     products: [
-                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"])
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -11397,11 +11664,14 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root",
                     targets: [
-                        MockTarget(name: "RootTarget", dependencies: [
-                            .product(name: "FooProduct", package: "foo"),
-                            .product(name: "BarProduct", package: "bar"),
-                            .product(name: "BazProduct", package: "baz"),
-                        ]),
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [
+                                .product(name: "FooProduct", package: "foo"),
+                                .product(name: "BarProduct", package: "bar"),
+                                .product(name: "BazProduct", package: "baz"),
+                            ]
+                        )
                     ],
                     products: [],
                     dependencies: [
@@ -11419,17 +11689,17 @@ final class WorkspaceTests: XCTestCase {
                         ),
                     ],
                     toolsVersion: .v5_6
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "FooPackage",
                     url: "https://github.com/org/foo.git",
                     targets: [
-                        MockTarget(name: "FooTarget"),
+                        MockTarget(name: "FooTarget")
                     ],
                     products: [
-                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"])
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -11437,13 +11707,16 @@ final class WorkspaceTests: XCTestCase {
                     name: "BarPackage",
                     url: "https://github.com/org/bar.git",
                     targets: [
-                        MockTarget(name: "BarTarget", dependencies: [
-                            .product(name: "FooProduct", package: "Foo"),
-                            .product(name: "BazProduct", package: "baz"),
-                        ]),
+                        MockTarget(
+                            name: "BarTarget",
+                            dependencies: [
+                                .product(name: "FooProduct", package: "Foo"),
+                                .product(name: "BazProduct", package: "baz"),
+                            ]
+                        )
                     ],
                     products: [
-                        MockProduct(name: "BarProduct", modules: ["BarTarget"]),
+                        MockProduct(name: "BarProduct", modules: ["BarTarget"])
                     ],
                     dependencies: [
                         .sourceControl(
@@ -11458,10 +11731,10 @@ final class WorkspaceTests: XCTestCase {
                     name: "BazPackage",
                     url: "https://github.com/org/baz.git",
                     targets: [
-                        MockTarget(name: "BazTarget"),
+                        MockTarget(name: "BazTarget")
                     ],
                     products: [
-                        MockProduct(name: "BazProduct", modules: ["BazTarget"]),
+                        MockProduct(name: "BazProduct", modules: ["BazTarget"])
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -11470,10 +11743,10 @@ final class WorkspaceTests: XCTestCase {
                     name: "FooPackage",
                     url: "https://github.com/ORG/Foo.git",
                     targets: [
-                        MockTarget(name: "FooTarget"),
+                        MockTarget(name: "FooTarget")
                     ],
                     products: [
-                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"])
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -11482,10 +11755,10 @@ final class WorkspaceTests: XCTestCase {
                     name: "BazPackage",
                     url: "https://github.com/org/baz",
                     targets: [
-                        MockTarget(name: "BazTarget"),
+                        MockTarget(name: "BazTarget")
                     ],
                     products: [
-                        MockProduct(name: "BazProduct", modules: ["BazTarget"]),
+                        MockProduct(name: "BazProduct", modules: ["BazTarget"])
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -11519,9 +11792,12 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root",
                     targets: [
-                        MockTarget(name: "RootTarget", dependencies: [
-                            .product(name: "FooUtilityProduct", package: "FooUtilityPackage"),
-                        ]),
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [
+                                .product(name: "FooUtilityProduct", package: "FooUtilityPackage")
+                            ]
+                        )
                     ],
                     products: [],
                     dependencies: [
@@ -11529,29 +11805,32 @@ final class WorkspaceTests: XCTestCase {
                             name: "FooUtilityPackage",
                             path: "foo/utility",
                             requirement: .upToNextMajor(from: "1.0.0")
-                        ),
+                        )
                     ],
                     toolsVersion: .v6_0
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "FooUtilityPackage",
                     path: "foo/utility",
                     targets: [
-                        MockTarget(name: "FooUtilityTarget", dependencies: [
-                            .product(name: "BarProduct", package: "BarPackage"),
-                        ]),
+                        MockTarget(
+                            name: "FooUtilityTarget",
+                            dependencies: [
+                                .product(name: "BarProduct", package: "BarPackage")
+                            ]
+                        )
                     ],
                     products: [
-                        MockProduct(name: "FooUtilityProduct", modules: ["FooUtilityTarget"]),
+                        MockProduct(name: "FooUtilityProduct", modules: ["FooUtilityTarget"])
                     ],
                     dependencies: [
                         .sourceControlWithDeprecatedName(
                             name: "BarPackage",
                             path: "bar",
                             requirement: .upToNextMajor(from: "1.0.0")
-                        ),
+                        )
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -11559,19 +11838,22 @@ final class WorkspaceTests: XCTestCase {
                     name: "BarPackage",
                     path: "bar",
                     targets: [
-                        MockTarget(name: "BarTarget", dependencies: [
-                            .product(name: "OtherUtilityProduct", package: "OtherUtilityPackage"),
-                        ]),
+                        MockTarget(
+                            name: "BarTarget",
+                            dependencies: [
+                                .product(name: "OtherUtilityProduct", package: "OtherUtilityPackage")
+                            ]
+                        )
                     ],
                     products: [
-                        MockProduct(name: "BarProduct", modules: ["BarTarget"]),
+                        MockProduct(name: "BarProduct", modules: ["BarTarget"])
                     ],
                     dependencies: [
                         .sourceControlWithDeprecatedName(
                             name: "OtherUtilityPackage",
                             path: "other/utility",
                             requirement: .upToNextMajor(from: "1.0.0")
-                        ),
+                        )
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -11580,10 +11862,10 @@ final class WorkspaceTests: XCTestCase {
                     name: "OtherUtilityPackage",
                     path: "other/utility",
                     targets: [
-                        MockTarget(name: "OtherUtilityTarget"),
+                        MockTarget(name: "OtherUtilityTarget")
                     ],
                     products: [
-                        MockProduct(name: "OtherUtilityProduct", modules: ["OtherUtilityTarget"]),
+                        MockProduct(name: "OtherUtilityProduct", modules: ["OtherUtilityTarget"])
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -11612,31 +11894,37 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root",
                     targets: [
-                        MockTarget(name: "RootTarget", dependencies: [
-                            .product(name: "FooUtilityProduct", package: "FooUtilityPackage"),
-                        ]),
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [
+                                .product(name: "FooUtilityProduct", package: "FooUtilityPackage")
+                            ]
+                        )
                     ],
                     products: [],
                     dependencies: [
-                        .sourceControl(path: "foo/utility", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(path: "foo/utility", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     toolsVersion: .v5
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "FooUtilityPackage",
                     path: "foo/utility",
                     targets: [
-                        MockTarget(name: "FooUtilityTarget", dependencies: [
-                            .product(name: "BarProduct", package: "BarPackage"),
-                        ]),
+                        MockTarget(
+                            name: "FooUtilityTarget",
+                            dependencies: [
+                                .product(name: "BarProduct", package: "BarPackage")
+                            ]
+                        )
                     ],
                     products: [
-                        MockProduct(name: "FooUtilityProduct", modules: ["FooUtilityTarget"]),
+                        MockProduct(name: "FooUtilityProduct", modules: ["FooUtilityTarget"])
                     ],
                     dependencies: [
-                        .sourceControl(path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(path: "bar", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     versions: ["1.0.0"],
                     toolsVersion: .v5
@@ -11645,15 +11933,18 @@ final class WorkspaceTests: XCTestCase {
                     name: "BarPackage",
                     path: "bar",
                     targets: [
-                        MockTarget(name: "BarTarget", dependencies: [
-                            .product(name: "OtherUtilityProduct", package: "OtherUtilityPackage"),
-                        ]),
+                        MockTarget(
+                            name: "BarTarget",
+                            dependencies: [
+                                .product(name: "OtherUtilityProduct", package: "OtherUtilityPackage")
+                            ]
+                        )
                     ],
                     products: [
-                        MockProduct(name: "BarProduct", modules: ["BarTarget"]),
+                        MockProduct(name: "BarProduct", modules: ["BarTarget"])
                     ],
                     dependencies: [
-                        .sourceControl(path: "other/utility", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(path: "other/utility", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     versions: ["1.0.0"],
                     toolsVersion: .v5
@@ -11663,10 +11954,10 @@ final class WorkspaceTests: XCTestCase {
                     name: "OtherUtilityPackage",
                     path: "other/utility",
                     targets: [
-                        MockTarget(name: "OtherUtilityTarget"),
+                        MockTarget(name: "OtherUtilityTarget")
                     ],
                     products: [
-                        MockProduct(name: "OtherUtilityProduct", modules: ["OtherUtilityTarget"]),
+                        MockProduct(name: "OtherUtilityProduct", modules: ["OtherUtilityTarget"])
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -11697,9 +11988,12 @@ final class WorkspaceTests: XCTestCase {
                     name: "Root",
                     path: "foo",
                     targets: [
-                        MockTarget(name: "RootTarget", dependencies: [
-                            .product(name: "BarProduct", package: "BarPackage"),
-                        ]),
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [
+                                .product(name: "BarProduct", package: "BarPackage")
+                            ]
+                        )
                     ],
                     products: [],
                     dependencies: [
@@ -11707,29 +12001,32 @@ final class WorkspaceTests: XCTestCase {
                             name: "BarPackage",
                             path: "bar",
                             requirement: .upToNextMajor(from: "1.0.0")
-                        ),
+                        )
                     ],
                     toolsVersion: .v6_0
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "BarPackage",
                     path: "bar",
                     targets: [
-                        MockTarget(name: "BarTarget", dependencies: [
-                            .product(name: "FooProduct", package: "FooPackage"),
-                        ]),
+                        MockTarget(
+                            name: "BarTarget",
+                            dependencies: [
+                                .product(name: "FooProduct", package: "FooPackage")
+                            ]
+                        )
                     ],
                     products: [
-                        MockProduct(name: "BarProduct", modules: ["BarTarget"]),
+                        MockProduct(name: "BarProduct", modules: ["BarTarget"])
                     ],
                     dependencies: [
                         .sourceControlWithDeprecatedName(
                             name: "FooPackage",
                             path: "foo",
                             requirement: .upToNextMajor(from: "1.0.0")
-                        ),
+                        )
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -11738,10 +12035,10 @@ final class WorkspaceTests: XCTestCase {
                     name: "FooPackage",
                     path: "foo",
                     targets: [
-                        MockTarget(name: "FooTarget"),
+                        MockTarget(name: "FooTarget")
                     ],
                     products: [
-                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"])
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -11771,11 +12068,14 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root",
                     targets: [
-                        MockTarget(name: "RootTarget", dependencies: [
-                            .product(name: "BarProduct", package: "bar"),
-                            .product(name: "BazProduct", package: "baz"),
-                            .product(name: "QuxProduct", package: "qux"),
-                        ]),
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [
+                                .product(name: "BarProduct", package: "bar"),
+                                .product(name: "BazProduct", package: "baz"),
+                                .product(name: "QuxProduct", package: "qux"),
+                            ]
+                        )
                     ],
                     dependencies: [
                         .sourceControl(
@@ -11791,25 +12091,28 @@ final class WorkspaceTests: XCTestCase {
                             requirement: .upToNextMajor(from: "1.0.0")
                         ),
                     ]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "BarPackage",
                     url: "https://github.com/org/bar.git",
                     targets: [
-                        MockTarget(name: "BarTarget", dependencies: [
-                            .product(name: "FooProduct", package: "foo"),
-                        ]),
+                        MockTarget(
+                            name: "BarTarget",
+                            dependencies: [
+                                .product(name: "FooProduct", package: "foo")
+                            ]
+                        )
                     ],
                     products: [
-                        MockProduct(name: "BarProduct", modules: ["BarTarget"]),
+                        MockProduct(name: "BarProduct", modules: ["BarTarget"])
                     ],
                     dependencies: [
                         .sourceControl(
                             url: "http://github.com/org/foo",
                             requirement: .upToNextMajor(from: "1.0.0")
-                        ),
+                        )
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -11817,10 +12120,10 @@ final class WorkspaceTests: XCTestCase {
                     name: "FooPackage",
                     url: "http://github.com/org/foo",
                     targets: [
-                        MockTarget(name: "FooTarget"),
+                        MockTarget(name: "FooTarget")
                     ],
                     products: [
-                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"])
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -11828,18 +12131,21 @@ final class WorkspaceTests: XCTestCase {
                     name: "BazPackage",
                     url: "https://github.com/org/baz.git",
                     targets: [
-                        MockTarget(name: "BazTarget", dependencies: [
-                            .product(name: "FooProduct", package: "foo"),
-                        ]),
+                        MockTarget(
+                            name: "BazTarget",
+                            dependencies: [
+                                .product(name: "FooProduct", package: "foo")
+                            ]
+                        )
                     ],
                     products: [
-                        MockProduct(name: "BazProduct", modules: ["BazTarget"]),
+                        MockProduct(name: "BazProduct", modules: ["BazTarget"])
                     ],
                     dependencies: [
                         .sourceControl(
                             url: "git@github.com:org/foo.git",
                             requirement: .upToNextMajor(from: "1.0.0")
-                        ),
+                        )
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -11847,10 +12153,10 @@ final class WorkspaceTests: XCTestCase {
                     name: "FooPackage",
                     url: "git@github.com:org/foo.git",
                     targets: [
-                        MockTarget(name: "FooTarget"),
+                        MockTarget(name: "FooTarget")
                     ],
                     products: [
-                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"])
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -11858,18 +12164,21 @@ final class WorkspaceTests: XCTestCase {
                     name: "QuxPackage",
                     url: "https://github.com/org/qux.git",
                     targets: [
-                        MockTarget(name: "QuxTarget", dependencies: [
-                            .product(name: "FooProduct", package: "foo"),
-                        ]),
+                        MockTarget(
+                            name: "QuxTarget",
+                            dependencies: [
+                                .product(name: "FooProduct", package: "foo")
+                            ]
+                        )
                     ],
                     products: [
-                        MockProduct(name: "QuxProduct", modules: ["QuxTarget"]),
+                        MockProduct(name: "QuxProduct", modules: ["QuxTarget"])
                     ],
                     dependencies: [
                         .sourceControl(
                             url: "https://github.com/org/foo.git",
                             requirement: .upToNextMajor(from: "1.0.0")
-                        ),
+                        )
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -11877,10 +12186,10 @@ final class WorkspaceTests: XCTestCase {
                     name: "FooPackage",
                     url: "https://github.com/org/foo.git",
                     targets: [
-                        MockTarget(name: "FooTarget"),
+                        MockTarget(name: "FooTarget")
                     ],
                     products: [
-                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"])
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -11932,11 +12241,14 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root",
                     targets: [
-                        MockTarget(name: "RootTarget", dependencies: [
-                            .product(name: "FooProduct", package: "foo"),
-                            .product(name: "BarProduct", package: "bar"),
-                            .product(name: "BazProduct", package: "baz"),
-                        ]),
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [
+                                .product(name: "FooProduct", package: "foo"),
+                                .product(name: "BarProduct", package: "bar"),
+                                .product(name: "BazProduct", package: "baz"),
+                            ]
+                        )
                     ],
                     dependencies: [
                         .sourceControl(
@@ -11952,17 +12264,17 @@ final class WorkspaceTests: XCTestCase {
                             requirement: .upToNextMajor(from: "1.0.0")
                         ),
                     ]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "FooPackage",
                     url: "git@github.com:org/foo.git",
                     targets: [
-                        MockTarget(name: "FooTarget"),
+                        MockTarget(name: "FooTarget")
                     ],
                     products: [
-                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"])
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -11970,18 +12282,21 @@ final class WorkspaceTests: XCTestCase {
                     name: "BarPackage",
                     url: "https://github.com/org/bar.git",
                     targets: [
-                        MockTarget(name: "BarTarget", dependencies: [
-                            .product(name: "FooProduct", package: "foo"),
-                        ]),
+                        MockTarget(
+                            name: "BarTarget",
+                            dependencies: [
+                                .product(name: "FooProduct", package: "foo")
+                            ]
+                        )
                     ],
                     products: [
-                        MockProduct(name: "BarProduct", modules: ["BarTarget"]),
+                        MockProduct(name: "BarProduct", modules: ["BarTarget"])
                     ],
                     dependencies: [
                         .sourceControl(
                             url: "http://github.com/org/foo",
                             requirement: .upToNextMajor(from: "1.0.0")
-                        ),
+                        )
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -11989,10 +12304,10 @@ final class WorkspaceTests: XCTestCase {
                     name: "FooPackage",
                     url: "http://github.com/org/foo",
                     targets: [
-                        MockTarget(name: "FooTarget"),
+                        MockTarget(name: "FooTarget")
                     ],
                     products: [
-                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"])
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -12000,18 +12315,21 @@ final class WorkspaceTests: XCTestCase {
                     name: "BazPackage",
                     url: "https://github.com/org/baz.git",
                     targets: [
-                        MockTarget(name: "BazTarget", dependencies: [
-                            .product(name: "FooProduct", package: "foo"),
-                        ]),
+                        MockTarget(
+                            name: "BazTarget",
+                            dependencies: [
+                                .product(name: "FooProduct", package: "foo")
+                            ]
+                        )
                     ],
                     products: [
-                        MockProduct(name: "BazProduct", modules: ["BazTarget"]),
+                        MockProduct(name: "BazProduct", modules: ["BazTarget"])
                     ],
                     dependencies: [
                         .sourceControl(
                             url: "https://github.com/org/foo.git",
                             requirement: .upToNextMajor(from: "1.0.0")
-                        ),
+                        )
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -12019,10 +12337,10 @@ final class WorkspaceTests: XCTestCase {
                     name: "FooPackage",
                     url: "https://github.com/org/foo.git",
                     targets: [
-                        MockTarget(name: "FooTarget"),
+                        MockTarget(name: "FooTarget")
                     ],
                     products: [
-                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"])
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -12071,24 +12389,30 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root",
                     targets: [
-                        MockTarget(name: "RootTarget", dependencies: [
-                            .product(name: "BarProduct", package: "bar"),
-                        ]),
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [
+                                .product(name: "BarProduct", package: "bar")
+                            ]
+                        )
                     ],
                     dependencies: [
                         .sourceControl(
                             url: "https://github.com/org/bar.git",
                             requirement: .upToNextMajor(from: "1.0.0")
-                        ),
+                        )
                     ]
                 ),
                 MockPackage(
                     name: "Root2",
                     targets: [
-                        MockTarget(name: "RootTarget", dependencies: [
-                            .product(name: "BarProduct", package: "bar"),
-                            .product(name: "BazProduct", package: "baz"),
-                        ]),
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [
+                                .product(name: "BarProduct", package: "bar"),
+                                .product(name: "BazProduct", package: "baz"),
+                            ]
+                        )
                     ],
                     dependencies: [
                         .sourceControl(
@@ -12107,65 +12431,71 @@ final class WorkspaceTests: XCTestCase {
                     name: "FooPackage",
                     url: "https://github.com/org/foo.git",
                     targets: [
-                        MockTarget(name: "FooTarget"),
+                        MockTarget(name: "FooTarget")
                     ],
                     products: [
-                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"])
                     ],
                     versions: ["1.0.0", "1.1.0"],
-                    revisionProvider: { _ in "foo" } // we need this to be consistent for fingerprints check to work
+                    revisionProvider: { _ in "foo" }  // we need this to be consistent for fingerprints check to work
                 ),
                 MockPackage(
                     name: "FooPackage",
                     url: "git@github.com:org/foo.git",
                     targets: [
-                        MockTarget(name: "FooTarget"),
+                        MockTarget(name: "FooTarget")
                     ],
                     products: [
-                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"])
                     ],
                     versions: ["1.0.0", "1.1.0"],
-                    revisionProvider: { _ in "foo" } // we need this to be consistent for fingerprints check to work
+                    revisionProvider: { _ in "foo" }  // we need this to be consistent for fingerprints check to work
                 ),
                 MockPackage(
                     name: "BarPackage",
                     url: "https://github.com/org/bar.git",
                     targets: [
-                        MockTarget(name: "BarTarget", dependencies: [
-                            .product(name: "FooProduct", package: "foo"),
-                        ]),
+                        MockTarget(
+                            name: "BarTarget",
+                            dependencies: [
+                                .product(name: "FooProduct", package: "foo")
+                            ]
+                        )
                     ],
                     products: [
-                        MockProduct(name: "BarProduct", modules: ["BarTarget"]),
+                        MockProduct(name: "BarProduct", modules: ["BarTarget"])
                     ],
                     dependencies: [
                         .sourceControl(
                             url: "git@github.com:org/foo.git",
                             requirement: .upToNextMajor(from: "1.0.0")
-                        ),
+                        )
                     ],
                     versions: ["1.0.0", "1.1.0", "1.2.0"],
-                    revisionProvider: { _ in "bar" } // we need this to be consistent for fingerprints check to work
+                    revisionProvider: { _ in "bar" }  // we need this to be consistent for fingerprints check to work
                 ),
                 MockPackage(
                     name: "BazPackage",
                     url: "https://github.com/org/baz.git",
                     targets: [
-                        MockTarget(name: "BazTarget", dependencies: [
-                            .product(name: "FooProduct", package: "foo"),
-                        ]),
+                        MockTarget(
+                            name: "BazTarget",
+                            dependencies: [
+                                .product(name: "FooProduct", package: "foo")
+                            ]
+                        )
                     ],
                     products: [
-                        MockProduct(name: "BazProduct", modules: ["BazTarget"]),
+                        MockProduct(name: "BazProduct", modules: ["BazTarget"])
                     ],
                     dependencies: [
                         .sourceControl(
                             url: "https://github.com/org/foo",
                             requirement: .upToNextMajor(from: "1.0.0")
-                        ),
+                        )
                     ],
                     versions: ["1.0.0", "1.1.0", "1.2.0"],
-                    revisionProvider: { _ in "baz" } // we need this to be consistent for fingerprints check to work
+                    revisionProvider: { _ in "baz" }  // we need this to be consistent for fingerprints check to work
                 ),
             ]
         )
@@ -12233,29 +12563,35 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root",
                     targets: [
-                        MockTarget(name: "RootTarget", dependencies: [
-                            .product(name: "FooProduct", package: "foo"),
-                        ]),
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [
+                                .product(name: "FooProduct", package: "foo")
+                            ]
+                        )
                     ],
                     dependencies: [
                         .sourceControl(
                             url: "https://github.com/org/foo.git",
                             requirement: .upToNextMajor(from: "1.0.0")
-                        ),
+                        )
                     ]
                 ),
                 MockPackage(
                     name: "Root2",
                     targets: [
-                        MockTarget(name: "RootTarget", dependencies: [
-                            .product(name: "FooProduct", package: "foo"),
-                        ]),
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [
+                                .product(name: "FooProduct", package: "foo")
+                            ]
+                        )
                     ],
                     dependencies: [
                         .sourceControl(
                             url: "git@github.com:org/foo.git",
                             requirement: .upToNextMajor(from: "1.0.0")
-                        ),
+                        )
                     ]
                 ),
             ],
@@ -12264,25 +12600,25 @@ final class WorkspaceTests: XCTestCase {
                     name: "FooPackage",
                     url: "https://github.com/org/foo.git",
                     targets: [
-                        MockTarget(name: "FooTarget"),
+                        MockTarget(name: "FooTarget")
                     ],
                     products: [
-                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"])
                     ],
                     versions: ["1.0.0"],
-                    revisionProvider: { _ in "foo" } // we need this to be consistent for fingerprints check to work
+                    revisionProvider: { _ in "foo" }  // we need this to be consistent for fingerprints check to work
                 ),
                 MockPackage(
                     name: "FooPackage",
                     url: "git@github.com:org/foo.git",
                     targets: [
-                        MockTarget(name: "FooTarget"),
+                        MockTarget(name: "FooTarget")
                     ],
                     products: [
-                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"])
                     ],
                     versions: ["1.0.0"],
-                    revisionProvider: { _ in "foo" } // we need this to be consistent for fingerprints check to work
+                    revisionProvider: { _ in "foo" }  // we need this to be consistent for fingerprints check to work
                 ),
             ]
         )
@@ -12346,10 +12682,13 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root",
                     targets: [
-                        MockTarget(name: "RootTarget", dependencies: [
-                            .product(name: "FooProduct", package: "foo"),
-                            .product(name: "BarProduct", package: "bar"),
-                        ]),
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [
+                                .product(name: "FooProduct", package: "foo"),
+                                .product(name: "BarProduct", package: "bar"),
+                            ]
+                        )
                     ],
                     dependencies: [
                         .sourceControl(
@@ -12365,10 +12704,13 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root2",
                     targets: [
-                        MockTarget(name: "RootTarget", dependencies: [
-                            .product(name: "FooProduct", package: "foo"),
-                            .product(name: "BarProduct", package: "bar"),
-                        ]),
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [
+                                .product(name: "FooProduct", package: "foo"),
+                                .product(name: "BarProduct", package: "bar"),
+                            ]
+                        )
                     ],
                     dependencies: [
                         .sourceControl(
@@ -12387,30 +12729,33 @@ final class WorkspaceTests: XCTestCase {
                     name: "FooPackage",
                     url: "https://github.com/org/foo.git",
                     targets: [
-                        MockTarget(name: "FooTarget"),
+                        MockTarget(name: "FooTarget")
                     ],
                     products: [
-                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"])
                     ],
                     versions: ["1.0.0"],
-                    revisionProvider: { _ in "foo" } // we need this to be consistent for fingerprints check to work
+                    revisionProvider: { _ in "foo" }  // we need this to be consistent for fingerprints check to work
                 ),
                 MockPackage(
                     name: "BarPackage",
                     url: "https://github.com/org/bar.git",
                     targets: [
-                        MockTarget(name: "BarTarget", dependencies: [
-                            .product(name: "FooProduct", package: "foo"),
-                        ]),
+                        MockTarget(
+                            name: "BarTarget",
+                            dependencies: [
+                                .product(name: "FooProduct", package: "foo")
+                            ]
+                        )
                     ],
                     products: [
-                        MockProduct(name: "BarProduct", modules: ["BarTarget"]),
+                        MockProduct(name: "BarProduct", modules: ["BarTarget"])
                     ],
                     dependencies: [
                         .sourceControl(
                             url: "http://github.com/org/foo",
                             requirement: .upToNextMajor(from: "1.0.0")
-                        ),
+                        )
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -12418,25 +12763,25 @@ final class WorkspaceTests: XCTestCase {
                     name: "FooPackage",
                     url: "http://github.com/org/foo",
                     targets: [
-                        MockTarget(name: "FooTarget"),
+                        MockTarget(name: "FooTarget")
                     ],
                     products: [
-                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"])
                     ],
                     versions: ["1.0.0"],
-                    revisionProvider: { _ in "foo" } // we need this to be consistent for fingerprints check to work
+                    revisionProvider: { _ in "foo" }  // we need this to be consistent for fingerprints check to work
                 ),
                 MockPackage(
                     name: "FooPackage",
                     url: "git@github.com:org/foo.git",
                     targets: [
-                        MockTarget(name: "FooTarget"),
+                        MockTarget(name: "FooTarget")
                     ],
                     products: [
-                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"])
                     ],
                     versions: ["1.0.0"],
-                    revisionProvider: { _ in "foo" } // we need this to be consistent for fingerprints check to work
+                    revisionProvider: { _ in "foo" }  // we need this to be consistent for fingerprints check to work
                 ),
             ]
         )
@@ -12512,13 +12857,16 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root1",
                     targets: [
-                        .init(name: "Root1Target", dependencies: [
-                            .product(name: "FooProduct", package: "foo"),
-                            .product(name: "Root2Product", package: "Root2"),
-                        ]),
+                        .init(
+                            name: "Root1Target",
+                            dependencies: [
+                                .product(name: "FooProduct", package: "foo"),
+                                .product(name: "Root2Product", package: "Root2"),
+                            ]
+                        )
                     ],
                     products: [
-                        .init(name: "Root1Product", modules: ["Root1Target"]),
+                        .init(name: "Root1Product", modules: ["Root1Target"])
                     ],
                     dependencies: [
                         .sourceControl(
@@ -12531,18 +12879,21 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root2",
                     targets: [
-                        .init(name: "Root2Target", dependencies: [
-                            .product(name: "BarProduct", package: "bar"),
-                        ]),
+                        .init(
+                            name: "Root2Target",
+                            dependencies: [
+                                .product(name: "BarProduct", package: "bar")
+                            ]
+                        )
                     ],
                     products: [
-                        .init(name: "Root2Product", modules: ["Root2Target"]),
+                        .init(name: "Root2Product", modules: ["Root2Target"])
                     ],
                     dependencies: [
                         .sourceControl(
                             url: "http://scm.com/org/bar",
                             requirement: .upToNextMajor(from: "1.0.0")
-                        ),
+                        )
                     ]
                 ),
             ],
@@ -12551,18 +12902,21 @@ final class WorkspaceTests: XCTestCase {
                     name: "FooPackage",
                     url: "http://scm.com/org/foo",
                     targets: [
-                        .init(name: "FooTarget", dependencies: [
-                            .product(name: "BarProduct", package: "bar"),
-                        ]),
+                        .init(
+                            name: "FooTarget",
+                            dependencies: [
+                                .product(name: "BarProduct", package: "bar")
+                            ]
+                        )
                     ],
                     products: [
-                        .init(name: "FooProduct", modules: ["FooTarget"]),
+                        .init(name: "FooProduct", modules: ["FooTarget"])
                     ],
                     dependencies: [
                         .sourceControl(
                             url: "http://scm.com/org/bar",
                             requirement: .upToNextMajor(from: "1.0.0")
-                        ),
+                        )
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -12570,18 +12924,21 @@ final class WorkspaceTests: XCTestCase {
                     name: "BarPackage",
                     url: "http://scm.com/org/bar",
                     targets: [
-                        .init(name: "BarTarget", dependencies: [
-                            .product(name: "BazProduct", package: "baz"),
-                        ]),
+                        .init(
+                            name: "BarTarget",
+                            dependencies: [
+                                .product(name: "BazProduct", package: "baz")
+                            ]
+                        )
                     ],
                     products: [
-                        .init(name: "BarProduct", modules: ["BarTarget"]),
+                        .init(name: "BarProduct", modules: ["BarTarget"])
                     ],
                     dependencies: [
                         .sourceControl(
                             url: "http://scm.com/org/baz",
                             requirement: .upToNextMajor(from: "1.0.0")
-                        ),
+                        )
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -12589,18 +12946,21 @@ final class WorkspaceTests: XCTestCase {
                     name: "BazPackage",
                     url: "http://scm.com/org/baz",
                     targets: [
-                        .init(name: "BazTarget", dependencies: [
-                            .product(name: "FooProduct", package: "foo"),
-                        ]),
+                        .init(
+                            name: "BazTarget",
+                            dependencies: [
+                                .product(name: "FooProduct", package: "foo")
+                            ]
+                        )
                     ],
                     products: [
-                        .init(name: "BazProduct", modules: ["BazTarget"]),
+                        .init(name: "BazProduct", modules: ["BazTarget"])
                     ],
                     dependencies: [
                         .sourceControl(
                             url: "http://scm.com/org/foo",
                             requirement: .upToNextMajor(from: "1.0.0")
-                        ),
+                        )
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -12628,10 +12988,13 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root",
                     targets: [
-                        MockTarget(name: "RootTarget", dependencies: [
-                            .product(name: "FooProduct", package: "foo"),
-                            .product(name: "BarProduct", package: "bar"),
-                        ]),
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [
+                                .product(name: "FooProduct", package: "foo"),
+                                .product(name: "BarProduct", package: "bar"),
+                            ]
+                        )
                     ],
                     products: [],
                     dependencies: [
@@ -12639,17 +13002,17 @@ final class WorkspaceTests: XCTestCase {
                         .sourceControl(url: "http://localhost/org/bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     toolsVersion: .v5_6
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "FooPackage",
                     url: "http://localhost/org/foo",
                     targets: [
-                        MockTarget(name: "FooTarget"),
+                        MockTarget(name: "FooTarget")
                     ],
                     products: [
-                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"])
                     ],
                     versions: ["1.0.0", "experiment"]
                 ),
@@ -12657,15 +13020,18 @@ final class WorkspaceTests: XCTestCase {
                     name: "BarPackage",
                     url: "http://localhost/org/bar",
                     targets: [
-                        MockTarget(name: "BarTarget", dependencies: [
-                            .product(name: "FooProduct", package: "foo"),
-                        ]),
+                        MockTarget(
+                            name: "BarTarget",
+                            dependencies: [
+                                .product(name: "FooProduct", package: "foo")
+                            ]
+                        )
                     ],
                     products: [
-                        MockProduct(name: "BarProduct", modules: ["BarTarget"]),
+                        MockProduct(name: "BarProduct", modules: ["BarTarget"])
                     ],
                     dependencies: [
-                        .sourceControl(url: "http://localhost/org/foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(url: "http://localhost/org/foo", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -12697,15 +13063,15 @@ final class WorkspaceTests: XCTestCase {
             try fs.writeFileContents(
                 foo.appending("Package.swift"),
                 string: """
-                // swift-tools-version:5.3
-                import PackageDescription
-                let package = Package(
-                    name: "Best",
-                    targets: [
-                        .binaryTarget(name: "best", path: "/best.xcframework")
-                    ]
-                )
-                """
+                    // swift-tools-version:5.3
+                    import PackageDescription
+                    let package = Package(
+                        name: "Best",
+                        targets: [
+                            .binaryTarget(name: "best", path: "/best.xcframework")
+                        ]
+                    )
+                    """
             )
 
             let manifestLoader = try ManifestLoader(toolchain: UserToolchain.default)
@@ -12836,34 +13202,34 @@ final class WorkspaceTests: XCTestCase {
                         MockTarget(
                             name: "MyTarget1",
                             dependencies: [
-                                .product(name: "Foo", package: "foo"),
+                                .product(name: "Foo", package: "foo")
                             ]
                         ),
                         MockTarget(
                             name: "MyTarget2",
                             dependencies: [
-                                .product(name: "Bar", package: "bar"),
+                                .product(name: "Bar", package: "bar")
                             ]
                         ),
                     ],
                     products: [
-                        MockProduct(name: "MyProduct", modules: ["MyTarget1", "MyTarget2"]),
+                        MockProduct(name: "MyProduct", modules: ["MyTarget1", "MyTarget2"])
                     ],
                     dependencies: [
                         .sourceControl(url: "http://localhost/org/foo", requirement: .upToNextMajor(from: "1.0.0")),
                         .sourceControl(url: "http://localhost/org/bar", requirement: .upToNextMajor(from: "2.0.0")),
                     ]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "Foo",
                     url: "http://localhost/org/foo",
                     targets: [
-                        MockTarget(name: "Foo"),
+                        MockTarget(name: "Foo")
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo"]),
+                        MockProduct(name: "Foo", modules: ["Foo"])
                     ],
                     versions: ["1.0.0", "1.1.0", "1.2.0", "1.3.0", "1.4.0", "1.5.0", "1.5.1"]
                 ),
@@ -12871,10 +13237,10 @@ final class WorkspaceTests: XCTestCase {
                     name: "Bar",
                     url: "http://localhost/org/bar",
                     targets: [
-                        MockTarget(name: "Bar"),
+                        MockTarget(name: "Bar")
                     ],
                     products: [
-                        MockProduct(name: "Bar", modules: ["Bar"]),
+                        MockProduct(name: "Bar", modules: ["Bar"])
                     ],
                     versions: ["2.0.0", "2.1.0", "2.2.0"]
                 ),
@@ -12901,13 +13267,13 @@ final class WorkspaceTests: XCTestCase {
         XCTAssertMatch(
             workspace.delegate.events,
             [
-                "will load manifest for root package: \(sandbox.appending(components: "roots", "MyPackage")) (identity: mypackage)",
+                "will load manifest for root package: \(sandbox.appending(components: "roots", "MyPackage")) (identity: mypackage)"
             ]
         )
         XCTAssertMatch(
             workspace.delegate.events,
             [
-                "did load manifest for root package: \(sandbox.appending(components: "roots", "MyPackage")) (identity: mypackage)",
+                "did load manifest for root package: \(sandbox.appending(components: "roots", "MyPackage")) (identity: mypackage)"
             ]
         )
         XCTAssertMatch(
@@ -12942,24 +13308,24 @@ final class WorkspaceTests: XCTestCase {
                         MockTarget(
                             name: "MyTarget1",
                             dependencies: [
-                                .product(name: "Foo", package: "foo"),
+                                .product(name: "Foo", package: "foo")
                             ]
                         ),
                         MockTarget(
                             name: "MyTarget2",
                             dependencies: [
-                                .product(name: "Bar", package: "bar"),
+                                .product(name: "Bar", package: "bar")
                             ]
                         ),
                     ],
                     products: [
-                        MockProduct(name: "MyProduct", modules: ["MyTarget1", "MyTarget2"]),
+                        MockProduct(name: "MyProduct", modules: ["MyTarget1", "MyTarget2"])
                     ],
                     dependencies: [
                         .sourceControl(url: "http://localhost/org/foo", requirement: .upToNextMajor(from: "1.0.0")),
                         .sourceControl(url: "http://localhost/org/bar", requirement: .upToNextMajor(from: "2.0.0")),
                     ]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
@@ -12969,15 +13335,15 @@ final class WorkspaceTests: XCTestCase {
                         MockTarget(
                             name: "Foo",
                             dependencies: [
-                                .product(name: "Baz", package: "baz"),
+                                .product(name: "Baz", package: "baz")
                             ]
-                        ),
+                        )
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo"]),
+                        MockProduct(name: "Foo", modules: ["Foo"])
                     ],
                     dependencies: [
-                        .sourceControl(url: "http://localhost/org/baz", requirement: .range("2.0.0" ..< "4.0.0")),
+                        .sourceControl(url: "http://localhost/org/baz", requirement: .range("2.0.0"..<"4.0.0"))
                     ],
                     versions: ["1.0.0", "1.1.0"]
                 ),
@@ -12988,15 +13354,15 @@ final class WorkspaceTests: XCTestCase {
                         MockTarget(
                             name: "Bar",
                             dependencies: [
-                                .product(name: "Baz", package: "baz"),
+                                .product(name: "Baz", package: "baz")
                             ]
-                        ),
+                        )
                     ],
                     products: [
-                        MockProduct(name: "Bar", modules: ["Bar"]),
+                        MockProduct(name: "Bar", modules: ["Bar"])
                     ],
                     dependencies: [
-                        .sourceControl(url: "http://localhost/org/baz", requirement: .upToNextMajor(from: "3.0.0")),
+                        .sourceControl(url: "http://localhost/org/baz", requirement: .upToNextMajor(from: "3.0.0"))
                     ],
                     versions: ["2.0.0", "2.1.0"]
                 ),
@@ -13004,10 +13370,10 @@ final class WorkspaceTests: XCTestCase {
                     name: "Baz",
                     url: "http://localhost/org/baz",
                     targets: [
-                        MockTarget(name: "Baz"),
+                        MockTarget(name: "Baz")
                     ],
                     products: [
-                        MockProduct(name: "Baz", modules: ["Baz"]),
+                        MockProduct(name: "Baz", modules: ["Baz"])
                     ],
                     versions: ["1.0.0", "1.1.0", "2.0.0", "2.1.0", "3.0.0", "3.1.0"]
                 ),
@@ -13037,13 +13403,13 @@ final class WorkspaceTests: XCTestCase {
         XCTAssertMatch(
             workspace.delegate.events,
             [
-                "will load manifest for root package: \(sandbox.appending(components: "roots", "MyPackage")) (identity: mypackage)",
+                "will load manifest for root package: \(sandbox.appending(components: "roots", "MyPackage")) (identity: mypackage)"
             ]
         )
         XCTAssertMatch(
             workspace.delegate.events,
             [
-                "did load manifest for root package: \(sandbox.appending(components: "roots", "MyPackage")) (identity: mypackage)",
+                "did load manifest for root package: \(sandbox.appending(components: "roots", "MyPackage")) (identity: mypackage)"
             ]
         )
         XCTAssertMatch(
@@ -13086,34 +13452,34 @@ final class WorkspaceTests: XCTestCase {
                         MockTarget(
                             name: "MyTarget1",
                             dependencies: [
-                                .product(name: "Foo", package: "org.foo"),
+                                .product(name: "Foo", package: "org.foo")
                             ]
                         ),
                         MockTarget(
                             name: "MyTarget2",
                             dependencies: [
-                                .product(name: "Bar", package: "org.bar"),
+                                .product(name: "Bar", package: "org.bar")
                             ]
                         ),
                     ],
                     products: [
-                        MockProduct(name: "MyProduct", modules: ["MyTarget1", "MyTarget2"]),
+                        MockProduct(name: "MyProduct", modules: ["MyTarget1", "MyTarget2"])
                     ],
                     dependencies: [
                         .registry(identity: "org.foo", requirement: .upToNextMajor(from: "1.0.0")),
                         .registry(identity: "org.bar", requirement: .upToNextMajor(from: "2.0.0")),
                     ]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "Foo",
                     identity: "org.foo",
                     targets: [
-                        MockTarget(name: "Foo"),
+                        MockTarget(name: "Foo")
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo"]),
+                        MockProduct(name: "Foo", modules: ["Foo"])
                     ],
                     versions: ["1.0.0", "1.1.0", "1.2.0", "1.3.0", "1.4.0", "1.5.0", "1.5.1"]
                 ),
@@ -13121,10 +13487,10 @@ final class WorkspaceTests: XCTestCase {
                     name: "Bar",
                     identity: "org.bar",
                     targets: [
-                        MockTarget(name: "Bar"),
+                        MockTarget(name: "Bar")
                     ],
                     products: [
-                        MockProduct(name: "Bar", modules: ["Bar"]),
+                        MockProduct(name: "Bar", modules: ["Bar"])
                     ],
                     versions: ["2.0.0", "2.1.0", "2.2.0"]
                 ),
@@ -13151,13 +13517,13 @@ final class WorkspaceTests: XCTestCase {
         XCTAssertMatch(
             workspace.delegate.events,
             [
-                "will load manifest for root package: \(sandbox.appending(components: "roots", "MyPackage")) (identity: mypackage)",
+                "will load manifest for root package: \(sandbox.appending(components: "roots", "MyPackage")) (identity: mypackage)"
             ]
         )
         XCTAssertMatch(
             workspace.delegate.events,
             [
-                "did load manifest for root package: \(sandbox.appending(components: "roots", "MyPackage")) (identity: mypackage)",
+                "did load manifest for root package: \(sandbox.appending(components: "roots", "MyPackage")) (identity: mypackage)"
             ]
         )
         XCTAssertMatch(
@@ -13192,24 +13558,24 @@ final class WorkspaceTests: XCTestCase {
                         MockTarget(
                             name: "MyTarget1",
                             dependencies: [
-                                .product(name: "Foo", package: "org.foo"),
+                                .product(name: "Foo", package: "org.foo")
                             ]
                         ),
                         MockTarget(
                             name: "MyTarget2",
                             dependencies: [
-                                .product(name: "Bar", package: "org.bar"),
+                                .product(name: "Bar", package: "org.bar")
                             ]
                         ),
                     ],
                     products: [
-                        MockProduct(name: "MyProduct", modules: ["MyTarget1", "MyTarget2"]),
+                        MockProduct(name: "MyProduct", modules: ["MyTarget1", "MyTarget2"])
                     ],
                     dependencies: [
                         .registry(identity: "org.foo", requirement: .upToNextMajor(from: "1.0.0")),
                         .registry(identity: "org.bar", requirement: .upToNextMajor(from: "2.0.0")),
                     ]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
@@ -13219,15 +13585,15 @@ final class WorkspaceTests: XCTestCase {
                         MockTarget(
                             name: "Foo",
                             dependencies: [
-                                .product(name: "Baz", package: "org.baz"),
+                                .product(name: "Baz", package: "org.baz")
                             ]
-                        ),
+                        )
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo"]),
+                        MockProduct(name: "Foo", modules: ["Foo"])
                     ],
                     dependencies: [
-                        .registry(identity: "org.baz", requirement: .range("2.0.0" ..< "4.0.0")),
+                        .registry(identity: "org.baz", requirement: .range("2.0.0"..<"4.0.0"))
                     ],
                     versions: ["1.0.0", "1.1.0"]
                 ),
@@ -13238,15 +13604,15 @@ final class WorkspaceTests: XCTestCase {
                         MockTarget(
                             name: "Bar",
                             dependencies: [
-                                .product(name: "Baz", package: "org.baz"),
+                                .product(name: "Baz", package: "org.baz")
                             ]
-                        ),
+                        )
                     ],
                     products: [
-                        MockProduct(name: "Bar", modules: ["Bar"]),
+                        MockProduct(name: "Bar", modules: ["Bar"])
                     ],
                     dependencies: [
-                        .registry(identity: "org.baz", requirement: .upToNextMajor(from: "3.0.0")),
+                        .registry(identity: "org.baz", requirement: .upToNextMajor(from: "3.0.0"))
                     ],
                     versions: ["1.0.0", "1.1.0", "2.0.0", "2.1.0"]
                 ),
@@ -13254,10 +13620,10 @@ final class WorkspaceTests: XCTestCase {
                     name: "Baz",
                     identity: "org.baz",
                     targets: [
-                        MockTarget(name: "Baz"),
+                        MockTarget(name: "Baz")
                     ],
                     products: [
-                        MockProduct(name: "Baz", modules: ["Baz"]),
+                        MockProduct(name: "Baz", modules: ["Baz"])
                     ],
                     versions: ["1.0.0", "1.1.0", "2.0.0", "2.1.0", "3.0.0", "3.1.0"]
                 ),
@@ -13287,13 +13653,13 @@ final class WorkspaceTests: XCTestCase {
         XCTAssertMatch(
             workspace.delegate.events,
             [
-                "will load manifest for root package: \(sandbox.appending(components: "roots", "MyPackage")) (identity: mypackage)",
+                "will load manifest for root package: \(sandbox.appending(components: "roots", "MyPackage")) (identity: mypackage)"
             ]
         )
         XCTAssertMatch(
             workspace.delegate.events,
             [
-                "did load manifest for root package: \(sandbox.appending(components: "roots", "MyPackage")) (identity: mypackage)",
+                "did load manifest for root package: \(sandbox.appending(components: "roots", "MyPackage")) (identity: mypackage)"
             ]
         )
         XCTAssertMatch(
@@ -13334,16 +13700,19 @@ final class WorkspaceTests: XCTestCase {
                     name: "Root",
                     path: "root",
                     targets: [
-                        MockTarget(name: "RootTarget", dependencies: [
-                            .product(name: "FooProduct", package: "foo"),
-                        ]),
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [
+                                .product(name: "FooProduct", package: "foo")
+                            ]
+                        )
                     ],
                     products: [],
                     dependencies: [
-                        .sourceControl(url: "https://git/org/foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(url: "https://git/org/foo", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     toolsVersion: .v5_6
-                ),
+                )
             ],
             packages: [
                 MockPackage(
@@ -13351,10 +13720,10 @@ final class WorkspaceTests: XCTestCase {
                     identity: "org.bar",
                     alternativeURLs: ["https://git/org/Bar"],
                     targets: [
-                        MockTarget(name: "BarTarget"),
+                        MockTarget(name: "BarTarget")
                     ],
                     products: [
-                        MockProduct(name: "Bar", modules: ["BarTarget"]),
+                        MockProduct(name: "Bar", modules: ["BarTarget"])
                     ],
                     versions: ["1.0.0", "1.1.0"]
                 ),
@@ -13363,15 +13732,18 @@ final class WorkspaceTests: XCTestCase {
                     identity: "org.foo",
                     alternativeURLs: ["https://git/org/foo"],
                     targets: [
-                        MockTarget(name: "FooTarget", dependencies: [
-                            "Bar",
-                        ]),
+                        MockTarget(
+                            name: "FooTarget",
+                            dependencies: [
+                                "Bar"
+                            ]
+                        )
                     ],
                     products: [
-                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"])
                     ],
                     dependencies: [
-                        .sourceControl(url: "https://git/org/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(url: "https://git/org/Bar", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     versions: ["1.0.0", "1.1.0", "1.2.0"]
                 ),
@@ -13414,10 +13786,13 @@ final class WorkspaceTests: XCTestCase {
                     name: "Root",
                     path: "root",
                     targets: [
-                        MockTarget(name: "RootTarget", dependencies: [
-                            .product(name: "FooProduct", package: "foo"),
-                            .product(name: "BarProduct", package: "org.bar"),
-                        ]),
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [
+                                .product(name: "FooProduct", package: "foo"),
+                                .product(name: "BarProduct", package: "org.bar"),
+                            ]
+                        )
                     ],
                     products: [],
                     dependencies: [
@@ -13425,17 +13800,17 @@ final class WorkspaceTests: XCTestCase {
                         .registry(identity: "org.bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     toolsVersion: .v5_6
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "FooPackage",
                     url: "https://git/org/foo",
                     targets: [
-                        MockTarget(name: "FooTarget"),
+                        MockTarget(name: "FooTarget")
                     ],
                     products: [
-                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"])
                     ],
                     versions: ["1.0.0", "1.1.0", "1.2.0"]
                 ),
@@ -13443,10 +13818,10 @@ final class WorkspaceTests: XCTestCase {
                     name: "BarPackage",
                     identity: "org.bar",
                     targets: [
-                        MockTarget(name: "BarTarget"),
+                        MockTarget(name: "BarTarget")
                     ],
                     products: [
-                        MockProduct(name: "BarProduct", modules: ["BarTarget"]),
+                        MockProduct(name: "BarProduct", modules: ["BarTarget"])
                     ],
                     versions: ["1.0.0", "1.1.0"]
                 ),
@@ -13455,10 +13830,10 @@ final class WorkspaceTests: XCTestCase {
                     identity: "org.foo",
                     alternativeURLs: ["https://git/org/foo"],
                     targets: [
-                        MockTarget(name: "FooTarget"),
+                        MockTarget(name: "FooTarget")
                     ],
                     products: [
-                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"])
                     ],
                     versions: ["1.0.0", "1.1.0", "1.2.0"]
                 ),
@@ -13544,16 +13919,19 @@ final class WorkspaceTests: XCTestCase {
                     name: "Root",
                     path: "root",
                     targets: [
-                        MockTarget(name: "RootTarget", dependencies: [
-                            .product(name: "FooProduct", package: "Foo"),
-                        ]),
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [
+                                .product(name: "FooProduct", package: "Foo")
+                            ]
+                        )
                     ],
                     products: [],
                     dependencies: [
-                        .sourceControl(url: "https://git/org/foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(url: "https://git/org/foo", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     toolsVersion: .v5_6
-                ),
+                )
             ],
             packages: [
                 MockPackage(
@@ -13561,16 +13939,16 @@ final class WorkspaceTests: XCTestCase {
                     identity: "org.foo",
                     alternativeURLs: ["https://git/org/foo"],
                     targets: [
-                        MockTarget(name: "FooTarget"),
+                        MockTarget(name: "FooTarget")
                     ],
                     products: [
-                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"])
                     ],
                     dependencies: [
-                        .sourceControl(url: "https://git/org/bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(url: "https://git/org/bar", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     versions: ["1.0.0", "1.1.0", "1.2.0"]
-                ),
+                )
             ]
         )
 
@@ -13609,9 +13987,12 @@ final class WorkspaceTests: XCTestCase {
                     name: "Root",
                     path: "root",
                     targets: [
-                        MockTarget(name: "RootTarget", dependencies: [
-                            .product(name: "FooProduct", package: "foo"),
-                        ]),
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [
+                                .product(name: "FooProduct", package: "foo")
+                            ]
+                        )
                     ],
                     products: [],
                     dependencies: [
@@ -13619,17 +14000,17 @@ final class WorkspaceTests: XCTestCase {
                         .registry(identity: "org.foo", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     toolsVersion: .v5_6
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "FooPackage",
                     url: "https://git/org/foo",
                     targets: [
-                        MockTarget(name: "FooTarget"),
+                        MockTarget(name: "FooTarget")
                     ],
                     products: [
-                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"])
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -13638,10 +14019,10 @@ final class WorkspaceTests: XCTestCase {
                     identity: "org.foo",
                     alternativeURLs: ["https://git/org/foo"],
                     targets: [
-                        MockTarget(name: "FooTarget"),
+                        MockTarget(name: "FooTarget")
                     ],
                     products: [
-                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"])
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -13651,8 +14032,10 @@ final class WorkspaceTests: XCTestCase {
         do {
             workspace.sourceControlToRegistryDependencyTransformation = .disabled
 
-            await XCTAssertAsyncThrowsError(try await workspace.checkPackageGraph(roots: ["root"]) { _, _ in
-            }) { error in
+            await XCTAssertAsyncThrowsError(
+                try await workspace.checkPackageGraph(roots: ["root"]) { _, _ in
+                }
+            ) { error in
                 XCTAssertEqual(
                     (error as? PackageGraphError)?.description,
                     "multiple packages (\'foo\' (from \'https://git/org/foo\'), \'org.foo\') declare products with a conflicting name: \'FooProduct’; product names need to be unique across the package graph"
@@ -13708,10 +14091,13 @@ final class WorkspaceTests: XCTestCase {
                     name: "Root",
                     path: "root",
                     targets: [
-                        MockTarget(name: "RootTarget", dependencies: [
-                            .product(name: "FooProduct", package: "foo"),
-                            .product(name: "BarProduct", package: "bar"),
-                        ]),
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [
+                                .product(name: "FooProduct", package: "foo"),
+                                .product(name: "BarProduct", package: "bar"),
+                            ]
+                        )
                     ],
                     products: [],
                     dependencies: [
@@ -13719,17 +14105,17 @@ final class WorkspaceTests: XCTestCase {
                         .sourceControl(url: "https://git/org/bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     toolsVersion: .v5_6
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "FooPackage",
                     url: "https://git/org/foo",
                     targets: [
-                        MockTarget(name: "FooTarget"),
+                        MockTarget(name: "FooTarget")
                     ],
                     products: [
-                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"])
                     ],
                     versions: ["1.0.0", "1.1.0", "2.0.0", "2.1.0"]
                 ),
@@ -13737,15 +14123,18 @@ final class WorkspaceTests: XCTestCase {
                     name: "BarPackage",
                     url: "https://git/org/bar",
                     targets: [
-                        MockTarget(name: "BarTarget", dependencies: [
-                            .product(name: "FooProduct", package: "org.foo"),
-                        ]),
+                        MockTarget(
+                            name: "BarTarget",
+                            dependencies: [
+                                .product(name: "FooProduct", package: "org.foo")
+                            ]
+                        )
                     ],
                     products: [
-                        MockProduct(name: "BarProduct", modules: ["BarTarget"]),
+                        MockProduct(name: "BarProduct", modules: ["BarTarget"])
                     ],
                     dependencies: [
-                        .registry(identity: "org.foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .registry(identity: "org.foo", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     versions: ["1.0.0", "1.1.0", "2.0.0", "2.1.0"]
                 ),
@@ -13754,10 +14143,10 @@ final class WorkspaceTests: XCTestCase {
                     identity: "org.foo",
                     alternativeURLs: ["https://git/org/foo"],
                     targets: [
-                        MockTarget(name: "FooTarget"),
+                        MockTarget(name: "FooTarget")
                     ],
                     products: [
-                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"])
                     ],
                     versions: ["1.0.0", "1.1.0", "2.0.0", "2.1.0"]
                 ),
@@ -13769,9 +14158,11 @@ final class WorkspaceTests: XCTestCase {
             try await workspace.checkPackageGraph(roots: ["root"]) { _, diagnostics in
                 testDiagnostics(diagnostics) { result in
                     result.check(
-                        diagnostic: .contains("""
-                        multiple similar targets 'FooTarget' appear in registry package 'org.foo' and source control package 'foo'
-                        """),
+                        diagnostic: .contains(
+                            """
+                            multiple similar targets 'FooTarget' appear in registry package 'org.foo' and source control package 'foo'
+                            """
+                        ),
                         severity: .error
                     )
                 }
@@ -13788,9 +14179,11 @@ final class WorkspaceTests: XCTestCase {
                 testDiagnostics(diagnostics) { result in
                     let tmpDirCanonicalPackageLocation = CanonicalPackageLocation(sandbox.pathString)
                     result.check(
-                        diagnostic: .contains("""
-                        dependency 'org.foo' and dependency 'git/org/foo' both point to the same package identity 'org.foo'. The dependencies are introduced through the following chains: (A) \(tmpDirCanonicalPackageLocation)/roots/root->git/org/bar->org.foo (B) \(tmpDirCanonicalPackageLocation)/roots/root->git/org/foo.
-                        """),
+                        diagnostic: .contains(
+                            """
+                            dependency 'org.foo' and dependency 'git/org/foo' both point to the same package identity 'org.foo'. The dependencies are introduced through the following chains: (A) \(tmpDirCanonicalPackageLocation)/roots/root->git/org/bar->org.foo (B) \(tmpDirCanonicalPackageLocation)/roots/root->git/org/foo.
+                            """
+                        ),
                         severity: .warning
                     )
                 }
@@ -13872,10 +14265,13 @@ final class WorkspaceTests: XCTestCase {
                     name: "Root",
                     path: "root",
                     targets: [
-                        MockTarget(name: "RootTarget", dependencies: [
-                            .product(name: "FooProduct", package: "foo"),
-                            .product(name: "BarProduct", package: "org.bar"),
-                        ]),
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [
+                                .product(name: "FooProduct", package: "foo"),
+                                .product(name: "BarProduct", package: "org.bar"),
+                            ]
+                        )
                     ],
                     products: [],
                     dependencies: [
@@ -13883,17 +14279,17 @@ final class WorkspaceTests: XCTestCase {
                         .registry(identity: "org.bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     toolsVersion: .v5_6
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "FooPackage",
                     url: "https://git/org/foo",
                     targets: [
-                        MockTarget(name: "FooTarget"),
+                        MockTarget(name: "FooTarget")
                     ],
                     products: [
-                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"])
                     ],
                     versions: ["1.0.0", "1.1.0", "1.2.0"]
                 ),
@@ -13901,15 +14297,18 @@ final class WorkspaceTests: XCTestCase {
                     name: "BarPackage",
                     identity: "org.bar",
                     targets: [
-                        MockTarget(name: "BarTarget", dependencies: [
-                            .product(name: "FooProduct", package: "org.foo"),
-                        ]),
+                        MockTarget(
+                            name: "BarTarget",
+                            dependencies: [
+                                .product(name: "FooProduct", package: "org.foo")
+                            ]
+                        )
                     ],
                     products: [
-                        MockProduct(name: "BarProduct", modules: ["BarTarget"]),
+                        MockProduct(name: "BarProduct", modules: ["BarTarget"])
                     ],
                     dependencies: [
-                        .registry(identity: "org.foo", requirement: .upToNextMajor(from: "1.2.0")),
+                        .registry(identity: "org.foo", requirement: .upToNextMajor(from: "1.2.0"))
                     ],
                     versions: ["1.0.0", "1.1.0"]
                 ),
@@ -13918,10 +14317,10 @@ final class WorkspaceTests: XCTestCase {
                     identity: "org.foo",
                     alternativeURLs: ["https://git/org/foo"],
                     targets: [
-                        MockTarget(name: "FooTarget"),
+                        MockTarget(name: "FooTarget")
                     ],
                     products: [
-                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"])
                     ],
                     versions: ["1.0.0", "1.1.0", "1.2.0"]
                 ),
@@ -13933,9 +14332,11 @@ final class WorkspaceTests: XCTestCase {
             try await workspace.checkPackageGraph(roots: ["root"]) { _, diagnostics in
                 testDiagnostics(diagnostics) { result in
                     result.check(
-                        diagnostic: .contains("""
-                        multiple similar targets 'FooTarget' appear in registry package 'org.foo' and source control package 'foo'
-                        """),
+                        diagnostic: .contains(
+                            """
+                            multiple similar targets 'FooTarget' appear in registry package 'org.foo' and source control package 'foo'
+                            """
+                        ),
                         severity: .error
                     )
                 }
@@ -13952,9 +14353,11 @@ final class WorkspaceTests: XCTestCase {
                 testDiagnostics(diagnostics) { result in
                     let tmpDirCanonicalPackageLocation = CanonicalPackageLocation(sandbox.pathString)
                     result.check(
-                        diagnostic: .contains("""
-                        dependency 'org.foo' and dependency 'git/org/foo' both point to the same package identity 'org.foo'. The dependencies are introduced through the following chains: (A) \(tmpDirCanonicalPackageLocation)/roots/root->org.bar->org.foo (B) \(tmpDirCanonicalPackageLocation)/roots/root->git/org/foo.
-                        """),
+                        diagnostic: .contains(
+                            """
+                            dependency 'org.foo' and dependency 'git/org/foo' both point to the same package identity 'org.foo'. The dependencies are introduced through the following chains: (A) \(tmpDirCanonicalPackageLocation)/roots/root->org.bar->org.foo (B) \(tmpDirCanonicalPackageLocation)/roots/root->git/org/foo.
+                            """
+                        ),
                         severity: .warning
                     )
                 }
@@ -14011,10 +14414,13 @@ final class WorkspaceTests: XCTestCase {
                     name: "Root",
                     path: "root",
                     targets: [
-                        MockTarget(name: "RootTarget", dependencies: [
-                            .product(name: "FooProduct", package: "foo"),
-                            .product(name: "BarProduct", package: "bar"),
-                        ]),
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [
+                                .product(name: "FooProduct", package: "foo"),
+                                .product(name: "BarProduct", package: "bar"),
+                            ]
+                        )
                     ],
                     products: [],
                     dependencies: [
@@ -14022,17 +14428,17 @@ final class WorkspaceTests: XCTestCase {
                         .sourceControl(url: "https://git/org/bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     toolsVersion: .v5_6
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "FooPackage",
                     url: "https://git/org/foo",
                     targets: [
-                        MockTarget(name: "FooTarget"),
+                        MockTarget(name: "FooTarget")
                     ],
                     products: [
-                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"])
                     ],
                     versions: ["1.0.0", "2.0.0"]
                 ),
@@ -14040,15 +14446,18 @@ final class WorkspaceTests: XCTestCase {
                     name: "BarPackage",
                     url: "https://git/org/bar",
                     targets: [
-                        MockTarget(name: "BarTarget", dependencies: [
-                            .product(name: "FooProduct", package: "org.foo"),
-                        ]),
+                        MockTarget(
+                            name: "BarTarget",
+                            dependencies: [
+                                .product(name: "FooProduct", package: "org.foo")
+                            ]
+                        )
                     ],
                     products: [
-                        MockProduct(name: "BarProduct", modules: ["BarTarget"]),
+                        MockProduct(name: "BarProduct", modules: ["BarTarget"])
                     ],
                     dependencies: [
-                        .registry(identity: "org.foo", requirement: .upToNextMajor(from: "2.0.0")),
+                        .registry(identity: "org.foo", requirement: .upToNextMajor(from: "2.0.0"))
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -14057,10 +14466,10 @@ final class WorkspaceTests: XCTestCase {
                     identity: "org.foo",
                     alternativeURLs: ["https://git/org/foo"],
                     targets: [
-                        MockTarget(name: "FooTarget"),
+                        MockTarget(name: "FooTarget")
                     ],
                     products: [
-                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"])
                     ],
                     versions: ["1.0.0", "2.0.0"]
                 ),
@@ -14072,9 +14481,11 @@ final class WorkspaceTests: XCTestCase {
             try await workspace.checkPackageGraph(roots: ["root"]) { _, diagnostics in
                 testDiagnostics(diagnostics) { result in
                     result.check(
-                        diagnostic: .contains("""
-                        multiple similar targets 'FooTarget' appear in registry package 'org.foo' and source control package 'foo'
-                        """),
+                        diagnostic: .contains(
+                            """
+                            multiple similar targets 'FooTarget' appear in registry package 'org.foo' and source control package 'foo'
+                            """
+                        ),
                         severity: .error
                     )
                 }
@@ -14091,10 +14502,10 @@ final class WorkspaceTests: XCTestCase {
                 testDiagnostics(diagnostics) { result in
                     result.check(
                         diagnostic:
-                        """
-                        Dependencies could not be resolved because root depends on 'org.foo' 1.0.0..<2.0.0 and root depends on 'bar' 1.0.0..<2.0.0.
-                        'bar' >= 1.0.0 practically depends on 'org.foo' 2.0.0..<3.0.0 because no versions of 'bar' match the requirement 1.0.1..<2.0.0 and 'bar' 1.0.0 depends on 'org.foo' 2.0.0..<3.0.0.
-                        """,
+                            """
+                            Dependencies could not be resolved because root depends on 'org.foo' 1.0.0..<2.0.0 and root depends on 'bar' 1.0.0..<2.0.0.
+                            'bar' >= 1.0.0 practically depends on 'org.foo' 2.0.0..<3.0.0 because no versions of 'bar' match the requirement 1.0.1..<2.0.0 and 'bar' 1.0.0 depends on 'org.foo' 2.0.0..<3.0.0.
+                            """,
                         severity: .error
                     )
                 }
@@ -14111,10 +14522,10 @@ final class WorkspaceTests: XCTestCase {
                 testDiagnostics(diagnostics) { result in
                     result.check(
                         diagnostic:
-                        """
-                        Dependencies could not be resolved because root depends on 'org.foo' 1.0.0..<2.0.0 and root depends on 'bar' 1.0.0..<2.0.0.
-                        'bar' >= 1.0.0 practically depends on 'org.foo' 2.0.0..<3.0.0 because no versions of 'bar' match the requirement 1.0.1..<2.0.0 and 'bar' 1.0.0 depends on 'org.foo' 2.0.0..<3.0.0.
-                        """,
+                            """
+                            Dependencies could not be resolved because root depends on 'org.foo' 1.0.0..<2.0.0 and root depends on 'bar' 1.0.0..<2.0.0.
+                            'bar' >= 1.0.0 practically depends on 'org.foo' 2.0.0..<3.0.0 because no versions of 'bar' match the requirement 1.0.1..<2.0.0 and 'bar' 1.0.0 depends on 'org.foo' 2.0.0..<3.0.0.
+                            """,
                         severity: .error
                     )
                 }
@@ -14136,10 +14547,13 @@ final class WorkspaceTests: XCTestCase {
                     name: "Root",
                     path: "root",
                     targets: [
-                        MockTarget(name: "RootTarget", dependencies: [
-                            .product(name: "FooProduct", package: "org.foo"),
-                            .product(name: "BarProduct", package: "org.bar"),
-                        ]),
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [
+                                .product(name: "FooProduct", package: "org.foo"),
+                                .product(name: "BarProduct", package: "org.bar"),
+                            ]
+                        )
                     ],
                     products: [],
                     dependencies: [
@@ -14147,7 +14561,7 @@ final class WorkspaceTests: XCTestCase {
                         .registry(identity: "org.bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     toolsVersion: .v5_6
-                ),
+                )
             ],
             packages: [
                 MockPackage(
@@ -14155,10 +14569,10 @@ final class WorkspaceTests: XCTestCase {
                     identity: "org.foo",
                     alternativeURLs: ["https://git/org/foo"],
                     targets: [
-                        MockTarget(name: "FooTarget"),
+                        MockTarget(name: "FooTarget")
                     ],
                     products: [
-                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"])
                     ],
                     versions: ["1.0.0", "1.1.0", "1.2.0"]
                 ),
@@ -14166,15 +14580,18 @@ final class WorkspaceTests: XCTestCase {
                     name: "BarPackage",
                     identity: "org.bar",
                     targets: [
-                        MockTarget(name: "BarTarget", dependencies: [
-                            .product(name: "FooProduct", package: "foo"),
-                        ]),
+                        MockTarget(
+                            name: "BarTarget",
+                            dependencies: [
+                                .product(name: "FooProduct", package: "foo")
+                            ]
+                        )
                     ],
                     products: [
-                        MockProduct(name: "BarProduct", modules: ["BarTarget"]),
+                        MockProduct(name: "BarProduct", modules: ["BarTarget"])
                     ],
                     dependencies: [
-                        .sourceControl(url: "https://git/org/foo", requirement: .upToNextMajor(from: "1.2.0")),
+                        .sourceControl(url: "https://git/org/foo", requirement: .upToNextMajor(from: "1.2.0"))
                     ],
                     versions: ["1.0.0", "1.1.0"]
                 ),
@@ -14182,10 +14599,10 @@ final class WorkspaceTests: XCTestCase {
                     name: "FooPackage",
                     url: "https://git/org/foo",
                     targets: [
-                        MockTarget(name: "FooTarget"),
+                        MockTarget(name: "FooTarget")
                     ],
                     products: [
-                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"])
                     ],
                     versions: ["1.0.0", "1.1.0", "1.2.0"]
                 ),
@@ -14197,9 +14614,11 @@ final class WorkspaceTests: XCTestCase {
             try await workspace.checkPackageGraph(roots: ["root"]) { _, diagnostics in
                 testDiagnostics(diagnostics) { result in
                     result.check(
-                        diagnostic: .contains("""
-                        multiple similar targets 'FooTarget' appear in registry package 'org.foo' and source control package 'foo'
-                        """),
+                        diagnostic: .contains(
+                            """
+                            multiple similar targets 'FooTarget' appear in registry package 'org.foo' and source control package 'foo'
+                            """
+                        ),
                         severity: .error
                     )
                 }
@@ -14216,16 +14635,20 @@ final class WorkspaceTests: XCTestCase {
                 let tmpDirCanonicalPackageLocation = CanonicalPackageLocation(sandbox.pathString)
                 testDiagnostics(diagnostics) { result in
                     result.check(
-                        diagnostic: .contains("""
-                        dependency 'git/org/foo' and dependency 'org.foo' both point to the same package identity 'org.foo'. The dependencies are introduced through the following chains: (A) \(tmpDirCanonicalPackageLocation)/roots/root->org.bar->git/org/foo (B) \(tmpDirCanonicalPackageLocation)/roots/root->org.foo.
-                        """),
+                        diagnostic: .contains(
+                            """
+                            dependency 'git/org/foo' and dependency 'org.foo' both point to the same package identity 'org.foo'. The dependencies are introduced through the following chains: (A) \(tmpDirCanonicalPackageLocation)/roots/root->org.bar->git/org/foo (B) \(tmpDirCanonicalPackageLocation)/roots/root->org.foo.
+                            """
+                        ),
                         severity: .warning
                     )
                     if ToolsVersion.current >= .v5_8 {
                         result.check(
-                            diagnostic: .contains("""
-                            product 'FooProduct' required by package 'org.bar' target 'BarTarget' not found in package 'foo'.
-                            """),
+                            diagnostic: .contains(
+                                """
+                                product 'FooProduct' required by package 'org.bar' target 'BarTarget' not found in package 'foo'.
+                                """
+                            ),
                             severity: .error
                         )
                     }
@@ -14283,10 +14706,13 @@ final class WorkspaceTests: XCTestCase {
                     name: "Root",
                     path: "root",
                     targets: [
-                        MockTarget(name: "RootTarget", dependencies: [
-                            .product(name: "FooProduct", package: "org.foo"),
-                            .product(name: "BarProduct", package: "org.bar"),
-                        ]),
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [
+                                .product(name: "FooProduct", package: "org.foo"),
+                                .product(name: "BarProduct", package: "org.bar"),
+                            ]
+                        )
                     ],
                     products: [],
                     dependencies: [
@@ -14294,7 +14720,7 @@ final class WorkspaceTests: XCTestCase {
                         .registry(identity: "org.bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     toolsVersion: .v5_6
-                ),
+                )
             ],
             packages: [
                 MockPackage(
@@ -14302,10 +14728,10 @@ final class WorkspaceTests: XCTestCase {
                     identity: "org.foo",
                     alternativeURLs: ["https://git/org/foo"],
                     targets: [
-                        MockTarget(name: "FooTarget"),
+                        MockTarget(name: "FooTarget")
                     ],
                     products: [
-                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"])
                     ],
                     versions: ["1.0.0", "2.0.0"]
                 ),
@@ -14313,15 +14739,18 @@ final class WorkspaceTests: XCTestCase {
                     name: "BarPackage",
                     identity: "org.bar",
                     targets: [
-                        MockTarget(name: "BarTarget", dependencies: [
-                            .product(name: "FooProduct", package: "foo"),
-                        ]),
+                        MockTarget(
+                            name: "BarTarget",
+                            dependencies: [
+                                .product(name: "FooProduct", package: "foo")
+                            ]
+                        )
                     ],
                     products: [
-                        MockProduct(name: "BarProduct", modules: ["BarTarget"]),
+                        MockProduct(name: "BarProduct", modules: ["BarTarget"])
                     ],
                     dependencies: [
-                        .sourceControl(url: "https://git/org/foo", requirement: .upToNextMajor(from: "2.0.0")),
+                        .sourceControl(url: "https://git/org/foo", requirement: .upToNextMajor(from: "2.0.0"))
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -14329,10 +14758,10 @@ final class WorkspaceTests: XCTestCase {
                     name: "FooPackage",
                     url: "https://git/org/foo",
                     targets: [
-                        MockTarget(name: "FooTarget"),
+                        MockTarget(name: "FooTarget")
                     ],
                     products: [
-                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"])
                     ],
                     versions: ["1.0.0", "2.0.0"]
                 ),
@@ -14344,9 +14773,11 @@ final class WorkspaceTests: XCTestCase {
             try await workspace.checkPackageGraph(roots: ["root"]) { _, diagnostics in
                 testDiagnostics(diagnostics) { result in
                     result.check(
-                        diagnostic: .contains("""
-                        multiple similar targets 'FooTarget' appear in registry package 'org.foo' and source control package 'foo'
-                        """),
+                        diagnostic: .contains(
+                            """
+                            multiple similar targets 'FooTarget' appear in registry package 'org.foo' and source control package 'foo'
+                            """
+                        ),
                         severity: .error
                     )
                 }
@@ -14363,10 +14794,10 @@ final class WorkspaceTests: XCTestCase {
                 testDiagnostics(diagnostics) { result in
                     result.check(
                         diagnostic:
-                        """
-                        Dependencies could not be resolved because root depends on 'org.foo' 1.0.0..<2.0.0 and root depends on 'org.bar' 1.0.0..<2.0.0.
-                        'org.bar' >= 1.0.0 practically depends on 'org.foo' 2.0.0..<3.0.0 because no versions of 'org.bar' match the requirement 1.0.1..<2.0.0 and 'org.bar' 1.0.0 depends on 'org.foo' 2.0.0..<3.0.0.
-                        """,
+                            """
+                            Dependencies could not be resolved because root depends on 'org.foo' 1.0.0..<2.0.0 and root depends on 'org.bar' 1.0.0..<2.0.0.
+                            'org.bar' >= 1.0.0 practically depends on 'org.foo' 2.0.0..<3.0.0 because no versions of 'org.bar' match the requirement 1.0.1..<2.0.0 and 'org.bar' 1.0.0 depends on 'org.foo' 2.0.0..<3.0.0.
+                            """,
                         severity: .error
                     )
                 }
@@ -14383,10 +14814,10 @@ final class WorkspaceTests: XCTestCase {
                 testDiagnostics(diagnostics) { result in
                     result.check(
                         diagnostic:
-                        """
-                        Dependencies could not be resolved because root depends on 'org.foo' 1.0.0..<2.0.0 and root depends on 'org.bar' 1.0.0..<2.0.0.
-                        'org.bar' >= 1.0.0 practically depends on 'org.foo' 2.0.0..<3.0.0 because no versions of 'org.bar' match the requirement 1.0.1..<2.0.0 and 'org.bar' 1.0.0 depends on 'org.foo' 2.0.0..<3.0.0.
-                        """,
+                            """
+                            Dependencies could not be resolved because root depends on 'org.foo' 1.0.0..<2.0.0 and root depends on 'org.bar' 1.0.0..<2.0.0.
+                            'org.bar' >= 1.0.0 practically depends on 'org.foo' 2.0.0..<3.0.0 because no versions of 'org.bar' match the requirement 1.0.1..<2.0.0 and 'org.bar' 1.0.0 depends on 'org.foo' 2.0.0..<3.0.0.
+                            """,
                         severity: .error
                     )
                 }
@@ -14408,10 +14839,13 @@ final class WorkspaceTests: XCTestCase {
                     name: "Root",
                     path: "root",
                     targets: [
-                        MockTarget(name: "RootTarget", dependencies: [
-                            .product(name: "FooProduct", package: "org.foo"),
-                            .product(name: "BarProduct", package: "org.bar"),
-                        ]),
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [
+                                .product(name: "FooProduct", package: "org.foo"),
+                                .product(name: "BarProduct", package: "org.bar"),
+                            ]
+                        )
                     ],
                     products: [],
                     dependencies: [
@@ -14419,22 +14853,25 @@ final class WorkspaceTests: XCTestCase {
                         .registry(identity: "org.bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     toolsVersion: .v5_6
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "FooPackage",
                     identity: "org.foo",
                     targets: [
-                        MockTarget(name: "FooTarget", dependencies: [
-                            .product(name: "BazProduct", package: "baz"),
-                        ]),
+                        MockTarget(
+                            name: "FooTarget",
+                            dependencies: [
+                                .product(name: "BazProduct", package: "baz")
+                            ]
+                        )
                     ],
                     products: [
-                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"])
                     ],
                     dependencies: [
-                        .sourceControl(url: "https://git/org/baz", requirement: .upToNextMajor(from: "1.1.0")),
+                        .sourceControl(url: "https://git/org/baz", requirement: .upToNextMajor(from: "1.1.0"))
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -14442,15 +14879,18 @@ final class WorkspaceTests: XCTestCase {
                     name: "BarPackage",
                     identity: "org.bar",
                     targets: [
-                        MockTarget(name: "BarTarget", dependencies: [
-                            .product(name: "BazProduct", package: "org.baz"),
-                        ]),
+                        MockTarget(
+                            name: "BarTarget",
+                            dependencies: [
+                                .product(name: "BazProduct", package: "org.baz")
+                            ]
+                        )
                     ],
                     products: [
-                        MockProduct(name: "BarProduct", modules: ["BarTarget"]),
+                        MockProduct(name: "BarProduct", modules: ["BarTarget"])
                     ],
                     dependencies: [
-                        .registry(identity: "org.baz", requirement: .upToNextMajor(from: "1.0.0")),
+                        .registry(identity: "org.baz", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -14458,10 +14898,10 @@ final class WorkspaceTests: XCTestCase {
                     name: "BazPackage",
                     url: "https://git/org/baz",
                     targets: [
-                        MockTarget(name: "BazTarget"),
+                        MockTarget(name: "BazTarget")
                     ],
                     products: [
-                        MockProduct(name: "BazProduct", modules: ["BazTarget"]),
+                        MockProduct(name: "BazProduct", modules: ["BazTarget"])
                     ],
                     versions: ["1.0.0", "1.1.0"]
                 ),
@@ -14470,10 +14910,10 @@ final class WorkspaceTests: XCTestCase {
                     identity: "org.baz",
                     alternativeURLs: ["https://git/org/baz"],
                     targets: [
-                        MockTarget(name: "BazTarget"),
+                        MockTarget(name: "BazTarget")
                     ],
                     products: [
-                        MockProduct(name: "BazProduct", modules: ["BazTarget"]),
+                        MockProduct(name: "BazProduct", modules: ["BazTarget"])
                     ],
                     versions: ["1.0.0", "1.1.0"]
                 ),
@@ -14485,9 +14925,11 @@ final class WorkspaceTests: XCTestCase {
             try await workspace.checkPackageGraph(roots: ["root"]) { _, diagnostics in
                 testDiagnostics(diagnostics) { result in
                     result.check(
-                        diagnostic: .contains("""
-                        multiple similar targets 'BazTarget' appear in registry package 'org.baz' and source control package 'baz'
-                        """),
+                        diagnostic: .contains(
+                            """
+                            multiple similar targets 'BazTarget' appear in registry package 'org.baz' and source control package 'baz'
+                            """
+                        ),
                         severity: .error
                     )
                 }
@@ -14504,16 +14946,20 @@ final class WorkspaceTests: XCTestCase {
                 testDiagnostics(diagnostics) { result in
                     let tmpDirCanonicalPackageLocation = CanonicalPackageLocation(sandbox.pathString)
                     result.check(
-                        diagnostic: .contains("""
-                        dependency 'git/org/baz' and dependency 'org.baz' both point to the same package identity 'org.baz'. The dependencies are introduced through the following chains: (A) \(tmpDirCanonicalPackageLocation)/roots/root->org.foo->git/org/baz (B) \(tmpDirCanonicalPackageLocation)/roots/root->org.bar->org.baz.
-                        """),
+                        diagnostic: .contains(
+                            """
+                            dependency 'git/org/baz' and dependency 'org.baz' both point to the same package identity 'org.baz'. The dependencies are introduced through the following chains: (A) \(tmpDirCanonicalPackageLocation)/roots/root->org.foo->git/org/baz (B) \(tmpDirCanonicalPackageLocation)/roots/root->org.bar->org.baz.
+                            """
+                        ),
                         severity: .warning
                     )
                     if ToolsVersion.current >= .v5_8 {
                         result.check(
-                            diagnostic: .contains("""
-                            product 'BazProduct' required by package 'org.foo' target 'FooTarget' not found in package 'baz'.
-                            """),
+                            diagnostic: .contains(
+                                """
+                                product 'BazProduct' required by package 'org.foo' target 'FooTarget' not found in package 'baz'.
+                                """
+                            ),
                             severity: .error
                         )
                     }
@@ -14579,10 +15025,13 @@ final class WorkspaceTests: XCTestCase {
                     name: "Root",
                     path: "root",
                     targets: [
-                        MockTarget(name: "RootTarget", dependencies: [
-                            .product(name: "FooProduct", package: "org.foo"),
-                            .product(name: "BarProduct", package: "org.bar"),
-                        ]),
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [
+                                .product(name: "FooProduct", package: "org.foo"),
+                                .product(name: "BarProduct", package: "org.bar"),
+                            ]
+                        )
                     ],
                     products: [],
                     dependencies: [
@@ -14590,22 +15039,25 @@ final class WorkspaceTests: XCTestCase {
                         .registry(identity: "org.bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     toolsVersion: .v5_6
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "FooPackage",
                     identity: "org.foo",
                     targets: [
-                        MockTarget(name: "FooTarget", dependencies: [
-                            .product(name: "BazProduct", package: "baz"),
-                        ]),
+                        MockTarget(
+                            name: "FooTarget",
+                            dependencies: [
+                                .product(name: "BazProduct", package: "baz")
+                            ]
+                        )
                     ],
                     products: [
-                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"])
                     ],
                     dependencies: [
-                        .sourceControl(url: "https://git/org/baz", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(url: "https://git/org/baz", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -14613,15 +15065,18 @@ final class WorkspaceTests: XCTestCase {
                     name: "BarPackage",
                     identity: "org.bar",
                     targets: [
-                        MockTarget(name: "BarTarget", dependencies: [
-                            .product(name: "BazProduct", package: "org.baz"),
-                        ]),
+                        MockTarget(
+                            name: "BarTarget",
+                            dependencies: [
+                                .product(name: "BazProduct", package: "org.baz")
+                            ]
+                        )
                     ],
                     products: [
-                        MockProduct(name: "BarProduct", modules: ["BarTarget"]),
+                        MockProduct(name: "BarProduct", modules: ["BarTarget"])
                     ],
                     dependencies: [
-                        .registry(identity: "org.baz", requirement: .upToNextMajor(from: "2.0.0")),
+                        .registry(identity: "org.baz", requirement: .upToNextMajor(from: "2.0.0"))
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -14629,10 +15084,10 @@ final class WorkspaceTests: XCTestCase {
                     name: "BazPackage",
                     url: "https://git/org/baz",
                     targets: [
-                        MockTarget(name: "BazTarget"),
+                        MockTarget(name: "BazTarget")
                     ],
                     products: [
-                        MockProduct(name: "BazProduct", modules: ["BazTarget"]),
+                        MockProduct(name: "BazProduct", modules: ["BazTarget"])
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -14641,10 +15096,10 @@ final class WorkspaceTests: XCTestCase {
                     identity: "org.baz",
                     alternativeURLs: ["https://git/org/baz"],
                     targets: [
-                        MockTarget(name: "BazTarget"),
+                        MockTarget(name: "BazTarget")
                     ],
                     products: [
-                        MockProduct(name: "BazProduct", modules: ["BazTarget"]),
+                        MockProduct(name: "BazProduct", modules: ["BazTarget"])
                     ],
                     versions: ["1.0.0", "2.0.0"]
                 ),
@@ -14656,9 +15111,11 @@ final class WorkspaceTests: XCTestCase {
             try await workspace.checkPackageGraph(roots: ["root"]) { _, diagnostics in
                 testDiagnostics(diagnostics) { result in
                     result.check(
-                        diagnostic: .contains("""
-                        multiple similar targets 'BazTarget' appear in registry package 'org.baz' and source control package 'baz'
-                        """),
+                        diagnostic: .contains(
+                            """
+                            multiple similar targets 'BazTarget' appear in registry package 'org.baz' and source control package 'baz'
+                            """
+                        ),
                         severity: .error
                     )
                 }
@@ -14675,10 +15132,10 @@ final class WorkspaceTests: XCTestCase {
                 testDiagnostics(diagnostics) { result in
                     result.check(
                         diagnostic: """
-                        Dependencies could not be resolved because root depends on 'org.foo' 1.0.0..<2.0.0 and root depends on 'org.bar' 1.0.0..<2.0.0.
-                        'org.bar' is incompatible with 'org.foo' because 'org.foo' 1.0.0 depends on 'org.baz' 1.0.0..<2.0.0 and no versions of 'org.foo' match the requirement 1.0.1..<2.0.0.
-                        'org.bar' >= 1.0.0 practically depends on 'org.baz' 2.0.0..<3.0.0 because no versions of 'org.bar' match the requirement 1.0.1..<2.0.0 and 'org.bar' 1.0.0 depends on 'org.baz' 2.0.0..<3.0.0.
-                        """,
+                            Dependencies could not be resolved because root depends on 'org.foo' 1.0.0..<2.0.0 and root depends on 'org.bar' 1.0.0..<2.0.0.
+                            'org.bar' is incompatible with 'org.foo' because 'org.foo' 1.0.0 depends on 'org.baz' 1.0.0..<2.0.0 and no versions of 'org.foo' match the requirement 1.0.1..<2.0.0.
+                            'org.bar' >= 1.0.0 practically depends on 'org.baz' 2.0.0..<3.0.0 because no versions of 'org.bar' match the requirement 1.0.1..<2.0.0 and 'org.bar' 1.0.0 depends on 'org.baz' 2.0.0..<3.0.0.
+                            """,
                         severity: .error
                     )
                 }
@@ -14695,10 +15152,10 @@ final class WorkspaceTests: XCTestCase {
                 testDiagnostics(diagnostics) { result in
                     result.check(
                         diagnostic: """
-                        Dependencies could not be resolved because root depends on 'org.foo' 1.0.0..<2.0.0 and root depends on 'org.bar' 1.0.0..<2.0.0.
-                        'org.bar' is incompatible with 'org.foo' because 'org.foo' 1.0.0 depends on 'org.baz' 1.0.0..<2.0.0 and no versions of 'org.foo' match the requirement 1.0.1..<2.0.0.
-                        'org.bar' >= 1.0.0 practically depends on 'org.baz' 2.0.0..<3.0.0 because no versions of 'org.bar' match the requirement 1.0.1..<2.0.0 and 'org.bar' 1.0.0 depends on 'org.baz' 2.0.0..<3.0.0.
-                        """,
+                            Dependencies could not be resolved because root depends on 'org.foo' 1.0.0..<2.0.0 and root depends on 'org.bar' 1.0.0..<2.0.0.
+                            'org.bar' is incompatible with 'org.foo' because 'org.foo' 1.0.0 depends on 'org.baz' 1.0.0..<2.0.0 and no versions of 'org.foo' match the requirement 1.0.1..<2.0.0.
+                            'org.bar' >= 1.0.0 practically depends on 'org.baz' 2.0.0..<3.0.0 because no versions of 'org.bar' match the requirement 1.0.1..<2.0.0 and 'org.bar' 1.0.0 depends on 'org.baz' 2.0.0..<3.0.0.
+                            """,
                         severity: .error
                     )
                 }
@@ -14721,10 +15178,13 @@ final class WorkspaceTests: XCTestCase {
                     name: "Root",
                     path: "root",
                     targets: [
-                        MockTarget(name: "RootTarget", dependencies: [
-                            .product(name: "FooProduct", package: "foo"),
-                            .product(name: "BarProduct", package: "org.bar"),
-                        ]),
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [
+                                .product(name: "FooProduct", package: "foo"),
+                                .product(name: "BarProduct", package: "org.bar"),
+                            ]
+                        )
                     ],
                     products: [],
                     dependencies: [
@@ -14732,17 +15192,17 @@ final class WorkspaceTests: XCTestCase {
                         .registry(identity: "org.bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     toolsVersion: .v5_6
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "FooPackage",
                     url: "https://git/org/foo",
                     targets: [
-                        MockTarget(name: "FooTarget"),
+                        MockTarget(name: "FooTarget")
                     ],
                     products: [
-                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"])
                     ],
                     versions: ["experiment"]
                 ),
@@ -14750,15 +15210,18 @@ final class WorkspaceTests: XCTestCase {
                     name: "BarPackage",
                     identity: "org.bar",
                     targets: [
-                        MockTarget(name: "BarTarget", dependencies: [
-                            .product(name: "FooProduct", package: "org.foo"),
-                        ]),
+                        MockTarget(
+                            name: "BarTarget",
+                            dependencies: [
+                                .product(name: "FooProduct", package: "org.foo")
+                            ]
+                        )
                     ],
                     products: [
-                        MockProduct(name: "BarProduct", modules: ["BarTarget"]),
+                        MockProduct(name: "BarProduct", modules: ["BarTarget"])
                     ],
                     dependencies: [
-                        .registry(identity: "org.foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .registry(identity: "org.foo", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -14767,10 +15230,10 @@ final class WorkspaceTests: XCTestCase {
                     identity: "org.foo",
                     alternativeURLs: ["https://git/org/foo"],
                     targets: [
-                        MockTarget(name: "FooTarget"),
+                        MockTarget(name: "FooTarget")
                     ],
                     products: [
-                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"])
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -14782,9 +15245,11 @@ final class WorkspaceTests: XCTestCase {
             try await workspace.checkPackageGraph(roots: ["root"]) { _, diagnostics in
                 testDiagnostics(diagnostics) { result in
                     result.check(
-                        diagnostic: .contains("""
-                        multiple similar targets 'FooTarget' appear in registry package 'org.foo' and source control package 'foo'
-                        """),
+                        diagnostic: .contains(
+                            """
+                            multiple similar targets 'FooTarget' appear in registry package 'org.foo' and source control package 'foo'
+                            """
+                        ),
                         severity: .error
                     )
                 }
@@ -14800,9 +15265,11 @@ final class WorkspaceTests: XCTestCase {
             try await workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
                 testDiagnostics(diagnostics) { result in
                     result.check(
-                        diagnostic: .contains("""
-                        dependency 'org.foo' and dependency 'git/org/foo' both point to the same package identity 'org.foo'. The dependencies are introduced through the following chains: (A) \(tmpDirCanonicalPackageLocation)/roots/root->org.bar->org.foo (B) \(tmpDirCanonicalPackageLocation)/roots/root->git/org/foo.
-                        """),
+                        diagnostic: .contains(
+                            """
+                            dependency 'org.foo' and dependency 'git/org/foo' both point to the same package identity 'org.foo'. The dependencies are introduced through the following chains: (A) \(tmpDirCanonicalPackageLocation)/roots/root->org.bar->org.foo (B) \(tmpDirCanonicalPackageLocation)/roots/root->git/org/foo.
+                            """
+                        ),
                         severity: .warning
                     )
                 }
@@ -14830,9 +15297,11 @@ final class WorkspaceTests: XCTestCase {
             try await workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
                 testDiagnostics(diagnostics) { result in
                     result.check(
-                        diagnostic: .contains("""
-                        dependency 'org.foo' and dependency 'git/org/foo' both point to the same package identity 'org.foo'. The dependencies are introduced through the following chains: (A) \(tmpDirCanonicalPackageLocation)/roots/root->org.bar->org.foo (B) \(tmpDirCanonicalPackageLocation)/roots/root->git/org/foo.
-                        """),
+                        diagnostic: .contains(
+                            """
+                            dependency 'org.foo' and dependency 'git/org/foo' both point to the same package identity 'org.foo'. The dependencies are introduced through the following chains: (A) \(tmpDirCanonicalPackageLocation)/roots/root->org.bar->org.foo (B) \(tmpDirCanonicalPackageLocation)/roots/root->git/org/foo.
+                            """
+                        ),
                         severity: .warning
                     )
                 }
@@ -14850,7 +15319,7 @@ final class WorkspaceTests: XCTestCase {
                     .check(
                         dependency: "org.foo",
                         at: .checkout(.branch("experiment"))
-                    ) // we cannot swizzle branch based deps
+                    )  // we cannot swizzle branch based deps
                 result.check(dependency: "org.bar", at: .registryDownload("1.0.0"))
             }
         }
@@ -14902,31 +15371,31 @@ final class WorkspaceTests: XCTestCase {
                         MockTarget(name: "BarTests", dependencies: ["Bar"], type: .test),
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo", "Bar"]),
+                        MockProduct(name: "Foo", modules: ["Foo", "Bar"])
                     ],
                     dependencies: [
-                        .sourceControl(url: bazURL, requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(url: bazURL, requirement: .upToNextMajor(from: "1.0.0"))
                     ]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "Baz",
                     url: bazURL.absoluteString,
                     targets: [
-                        MockTarget(name: "Baz"),
+                        MockTarget(name: "Baz")
                     ],
                     products: [
-                        MockProduct(name: "Baz", modules: ["Baz"]),
+                        MockProduct(name: "Baz", modules: ["Baz"])
                     ],
                     versions: ["1.0.0"]
-                ),
+                )
             ],
             customPackageContainerProvider: MockPackageContainerProvider(containers: [fooContainer, bazContainer])
         )
 
         let deps: [MockDependency] = [
-            .sourceControl(url: bazURL, requirement: .exact("1.0.0")),
+            .sourceControl(url: bazURL, requirement: .exact("1.0.0"))
         ]
         try await workspace.checkPackageGraph(roots: ["Foo"], deps: deps) { graph, diagnostics in
             PackageGraphTesterXCTest(graph) { result in
@@ -14966,27 +15435,27 @@ final class WorkspaceTests: XCTestCase {
                         MockTarget(
                             name: "MyTarget",
                             dependencies: [
-                                .product(name: "Foo", package: "org.foo"),
+                                .product(name: "Foo", package: "org.foo")
                             ]
-                        ),
+                        )
                     ],
                     dependencies: [
-                        .registry(identity: "org.foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .registry(identity: "org.foo", requirement: .upToNextMajor(from: "1.0.0"))
                     ]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "Foo",
                     identity: "org.foo",
                     targets: [
-                        MockTarget(name: "Foo"),
+                        MockTarget(name: "Foo")
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo"]),
+                        MockProduct(name: "Foo", modules: ["Foo"])
                     ],
                     versions: ["1.0.0"]
-                ),
+                )
             ],
             registryClient: registryClient
         )
@@ -14995,7 +15464,7 @@ final class WorkspaceTests: XCTestCase {
             testDiagnostics(diagnostics) { result in
                 result.check(diagnostic: .equal("no registry configured for 'org' scope"), severity: .error)
             }
-    }
+        }
     }
 
     func testRegistryReleasesServerErrors() async throws {
@@ -15012,27 +15481,27 @@ final class WorkspaceTests: XCTestCase {
                         MockTarget(
                             name: "MyTarget",
                             dependencies: [
-                                .product(name: "Foo", package: "org.foo"),
+                                .product(name: "Foo", package: "org.foo")
                             ]
-                        ),
+                        )
                     ],
                     dependencies: [
-                        .registry(identity: "org.foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .registry(identity: "org.foo", requirement: .upToNextMajor(from: "1.0.0"))
                     ]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "Foo",
                     identity: "org.foo",
                     targets: [
-                        MockTarget(name: "Foo"),
+                        MockTarget(name: "Foo")
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo"]),
+                        MockProduct(name: "Foo", modules: ["Foo"])
                     ],
                     versions: ["1.0.0"]
-                ),
+                )
             ]
         )
 
@@ -15097,27 +15566,27 @@ final class WorkspaceTests: XCTestCase {
                         MockTarget(
                             name: "MyTarget",
                             dependencies: [
-                                .product(name: "Foo", package: "org.foo"),
+                                .product(name: "Foo", package: "org.foo")
                             ]
-                        ),
+                        )
                     ],
                     dependencies: [
-                        .registry(identity: "org.foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .registry(identity: "org.foo", requirement: .upToNextMajor(from: "1.0.0"))
                     ]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "Foo",
                     identity: "org.foo",
                     targets: [
-                        MockTarget(name: "Foo"),
+                        MockTarget(name: "Foo")
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo"]),
+                        MockProduct(name: "Foo", modules: ["Foo"])
                     ],
                     versions: ["1.0.0"]
-                ),
+                )
             ]
         )
 
@@ -15184,27 +15653,27 @@ final class WorkspaceTests: XCTestCase {
                         MockTarget(
                             name: "MyTarget",
                             dependencies: [
-                                .product(name: "Foo", package: "org.foo"),
+                                .product(name: "Foo", package: "org.foo")
                             ]
-                        ),
+                        )
                     ],
                     dependencies: [
-                        .registry(identity: "org.foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .registry(identity: "org.foo", requirement: .upToNextMajor(from: "1.0.0"))
                     ]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "Foo",
                     identity: "org.foo",
                     targets: [
-                        MockTarget(name: "Foo"),
+                        MockTarget(name: "Foo")
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo"]),
+                        MockProduct(name: "Foo", modules: ["Foo"])
                     ],
                     versions: ["1.0.0"]
-                ),
+                )
             ]
         )
 
@@ -15271,27 +15740,27 @@ final class WorkspaceTests: XCTestCase {
                         MockTarget(
                             name: "MyTarget",
                             dependencies: [
-                                .product(name: "Foo", package: "org.foo"),
+                                .product(name: "Foo", package: "org.foo")
                             ]
-                        ),
+                        )
                     ],
                     dependencies: [
-                        .registry(identity: "org.foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .registry(identity: "org.foo", requirement: .upToNextMajor(from: "1.0.0"))
                     ]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "Foo",
                     identity: "org.foo",
                     targets: [
-                        MockTarget(name: "Foo"),
+                        MockTarget(name: "Foo")
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo"]),
+                        MockProduct(name: "Foo", modules: ["Foo"])
                     ],
                     versions: ["1.0.0"]
-                ),
+                )
             ]
         )
 
@@ -15367,27 +15836,27 @@ final class WorkspaceTests: XCTestCase {
                         MockTarget(
                             name: "MyTarget",
                             dependencies: [
-                                .product(name: "Foo", package: "org.foo"),
+                                .product(name: "Foo", package: "org.foo")
                             ]
-                        ),
+                        )
                     ],
                     dependencies: [
-                        .registry(identity: "org.foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .registry(identity: "org.foo", requirement: .upToNextMajor(from: "1.0.0"))
                     ]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "Foo",
                     identity: "org.foo",
                     targets: [
-                        MockTarget(name: "Foo"),
+                        MockTarget(name: "Foo")
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo"]),
+                        MockProduct(name: "Foo", modules: ["Foo"])
                     ],
                     versions: ["1.0.0"]
-                ),
+                )
             ],
             registryClient: registryClient
         )
@@ -15435,17 +15904,17 @@ final class WorkspaceTests: XCTestCase {
                         MockTarget(
                             name: "MyTarget",
                             dependencies: [
-                                .product(name: "Foo", package: "org.foo"),
+                                .product(name: "Foo", package: "org.foo")
                             ]
-                        ),
+                        )
                     ],
                     products: [
-                        MockProduct(name: "MyProduct", modules: ["MyTarget"]),
+                        MockProduct(name: "MyProduct", modules: ["MyTarget"])
                     ],
                     dependencies: [
-                        .registry(identity: "org.foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .registry(identity: "org.foo", requirement: .upToNextMajor(from: "1.0.0"))
                     ]
-                ),
+                )
             ],
             registryClient: registryClient
         )
@@ -15463,10 +15932,10 @@ final class WorkspaceTests: XCTestCase {
                 packageLocation: "org.foo",
                 toolsVersion: .current,
                 products: [
-                    .init(name: "Foo", type: .library(.automatic), targets: ["Foo"]),
+                    .init(name: "Foo", type: .library(.automatic), targets: ["Foo"])
                 ],
                 targets: [
-                    .init(name: "Foo"),
+                    .init(name: "Foo")
                 ]
             )
 
@@ -15513,27 +15982,27 @@ final class WorkspaceTests: XCTestCase {
                         MockTarget(
                             name: "MyTarget",
                             dependencies: [
-                                .product(name: "Foo", package: "org.foo"),
+                                .product(name: "Foo", package: "org.foo")
                             ]
-                        ),
+                        )
                     ],
                     dependencies: [
-                        .registry(identity: "org.foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .registry(identity: "org.foo", requirement: .upToNextMajor(from: "1.0.0"))
                     ]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "Foo",
                     identity: "org.foo",
                     targets: [
-                        MockTarget(name: "Foo"),
+                        MockTarget(name: "Foo")
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo"]),
+                        MockProduct(name: "Foo", modules: ["Foo"])
                     ],
                     versions: ["1.0.0"]
-                ),
+                )
             ],
             registryClient: registryClient,
             defaultRegistry: .init(
@@ -15570,24 +16039,24 @@ final class WorkspaceTests: XCTestCase {
                         MockTarget(
                             name: "MyTarget1",
                             dependencies: [
-                                .product(name: "Foo", package: "org.foo"),
+                                .product(name: "Foo", package: "org.foo")
                             ]
                         ),
                         MockTarget(
                             name: "MyTarget2",
                             dependencies: [
-                                .product(name: "Bar", package: "org.bar"),
+                                .product(name: "Bar", package: "org.bar")
                             ]
                         ),
                     ],
                     products: [
-                        MockProduct(name: "MyProduct", modules: ["MyTarget1", "MyTarget2"]),
+                        MockProduct(name: "MyProduct", modules: ["MyTarget1", "MyTarget2"])
                     ],
                     dependencies: [
                         .registry(identity: "org.foo", requirement: .upToNextMajor(from: "1.0.0")),
                         .registry(identity: "org.bar", requirement: .upToNextMajor(from: "2.0.0")),
                     ]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
@@ -15595,10 +16064,10 @@ final class WorkspaceTests: XCTestCase {
                     identity: "org.foo",
                     metadata: metadata["org.foo"],
                     targets: [
-                        MockTarget(name: "Foo"),
+                        MockTarget(name: "Foo")
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo"]),
+                        MockProduct(name: "Foo", modules: ["Foo"])
                     ],
                     versions: ["1.0.0", "1.1.0", "1.2.0", "1.3.0", "1.4.0", "1.5.0", "1.5.1"]
                 ),
@@ -15607,10 +16076,10 @@ final class WorkspaceTests: XCTestCase {
                     identity: "org.bar",
                     metadata: metadata["org.bar"],
                     targets: [
-                        MockTarget(name: "Bar"),
+                        MockTarget(name: "Bar")
                     ],
                     products: [
-                        MockProduct(name: "Bar", modules: ["Bar"]),
+                        MockProduct(name: "Bar", modules: ["Bar"])
                     ],
                     versions: ["2.0.0", "2.1.0", "2.2.0"]
                 ),
@@ -15618,10 +16087,10 @@ final class WorkspaceTests: XCTestCase {
                     name: "BarMirror",
                     url: "https://scm.com/org/bar-mirror",
                     targets: [
-                        MockTarget(name: "Bar"),
+                        MockTarget(name: "Bar")
                     ],
                     products: [
-                        MockProduct(name: "Bar", modules: ["Bar"]),
+                        MockProduct(name: "Bar", modules: ["Bar"])
                     ],
                     versions: ["2.0.0", "2.1.0", "2.2.0"]
                 ),
@@ -15630,10 +16099,10 @@ final class WorkspaceTests: XCTestCase {
                     identity: "ecorp.bar",
                     metadata: metadata["ecorp.bar"],
                     targets: [
-                        MockTarget(name: "Bar"),
+                        MockTarget(name: "Bar")
                     ],
                     products: [
-                        MockProduct(name: "Bar", modules: ["Bar"]),
+                        MockProduct(name: "Bar", modules: ["Bar"])
                     ],
                     versions: ["2.0.0", "2.1.0", "2.2.0"]
                 ),
@@ -15654,9 +16123,12 @@ final class WorkspaceTests: XCTestCase {
 
         let workspace = try await createBasicRegistryWorkspace(metadata: ["org.bar": actualMetadata])
 
-        try await workspace.checkPackageGraph(roots: ["MyPackage"], expectedSigningEntities: [
-            PackageIdentity.plain("org.bar"): XCTUnwrap(actualMetadata.signature?.signedBy),
-        ]) { _, diagnostics in
+        try await workspace.checkPackageGraph(
+            roots: ["MyPackage"],
+            expectedSigningEntities: [
+                PackageIdentity.plain("org.bar"): XCTUnwrap(actualMetadata.signature?.signedBy)
+            ]
+        ) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
         }
     }
@@ -15680,9 +16152,12 @@ final class WorkspaceTests: XCTestCase {
         let workspace = try await createBasicRegistryWorkspace(metadata: ["org.bar": actualMetadata])
 
         do {
-            try await workspace.checkPackageGraph(roots: ["MyPackage"], expectedSigningEntities: [
-                PackageIdentity.plain("org.bar"): expectedSigningEntity,
-            ]) { _, _ in }
+            try await workspace.checkPackageGraph(
+                roots: ["MyPackage"],
+                expectedSigningEntities: [
+                    PackageIdentity.plain("org.bar"): expectedSigningEntity
+                ]
+            ) { _, _ in }
             XCTFail("should not succeed")
         } catch Workspace.SigningError.mismatchedSigningEntity(_, let expected, let actual) {
             XCTAssertEqual(actual, actualMetadata.signature?.signedBy)
@@ -15703,9 +16178,12 @@ final class WorkspaceTests: XCTestCase {
         let workspace = try await createBasicRegistryWorkspace(metadata: [:])
 
         do {
-            try await workspace.checkPackageGraph(roots: ["MyPackage"], expectedSigningEntities: [
-                PackageIdentity.plain("org.bar"): expectedSigningEntity,
-            ]) { _, _ in }
+            try await workspace.checkPackageGraph(
+                roots: ["MyPackage"],
+                expectedSigningEntities: [
+                    PackageIdentity.plain("org.bar"): expectedSigningEntity
+                ]
+            ) { _, _ in }
             XCTFail("should not succeed")
         } catch Workspace.SigningError.unsigned(_, let expected) {
             XCTAssertEqual(expected, expectedSigningEntity)
@@ -15725,9 +16203,12 @@ final class WorkspaceTests: XCTestCase {
         let workspace = try await createBasicRegistryWorkspace(metadata: [:])
 
         do {
-            try await workspace.checkPackageGraph(roots: ["MyPackage"], expectedSigningEntities: [
-                PackageIdentity.plain("foo.bar"): expectedSigningEntity,
-            ]) { _, _ in }
+            try await workspace.checkPackageGraph(
+                roots: ["MyPackage"],
+                expectedSigningEntities: [
+                    PackageIdentity.plain("foo.bar"): expectedSigningEntity
+                ]
+            ) { _, _ in }
             XCTFail("should not succeed")
         } catch Workspace.SigningError.expectedIdentityNotFound(let package) {
             XCTAssertEqual(package.description, "foo.bar")
@@ -15754,9 +16235,12 @@ final class WorkspaceTests: XCTestCase {
             mirrors: mirrors
         )
 
-        try await workspace.checkPackageGraph(roots: ["MyPackage"], expectedSigningEntities: [
-            PackageIdentity.plain("org.bar"): XCTUnwrap(actualMetadata.signature?.signedBy),
-        ]) { graph, diagnostics in
+        try await workspace.checkPackageGraph(
+            roots: ["MyPackage"],
+            expectedSigningEntities: [
+                PackageIdentity.plain("org.bar"): XCTUnwrap(actualMetadata.signature?.signedBy)
+            ]
+        ) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
             PackageGraphTesterXCTest(graph) { result in
                 XCTAssertNotNil(result.find(package: "ecorp.bar"), "missing package")
@@ -15790,9 +16274,12 @@ final class WorkspaceTests: XCTestCase {
         )
 
         do {
-            try await workspace.checkPackageGraph(roots: ["MyPackage"], expectedSigningEntities: [
-                PackageIdentity.plain("org.bar"): expectedSigningEntity,
-            ]) { _, _ in }
+            try await workspace.checkPackageGraph(
+                roots: ["MyPackage"],
+                expectedSigningEntities: [
+                    PackageIdentity.plain("org.bar"): expectedSigningEntity
+                ]
+            ) { _, _ in }
             XCTFail("should not succeed")
         } catch Workspace.SigningError.mismatchedSigningEntity(_, let expected, let actual) {
             XCTAssertEqual(actual, actualMetadata.signature?.signedBy)
@@ -15816,9 +16303,12 @@ final class WorkspaceTests: XCTestCase {
         let workspace = try await createBasicRegistryWorkspace(metadata: [:], mirrors: mirrors)
 
         do {
-            try await workspace.checkPackageGraph(roots: ["MyPackage"], expectedSigningEntities: [
-                PackageIdentity.plain("org.bar"): expectedSigningEntity,
-            ]) { _, _ in }
+            try await workspace.checkPackageGraph(
+                roots: ["MyPackage"],
+                expectedSigningEntities: [
+                    PackageIdentity.plain("org.bar"): expectedSigningEntity
+                ]
+            ) { _, _ in }
             XCTFail("should not succeed")
         } catch Workspace.SigningError.unsigned(_, let expected) {
             XCTAssertEqual(expected, expectedSigningEntity)
@@ -15841,9 +16331,12 @@ final class WorkspaceTests: XCTestCase {
         let workspace = try await createBasicRegistryWorkspace(metadata: [:], mirrors: mirrors)
 
         do {
-            try await workspace.checkPackageGraph(roots: ["MyPackage"], expectedSigningEntities: [
-                PackageIdentity.plain("org.bar"): expectedSigningEntity,
-            ]) { _, _ in }
+            try await workspace.checkPackageGraph(
+                roots: ["MyPackage"],
+                expectedSigningEntities: [
+                    PackageIdentity.plain("org.bar"): expectedSigningEntity
+                ]
+            ) { _, _ in }
             XCTFail("should not succeed")
         } catch Workspace.SigningError.expectedSignedMirroredToSourceControl(_, let expected) {
             XCTAssertEqual(expected, expectedSigningEntity)
@@ -15876,112 +16369,120 @@ final class WorkspaceTests: XCTestCase {
             throw StringError("Invalid package identifier: '\(packageIdentity)'")
         }
 
-        let configuration = configuration ?? {
-            var configuration = PackageRegistry.RegistryConfiguration()
-            configuration.defaultRegistry = .init(url: "http://localhost", supportsAvailability: false)
-            configuration.security = .testDefault
-            return configuration
-        }()
+        let configuration =
+            configuration
+            ?? {
+                var configuration = PackageRegistry.RegistryConfiguration()
+                configuration.defaultRegistry = .init(url: "http://localhost", supportsAvailability: false)
+                configuration.security = .testDefault
+                return configuration
+            }()
 
-        let releasesRequestHandler = releasesRequestHandler ?? { _, _ in
-            let metadata = RegistryClient.Serialization.PackageMetadata(
-                releases: [packageVersion.description: .init(url: .none, problem: .none)]
-            )
-            return HTTPClientResponse(
-                statusCode: 200,
-                headers: [
-                    "Content-Version": "1",
-                    "Content-Type": "application/json",
-                ],
-                body: try! jsonEncoder.encode(metadata)
-            )
-        }
-
-        let versionMetadataRequestHandler = versionMetadataRequestHandler ?? { _, _ in
-            let metadata = RegistryClient.Serialization.VersionMetadata(
-                id: packageIdentity.description,
-                version: packageVersion.description,
-                resources: [
-                    .init(
-                        name: "source-archive",
-                        type: "application/zip",
-                        checksum: "",
-                        signing: nil
-                    ),
-                ],
-                metadata: .init(
-                    description: "package \(identity) description",
-                    licenseURL: "/\(identity)/license",
-                    readmeURL: "/\(identity)/readme"
-                ),
-                publishedAt: nil
-            )
-            return HTTPClientResponse(
-                statusCode: 200,
-                headers: [
-                    "Content-Version": "1",
-                    "Content-Type": "application/json",
-                ],
-                body: try! jsonEncoder.encode(metadata)
-            )
-        }
-
-        let manifestRequestHandler = manifestRequestHandler ?? { _, _ in
-            HTTPClientResponse(
-                statusCode: 200,
-                headers: [
-                    "Content-Version": "1",
-                    "Content-Type": "text/x-swift",
-                ],
-                body: Data("// swift-tools-version:\(ToolsVersion.current)".utf8)
-            )
-        }
-
-        let downloadArchiveRequestHandler = downloadArchiveRequestHandler ?? { request, _ in
-            switch request.kind {
-            case .download(let fileSystem, let destination):
-                // creates a dummy zipfile which is required by the archiver step
-                try! fileSystem.createDirectory(destination.parentDirectory, recursive: true)
-                try! fileSystem.writeFileContents(destination, string: "")
-            default:
-                preconditionFailure("invalid request")
-            }
-
-            return HTTPClientResponse(
-                statusCode: 200,
-                headers: [
-                    "Content-Version": "1",
-                    "Content-Type": "application/zip",
-                ],
-                body: Data("".utf8)
-            )
-        }
-
-        let archiver = archiver ?? MockArchiver(handler: { _, _, to, completion in
-            do {
-                let packagePath = to.appending("top")
-                try fileSystem.createDirectory(packagePath, recursive: true)
-                try fileSystem.writeFileContents(packagePath.appending(component: Manifest.filename), bytes: [])
-                try ToolsVersionSpecificationWriter.rewriteSpecification(
-                    manifestDirectory: packagePath,
-                    toolsVersion: .current,
-                    fileSystem: fileSystem
+        let releasesRequestHandler =
+            releasesRequestHandler ?? { _, _ in
+                let metadata = RegistryClient.Serialization.PackageMetadata(
+                    releases: [packageVersion.description: .init(url: .none, problem: .none)]
                 )
-                for target in targets {
-                    try fileSystem.createDirectory(
-                        packagePath.appending(components: "Sources", target),
-                        recursive: true
-                    )
-                    try fileSystem.writeFileContents(
-                        packagePath.appending(components: ["Sources", target, "file.swift"]),
-                        bytes: []
-                    )
-                }
-                completion(.success(()))
-            } catch {
-                completion(.failure(error))
+                return HTTPClientResponse(
+                    statusCode: 200,
+                    headers: [
+                        "Content-Version": "1",
+                        "Content-Type": "application/json",
+                    ],
+                    body: try! jsonEncoder.encode(metadata)
+                )
             }
-        })
+
+        let versionMetadataRequestHandler =
+            versionMetadataRequestHandler ?? { _, _ in
+                let metadata = RegistryClient.Serialization.VersionMetadata(
+                    id: packageIdentity.description,
+                    version: packageVersion.description,
+                    resources: [
+                        .init(
+                            name: "source-archive",
+                            type: "application/zip",
+                            checksum: "",
+                            signing: nil
+                        )
+                    ],
+                    metadata: .init(
+                        description: "package \(identity) description",
+                        licenseURL: "/\(identity)/license",
+                        readmeURL: "/\(identity)/readme"
+                    ),
+                    publishedAt: nil
+                )
+                return HTTPClientResponse(
+                    statusCode: 200,
+                    headers: [
+                        "Content-Version": "1",
+                        "Content-Type": "application/json",
+                    ],
+                    body: try! jsonEncoder.encode(metadata)
+                )
+            }
+
+        let manifestRequestHandler =
+            manifestRequestHandler ?? { _, _ in
+                HTTPClientResponse(
+                    statusCode: 200,
+                    headers: [
+                        "Content-Version": "1",
+                        "Content-Type": "text/x-swift",
+                    ],
+                    body: Data("// swift-tools-version:\(ToolsVersion.current)".utf8)
+                )
+            }
+
+        let downloadArchiveRequestHandler =
+            downloadArchiveRequestHandler ?? { request, _ in
+                switch request.kind {
+                case .download(let fileSystem, let destination):
+                    // creates a dummy zipfile which is required by the archiver step
+                    try! fileSystem.createDirectory(destination.parentDirectory, recursive: true)
+                    try! fileSystem.writeFileContents(destination, string: "")
+                default:
+                    preconditionFailure("invalid request")
+                }
+
+                return HTTPClientResponse(
+                    statusCode: 200,
+                    headers: [
+                        "Content-Version": "1",
+                        "Content-Type": "application/zip",
+                    ],
+                    body: Data("".utf8)
+                )
+            }
+
+        let archiver =
+            archiver
+            ?? MockArchiver(handler: { _, _, to, completion in
+                do {
+                    let packagePath = to.appending("top")
+                    try fileSystem.createDirectory(packagePath, recursive: true)
+                    try fileSystem.writeFileContents(packagePath.appending(component: Manifest.filename), bytes: [])
+                    try ToolsVersionSpecificationWriter.rewriteSpecification(
+                        manifestDirectory: packagePath,
+                        toolsVersion: .current,
+                        fileSystem: fileSystem
+                    )
+                    for target in targets {
+                        try fileSystem.createDirectory(
+                            packagePath.appending(components: "Sources", target),
+                            recursive: true
+                        )
+                        try fileSystem.writeFileContents(
+                            packagePath.appending(components: ["Sources", target, "file.swift"]),
+                            bytes: []
+                        )
+                    }
+                    completion(.success(()))
+                } catch {
+                    completion(.failure(error))
+                }
+            })
         let fingerprintStorage = fingerprintStorage ?? MockPackageFingerprintStorage()
         let signingEntityStorage = signingEntityStorage ?? MockPackageSigningEntityStorage()
 
@@ -15993,24 +16494,27 @@ final class WorkspaceTests: XCTestCase {
             signingEntityStorage: signingEntityStorage,
             signingEntityCheckingMode: signingEntityCheckingMode,
             authorizationProvider: authorizationProvider,
-            customHTTPClient: HTTPClient(configuration: .init(), implementation: { request, progress in
-                switch request.url.path {
-                // request to get package releases
-                case "/\(identity.scope)/\(identity.name)":
-                    return try await releasesRequestHandler(request, progress)
-                // request to get package version metadata
-                case "/\(identity.scope)/\(identity.name)/\(packageVersion)":
-                    return try await versionMetadataRequestHandler(request, progress)
-                // request to get package manifest
-                case "/\(identity.scope)/\(identity.name)/\(packageVersion)/Package.swift":
-                    return try await manifestRequestHandler(request, progress)
-                // request to get download the version source archive
-                case "/\(identity.scope)/\(identity.name)/\(packageVersion).zip":
-                    return try await downloadArchiveRequestHandler(request, progress)
-                default:
-                    throw StringError("unexpected url \(request.url)")
+            customHTTPClient: HTTPClient(
+                configuration: .init(),
+                implementation: { request, progress in
+                    switch request.url.path {
+                    // request to get package releases
+                    case "/\(identity.scope)/\(identity.name)":
+                        return try await releasesRequestHandler(request, progress)
+                    // request to get package version metadata
+                    case "/\(identity.scope)/\(identity.name)/\(packageVersion)":
+                        return try await versionMetadataRequestHandler(request, progress)
+                    // request to get package manifest
+                    case "/\(identity.scope)/\(identity.name)/\(packageVersion)/Package.swift":
+                        return try await manifestRequestHandler(request, progress)
+                    // request to get download the version source archive
+                    case "/\(identity.scope)/\(identity.name)/\(packageVersion).zip":
+                        return try await downloadArchiveRequestHandler(request, progress)
+                    default:
+                        throw StringError("unexpected url \(request.url)")
+                    }
                 }
-            }),
+            ),
             customArchiverProvider: { _ in archiver },
             delegate: .none,
             checksumAlgorithm: MockHashAlgorithm()
@@ -16024,19 +16528,19 @@ func createDummyXCFramework(fileSystem: FileSystem, path: AbsolutePath, name: St
     try fileSystem.writeFileContents(
         path.appending("info.plist"),
         string: """
-        <?xml version="1.0" encoding="UTF-8"?>
-        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-        <plist version="1.0">
-        <dict>
-            <key>AvailableLibraries</key>
-            <array></array>
-            <key>CFBundlePackageType</key>
-            <string>XFWK</string>
-            <key>XCFrameworkFormatVersion</key>
-            <string>1.0</string>
-        </dict>
-        </plist>
-        """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+            <plist version="1.0">
+            <dict>
+                <key>AvailableLibraries</key>
+                <array></array>
+                <key>CFBundlePackageType</key>
+                <string>XFWK</string>
+                <key>XCFrameworkFormatVersion</key>
+                <string>1.0</string>
+            </dict>
+            </plist>
+            """
     )
 }
 
@@ -16046,11 +16550,11 @@ func createDummyArtifactBundle(fileSystem: FileSystem, path: AbsolutePath, name:
     try fileSystem.writeFileContents(
         path.appending("info.json"),
         string: """
-        {
-            "schemaVersion": "1.0",
-            "artifacts": {}
-        }
-        """
+            {
+                "schemaVersion": "1.0",
+                "artifacts": {}
+            }
+            """
     )
 }
 

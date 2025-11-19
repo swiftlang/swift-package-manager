@@ -44,17 +44,18 @@ extension BinaryModule {
         // At the moment we return at most a single library.
         let metadata = try XCFrameworkMetadata.parse(fileSystem: fileSystem, rootPath: self.artifactPath)
         // Filter the libraries that are relevant to the triple.
-        guard let library = metadata.libraries.first(where: {
-            $0.platform == triple.asXCFrameworkPlatformString &&
-            $0.variant == triple.environment?.asXCFrameworkPlatformVariantString &&
-            $0.architectures.contains(triple.archName)
-        }) else {
+        guard
+            let library = metadata.libraries.first(where: {
+                $0.platform == triple.asXCFrameworkPlatformString && $0.variant == triple.environment?.asXCFrameworkPlatformVariantString && $0.architectures.contains(triple.archName)
+            })
+        else {
             return []
         }
         // Construct a LibraryInfo for the library.
         let libraryDir = self.artifactPath.appending(component: library.libraryIdentifier)
         let libraryFile = try AbsolutePath(validating: library.libraryPath, relativeTo: libraryDir)
-        let headersDirs = try library.headersPath
+        let headersDirs =
+            try library.headersPath
             .map { [try AbsolutePath(validating: $0, relativeTo: libraryDir)] } ?? [] + [libraryDir]
         return [LibraryInfo(libraryPath: libraryFile, headersPaths: headersDirs, moduleMapPath: nil)]
     }
@@ -74,7 +75,8 @@ extension BinaryModule {
                 guard let supportedTriples = $0.supportedTriples else {
                     throw StringError("No \"supportedTriples\" found in the artifact metadata for \(entry.key) in \(self.artifactPath)")
                 }
-                let filteredSupportedTriples = try supportedTriples
+                let filteredSupportedTriples =
+                    try supportedTriples
                     .filter { try $0.withoutVersion() == versionLessTriple }
                 return ExecutableInfo(
                     name: entry.key,
@@ -89,7 +91,7 @@ extension BinaryModule {
         // The host triple might contain a version which we don't want to take into account here.
         let versionLessTriple = try triple.withoutVersion()
 
-       return try ArtifactsArchiveMetadata.parse(fileSystem: fileSystem, rootPath: self.artifactPath).artifacts
+        return try ArtifactsArchiveMetadata.parse(fileSystem: fileSystem, rootPath: self.artifactPath).artifacts
             .lazy
             .filter { $0.value.type == .staticLibrary }
             .flatMap { entry in
@@ -98,12 +100,12 @@ extension BinaryModule {
                     .lazy
                     .filter { try ($0.supportedTriples ?? []).contains { try $0.withoutVersion() == versionLessTriple } }
                     .map {
-                    return LibraryInfo(
-                        libraryPath: self.artifactPath.appending($0.path),
-                        headersPaths: $0.staticLibraryMetadata?.headerPaths.map { self.artifactPath.appending($0) } ?? [],
-                        moduleMapPath: $0.staticLibraryMetadata?.moduleMapPath.map { self.artifactPath.appending($0) }
-                    )
-                }
+                        return LibraryInfo(
+                            libraryPath: self.artifactPath.appending($0.path),
+                            headersPaths: $0.staticLibraryMetadata?.headerPaths.map { self.artifactPath.appending($0) } ?? [],
+                            moduleMapPath: $0.staticLibraryMetadata?.moduleMapPath.map { self.artifactPath.appending($0) }
+                        )
+                    }
             }
     }
 }
@@ -122,7 +124,7 @@ extension Triple {
     fileprivate var asXCFrameworkPlatformString: String? {
         switch self.os {
         case .darwin, .wasi, .win32, .openbsd, .freebsd, .noneOS:
-            return nil // XCFrameworks do not support any of these platforms today.
+            return nil  // XCFrameworks do not support any of these platforms today.
         case .macosx:
             return "macos"
         case .ios:
@@ -135,9 +137,9 @@ extension Triple {
             if environment == .android {
                 return nil
             }
-            return "linux" // Only if --experimental-xcframeworks-on-linux has been passed
+            return "linux"  // Only if --experimental-xcframeworks-on-linux has been passed
         default:
-            return nil // XCFrameworks do not support any of these platforms today.
+            return nil  // XCFrameworks do not support any of these platforms today.
         }
     }
 }
@@ -150,7 +152,7 @@ extension Triple.Environment {
         case .macabi:
             return "maccatalyst"
         default:
-            return nil // XCFrameworks do not support any of these platform variants today.
+            return nil  // XCFrameworks do not support any of these platform variants today.
         }
     }
 }

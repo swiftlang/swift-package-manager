@@ -20,7 +20,7 @@ import PackageRegistry
 import struct SPMBuildCore.BuildSystemProvider
 import PackageSigning
 import _InternalTestSupport
-import TSCclibc // for SPM_posix_spawn_file_actions_addchdir_np_supported
+import TSCclibc  // for SPM_posix_spawn_file_actions_addchdir_np_supported
 import Workspace
 import Testing
 
@@ -69,7 +69,6 @@ struct PackageRegistryCommandTests {
         #expect(stdout.contains("USAGE: swift package-registry"), "got stdout: '\(stdout)'")
     }
 
-
     @Test(
         .tags(
             .TestSize.large,
@@ -114,7 +113,8 @@ struct PackageRegistryCommandTests {
             .Feature.Command.PackageRegistry.Set,
             .Feature.Command.PackageRegistry.Unset,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
+        BuildConfiguration.allCases,
     )
     func localConfiguration(
         buildSystem: BuildSystemProvider.Kind,
@@ -245,7 +245,8 @@ struct PackageRegistryCommandTests {
             .TestSize.large,
             .Feature.Command.PackageRegistry.Set,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
+        BuildConfiguration.allCases,
     )
     func setMissingURL(
         buildSystem: BuildSystemProvider.Kind,
@@ -279,7 +280,8 @@ struct PackageRegistryCommandTests {
             .TestSize.large,
             .Feature.Command.PackageRegistry.Set,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
+        BuildConfiguration.allCases,
     )
     func setInvalidURL(
         buildSystem: BuildSystemProvider.Kind,
@@ -313,7 +315,8 @@ struct PackageRegistryCommandTests {
             .TestSize.large,
             .Feature.Command.PackageRegistry.Set,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
+        BuildConfiguration.allCases,
     )
     func setInsecureURL(
         buildSystem: BuildSystemProvider.Kind,
@@ -347,7 +350,8 @@ struct PackageRegistryCommandTests {
             .TestSize.large,
             .Feature.Command.PackageRegistry.Set,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
+        BuildConfiguration.allCases,
     )
     func setAllowedInsecureURL(
         buildSystem: BuildSystemProvider.Kind,
@@ -379,7 +383,8 @@ struct PackageRegistryCommandTests {
             .TestSize.large,
             .Feature.Command.PackageRegistry.Set,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
+        BuildConfiguration.allCases,
     )
     func setInvalidScope(
         buildSystem: BuildSystemProvider.Kind,
@@ -416,7 +421,8 @@ struct PackageRegistryCommandTests {
             .Feature.Command.PackageRegistry.Set,
             .Feature.Command.PackageRegistry.Unset,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
+        BuildConfiguration.allCases,
     )
     func unsetMissingEntry(
         buildSystem: BuildSystemProvider.Kind,
@@ -474,7 +480,8 @@ struct PackageRegistryCommandTests {
             .TestSize.large,
         ),
         .requiresWorkingDirectorySupport,
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
+        BuildConfiguration.allCases,
     )
     func archiving(
         buildSystem: BuildSystemProvider.Kind,
@@ -601,13 +608,13 @@ struct PackageRegistryCommandTests {
             .Feature.Command.PackageRegistry.Publish,
         ),
         .requiresWorkingDirectorySupport,
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
+        BuildConfiguration.allCases,
     )
     func publishingToHTTPRegistry(
         buildSystem: BuildSystemProvider.Kind,
         config: BuildConfiguration,
     ) throws {
-
 
         let packageIdentity = "test.my-package"
         let version = "0.1.0"
@@ -653,7 +660,8 @@ struct PackageRegistryCommandTests {
             .Feature.Command.PackageRegistry.Publish,
         ),
         .requiresWorkingDirectorySupport,
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
+        BuildConfiguration.allCases,
     )
     func publishingToAllowedHTTPRegistry(
         buildSystem: BuildSystemProvider.Kind,
@@ -748,7 +756,8 @@ struct PackageRegistryCommandTests {
             .TestSize.large,
             .Feature.Command.PackageRegistry.Publish,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
+        BuildConfiguration.allCases,
     )
     func publishingUnsignedPackage(
         buildSystem: BuildSystemProvider.Kind,
@@ -916,7 +925,8 @@ struct PackageRegistryCommandTests {
             .TestSize.large,
             .Feature.Command.PackageRegistry.Publish,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
+        BuildConfiguration.allCases,
     )
     @available(macOS 12, iOS 15, tvOS 15, watchOS 8, *)
     func publishingSignedPackage(
@@ -1230,8 +1240,10 @@ struct PackageRegistryCommandTests {
             )
 
             // no metadata so no signature
-            #expect(!localFileSystem
-                .exists(workingDirectory.appending("\(packageIdentity)-\(version)-metadata.sig")))
+            #expect(
+                !localFileSystem
+                    .exists(workingDirectory.appending("\(packageIdentity)-\(version)-metadata.sig"))
+            )
 
             // manifest signatures
             let manifest = try localFileSystem.readFileContents(manifestPath).contents
@@ -1282,8 +1294,9 @@ struct PackageRegistryCommandTests {
         arguments: [
             LogingUrlData(loginApiPath: nil, expectedComponent: "login"),
             LogingUrlData(loginApiPath: "/secret-sign-in", expectedComponent: "secret-sign-in"),
-        ], [
-            "https://packages.example.com",
+        ],
+        [
+            "https://packages.example.com"
             // "https://packages.example.com:8081",
         ]
     )
@@ -1293,8 +1306,8 @@ struct PackageRegistryCommandTests {
     ) async throws {
         let registryURL = try #require(URL(string: registryUrl), "Failed to instantiate registry URL")
 
-        let actualUrl =  try PackageRegistryCommand.Login.loginURL(from: registryURL, loginAPIPath: data.loginApiPath)
-        let actualString =  actualUrl.absoluteString
+        let actualUrl = try PackageRegistryCommand.Login.loginURL(from: registryURL, loginAPIPath: data.loginApiPath)
+        let actualString = actualUrl.absoluteString
 
         #expect(actualString == "\(registryUrl)/\(data.expectedComponent)")
     }
@@ -1326,7 +1339,8 @@ struct PackageRegistryCommandTests {
 
     private func getRoots() throws -> [[UInt8]] {
         try fixture(name: "Signing", createGitRepo: false) { fixturePath in
-            let rootCA = try localFileSystem
+            let rootCA =
+                try localFileSystem
                 .readFileContents(fixturePath.appending(components: "Certificates", "TestRootCA.cer")).contents
             return [rootCA]
         }

@@ -58,8 +58,8 @@ public struct PackageIdentity: CustomStringConvertible, Sendable {
     public var registry: RegistryIdentity? {
         let components = self.description.split(separator: ".", maxSplits: 1, omittingEmptySubsequences: true)
         guard components.count == 2,
-              let scope = Scope(components.first),
-              let name = Name(components.last)
+            let scope = Scope(components.first),
+            let name = Name(components.last)
         else {
             return .none
         }
@@ -143,9 +143,7 @@ extension PackageIdentity {
 
             for (index, character) in zip(description.indices, description) {
                 guard character.isASCII,
-                      character.isLetter ||
-                      character.isNumber ||
-                      character == "-"
+                    character.isLetter || character.isNumber || character == "-"
                 else {
                     throw StringError("A package scope consists of alphanumeric characters and hyphens.")
                 }
@@ -226,10 +224,7 @@ extension PackageIdentity {
 
             for (index, character) in zip(description.indices, description) {
                 guard character.isASCII,
-                      character.isLetter ||
-                      character.isNumber ||
-                      character == "-" ||
-                      character == "_"
+                    character.isLetter || character.isNumber || character == "-" || character == "_"
                 else {
                     throw StringError("A package name consists of alphanumeric characters, underscores, and hyphens.")
                 }
@@ -318,9 +313,9 @@ struct PackageIdentityParser {
     /// Compute the default name of a package given its location.
     public static func computeDefaultName(fromLocation url: String) -> String {
         #if os(Windows)
-        let isSeparator: (Character) -> Bool = { $0 == "/" || $0 == "\\" }
+            let isSeparator: (Character) -> Bool = { $0 == "/" || $0 == "\\" }
         #else
-        let isSeparator: (Character) -> Bool = { $0 == "/" }
+            let isSeparator: (Character) -> Bool = { $0 == "/" }
         #endif
 
         // Get the last path component of the URL.
@@ -332,7 +327,7 @@ struct PackageIdentityParser {
 
         let separatorIndex = url[..<endIndex].lastIndex(where: isSeparator)
         let startIndex = separatorIndex.map { url.index(after: $0) } ?? url.startIndex
-        var lastComponent = url[startIndex ..< endIndex]
+        var lastComponent = url[startIndex..<endIndex]
 
         // Strip `.git` suffix if present.
         if lastComponent.hasSuffix(".git") {
@@ -489,9 +484,9 @@ private func computeCanonicalLocation(_ string: String) -> (description: String,
 }
 
 #if os(Windows)
-fileprivate let isSeparator: (Character) -> Bool = { $0 == "/" || $0 == "\\" }
+    fileprivate let isSeparator: (Character) -> Bool = { $0 == "/" || $0 == "\\" }
 #else
-fileprivate let isSeparator: (Character) -> Bool = { $0 == "/" }
+    fileprivate let isSeparator: (Character) -> Bool = { $0 == "/" }
 #endif
 
 extension Character {
@@ -527,8 +522,8 @@ extension String {
     @discardableResult
     fileprivate mutating func dropSchemeComponentPrefixIfPresent() -> String? {
         if let rangeOfDelimiter = range(of: "://"),
-           self[startIndex].isLetter,
-           self[..<rangeOfDelimiter.lowerBound].allSatisfy(\.isAllowedInURLScheme)
+            self[startIndex].isLetter,
+            self[..<rangeOfDelimiter.lowerBound].allSatisfy(\.isAllowedInURLScheme)
         {
             defer { self.removeSubrange(..<rangeOfDelimiter.upperBound) }
 
@@ -541,8 +536,8 @@ extension String {
     @discardableResult
     fileprivate mutating func dropUserinfoSubcomponentPrefixIfPresent() -> (user: String, password: String?)? {
         if let indexOfAtSign = firstIndex(of: "@"),
-           let indexOfFirstPathComponent = firstIndex(where: isSeparator),
-           indexOfAtSign < indexOfFirstPathComponent
+            let indexOfFirstPathComponent = firstIndex(where: isSeparator),
+            indexOfAtSign < indexOfFirstPathComponent
         {
             defer { self.removeSubrange(...indexOfAtSign) }
 
@@ -561,12 +556,12 @@ extension String {
     @discardableResult
     fileprivate mutating func removePortComponentIfPresent() -> Bool {
         if let indexOfFirstPathComponent = firstIndex(where: isSeparator),
-           let startIndexOfPort = firstIndex(of: ":"),
-           startIndexOfPort < endIndex,
-           let endIndexOfPort = self[index(after: startIndexOfPort)...].lastIndex(where: { $0.isDigit }),
-           endIndexOfPort <= indexOfFirstPathComponent
+            let startIndexOfPort = firstIndex(of: ":"),
+            startIndexOfPort < endIndex,
+            let endIndexOfPort = self[index(after: startIndexOfPort)...].lastIndex(where: { $0.isDigit }),
+            endIndexOfPort <= indexOfFirstPathComponent
         {
-            self.removeSubrange(startIndexOfPort ... endIndexOfPort)
+            self.removeSubrange(startIndexOfPort...endIndexOfPort)
             return true
         }
 

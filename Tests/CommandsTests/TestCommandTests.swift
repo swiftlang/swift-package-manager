@@ -47,7 +47,8 @@ struct TestCommandTests {
     }
 
     @Test(
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
+        BuildConfiguration.allCases,
     )
     func usage(
         buildSystem: BuildSystemProvider.Kind,
@@ -62,7 +63,8 @@ struct TestCommandTests {
     }
 
     @Test(
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
+        BuildConfiguration.allCases,
     )
     func experimentalXunitMessageFailureArgumentIsHidden(
         buildSystem: BuildSystemProvider.Kind,
@@ -84,7 +86,8 @@ struct TestCommandTests {
     }
 
     @Test(
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
+        BuildConfiguration.allCases,
     )
     func seeAlso(
         buildSystem: BuildSystemProvider.Kind,
@@ -99,7 +102,8 @@ struct TestCommandTests {
     }
 
     @Test(
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
+        BuildConfiguration.allCases,
     )
     func version(
         buildSystem: BuildSystemProvider.Kind,
@@ -154,24 +158,25 @@ struct TestCommandTests {
                 withKnownIssue {
                     #expect(stderr.contains("Compiling"))
                 } when: {
-                    buildSystem == .swiftbuild // && ProcessInfo.hostOperatingSystem != .macOS
+                    buildSystem == .swiftbuild  // && ProcessInfo.hostOperatingSystem != .macOS
                 }
 
                 withKnownIssue {
                     #expect(stderr.contains("Linking"))
                 } when: {
-                    buildSystem == .swiftbuild // && ProcessInfo.hostOperatingSystem != .macOS
+                    buildSystem == .swiftbuild  // && ProcessInfo.hostOperatingSystem != .macOS
                 }
             }
         } when: {
             (buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows)
-            || (buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .linux && CiEnvironment.runningInSmokeTestPipeline)
-            || (buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .linux && CiEnvironment.runningInSelfHostedPipeline) // error: SwiftCompile normal x86_64 /tmp/Miscellaneous_EchoExecutable.sxkNTX/Miscellaneous_EchoExecutable/.build/x86_64-unknown-linux-gnu/Intermediates.noindex/EchoExecutable.build/Debug-linux/TestSuite-test-runner.build/DerivedSources/test_entry_point.swift failed with a nonzero exit code
+                || (buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .linux && CiEnvironment.runningInSmokeTestPipeline)
+                || (buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .linux && CiEnvironment.runningInSelfHostedPipeline)  // error: SwiftCompile normal x86_64 /tmp/Miscellaneous_EchoExecutable.sxkNTX/Miscellaneous_EchoExecutable/.build/x86_64-unknown-linux-gnu/Intermediates.noindex/EchoExecutable.build/Debug-linux/TestSuite-test-runner.build/DerivedSources/test_entry_point.swift failed with a nonzero exit code
         }
     }
 
     @Test(
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
+        BuildConfiguration.allCases,
     )
     func numWorkersParallelRequirement(
         buildSystem: BuildSystemProvider.Kind,
@@ -199,7 +204,8 @@ struct TestCommandTests {
     }
 
     @Test(
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
+        BuildConfiguration.allCases,
     )
     func numWorkersValueSetToZeroRaisesAnError(
         buildSystem: BuildSystemProvider.Kind,
@@ -229,7 +235,8 @@ struct TestCommandTests {
         .tags(
             .Feature.TargetType.Executable,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
+        BuildConfiguration.allCases,
     )
     func enableDisableTestabilityDefaultShouldRunWithTestability(
         buildSystem: BuildSystemProvider.Kind,
@@ -251,7 +258,7 @@ struct TestCommandTests {
             }
         } when: {
             // || (buildSystem == .swiftbuild && .windows == ProcessInfo.hostOperatingSystem && CiEnvironment.runningInSelfHostedPipeline)
-            (buildSystem == .swiftbuild && .windows == ProcessInfo.hostOperatingSystem )
+            (buildSystem == .swiftbuild && .windows == ProcessInfo.hostOperatingSystem)
         }
     }
 
@@ -260,7 +267,8 @@ struct TestCommandTests {
             .Feature.TargetType.Executable,
         ),
         .SWBINTTODO("Test currently fails due to 'error: build failed'"),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
+        BuildConfiguration.allCases,
     )
     func enableDisableTestabilityDisabled(
         buildSystem: BuildSystemProvider.Kind,
@@ -296,7 +304,8 @@ struct TestCommandTests {
         .tags(
             .Feature.TargetType.Executable,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
+        BuildConfiguration.allCases,
     )
     func enableDisableTestabilityEnabled(
         buildSystem: BuildSystemProvider.Kind,
@@ -323,7 +332,8 @@ struct TestCommandTests {
         ),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8479", relationship: .defect),
         .SWBINTTODO("Result XML could not be found. The build fails because of missing test helper generation logic for non-macOS platforms"),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
+        BuildConfiguration.allCases,
     )
     func swiftTestParallel_SerialTesting(
         buildSystem: BuildSystemProvider.Kind,
@@ -361,7 +371,8 @@ struct TestCommandTests {
         ),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8479", relationship: .defect),
         .SWBINTTODO("Result XML could not be found. The build fails because of missing test helper generation logic for non-macOS platforms"),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
+        BuildConfiguration.allCases,
     )
     func swiftTestParallel_NoParallelArgument(
         buildSystem: BuildSystemProvider.Kind,
@@ -391,13 +402,14 @@ struct TestCommandTests {
     }
 
     @Test(
-         .tags(
+        .tags(
             .Feature.TargetType.Executable,
             .Feature.CommandLineArguments.TestParallel,
         ),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8479", relationship: .defect),
         .SWBINTTODO("Result XML could not be found. The build fails because of missing test helper generation logic for non-macOS platforms"),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
+        BuildConfiguration.allCases,
     )
     func swiftTestParallel_ParallelArgument(
         buildSystem: BuildSystemProvider.Kind,
@@ -411,7 +423,8 @@ struct TestCommandTests {
                         ["--parallel"],
                         packagePath: fixturePath,
                         configuration: configuration,
-                        buildSystem: buildSystem)
+                        buildSystem: buildSystem
+                    )
                 }
                 guard case SwiftPMError.executionFailure(_, let stdout, _) = try #require(error) else {
                     Issue.record("Incorrect error was raised.")
@@ -424,7 +437,7 @@ struct TestCommandTests {
                 #expect(stdout.contains("[3/3]"))
             }
         } when: {
-            [ .windows].contains(ProcessInfo.hostOperatingSystem) && buildSystem == .swiftbuild
+            [.windows].contains(ProcessInfo.hostOperatingSystem) && buildSystem == .swiftbuild
         }
     }
 
@@ -436,7 +449,8 @@ struct TestCommandTests {
         ),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8479", relationship: .defect),
         .SWBINTTODO("Result XML could not be found. The build fails because of missing test helper generation logic for non-macOS platforms"),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
+        BuildConfiguration.allCases,
     )
     func swiftTestParallel_ParallelArgumentWithXunitOutputGeneration(
         buildSystem: BuildSystemProvider.Kind,
@@ -490,7 +504,8 @@ struct TestCommandTests {
         ),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8479", relationship: .defect),
         .SWBINTTODO("Result XML could not be found. The build fails because of missing test helper generation logic for non-macOS platforms"),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
+        BuildConfiguration.allCases,
     )
     func swiftTestXMLOutputWhenEmpty(
         buildSystem: BuildSystemProvider.Kind,
@@ -548,7 +563,8 @@ struct TestCommandTests {
         ),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8479", relationship: .defect),
         .SWBINTTODO("Result XML could not be found. The build fails because of missing test helper generation logic for non-macOS platforms"),
-        arguments: SupportedBuildSystemOnAllPlatforms.filter { $0 != .xcode }, BuildConfiguration.allCases.map { config in
+        arguments: SupportedBuildSystemOnAllPlatforms.filter { $0 != .xcode },
+        BuildConfiguration.allCases.map { config in
             [
                 (
                     fixtureName: "Miscellaneous/TestSingleFailureXCTest",
@@ -657,7 +673,7 @@ struct TestCommandTests {
                     ],
                     configuration: config,
                     id: "Multiple Swift Testing Tests Failure Message With Flag Disabled",
-                )
+                ),
             ]
         }.flatMap { $0 }
     )
@@ -668,7 +684,7 @@ struct TestCommandTests {
         // windows issue not recorded for:
         //   - native, single, XCTest, experimental true
         //   - native, single, XCTest, experimental false
-        try await withKnownIssue( isIntermittent: (ProcessInfo.hostOperatingSystem == .windows)) {
+        try await withKnownIssue(isIntermittent: (ProcessInfo.hostOperatingSystem == .windows)) {
             try await fixture(name: tcdata.fixtureName) { fixturePath in
                 // GIVEN we have a Package with a failing \(testRunner) test cases
                 let xUnitOutput = fixturePath.appending("result.xml")
@@ -711,13 +727,14 @@ struct TestCommandTests {
     }
 
     @Test(
-         .tags(
+        .tags(
             .Feature.TargetType.Executable,
             .Feature.CommandLineArguments.TestFilter,
         ),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8479", relationship: .defect),
         .SWBINTTODO("Result XML could not be found. The build fails because of missing test helper generation logic for non-macOS platforms"),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
+        BuildConfiguration.allCases,
     )
     func swiftTestFilter(
         buildSystem: BuildSystemProvider.Kind,
@@ -763,7 +780,8 @@ struct TestCommandTests {
         ),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8479", relationship: .defect),
         .SWBINTTODO("Result XML could not be found. The build fails because of missing test helper generation logic for non-macOS platforms"),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
+        BuildConfiguration.allCases,
     )
     func swiftTestSkip(
         buildSystem: BuildSystemProvider.Kind,
@@ -838,7 +856,8 @@ struct TestCommandTests {
         ),
         .SWBINTTODO("Fails to find test executable"),
         .issue("https://github.com/swiftlang/swift-package-manager/pull/8722", relationship: .fixedBy),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
+        BuildConfiguration.allCases,
     )
     func enableTestDiscoveryDeprecation(
         buildSystem: BuildSystemProvider.Kind,
@@ -888,7 +907,8 @@ struct TestCommandTests {
         .tags(
             Tag.Feature.Command.Build,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
+        BuildConfiguration.allCases,
     )
     func listWithoutBuildingFirst(
         buildSystem: BuildSystemProvider.Kind,
@@ -926,7 +946,8 @@ struct TestCommandTests {
         .tags(
             Tag.Feature.Command.Build,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
+        BuildConfiguration.allCases,
     )
     func listBuildFirstThenList(
         buildSystem: BuildSystemProvider.Kind,
@@ -944,13 +965,13 @@ struct TestCommandTests {
                 )
                 #expect(buildStdout.contains("Build complete!"))
             } when: {
-                (buildSystem == .native && configuration == .release) // error: module 'Simple' was not compiled for testing
-                || (configuration == .release && buildSystem != .native && ProcessInfo.hostOperatingSystem != .windows) // (configuration == .release)
-                || (buildSystem != .native && ProcessInfo.hostOperatingSystem == .windows) // || (ProcessInfo.hostOperatingSystem == .windows)
+                (buildSystem == .native && configuration == .release)  // error: module 'Simple' was not compiled for testing
+                    || (configuration == .release && buildSystem != .native && ProcessInfo.hostOperatingSystem != .windows)  // (configuration == .release)
+                    || (buildSystem != .native && ProcessInfo.hostOperatingSystem == .windows)  // || (ProcessInfo.hostOperatingSystem == .windows)
             }
 
             // list
-            try await withKnownIssue("Fails to find test executable", isIntermittent: ([.linux, .windows].contains(ProcessInfo.hostOperatingSystem))) { // windows; issue not recorded
+            try await withKnownIssue("Fails to find test executable", isIntermittent: ([.linux, .windows].contains(ProcessInfo.hostOperatingSystem))) {  // windows; issue not recorded
                 let (listStdout, listStderr) = try await execute(
                     ["list"],
                     packagePath: fixturePath,
@@ -965,8 +986,8 @@ struct TestCommandTests {
                 #expect(listStdout.contains("SimpleTests.SimpleTests/testThrowing"))
             } when: {
                 (configuration == .release && ProcessInfo.hostOperatingSystem != .macOS)
-                || (buildSystem == .swiftbuild && [.linux].contains(ProcessInfo.hostOperatingSystem))
-                || (buildSystem == .swiftbuild && [.windows].contains(ProcessInfo.hostOperatingSystem)) && configuration == .debug
+                    || (buildSystem == .swiftbuild && [.linux].contains(ProcessInfo.hostOperatingSystem))
+                    || (buildSystem == .swiftbuild && [.windows].contains(ProcessInfo.hostOperatingSystem)) && configuration == .debug
             }
         }
     }
@@ -981,7 +1002,8 @@ struct TestCommandTests {
         .tags(
             Tag.Feature.Command.Build,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
+        BuildConfiguration.allCases,
     )
     func listBuildFirstThenListWhileSkippingBuild(
         buildSystem: BuildSystemProvider.Kind,
@@ -990,7 +1012,7 @@ struct TestCommandTests {
         try await withKnownIssue("Failes to find test executable") {
             try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
                 // build first
-                try await withKnownIssue("Failed to save attachment", isIntermittent: (.windows == ProcessInfo.hostOperatingSystem)) { // windows: native, debug did not record issue
+                try await withKnownIssue("Failed to save attachment", isIntermittent: (.windows == ProcessInfo.hostOperatingSystem)) {  // windows: native, debug did not record issue
                     // This might be intermittently failing on windows
                     let (buildStdout, _) = try await executeSwiftBuild(
                         fixturePath,
@@ -1022,12 +1044,13 @@ struct TestCommandTests {
             }
         } when: {
             (configuration == .release)
-            || (buildSystem == .swiftbuild && .linux == ProcessInfo.hostOperatingSystem && configuration == .release)
+                || (buildSystem == .swiftbuild && .linux == ProcessInfo.hostOperatingSystem && configuration == .release)
         }
     }
 
     @Test(
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
+        BuildConfiguration.allCases,
     )
     func listWithSkipBuildAndNoBuildArtifacts(
         buildSystem: BuildSystemProvider.Kind,
@@ -1059,7 +1082,8 @@ struct TestCommandTests {
             .Feature.TargetType.Executable,
             .Feature.CommandLineArguments.TestEnableSwiftTesting,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
+        BuildConfiguration.allCases,
     )
     func basicSwiftTestingIntegration(
         buildSystem: BuildSystemProvider.Kind,
@@ -1089,7 +1113,8 @@ struct TestCommandTests {
         ),
         .skipHostOS(.macOS),  // because this was guarded with `#if !canImport(Darwin)`
         .SWBINTTODO("This is a PIF builder missing GUID problem. Further investigation is needed."),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
+        BuildConfiguration.allCases,
     )
     func generatedMainIsConcurrencySafe_XCTest(
         buildSystem: BuildSystemProvider.Kind,
@@ -1111,12 +1136,13 @@ struct TestCommandTests {
         }
     }
     @Test(
-         .tags(
+        .tags(
             .Feature.TargetType.Executable,
         ),
         .skipHostOS(.macOS),  // because this was guarded with `#if !canImport(Darwin)`
         .SWBINTTODO("This is a PIF builder missing GUID problem. Further investigation is needed."),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
+        BuildConfiguration.allCases,
     )
     func generatedMainIsExistentialAnyClean(
         buildSystem: BuildSystemProvider.Kind,
@@ -1139,12 +1165,13 @@ struct TestCommandTests {
     }
 
     @Test(
-         .tags(
+        .tags(
             .Feature.TargetType.Executable,
         ),
         .IssueWindowsPathTestsFailures,
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8602", relationship: .defect),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
+        BuildConfiguration.allCases,
     )
     func libraryEnvironmentVariable(
         buildSystem: BuildSystemProvider.Kind,
@@ -1177,7 +1204,8 @@ struct TestCommandTests {
         ),
         .SWBINTTODO("Fails to find test executable"),
         .issue("https://github.com/swiftlang/swift-package-manager/pull/8722", relationship: .fixedBy),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
+        BuildConfiguration.allCases,
     )
     func XCTestOnlyDoesNotLogAboutNoMatchingTests(
         buildSystem: BuildSystemProvider.Kind,
@@ -1204,7 +1232,8 @@ struct TestCommandTests {
         ),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/6605", relationship: .verifies),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8602", relationship: .defect),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
+        BuildConfiguration.allCases,
     )
     func fatalErrorDisplayedCorrectNumberOfTimesWhenSingleXCTestHasFatalErrorInBuildCompilation(
         buildSystem: BuildSystemProvider.Kind,

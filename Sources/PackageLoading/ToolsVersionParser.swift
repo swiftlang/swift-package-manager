@@ -56,9 +56,9 @@ public struct ToolsVersionParser {
         }
 
         do {
-          return try self.parse(utf8String: manifestContentsDecodedWithUTF8)
+            return try self.parse(utf8String: manifestContentsDecodedWithUTF8)
         } catch Error.malformedToolsVersionSpecification(.commentMarker(.isMissing)) {
-          throw UnsupportedToolsVersion(packageIdentity: .init(path: manifestPath), currentToolsVersion: .current, packageToolsVersion: .v3)
+            throw UnsupportedToolsVersion(packageIdentity: .init(path: manifestPath), currentToolsVersion: .current, packageToolsVersion: .v3)
         }
     }
 
@@ -223,7 +223,7 @@ public struct ToolsVersionParser {
         /// The position of the first character of the Swift tools version specification line in the manifest.
         ///
         /// Because the tools version specification line is the first non-whitespace-only line in the manifest, the position of its first character is also the position of the first non-whitespace character in the manifest. If there is only whitespace in the manifest, then this position is the `endIndex` of the manifest.
-        let startIndexOfSpecification = manifest.firstIndex(where: { !$0.isWhitespace } ) ?? manifest.endIndex
+        let startIndexOfSpecification = manifest.firstIndex(where: { !$0.isWhitespace }) ?? manifest.endIndex
 
         /// The whitespace at the start of the manifest.
         ///
@@ -245,7 +245,7 @@ public struct ToolsVersionParser {
         /// The position right past the last character of the Swift tools version specification's comment marker.
         ///
         /// This is the same as the position of the first character that is neither `"/"` nor `"*"` in the Swift tools version specification. If no such character exists, then this position is the `endIndex` of the Swift tools version specification.
-        let endIndexOfCommentMarker = specificationWithIgnoredTrailingContents.firstIndex(where: { $0 != "/" && $0 != "*" } ) ?? specificationWithIgnoredTrailingContents.endIndex
+        let endIndexOfCommentMarker = specificationWithIgnoredTrailingContents.firstIndex(where: { $0 != "/" && $0 != "*" }) ?? specificationWithIgnoredTrailingContents.endIndex
 
         /// The comment marker of the Swift tools version specification.
         ///
@@ -255,7 +255,7 @@ public struct ToolsVersionParser {
         /// The position right past the last character of the spacing that immediately follows the comment marker.
         ///
         /// Because the spacing consists of only horizontal whitespace characters, this position is the same as the first character that's not a horizontal whitespace after `commentMarker`. If no such character exists, then the position is the `endIndex` of the Swift tools version specification line.
-        let startIndexOfLabel = specificationWithIgnoredTrailingContents[endIndexOfCommentMarker...].firstIndex(where: { !$0.isWhitespace } ) ?? specificationWithIgnoredTrailingContents.endIndex
+        let startIndexOfLabel = specificationWithIgnoredTrailingContents[endIndexOfCommentMarker...].firstIndex(where: { !$0.isWhitespace }) ?? specificationWithIgnoredTrailingContents.endIndex
         //                                                                                                                  ☝️
         // Technically, this is looking for the position of the first character that's not a whitespace, BOTH HORIZONTAL AND VERTICAL. However, since all vertical horizontal whitespace characters are also line terminators, and because the Swift tools version specification does not contain any line terminator, we can safely use `Character.isWhitespace` to check if a character is a horizontal whitespace.
 
@@ -325,7 +325,7 @@ public struct ToolsVersionParser {
             // The optional index can be safely unwrapped, because we know for sure there is a ":" in the substring.                                     👇
             endIndexOfLabel = specificationSnippetFromLabelToLineTerminator.index(after: specificationSnippetFromLabelToLineTerminator.firstIndex(of: ":")!)
             // Because there is potentially a spacing between the label and the version specifier, we need to skip the whitespace first.
-            startIndexOfVersionSpecifier = specificationSnippetFromLabelToLineTerminator[endIndexOfLabel...].firstIndex(where: { !$0.isWhitespace } ) ?? specificationSnippetFromLabelToLineTerminator.endIndex
+            startIndexOfVersionSpecifier = specificationSnippetFromLabelToLineTerminator[endIndexOfLabel...].firstIndex(where: { !$0.isWhitespace }) ?? specificationSnippetFromLabelToLineTerminator.endIndex
         } else {
             // FIXME: Use `CharacterSet.decimalDigits` instead?
             // `Character.isNumber` is true for more than just decimal characters (e.g. ㊅ and 𝟘), but `CharacterSet.contains(_:)` works only on Unicode scalars.
@@ -348,7 +348,7 @@ public struct ToolsVersionParser {
         /// The position of the version specifier's terminator.
         ///
         /// The terminator can be either a `";"` or a line terminator. If no such character exists, then this position is the `endIndex` of the Swift tools version specification.
-        let indexOfVersionSpecifierTerminator = specificationWithIgnoredTrailingContents[startIndexOfVersionSpecifier...].firstIndex(where: { $0 == ";" } ) ?? specificationWithIgnoredTrailingContents.endIndex
+        let indexOfVersionSpecifierTerminator = specificationWithIgnoredTrailingContents[startIndexOfVersionSpecifier...].firstIndex(where: { $0 == ";" }) ?? specificationWithIgnoredTrailingContents.endIndex
         //                                                                                                                                          ☝️
         // Technically, this is looking for the position of the first ";" only, not the first line terminator. However, because the Swift tools version specification does not contain any line terminator, we can safely search just the first ";".
 
@@ -624,18 +624,21 @@ extension ManifestLoader {
         let regex = try! RegEx(pattern: #"^Package@swift-(\d+)(?:\.(\d+))?(?:\.(\d+))?.swift$"#)
 
         // Collect all version-specific manifests at the given package path.
-        let versionSpecificManifests = Dictionary(contents.compactMap{ file -> (ToolsVersion, String)? in
-            let parsedVersion = regex.matchGroups(in: file)
-            guard parsedVersion.count == 1, parsedVersion[0].count == 3 else {
-                return nil
-            }
+        let versionSpecificManifests = Dictionary(
+            contents.compactMap { file -> (ToolsVersion, String)? in
+                let parsedVersion = regex.matchGroups(in: file)
+                guard parsedVersion.count == 1, parsedVersion[0].count == 3 else {
+                    return nil
+                }
 
-            let major = Int(parsedVersion[0][0])!
-            let minor = parsedVersion[0][1].isEmpty ? 0 : Int(parsedVersion[0][1])!
-            let patch = parsedVersion[0][2].isEmpty ? 0 : Int(parsedVersion[0][2])!
+                let major = Int(parsedVersion[0][0])!
+                let minor = parsedVersion[0][1].isEmpty ? 0 : Int(parsedVersion[0][1])!
+                let patch = parsedVersion[0][2].isEmpty ? 0 : Int(parsedVersion[0][2])!
 
-            return (ToolsVersion(version: Version(major, minor, patch)), file)
-        }, uniquingKeysWith: { $1 })
+                return (ToolsVersion(version: Version(major, minor, patch)), file)
+            },
+            uniquingKeysWith: { $1 }
+        )
 
         let regularManifest = packagePath.appending(component: Manifest.filename)
 
@@ -644,9 +647,8 @@ extension ManifestLoader {
         let regularManifestToolsVersion: ToolsVersion
         do {
             regularManifestToolsVersion = try ToolsVersionParser.parse(manifestPath: regularManifest, fileSystem: fileSystem)
-        }
-        catch let error as UnsupportedToolsVersion where error.packageToolsVersion == .v3 {
-          regularManifestToolsVersion = .v3
+        } catch let error as UnsupportedToolsVersion where error.packageToolsVersion == .v3 {
+            regularManifestToolsVersion = .v3
         }
 
         // Find the newest version-specific manifest that is compatible with the current tools version.
@@ -662,8 +664,7 @@ extension ManifestLoader {
         let versionSpecificManifestToolsVersion: ToolsVersion
         if versionSpecificCandidate < .v4 {
             versionSpecificManifestToolsVersion = .v3
-        }
-        else {
+        } else {
             versionSpecificManifestToolsVersion = try ToolsVersionParser.parse(manifestPath: versionSpecificManifest, fileSystem: fileSystem)
         }
 

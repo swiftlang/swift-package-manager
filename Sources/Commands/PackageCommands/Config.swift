@@ -129,8 +129,9 @@ extension SwiftPackageCommand.Config {
                 )
             }
 
-            guard let originalOrMirror = self._deprecate_packageURL ?? self._deprecate_originalURL ?? self
-                .original ?? self._deprecate_mirrorURL ?? self.mirror
+            guard
+                let originalOrMirror = self._deprecate_packageURL ?? self._deprecate_originalURL ?? self
+                    .original ?? self._deprecate_mirrorURL ?? self.mirror
             else {
                 swiftCommandState.observabilityScope.emit(.missingRequiredArg("--original or --mirror"))
                 throw ExitCode.failure

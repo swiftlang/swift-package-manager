@@ -44,9 +44,11 @@ struct TaskBacktraceTests {
             )
             // Add a basic check that we produce backtrace output. The specifc formatting is tested by Swift Build.
             #expect(incrementalStderr.contains("Task backtrace:"))
-            #expect(incrementalStderr.split(separator: "\n").contains(where: {
-                $0.contains("Foo.swift' changed")
-            }))
+            #expect(
+                incrementalStderr.split(separator: "\n").contains(where: {
+                    $0.contains("Foo.swift' changed")
+                })
+            )
             #expect(incrementalStdout.contains("Build complete!"))
         }
     }

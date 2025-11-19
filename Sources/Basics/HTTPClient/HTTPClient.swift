@@ -86,8 +86,8 @@ public actor HTTPClient {
         }
 
         if let authorization = request.options.authorizationProvider?(request.url),
-           !authorization.isEmpty,
-           !request.headers.contains("Authorization")
+            !authorization.isEmpty,
+            !request.headers.contains("Authorization")
         {
             request.headers.add(name: "Authorization", value: authorization)
         }
@@ -161,7 +161,7 @@ public actor HTTPClient {
             }
             // check for valid response codes
             if let validResponseCodes = request.options.validResponseCodes,
-            !validResponseCodes.contains(response.statusCode)
+                !validResponseCodes.contains(response.statusCode)
             {
                 throw HTTPClientError.badResponseStatusCode(response.statusCode)
             } else {
@@ -187,7 +187,7 @@ public actor HTTPClient {
             }
             let exponential = Int(min(pow(2.0, Double(requestNumber)), Double(Int.max)))
             let delayMilli = exponential.multipliedReportingOverflow(by: delay.milliseconds() ?? 0).partialValue
-            let jitterMilli = Int.random(in: 1 ... 10)
+            let jitterMilli = Int.random(in: 1...10)
             return .milliseconds(delayMilli + jitterMilli)
         }
     }

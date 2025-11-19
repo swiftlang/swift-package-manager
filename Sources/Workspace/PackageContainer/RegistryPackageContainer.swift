@@ -54,7 +54,8 @@ public class RegistryPackageContainer: PackageContainer {
         self.currentToolsVersion = currentToolsVersion
         self.observabilityScope = observabilityScope.makeChildScope(
             description: "RegistryPackageContainer",
-            metadata: package.diagnosticsMetadata)
+            metadata: package.diagnosticsMetadata
+        )
     }
 
     // MARK: - PackageContainer
@@ -164,17 +165,19 @@ public class RegistryPackageContainer: PackageContainer {
                 observabilityScope: self.observabilityScope
             )
             // find the fake manifest so we can replace it with the real manifest content
-            guard let placeholderManifestFileName = try fileSystem.getDirectoryContents(.root).first(where: { file in
-                if file == Manifest.basename + "@swift-\(preferredToolsVersion).swift" {
-                    return true
-                } else if preferredToolsVersion.patch == 0, file == Manifest.basename + "@swift-\(preferredToolsVersion.major).\(preferredToolsVersion.minor).swift" {
-                    return true
-                } else if preferredToolsVersion.patch == 0, preferredToolsVersion.minor == 0, file == Manifest.basename + "@swift-\(preferredToolsVersion.major).swift" {
-                    return true
-                } else {
-                    return false
-                }
-            }) else {
+            guard
+                let placeholderManifestFileName = try fileSystem.getDirectoryContents(.root).first(where: { file in
+                    if file == Manifest.basename + "@swift-\(preferredToolsVersion).swift" {
+                        return true
+                    } else if preferredToolsVersion.patch == 0, file == Manifest.basename + "@swift-\(preferredToolsVersion.major).\(preferredToolsVersion.minor).swift" {
+                        return true
+                    } else if preferredToolsVersion.patch == 0, preferredToolsVersion.minor == 0, file == Manifest.basename + "@swift-\(preferredToolsVersion.major).swift" {
+                        return true
+                    } else {
+                        return false
+                    }
+                })
+            else {
                 throw StringError("failed locating placeholder manifest for \(preferredToolsVersion)")
             }
             // replace the fake manifest with the real manifest content

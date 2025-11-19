@@ -74,10 +74,11 @@ extension InstalledSwiftPMConfiguration: Codable {
             Version.self,
             forKey: CodingKeys.swiftSyntaxVersionForMacroTemplate
         )
-        self.swiftTestingVersionForTestTemplate = try container.decodeIfPresent(
-            Version.self,
-            forKey: CodingKeys.swiftTestingVersionForTestTemplate
-        ) ?? InstalledSwiftPMConfiguration.defaultSwiftTestingVersionForTestTemplate
+        self.swiftTestingVersionForTestTemplate =
+            try container.decodeIfPresent(
+                Version.self,
+                forKey: CodingKeys.swiftTestingVersionForTestTemplate
+            ) ?? InstalledSwiftPMConfiguration.defaultSwiftTestingVersionForTestTemplate
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -92,5 +93,5 @@ extension InstalledSwiftPMConfiguration: Codable {
             self.swiftTestingVersionForTestTemplate,
             forKey: CodingKeys.swiftTestingVersionForTestTemplate
         )
-  }
+    }
 }

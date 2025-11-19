@@ -62,7 +62,8 @@ private struct BasicTests {
 
             // Verify that the app works.
             let dealerOutput = try sh(
-                AbsolutePath(validating: ".build/debug/dealer", relativeTo: packagePath), "10"
+                AbsolutePath(validating: ".build/debug/dealer", relativeTo: packagePath),
+                "10"
             ).stdout
             #expect(dealerOutput.filter(\.isPlayingCardSuit).count == 10)
 
@@ -98,16 +99,16 @@ private struct BasicTests {
                 packagePath.appending(component: "Package.swift"),
                 bytes: ByteString(
                     encodingAsUTF8: """
-                    // swift-tools-version:4.2
-                    import PackageDescription
+                        // swift-tools-version:4.2
+                        import PackageDescription
 
-                    let package = Package(
-                        name: "tool",
-                        targets: [
-                            .target(name: "tool", path: "./"),
-                        ]
-                    )
-                    """
+                        let package = Package(
+                            name: "tool",
+                            targets: [
+                                .target(name: "tool", path: "./"),
+                            ]
+                        )
+                        """
                 )
             )
             try localFileSystem.writeFileContents(
@@ -144,7 +145,7 @@ private struct BasicTests {
             try localFileSystem.createDirectory(packagePath)
             try await executeSwiftPackage(
                 packagePath,
-            extraArgs: ["init", "--type", "executable"],
+                extraArgs: ["init", "--type", "executable"],
                 buildSystem: .native,
             )
             let packageOutput = try await executeSwiftBuild(
@@ -282,16 +283,16 @@ private struct BasicTests {
                 packagePath.appending(component: "Package.swift"),
                 bytes: ByteString(
                     encodingAsUTF8: """
-                    // swift-tools-version:4.2
-                    import PackageDescription
+                        // swift-tools-version:4.2
+                        import PackageDescription
 
-                    let package = Package(
-                    name: "special tool",
-                    targets: [
-                        .target(name: "special tool", path: "./"),
-                    ]
-                    )
-                    """
+                        let package = Package(
+                        name: "special tool",
+                        targets: [
+                            .target(name: "special tool", path: "./"),
+                        ]
+                        )
+                        """
                 )
             )
             try localFileSystem.writeFileContents(
@@ -309,10 +310,9 @@ private struct BasicTests {
                 extraArgs: ["-v"],
                 buildSystem: .native,
             ).stdout
-            let expression = ProcessInfo
-                .hostOperatingSystem != .windows ?
-                #/swiftc.* -module-name special_tool .* '@.*/more spaces/special tool/.build/[^/]+/debug/special_tool.build/sources'/# :
-                #/swiftc.* -module-name special_tool .* "@.*\\more spaces\\special tool\\.build\\[^\\]+\\debug\\special_tool.build\\sources"/#
+            let expression =
+                ProcessInfo
+                    .hostOperatingSystem != .windows ? #/swiftc.* -module-name special_tool .* '@.*/more spaces/special tool/.build/[^/]+/debug/special_tool.build/sources'/# : #/swiftc.* -module-name special_tool .* "@.*\\more spaces\\special tool\\.build\\[^\\]+\\debug\\special_tool.build\\sources"/#
             #expect(try expression.firstMatch(in: buildOutput) != nil)
             #expect(buildOutput.contains("Build complete"))
 
@@ -353,13 +353,15 @@ private struct BasicTests {
                 packagePath.appending(components: "Sources", "secho.swift"),
                 bytes: ByteString(
                     encodingAsUTF8: """
-                    import Foundation
-                    print(CommandLine.arguments.dropFirst().joined(separator: " "))
-                    """
+                        import Foundation
+                        print(CommandLine.arguments.dropFirst().joined(separator: " "))
+                        """
                 )
             )
             let result = try await executeSwiftRun(
-                packagePath, "secho", extraArgs: [ "1", #""two""#],
+                packagePath,
+                "secho",
+                extraArgs: ["1", #""two""#],
                 buildSystem: .native,
             )
 
@@ -367,8 +369,8 @@ private struct BasicTests {
             let compilingRegex = try Regex("Compiling .*secho.*")
             let linkingRegex = try Regex("Linking .*secho")
             #expect(result.stdout.contains(compilingRegex), "stdout: '\(result.stdout)'\n stderr:'\(result.stderr)'")
-            #expect(result.stdout.contains(linkingRegex),  "stdout: '\(result.stdout)'\n stderr:'\(result.stderr)'")
-            #expect(result.stdout.contains("Build of product 'secho' complete"),  "stdout: '\(result.stdout)'\n stderr:'\(result.stderr)'")
+            #expect(result.stdout.contains(linkingRegex), "stdout: '\(result.stdout)'\n stderr:'\(result.stderr)'")
+            #expect(result.stdout.contains("Build of product 'secho' complete"), "stdout: '\(result.stdout)'\n stderr:'\(result.stderr)'")
 
             #expect(result.stdout == "1 \"two\"\(ProcessInfo.EOL)")
 
@@ -395,18 +397,18 @@ private struct BasicTests {
                 packagePath.appending(components: "Tests", "swiftTestTests", "MyTests.swift"),
                 bytes: ByteString(
                     encodingAsUTF8: """
-                    import XCTest
+                        import XCTest
 
-                    final class MyTests: XCTestCase {
-                        func testFoo() {
-                            XCTAssertTrue(1 == 1)
+                        final class MyTests: XCTestCase {
+                            func testFoo() {
+                                XCTAssertTrue(1 == 1)
+                            }
+                            func testBar() {
+                                XCTAssertFalse(1 == 2)
+                            }
+                            func testBaz() { }
                         }
-                        func testBar() {
-                            XCTAssertFalse(1 == 2)
-                        }
-                        func testBaz() { }
-                    }
-                    """
+                        """
                 )
             )
             let result = try await executeSwiftTest(

@@ -41,7 +41,7 @@ extension BuildParameters {
         }
 
         public var debugInfoFormat: DebugInfoFormat
-        
+
         /// Whether the produced executable should be codesigned with the debugging entitlement, enabling enhanced
         /// backtraces on macOS.
         public var shouldEnableDebuggingEntitlement: Bool

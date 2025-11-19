@@ -71,11 +71,11 @@ final class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
         XCTAssertEqual(bar.dependencies, ["foo"])
 
         // Check dependencies.
-        let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map{ ($0.identity.description, $0) })
+        let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map { ($0.identity.description, $0) })
         XCTAssertEqual(deps["foo1"], .localSourceControl(path: "/foo1", requirement: .upToNextMajor(from: "1.0.0")))
 
         // Check products.
-        let products = Dictionary(uniqueKeysWithValues: manifest.products.map{ ($0.name, $0) })
+        let products = Dictionary(uniqueKeysWithValues: manifest.products.map { ($0.name, $0) })
 
         let tool = products["tool"]!
         XCTAssertEqual(tool.name, "tool")
@@ -104,10 +104,10 @@ final class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                 if case ManifestParseError.invalidManifestFormat(let message, _, _) = error {
                     XCTAssertMatch(
                         message,
-                            .and(
-                                .contains("'init(name:pkgConfig:providers:products:dependencies:targets:swiftLanguageVersions:cLanguageStandard:cxxLanguageStandard:)' is unavailable"),
-                                    .contains("was obsoleted in PackageDescription 4.2")
-                            )
+                        .and(
+                            .contains("'init(name:pkgConfig:providers:products:dependencies:targets:swiftLanguageVersions:cLanguageStandard:cxxLanguageStandard:)' is unavailable"),
+                            .contains("was obsoleted in PackageDescription 4.2")
+                        )
                     )
                 } else {
                     XCTFail("unexpected error: \(error)")
@@ -275,7 +275,7 @@ final class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
         XCTAssertNoDiagnostics(observability.diagnostics)
         XCTAssertNoDiagnostics(validationDiagnostics)
 
-        let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map{ ($0.identity.description, $0) })
+        let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map { ($0.identity.description, $0) })
         XCTAssertEqual(deps["foo1"], .localSourceControl(path: "/foo1", requirement: .upToNextMajor(from: "1.0.0")))
         XCTAssertEqual(deps["foo2"], .localSourceControl(path: "/foo2", requirement: .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")))
 
@@ -372,17 +372,17 @@ final class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
     func testVersionSpecificLoading() async throws {
         let bogusManifest = "THIS WILL NOT PARSE"
         let trivialManifest =
-        """
-        // swift-tools-version:4.2
-        import PackageDescription
-        let package = Package(name: \"Trivial\")
-        """
+            """
+            // swift-tools-version:4.2
+            import PackageDescription
+            let package = Package(name: \"Trivial\")
+            """
         // Check at each possible spelling.
         let currentVersion = SwiftVersion.current
         let possibleSuffixes = [
             "\(currentVersion.major).\(currentVersion.minor).\(currentVersion.patch)",
             "\(currentVersion.major).\(currentVersion.minor)",
-            "\(currentVersion.major)"
+            "\(currentVersion.major)",
         ]
         for (i, key) in possibleSuffixes.enumerated() {
             let root = AbsolutePath.root
@@ -391,11 +391,14 @@ final class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             // Write the good manifests.
             try fs.writeFileContents(
                 root.appending(component: Manifest.basename + "@swift-\(key).swift"),
-                string: trivialManifest)
+                string: trivialManifest
+            )
             // Write the bad manifests.
-            let badManifests = [Manifest.filename] + possibleSuffixes[i+1 ..< possibleSuffixes.count].map{
-                Manifest.basename + "@swift-\($0).swift"
-            }
+            let badManifests =
+                [Manifest.filename]
+                + possibleSuffixes[i + 1..<possibleSuffixes.count].map {
+                    Manifest.basename + "@swift-\($0).swift"
+                }
             try badManifests.forEach {
                 try fs.writeFileContents(
                     root.appending(component: $0),
@@ -486,19 +489,19 @@ final class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
 
     func testNotAbsoluteDependencyPath() async throws {
         let content = """
-        import PackageDescription
-        let package = Package(
-            name: "Trivial",
-            dependencies: [
-                .package(path: "https://someurl.com"),
-            ],
-            targets: [
-                .target(
-                    name: "foo",
-                    dependencies: []),
-            ]
-        )
-        """
+            import PackageDescription
+            let package = Package(
+                name: "Trivial",
+                dependencies: [
+                    .package(path: "https://someurl.com"),
+                ],
+                targets: [
+                    .target(
+                        name: "foo",
+                        dependencies: []),
+                ]
+            )
+            """
 
         let observability = ObservabilitySystem.makeForTesting()
         await XCTAssertAsyncThrowsError(try await loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") { error in
@@ -513,52 +516,52 @@ final class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
 
     func testFileURLErrors() async throws {
         enum ExpectedError {
-          case invalidAbsolutePath
-          case relativePath
-          case unsupportedHostname
+            case invalidAbsolutePath
+            case relativePath
+            case unsupportedHostname
 
-          var manifestError: ManifestParseError? {
-            switch self {
-            case .invalidAbsolutePath:
-              return nil
-            case .relativePath:
-              return .invalidManifestFormat("file:// URLs cannot be relative, did you mean to use '.package(path:)'?", diagnosticFile: nil, compilerCommandLine: nil)
-            case .unsupportedHostname:
-              return .invalidManifestFormat("file:// URLs with hostnames are not supported, are you missing a '/'?", diagnosticFile: nil, compilerCommandLine: nil)
+            var manifestError: ManifestParseError? {
+                switch self {
+                case .invalidAbsolutePath:
+                    return nil
+                case .relativePath:
+                    return .invalidManifestFormat("file:// URLs cannot be relative, did you mean to use '.package(path:)'?", diagnosticFile: nil, compilerCommandLine: nil)
+                case .unsupportedHostname:
+                    return .invalidManifestFormat("file:// URLs with hostnames are not supported, are you missing a '/'?", diagnosticFile: nil, compilerCommandLine: nil)
+                }
             }
-          }
 
-          var pathError: TSCBasic.PathValidationError? {
-            switch self {
-            case .invalidAbsolutePath:
-              return .invalidAbsolutePath("")
-            default:
-              return nil
+            var pathError: TSCBasic.PathValidationError? {
+                switch self {
+                case .invalidAbsolutePath:
+                    return .invalidAbsolutePath("")
+                default:
+                    return nil
+                }
             }
-          }
         }
 
         let urls: [(String, ExpectedError)] = [
-          ("file://../best", .relativePath), // Possible attempt at a relative path.
-          ("file://somehost/bar", .unsupportedHostname), // Obviously non-local.
-          ("file://localhost/bar", .unsupportedHostname), // Local but non-trivial (e.g. on Windows, this is a UNC path).
-          ("file://", .invalidAbsolutePath) // Invalid path.
+            ("file://../best", .relativePath),  // Possible attempt at a relative path.
+            ("file://somehost/bar", .unsupportedHostname),  // Obviously non-local.
+            ("file://localhost/bar", .unsupportedHostname),  // Local but non-trivial (e.g. on Windows, this is a UNC path).
+            ("file://", .invalidAbsolutePath),  // Invalid path.
         ]
         for (url, expectedError) in urls {
             let content = """
-            import PackageDescription
-            let package = Package(
-                name: "Trivial",
-                dependencies: [
-                    .package(url: "\(url)", from: "1.0.0"),
-                ],
-                targets: [
-                    .target(
-                        name: "foo",
-                        dependencies: []),
-                ]
-            )
-            """
+                import PackageDescription
+                let package = Package(
+                    name: "Trivial",
+                    dependencies: [
+                        .package(url: "\(url)", from: "1.0.0"),
+                    ],
+                    targets: [
+                        .target(
+                            name: "foo",
+                            dependencies: []),
+                    ]
+                )
+                """
 
             let observability = ObservabilitySystem.makeForTesting()
             await XCTAssertAsyncThrowsError(try await loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") { error in
@@ -608,16 +611,16 @@ final class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             try localFileSystem.writeFileContents(
                 manifestPath,
                 string: """
-                import PackageDescription
-                let package = Package(
-                    name: "Trivial",
-                    targets: [
-                        .target(
-                            name: "foo",
-                            dependencies: []),
-                    ]
-                )
-                """
+                    import PackageDescription
+                    let package = Package(
+                        name: "Trivial",
+                        targets: [
+                            .target(
+                                name: "foo",
+                                dependencies: []),
+                        ]
+                    )
+                    """
             )
 
             let observability = ObservabilitySystem.makeForTesting()
@@ -645,7 +648,7 @@ final class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             XCTAssertEqual(manifest.displayName, "Trivial")
             XCTAssertEqual(manifest.targets[0].name, "foo")
 
-            for _ in 0 ..< total {
+            for _ in 0..<total {
                 let manifest = try await manifestLoader.load(
                     manifestPath: manifestPath,
                     manifestToolsVersion: .v4_2,
@@ -665,7 +668,7 @@ final class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                 XCTAssertEqual(manifest.targets[0].name, "foo")
             }
 
-            try await XCTAssertAsyncEqual(try await delegate.loaded(timeout: .seconds(1)).count, total+1)
+            try await XCTAssertAsyncEqual(try await delegate.loaded(timeout: .seconds(1)).count, total + 1)
             XCTAssertFalse(observability.hasWarningDiagnostics, observability.diagnostics.description)
             XCTAssertFalse(observability.hasErrorDiagnostics, observability.diagnostics.description)
         }
@@ -686,24 +689,24 @@ final class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             let identityResolver = DefaultIdentityResolver()
             let dependencyMapper = DefaultDependencyMapper(identityResolver: identityResolver)
 
-            for _ in 0 ..< total {
-                let random = Int.random(in: 0 ... total / 4)
+            for _ in 0..<total {
+                let random = Int.random(in: 0...total / 4)
                 let manifestPath = path.appending(components: "pkg-\(random)", "Package.swift")
                 if !localFileSystem.exists(manifestPath) {
                     try localFileSystem.createDirectory(manifestPath.parentDirectory)
                     try localFileSystem.writeFileContents(
                         manifestPath,
                         string: """
-                        import PackageDescription
-                        let package = Package(
-                            name: "Trivial-\(random)",
-                            targets: [
-                                .target(
-                                    name: "foo-\(random)",
-                                    dependencies: []),
-                            ]
-                        )
-                        """
+                            import PackageDescription
+                            let package = Package(
+                                name: "Trivial-\(random)",
+                                targets: [
+                                    .target(
+                                        name: "foo-\(random)",
+                                        dependencies: []),
+                                ]
+                            )
+                            """
                     )
                 }
 

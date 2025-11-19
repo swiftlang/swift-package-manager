@@ -63,7 +63,7 @@ import enum SwiftBuild.ProjectModel
 
 enum TargetSuffix: String {
     case testable, dynamic
-    
+
     func hasSuffix(id: GUID) -> Bool {
         id.value.hasSuffix("-\(self.rawValue)")
     }
@@ -106,7 +106,7 @@ extension PackageModel.Product {
     var pifTargetGUID: GUID { pifTargetGUID(suffix: nil) }
 
     func pifTargetGUID(suffix: TargetSuffix?) -> GUID {
-        PackagePIFBuilder.targetGUID(forProductName: self.name, withId:self.identity, suffix: suffix)
+        PackagePIFBuilder.targetGUID(forProductName: self.name, withId: self.identity, suffix: suffix)
     }
 }
 
@@ -235,7 +235,8 @@ extension Sequence<PackageModel.PackageCondition> {
                 return []
             }
 
-            var pifPlatformsForCondition: [ProjectModel.BuildSettings.Platform] = platforms
+            var pifPlatformsForCondition: [ProjectModel.BuildSettings.Platform] =
+                platforms
                 .compactMap { try? ProjectModel.BuildSettings.Platform(from: $0) }
 
             // Treat catalyst like macOS for backwards compatibility with older tools versions.
@@ -247,11 +248,13 @@ extension Sequence<PackageModel.PackageCondition> {
         return Set(pifPlatforms.flatMap { $0.toPlatformFilter() })
     }
 
-    var splitIntoConcreteConditions: (
-        [PackageModel.Platform?],
-        [PackageModel.BuildConfiguration],
-        [PackageModel.TraitCondition]
-    ) {
+    var splitIntoConcreteConditions:
+        (
+            [PackageModel.Platform?],
+            [PackageModel.BuildConfiguration],
+            [PackageModel.TraitCondition]
+        )
+    {
         var platformConditions: [PackageModel.PlatformsCondition] = []
         var configurationConditions: [PackageModel.ConfigurationCondition] = []
         var traitConditions: [PackageModel.TraitCondition] = []
@@ -266,19 +269,21 @@ extension Sequence<PackageModel.PackageCondition> {
 
         // Determine the *platform* conditions, if any.
         // An empty set means that there are no platform restrictions.
-        let platforms: [PackageModel.Platform?] = if platformConditions.isEmpty {
-            [nil]
-        } else {
-            platformConditions.flatMap(\.platforms)
-        }
+        let platforms: [PackageModel.Platform?] =
+            if platformConditions.isEmpty {
+                [nil]
+            } else {
+                platformConditions.flatMap(\.platforms)
+            }
 
         // Determine the *configuration* conditions, if any.
         // If there are none, we apply the setting to both debug and release builds (ie, `allCases`).
-        let configurations: [BuildConfiguration] = if configurationConditions.isEmpty {
-            BuildConfiguration.allCases
-        } else {
-            configurationConditions.map(\.configuration)
-        }
+        let configurations: [BuildConfiguration] =
+            if configurationConditions.isEmpty {
+                BuildConfiguration.allCases
+            } else {
+                configurationConditions.map(\.configuration)
+            }
 
         return (platforms, configurations, traitConditions)
     }
@@ -502,16 +507,13 @@ extension PackageGraph.ResolvedModule {
         mainModuleProducts.only { (mainModuleProduct: ResolvedProduct) -> Bool in
             // Handle binary-only executable products that don't have a main module, i.e. binaryTarget
             guard let mainModule = mainModuleProduct.mainModule else {
-                return mainModuleProduct.type == .executable &&
-                    mainModuleProduct.modules.only?.type == .binary &&
-                    mainModuleProduct.modules.only?.name == self.name
+                return mainModuleProduct.type == .executable && mainModuleProduct.modules.only?.type == .binary && mainModuleProduct.modules.only?.name == self.name
             }
             // NOTE: We can't use the 'id' here as we need to explicitly ignore the build triple because our build
             // triple will be '.tools' while the target we want to depend on will have a build triple of '.destination'.
             // See for more details:
             // https://github.com/swiftlang/swift-package-manager/commit/b22168ec41061ddfa3438f314a08ac7a776bef7a.
-            return mainModule.packageIdentity == self.packageIdentity &&
-                mainModule.name == self.name
+            return mainModule.packageIdentity == self.packageIdentity && mainModule.name == self.name
             // Intentionally ignore the build triple!
         }
     }
@@ -524,18 +526,18 @@ extension PackageGraph.ResolvedModule {
 
         /// Target-specific single-value build settings declared in the manifest and that apply to the target itself.
         var targetSingleValueSettings: [BuildConfiguration: SingleValueSettingsByPlatform] = [:]
-        
+
         /// Target-specific multiple-value build settings declared in the manifest and that apply to the target itself.
         var targetMultipleValueSettings: [BuildConfiguration: MultipleValueSettingsByPlatform] = [:]
 
         /// Target-specific single-value build settings that should be imparted to client targets (packages and projects).
         var impartedSingleValueSettings: SingleValueSettingsByPlatform = [:]
-        
+
         /// Target-specific multiple-value build settings that should be imparted to client targets (packages and projects).
         var impartedMultipleValueSettings: MultipleValueSettingsByPlatform = [:]
-        
+
         // MARK: - Convenience Methods
-        
+
         /// Apply all settings to a ProjectModel.BuildSettings instance
         func apply(to buildSettings: inout ProjectModel.BuildSettings, for configuration: BuildConfiguration) {
             // Apply single value settings for all platforms
@@ -550,7 +552,7 @@ extension PackageGraph.ResolvedModule {
                     }
                 }
             }
-            
+
             // Apply multiple value settings for all platforms
             if let multipleValuesByPlatform = targetMultipleValueSettings[configuration] {
                 // First, collect all multiple-value settings that are being used
@@ -560,7 +562,7 @@ extension PackageGraph.ResolvedModule {
                         usedMultipleValueSettings.insert(setting)
                     }
                 }
-                               
+
                 // Now apply the platform-specific values
                 for (platform, multipleValues) in multipleValuesByPlatform {
                     for (setting, values) in multipleValues {
@@ -577,7 +579,7 @@ extension PackageGraph.ResolvedModule {
                 }
             }
         }
-        
+
         /// Apply imparted settings to a ProjectModel.BuildSettings instance
         func applyImparted(to buildSettings: inout ProjectModel.BuildSettings) {
             // Apply imparted single value settings for all platforms
@@ -590,7 +592,7 @@ extension PackageGraph.ResolvedModule {
                     }
                 }
             }
-            
+
             // Apply imparted multiple value settings for all platforms
             for (platform, multipleValues) in impartedMultipleValueSettings {
                 for (setting, values) in multipleValues {
@@ -621,7 +623,7 @@ extension PackageGraph.ResolvedModule {
                 let values: [String]
                 let singleValueSetting: ProjectModel.BuildSettings.SingleValueSetting?
                 let multipleValueSetting: ProjectModel.BuildSettings.MultipleValueSetting?
-                
+
                 switch declaration {
                 case .LINK_FRAMEWORKS:
                     singleValueSetting = nil
@@ -714,13 +716,14 @@ extension SystemLibraryModule {
             return packageMetadata
         }
 
-        let brewPath = if FileManager.default.fileExists(atPath: "/opt/brew") {
-            "/opt/brew" // Legacy path for Homebrew.
-        } else if FileManager.default.fileExists(atPath: "/opt/homebrew") {
-            "/opt/homebrew" // Default path for Homebrew on Apple Silicon.
-        } else {
-            "/usr/local" // Fallback to default path for Homebrew.
-        }
+        let brewPath =
+            if FileManager.default.fileExists(atPath: "/opt/brew") {
+                "/opt/brew"  // Legacy path for Homebrew.
+            } else if FileManager.default.fileExists(atPath: "/opt/homebrew") {
+                "/opt/homebrew"  // Default path for Homebrew on Apple Silicon.
+            } else {
+                "/usr/local"  // Fallback to default path for Homebrew.
+            }
 
         let emptyPkgConfig: (cFlags: [String], libs: [String]) = ([], [])
 
@@ -930,7 +933,7 @@ extension TSCUtility.Version {
 // MARK: - Swift Build ProjectModel Helpers
 
 /// Helpful for logging.
-extension ProjectModel.GUID: @retroactive CustomStringConvertible  {
+extension ProjectModel.GUID: @retroactive CustomStringConvertible {
     public var description: String {
         value
     }
@@ -989,29 +992,29 @@ extension ProjectModel.BuildSettings {
     /// it must be one of the known platforms in `ProjectModel.BuildSettings.Platform`.
 }
 
-
 extension ProjectModel.BuildSettings.Platform {
     enum Error: Swift.Error {
         case unknownPlatform(String)
     }
 
     init(from platform: PackageModel.Platform) throws {
-        self = switch platform {
-        case .macOS: .macOS
-        case .macCatalyst: .macCatalyst
-        case .iOS: .iOS
-        case .tvOS: .tvOS
-        case .watchOS: .watchOS
-        case .visionOS: .xrOS
-        case .driverKit: .driverKit
-        case .linux: .linux
-        case .android: .android
-        case .windows: .windows
-        case .wasi: .wasi
-        case .openbsd: .openbsd
-        case .freebsd: .freebsd
-        default: throw Error.unknownPlatform(platform.name)
-        }
+        self =
+            switch platform {
+            case .macOS: .macOS
+            case .macCatalyst: .macCatalyst
+            case .iOS: .iOS
+            case .tvOS: .tvOS
+            case .watchOS: .watchOS
+            case .visionOS: .xrOS
+            case .driverKit: .driverKit
+            case .linux: .linux
+            case .android: .android
+            case .windows: .windows
+            case .wasi: .wasi
+            case .openbsd: .openbsd
+            case .freebsd: .freebsd
+            default: throw Error.unknownPlatform(platform.name)
+            }
     }
 }
 
@@ -1044,8 +1047,8 @@ extension ProjectModel.BuildSettings {
             // present.
             // The AppStore requires bumping the project version when ingesting new builds but that's for top-level apps
             // and not frameworks embedded inside it.
-            self[.MARKETING_VERSION] = "1.0" // Version
-            self[.CURRENT_PROJECT_VERSION] = "1" // Build
+            self[.MARKETING_VERSION] = "1.0"  // Version
+            self[.CURRENT_PROJECT_VERSION] = "1"  // Build
         }
 
         // Might set install path depending on build delegate.
@@ -1106,7 +1109,7 @@ extension ObservabilityScope {
 
         let indentation = String(repeating: "  ", count: Int(indent))
         let message = "PIF: \(indentation)\(message)"
-        
+
         let diagnostic = Diagnostic(severity: severity, message: message, metadata: metadata)
         self.emit(diagnostic)
     }
@@ -1133,7 +1136,7 @@ public struct SourceLocation: Sendable {
 
     public init(_ file: StaticString, _ line: UInt) {
         precondition(file.description.hasContent)
-        
+
         self.file = file
         self.line = line
     }
@@ -1256,4 +1259,3 @@ extension UserDefaults {
         }
     }
 }
-

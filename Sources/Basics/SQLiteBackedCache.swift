@@ -107,10 +107,10 @@ package final class SQLiteBackedCache<Value: Codable>: Closable {
             observabilityScope?
                 .emit(
                     warning: """
-                    truncating \(self.tableName) cache database since it reached max size of \(
-                        self.configuration.maxSizeInBytes ?? 0
-                    ) bytes
-                    """
+                            truncating \(self.tableName) cache database since it reached max size of \(
+                            self.configuration.maxSizeInBytes ?? 0
+                        ) bytes
+                        """
                 )
             try self.executeStatement("DELETE FROM \(self.tableName);") { statement in
                 try statement.step()
@@ -224,11 +224,11 @@ package final class SQLiteBackedCache<Value: Codable>: Closable {
 
     private func createSchemaIfNecessary(db: SQLite) throws {
         let table = """
-            CREATE TABLE IF NOT EXISTS \(self.tableName) (
-                key STRING PRIMARY KEY NOT NULL,
-                value BLOB NOT NULL
-            );
-        """
+                CREATE TABLE IF NOT EXISTS \(self.tableName) (
+                    key STRING PRIMARY KEY NOT NULL,
+                    value BLOB NOT NULL
+                );
+            """
 
         try db.exec(query: table)
         try db.exec(query: "PRAGMA journal_mode=WAL;")

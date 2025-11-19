@@ -81,7 +81,7 @@ public func expectDirectoryExists(
     at path: AbsolutePath,
     sourceLocation: SourceLocation = #_sourceLocation,
 ) {
-let msgSuffix: String
+    let msgSuffix: String
     do {
         msgSuffix = try "Directory contents: \(localFileSystem.getDirectoryContents(path))"
     } catch {
@@ -146,7 +146,7 @@ public func expectThrowsCommandExecutionError<T>(
 }
 
 private func _expectThrowsCommandExecutionError<R, T>(
-    _ expressionClosure: @autoclosure  () async throws -> T,
+    _ expressionClosure: @autoclosure () async throws -> T,
     _ message: @autoclosure () -> Comment,
     _ sourceLocation: SourceLocation,
     _ errorHandler: (_ error: CommandExecutionError) throws -> R
@@ -164,9 +164,10 @@ private func _expectThrowsCommandExecutionError<R, T>(
     }
 
     guard let error = err,
-          case .executionFailure(let processError, let stdout, let stderr) = error,
-          case AsyncProcessResult.Error.nonZeroExit(let processResult) = processError,
-          processResult.exitStatus != .terminated(code: 0) else {
+        case .executionFailure(let processError, let stdout, let stderr) = error,
+        case AsyncProcessResult.Error.nonZeroExit(let processResult) = processError,
+        processResult.exitStatus != .terminated(code: 0)
+    else {
         Issue.record("Unexpected error type: \(err?.interpolationDescription ?? "<unknown>")", sourceLocation: sourceLocation)
         return Optional<R>.none
     }

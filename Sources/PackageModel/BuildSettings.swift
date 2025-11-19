@@ -58,7 +58,7 @@ public enum BuildSettings {
 
         public init(values: [String] = [], conditions: [PackageCondition] = []) {
             self.values = values
-            self.default = false // TODO(franz): Check again
+            self.default = false  // TODO(franz): Check again
             self.conditions = conditions
         }
     }

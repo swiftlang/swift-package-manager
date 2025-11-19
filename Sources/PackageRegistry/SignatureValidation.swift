@@ -32,8 +32,10 @@ struct SignatureValidation {
 
     private let skipSignatureValidation: Bool
     private let signingEntityTOFU: PackageSigningEntityTOFU
-    private let versionMetadataProvider: (PackageIdentity.RegistryIdentity, Version) async throws -> RegistryClient
-        .PackageVersionMetadata
+    private let versionMetadataProvider:
+        (PackageIdentity.RegistryIdentity, Version) async throws ->
+            RegistryClient
+            .PackageVersionMetadata
     private let delegate: Delegate
 
     private enum ValidationError: Error {
@@ -44,7 +46,8 @@ struct SignatureValidation {
         skipSignatureValidation: Bool,
         signingEntityStorage: PackageSigningEntityStorage?,
         signingEntityCheckingMode: SigningEntityCheckingMode,
-        versionMetadataProvider: @escaping (PackageIdentity.RegistryIdentity, Version) async throws -> RegistryClient
+        versionMetadataProvider: @escaping (PackageIdentity.RegistryIdentity, Version) async throws ->
+            RegistryClient
             .PackageVersionMetadata,
         delegate: Delegate
     ) {
@@ -350,7 +353,6 @@ struct SignatureValidation {
         return signingEntity;
     }
 
-
     @available(*, noasync, message: "Use the async alternative")
     func validate(
         registry: Registry,
@@ -413,12 +415,14 @@ struct SignatureValidation {
 
             // source archive is signed, so the manifest must also be signed
             guard let manifestSignature = try ManifestSignatureParser.parse(utf8String: manifestContent) else {
-                throw ValidationError.passthrough(RegistryError.manifestNotSigned(
-                    registry: registry,
-                    package: package.underlying,
-                    version: version,
-                    toolsVersion: toolsVersion
-                ))
+                throw ValidationError.passthrough(
+                    RegistryError.manifestNotSigned(
+                        registry: registry,
+                        package: package.underlying,
+                        version: version,
+                        toolsVersion: toolsVersion
+                    )
+                )
             }
 
             guard let signatureFormat = SignatureFormat(rawValue: manifestSignature.signatureFormat) else {

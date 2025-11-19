@@ -20,7 +20,8 @@ import func TSCBasic.tsc_await
 
 public enum Concurrency {
     public static var maxOperations: Int {
-        Environment.current["SWIFTPM_MAX_CONCURRENT_OPERATIONS"].flatMap(Int.init) ?? ProcessInfo.processInfo
+        Environment.current["SWIFTPM_MAX_CONCURRENT_OPERATIONS"].flatMap(Int.init)
+            ?? ProcessInfo.processInfo
             .activeProcessorCount
     }
 }
@@ -38,7 +39,6 @@ public func unsafe_await<T: Sendable>(_ body: @Sendable @escaping () async -> T)
     semaphore.wait()
     return box.get()!
 }
-
 
 extension DispatchQueue {
     // a shared concurrent queue for running concurrent asynchronous operations
@@ -63,7 +63,8 @@ extension DispatchQueue {
 
     package func asyncResult<T: Sendable>(_ callback: @escaping @Sendable (Result<T, Error>) -> Void, _ closure: @escaping @Sendable () async throws -> T) {
         let completion: @Sendable (Result<T, Error>) -> Void = {
-            result in self.async {
+            result in
+            self.async {
                 callback(result)
             }
         }
@@ -168,31 +169,31 @@ public final class AsyncOperationQueue: @unchecked Sendable {
                     }
 
                     switch waitingTasks[index] {
-                        case .cancelled:
-                            // If the task was cancelled in between creating the task cancellation handler and acquiring the lock,
-                            // we should resume the continuation with a `CancellationError`.
+                    case .cancelled:
+                        // If the task was cancelled in between creating the task cancellation handler and acquiring the lock,
+                        // we should resume the continuation with a `CancellationError`.
+                        waitingTasks.remove(at: index)
+                        return .cancel(continuation)
+                    case .creating, .running, .waiting:
+                        // A task may have completed since we initially checked if we should wait. Check again in this locked
+                        // section and if we can start it, remove it from the waiting tasks and start it immediately.
+                        if waitingTasks.count >= concurrentTasks {
+                            waitingTasks[index] = .waiting(taskId, continuation)
+                            return nil
+                        } else {
                             waitingTasks.remove(at: index)
-                            return .cancel(continuation)
-                        case .creating, .running, .waiting:
-                            // A task may have completed since we initially checked if we should wait. Check again in this locked
-                            // section and if we can start it, remove it from the waiting tasks and start it immediately.
-                            if waitingTasks.count >= concurrentTasks {
-                                waitingTasks[index] = .waiting(taskId, continuation)
-                                return nil
-                            } else {
-                                waitingTasks.remove(at: index)
-                                return .start(continuation)
-                            }
+                            return .start(continuation)
+                        }
                     }
                 }
 
                 switch action {
-                    case .some(.cancel(let continuation)):
-                        continuation.resume(throwing: _Concurrency.CancellationError())
-                    case .some(.start(let continuation)):
-                        continuation.resume()
-                    case .none:
-                        return
+                case .some(.cancel(let continuation)):
+                    continuation.resume(throwing: _Concurrency.CancellationError())
+                case .some(.start(let continuation)):
+                    continuation.resume()
+                case .none:
+                    return
                 }
             }
         } onCancel: {
@@ -202,20 +203,20 @@ public final class AsyncOperationQueue: @unchecked Sendable {
                 }
 
                 switch self.waitingTasks[taskIndex] {
-                    case .waiting(_, let continuation):
-                        self.waitingTasks.remove(at: taskIndex)
+                case .waiting(_, let continuation):
+                    self.waitingTasks.remove(at: taskIndex)
 
-                        // If the parent task is cancelled then we need to manually handle resuming the
-                        // continuation for the waiting task with a `CancellationError`. Return the continuation
-                        // here so it can be resumed once the `waitingTasksLock` is released.
-                        return continuation
-                    case .creating, .running:
-                        // If the task was still being created, mark it as cancelled in `waitingTasks` so that
-                        // the handler for `withCheckedThrowingContinuation` can immediately cancel it.
-                        self.waitingTasks[taskIndex] = .cancelled(taskId)
-                        return nil
-                    case .cancelled:
-                        preconditionFailure("Attempting to cancel a task that was already cancelled")
+                    // If the parent task is cancelled then we need to manually handle resuming the
+                    // continuation for the waiting task with a `CancellationError`. Return the continuation
+                    // here so it can be resumed once the `waitingTasksLock` is released.
+                    return continuation
+                case .creating, .running:
+                    // If the task was still being created, mark it as cancelled in `waitingTasks` so that
+                    // the handler for `withCheckedThrowingContinuation` can immediately cancel it.
+                    self.waitingTasks[taskIndex] = .cancelled(taskId)
+                    return nil
+                case .cancelled:
+                    preconditionFailure("Attempting to cancel a task that was already cancelled")
                 }
             }
 

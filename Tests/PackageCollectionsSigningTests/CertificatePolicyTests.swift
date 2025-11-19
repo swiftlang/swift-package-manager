@@ -78,7 +78,7 @@ class CertificatePolicyTests: XCTestCase {
     func test_validate_revoked() async throws {
         #if ENABLE_REAL_CERT_TEST
         #else
-        try XCTSkipIf(true)
+            try XCTSkipIf(true)
         #endif
 
         let certChain = try await self.readTestCertChain(
@@ -111,7 +111,7 @@ class CertificatePolicyTests: XCTestCase {
     func test_validate_defaultPolicy() async throws {
         #if ENABLE_REAL_CERT_TEST
         #else
-        try XCTSkipIf(true)
+            try XCTSkipIf(true)
         #endif
 
         let certChain = try await self.readTestCertChain(
@@ -171,7 +171,7 @@ class CertificatePolicyTests: XCTestCase {
     func test_validate_appleSwiftPackageCollectionPolicy_rsa() async throws {
         #if ENABLE_REAL_CERT_TEST
         #else
-        try XCTSkipIf(true)
+            try XCTSkipIf(true)
         #endif
 
         let certChain = try await self.readTestCertChain(
@@ -231,7 +231,7 @@ class CertificatePolicyTests: XCTestCase {
     func test_validate_appleSwiftPackageCollectionPolicy_ec() async throws {
         #if ENABLE_REAL_CERT_TEST
         #else
-        try XCTSkipIf(true)
+            try XCTSkipIf(true)
         #endif
 
         let certChain = try await self.readTestCertChain(
@@ -291,7 +291,7 @@ class CertificatePolicyTests: XCTestCase {
     func test_validate_defaultPolicy_user() async throws {
         #if ENABLE_REAL_CERT_TEST
         #else
-        try XCTSkipIf(true)
+            try XCTSkipIf(true)
         #endif
 
         let certChain = try await self.readTestCertChain(
@@ -376,7 +376,7 @@ class CertificatePolicyTests: XCTestCase {
     func test_validate_appleSwiftPackageCollectionPolicy_rsa_user() async throws {
         #if ENABLE_REAL_CERT_TEST
         #else
-        try XCTSkipIf(true)
+            try XCTSkipIf(true)
         #endif
 
         let certChain = try await self.readTestCertChain(
@@ -461,7 +461,7 @@ class CertificatePolicyTests: XCTestCase {
     func test_validate_appleSwiftPackageCollectionPolicy_ec_user() async throws {
         #if ENABLE_REAL_CERT_TEST
         #else
-        try XCTSkipIf(true)
+            try XCTSkipIf(true)
         #endif
 
         let certChain = try await self.readTestCertChain(

@@ -27,7 +27,8 @@ extension LLBuildManifestBuilder {
         let testInputs: [AbsolutePath]
         if buildProduct.product.type == .test
             && buildProduct.buildParameters.triple.isDarwin()
-            && buildProduct.buildParameters.testingParameters.experimentalTestOutput {
+            && buildProduct.buildParameters.testingParameters.experimentalTestOutput
+        {
             let testBundleInfoPlistPath = try buildProduct.binaryPath.parentDirectory.parentDirectory.appending(component: "Info.plist")
             testInputs = [testBundleInfoPlistPath]
 
@@ -56,7 +57,8 @@ extension LLBuildManifestBuilder {
             )
 
         default:
-            let inputs = try buildProduct.objects
+            let inputs =
+                try buildProduct.objects
                 + buildProduct.dylibs.map { try $0.binaryPath }
                 + [buildProduct.linkFileListPath]
                 + testInputs
@@ -65,8 +67,9 @@ extension LLBuildManifestBuilder {
             let linkedBinaryNode: Node
             let linkedBinaryPath = try buildProduct.binaryPath
             if case .executable = buildProduct.product.type,
-               buildProduct.buildParameters.triple.isMacOSX,
-               buildProduct.buildParameters.debuggingParameters.shouldEnableDebuggingEntitlement {
+                buildProduct.buildParameters.triple.isMacOSX,
+                buildProduct.buildParameters.debuggingParameters.shouldEnableDebuggingEntitlement
+            {
                 shouldCodeSign = true
                 linkedBinaryNode = try .file(buildProduct.binaryPath, isMutated: true)
             } else {
@@ -182,9 +185,9 @@ func getLLBuildTargetName(
 ) -> String {
     assert(macro.type == .macro)
     #if BUILD_MACROS_AS_DYLIBS
-    return dynamicLibraryName(for: macro.name, buildParameters: buildParameters)
+        return dynamicLibraryName(for: macro.name, buildParameters: buildParameters)
     #else
-    return executableName(for: macro.name, buildParameters: buildParameters)
+        return executableName(for: macro.name, buildParameters: buildParameters)
     #endif
 }
 

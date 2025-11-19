@@ -13,9 +13,9 @@
 @testable import Basics
 import Foundation
 #if canImport(FoundationNetworking)
-// TODO: this brings OpenSSL dependency` on Linux
-// need to decide how to best deal with that
-import FoundationNetworking
+    // TODO: this brings OpenSSL dependency` on Linux
+    // need to decide how to best deal with that
+    import FoundationNetworking
 #endif
 import _InternalTestSupport
 import XCTest
@@ -201,7 +201,8 @@ final class URLSessionHTTPClientTest: XCTestCase {
     }
 
     private func assertRequestHeaders(_ headers: [String: String]?, expected: HTTPClientHeaders) {
-        let headers = (headers?.filter { $0.key != "User-Agent" && $0.key != "Content-Length" } ?? [])
+        let headers =
+            (headers?.filter { $0.key != "User-Agent" && $0.key != "Content-Length" } ?? [])
             .flatMap { HTTPClientHeaders($0.map { .init(name: $0.key, value: $0.value) }) } ?? .init()
         XCTAssertEqual(headers, expected)
     }
@@ -213,14 +214,13 @@ final class URLSessionHTTPClientTest: XCTestCase {
 
     // MARK: - download
 
-
     func testDownloadSuccess() throws {
         #if !os(macOS)
-        // URLSession Download tests can only run on macOS
-        // as re-libs-foundation's URLSessionTask implementation which expects the temporaryFileURL property to be on the request.
-        // and there is no way to set it in a mock
-        // https://github.com/apple/swift-corelibs-foundation/pull/2593 tries to address the latter part
-        try XCTSkipIf(true, "test is only supported on macOS")
+            // URLSession Download tests can only run on macOS
+            // as re-libs-foundation's URLSessionTask implementation which expects the temporaryFileURL property to be on the request.
+            // and there is no way to set it in a mock
+            // https://github.com/apple/swift-corelibs-foundation/pull/2593 tries to address the latter part
+            try XCTSkipIf(true, "test is only supported on macOS")
         #endif
         let configuration = URLSessionConfiguration.default
         configuration.protocolClasses = [MockURLProtocol.self]
@@ -279,11 +279,11 @@ final class URLSessionHTTPClientTest: XCTestCase {
 
     func testDownloadAuthenticatedSuccess() throws {
         #if !os(macOS)
-        // URLSession Download tests can only run on macOS
-        // as re-libs-foundation's URLSessionTask implementation which expects the temporaryFileURL property to be on the request.
-        // and there is no way to set it in a mock
-        // https://github.com/apple/swift-corelibs-foundation/pull/2593 tries to address the latter part
-        try XCTSkipIf(true, "test is only supported on macOS")
+            // URLSession Download tests can only run on macOS
+            // as re-libs-foundation's URLSessionTask implementation which expects the temporaryFileURL property to be on the request.
+            // and there is no way to set it in a mock
+            // https://github.com/apple/swift-corelibs-foundation/pull/2593 tries to address the latter part
+            try XCTSkipIf(true, "test is only supported on macOS")
         #endif
         let netrcContent = "machine protected.downloader-tests.com login anonymous password qwerty"
         let netrc = try NetrcAuthorizationWrapper(underlying: NetrcParser.parse(netrcContent))
@@ -350,11 +350,11 @@ final class URLSessionHTTPClientTest: XCTestCase {
 
     func testDownloadDefaultAuthenticationSuccess() throws {
         #if !os(macOS)
-        // URLSession Download tests can only run on macOS
-        // as re-libs-foundation's URLSessionTask implementation which expects the temporaryFileURL property to be on the request.
-        // and there is no way to set it in a mock
-        // https://github.com/apple/swift-corelibs-foundation/pull/2593 tries to address the latter part
-        try XCTSkipIf(true, "test is only supported on macOS")
+            // URLSession Download tests can only run on macOS
+            // as re-libs-foundation's URLSessionTask implementation which expects the temporaryFileURL property to be on the request.
+            // and there is no way to set it in a mock
+            // https://github.com/apple/swift-corelibs-foundation/pull/2593 tries to address the latter part
+            try XCTSkipIf(true, "test is only supported on macOS")
         #endif
         try XCTSkipIfPlatformCI()
         let netrcContent = "default login default password default"
@@ -422,11 +422,11 @@ final class URLSessionHTTPClientTest: XCTestCase {
 
     func testDownloadClientError() throws {
         #if !os(macOS)
-        // URLSession Download tests can only run on macOS
-        // as re-libs-foundation's URLSessionTask implementation which expects the temporaryFileURL property to be on the request.
-        // and there is no way to set it in a mock
-        // https://github.com/apple/swift-corelibs-foundation/pull/2593 tries to address the latter part
-        try XCTSkipIf(true, "test is only supported on macOS")
+            // URLSession Download tests can only run on macOS
+            // as re-libs-foundation's URLSessionTask implementation which expects the temporaryFileURL property to be on the request.
+            // and there is no way to set it in a mock
+            // https://github.com/apple/swift-corelibs-foundation/pull/2593 tries to address the latter part
+            try XCTSkipIf(true, "test is only supported on macOS")
         #endif
         let configuration = URLSessionConfiguration.default
         configuration.protocolClasses = [MockURLProtocol.self]
@@ -478,11 +478,11 @@ final class URLSessionHTTPClientTest: XCTestCase {
 
     func testDownloadServerError() throws {
         #if !os(macOS)
-        // URLSession Download tests can only run on macOS
-        // as re-libs-foundation's URLSessionTask implementation which expects the temporaryFileURL property to be on the request.
-        // and there is no way to set it in a mock
-        // https://github.com/apple/swift-corelibs-foundation/pull/2593 tries to address the latter part
-        try XCTSkipIf(true, "test is only supported on macOS")
+            // URLSession Download tests can only run on macOS
+            // as re-libs-foundation's URLSessionTask implementation which expects the temporaryFileURL property to be on the request.
+            // and there is no way to set it in a mock
+            // https://github.com/apple/swift-corelibs-foundation/pull/2593 tries to address the latter part
+            try XCTSkipIf(true, "test is only supported on macOS")
         #endif
         let configuration = URLSessionConfiguration.default
         configuration.protocolClasses = [MockURLProtocol.self]
@@ -526,11 +526,11 @@ final class URLSessionHTTPClientTest: XCTestCase {
 
     func testDownloadFileSystemError() throws {
         #if !os(macOS)
-        // URLSession Download tests can only run on macOS
-        // as re-libs-foundation's URLSessionTask implementation which expects the temporaryFileURL property to be on the request.
-        // and there is no way to set it in a mock
-        // https://github.com/apple/swift-corelibs-foundation/pull/2593 tries to address the latter part
-        try XCTSkipIf(true, "test is only supported on macOS")
+            // URLSession Download tests can only run on macOS
+            // as re-libs-foundation's URLSessionTask implementation which expects the temporaryFileURL property to be on the request.
+            // and there is no way to set it in a mock
+            // https://github.com/apple/swift-corelibs-foundation/pull/2593 tries to address the latter part
+            try XCTSkipIf(true, "test is only supported on macOS")
         #endif
         let configuration = URLSessionConfiguration.default
         configuration.protocolClasses = [MockURLProtocol.self]
@@ -543,15 +543,19 @@ final class URLSessionHTTPClientTest: XCTestCase {
 
             let url = URL("https://downloader-tests.com/testFileSystemError.zip")
             let request = LegacyHTTPClient.Request.download(url: url, fileSystem: FailingFileSystem(), destination: temporaryDirectory.appending("download"))
-            httpClient.execute(request, progress: { _, _ in }, completion: { result in
-                switch result {
-                case .success:
-                    XCTFail("unexpected success")
-                case .failure(let error):
-                    XCTAssertEqual(error as? FileSystemError, FileSystemError(.unsupported))
+            httpClient.execute(
+                request,
+                progress: { _, _ in },
+                completion: { result in
+                    switch result {
+                    case .success:
+                        XCTFail("unexpected success")
+                    case .failure(let error):
+                        XCTAssertEqual(error as? FileSystemError, FileSystemError(.unsupported))
+                    }
+                    completionExpectation.fulfill()
                 }
-                completionExpectation.fulfill()
-            })
+            )
 
             MockURLProtocol.onRequest(request) { request in
                 MockURLProtocol.sendResponse(statusCode: 200, for: request)
@@ -700,11 +704,11 @@ final class URLSessionHTTPClientTest: XCTestCase {
 
     func testAsyncDownloadSuccess() async throws {
         #if !os(macOS)
-        // URLSession Download tests can only run on macOS
-        // as re-libs-foundation's URLSessionTask implementation which expects the temporaryFileURL property to be on the request.
-        // and there is no way to set it in a mock
-        // https://github.com/apple/swift-corelibs-foundation/pull/2593 tries to address the latter part
-        try XCTSkipIf(true, "test is only supported on macOS")
+            // URLSession Download tests can only run on macOS
+            // as re-libs-foundation's URLSessionTask implementation which expects the temporaryFileURL property to be on the request.
+            // and there is no way to set it in a mock
+            // https://github.com/apple/swift-corelibs-foundation/pull/2593 tries to address the latter part
+            try XCTSkipIf(true, "test is only supported on macOS")
         #endif
         let configuration = URLSessionConfiguration.default
         configuration.protocolClasses = [MockURLProtocol.self]
@@ -749,11 +753,11 @@ final class URLSessionHTTPClientTest: XCTestCase {
 
     func testAsyncDownloadAuthenticatedSuccess() async throws {
         #if !os(macOS)
-        // URLSession Download tests can only run on macOS
-        // as re-libs-foundation's URLSessionTask implementation which expects the temporaryFileURL property to be on the request.
-        // and there is no way to set it in a mock
-        // https://github.com/apple/swift-corelibs-foundation/pull/2593 tries to address the latter part
-        try XCTSkipIf(true, "test is only supported on macOS")
+            // URLSession Download tests can only run on macOS
+            // as re-libs-foundation's URLSessionTask implementation which expects the temporaryFileURL property to be on the request.
+            // and there is no way to set it in a mock
+            // https://github.com/apple/swift-corelibs-foundation/pull/2593 tries to address the latter part
+            try XCTSkipIf(true, "test is only supported on macOS")
         #endif
         let netrcContent = "machine async-protected.downloader-tests.com login anonymous password qwerty"
         let netrc = try NetrcAuthorizationWrapper(underlying: NetrcParser.parse(netrcContent))
@@ -807,11 +811,11 @@ final class URLSessionHTTPClientTest: XCTestCase {
 
     func testAsyncDownloadAuthenticateWithRedirectedSuccess() async throws {
         #if !os(macOS)
-        // URLSession Download tests can only run on macOS
-        // as re-libs-foundation's URLSessionTask implementation which expects the temporaryFileURL property to be on the request.
-        // and there is no way to set it in a mock
-        // https://github.com/apple/swift-corelibs-foundation/pull/2593 tries to address the latter part
-        try XCTSkipIf(true, "test is only supported on macOS")
+            // URLSession Download tests can only run on macOS
+            // as re-libs-foundation's URLSessionTask implementation which expects the temporaryFileURL property to be on the request.
+            // and there is no way to set it in a mock
+            // https://github.com/apple/swift-corelibs-foundation/pull/2593 tries to address the latter part
+            try XCTSkipIf(true, "test is only supported on macOS")
         #endif
         let netrcContent = "machine async-protected.downloader-tests.com login anonymous password qwerty"
         let netrc = try NetrcAuthorizationWrapper(underlying: NetrcParser.parse(netrcContent))
@@ -879,11 +883,11 @@ final class URLSessionHTTPClientTest: XCTestCase {
 
     func testAsyncDownloadDefaultAuthenticationSuccess() async throws {
         #if !os(macOS)
-        // URLSession Download tests can only run on macOS
-        // as re-libs-foundation's URLSessionTask implementation which expects the temporaryFileURL property to be on the request.
-        // and there is no way to set it in a mock
-        // https://github.com/apple/swift-corelibs-foundation/pull/2593 tries to address the latter part
-        try XCTSkipIf(true, "test is only supported on macOS")
+            // URLSession Download tests can only run on macOS
+            // as re-libs-foundation's URLSessionTask implementation which expects the temporaryFileURL property to be on the request.
+            // and there is no way to set it in a mock
+            // https://github.com/apple/swift-corelibs-foundation/pull/2593 tries to address the latter part
+            try XCTSkipIf(true, "test is only supported on macOS")
         #endif
         let netrcContent = "default login default password default"
         let netrc = try NetrcAuthorizationWrapper(underlying: NetrcParser.parse(netrcContent))
@@ -938,11 +942,11 @@ final class URLSessionHTTPClientTest: XCTestCase {
 
     func testAsyncDownloadClientError() async throws {
         #if !os(macOS)
-        // URLSession Download tests can only run on macOS
-        // as re-libs-foundation's URLSessionTask implementation which expects the temporaryFileURL property to be on the request.
-        // and there is no way to set it in a mock
-        // https://github.com/apple/swift-corelibs-foundation/pull/2593 tries to address the latter part
-        try XCTSkipIf(true, "test is only supported on macOS")
+            // URLSession Download tests can only run on macOS
+            // as re-libs-foundation's URLSessionTask implementation which expects the temporaryFileURL property to be on the request.
+            // and there is no way to set it in a mock
+            // https://github.com/apple/swift-corelibs-foundation/pull/2593 tries to address the latter part
+            try XCTSkipIf(true, "test is only supported on macOS")
         #endif
         let configuration = URLSessionConfiguration.default
         configuration.protocolClasses = [MockURLProtocol.self]
@@ -985,11 +989,11 @@ final class URLSessionHTTPClientTest: XCTestCase {
 
     func testAsyncDownloadServerError() async throws {
         #if !os(macOS)
-        // URLSession Download tests can only run on macOS
-        // as re-libs-foundation's URLSessionTask implementation which expects the temporaryFileURL property to be on the request.
-        // and there is no way to set it in a mock
-        // https://github.com/apple/swift-corelibs-foundation/pull/2593 tries to address the latter part
-        try XCTSkipIf(true, "test is only supported on macOS")
+            // URLSession Download tests can only run on macOS
+            // as re-libs-foundation's URLSessionTask implementation which expects the temporaryFileURL property to be on the request.
+            // and there is no way to set it in a mock
+            // https://github.com/apple/swift-corelibs-foundation/pull/2593 tries to address the latter part
+            try XCTSkipIf(true, "test is only supported on macOS")
         #endif
         let configuration = URLSessionConfiguration.default
         configuration.protocolClasses = [MockURLProtocol.self]
@@ -1294,6 +1298,6 @@ fileprivate struct NetrcAuthorizationWrapper: AuthorizationProvider {
     let underlying: Netrc
 
     func authentication(for url: URL) -> (user: String, password: String)? {
-        self.underlying.authorization(for: url).map{ (user: $0.login, password: $0.password) }
+        self.underlying.authorization(for: url).map { (user: $0.login, password: $0.password) }
     }
 }

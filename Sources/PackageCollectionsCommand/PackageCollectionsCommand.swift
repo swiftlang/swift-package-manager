@@ -266,9 +266,9 @@ public struct PackageCollectionsCommand: AsyncParsableCommand {
             let license = optionalRow("License", version.license?.type.description)
 
             return """
-            \(version.version)
-            \(self.printManifest(defaultManifest))\(manifests)\(compatibility)\(license)
-            """
+                \(version.version)
+                \(self.printManifest(defaultManifest))\(manifests)\(compatibility)\(license)
+                """
         }
 
         private func printManifest(_ manifest: PackageCollectionsModel.Package.Version.Manifest) -> String {
@@ -276,17 +276,17 @@ public struct PackageCollectionsCommand: AsyncParsableCommand {
             let products = optionalRow("Products", manifest.products.isEmpty ? nil : manifest.products.compactMap { $0.name }.joined(separator: ", "), indentationLevel: 3)
 
             return """
-                    Tools Version: \(manifest.toolsVersion.description)
-                        Package Name: \(manifest.packageName)
-                        Modules: \(modules)\(products)
-            """
+                        Tools Version: \(manifest.toolsVersion.description)
+                            Package Name: \(manifest.packageName)
+                            Modules: \(modules)\(products)
+                """
         }
 
         func run(_ swiftCommandState: SwiftCommandState) async throws {
             try await withState(swiftCommandState) { collections in
                 let identity = PackageIdentity(urlString: self.packageURL)
 
-                do { // assume URL is for a package in an imported collection
+                do {  // assume URL is for a package in an imported collection
                     let result = try await collections.getPackageMetadata(identity: identity, location: self.packageURL, collections: nil)
 
                     if let versionString = version {
@@ -305,20 +305,22 @@ public struct PackageCollectionsCommand: AsyncParsableCommand {
                         let stars = optionalRow("Stars", result.package.watchersCount?.description)
                         let readme = optionalRow("Readme", result.package.readmeURL?.absoluteString)
                         let authors = optionalRow("Authors", result.package.authors?.map { $0.username }.joined(separator: ", "))
-                        let license =  optionalRow("License", result.package.license.map { "\($0.type) (\($0.url))" })
+                        let license = optionalRow("License", result.package.license.map { "\($0.type) (\($0.url))" })
                         let languages = optionalRow("Languages", result.package.languages?.joined(separator: ", "))
                         let latestVersion = optionalRow("\(String(repeating: "-", count: 60))\n\(indent())Latest Version", printVersion(result.package.latestVersion))
 
                         if jsonOptions.json {
                             try JSONEncoder.makeWithDefaults().print(result.package)
                         } else {
-                            print("""
-                                \(description)
-                                Available Versions: \(versions)\(readme)\(license)\(authors)\(stars)\(languages)\(latestVersion)
-                            """)
+                            print(
+                                """
+                                    \(description)
+                                    Available Versions: \(versions)\(readme)\(license)\(authors)\(stars)\(languages)\(latestVersion)
+                                """
+                            )
                         }
                     }
-                } catch { // assume URL is for a collection
+                } catch {  // assume URL is for a collection
                     // If a version argument was given, we do not perform the fallback.
                     if version != nil {
                         throw error
@@ -340,12 +342,14 @@ public struct PackageCollectionsCommand: AsyncParsableCommand {
                         } else {
                             let signature = optionalRow("Signed By", collection.signature.map { "\($0.certificate.subject.commonName ?? "Unspecified") (\($0.isVerified ? "" : "not ")verified)" })
 
-                            print("""
-                                Name: \(collection.name)
-                                Source: \(collection.source.url)\(description)\(keywords)\(createdAt)
-                                Packages:
-                                    \(packages)\(signature)
-                            """)
+                            print(
+                                """
+                                    Name: \(collection.name)
+                                    Source: \(collection.source.url)\(description)\(keywords)\(createdAt)
+                                    Packages:
+                                        \(packages)\(signature)
+                                """
+                            )
                         }
                     } catch PackageCollectionError.cannotVerifySignature {
                         throw CollectionsError.cannotVerifySignature

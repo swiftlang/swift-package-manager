@@ -19,8 +19,7 @@ import struct PackageGraph.ResolvedProduct
 import class PackageModel.BinaryModule
 import class PackageModel.ClangModule
 
-@_spi(SwiftPMInternal)
-import class PackageModel.Module
+@_spi(SwiftPMInternal) import class PackageModel.Module
 
 import class PackageModel.SwiftModule
 import class PackageModel.SystemLibraryModule
@@ -130,18 +129,19 @@ extension BuildPlan {
 
         // For test targets, we need to consider the first level of transitive dependencies since the first level is
         // always test targets.
-        let topLevelDependencies: [PackageModel.Module] = if product.type == .test {
-            product.modules.flatMap(\.underlying.dependencies).compactMap {
-                switch $0 {
-                case .product:
-                    nil
-                case .module(let target, _):
-                    target
+        let topLevelDependencies: [PackageModel.Module] =
+            if product.type == .test {
+                product.modules.flatMap(\.underlying.dependencies).compactMap {
+                    switch $0 {
+                    case .product:
+                        nil
+                    case .module(let target, _):
+                        target
+                    }
                 }
+            } else {
+                []
             }
-        } else {
-            []
-        }
 
         // get the dynamic libraries for explicitly linking rdar://108561857
         func recursiveDynamicLibraries(for description: ProductBuildDescription) throws -> [ProductBuildDescription] {
@@ -170,10 +170,12 @@ extension BuildPlan {
                     guard let description = self.description(for: product, context: destination) else {
                         throw InternalError("Could not find a description for product: \(product)")
                     }
-                    return try recursiveDynamicLibraries(for: description).map { TraversalNode(
-                        product: $0.product,
-                        context: $0.destination
-                    ) }
+                    return try recursiveDynamicLibraries(for: description).map {
+                        TraversalNode(
+                            product: $0.product,
+                            context: $0.destination
+                        )
+                    }
                 case .test, .executable, .snippet, .macro:
                     return []
                 }
@@ -183,8 +185,10 @@ extension BuildPlan {
                 for module: ResolvedModule,
                 destination: BuildParameters.Destination
             ) -> [TraversalNode] {
-                let isTopLevel = topLevelDependencies.contains(module.underlying) || product.modules
-                    .contains(id: module.id)
+                let isTopLevel =
+                    topLevelDependencies.contains(module.underlying)
+                    || product.modules
+                        .contains(id: module.id)
                 let topLevelIsMacro = isTopLevel && product.type == .macro
                 let topLevelIsPlugin = isTopLevel && product.type == .plugin
                 let topLevelIsTest = isTopLevel && product.type == .test
@@ -212,14 +216,15 @@ extension BuildPlan {
             var uniqueNodes = Set<TraversalNode>(directDependencies)
 
             try depthFirstSearch(directDependencies) {
-                let result: [TraversalNode] = switch $0 {
-                case .product(let product, let destination):
-                    try successors(for: product, destination: destination)
-                case .module(let module, let destination):
-                    successors(for: module, destination: destination)
-                case .package:
-                    []
-                }
+                let result: [TraversalNode] =
+                    switch $0 {
+                    case .product(let product, let destination):
+                        try successors(for: product, destination: destination)
+                    case .module(let module, let destination):
+                        successors(for: module, destination: destination)
+                    case .package:
+                        []
+                    }
 
                 return result.filter { uniqueNodes.insert($0).inserted }
             } onNext: { node, _ in
@@ -255,14 +260,17 @@ extension BuildPlan {
                             throw InternalError("Could not find a description for module: \(module)")
                         }
                         staticTargets.append(description)
-                    } else if product.type == .test && (module.underlying as? SwiftModule)?
-                        .supportsTestableExecutablesFeature == true
+                    } else if product.type == .test
+                        && (module.underlying as? SwiftModule)?
+                            .supportsTestableExecutablesFeature == true
                     {
                         // Only "top-level" targets should really be considered here, not transitive ones.
-                        let isTopLevel = topLevelDependencies.contains(module.underlying) || product.modules
-                            .contains(id: module.id)
+                        let isTopLevel =
+                            topLevelDependencies.contains(module.underlying)
+                            || product.modules
+                                .contains(id: module.id)
                         if let toolsVersion = graph.package(for: product)?.manifest.toolsVersion, toolsVersion >= .v5_5,
-                           isTopLevel
+                            isTopLevel
                         {
                             guard let description else {
                                 throw InternalError("Could not find a description for module: \(module)")
@@ -306,12 +314,13 @@ extension BuildPlan {
                         }
                     case .artifactsArchive:
                         let tools = try self.parseExecutableArtifactsArchive(
-                            for: binaryTarget, triple: productDescription.buildParameters.triple
+                            for: binaryTarget,
+                            triple: productDescription.buildParameters.triple
                         )
                         for tool in tools {
                             availableTools[tool.name] = tool.executablePath
                         }
-                        
+
                         let libraries = try self.parseLibraryArtifactsArchive(
                             for: binaryTarget,
                             triple: productDescription.buildParameters.triple
@@ -339,9 +348,11 @@ extension BuildPlan {
 
         // Add derived test targets, if necessary
         if product.type == .test, let derivedTestTargets = derivedTestTargetsMap[product.id] {
-            staticTargets.append(contentsOf: derivedTestTargets.compactMap {
-                self.description(for: $0, context: productDescription.destination)
-            })
+            staticTargets.append(
+                contentsOf: derivedTestTargets.compactMap {
+                    self.description(for: $0, context: productDescription.destination)
+                }
+            )
         }
 
         return (linkLibraries, staticTargets, systemModules, libraryBinaryPaths, availableTools)

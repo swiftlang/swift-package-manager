@@ -196,11 +196,11 @@ extension Workspace {
             self.httpClient = customHTTPClient ?? HTTPClient()
             self.customSwiftCompilerVersion = customSwiftCompilerVersion
 
-#if os(Linux)
-            self.archiver = customArchiver ?? TarArchiver(fileSystem: fileSystem)
-#else
-            self.archiver = customArchiver ?? ZipArchiver(fileSystem: fileSystem)
-#endif
+            #if os(Linux)
+                self.archiver = customArchiver ?? TarArchiver(fileSystem: fileSystem)
+            #else
+                self.archiver = customArchiver ?? ZipArchiver(fileSystem: fileSystem)
+            #endif
 
             self.scratchPath = scratchPath
             self.cachePath = cachePath
@@ -231,7 +231,7 @@ extension Workspace {
                             kind: .remoteSourceControl("git@github.com:swiftlang/swift-syntax.git")
                         ),
                     ]
-                ),
+                )
             ]
         }
 
@@ -253,7 +253,8 @@ extension Workspace {
                 if let prebuilt = prebuiltPackages.first(where: {
                     $0.packageRefs.contains(where: {
                         guard case let .remoteSourceControl(prebuiltURL) = $0.kind,
-                              $0.identity == packageRef.identity else {
+                            $0.identity == packageRef.identity
+                        else {
                             return false
                         }
 
@@ -356,7 +357,9 @@ extension Workspace {
             try fileSystem.createDirectory(destination.parentDirectory, recursive: true)
 
             let manifestURL = self.prebuiltsDownloadURL.appending(
-                components: package.identity.description, version.description, manifestFile
+                components: package.identity.description,
+                version.description,
+                manifestFile
             )
 
             if manifestURL.scheme == "file" {
@@ -377,7 +380,7 @@ extension Workspace {
                     destination: destination
                 )
                 request.options.authorizationProvider =
-                self.authorizationProvider?.httpAuthorizationHeader(for:)
+                    self.authorizationProvider?.httpAuthorizationHeader(for:)
                 request.options.retryStrategy = .exponentialBackoff(
                     maxAttempts: 3,
                     baseDelay: .milliseconds(50)
@@ -463,7 +466,9 @@ extension Workspace {
 
                     // Download
                     let artifactURL = self.prebuiltsDownloadURL.appending(
-                        components: package.identity.description, version.description, artifactFile
+                        components: package.identity.description,
+                        version.description,
+                        artifactFile
                     )
 
                     let fetchStart = DispatchTime.now()
@@ -495,7 +500,7 @@ extension Workspace {
                             destination: destination
                         )
                         request.options.authorizationProvider =
-                        self.authorizationProvider?.httpAuthorizationHeader(for:)
+                            self.authorizationProvider?.httpAuthorizationHeader(for:)
                         request.options.retryStrategy = .exponentialBackoff(
                             maxAttempts: 3,
                             baseDelay: .milliseconds(50)
@@ -605,7 +610,8 @@ extension Workspace {
             guard
                 let manifest = manifests.allDependencyManifests[prebuilt.identity],
                 let packageVersion = manifest.manifest.version,
-                let prebuiltManifest = try await prebuiltsManager
+                let prebuiltManifest =
+                    try await prebuiltsManager
                     .downloadManifest(
                         workspace: self,
                         package: prebuilt,
@@ -620,7 +626,8 @@ extension Workspace {
 
             for library in prebuiltManifest.libraries {
                 for artifact in library.artifacts ?? [] where artifact.platform == hostPlatform {
-                    if let path = try await prebuiltsManager
+                    if let path =
+                        try await prebuiltsManager
                         .downloadPrebuilt(
                             workspace: self,
                             package: prebuilt,
@@ -700,127 +707,127 @@ extension Workspace.PrebuiltsManifest.Platform {
     /// Determine host platform based on compilation target
     public static var hostPlatform: Self? {
         let arch: Arch?
-#if arch(arm64)
-        arch = .aarch64
-#elseif arch(x86_64)
-        arch = .x86_64
-#else
-        arch = nil
-#endif
+        #if arch(arm64)
+            arch = .aarch64
+        #elseif arch(x86_64)
+            arch = .x86_64
+        #else
+            arch = nil
+        #endif
         guard let arch else {
             return nil
         }
 
-#if os(macOS)
-        switch arch {
-        case .aarch64:
-            return .macos_aarch64
-        case .x86_64:
-            return .macos_x86_64
-        }
-#elseif os(Windows)
-        switch arch {
-        case .aarch64:
-            return .windows_aarch64
-        case .x86_64:
-            return .windows_x86_64
-        }
-#elseif os(Linux)
-        // Load up the os-release file into a dictionary
-        guard let osData = try? String(contentsOfFile: "/etc/os-release", encoding: .utf8)
-        else {
-            return nil
-        }
-        let osLines = osData.split(separator: "\n")
-        let osDict = osLines.reduce(into: [Substring: String]()) {
-            (dict, line) in
-            let parts = line.split(separator: "=", maxSplits: 2)
-            dict[parts[0]] = parts[1...].joined(separator: "=").trimmingCharacters(in: ["\""])
-        }
+        #if os(macOS)
+            switch arch {
+            case .aarch64:
+                return .macos_aarch64
+            case .x86_64:
+                return .macos_x86_64
+            }
+        #elseif os(Windows)
+            switch arch {
+            case .aarch64:
+                return .windows_aarch64
+            case .x86_64:
+                return .windows_x86_64
+            }
+        #elseif os(Linux)
+            // Load up the os-release file into a dictionary
+            guard let osData = try? String(contentsOfFile: "/etc/os-release", encoding: .utf8)
+            else {
+                return nil
+            }
+            let osLines = osData.split(separator: "\n")
+            let osDict = osLines.reduce(into: [Substring: String]()) {
+                (dict, line) in
+                let parts = line.split(separator: "=", maxSplits: 2)
+                dict[parts[0]] = parts[1...].joined(separator: "=").trimmingCharacters(in: ["\""])
+            }
 
-        switch osDict["ID"] {
-        case "ubuntu":
-            switch osDict["VERSION_CODENAME"] {
-            case "noble":
-                switch arch {
-                case .aarch64:
-                    return .ubuntu_noble_aarch64
-                case .x86_64:
-                    return .ubuntu_noble_x86_64
+            switch osDict["ID"] {
+            case "ubuntu":
+                switch osDict["VERSION_CODENAME"] {
+                case "noble":
+                    switch arch {
+                    case .aarch64:
+                        return .ubuntu_noble_aarch64
+                    case .x86_64:
+                        return .ubuntu_noble_x86_64
+                    }
+                case "jammy":
+                    switch arch {
+                    case .aarch64:
+                        return .ubuntu_jammy_aarch64
+                    case .x86_64:
+                        return .ubuntu_jammy_x86_64
+                    }
+                case "focal":
+                    switch arch {
+                    case .aarch64:
+                        return .ubuntu_focal_aarch64
+                    case .x86_64:
+                        return .ubuntu_focal_x86_64
+                    }
+                default:
+                    return nil
                 }
-            case "jammy":
-                switch arch {
-                case .aarch64:
-                    return .ubuntu_jammy_aarch64
-                case .x86_64:
-                    return .ubuntu_jammy_x86_64
+            case "fedora":
+                switch osDict["VERSION_ID"] {
+                case "39", "41":
+                    switch arch {
+                    case .aarch64:
+                        return .fedora_39_aarch64
+                    case .x86_64:
+                        return .fedora_39_x86_64
+                    }
+                default:
+                    return nil
                 }
-            case "focal":
-                switch arch {
-                case .aarch64:
-                    return .ubuntu_focal_aarch64
-                case .x86_64:
-                    return .ubuntu_focal_x86_64
+            case "amzn":
+                switch osDict["VERSION_ID"] {
+                case "2":
+                    switch arch {
+                    case .aarch64:
+                        return .amazonlinux2_aarch64
+                    case .x86_64:
+                        return .amazonlinux2_x86_64
+                    }
+                default:
+                    return nil
+                }
+            case "rhel":
+                guard let version = osDict["VERSION_ID"] else {
+                    return nil
+                }
+                switch version.split(separator: ".")[0] {
+                case "9":
+                    switch arch {
+                    case .aarch64:
+                        return .rhel_ubi9_aarch64
+                    case .x86_64:
+                        return .rhel_ubi9_x86_64
+                    }
+                default:
+                    return nil
+                }
+            case "debian":
+                switch osDict["VERSION_ID"] {
+                case "12":
+                    switch arch {
+                    case .aarch64:
+                        return .debian_12_aarch64
+                    case .x86_64:
+                        return .debian_12_x86_64
+                    }
+                default:
+                    return nil
                 }
             default:
                 return nil
             }
-        case "fedora":
-            switch osDict["VERSION_ID"] {
-            case "39", "41":
-                switch arch {
-                case .aarch64:
-                    return .fedora_39_aarch64
-                case .x86_64:
-                    return .fedora_39_x86_64
-                }
-            default:
-                return nil
-            }
-        case "amzn":
-            switch osDict["VERSION_ID"] {
-            case "2":
-                switch arch {
-                case .aarch64:
-                    return .amazonlinux2_aarch64
-                case .x86_64:
-                    return .amazonlinux2_x86_64
-                }
-            default:
-                return nil
-            }
-        case "rhel":
-            guard let version = osDict["VERSION_ID"] else {
-                return nil
-            }
-            switch version.split(separator: ".")[0] {
-            case "9":
-                switch arch {
-                case .aarch64:
-                    return .rhel_ubi9_aarch64
-                case .x86_64:
-                    return .rhel_ubi9_x86_64
-                }
-            default:
-                return nil
-            }
-        case "debian":
-            switch osDict["VERSION_ID"] {
-            case "12":
-                switch arch {
-                case .aarch64:
-                    return .debian_12_aarch64
-                case .x86_64:
-                    return .debian_12_x86_64
-                }
-            default:
-                return nil
-            }
-        default:
+        #else
             return nil
-        }
-#else
-        return nil
-#endif
+        #endif
     }
 }

@@ -155,7 +155,7 @@ public struct PackageReference {
 
 extension PackageReference: Equatable {
     // TODO: consider location as well?
-    public static func ==(lhs: PackageReference, rhs: PackageReference) -> Bool {
+    public static func == (lhs: PackageReference, rhs: PackageReference) -> Bool {
         return lhs.identity == rhs.identity
     }
 

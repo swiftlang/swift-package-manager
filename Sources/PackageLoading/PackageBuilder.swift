@@ -99,7 +99,7 @@ public enum ModuleError: Swift.Error {
         package: PackageIdentity,
         trait: String
     )
-    
+
     case disablingDefaultTraitsOnEmptyTraits(
         parentPackage: PackageIdentity,
         packageName: String
@@ -129,17 +129,13 @@ extension ModuleError: CustomStringConvertible {
         case .invalidManifestConfig(let package, let message):
             return "configuration of package '\(package)' is invalid; \(message)"
         case .cycleDetected(let cycle):
-            return "cyclic dependency declaration found: " +
-                (cycle.path + cycle.cycle).joined(separator: " -> ") +
-                " -> " + cycle.cycle[0]
+            return "cyclic dependency declaration found: " + (cycle.path + cycle.cycle).joined(separator: " -> ") + " -> " + cycle.cycle[0]
         case .invalidPublicHeadersDirectory(let name):
             return "public headers (\"include\") directory path for '\(name)' is invalid or not contained in the target"
         case .overlappingSources(let target, let sources):
-            return "target '\(target)' has overlapping sources: " +
-                sources.map(\.description).joined(separator: ", ")
+            return "target '\(target)' has overlapping sources: " + sources.map(\.description).joined(separator: ", ")
         case .multipleTestEntryPointFilesFound(let package, let files):
-            return "package '\(package)' has multiple test entry point files: " +
-                files.map(\.description).sorted().joined(separator: ", ")
+            return "package '\(package)' has multiple test entry point files: " + files.map(\.description).sorted().joined(separator: ", ")
         case .incompatibleToolsVersions(let package, let required, let current):
             if required.isEmpty {
                 return "package '\(package)' supported Swift language versions is empty"
@@ -165,31 +161,31 @@ extension ModuleError: CustomStringConvertible {
                 targetsDescription += " and \(targets.count - 3) others"
             }
             return """
-            multiple similar targets \(targetsDescription) appear in package '\(package)' and '\(otherPackage)', \
-            this may indicate that the two packages are the same and can be de-duplicated by using mirrors. \
-            if they are not duplicate consider using the `moduleAliases` parameter in manifest to provide unique names
-            """
+                multiple similar targets \(targetsDescription) appear in package '\(package)' and '\(otherPackage)', \
+                this may indicate that the two packages are the same and can be de-duplicated by using mirrors. \
+                if they are not duplicate consider using the `moduleAliases` parameter in manifest to provide unique names
+                """
         case .duplicateModulesScmAndRegistry(let registryPackage, let scmPackage, let targets):
             var targetsDescription = "'\(targets.sorted().prefix(3).joined(separator: "', '"))'"
             if targets.count > 3 {
                 targetsDescription += " and \(targets.count - 3) others"
             }
             return """
-            multiple similar targets \(targetsDescription) appear in registry package '\(
+                multiple similar targets \(targetsDescription) appear in registry package '\(
                 registryPackage
-            )' and source control package '\(scmPackage)', \
-            this may indicate that the two packages are the same and can be de-duplicated \
-            by activating the automatic source-control to registry replacement, or by using mirrors. \
-            if they are not duplicate consider using the `moduleAliases` parameter in manifest to provide unique names
-            """
+                )' and source control package '\(scmPackage)', \
+                this may indicate that the two packages are the same and can be de-duplicated \
+                by activating the automatic source-control to registry replacement, or by using mirrors. \
+                if they are not duplicate consider using the `moduleAliases` parameter in manifest to provide unique names
+                """
         case .invalidTrait(let package, let trait):
             return """
-            Trait '"\(trait)"' is not declared by package '\(package)'.
-            """
+                Trait '"\(trait)"' is not declared by package '\(package)'.
+                """
         case .disablingDefaultTraitsOnEmptyTraits(let parentPackage, let packageName):
             return """
-            Disabled default traits by package '\(parentPackage)' on package '\(packageName)' that declares no traits. This is prohibited to allow packages to adopt traits initially without causing an API break.
-            """
+                Disabled default traits by package '\(parentPackage)' on package '\(packageName)' that declares no traits. This is prohibited to allow packages to adopt traits initially without causing an API break.
+                """
         }
     }
 }
@@ -481,7 +477,7 @@ public final class PackageBuilder {
     private func isValidSource(_ path: AbsolutePath) -> Bool {
         // Ignore files which don't match the expected extensions.
         guard let ext = path.extension,
-              SupportedLanguageExtension.validExtensions(toolsVersion: self.manifest.toolsVersion).contains(ext)
+            SupportedLanguageExtension.validExtensions(toolsVersion: self.manifest.toolsVersion).contains(ext)
         else {
             return false
         }
@@ -545,12 +541,12 @@ public final class PackageBuilder {
             // it's a system library target.
             return [
                 SystemLibraryModule(
-                    name: self.manifest.displayName, // FIXME: use identity instead?
+                    name: self.manifest.displayName,  // FIXME: use identity instead?
                     path: self.packagePath,
                     isImplicit: true,
                     pkgConfig: self.manifest.pkgConfig,
                     providers: self.manifest.providers
-                ),
+                )
             ]
         }
 
@@ -558,13 +554,15 @@ public final class PackageBuilder {
         // system target specific configuration.
         guard self.manifest.pkgConfig == nil else {
             throw ModuleError.invalidManifestConfig(
-                self.identity.description, "the 'pkgConfig' property can only be used with a System Module Package"
+                self.identity.description,
+                "the 'pkgConfig' property can only be used with a System Module Package"
             )
         }
 
         guard self.manifest.providers == nil else {
             throw ModuleError.invalidManifestConfig(
-                self.identity.description, "the 'providers' property can only be used with a System Module Package"
+                self.identity.description,
+                "the 'providers' property can only be used with a System Module Package"
             )
         }
 
@@ -575,17 +573,20 @@ public final class PackageBuilder {
     private func findPredefinedTargetDirectory()
         -> (targetDir: String, testTargetDir: String, pluginTargetDir: String)
     {
-        let targetDir = PackageBuilder.predefinedSourceDirectories.first(where: {
-            self.fileSystem.isDirectory(self.packagePath.appending(component: $0))
-        }) ?? PackageBuilder.predefinedSourceDirectories[0]
+        let targetDir =
+            PackageBuilder.predefinedSourceDirectories.first(where: {
+                self.fileSystem.isDirectory(self.packagePath.appending(component: $0))
+            }) ?? PackageBuilder.predefinedSourceDirectories[0]
 
-        let testTargetDir = PackageBuilder.predefinedTestDirectories.first(where: {
-            self.fileSystem.isDirectory(self.packagePath.appending(component: $0))
-        }) ?? PackageBuilder.predefinedTestDirectories[0]
+        let testTargetDir =
+            PackageBuilder.predefinedTestDirectories.first(where: {
+                self.fileSystem.isDirectory(self.packagePath.appending(component: $0))
+            }) ?? PackageBuilder.predefinedTestDirectories[0]
 
-        let pluginTargetDir = PackageBuilder.predefinedPluginDirectories.first(where: {
-            self.fileSystem.isDirectory(self.packagePath.appending(component: $0))
-        }) ?? PackageBuilder.predefinedPluginDirectories[0]
+        let pluginTargetDir =
+            PackageBuilder.predefinedPluginDirectories.first(where: {
+                self.fileSystem.isDirectory(self.packagePath.appending(component: $0))
+            }) ?? PackageBuilder.predefinedPluginDirectories[0]
 
         return (targetDir, testTargetDir, pluginTargetDir)
     }
@@ -615,7 +616,7 @@ public final class PackageBuilder {
                     throw ModuleError.artifactNotFound(moduleName: target.name, expectedArtifactName: target.name)
                 }
                 return artifact.path
-            } else if let subpath = target.path { // If there is a custom path defined, use that.
+            } else if let subpath = target.path {  // If there is a custom path defined, use that.
                 if subpath == "" || subpath == "." {
                     return self.packagePath
                 }
@@ -637,14 +638,15 @@ public final class PackageBuilder {
             }
 
             // Check if target is present in the predefined directory.
-            let predefinedDir: PredefinedTargetDirectory = switch target.type {
-            case .test:
-                predefinedTestTargetDirectory
-            case .plugin:
-                predefinedPluginTargetDirectory
-            default:
-                predefinedTargetDirectory
-            }
+            let predefinedDir: PredefinedTargetDirectory =
+                switch target.type {
+                case .test:
+                    predefinedTestTargetDirectory
+                case .plugin:
+                    predefinedPluginTargetDirectory
+                default:
+                    predefinedTargetDirectory
+                }
             let path = predefinedDir.path.appending(component: target.name)
 
             // Return the path if the predefined directory contains it.
@@ -694,7 +696,8 @@ public final class PackageBuilder {
             // Snippets: depend on all available library targets in the package.
             // TODO: Do we need to filter out targets that aren't available on the host platform?
             let productTargets = Set(manifest.products.flatMap(\.targets))
-            let snippetDependencies = targets
+            let snippetDependencies =
+                targets
                 .filter { $0.type == .library && productTargets.contains($0.name) }
                 .map { Module.Dependency.module($0, conditions: []) }
             snippetTargets = try createSnippetModules(dependencies: snippetDependencies)
@@ -764,7 +767,7 @@ public final class PackageBuilder {
                         if let potentialModule = potentialModuleMap[name] {
                             potentialModule
                         } else if let targetName = pluginTargetName(for: name),
-                                  let potentialModule = potentialModuleMap[targetName]
+                            let potentialModule = potentialModuleMap[targetName]
                         {
                             potentialModule
                         } else {
@@ -796,62 +799,64 @@ public final class PackageBuilder {
             let manifestTarget = manifest.targetMap[potentialModule.name]
 
             // Get the dependencies of this target.
-            let dependencies: [Module.Dependency] = try manifestTarget.map { target in
-                try target.dependencies.compactMap { dependency -> Module.Dependency? in
-                    // We don't create an object for target dependencies that aren't enabled.
-                    guard try self.manifest.isTargetDependencyEnabled(target: target.name, dependency, enabledTraits: self.enabledTraits) else {
-                        return nil
-                    }
-                    switch dependency {
-                    case .target(let name, let condition):
-                        // We don't create an object for targets which have no sources.
-                        if emptyModules.contains(name) { return nil }
-                        guard let target = targets[name] else { return nil }
-                        return .module(target, conditions: buildConditions(from: condition))
-
-                    case .product(let name, let package, let moduleAliases, let condition):
-                        try validateModuleAliases(moduleAliases)
-                        return .product(
-                            .init(name: name, package: package, moduleAliases: moduleAliases),
-                            conditions: buildConditions(from: condition)
-                        )
-                    case .byName(let name, let condition):
-                        // We don't create an object for targets which have no sources.
-                        if emptyModules.contains(name) { return nil }
-                        if let target = targets[name] {
-                            return .module(target, conditions: buildConditions(from: condition))
-                        } else if potentialModuleMap[name] == nil {
-                            return .product(
-                                .init(name: name, package: nil),
-                                conditions: buildConditions(from: condition)
-                            )
-                        } else {
+            let dependencies: [Module.Dependency] =
+                try manifestTarget.map { target in
+                    try target.dependencies.compactMap { dependency -> Module.Dependency? in
+                        // We don't create an object for target dependencies that aren't enabled.
+                        guard try self.manifest.isTargetDependencyEnabled(target: target.name, dependency, enabledTraits: self.enabledTraits) else {
                             return nil
                         }
-                    }
-                }
-            } ?? []
+                        switch dependency {
+                        case .target(let name, let condition):
+                            // We don't create an object for targets which have no sources.
+                            if emptyModules.contains(name) { return nil }
+                            guard let target = targets[name] else { return nil }
+                            return .module(target, conditions: buildConditions(from: condition))
 
-            // Get dependencies from the plugin usages of this target.
-            let pluginUsages: [Module.PluginUsage] = manifestTarget?.pluginUsages.map {
-                $0.compactMap { usage in
-                    switch usage {
-                    case .plugin(let name, let package):
-                        if let package {
-                            return .product(Module.ProductReference(name: name, package: package), conditions: [])
-                        } else {
+                        case .product(let name, let package, let moduleAliases, let condition):
+                            try validateModuleAliases(moduleAliases)
+                            return .product(
+                                .init(name: name, package: package, moduleAliases: moduleAliases),
+                                conditions: buildConditions(from: condition)
+                            )
+                        case .byName(let name, let condition):
+                            // We don't create an object for targets which have no sources.
+                            if emptyModules.contains(name) { return nil }
                             if let target = targets[name] {
-                                return .module(target, conditions: [])
-                            } else if let targetName = pluginTargetName(for: name), let target = targets[targetName] {
-                                return .module(target, conditions: [])
+                                return .module(target, conditions: buildConditions(from: condition))
+                            } else if potentialModuleMap[name] == nil {
+                                return .product(
+                                    .init(name: name, package: nil),
+                                    conditions: buildConditions(from: condition)
+                                )
                             } else {
-                                self.observabilityScope.emit(.pluginNotFound(name: name))
                                 return nil
                             }
                         }
                     }
-                }
-            } ?? []
+                } ?? []
+
+            // Get dependencies from the plugin usages of this target.
+            let pluginUsages: [Module.PluginUsage] =
+                manifestTarget?.pluginUsages.map {
+                    $0.compactMap { usage in
+                        switch usage {
+                        case .plugin(let name, let package):
+                            if let package {
+                                return .product(Module.ProductReference(name: name, package: package), conditions: [])
+                            } else {
+                                if let target = targets[name] {
+                                    return .module(target, conditions: [])
+                                } else if let targetName = pluginTargetName(for: name), let target = targets[targetName] {
+                                    return .module(target, conditions: [])
+                                } else {
+                                    self.observabilityScope.emit(.pluginNotFound(name: name))
+                                    return nil
+                                }
+                            }
+                        }
+                    }
+                } ?? []
 
             // Create the target, adding the inferred dependencies from plugin usages to the declared dependencies.
             let target = try createTarget(
@@ -864,15 +869,18 @@ public final class PackageBuilder {
                 targets[createdTarget.name] = createdTarget
             } else {
                 emptyModules.insert(potentialModule.name)
-                self.observabilityScope.emit(.targetHasNoSources(
-                    name: potentialModule.name,
-                    type: potentialModule.type,
-                    shouldSuggestRelaxedSourceDir: manifest
-                        .shouldSuggestRelaxedSourceDir(
-                            type: potentialModule
-                                .type
-                        )
-                ))
+                self.observabilityScope.emit(
+                    .targetHasNoSources(
+                        name: potentialModule.name,
+                        type: potentialModule.type,
+                        shouldSuggestRelaxedSourceDir:
+                            manifest
+                            .shouldSuggestRelaxedSourceDir(
+                                type: potentialModule
+                                    .type
+                            )
+                    )
+                )
             }
         }
 
@@ -894,10 +902,7 @@ public final class PackageBuilder {
     private func validateModuleAliases(_ aliases: [String: String]?) throws {
         guard let aliases else { return }
         for (aliasKey, aliasValue) in aliases {
-            if !aliasKey.isValidIdentifier ||
-                !aliasValue.isValidIdentifier ||
-                aliasKey == aliasValue
-            {
+            if !aliasKey.isValidIdentifier || !aliasValue.isValidIdentifier || aliasKey == aliasValue {
                 throw ModuleError.invalidModuleAlias(originalName: aliasKey, newName: aliasValue)
             }
         }
@@ -920,7 +925,8 @@ public final class PackageBuilder {
 
             return SystemLibraryModule(
                 name: potentialModule.name,
-                path: potentialModule.path, isImplicit: false,
+                path: potentialModule.path,
+                isImplicit: false,
                 pkgConfig: manifestTarget.pkgConfig,
                 providers: manifestTarget.providers
             )
@@ -949,21 +955,25 @@ public final class PackageBuilder {
             }
             let dupTargetNames = dependencies.compactMap { $0.module?.name }.spm_findDuplicates()
             for dupTargetName in dupTargetNames {
-                self.observabilityScope.emit(.duplicateTargetDependency(
-                    dependency: dupTargetName,
-                    target: potentialModule.name,
-                    package: self.identity.description
-                ))
+                self.observabilityScope.emit(
+                    .duplicateTargetDependency(
+                        dependency: dupTargetName,
+                        target: potentialModule.name,
+                        package: self.identity.description
+                    )
+                )
             }
         } else {
             dependencies.filter { $0.product?.moduleAliases == nil }.spm_findDuplicateElements(by: \.nameAndType)
                 .map(\.[0].name).forEach {
                     self.observabilityScope
-                        .emit(.duplicateTargetDependency(
-                            dependency: $0,
-                            target: potentialModule.name,
-                            package: self.identity.description
-                        ))
+                        .emit(
+                            .duplicateTargetDependency(
+                                dependency: $0,
+                                target: potentialModule.name,
+                                package: self.identity.description
+                            )
+                        )
                 }
         }
 
@@ -972,10 +982,12 @@ public final class PackageBuilder {
         if !potentialModule.isTest {
             for dependency in dependencies {
                 if let depTarget = dependency.module, depTarget.type == .test {
-                    self.observabilityScope.emit(.invalidDependencyOnTestTarget(
-                        dependency: dependency,
-                        targetName: potentialModule.name
-                    ))
+                    self.observabilityScope.emit(
+                        .invalidDependencyOnTestTarget(
+                            dependency: dependency,
+                            targetName: potentialModule.name
+                        )
+                    )
                 }
             }
         }
@@ -1053,8 +1065,9 @@ public final class PackageBuilder {
             moduleKind = .macro
         default:
             moduleKind = sources.computeModuleKind()
-            if moduleKind == .executable && self.manifest.toolsVersion >= .v5_4 && self
-                .warnAboutImplicitExecutableTargets
+            if moduleKind == .executable && self.manifest.toolsVersion >= .v5_4
+                && self
+                    .warnAboutImplicitExecutableTargets
             {
                 self.observabilityScope
                     .emit(
@@ -1155,7 +1168,7 @@ public final class PackageBuilder {
                 // The setting is currently not enabled so we should skip it
                 continue
             }
-        
+
             let decl: BuildSettings.Declaration
             let values: [String]
 
@@ -1220,8 +1233,7 @@ public final class PackageBuilder {
                 }
 
                 if lang == .Cxx {
-                    values = ["-cxx-interoperability-mode=default"] +
-                        (cxxLanguageStandard.flatMap { ["-Xcc", "-std=\($0)"] } ?? [])
+                    values = ["-cxx-interoperability-mode=default"] + (cxxLanguageStandard.flatMap { ["-Xcc", "-std=\($0)"] } ?? [])
                 } else {
                     values = []
                 }
@@ -1292,20 +1304,22 @@ public final class PackageBuilder {
                 switch setting.tool {
                 case .c:
                     decl = .OTHER_CFLAGS
-                    let flag = switch level {
-                    case .error: "-Werror"
-                    case .warning: "-Wno-error"
-                    }
+                    let flag =
+                        switch level {
+                        case .error: "-Werror"
+                        case .warning: "-Wno-error"
+                        }
                     values = [flag]
-                    
+
                 case .cxx:
                     decl = .OTHER_CPLUSPLUSFLAGS
-                    let flag = switch level {
-                    case .error: "-Werror"
-                    case .warning: "-Wno-error"
-                    }
+                    let flag =
+                        switch level {
+                        case .error: "-Werror"
+                        case .warning: "-Wno-error"
+                        }
                     values = [flag]
-                    
+
                 case .linker:
                     throw InternalError("linker does not support treatAllWarnings")
 
@@ -1314,10 +1328,11 @@ public final class PackageBuilder {
                     // SWIFT_WARNINGS_AS_ERRORS_GROUPS here.
                     // See https://github.com/swiftlang/swift-build/issues/248
                     decl = .OTHER_SWIFT_FLAGS
-                    let flag = switch level {
-                    case .error: "-warnings-as-errors"
-                    case .warning: "-no-warnings-as-errors"
-                    }
+                    let flag =
+                        switch level {
+                        case .error: "-warnings-as-errors"
+                        case .warning: "-no-warnings-as-errors"
+                        }
                     values = [flag]
                 }
 
@@ -1325,20 +1340,22 @@ public final class PackageBuilder {
                 switch setting.tool {
                 case .c:
                     decl = .OTHER_CFLAGS
-                    let flag = switch level {
-                    case .error: "-Werror=\(name)"
-                    case .warning: "-Wno-error=\(name)"
-                    }
+                    let flag =
+                        switch level {
+                        case .error: "-Werror=\(name)"
+                        case .warning: "-Wno-error=\(name)"
+                        }
                     values = [flag]
-                    
+
                 case .cxx:
                     decl = .OTHER_CPLUSPLUSFLAGS
-                    let flag = switch level {
-                    case .error: "-Werror=\(name)"
-                    case .warning: "-Wno-error=\(name)"
-                    }
+                    let flag =
+                        switch level {
+                        case .error: "-Werror=\(name)"
+                        case .warning: "-Wno-error=\(name)"
+                        }
                     values = [flag]
-                    
+
                 case .linker:
                     throw InternalError("linker does not support treatWarning")
 
@@ -1347,10 +1364,11 @@ public final class PackageBuilder {
                     // SWIFT_WARNINGS_AS_ERRORS_GROUPS here.
                     // See https://github.com/swiftlang/swift-build/issues/248
                     decl = .OTHER_SWIFT_FLAGS
-                    let flag = switch level {
-                    case .error: "-Werror"
-                    case .warning: "-Wwarning"
-                    }
+                    let flag =
+                        switch level {
+                        case .error: "-Werror"
+                        case .warning: "-Wwarning"
+                        }
                     values = [flag, name]
                 }
 
@@ -1412,8 +1430,8 @@ public final class PackageBuilder {
         if target.type == .macro || target.isMacroTest(in: manifest) {
             let prebuiltLibraries: [String: PrebuiltLibrary] = target.dependencies.reduce(into: .init()) {
                 guard case let .product(name: name, package: package, moduleAliases: _, condition: _) = $1,
-                      let package = package,
-                      let prebuilt = prebuilts[.plain(package)]?[name]
+                    let package = package,
+                    let prebuilt = prebuilts[.plain(package)]?[name]
                 else {
                     return
                 }
@@ -1481,7 +1499,9 @@ public final class PackageBuilder {
 
             if versions.isEmpty {
                 throw ModuleError.incompatibleToolsVersions(
-                    package: self.identity.description, required: swiftLanguageVersions, current: .current
+                    package: self.identity.description,
+                    required: swiftLanguageVersions,
+                    current: .current
                 )
             }
         } else {
@@ -1500,12 +1520,13 @@ public final class PackageBuilder {
 
         // Figure out the swift version from declared list in the manifest.
         let declaredSwiftVersions = try declaredSwiftVersions()
-        let computedSwiftVersion: SwiftLanguageVersion = if let declaredSwiftVersion = declaredSwiftVersions.first {
-            declaredSwiftVersion
-        } else {
-            // Otherwise, use the version depending on the manifest version.
-            self.manifest.toolsVersion.swiftLanguageVersion
-        }
+        let computedSwiftVersion: SwiftLanguageVersion =
+            if let declaredSwiftVersion = declaredSwiftVersions.first {
+                declaredSwiftVersion
+            } else {
+                // Otherwise, use the version depending on the manifest version.
+                self.manifest.toolsVersion.swiftLanguageVersion
+            }
         self.swiftVersionCache = computedSwiftVersion
         return computedSwiftVersion
     }
@@ -1570,7 +1591,8 @@ public final class PackageBuilder {
         // It is an error if there are multiple linux main files.
         if testEntryPointFiles.count > 1 {
             throw ModuleError.multipleTestEntryPointFilesFound(
-                package: self.identity.description, files: testEntryPointFiles.map { $0 }
+                package: self.identity.description,
+                files: testEntryPointFiles.map { $0 }
             )
         }
         return testEntryPointFiles.first
@@ -1592,12 +1614,12 @@ public final class PackageBuilder {
         let testModules = modules.filter { module in
             guard module.type == .test else { return false }
             #if os(Linux)
-            // FIXME: Ignore C language test targets on linux for now.
-            if module is ClangModule {
-                self.observabilityScope
-                    .emit(.unsupportedCTestTarget(package: self.identity.description, target: module.name))
-                return false
-            }
+                // FIXME: Ignore C language test targets on linux for now.
+                if module is ClangModule {
+                    self.observabilityScope
+                        .emit(.unsupportedCTestTarget(package: self.identity.description, target: module.name))
+                    return false
+                }
             #endif
             return true
         }
@@ -1650,12 +1672,13 @@ public final class PackageBuilder {
 
         // First add explicit products.
 
-        let filteredProducts: [ProductDescription] = switch self.productFilter {
-        case .everything:
-            self.manifest.products
-        case .specific(let set):
-            self.manifest.products.filter { set.contains($0.name) }
-        }
+        let filteredProducts: [ProductDescription] =
+            switch self.productFilter {
+            case .everything:
+                self.manifest.products
+            case .specific(let set):
+                self.manifest.products.filter { set.contains($0.name) }
+            }
         for product in filteredProducts {
             if product.name.isEmpty {
                 throw Product.Error.emptyName
@@ -1697,14 +1720,16 @@ public final class PackageBuilder {
         // Compute the list of targets which are being used in an
         // executable product so we don't create implicit executables
         // for them.
-        let explicitProductsModules = Set(self.manifest.products.flatMap { product -> [String] in
-            switch product.type {
-            case .library, .plugin, .test, .macro:
-                return []
-            case .executable, .snippet:
-                return product.targets
+        let explicitProductsModules = Set(
+            self.manifest.products.flatMap { product -> [String] in
+                switch product.type {
+                case .library, .plugin, .test, .macro:
+                    return []
+                case .executable, .snippet:
+                    return product.targets
+                }
             }
-        })
+        )
 
         let productMap = products.reduce(into: [String: Product]()) { partial, iterator in
             partial[iterator.key] = iterator.item
@@ -1782,21 +1807,25 @@ public final class PackageBuilder {
     private func validateLibraryProduct(_ product: ProductDescription, with targets: [Module]) -> Bool {
         let pluginTargets = targets.filter { $0.type == .plugin }
         guard pluginTargets.isEmpty else {
-            self.observabilityScope.emit(.nonPluginProductWithPluginTargets(
-                product: product.name,
-                type: product.type,
-                pluginTargets: pluginTargets.map(\.name)
-            ))
+            self.observabilityScope.emit(
+                .nonPluginProductWithPluginTargets(
+                    product: product.name,
+                    type: product.type,
+                    pluginTargets: pluginTargets.map(\.name)
+                )
+            )
             return false
         }
         if self.manifest.toolsVersion >= .v5_7 {
             let executableTargets = targets.filter { $0.type == .executable }
             guard executableTargets.isEmpty else {
                 self.observabilityScope
-                    .emit(.libraryProductWithExecutableTarget(
-                        product: product.name,
-                        executableTargets: executableTargets.map(\.name)
-                    ))
+                    .emit(
+                        .libraryProductWithExecutableTarget(
+                            product: product.name,
+                            executableTargets: executableTargets.map(\.name)
+                        )
+                    )
                 return false
             }
         }
@@ -1820,11 +1849,13 @@ public final class PackageBuilder {
         }
         let pluginTargets = targets.filter { $0.type == .plugin }
         guard pluginTargets.isEmpty else {
-            self.observabilityScope.emit(.nonPluginProductWithPluginTargets(
-                product: product.name,
-                type: product.type,
-                pluginTargets: pluginTargets.map(\.name)
-            ))
+            self.observabilityScope.emit(
+                .nonPluginProductWithPluginTargets(
+                    product: product.name,
+                    type: product.type,
+                    pluginTargets: pluginTargets.map(\.name)
+                )
+            )
             return false
         }
         return true
@@ -1834,10 +1865,12 @@ public final class PackageBuilder {
         let nonPluginTargets = targets.filter { $0.type != .plugin }
         guard nonPluginTargets.isEmpty else {
             self.observabilityScope
-                .emit(.pluginProductWithNonPluginTargets(
-                    product: product.name,
-                    otherTargets: nonPluginTargets.map(\.name)
-                ))
+                .emit(
+                    .pluginProductWithNonPluginTargets(
+                        product: product.name,
+                        otherTargets: nonPluginTargets.map(\.name)
+                    )
+                )
             return false
         }
         guard !targets.isEmpty else {
@@ -1897,14 +1930,15 @@ extension Manifest {
     /// Returns the names of all the visible modules in the manifest.
     fileprivate func visibleModuleNames(for productFilter: ProductFilter) -> Set<String> {
         let names = targetsRequired(for: productFilter).flatMap { target in
-            [target.name] + target.dependencies.compactMap {
-                switch $0 {
-                case .target(let name, _):
-                    name
-                case .byName, .product:
-                    nil
+            [target.name]
+                + target.dependencies.compactMap {
+                    switch $0 {
+                    case .target(let name, _):
+                        name
+                    case .byName, .product:
+                        nil
+                    }
                 }
-            }
         }
         return Set(names)
     }
@@ -1973,7 +2007,8 @@ extension PackageBuilder {
 
                 let targetDescription = try TargetDescription(
                     name: name,
-                    dependencies: dependencies
+                    dependencies:
+                        dependencies
                         .map {
                             TargetDescription.Dependency.target(name: $0.name)
                         },

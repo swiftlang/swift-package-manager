@@ -16,8 +16,7 @@ import _Concurrency
 import Build
 import Dispatch
 
-@_spi(SwiftPMInternal)
-import DriverSupport
+@_spi(SwiftPMInternal) import DriverSupport
 
 import Foundation
 import OrderedCollections
@@ -47,9 +46,11 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
         shouldDisplay: false
     )
 
-    @Option(name: .customLong("package-path"),
-            help: "Specify the package path to operate on (default current directory). This changes the working directory before any other operation.",
-            completion: .directory)
+    @Option(
+        name: .customLong("package-path"),
+        help: "Specify the package path to operate on (default current directory). This changes the working directory before any other operation.",
+        completion: .directory
+    )
     public var packageDirectory: AbsolutePath?
 
     /// The custom .build directory, if provided.
@@ -66,42 +67,58 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
     @Option(name: .shortAndLong, help: "Build with configuration.")
     public var configuration: BuildConfiguration = .debug
 
-    @Option(name: .customLong("Xcc", withSingleDash: true),
-            parsing: .unconditionalSingleValue,
-            help: "Pass flag through to all C compiler invocations.")
+    @Option(
+        name: .customLong("Xcc", withSingleDash: true),
+        parsing: .unconditionalSingleValue,
+        help: "Pass flag through to all C compiler invocations."
+    )
     var cCompilerFlags: [String] = []
 
-    @Option(name: .customLong("Xswiftc", withSingleDash: true),
-            parsing: .unconditionalSingleValue,
-            help: "Pass flag through to all Swift compiler invocations.")
+    @Option(
+        name: .customLong("Xswiftc", withSingleDash: true),
+        parsing: .unconditionalSingleValue,
+        help: "Pass flag through to all Swift compiler invocations."
+    )
     var swiftCompilerFlags: [String] = []
 
-    @Option(name: .customLong("Xlinker", withSingleDash: true),
-            parsing: .unconditionalSingleValue,
-            help: "Pass flag through to all linker invocations.")
+    @Option(
+        name: .customLong("Xlinker", withSingleDash: true),
+        parsing: .unconditionalSingleValue,
+        help: "Pass flag through to all linker invocations."
+    )
     var linkerFlags: [String] = []
 
-    @Option(name: .customLong("Xcxx", withSingleDash: true),
-            parsing: .unconditionalSingleValue,
-            help: "Pass flag through to all C++ compiler invocations.")
+    @Option(
+        name: .customLong("Xcxx", withSingleDash: true),
+        parsing: .unconditionalSingleValue,
+        help: "Pass flag through to all C++ compiler invocations."
+    )
     var cxxCompilerFlags: [String] = []
 
-    @Option(name: .customLong("Xxcbuild", withSingleDash: true),
-            parsing: .unconditionalSingleValue,
-            help: ArgumentHelp(
-                "Pass flag through to the Xcode build system invocations.",
-                visibility: .hidden))
+    @Option(
+        name: .customLong("Xxcbuild", withSingleDash: true),
+        parsing: .unconditionalSingleValue,
+        help: ArgumentHelp(
+            "Pass flag through to the Xcode build system invocations.",
+            visibility: .hidden
+        )
+    )
     public var xcbuildFlags: [String] = []
 
-    @Option(name: .customLong("Xbuild-tools-swiftc", withSingleDash: true),
-            parsing: .unconditionalSingleValue,
-            help: ArgumentHelp("Pass flag to the manifest build invocation.",
-                               visibility: .hidden))
+    @Option(
+        name: .customLong("Xbuild-tools-swiftc", withSingleDash: true),
+        parsing: .unconditionalSingleValue,
+        help: ArgumentHelp(
+            "Pass flag to the manifest build invocation.",
+            visibility: .hidden
+        )
+    )
     public var manifestFlags: [String] = []
 
     @Option(
-      name: .customLong("arch"),
-      help: ArgumentHelp("Build the package for the these architectures.", visibility: .hidden))
+        name: .customLong("arch"),
+        help: ArgumentHelp("Build the package for the these architectures.", visibility: .hidden)
+    )
     public var architectures: [String] = []
 
     /// The verbosity of informational output.
@@ -137,12 +154,12 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
 
     private var buildSystem: BuildSystemProvider.Kind {
         #if os(macOS)
-        // Force the Xcode build system if we want to build more than one arch.
-        return self.architectures.count > 1 ? .xcode : self._buildSystem
+            // Force the Xcode build system if we want to build more than one arch.
+            return self.architectures.count > 1 ? .xcode : self._buildSystem
         #else
-        // Use whatever the build system provided by the command-line, or default fallback
-        //  on other platforms.
-        return self._buildSystem
+            // Use whatever the build system provided by the command-line, or default fallback
+            //  on other platforms.
+            return self._buildSystem
         #endif
     }
 
@@ -188,9 +205,7 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
             }
 
             let scratchDirectory =
-                try BuildSystemUtilities.getEnvBuildPath(workingDir: cwd) ??
-                self.scratchDirectory ??
-                packagePath.appending(".build")
+                try BuildSystemUtilities.getEnvBuildPath(workingDir: cwd) ?? self.scratchDirectory ?? packagePath.appending(".build")
 
             let builder = try Builder(
                 fileSystem: localFileSystem,
@@ -235,14 +250,14 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
                 ),
                 environment: environment
             )
-            self.targetToolchain = hostToolchain // TODO: support cross-compilation?
+            self.targetToolchain = hostToolchain  // TODO: support cross-compilation?
             self.fileSystem = fileSystem
             self.observabilityScope = observabilityScope
             self.logLevel = logLevel
         }
 
         func build(
-            packagePath:  AbsolutePath,
+            packagePath: AbsolutePath,
             scratchDirectory: AbsolutePath,
             buildSystem: BuildSystemProvider.Kind,
             configuration: BuildConfiguration,
@@ -403,7 +418,7 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
 
         func loadPackageGraph(packagePath: AbsolutePath, manifestLoader: ManifestLoader) async throws -> ModulesGraph {
             let rootPackageRef = PackageReference(identity: .init(path: packagePath), kind: .root(packagePath))
-            let rootPackageManifest =  try await self.loadManifest(manifestLoader: manifestLoader, package: rootPackageRef)
+            let rootPackageManifest = try await self.loadManifest(manifestLoader: manifestLoader, package: rootPackageRef)
 
             var loadedManifests = [PackageIdentity: Manifest]()
             loadedManifests[rootPackageRef.identity] = rootPackageManifest
@@ -413,7 +428,7 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
             _ = try await topologicalSort(input) { pair in
                 // When bootstrapping no special trait build configuration is used
                 let dependenciesRequired = try pair.item.dependenciesRequired(for: .everything)
-                let dependenciesToLoad = dependenciesRequired.map{ $0.packageRef }.filter { !loadedManifests.keys.contains($0.identity) }
+                let dependenciesToLoad = dependenciesRequired.map { $0.packageRef }.filter { !loadedManifests.keys.contains($0.identity) }
                 let dependenciesManifests = try await self.loadManifests(manifestLoader: manifestLoader, packages: dependenciesToLoad)
                 dependenciesManifests.forEach { loadedManifests[$0.key] = $0.value }
                 return dependenciesRequired.compactMap { dependency in
@@ -440,7 +455,7 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
                 prebuilts: [:],
                 fileSystem: fileSystem,
                 observabilityScope: observabilityScope,
-                enabledTraitsMap: [:] // When bootstrapping no special trait build configuration is used
+                enabledTraitsMap: [:]  // When bootstrapping no special trait build configuration is used
             )
         }
 
@@ -448,7 +463,7 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
             manifestLoader: ManifestLoader,
             packages: [PackageReference]
         ) async throws -> [PackageIdentity: Manifest] {
-            return try await withThrowingTaskGroup(of: (package:PackageReference, manifest:Manifest).self) { group in
+            return try await withThrowingTaskGroup(of: (package: PackageReference, manifest: Manifest).self) { group in
                 for package in packages {
                     group.addTask {
                         try await (package, self.loadManifest(manifestLoader: manifestLoader, package: package))
@@ -518,12 +533,17 @@ extension BuildConfiguration: ExpressibleByArgument {}
 extension BuildSystemProvider.Kind: ExpressibleByArgument {}
 
 public func topologicalSort<T: Hashable>(
-    _ nodes: [T], successors: (T) async throws -> [T]
+    _ nodes: [T],
+    successors: (T) async throws -> [T]
 ) async throws -> [T] {
     // Implements a topological sort via recursion and reverse postorder DFS.
-    func visit(_ node: T,
-               _ stack: inout OrderedSet<T>, _ visited: inout Set<T>, _ result: inout [T],
-               _ successors: (T) async throws -> [T]) async throws {
+    func visit(
+        _ node: T,
+        _ stack: inout OrderedSet<T>,
+        _ visited: inout Set<T>,
+        _ result: inout [T],
+        _ successors: (T) async throws -> [T]
+    ) async throws {
         // Mark this node as visited -- we are done if it already was.
         if !visited.insert(node).inserted {
             return

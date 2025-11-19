@@ -120,9 +120,9 @@ extension PackageContainer {
 public protocol CustomPackageContainer: PackageContainer {
     /// Retrieve the package using this package container.
     func retrieve(
-       at version: Version,
-       progressHandler: ((_ bytesReceived: Int64, _ totalBytes: Int64?) -> Void)?,
-       observabilityScope: ObservabilityScope
+        at version: Version,
+        progressHandler: ((_ bytesReceived: Int64, _ totalBytes: Int64?) -> Void)?,
+        observabilityScope: ObservabilityScope
     ) throws -> AbsolutePath
 
     /// Get the custom file system for this package container.

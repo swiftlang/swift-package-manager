@@ -96,7 +96,7 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
     case fileSystem(FileSystem)
     case sourceControl(SourceControl)
     case registry(Registry)
-    
+
     public struct FileSystem: Equatable, Hashable, Encodable, Sendable {
         public let identity: PackageIdentity
         public let nameForTargetDependencyResolutionOnly: String?
@@ -301,7 +301,7 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
             traits: traits
         )
     }
-    
+
     public static func remoteSourceControl(
         identity: PackageIdentity,
         nameForTargetDependencyResolutionOnly: String?,
@@ -406,11 +406,11 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
 
 extension Range {
     public static func upToNextMajor(from version: Version) -> Range<Bound> where Bound == Version {
-        return version ..< Version(version.major + 1, 0, 0)
+        return version..<Version(version.major + 1, 0, 0)
     }
 
     public static func upToNextMinor(from version: Version) -> Range<Bound> where Bound == Version {
-        return version ..< Version(version.major, version.minor + 1, 0)
+        return version..<Version(version.major, version.minor + 1, 0)
     }
 }
 

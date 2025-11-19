@@ -13,8 +13,7 @@
 import Basics
 import Build
 
-@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
-import PackageGraph
+@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly) import PackageGraph
 
 import PackageModel
 @testable import SourceKitLSPAPI
@@ -24,8 +23,9 @@ import XCTest
 
 final class SourceKitLSPAPITests: XCTestCase {
     func testBasicSwiftPackage() async throws {
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/Pkg/Sources/exe/main.swift",
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                "/Pkg/Sources/exe/main.swift",
             "/Pkg/Sources/exe/README.md",
             "/Pkg/Sources/exe/exe.docc/GettingStarted.md",
             "/Pkg/Sources/exe/Resources/some_file.txt",
@@ -56,8 +56,9 @@ final class SourceKitLSPAPITests: XCTestCase {
                             dependencies: [],
                             resources: [.init(rule: .copy, path: "Resources/some_file.txt")]
                         ),
-                        TargetDescription(name: "plugin", type: .plugin, pluginCapability: .buildTool)
-                    ]),
+                        TargetDescription(name: "plugin", type: .plugin, pluginCapability: .buildTool),
+                    ]
+                )
             ],
             observabilityScope: observability.topScope
         )
@@ -86,7 +87,7 @@ final class SourceKitLSPAPITests: XCTestCase {
                 "-package-name", "pkg",
                 "-emit-dependencies",
                 "-emit-module",
-                "-emit-module-path", AbsolutePath("/path/to/build/\(plan.destinationBuildParameters.triple)/debug/Modules/exe.swiftmodule").pathString
+                "-emit-module-path", AbsolutePath("/path/to/build/\(plan.destinationBuildParameters.triple)/debug/Modules/exe.swiftmodule").pathString,
             ],
             resources: [.init(filePath: "/Pkg/Sources/exe/Resources/some_file.txt")],
             ignoredFiles: [.init(filePath: "/Pkg/Sources/exe/exe.docc")],
@@ -101,7 +102,7 @@ final class SourceKitLSPAPITests: XCTestCase {
                 "-package-name", "pkg",
                 "-emit-dependencies",
                 "-emit-module",
-                "-emit-module-path", AbsolutePath("/path/to/build/\(plan.destinationBuildParameters.triple)/debug/Modules/lib.swiftmodule").pathString
+                "-emit-module-path", AbsolutePath("/path/to/build/\(plan.destinationBuildParameters.triple)/debug/Modules/lib.swiftmodule").pathString,
             ],
             resources: [.init(filePath: "/Pkg/Sources/lib/Resources/some_file.txt")],
             ignoredFiles: [.init(filePath: "/Pkg/Sources/lib/lib.docc")],
@@ -112,7 +113,7 @@ final class SourceKitLSPAPITests: XCTestCase {
             for: "plugin",
             graph: graph,
             partialArguments: [
-                "-I", AbsolutePath("/fake/manifestLib/path").pathString
+                "-I", AbsolutePath("/fake/manifestLib/path").pathString,
             ],
             isPartOfRootPackage: true,
             destination: .host
@@ -122,7 +123,7 @@ final class SourceKitLSPAPITests: XCTestCase {
     func testModuleTraversal() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/Pkg/Sources/exe/main.swift",
+                "/Pkg/Sources/exe/main.swift",
             "/Pkg/Sources/lib/lib.swift",
             "/Pkg/Plugins/plugin/plugin.swift"
         )
@@ -144,7 +145,7 @@ final class SourceKitLSPAPITests: XCTestCase {
                             pluginCapability: .buildTool
                         ),
                     ]
-                ),
+                )
             ],
             observabilityScope: observability.topScope
         )
@@ -200,7 +201,7 @@ final class SourceKitLSPAPITests: XCTestCase {
     func testModuleTraversalRecordsDependencyOfVisitedNode() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/Pkg/Sources/exe/main.swift",
+                "/Pkg/Sources/exe/main.swift",
             "/Pkg/Sources/lib/lib.swift"
         )
 
@@ -213,9 +214,9 @@ final class SourceKitLSPAPITests: XCTestCase {
                     path: "/Pkg",
                     targets: [
                         TargetDescription(name: "exe", dependencies: ["lib"]),
-                        TargetDescription(name: "lib", dependencies: [])
+                        TargetDescription(name: "lib", dependencies: []),
                     ]
-                ),
+                )
             ],
             observabilityScope: observability.topScope
         )
@@ -257,8 +258,9 @@ final class SourceKitLSPAPITests: XCTestCase {
     }
 
     func testLoadPackage() async throws {
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/Pkg/Sources/lib/lib.swift"
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                "/Pkg/Sources/lib/lib.swift"
         )
 
         let observability = ObservabilitySystem.makeForTesting()
@@ -274,7 +276,8 @@ final class SourceKitLSPAPITests: XCTestCase {
                             name: "lib",
                             dependencies: []
                         )
-                    ]),
+                    ]
+                )
             ],
             observabilityScope: observability.topScope
         )
@@ -313,7 +316,7 @@ final class SourceKitLSPAPITests: XCTestCase {
                     "-package-name", "pkg",
                     "-emit-dependencies",
                     "-emit-module",
-                    "-emit-module-path", AbsolutePath("/path/to/build/\(destinationBuildParameters.triple)/debug/Modules/lib.swiftmodule").pathString
+                    "-emit-module-path", AbsolutePath("/path/to/build/\(destinationBuildParameters.triple)/debug/Modules/lib.swiftmodule").pathString,
                 ],
                 isPartOfRootPackage: true
             )
@@ -321,8 +324,9 @@ final class SourceKitLSPAPITests: XCTestCase {
     }
 
     func testClangOutputPaths() async throws {
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/Pkg/Sources/lib/include/lib.h",
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                "/Pkg/Sources/lib/include/lib.h",
             "/Pkg/Sources/lib/lib.cpp"
         )
 
@@ -339,7 +343,8 @@ final class SourceKitLSPAPITests: XCTestCase {
                             name: "lib",
                             dependencies: []
                         )
-                    ]),
+                    ]
+                )
             ],
             observabilityScope: observability.topScope
         )

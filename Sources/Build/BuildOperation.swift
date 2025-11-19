@@ -11,8 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import _Concurrency
-@_spi(SwiftPMInternal)
-import Basics
+@_spi(SwiftPMInternal) import Basics
 import Foundation
 import LLBuildManifest
 import PackageGraph
@@ -29,11 +28,11 @@ import struct TSCBasic.RegEx
 import enum TSCUtility.Diagnostics
 
 #if USE_IMPL_ONLY_IMPORTS
-@_implementationOnly import DriverSupport
-@_implementationOnly import SwiftDriver
+    @_implementationOnly import DriverSupport
+    @_implementationOnly import SwiftDriver
 #else
-import DriverSupport
-import SwiftDriver
+    import DriverSupport
+    import SwiftDriver
 #endif
 
 package struct LLBuildSystemConfiguration {
@@ -337,11 +336,13 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             return
         }
         // Ensure the compiler supports the import-scan operation
-        guard DriverSupport.checkSupportedFrontendFlags(
-            flags: ["import-prescan"],
-            toolchain: self.config.toolchain(for: .target),
-            fileSystem: localFileSystem
-        ) else {
+        guard
+            DriverSupport.checkSupportedFrontendFlags(
+                flags: ["import-prescan"],
+                toolchain: self.config.toolchain(for: .target),
+                fileSystem: localFileSystem
+            )
+        else {
             return
         }
 
@@ -353,21 +354,26 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 }
                 let targetDependenciesSet = Set(dependencies)
                 guard !description.generatedSourceTargetSet.contains(target),
-                      targetDependenciesSet.intersection(description.generatedSourceTargetSet).isEmpty else {
+                    targetDependenciesSet.intersection(description.generatedSourceTargetSet).isEmpty
+                else {
                     // Skip targets which contain, or depend-on-targets, with generated source-code.
                     // Such as test discovery targets and targets with plugins.
                     continue
                 }
                 let resolver = try ArgsResolver(fileSystem: localFileSystem)
-                let executor = SPMSwiftDriverExecutor(resolver: resolver,
-                                                      fileSystem: localFileSystem,
-                                                      env: Environment.current)
+                let executor = SPMSwiftDriverExecutor(
+                    resolver: resolver,
+                    fileSystem: localFileSystem,
+                    env: Environment.current
+                )
 
                 let consumeDiagnostics: DiagnosticsEngine = DiagnosticsEngine(handlers: [])
-                var driver = try Driver(args: commandLine,
-                                        diagnosticsOutput: .engine(consumeDiagnostics),
-                                        fileSystem: localFileSystem,
-                                        executor: executor)
+                var driver = try Driver(
+                    args: commandLine,
+                    diagnosticsOutput: .engine(consumeDiagnostics),
+                    fileSystem: localFileSystem,
+                    executor: executor
+                )
                 guard !consumeDiagnostics.hasErrors else {
                     // If we could not init the driver with this command, something went wrong,
                     // proceed without checking this target.
@@ -379,12 +385,12 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 let importedTargetsMissingDependency = Set(imports).intersection(nonDependencyTargetsSet)
                 if let missedDependency = importedTargetsMissingDependency.first {
                     switch checkingMode {
-                        case .error:
-                            self.observabilityScope.emit(error: "Target \(target) imports another target (\(missedDependency)) in the package without declaring it a dependency.")
-                        case .warn:
-                            self.observabilityScope.emit(warning: "Target \(target) imports another target (\(missedDependency)) in the package without declaring it a dependency.")
-                        case .none:
-                            fatalError("Explicit import checking is disabled.")
+                    case .error:
+                        self.observabilityScope.emit(error: "Target \(target) imports another target (\(missedDependency)) in the package without declaring it a dependency.")
+                    case .warn:
+                        self.observabilityScope.emit(warning: "Target \(target) imports another target (\(missedDependency)) in the package without declaring it a dependency.")
+                    case .none:
+                        fatalError("Explicit import checking is disabled.")
                     }
                 }
             } catch {
@@ -469,12 +475,15 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 case .library(let kind):
                     let artifactKind: PluginInvocationBuildResult.BuiltArtifact.Kind
                     switch kind {
-                        case .dynamic: artifactKind = .dynamicLibrary
-                        case .static, .automatic: artifactKind = .staticLibrary
+                    case .dynamic: artifactKind = .dynamicLibrary
+                    case .static, .automatic: artifactKind = .staticLibrary
                     }
-                    return try ($0.product.name, .init(
-                        path: $0.binaryPath.pathString,
-                        kind: artifactKind)
+                    return try (
+                        $0.product.name,
+                        .init(
+                            path: $0.binaryPath.pathString,
+                            kind: artifactKind
+                        )
                     )
                 case .executable:
                     return try ($0.product.name, .init(path: $0.binaryPath.pathString, kind: .executable))
@@ -508,8 +517,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             component: configuration.dirname
         )
         if self.fileSystem.exists(oldBuildPath) {
-            do { try self.fileSystem.removeFileTree(oldBuildPath) }
-            catch {
+            do { try self.fileSystem.removeFileTree(oldBuildPath) } catch {
                 self.observabilityScope.emit(
                     warning: "unable to delete \(oldBuildPath), skip creating symbolic link",
                     underlyingError: error
@@ -550,10 +558,10 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             pluginsToCompile = allPlugins
             continueBuilding = true
         case .product(let productName, _):
-            pluginsToCompile = allPlugins.filter{ $0.productNames.contains(productName) }
+            pluginsToCompile = allPlugins.filter { $0.productNames.contains(productName) }
             continueBuilding = pluginsToCompile.isEmpty
         case .target(let targetName, _):
-            pluginsToCompile = allPlugins.filter{ $0.moduleName == targetName }
+            pluginsToCompile = allPlugins.filter { $0.moduleName == targetName }
             continueBuilding = pluginsToCompile.isEmpty
         }
 
@@ -666,15 +674,16 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 throw Diagnostics.fatalError
             }
 
-            let buildParameters = if let destination {
-                config.buildParameters(for: destination)
-            } else if product.type == .macro || product.type == .plugin {
-                config.buildParameters(for: .host)
-            } else if product.type == .test {
-                config.buildParameters(for: product.hasDirectMacroDependencies ? .host : .target)
-            } else {
-                config.buildParameters(for: .target)
-            }
+            let buildParameters =
+                if let destination {
+                    config.buildParameters(for: destination)
+                } else if product.type == .macro || product.type == .plugin {
+                    config.buildParameters(for: .host)
+                } else if product.type == .test {
+                    config.buildParameters(for: product.hasDirectMacroDependencies ? .host : .target)
+                } else {
+                    config.buildParameters(for: .target)
+                }
 
             // If the product is automatic, we build the main target because automatic products
             // do not produce a binary right now.
@@ -697,15 +706,16 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 throw Diagnostics.fatalError
             }
 
-            let buildParameters = if let destination {
-                config.buildParameters(for: destination)
-            } else if module.type == .macro || module.type == .plugin {
-                config.buildParameters(for: .host)
-            } else if module.type == .test {
-                try config.buildParameters(for: inferTestDestination(testModule: module, graph: graph))
-            } else {
-                config.buildParameters(for: .target)
-            }
+            let buildParameters =
+                if let destination {
+                    config.buildParameters(for: destination)
+                } else if module.type == .macro || module.type == .plugin {
+                    config.buildParameters(for: .host)
+                } else if module.type == .test {
+                    try config.buildParameters(for: inferTestDestination(testModule: module, graph: graph))
+                } else {
+                    config.buildParameters(for: .target)
+                }
 
             return module.getLLBuildTargetName(buildParameters: buildParameters)
         }
@@ -756,8 +766,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         // Emit warnings about any unhandled files in authored packages. We do this after applying build tool plugins, once we know what files they handled.
         // rdar://113256834 This fix works for the plugins that do not have PreBuildCommands.
         let targetsToConsider: [ResolvedModule]
-        if let subset = subset, let recursiveDependencies = try
-            subset.recursiveDependencies(for: plan.graph, observabilityScope: observabilityScope) {
+        if let subset = subset, let recursiveDependencies = try subset.recursiveDependencies(for: plan.graph, observabilityScope: observabilityScope) {
             targetsToConsider = recursiveDependencies
         } else {
             targetsToConsider = Array(plan.graph.reachableModules)
@@ -792,7 +801,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         buildToolPluginInvocationResults: [BuildToolPluginInvocationResult]
     ) {
         guard let package = modulesGraph.package(for: module),
-              package.manifest.toolsVersion >= .v5_3
+            package.manifest.toolsVersion >= .v5_3
         else {
             return
         }
@@ -919,11 +928,9 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     public func packageStructureChanged() async -> Bool {
         do {
             _ = try await self.generateDescription()
-        }
-        catch Diagnostics.fatalError {
+        } catch Diagnostics.fatalError {
             return false
-        }
-        catch {
+        } catch {
             self.observabilityScope.emit(error)
             return false
         }
@@ -967,7 +974,8 @@ extension BuildOperation {
         var config = self.config
 
         config.manifestPath = config.dataPath(for: .host).appending(
-            components: "..", "plugin-tools.yaml"
+            components: "..",
+            "plugin-tools.yaml"
         )
 
         // FIXME: It should be possible to share database between plugin tools

@@ -27,7 +27,7 @@ import protocol TSCBasic.Closable
 final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable {
     private static let packageCollectionsTableName = "package_collections"
     private static let packagesFTSName = "fts_packages"
-    private static let targetsFTSNameV0 = "fts_targets" // TODO: remove as this has been replaced by v1
+    private static let targetsFTSNameV0 = "fts_targets"  // TODO: remove as this has been replaced by v1
     private static let targetsFTSNameV1 = "fts_targets_1"
 
     let fileSystem: FileSystem
@@ -163,7 +163,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
         let query = "DELETE FROM \(Self.packageCollectionsTableName) WHERE key = ?;"
         try self.executeStatement(query) { statement -> Void in
             let bindings: [SQLite.SQLiteValue] = [
-                .string(identifier.databaseKey()),
+                .string(identifier.databaseKey())
             ]
             try statement.bind(bindings)
             try statement.step()
@@ -208,7 +208,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
         if let identifiers {
             var index = 0
             while index < identifiers.count {
-                let slice = identifiers[index ..< min(index + self.configuration.batchSize, identifiers.count)]
+                let slice = identifiers[index..<min(index + self.configuration.batchSize, identifiers.count)]
                 let query = "SELECT value FROM \(Self.packageCollectionsTableName) WHERE key in (\(slice.map { _ in "?" }.joined(separator: ",")));"
                 try self.executeStatement(query) { statement in
                     try statement.bind(slice.compactMap { .string($0.databaseKey()) })
@@ -242,9 +242,10 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                     }
                 }
 
-                return await group
+                return
+                    await group
                     .compactMap { $0 }
-                    .reduce(into:[Model.Collection]()) {
+                    .reduce(into: [Model.Collection]()) {
                         $0.append($1)
                     }
             }
@@ -292,9 +293,11 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
             }
 
             // Sort by package name for consistent ordering in results
-            return Model.PackageSearchResult(items: packageCollections.sorted { $0.value.package.displayName < $1.value.package.displayName }.map { entry in
-                .init(package: entry.value.package, collections: Array(entry.value.collections))
-            })
+            return Model.PackageSearchResult(
+                items: packageCollections.sorted { $0.value.package.displayName < $1.value.package.displayName }.map { entry in
+                    .init(package: entry.value.package, collections: Array(entry.value.collections))
+                }
+            )
         }
 
         // rdar://84218640
@@ -308,7 +311,8 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
 
             while let row = try statement.step() {
                 if let collectionData = Data(base64Encoded: row.string(at: 0)),
-                    let collection = try? self.decoder.decode(Model.CollectionIdentifier.self, from: collectionData) {
+                    let collection = try? self.decoder.decode(Model.CollectionIdentifier.self, from: collectionData)
+                {
                     matches.append((collection: collection, package: PackageIdentity.plain(row.string(at: 1))))
                     matchingCollections.insert(collection)
                 }
@@ -331,9 +335,11 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
             .reduce(into: [PackageIdentity: (package: Model.Package, collections: Set<Model.CollectionIdentifier>)]()) { result, match in
                 var entry = result.removeValue(forKey: match.package)
                 if entry == nil {
-                    guard let package = collectionDict[match.collection].flatMap({ collection in
-                        collection.packages.first(where: { $0.identity == match.package })
-                    }) else {
+                    guard
+                        let package = collectionDict[match.collection].flatMap({ collection in
+                            collection.packages.first(where: { $0.identity == match.package })
+                        })
+                    else {
                         return
                     }
                     entry = (package, .init())
@@ -347,9 +353,11 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
 
         // FTS results are not sorted by relevance at all (FTS5 supports ORDER BY rank but FTS4 requires additional SQL function)
         // Sort by package name for consistent ordering in results
-        return Model.PackageSearchResult(items: packageCollections.sorted { $0.value.package.displayName < $1.value.package.displayName }.map { entry in
-            .init(package: entry.value.package, collections: Array(entry.value.collections))
-        })
+        return Model.PackageSearchResult(
+            items: packageCollections.sorted { $0.value.package.displayName < $1.value.package.displayName }.map { entry in
+                .init(package: entry.value.package, collections: Array(entry.value.collections))
+            }
+        )
     }
 
     func findPackage(
@@ -385,7 +393,8 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
 
             while let row = try statement.step() {
                 if let collectionData = Data(base64Encoded: row.string(at: 0)),
-                    let collection = try? self.decoder.decode(Model.CollectionIdentifier.self, from: collectionData) {
+                    let collection = try? self.decoder.decode(Model.CollectionIdentifier.self, from: collectionData)
+                {
                     matchingCollections.insert(collection)
                 }
             }
@@ -434,21 +443,23 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
 
         func buildResult() -> Model.TargetSearchResult {
             // Sort by target name for consistent ordering in results
-            return Model.TargetSearchResult(items: targetPackageVersions.sorted { $0.key.name < $1.key.name }.map { target, packageVersions in
-                let targetPackages: [Model.TargetListItem.Package] = packageVersions.compactMap { identity, versions in
-                    guard let packageEntry = packageCollections[identity] else {
-                        return nil
+            return Model.TargetSearchResult(
+                items: targetPackageVersions.sorted { $0.key.name < $1.key.name }.map { target, packageVersions in
+                    let targetPackages: [Model.TargetListItem.Package] = packageVersions.compactMap { identity, versions in
+                        guard let packageEntry = packageCollections[identity] else {
+                            return nil
+                        }
+                        return Model.TargetListItem.Package(
+                            identity: packageEntry.package.identity,
+                            location: packageEntry.package.location,
+                            summary: packageEntry.package.summary,
+                            versions: Array(versions).sorted(by: >),
+                            collections: Array(packageEntry.collections)
+                        )
                     }
-                    return Model.TargetListItem.Package(
-                        identity: packageEntry.package.identity,
-                        location: packageEntry.package.location,
-                        summary: packageEntry.package.summary,
-                        versions: Array(versions).sorted(by: >),
-                        collections: Array(packageEntry.collections)
-                    )
+                    return Model.TargetListItem(target: target, packages: targetPackages)
                 }
-                return Model.TargetListItem(target: target, packages: targetPackages)
-            })
+            )
         }
 
         guard try self.shouldUseSearchIndices() else {
@@ -537,13 +548,16 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
 
                 while let row = try statement.step() {
                     if let collectionData = Data(base64Encoded: row.string(at: 0)),
-                        let collection = try? self.decoder.decode(Model.CollectionIdentifier.self, from: collectionData) {
-                        matches.append((
-                            collection: collection,
-                            package: PackageIdentity.plain(row.string(at: 1)),
-                            packageLocation: row.string(at: 2),
-                            targetName: row.string(at: 3)
-                        ))
+                        let collection = try? self.decoder.decode(Model.CollectionIdentifier.self, from: collectionData)
+                    {
+                        matches.append(
+                            (
+                                collection: collection,
+                                package: PackageIdentity.plain(row.string(at: 1)),
+                                packageLocation: row.string(at: 2),
+                                targetName: row.string(at: 3)
+                            )
+                        )
                         matchingCollections.insert(collection)
                     }
                 }
@@ -559,13 +573,16 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
 
                 while let row = try statement.step() {
                     if let collectionData = Data(base64Encoded: row.string(at: 0)),
-                        let collection = try? self.decoder.decode(Model.CollectionIdentifier.self, from: collectionData) {
-                        matches.append((
-                            collection: collection,
-                            package: PackageIdentity(urlString: row.string(at: 1)),
-                            packageLocation: row.string(at: 1),
-                            targetName: row.string(at: 2)
-                        ))
+                        let collection = try? self.decoder.decode(Model.CollectionIdentifier.self, from: collectionData)
+                    {
+                        matches.append(
+                            (
+                                collection: collection,
+                                package: PackageIdentity(urlString: row.string(at: 1)),
+                                packageLocation: row.string(at: 1),
+                                targetName: row.string(at: 2)
+                            )
+                        )
                         matchingCollections.insert(collection)
                     }
                 }
@@ -587,9 +604,11 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
         matches.filter { collectionDict.keys.contains($0.collection) }.forEach { match in
             var packageEntry = packageCollections.removeValue(forKey: match.package)
             if packageEntry == nil {
-                guard let package = collectionDict[match.collection].flatMap({ collection in
-                    collection.packages.first(where: { $0.identity == match.package || $0.location == match.packageLocation })
-                }) else {
+                guard
+                    let package = collectionDict[match.collection].flatMap({ collection in
+                        collection.packages.first(where: { $0.identity == match.package || $0.location == match.packageLocation })
+                    })
+                else {
                     return
                 }
                 packageEntry = (package, .init())
@@ -763,7 +782,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
 
         DispatchQueue.sharedConcurrent.async(group: nil, qos: .background, flags: .assignCurrentContext) {
             do {
-                try self.populateTargetTrieLock.withLock { // Prevent race to populate targetTrie
+                try self.populateTargetTrieLock.withLock {  // Prevent race to populate targetTrie
                     // Exit early if we've already done the computation before
                     guard self.targetTrieReady == nil else {
                         return
@@ -788,20 +807,21 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                     try self.executeStatement(queryV1) { statement in
                         while let row = try statement.step() {
                             #if os(Linux)
-                            // lock not required since executeStatement locks
-                            guard case .connected = self.state else {
-                                return
-                            }
+                                // lock not required since executeStatement locks
+                                guard case .connected = self.state else {
+                                    return
+                                }
                             #else
-                            guard case .connected = (try self.withStateLock { self.state }) else {
-                                return
-                            }
+                                guard case .connected = (try self.withStateLock { self.state }) else {
+                                    return
+                                }
                             #endif
 
                             let targetName = row.string(at: 3)
 
                             if let collectionData = Data(base64Encoded: row.string(at: 0)),
-                               let collection = try? self.decoder.decode(Model.CollectionIdentifier.self, from: collectionData) {
+                                let collection = try? self.decoder.decode(Model.CollectionIdentifier.self, from: collectionData)
+                            {
                                 let collectionPackage = CollectionPackage(
                                     collection: collection,
                                     package: PackageIdentity.plain(row.string(at: 1)),
@@ -817,21 +837,22 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                     try self.executeStatement(queryV0) { statement in
                         while let row = try statement.step() {
                             #if os(Linux)
-                            // lock not required since executeStatement locks
-                            guard case .connected = self.state else {
-                                return
-                            }
+                                // lock not required since executeStatement locks
+                                guard case .connected = self.state else {
+                                    return
+                                }
                             #else
-                            guard case .connected = (try self.withStateLock { self.state }) else {
-                                return
-                            }
+                                guard case .connected = (try self.withStateLock { self.state }) else {
+                                    return
+                                }
                             #endif
 
                             let targetName = row.string(at: 2)
 
                             if let collectionData = Data(base64Encoded: row.string(at: 0)),
-                               let collection = try? self.decoder.decode(Model.CollectionIdentifier.self, from: collectionData),
-                               !collectionsProcessed.contains(collection) {
+                                let collection = try? self.decoder.decode(Model.CollectionIdentifier.self, from: collectionData),
+                                !collectionsProcessed.contains(collection)
+                            {
                                 let collectionPackage = CollectionPackage(
                                     collection: collection,
                                     package: PackageIdentity(urlString: row.string(at: 1)),
@@ -912,64 +933,64 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
 
         // FIXME: workaround linux sqlite concurrency issues causing CI failures
         #if os(Linux)
-        return try self.withStateLock {
-            try body(db)
-        }
+            return try self.withStateLock {
+                try body(db)
+            }
         #else
-        return try body(db)
+            return try body(db)
         #endif
     }
 
     private func createSchemaIfNecessary(db: SQLite) throws {
         let table = """
-            CREATE TABLE IF NOT EXISTS \(Self.packageCollectionsTableName) (
-                key STRING PRIMARY KEY NOT NULL,
-                value BLOB NOT NULL
-            );
-        """
+                CREATE TABLE IF NOT EXISTS \(Self.packageCollectionsTableName) (
+                    key STRING PRIMARY KEY NOT NULL,
+                    value BLOB NOT NULL
+                );
+            """
         try db.exec(query: table)
 
         #if os(Android)
-        // FTS queries for strings containing hyphens isn't working in SQLite on
-        // Android, so disable for now.
-        self.useSearchIndices.put(false)
-        #else
-        do {
-            let ftsPackages = """
-                CREATE VIRTUAL TABLE IF NOT EXISTS \(Self.packagesFTSName) USING fts4(
-                    collection_id_blob_base64, id, version, name, repository_url, summary, keywords, products, targets,
-                    notindexed=collection_id_blob_base64,
-                    tokenize=unicode61
-                );
-            """
-            try db.exec(query: ftsPackages)
-
-            // We don't insert to this anymore but keeping it for queries to work
-            let ftsTargetsV0 = """
-                CREATE VIRTUAL TABLE IF NOT EXISTS \(Self.targetsFTSNameV0) USING fts4(
-                    collection_id_blob_base64, package_repository_url, name,
-                    notindexed=collection_id_blob_base64,
-                    tokenize=unicode61
-                );
-            """
-            try db.exec(query: ftsTargetsV0)
-
-            let ftsTargetsV1 = """
-                CREATE VIRTUAL TABLE IF NOT EXISTS \(Self.targetsFTSNameV1) USING fts4(
-                    collection_id_blob_base64, package_id, package_repository_url, name,
-                    notindexed=collection_id_blob_base64,
-                    tokenize=unicode61
-                );
-            """
-            try db.exec(query: ftsTargetsV1)
-
-            self.useSearchIndices.put(true)
-        } catch {
-            // We can use FTS3 tables but queries yield different results when run on different
-            // platforms. This could be because of SQLite version perhaps? But since we can't get
-            // consistent results we will not fallback to FTS3 and just give up if FTS4 is not available.
+            // FTS queries for strings containing hyphens isn't working in SQLite on
+            // Android, so disable for now.
             self.useSearchIndices.put(false)
-        }
+        #else
+            do {
+                let ftsPackages = """
+                        CREATE VIRTUAL TABLE IF NOT EXISTS \(Self.packagesFTSName) USING fts4(
+                            collection_id_blob_base64, id, version, name, repository_url, summary, keywords, products, targets,
+                            notindexed=collection_id_blob_base64,
+                            tokenize=unicode61
+                        );
+                    """
+                try db.exec(query: ftsPackages)
+
+                // We don't insert to this anymore but keeping it for queries to work
+                let ftsTargetsV0 = """
+                        CREATE VIRTUAL TABLE IF NOT EXISTS \(Self.targetsFTSNameV0) USING fts4(
+                            collection_id_blob_base64, package_repository_url, name,
+                            notindexed=collection_id_blob_base64,
+                            tokenize=unicode61
+                        );
+                    """
+                try db.exec(query: ftsTargetsV0)
+
+                let ftsTargetsV1 = """
+                        CREATE VIRTUAL TABLE IF NOT EXISTS \(Self.targetsFTSNameV1) USING fts4(
+                            collection_id_blob_base64, package_id, package_repository_url, name,
+                            notindexed=collection_id_blob_base64,
+                            tokenize=unicode61
+                        );
+                    """
+                try db.exec(query: ftsTargetsV1)
+
+                self.useSearchIndices.put(true)
+            } catch {
+                // We can use FTS3 tables but queries yield different results when run on different
+                // platforms. This could be because of SQLite version perhaps? But since we can't get
+                // consistent results we will not fallback to FTS3 and just give up if FTS4 is not available.
+                self.useSearchIndices.put(false)
+            }
         #endif
 
         try db.exec(query: "PRAGMA journal_mode=WAL;")
@@ -1031,7 +1052,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                 throw StringError("Maximum attempts reached")
             }
             let delay = self.multiplier * intervalInMilliseconds
-            let jitter = Int.random(in: 0 ... self.randomizationFactor)
+            let jitter = Int.random(in: 0...self.randomizationFactor)
             self.attempts += 1
             self.multiplier *= 2
             return .milliseconds(delay + jitter)

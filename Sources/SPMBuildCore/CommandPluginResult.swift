@@ -12,7 +12,8 @@
 
 import Basics
 
-@available(*,
+@available(
+    *,
     deprecated,
     renamed: "CommandPluginResult",
     message: "renamed to unify terminology with the Swift Evolution proposal"
@@ -23,7 +24,7 @@ public typealias PrebuildCommandResult = CommandPluginResult
 public struct CommandPluginResult {
     /// Paths of any derived files that should be included in the build.
     public var derivedFiles: [AbsolutePath]
-    
+
     /// Paths of any directories whose contents influence the build plan.
     public var outputDirectories: [AbsolutePath]
 

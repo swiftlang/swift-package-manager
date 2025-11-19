@@ -95,7 +95,7 @@ public struct MockPackage {
         self.platforms = platforms
         self.location = .registry(
             identity: .plain(identity),
-            alternativeURLs: alternativeURLs?.compactMap{ URL(string: $0) },
+            alternativeURLs: alternativeURLs?.compactMap { URL(string: $0) },
             metadata: metadata
         )
         self.targets = targets
@@ -111,10 +111,10 @@ public struct MockPackage {
         return MockPackage(
             name: name,
             targets: [
-                try MockTarget(name: name),
+                try MockTarget(name: name)
             ],
             products: [
-                MockProduct(name: name, modules: [name]),
+                MockProduct(name: name, modules: [name])
             ],
             versions: ["1.0.0"]
         )

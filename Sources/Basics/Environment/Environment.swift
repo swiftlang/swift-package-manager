@@ -13,16 +13,16 @@
 import Foundation
 
 #if canImport(Glibc)
-import Glibc
+    import Glibc
 #elseif canImport(Musl)
-import Musl
+    import Musl
 #elseif os(Windows)
-import CRT
-import WinSDK
+    import CRT
+    import WinSDK
 #elseif canImport(Android)
-import Android
+    import Android
 #else
-import Darwin.C
+    import Darwin.C
 #endif
 
 // FIXME: Use Synchronization.Mutex when available
@@ -108,9 +108,9 @@ extension Environment {
 
     package static var pathEntryDelimiter: String {
         #if os(Windows)
-        ";"
+            ";"
         #else
-        ":"
+            ":"
         #endif
     }
 }
@@ -209,17 +209,17 @@ extension Environment {
     /// > Important: This operation is _not_ concurrency safe.
     package static func set(key: EnvironmentKey, value: String?) throws {
         #if os(Windows)
-        func _SetEnvironmentVariableW(_ key: String, _ value: String?) -> Bool {
-            key.withCString(encodedAs: UTF16.self) { key in
-                if let value {
-                    value.withCString(encodedAs: UTF16.self) { value in
-                        SetEnvironmentVariableW(key, value)
+            func _SetEnvironmentVariableW(_ key: String, _ value: String?) -> Bool {
+                key.withCString(encodedAs: UTF16.self) { key in
+                    if let value {
+                        value.withCString(encodedAs: UTF16.self) { value in
+                            SetEnvironmentVariableW(key, value)
+                        }
+                    } else {
+                        SetEnvironmentVariableW(key, nil)
                     }
-                } else {
-                    SetEnvironmentVariableW(key, nil)
                 }
             }
-        }
         #endif
 
         // Invalidate cached value after mutating the global environment.
@@ -229,47 +229,47 @@ extension Environment {
         defer { Self._cachedCurrent.withLock { $0 = nil } }
         if let value = value {
             #if os(Windows)
-            guard _SetEnvironmentVariableW(key.rawValue, value) else {
-                throw UpdateEnvironmentError(
-                    function: "SetEnvironmentVariableW",
-                    code: Int32(GetLastError())
-                )
-            }
-            guard _putenv("\(key)=\(value)") == 0 else {
-                throw UpdateEnvironmentError(
-                    function: "_putenv",
-                    code: Int32(GetLastError())
-                )
-            }
+                guard _SetEnvironmentVariableW(key.rawValue, value) else {
+                    throw UpdateEnvironmentError(
+                        function: "SetEnvironmentVariableW",
+                        code: Int32(GetLastError())
+                    )
+                }
+                guard _putenv("\(key)=\(value)") == 0 else {
+                    throw UpdateEnvironmentError(
+                        function: "_putenv",
+                        code: Int32(GetLastError())
+                    )
+                }
             #else
-            guard setenv(key.rawValue, value, 1) == 0 else {
-                throw UpdateEnvironmentError(
-                    function: "setenv",
-                    code: errno
-                )
-            }
+                guard setenv(key.rawValue, value, 1) == 0 else {
+                    throw UpdateEnvironmentError(
+                        function: "setenv",
+                        code: errno
+                    )
+                }
             #endif
         } else {
             #if os(Windows)
-            guard _SetEnvironmentVariableW(key.rawValue, nil) else {
-                throw UpdateEnvironmentError(
-                    function: "SetEnvironmentVariableW",
-                    code: Int32(GetLastError())
-                )
-            }
-            guard _putenv("\(key)=") == 0 else {
-                throw UpdateEnvironmentError(
-                    function: "_putenv",
-                    code: Int32(GetLastError())
-                )
-            }
+                guard _SetEnvironmentVariableW(key.rawValue, nil) else {
+                    throw UpdateEnvironmentError(
+                        function: "SetEnvironmentVariableW",
+                        code: Int32(GetLastError())
+                    )
+                }
+                guard _putenv("\(key)=") == 0 else {
+                    throw UpdateEnvironmentError(
+                        function: "_putenv",
+                        code: Int32(GetLastError())
+                    )
+                }
             #else
-            guard unsetenv(key.rawValue) == 0 else {
-                throw UpdateEnvironmentError(
-                    function: "unsetenv",
-                    code: errno
-                )
-            }
+                guard unsetenv(key.rawValue) == 0 else {
+                    throw UpdateEnvironmentError(
+                        function: "unsetenv",
+                        code: errno
+                    )
+                }
             #endif
         }
     }
@@ -324,7 +324,8 @@ extension Environment: Collection {
 
 extension Environment: CustomStringConvertible {
     public var description: String {
-        let body = self
+        let body =
+            self
             .sorted { $0.key < $1.key }
             .map { "\"\($0.rawValue)=\($1)\"" }
             .joined(separator: ", ")

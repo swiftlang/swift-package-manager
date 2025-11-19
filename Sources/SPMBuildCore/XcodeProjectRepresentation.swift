@@ -16,19 +16,19 @@ public struct XcodeProjectRepresentation: Equatable, Hashable {
     public var directoryPath: AbsolutePath
     public var filePaths: [AbsolutePath]
     public var targets: [Target]
-    
+
     public init(displayName: String, directoryPath: AbsolutePath, filePaths: [AbsolutePath], targets: [Target]) {
         self.displayName = displayName
         self.directoryPath = directoryPath
         self.filePaths = filePaths
         self.targets = targets
     }
-    
+
     public struct Target: Equatable, Hashable {
         public var displayName: String
         public var product: Product?
         public var inputFiles: [InputFile]
-        
+
         public init(displayName: String, product: Product?, inputFiles: [InputFile]) {
             self.displayName = displayName
             self.product = product
@@ -38,7 +38,7 @@ public struct XcodeProjectRepresentation: Equatable, Hashable {
         public struct Product: Equatable, Hashable {
             public var name: String
             public var kind: Kind
-            
+
             public init(name: String, kind: Kind) {
                 self.name = name
                 self.kind = kind
@@ -57,7 +57,7 @@ public struct XcodeProjectRepresentation: Equatable, Hashable {
         public struct InputFile: Equatable, Hashable {
             public var path: AbsolutePath
             public var role: Role
-            
+
             public init(path: AbsolutePath, role: Role) {
                 self.path = path
                 self.role = role

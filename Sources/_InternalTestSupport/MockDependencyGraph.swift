@@ -23,7 +23,7 @@ public struct MockDependencyGraph {
     public let containers: [MockPackageContainer]
     public let result: [PackageReference: Version]
 
-    public init(name: String, constraints: [MockPackageContainer.Constraint], containers: [MockPackageContainer], result: [PackageReference : Version]) {
+    public init(name: String, constraints: [MockPackageContainer.Constraint], containers: [MockPackageContainer], result: [PackageReference: Version]) {
         self.name = name
         self.constraints = constraints
         self.containers = containers

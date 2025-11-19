@@ -229,7 +229,7 @@ class PackageCollectionSigningTests: XCTestCase {
     func test_signAndValidate_defaultPolicy() async throws {
         #if ENABLE_REAL_CERT_TEST
         #else
-        try XCTSkipIf(true)
+            try XCTSkipIf(true)
         #endif
 
         try await withTemporaryDirectory { tmp in
@@ -322,7 +322,7 @@ class PackageCollectionSigningTests: XCTestCase {
     func test_signAndValidate_appleSwiftPackageCollectionPolicy_rsa() async throws {
         #if ENABLE_REAL_CERT_TEST
         #else
-        try XCTSkipIf(true)
+            try XCTSkipIf(true)
         #endif
 
         try await withTemporaryDirectory { tmp in
@@ -415,7 +415,7 @@ class PackageCollectionSigningTests: XCTestCase {
     func test_signAndValidate_appleSwiftPackageCollectionPolicy_ec() async throws {
         #if ENABLE_REAL_CERT_TEST
         #else
-        try XCTSkipIf(true)
+            try XCTSkipIf(true)
         #endif
 
         try await withTemporaryDirectory { tmp in
@@ -508,7 +508,7 @@ class PackageCollectionSigningTests: XCTestCase {
     func test_signAndValidate_defaultPolicy_user() async throws {
         #if ENABLE_REAL_CERT_TEST
         #else
-        try XCTSkipIf(true)
+            try XCTSkipIf(true)
         #endif
 
         try await withTemporaryDirectory { tmp in
@@ -573,7 +573,7 @@ class PackageCollectionSigningTests: XCTestCase {
     func test_signAndValidate_appleSwiftPackageCollectionPolicy_rsa_user() async throws {
         #if ENABLE_REAL_CERT_TEST
         #else
-        try XCTSkipIf(true)
+            try XCTSkipIf(true)
         #endif
 
         try await withTemporaryDirectory { tmp in
@@ -640,7 +640,7 @@ class PackageCollectionSigningTests: XCTestCase {
     func test_signAndValidate_appleSwiftPackageCollectionPolicy_ec_user() async throws {
         #if ENABLE_REAL_CERT_TEST
         #else
-        try XCTSkipIf(true)
+            try XCTSkipIf(true)
         #endif
 
         try await withTemporaryDirectory { tmp in

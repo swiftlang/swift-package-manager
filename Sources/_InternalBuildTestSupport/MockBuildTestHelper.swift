@@ -12,8 +12,7 @@
 
 import Basics
 
-@_spi(SwiftPMInternal)
-import Build
+@_spi(SwiftPMInternal) import Build
 
 import _InternalTestSupport
 import struct PackageGraph.ModulesGraph
@@ -77,18 +76,19 @@ public func mockBuildPlan(
     if let platform {
         precondition(triple == nil)
 
-        inferredTriple = switch platform {
-        case .macOS:
-            Triple.x86_64MacOS
-        case .linux:
-            Triple.arm64Linux
-        case .android:
-            Triple.arm64Android
-        case .windows:
-            Triple.windows
-        default:
-            fatalError("unsupported platform in tests")
-        }
+        inferredTriple =
+            switch platform {
+            case .macOS:
+                Triple.x86_64MacOS
+            case .linux:
+                Triple.arm64Linux
+            case .android:
+                Triple.arm64Android
+            case .windows:
+                Triple.windows
+            default:
+                fatalError("unsupported platform in tests")
+            }
     } else {
         inferredTriple = triple ?? hostTriple
     }
@@ -185,7 +185,7 @@ public struct BuildPlanResult {
         sourceLocation: SourceLocation = #_sourceLocation,
     ) {
         if Test.current != nil {
-            #expect(self.targetMap.count ==  count, sourceLocation: sourceLocation)
+            #expect(self.targetMap.count == count, sourceLocation: sourceLocation)
         } else {
             XCTAssertEqual(self.targetMap.count, count, file: file, line: line)
         }
@@ -198,7 +198,7 @@ public struct BuildPlanResult {
         sourceLocation: SourceLocation = #_sourceLocation,
     ) {
         if Test.current != nil {
-            #expect(self.productMap.count ==  count, sourceLocation: sourceLocation)
+            #expect(self.productMap.count == count, sourceLocation: sourceLocation)
         } else {
             XCTAssertEqual(self.productMap.count, count, file: file, line: line)
         }

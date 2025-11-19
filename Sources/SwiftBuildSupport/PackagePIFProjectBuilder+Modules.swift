@@ -50,8 +50,7 @@ extension PackagePIFProjectBuilder {
             let pluginTarget = self.project[keyPath: pluginTargetKeyPath]
             log(
                 .debug,
-                "Created target '\(pluginTarget.id)' of type " +
-                "\(pluginTarget.productType) and name '\(pluginTarget.name)'"
+                "Created target '\(pluginTarget.id)' of type " + "\(pluginTarget.productType) and name '\(pluginTarget.name)'"
             )
         }
 
@@ -65,7 +64,8 @@ extension PackagePIFProjectBuilder {
                 // _other_ packages, but this should be resolved; see rdar://95467710.
                 /* assert(moduleDependency.packageName == self.package.name) */
 
-                let dependencyPlatformFilters = packageConditions
+                let dependencyPlatformFilters =
+                    packageConditions
                     .toPlatformFilter(toolsVersion: self.package.manifest.toolsVersion)
 
                 switch moduleDependency.type {
@@ -73,7 +73,8 @@ extension PackagePIFProjectBuilder {
                     // For executable targets, add a build time dependency on the product.
                     // FIXME: Maybe we should we do this at the libSwiftPM level.
                     let moduleProducts = self.package.products.filter(\.isMainModuleProduct)
-                    let productDependency = moduleDependency
+                    let productDependency =
+                        moduleDependency
                         .productRepresentingDependencyOfBuildPlugin(in: moduleProducts)
 
                     if let productDependency {
@@ -110,7 +111,8 @@ extension PackagePIFProjectBuilder {
                     buildSettings: &buildSettings
                 ) {
                     let dependencyGUID = productDependency.pifTargetGUID
-                    let dependencyPlatformFilters = packageConditions
+                    let dependencyPlatformFilters =
+                        packageConditions
                         .toPlatformFilter(toolsVersion: self.package.manifest.toolsVersion)
 
                     self.project[keyPath: pluginTargetKeyPath].common.addDependency(
@@ -185,8 +187,8 @@ extension PackagePIFProjectBuilder {
             self.builtModulesAndProducts.append(dynamicLibraryVariant)
 
             guard let pifTarget = staticLibrary.pifTarget,
-                  let pifTargetKeyPath = self.project.findTarget(id: pifTarget.id),
-                  let dynamicPifTarget = dynamicLibraryVariant.pifTarget
+                let pifTargetKeyPath = self.project.findTarget(id: pifTarget.id),
+                let dynamicPifTarget = dynamicLibraryVariant.pifTarget
             else {
                 fatalError("Could not assign dynamic PIF target")
             }
@@ -202,11 +204,12 @@ extension PackagePIFProjectBuilder {
         precondition(executableModule.type == .executable)
         guard self.package.manifest.toolsVersion >= .v5_5 else { return }
 
-        let inputResourceBundleName: String? = if mainModuleTargetNamesWithResources.contains(executableModule.name) {
-            resourceBundleName(forModuleName: executableModule.name)
-        } else {
-            nil
-        }
+        let inputResourceBundleName: String? =
+            if mainModuleTargetNamesWithResources.contains(executableModule.name) {
+                resourceBundleName(forModuleName: executableModule.name)
+            } else {
+                nil
+            }
 
         let (testableExecutableModule, _) = try buildSourceModule(
             executableModule,
@@ -261,12 +264,13 @@ extension PackagePIFProjectBuilder {
         // For now wrapped in a static archive, since Swift Build can *not* yet produce a single .o as an output.
 
         // Macros are currently the only target type that requires explicit approval by users.
-        let approvedByUser: Bool = if desiredModuleType == .macro {
-            // Look up the current approval status in the underlying fingerprint storage.
-            pifBuilder.delegate.validateMacroFingerprint(for: sourceModule) == true
-        } else {
-            true
-        }
+        let approvedByUser: Bool =
+            if desiredModuleType == .macro {
+                // Look up the current approval status in the underlying fingerprint storage.
+                pifBuilder.delegate.validateMacroFingerprint(for: sourceModule) == true
+            } else {
+                true
+            }
 
         let sourceModuleTargetKeyPath = try self.project.addTarget { _ in
             ProjectModel.Target(
@@ -281,8 +285,7 @@ extension PackagePIFProjectBuilder {
             let sourceModule = self.project[keyPath: sourceModuleTargetKeyPath]
             log(
                 .debug,
-                "Created target '\(sourceModule.id)' of type '\(sourceModule.productType)' " +
-                "with name '\(sourceModule.name)' and product name '\(sourceModule.productName)'"
+                "Created target '\(sourceModule.id)' of type '\(sourceModule.productType)' " + "with name '\(sourceModule.name)' and product name '\(sourceModule.productName)'"
             )
         }
 
@@ -320,9 +323,10 @@ extension PackagePIFProjectBuilder {
         }
 
         // Find the PIF target for the resource bundle, if any. Otherwise fall back to the module.
-        let resourceBundleTargetKeyPath = self.resourceBundleTargetKeyPath(
-            forModuleName: sourceModule.name
-        ) ?? sourceModuleTargetKeyPath
+        let resourceBundleTargetKeyPath =
+            self.resourceBundleTargetKeyPath(
+                forModuleName: sourceModule.name
+            ) ?? sourceModuleTargetKeyPath
 
         // Add build tool commands to the resource bundle target.
         if desiredModuleType != .executable && desiredModuleType != .macro && addBuildToolPluginCommands {
@@ -351,7 +355,7 @@ extension PackagePIFProjectBuilder {
         // Generate a module map file, if needed.
         var moduleMapFileContents = ""
         let generatedModuleMapDir = "$(GENERATED_MODULEMAP_DIR)"
-        let generatedModuleMapPath = try RelativePath(validating:"\(generatedModuleMapDir)/\(sourceModule.name).modulemap").pathString
+        let generatedModuleMapPath = try RelativePath(validating: "\(generatedModuleMapDir)/\(sourceModule.name).modulemap").pathString
 
         if sourceModule.usesSwift && desiredModuleType != .macro {
             // Generate ObjC compatibility header for Swift library targets.
@@ -359,11 +363,11 @@ extension PackagePIFProjectBuilder {
             settings[.SWIFT_OBJC_INTERFACE_HEADER_NAME] = "\(sourceModule.name)-Swift.h"
 
             moduleMapFileContents = """
-            module \(sourceModule.c99name) {
-            header "\(sourceModule.name)-Swift.h"
-            export *
-            }
-            """
+                module \(sourceModule.c99name) {
+                header "\(sourceModule.name)-Swift.h"
+                export *
+                }
+                """
             // We only need to impart this to C clients.
             impartedSettings[.OTHER_CFLAGS] = ["-fmodule-map-file=\(generatedModuleMapPath)", "$(inherited)"]
         } else {
@@ -380,22 +384,22 @@ extension PackagePIFProjectBuilder {
             case .umbrellaHeader(let path):
                 log(.debug, "\(package.name).\(sourceModule.name) generated umbrella header")
                 moduleMapFileContents = """
-                module \(sourceModule.c99name) {
-                umbrella header "\(path.escapedPathString)"
-                export *
-                }
-                """
+                    module \(sourceModule.c99name) {
+                    umbrella header "\(path.escapedPathString)"
+                    export *
+                    }
+                    """
                 // Pass the path of the module map up to all direct and indirect clients.
                 impartedSettings[.OTHER_CFLAGS] = ["-fmodule-map-file=\(generatedModuleMapPath)", "$(inherited)"]
                 impartedSettings[.OTHER_SWIFT_FLAGS] = ["-Xcc", "-fmodule-map-file=\(generatedModuleMapPath)", "$(inherited)"]
             case .umbrellaDirectory(let path):
                 log(.debug, "\(package.name).\(sourceModule.name) generated umbrella directory")
                 moduleMapFileContents = """
-                module \(sourceModule.c99name) {
-                umbrella "\(path.escapedPathString)"
-                export *
-                }
-                """
+                    module \(sourceModule.c99name) {
+                    umbrella "\(path.escapedPathString)"
+                    export *
+                    }
+                    """
                 // Pass the path of the module map up to all direct and indirect clients.
                 impartedSettings[.OTHER_CFLAGS] = ["-fmodule-map-file=\(generatedModuleMapPath)", "$(inherited)"]
                 impartedSettings[.OTHER_SWIFT_FLAGS] = ["-Xcc", "-fmodule-map-file=\(generatedModuleMapPath)", "$(inherited)"]
@@ -499,12 +503,12 @@ extension PackagePIFProjectBuilder {
             for platform in ProjectModel.BuildSettings.Platform.allCases {
                 // darwin & freebsd
                 switch platform {
-                    case .macOS, .macCatalyst, .iOS, .watchOS, .tvOS, .xrOS, .driverKit, .freebsd:
-                        impartedSettings[.OTHER_LDFLAGS, platform] = ["-lc++", "$(inherited)"]
-                    case .android, .linux, .wasi, .openbsd:
-                        impartedSettings[.OTHER_LDFLAGS, platform] = ["-lstdc++", "$(inherited)"]
-                    case .windows, ._iOSDevice:
-                        break
+                case .macOS, .macCatalyst, .iOS, .watchOS, .tvOS, .xrOS, .driverKit, .freebsd:
+                    impartedSettings[.OTHER_LDFLAGS, platform] = ["-lc++", "$(inherited)"]
+                case .android, .linux, .wasi, .openbsd:
+                    impartedSettings[.OTHER_LDFLAGS, platform] = ["-lstdc++", "$(inherited)"]
+                case .windows, ._iOSDevice:
+                    break
                 }
             }
         }
@@ -596,7 +600,7 @@ extension PackagePIFProjectBuilder {
                 // We have an explicit resource bundle via Bundle.module.
                 // #bundle should call into that.
                 settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS].lazilyInitializeAndMutate(initialValue: ["$(inherited)"]) { $0.append("SWIFT_MODULE_RESOURCE_BUNDLE_AVAILABLE") }
-            } // else we won't set either of those and just let #bundle point to the same bundle as the source code.
+            }  // else we won't set either of those and just let #bundle point to the same bundle as the source code.
         }
 
         if desiredModuleType == .macro {
@@ -617,7 +621,8 @@ extension PackagePIFProjectBuilder {
                 // _other_ packages, but this should be resolved; see rdar://95467710.
                 /* assert(moduleDependency.packageName == self.package.name) */
 
-                let dependencyPlatformFilters = packageConditions
+                let dependencyPlatformFilters =
+                    packageConditions
                     .toPlatformFilter(toolsVersion: self.package.manifest.toolsVersion)
 
                 switch moduleDependency.type {
@@ -625,7 +630,8 @@ extension PackagePIFProjectBuilder {
                     // Always depend on product of executable targets (if available).
                     // FIXME: Maybe we should we do this at the libSwiftPM level.
                     let moduleMainProducts = self.package.products.filter(\.isMainModuleProduct)
-                    if let product = moduleDependency
+                    if let product =
+                        moduleDependency
                         .productRepresentingDependencyOfBuildPlugin(in: moduleMainProducts)
                     {
                         self.project[keyPath: sourceModuleTargetKeyPath].common.addDependency(
@@ -705,7 +711,8 @@ extension PackagePIFProjectBuilder {
                     product: productDependency.underlying,
                     buildSettings: &settings
                 ) {
-                    let dependencyPlatformFilters = packageConditions
+                    let dependencyPlatformFilters =
+                        packageConditions
                         .toPlatformFilter(toolsVersion: self.package.manifest.toolsVersion)
                     let shouldLinkProduct = shouldLinkProduct && productDependency.isLinkable
 
@@ -788,13 +795,14 @@ extension PackagePIFProjectBuilder {
             PackagePIFBuilder.LinkedPackageBinary(dependency: $0, package: self.package)
         }
 
-        let productOrModuleType: PackagePIFBuilder.ModuleOrProductType = if desiredModuleType == .dynamicLibrary {
-            pifBuilder.createDylibForDynamicProducts ? .dynamicLibrary : .framework
-        } else if desiredModuleType == .macro {
-            .macro
-        } else {
-            .module
-        }
+        let productOrModuleType: PackagePIFBuilder.ModuleOrProductType =
+            if desiredModuleType == .dynamicLibrary {
+                pifBuilder.createDylibForDynamicProducts ? .dynamicLibrary : .framework
+            } else if desiredModuleType == .macro {
+                .macro
+            } else {
+                .module
+            }
 
         let moduleOrProduct = PackagePIFBuilder.ModuleOrProduct(
             type: productOrModuleType,
@@ -842,8 +850,7 @@ extension PackagePIFProjectBuilder {
 
         // Impart the header search path to all direct and indirect clients.
         var impartedSettings = ProjectModel.BuildSettings()
-        impartedSettings[.OTHER_CFLAGS] = ["-fmodule-map-file=\(systemLibrary.modulemapFileAbsolutePath)"] +
-            pkgConfig.cFlags.prepending("$(inherited)")
+        impartedSettings[.OTHER_CFLAGS] = ["-fmodule-map-file=\(systemLibrary.modulemapFileAbsolutePath)"] + pkgConfig.cFlags.prepending("$(inherited)")
         impartedSettings[.OTHER_LDFLAGS] = pkgConfig.libs.prepending("$(inherited)")
         impartedSettings[.OTHER_SWIFT_FLAGS] = ["-Xcc"] + impartedSettings[.OTHER_CFLAGS]!
         log(.debug, indent: 1, "Added '\(systemLibrary.path.pathString)' to imparted HEADER_SEARCH_PATHS")

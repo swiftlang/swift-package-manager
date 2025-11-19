@@ -37,17 +37,17 @@ struct PluginsBuildPlanTests {
         config: BuildConfiguration,
     ) async throws {
         try await withKnownIssue(isIntermittent: true) {
-        try await fixture(name: "Miscellaneous/Plugins/MySourceGenPlugin") { fixturePath in
-            let (stdout, _) = try await executeSwiftBuild(
-                fixturePath,
-                configuration: config,
-                buildSystem: .native
-            )
-            #expect(stdout.contains("Build complete!"))
-            // FIXME: This is temporary until build of plugin tools is extracted into its own command.
-            #expect(localFileSystem.exists(fixturePath.appending(RelativePath(".build/plugin-tools.db"))))
-            #expect(localFileSystem.exists(fixturePath.appending(RelativePath(".build/build.db"))))
-        }
+            try await fixture(name: "Miscellaneous/Plugins/MySourceGenPlugin") { fixturePath in
+                let (stdout, _) = try await executeSwiftBuild(
+                    fixturePath,
+                    configuration: config,
+                    buildSystem: .native
+                )
+                #expect(stdout.contains("Build complete!"))
+                // FIXME: This is temporary until build of plugin tools is extracted into its own command.
+                #expect(localFileSystem.exists(fixturePath.appending(RelativePath(".build/plugin-tools.db"))))
+                #expect(localFileSystem.exists(fixturePath.appending(RelativePath(".build/build.db"))))
+            }
         } when: {
             ProcessInfo.hostOperatingSystem == .windows
         }
@@ -94,11 +94,11 @@ struct PluginsBuildPlanTests {
             }
             let pluginToolName: String
             switch buildData.buildSystem {
-                case .native:
+            case .native:
                 pluginToolName = "plugintool-tool"
-                case .swiftbuild:
+            case .swiftbuild:
                 pluginToolName = "plugintool"
-                case .xcode:
+            case .xcode:
                 pluginToolName = ""
                 Issue.record("Test has not been updated for this build system")
             }
@@ -164,13 +164,13 @@ struct PluginsBuildPlanTests {
             let pluginToolName: String
             let pluginToolBinPath: AbsolutePath
             switch buildData.buildSystem {
-                case .native:
+            case .native:
                 pluginToolName = "plugintool-tool"
                 pluginToolBinPath = hostBinPath
-                case .swiftbuild:
+            case .swiftbuild:
                 pluginToolName = "plugintool"
                 pluginToolBinPath = targetBinPath
-                case .xcode:
+            case .xcode:
                 pluginToolName = ""
                 pluginToolBinPath = AbsolutePath("/")
                 Issue.record("Test has not been updated for this build system")

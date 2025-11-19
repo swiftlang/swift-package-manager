@@ -40,8 +40,8 @@ public struct PkgConfigResult {
     /// If the pc file was not found.
     public var couldNotFindConfigFile: Bool {
         switch error {
-            case PkgConfigError.couldNotFindConfigFile?: return true
-            default: return false
+        case PkgConfigError.couldNotFindConfigFile?: return true
+        default: return false
         }
     }
 
@@ -252,11 +252,11 @@ public func allowlist(
                 continue
             }
 
-          // Warning suppression flag has no arguments and is not suffixed.
-          guard !flag.hasPrefix("-w") || flag == "-w" else {
-            disallowed += [flag]
-            continue
-          }
+            // Warning suppression flag has no arguments and is not suffixed.
+            guard !flag.hasPrefix("-w") || flag == "-w" else {
+                disallowed += [flag]
+                continue
+            }
 
             // If the flag and its value are separated, skip next flag.
             if flag == filter && flag != "-w" {

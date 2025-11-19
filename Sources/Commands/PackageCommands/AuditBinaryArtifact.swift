@@ -39,7 +39,8 @@ struct AuditBinaryArtifact: AsyncSwiftCommand {
         let clang = try hostToolchain.getClangCompiler()
         let objdump = try hostToolchain.getLLVMObjdump()
         let hostTriple = try Triple.getVersionedHostTriple(
-            usingSwiftCompiler: hostToolchain.swiftCompilerPath)
+            usingSwiftCompiler: hostToolchain.swiftCompilerPath
+        )
         let fileSystem = swiftCommandState.fileSystem
 
         guard !(hostTriple.isDarwin() || hostTriple.isWindows()) else {
@@ -51,17 +52,25 @@ struct AuditBinaryArtifact: AsyncSwiftCommand {
         var hostDefaultSymbols = ReferencedSymbols()
         let symbolProvider = LLVMObjdumpSymbolProvider(objdumpPath: objdump)
         for binary in try await detectDefaultObjects(
-            clang: clang, fileSystem: fileSystem, hostTriple: hostTriple,
+            clang: clang,
+            fileSystem: fileSystem,
+            hostTriple: hostTriple,
             observabilityScope:
                 swiftCommandState.observabilityScope.makeChildScope(
-                    description: "DefaultObjectsDetector"))
-        {
+                    description: "DefaultObjectsDetector"
+                )
+        ) {
             try await symbolProvider.symbols(
-                for: binary, symbols: &hostDefaultSymbols, recordUndefined: false)
+                for: binary,
+                symbols: &hostDefaultSymbols,
+                recordUndefined: false
+            )
         }
 
         let extractedArtifact = try await extractArtifact(
-            fileSystem: fileSystem, scratchDirectory: swiftCommandState.scratchDirectory)
+            fileSystem: fileSystem,
+            scratchDirectory: swiftCommandState.scratchDirectory
+        )
 
         guard
             let artifactKind = try Workspace.BinaryArtifactsManager.deriveBinaryArtifactKind(
@@ -74,11 +83,15 @@ struct AuditBinaryArtifact: AsyncSwiftCommand {
         }
 
         let module = BinaryModule(
-            name: path.basenameWithoutExt, kind: artifactKind, path: extractedArtifact,
-            origin: .local)
+            name: path.basenameWithoutExt,
+            kind: artifactKind,
+            path: extractedArtifact,
+            origin: .local
+        )
         for library in try module.parseLibraryArtifactArchives(
-            for: hostTriple, fileSystem: fileSystem)
-        {
+            for: hostTriple,
+            fileSystem: fileSystem
+        ) {
             var symbols = hostDefaultSymbols
             try await symbolProvider.symbols(for: library.libraryPath, symbols: &symbols)
 
@@ -104,7 +117,8 @@ struct AuditBinaryArtifact: AsyncSwiftCommand {
         let archiver = UniversalArchiver(fileSystem)
 
         if let lastPathComponent = path.components.last,
-            lastPathComponent.hasSuffix("artifactbundle") {
+            lastPathComponent.hasSuffix("artifactbundle")
+        {
             return path
         }
 
@@ -113,7 +127,8 @@ struct AuditBinaryArtifact: AsyncSwiftCommand {
         else {
             let supportedExtensionList = archiver.supportedExtensions.joined(separator: ", ")
             throw StringError(
-                "unexpected file type; supported extensions are: \(supportedExtensionList)")
+                "unexpected file type; supported extensions are: \(supportedExtensionList)"
+            )
         }
 
         // Ensure that the path with the accepted extension is a file.
@@ -123,7 +138,8 @@ struct AuditBinaryArtifact: AsyncSwiftCommand {
 
         let archiveDirectory = scratchDirectory.appending(
             components: "artifact-auditing",
-            path.basenameWithoutExt, UUID().uuidString
+            path.basenameWithoutExt,
+            UUID().uuidString
         )
         try fileSystem.forceCreateDirectory(at: archiveDirectory)
 

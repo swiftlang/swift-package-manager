@@ -159,7 +159,7 @@ struct PackageCommandTests {
     func commandFailsSilentlyWhenFetchingPluginFails(
         data: BuildData,
     ) async throws {
-        try await fixture(name: "Miscellaneous/Plugins/MySourceGenPlugin") { fixturePath in // Contains only build-tool-plugins, therefore would not appear in available plugin commands.
+        try await fixture(name: "Miscellaneous/Plugins/MySourceGenPlugin") { fixturePath in  // Contains only build-tool-plugins, therefore would not appear in available plugin commands.
             let (stdout, _) = try await execute(
                 ["--help"],
                 packagePath: fixturePath,
@@ -1366,7 +1366,7 @@ struct PackageCommandTests {
                 Issue.record("unexpected result")
                 return
             }
-            #expect(`default`["name"]?.stringValue ==  "default")
+            #expect(`default`["name"]?.stringValue == "default")
             guard case .array(let enabledTraits) = `default`["enabledTraits"] else {
                 Issue.record("unexpected result")
                 return
@@ -1383,7 +1383,7 @@ struct PackageCommandTests {
                 Issue.record("unexpected result")
                 return
             }
-            #expect(trait1["name"]?.stringValue ==  "trait1")
+            #expect(trait1["name"]?.stringValue == "trait1")
 
             guard case let third = contents[2] else {
                 Issue.record("unexpected result")
@@ -1393,7 +1393,7 @@ struct PackageCommandTests {
                 Issue.record("unexpected result")
                 return
             }
-            #expect(trait2["name"]?.stringValue ==  "trait2")
+            #expect(trait2["name"]?.stringValue == "trait2")
 
             // Show traits for the dependency based on its package id
             (textOutput, _) = try await execute(
@@ -1428,7 +1428,7 @@ struct PackageCommandTests {
                 Issue.record("unexpected result")
                 return
             }
-            #expect(trait3["name"]?.stringValue ==  "trait3")
+            #expect(trait3["name"]?.stringValue == "trait3")
         }
     }
 
@@ -2500,10 +2500,10 @@ struct PackageCommandTests {
                 // executable
                 do {
                     _ = try await execute(
-                      ["add-target", "client", "--dependencies", "MyLib", "OtherLib", "--type", "executable"],
-                      packagePath: path,
-                      configuration: data.config,
-                      buildSystem: data.buildSystem,
+                        ["add-target", "client", "--dependencies", "MyLib", "OtherLib", "--type", "executable"],
+                        packagePath: path,
+                        configuration: data.config,
+                        buildSystem: data.buildSystem,
                     )
 
                     let contents: String = try fs.readFileContents(manifest)
@@ -2519,10 +2519,10 @@ struct PackageCommandTests {
                 // library
                 do {
                     _ = try await execute(
-                      ["add-target", "MyLib", "--type", "library"],
-                      packagePath: path,
-                      configuration: data.config,
-                      buildSystem: data.buildSystem,
+                        ["add-target", "MyLib", "--type", "library"],
+                        packagePath: path,
+                        configuration: data.config,
+                        buildSystem: data.buildSystem,
                     )
 
                     let contents: String = try fs.readFileContents(manifest)
@@ -2537,10 +2537,10 @@ struct PackageCommandTests {
                 // test
                 do {
                     _ = try await execute(
-                      ["add-target", "MyTest", "--type", "test"],
-                      packagePath: path,
-                      configuration: data.config,
-                      buildSystem: data.buildSystem,
+                        ["add-target", "MyTest", "--type", "test"],
+                        packagePath: path,
+                        configuration: data.config,
+                        buildSystem: data.buildSystem,
                     )
 
                     let contents: String = try fs.readFileContents(manifest)
@@ -2555,10 +2555,10 @@ struct PackageCommandTests {
                 // macro + swift-syntax dependency
                 do {
                     _ = try await execute(
-                      ["add-target", "MyMacro", "--type", "macro"],
-                      packagePath: path,
-                      configuration: data.config,
-                      buildSystem: data.buildSystem,
+                        ["add-target", "MyMacro", "--type", "macro"],
+                        packagePath: path,
+                        configuration: data.config,
+                        buildSystem: data.buildSystem,
                     )
 
                     let contents: String = try fs.readFileContents(manifest)
@@ -3070,7 +3070,7 @@ struct PackageCommandTests {
         data: BuildData,
     ) async throws {
         try await withKnownIssue(
-            isIntermittent: ProcessInfo.isHostAmazonLinux2() //rdar://134238535
+            isIntermittent: ProcessInfo.isHostAmazonLinux2()  //rdar://134238535
         ) {
             // Create a temporary directory without Package.swift
             try await fixture(name: "Miscellaneous") { fixturePath in
@@ -3255,7 +3255,6 @@ struct PackageCommandTests {
             let value = try await AsyncProcess.checkNonZeroExit(arguments: exec).spm_chomp()
             #expect(value == "\(5)")
 
-
             // Get path to `bar` checkout.
             let barPath = try SwiftPM.packagePath(for: "bar", packageRoot: fooPath)
 
@@ -3291,7 +3290,7 @@ struct PackageCommandTests {
                     ]!
                     #expect(resolvedPackage.packageRef.identity == PackageIdentity(path: path))
                     guard case .localSourceControl(let path) = resolvedPackage.packageRef.kind,
-                          path.pathString.hasSuffix(pkg)
+                        path.pathString.hasSuffix(pkg)
                     else {
                         Issue.record("invalid resolved package location \(path)")
                         return
@@ -4527,8 +4526,8 @@ struct PackageCommandTests {
 
         @Test(
             .tags(
-              .Feature.Command.Build,
-              .Feature.PackageType.BuildToolPlugin  
+                .Feature.Command.Build,
+                .Feature.PackageType.BuildToolPlugin
             ),
             .requiresSwiftConcurrencySupport,
             arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
@@ -5269,8 +5268,8 @@ struct PackageCommandTests {
         // Test reporting of plugin diagnostic messages at different verbosity levels
         @Test(
             .tags(
-              .Feature.Command.Build,
-              .Feature.PackageType.CommandPlugin 
+                .Feature.Command.Build,
+                .Feature.PackageType.CommandPlugin
             ),
             .requiresSwiftConcurrencySupport,
             .issue(
@@ -5464,8 +5463,8 @@ struct PackageCommandTests {
         // Test target builds requested by a command plugin
         @Test(
             .tags(
-              .Feature.Command.Run,
-              .Feature.PackageType.CommandPlugin
+                .Feature.Command.Run,
+                .Feature.PackageType.CommandPlugin
             ),
             .IssueWindowsRelativePathAssert,
             .requiresSwiftConcurrencySupport,
@@ -5499,8 +5498,8 @@ struct PackageCommandTests {
         // Test target builds requested by a command plugin
         @Test(
             .tags(
-              .Feature.Command.Run,
-              .Feature.PackageType.CommandPlugin
+                .Feature.Command.Run,
+                .Feature.PackageType.CommandPlugin
             ),
             .IssueWindowsRelativePathAssert,
             .requiresSwiftConcurrencySupport,
@@ -5538,8 +5537,8 @@ struct PackageCommandTests {
         // Test target builds requested by a command plugin
         @Test(
             .tags(
-              .Feature.Command.Run,
-              .Feature.PackageType.CommandPlugin
+                .Feature.Command.Run,
+                .Feature.PackageType.CommandPlugin
             ),
             .IssueWindowsRelativePathAssert,
             .requiresSwiftConcurrencySupport,
@@ -5576,8 +5575,8 @@ struct PackageCommandTests {
         // Test target builds requested by a command plugin
         @Test(
             .tags(
-              .Feature.Command.Run,
-              .Feature.PackageType.CommandPlugin
+                .Feature.Command.Run,
+                .Feature.PackageType.CommandPlugin
             ),
             .IssueWindowsRelativePathAssert,
             .requiresSwiftConcurrencySupport,
@@ -5617,8 +5616,8 @@ struct PackageCommandTests {
 
         @Test(
             .tags(
-              .Feature.Command.Run,
-              .Feature.PackageType.CommandPlugin
+                .Feature.Command.Run,
+                .Feature.PackageType.CommandPlugin
             ),
             .IssueWindowsRelativePathAssert,
             arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
@@ -5646,8 +5645,8 @@ struct PackageCommandTests {
 
         @Test(
             .tags(
-              .Feature.Command.Run,
-              .Feature.PackageType.CommandPlugin
+                .Feature.Command.Run,
+                .Feature.PackageType.CommandPlugin
             ),
             .IssueWindowsRelativePathAssert,
             arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
@@ -5674,8 +5673,8 @@ struct PackageCommandTests {
 
         @Test(
             .tags(
-              .Feature.Command.Run,
-              .Feature.PackageType.CommandPlugin
+                .Feature.Command.Run,
+                .Feature.PackageType.CommandPlugin
             ),
             .IssueWindowsRelativePathAssert,
             .tags(
@@ -5707,8 +5706,8 @@ struct PackageCommandTests {
         // Test logging of builds initiated by a command plugin
         @Test(
             .tags(
-              .Feature.Command.Build,
-              .Feature.PackageType.CommandPlugin
+                .Feature.Command.Build,
+                .Feature.PackageType.CommandPlugin
             ),
             .IssueWindowsRelativePathAssert,
             .requiresSwiftConcurrencySupport,
@@ -6458,7 +6457,8 @@ struct PackageCommandTests {
                     }
                 }
             } when: {
-                let shouldSkip: Bool = (ProcessInfo.hostOperatingSystem == .windows && data.buildSystem == .swiftbuild)
+                let shouldSkip: Bool =
+                    (ProcessInfo.hostOperatingSystem == .windows && data.buildSystem == .swiftbuild)
                     || !CiEnvironment.runningInSmokeTestPipeline
 
                 #if compiler(>=6.3)
@@ -7338,13 +7338,13 @@ struct PackageCommandTests {
                     )
                     switch data.buildSystem {
                     case .native:
-                            #expect(!stdout.contains("Compiling plugin MyBuildToolPlugin"), "stderr: \(stderr)")
-                            #expect(stdout.contains("Compiling plugin MyCommandPlugin"), "stderr: \(stderr)")
-                        case .swiftbuild:
+                        #expect(!stdout.contains("Compiling plugin MyBuildToolPlugin"), "stderr: \(stderr)")
+                        #expect(stdout.contains("Compiling plugin MyCommandPlugin"), "stderr: \(stderr)")
+                    case .swiftbuild:
                         // nothing specific
                         break
-                        case .xcode:
-                            Issue.record("Test expected have not been considered")
+                    case .xcode:
+                        Issue.record("Test expected have not been considered")
                     }
                     #expect(!stdout.contains("Building for \(data.config.buildFor)..."), "stderr: \(stderr)")
                 }

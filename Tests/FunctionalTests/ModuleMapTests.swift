@@ -33,16 +33,16 @@ final class ModuleMapsTestCase: XCTestCase {
             try await AsyncProcess.checkNonZeroExit(args: executableName("clang"), "-shared", input.pathString, "-o", output.pathString)
 
             var Xld = ["-L", outdir.pathString]
-        #if os(Linux) || os(Android)
-            Xld += ["-rpath", outdir.pathString]
-        #endif
+            #if os(Linux) || os(Android)
+                Xld += ["-rpath", outdir.pathString]
+            #endif
 
             try await body(fixturePath, Xld)
         }
     }
 
     func testDirectDependency() async throws {
-         try XCTSkipOnWindows(because: "fails to build on windows (maybe not supported?)")
+        try XCTSkipOnWindows(because: "fails to build on windows (maybe not supported?)")
         try await fixtureXCTest(name: "ModuleMaps/Direct", cModuleName: "CFoo", rootpkg: "App") { fixturePath, Xld in
             await XCTAssertBuilds(
                 fixturePath.appending("App"),
@@ -71,19 +71,22 @@ final class ModuleMapsTestCase: XCTestCase {
                 Xld: Xld,
                 buildSystem: .native,
             )
-            
+
             func verify(_ conf: String) async throws {
                 let triple = try UserToolchain.default.targetTriple
                 let out = try await AsyncProcess.checkNonZeroExit(
                     args: fixturePath.appending(components: "packageA", ".build", triple.platformBuildPathComponent, conf, "packageA").pathString
                 )
-                XCTAssertEqual(out, """
+                XCTAssertEqual(
+                    out,
+                    """
                     calling Y.bar()
                     Y.bar() called
                     X.foo() called
                     123
 
-                    """)
+                    """
+                )
             }
 
             try await verify("debug")

@@ -99,13 +99,13 @@ extension [SwiftSDKBundle] {
                             if let matchedByID {
                                 observabilityScope.emit(
                                     warning:
-                                    """
-                                    multiple Swift SDKs match ID `\(artifactID)` and host triple \(
+                                        """
+                                        multiple Swift SDKs match ID `\(artifactID)` and host triple \(
                                         hostTriple.tripleString
-                                    ), selected one at \(
+                                        ), selected one at \(
                                         matchedByID.path.appending(matchedByID.variant.metadata.path)
-                                    )
-                                    """
+                                        )
+                                        """
                                 )
                             } else {
                                 matchedByID = (bundle.path, variant, swiftSDK)
@@ -116,13 +116,13 @@ extension [SwiftSDKBundle] {
                             if let matchedByTriple {
                                 observabilityScope.emit(
                                     warning:
-                                    """
-                                    multiple Swift SDKs match target triple `\(selector)` and host triple \(
+                                        """
+                                        multiple Swift SDKs match target triple `\(selector)` and host triple \(
                                         hostTriple.tripleString
-                                    ), selected one at \(
+                                        ), selected one at \(
                                         matchedByTriple.path.appending(matchedByTriple.variant.metadata.path)
-                                    )
-                                    """
+                                        )
+                                        """
                                 )
                             } else {
                                 matchedByTriple = (bundle.path, variant, swiftSDK)
@@ -136,11 +136,11 @@ extension [SwiftSDKBundle] {
         if let matchedByID, let matchedByTriple, matchedByID != matchedByTriple {
             observabilityScope.emit(
                 warning:
-                """
-                multiple Swift SDKs match the query `\(selector)` and host triple \(
+                    """
+                    multiple Swift SDKs match the query `\(selector)` and host triple \(
                     hostTriple.tripleString
-                ), selected one at \(matchedByID.path.appending(matchedByID.variant.metadata.path))
-                """
+                    ), selected one at \(matchedByID.path.appending(matchedByID.variant.metadata.path))
+                    """
             )
         }
 

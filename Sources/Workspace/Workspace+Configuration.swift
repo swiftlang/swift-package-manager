@@ -156,7 +156,7 @@ extension Workspace {
 
         /// Path to the shared prebuilts cache
         public var sharedPrebuiltsCacheDirectory: AbsolutePath? {
-            self.sharedCacheDirectory.map { $0.appending("prebuilts")}
+            self.sharedCacheDirectory.map { $0.appending("prebuilts") }
         }
 
         /// Create a new workspace location.
@@ -292,9 +292,9 @@ extension Workspace.Configuration {
 
         public static var `default`: Self {
             #if canImport(Security)
-            Self(netrc: .user, keychain: .enabled)
+                Self(netrc: .user, keychain: .enabled)
             #else
-            Self(netrc: .user, keychain: .disabled)
+                Self(netrc: .user, keychain: .disabled)
             #endif
         }
 
@@ -335,19 +335,21 @@ extension Workspace.Configuration {
             switch self.keychain {
             case .enabled:
                 #if canImport(Security)
-                providers.append(KeychainAuthorizationProvider(observabilityScope: observabilityScope))
+                    providers.append(KeychainAuthorizationProvider(observabilityScope: observabilityScope))
                 #else
-                throw InternalError("Keychain not supported on this platform")
+                    throw InternalError("Keychain not supported on this platform")
                 #endif
             case .disabled:
                 // noop
                 break
             }
 
-            return providers.isEmpty ? .none : CompositeAuthorizationProvider(
-                providers,
-                observabilityScope: observabilityScope
-            )
+            return providers.isEmpty
+                ? .none
+                : CompositeAuthorizationProvider(
+                    providers,
+                    observabilityScope: observabilityScope
+                )
         }
 
         public func makeRegistryAuthorizationProvider(
@@ -360,9 +362,9 @@ extension Workspace.Configuration {
             switch self.keychain {
             case .enabled:
                 #if canImport(Security)
-                providers.append(KeychainAuthorizationProvider(observabilityScope: observabilityScope))
+                    providers.append(KeychainAuthorizationProvider(observabilityScope: observabilityScope))
                 #else
-                throw InternalError("Keychain not supported on this platform")
+                    throw InternalError("Keychain not supported on this platform")
                 #endif
             case .disabled:
                 // noop
@@ -472,7 +474,8 @@ extension Workspace.Configuration {
             sharedMirrorsFile: AbsolutePath?
         ) throws {
             self.localMirrors = .init(path: localMirrorsFile, fileSystem: fileSystem, deleteWhenEmpty: true)
-            self.sharedMirrors = sharedMirrorsFile
+            self.sharedMirrors =
+                sharedMirrorsFile
                 .map { .init(path: $0, fileSystem: fileSystem, deleteWhenEmpty: false) }
             self.fileSystem = fileSystem
             // computes the initial mirrors

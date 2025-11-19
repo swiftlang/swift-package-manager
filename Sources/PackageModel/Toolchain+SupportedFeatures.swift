@@ -44,8 +44,8 @@ public enum SwiftCompilerFeature {
     public var name: String {
         switch self {
         case .optional(name: let name, migratable: _, categories: _, flagName: _),
-                .upcoming(name: let name, migratable: _, categories: _, enabledIn: _),
-                .experimental(name: let name, migratable: _, categories: _):
+            .upcoming(name: let name, migratable: _, categories: _, enabledIn: _),
+            .experimental(name: let name, migratable: _, categories: _):
             name
         }
     }
@@ -53,8 +53,8 @@ public enum SwiftCompilerFeature {
     public var migratable: Bool {
         switch self {
         case .optional(name: _, migratable: let migratable, categories: _, flagName: _),
-             .upcoming(name: _, migratable: let migratable, categories: _, enabledIn: _),
-             .experimental(name: _, migratable: let migratable, categories: _):
+            .upcoming(name: _, migratable: let migratable, categories: _, enabledIn: _),
+            .experimental(name: _, migratable: let migratable, categories: _):
             migratable
         }
     }
@@ -62,8 +62,8 @@ public enum SwiftCompilerFeature {
     public var categories: [String] {
         switch self {
         case .optional(name: _, migratable: _, categories: let categories, flagName: _),
-             .upcoming(name: _, migratable: _, categories: let categories, enabledIn: _),
-             .experimental(name: _, migratable: _, categories: let categories):
+            .upcoming(name: _, migratable: _, categories: let categories, enabledIn: _),
+            .experimental(name: _, migratable: _, categories: let categories):
             categories
         }
     }
@@ -122,11 +122,12 @@ extension Toolchain {
                 let name: String = try $0.get("name")
                 let categories: [String]? = try $0.getArrayIfAvailable("categories")
                 let migratable: Bool? = $0.get("migratable")
-                let enabledIn = if let version = try? $0.get(String.self, forKey: "enabled_in") {
-                    version
-                } else {
-                    try String($0.get(Int.self, forKey: "enabled_in"))
-                }
+                let enabledIn =
+                    if let version = try? $0.get(String.self, forKey: "enabled_in") {
+                        version
+                    } else {
+                        try String($0.get(Int.self, forKey: "enabled_in"))
+                    }
 
                 guard let mode = SwiftLanguageVersion(string: enabledIn) else {
                     throw InternalError("Unknown swift language mode: \(enabledIn)")

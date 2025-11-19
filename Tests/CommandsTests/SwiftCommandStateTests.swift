@@ -15,8 +15,7 @@
 @testable import Commands
 @testable import CoreCommands
 
-@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
-import func PackageGraph.loadModulesGraph
+@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly) import func PackageGraph.loadModulesGraph
 
 import _InternalTestSupport
 @testable import PackageModel
@@ -40,7 +39,7 @@ final class SwiftCommandStateTests: XCTestCase {
         if let originalWorkingDirectory {
             try? localFileSystem.changeCurrentWorkingDirectory(to: originalWorkingDirectory)
         }
-     }
+    }
 
     func testSeverityEnum() async throws {
         try fixtureXCTest(name: "Miscellaneous/Simple") { _ in
@@ -259,24 +258,24 @@ final class SwiftCommandStateTests: XCTestCase {
                 let tool = try SwiftCommandState.makeMockState(options: options)
 
                 // There is only one AuthorizationProvider depending on platform
-#if canImport(Security)
-                let keychainProvider = try tool.getRegistryAuthorizationProvider() as? KeychainAuthorizationProvider
-                XCTAssertNotNil(keychainProvider)
-#else
-                let netrcProvider = try tool.getRegistryAuthorizationProvider() as? NetrcAuthorizationProvider
-                XCTAssertNotNil(netrcProvider)
-                XCTAssertEqual(try netrcProvider.map { try resolveSymlinks($0.path) }, try resolveSymlinks(customPath))
+                #if canImport(Security)
+                    let keychainProvider = try tool.getRegistryAuthorizationProvider() as? KeychainAuthorizationProvider
+                    XCTAssertNotNil(keychainProvider)
+                #else
+                    let netrcProvider = try tool.getRegistryAuthorizationProvider() as? NetrcAuthorizationProvider
+                    XCTAssertNotNil(netrcProvider)
+                    XCTAssertEqual(try netrcProvider.map { try resolveSymlinks($0.path) }, try resolveSymlinks(customPath))
 
-                let auth = try tool.getRegistryAuthorizationProvider()?.authentication(for: "https://mymachine.labkey.org")
-                XCTAssertEqual(auth?.user, "custom@labkey.org")
-                XCTAssertEqual(auth?.password, "custom")
+                    let auth = try tool.getRegistryAuthorizationProvider()?.authentication(for: "https://mymachine.labkey.org")
+                    XCTAssertEqual(auth?.user, "custom@labkey.org")
+                    XCTAssertEqual(auth?.password, "custom")
 
-                // delete it
-                try localFileSystem.removeFileTree(customPath)
-                XCTAssertThrowsError(try tool.getRegistryAuthorizationProvider(), "error expected") { error in
-                    XCTAssertEqual(error as? StringError, StringError("did not find netrc file at \(customPath)"))
-                }
-#endif
+                    // delete it
+                    try localFileSystem.removeFileTree(customPath)
+                    XCTAssertThrowsError(try tool.getRegistryAuthorizationProvider(), "error expected") { error in
+                        XCTAssertEqual(error as? StringError, StringError("did not find netrc file at \(customPath)"))
+                    }
+                #endif
             }
 
             // Tests should not modify user's home dir .netrc so leaving that out intentionally
@@ -285,15 +284,21 @@ final class SwiftCommandStateTests: XCTestCase {
 
     func testDebugFormatFlags() async throws {
         let fs = InMemoryFileSystem(emptyFiles: [
-            "/Pkg/Sources/exe/main.swift",
+            "/Pkg/Sources/exe/main.swift"
         ])
 
         let observer = ObservabilitySystem.makeForTesting()
-        let graph = try loadModulesGraph(fileSystem: fs, manifests: [
-            Manifest.createRootManifest(displayName: "Pkg",
-                                        path: "/Pkg",
-                                        targets: [TargetDescription(name: "exe")])
-        ], observabilityScope: observer.topScope)
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Pkg",
+                    path: "/Pkg",
+                    targets: [TargetDescription(name: "exe")]
+                )
+            ],
+            observabilityScope: observer.topScope
+        )
 
         var plan: BuildPlan
 
@@ -307,8 +312,10 @@ final class SwiftCommandStateTests: XCTestCase {
             fileSystem: fs,
             observabilityScope: observer.topScope
         )
-        try XCTAssertMatch(plan.buildProducts.compactMap { $0 as? Build.ProductBuildDescription }.first?.linkArguments() ?? [],
-                           [.anySequence, "-g", "-use-ld=lld", "-Xlinker", "-debug:dwarf"])
+        try XCTAssertMatch(
+            plan.buildProducts.compactMap { $0 as? Build.ProductBuildDescription }.first?.linkArguments() ?? [],
+            [.anySequence, "-g", "-use-ld=lld", "-Xlinker", "-debug:dwarf"]
+        )
 
         /* -debug-info-format codeview */
         let explicitCodeViewOptions = try GlobalOptions.parse(["--triple", "x86_64-unknown-windows-msvc", "-debug-info-format", "codeview"])
@@ -321,8 +328,10 @@ final class SwiftCommandStateTests: XCTestCase {
             fileSystem: fs,
             observabilityScope: observer.topScope
         )
-        try XCTAssertMatch(plan.buildProducts.compactMap { $0 as? Build.ProductBuildDescription }.first?.linkArguments() ?? [],
-                           [.anySequence, "-g", "-debug-info-format=codeview", "-Xlinker", "-debug"])
+        try XCTAssertMatch(
+            plan.buildProducts.compactMap { $0 as? Build.ProductBuildDescription }.first?.linkArguments() ?? [],
+            [.anySequence, "-g", "-debug-info-format=codeview", "-Xlinker", "-debug"]
+        )
 
         // Explicitly pass Linux as when the `SwiftCommandState` tests are enabled on
         // Windows, this would fail otherwise as CodeView is supported on the
@@ -344,8 +353,10 @@ final class SwiftCommandStateTests: XCTestCase {
             fileSystem: fs,
             observabilityScope: observer.topScope
         )
-        try XCTAssertMatch(plan.buildProducts.compactMap { $0 as? Build.ProductBuildDescription }.first?.linkArguments() ?? [],
-                           [.anySequence, "-g", "-use-ld=lld", "-Xlinker", "-debug:dwarf"])
+        try XCTAssertMatch(
+            plan.buildProducts.compactMap { $0 as? Build.ProductBuildDescription }.first?.linkArguments() ?? [],
+            [.anySequence, "-g", "-use-ld=lld", "-Xlinker", "-debug:dwarf"]
+        )
 
         /* -debug-info-format none */
         let explicitNoDebugInfoOptions = try GlobalOptions.parse(["--triple", "x86_64-unknown-windows-msvc", "-debug-info-format", "none"])
@@ -357,8 +368,10 @@ final class SwiftCommandStateTests: XCTestCase {
             fileSystem: fs,
             observabilityScope: observer.topScope
         )
-        try XCTAssertMatch(plan.buildProducts.compactMap { $0 as? Build.ProductBuildDescription }.first?.linkArguments() ?? [],
-                           [.anySequence, "-gnone", .anySequence])
+        try XCTAssertMatch(
+            plan.buildProducts.compactMap { $0 as? Build.ProductBuildDescription }.first?.linkArguments() ?? [],
+            [.anySequence, "-gnone", .anySequence]
+        )
     }
 
     func testToolchainOption() async throws {
@@ -374,10 +387,10 @@ final class SwiftCommandStateTests: XCTestCase {
             hostSwiftcPath.pathString,
             hostArPath.pathString,
             targetSwiftcPath.pathString,
-            targetArPath.pathString
+            targetArPath.pathString,
         ])
 
-        for path in [hostSwiftcPath, hostArPath, targetSwiftcPath, targetArPath,] {
+        for path in [hostSwiftcPath, hostArPath, targetSwiftcPath, targetArPath] {
             try fs.updatePermissions(path, isExecutable: true)
         }
 
@@ -440,19 +453,22 @@ final class SwiftCommandStateTests: XCTestCase {
             hostSwiftcPath.pathString,
             hostArPath.pathString,
             targetSwiftcPath.pathString,
-            targetArPath.pathString
+            targetArPath.pathString,
         ])
 
-        for path in [hostSwiftcPath, hostArPath, targetSwiftcPath, targetArPath,] {
+        for path in [hostSwiftcPath, hostArPath, targetSwiftcPath, targetArPath] {
             try fs.updatePermissions(path, isExecutable: true)
         }
 
-        try fs.writeFileContents("/toolset.json", string: """
-        {
-            "schemaVersion": "1.0",
-            "rootPath": "\(targetToolchainPath)"
-        }
-        """)
+        try fs.writeFileContents(
+            "/toolset.json",
+            string: """
+                {
+                    "schemaVersion": "1.0",
+                    "rootPath": "\(targetToolchainPath)"
+                }
+                """
+        )
 
         let options = try GlobalOptions.parse(["--toolset", "/toolset.json"])
         let swiftCommandState = try SwiftCommandState.makeMockState(
@@ -489,29 +505,35 @@ final class SwiftCommandStateTests: XCTestCase {
             hostArPath.pathString,
             targetSwiftcPath.pathString,
             targetArPath.pathString,
-            targetClangPath.pathString
+            targetClangPath.pathString,
         ])
 
-        for path in [hostSwiftcPath, hostArPath, targetSwiftcPath, targetArPath, targetClangPath,] {
+        for path in [hostSwiftcPath, hostArPath, targetSwiftcPath, targetArPath, targetClangPath] {
             try fs.updatePermissions(path, isExecutable: true)
         }
 
-        try fs.writeFileContents("/toolset1.json", string: """
-        {
-            "schemaVersion": "1.0",
-            "rootPath": "\(targetToolchainPath1)"
-        }
-        """)
+        try fs.writeFileContents(
+            "/toolset1.json",
+            string: """
+                {
+                    "schemaVersion": "1.0",
+                    "rootPath": "\(targetToolchainPath1)"
+                }
+                """
+        )
 
-        try fs.writeFileContents("/toolset2.json", string: """
-        {
-            "schemaVersion": "1.0",
-            "rootPath": "\(targetToolchainPath2)"
-        }
-        """)
+        try fs.writeFileContents(
+            "/toolset2.json",
+            string: """
+                {
+                    "schemaVersion": "1.0",
+                    "rootPath": "\(targetToolchainPath2)"
+                }
+                """
+        )
 
         let options = try GlobalOptions.parse([
-            "--toolset", "/toolset1.json", "--toolset", "/toolset2.json"
+            "--toolset", "/toolset1.json", "--toolset", "/toolset2.json",
         ])
         let swiftCommandState = try SwiftCommandState.makeMockState(
             options: options,

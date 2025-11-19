@@ -100,7 +100,8 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         self.fingerprintCheckingMode = fingerprintCheckingMode
         self.observabilityScope = observabilityScope.makeChildScope(
             description: "SourceControlPackageContainer",
-            metadata: package.diagnosticsMetadata)
+            metadata: package.diagnosticsMetadata
+        )
     }
 
     // Compute the map of known versions.

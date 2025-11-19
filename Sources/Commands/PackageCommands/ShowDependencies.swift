@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-
 import ArgumentParser
 import Basics
 import CoreCommands
@@ -33,8 +32,10 @@ extension SwiftPackageCommand {
         @Option(help: "Set the output format.")
         var format: ShowDependenciesMode = .text
 
-        @Option(name: [.long, .customShort("o") ],
-                help: "The absolute or relative path to output the resolved dependency graph.")
+        @Option(
+            name: [.long, .customShort("o")],
+            help: "The absolute or relative path to output the resolved dependency graph."
+        )
         var outputPath: AbsolutePath?
 
         func run(_ swiftCommandState: SwiftCommandState) async throws {

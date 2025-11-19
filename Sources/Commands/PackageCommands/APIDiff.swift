@@ -24,10 +24,12 @@ import _Concurrency
 import Workspace
 
 struct DeprecatedAPIDiff: ParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "experimental-api-diff",
-                                                    abstract: "Deprecated - use `swift package diagnose-api-breaking-changes` instead",
-                                                    shouldDisplay: false,
-                                                    helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
+    static let configuration = CommandConfiguration(
+        commandName: "experimental-api-diff",
+        abstract: "Deprecated - use `swift package diagnose-api-breaking-changes` instead",
+        shouldDisplay: false,
+        helpNames: [.short, .long, .customLong("help", withSingleDash: true)]
+    )
 
     @Argument(parsing: .captureForPassthrough)
     var args: [String] = []
@@ -43,40 +45,48 @@ struct APIDiff: AsyncSwiftCommand {
         commandName: "diagnose-api-breaking-changes",
         abstract: "Diagnose API-breaking changes to Swift modules in a package.",
         discussion: """
-        The diagnose-api-breaking-changes command can be used to compare the Swift API of \
-        a package to a baseline revision, diagnosing any breaking changes which have \
-        been introduced. By default, it compares every Swift module from the baseline \
-        revision which is part of a library product. For packages with many targets, this \
-        behavior may be undesirable as the comparison can be slow. \
-        The `--products` and `--targets` options may be used to restrict the scope of \
-        the comparison.
-        """,
+            The diagnose-api-breaking-changes command can be used to compare the Swift API of \
+            a package to a baseline revision, diagnosing any breaking changes which have \
+            been introduced. By default, it compares every Swift module from the baseline \
+            revision which is part of a library product. For packages with many targets, this \
+            behavior may be undesirable as the comparison can be slow. \
+            The `--products` and `--targets` options may be used to restrict the scope of \
+            the comparison.
+            """,
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)]
     )
 
     @OptionGroup(visibility: .hidden)
     var globalOptions: GlobalOptions
 
-    @Option(help: """
-    The path to a text file containing breaking changes which should be ignored by the API comparison. \
-    Each ignored breaking change in the file should appear on its own line and contain the exact message \
-    to be ignored (e.g. 'API breakage: func foo() has been removed').
-    """)
+    @Option(
+        help: """
+            The path to a text file containing breaking changes which should be ignored by the API comparison. \
+            Each ignored breaking change in the file should appear on its own line and contain the exact message \
+            to be ignored (e.g. 'API breakage: func foo() has been removed').
+            """
+    )
     var breakageAllowlistPath: Basics.AbsolutePath?
 
     @Argument(help: "The baseline treeish to compare to (for example, a commit hash, branch name, tag, and so on).")
     var treeish: String
 
-    @Option(parsing: .upToNextOption,
-            help: "One or more products to include in the API comparison. If present, only the specified products (and any targets specified using `--targets`) will be compared.")
+    @Option(
+        parsing: .upToNextOption,
+        help: "One or more products to include in the API comparison. If present, only the specified products (and any targets specified using `--targets`) will be compared."
+    )
     var products: [String] = []
 
-    @Option(parsing: .upToNextOption,
-            help: "One or more targets to include in the API comparison. If present, only the specified targets (and any products specified using `--products`) will be compared.")
+    @Option(
+        parsing: .upToNextOption,
+        help: "One or more targets to include in the API comparison. If present, only the specified targets (and any products specified using `--products`) will be compared."
+    )
     var targets: [String] = []
 
-    @Option(name: .customLong("baseline-dir"),
-            help: "The path to a directory used to store API baseline files. If unspecified, a temporary directory will be used.")
+    @Option(
+        name: .customLong("baseline-dir"),
+        help: "The path to a directory used to store API baseline files. If unspecified, a temporary directory will be used."
+    )
     var overrideBaselineDir: Basics.AbsolutePath?
 
     @Flag(help: "Regenerate the API baseline, even if an existing one is available.")
@@ -142,7 +152,7 @@ struct APIDiff: AsyncSwiftCommand {
             at: overrideBaselineDir,
             force: regenerateBaseline,
             logLevel: swiftCommandState.logLevel,
-                    swiftCommandState: swiftCommandState
+            swiftCommandState: swiftCommandState
         )
 
         var skippedModules: Set<String> = []
@@ -180,7 +190,8 @@ struct APIDiff: AsyncSwiftCommand {
             return results
         }
 
-        let failedModules = modulesToDiff
+        let failedModules =
+            modulesToDiff
             .subtracting(skippedModules)
             .subtracting(results.map(\.moduleName))
         for failedModule in failedModules {
@@ -331,10 +342,12 @@ struct APIDiff: AsyncSwiftCommand {
             modulesToDiff.formUnion(packageGraph.apiDigesterModules)
         } else {
             for productName in productNames {
-                guard let product = packageGraph
+                guard
+                    let product = packageGraph
                         .rootPackages
                         .flatMap(\.products)
-                        .first(where: { $0.name == productName }) else {
+                        .first(where: { $0.name == productName })
+                else {
                     if diagnoseMissingNames {
                         observabilityScope.emit(error: "no such product '\(productName)'")
                     }
@@ -349,10 +362,12 @@ struct APIDiff: AsyncSwiftCommand {
                 modulesToDiff.formUnion(product.modules.filter { $0.underlying is SwiftModule }.map(\.c99name))
             }
             for targetName in targetNames {
-                guard let target = packageGraph
+                guard
+                    let target = packageGraph
                         .rootPackages
                         .flatMap(\.modules)
-                        .first(where: { $0.name == targetName }) else {
+                        .first(where: { $0.name == targetName })
+                else {
                     if diagnoseMissingNames {
                         observabilityScope.emit(error: "no such target '\(targetName)'")
                     }

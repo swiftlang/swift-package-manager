@@ -62,7 +62,7 @@ public struct ResolvedProduct {
                 throw InternalError("`executableTarget` should only be called for executable targets")
             }
             guard let underlyingExecutableModule = modules.map(\.underlying).executables.first,
-                  let executableModule = modules.first(where: { $0.underlying == underlyingExecutableModule })
+                let executableModule = modules.first(where: { $0.underlying == underlyingExecutableModule })
             else {
                 throw InternalError("could not determine executable target")
             }
@@ -108,14 +108,14 @@ public struct ResolvedProduct {
             let swiftModule = SwiftModule(
                 name: product.name,
                 dependencies: dependencies,
-                packageAccess: true, // entry point module so treated as a part of the package
+                packageAccess: true,  // entry point module so treated as a part of the package
                 testEntryPointPath: testEntryPointPath
             )
             return ResolvedModule(
                 packageIdentity: packageIdentity,
                 underlying: swiftModule,
                 dependencies: modules.map { .module($0, conditions: []) },
-                defaultLocalization: defaultLocalization ?? .none, // safe since this is a derived product
+                defaultLocalization: defaultLocalization ?? .none,  // safe since this is a derived product
                 supportedPlatforms: platforms,
                 platformVersionProvider: platformVersionProvider
             )

@@ -99,8 +99,9 @@ public final class MockWorkspace {
     let customPackageContainerProvider: MockPackageContainerProvider?
     public let delegate = MockWorkspaceDelegate()
     let skipDependenciesUpdates: Bool
-    public var sourceControlToRegistryDependencyTransformation: WorkspaceConfiguration
-        .SourceControlToRegistryDependencyTransformation
+    public var sourceControlToRegistryDependencyTransformation:
+        WorkspaceConfiguration
+            .SourceControlToRegistryDependencyTransformation
     var defaultRegistry: Registry?
     public let traitConfiguration: TraitConfiguration
     public var enabledTraitsMap: EnabledTraitsMap
@@ -158,10 +159,12 @@ public final class MockWorkspace {
         self.skipDependenciesUpdates = skipDependenciesUpdates
         self.sourceControlToRegistryDependencyTransformation = sourceControlToRegistryDependencyTransformation
         self.defaultRegistry = defaultRegistry
-        self.customBinaryArtifactsManager = customBinaryArtifactsManager ?? .init(
-            httpClient: HTTPClient.mock(fileSystem: fileSystem),
-            archiver: MockArchiver()
-        )
+        self.customBinaryArtifactsManager =
+            customBinaryArtifactsManager
+            ?? .init(
+                httpClient: HTTPClient.mock(fileSystem: fileSystem),
+                archiver: MockArchiver()
+            )
         self.customPrebuiltsManager = customPrebuiltsManager
         self.customHostToolchain = try UserToolchain.mockHostToolchain(fileSystem, hostTriple: customHostTriple)
         self.traitConfiguration = traitConfiguration
@@ -282,10 +285,12 @@ public final class MockWorkspace {
             // Create modules on disk.
             let packageToolsVersion = package.toolsVersion ?? .current
             if let specifier = sourceControlSpecifier {
-                let repository = self.repositoryProvider.specifierMap[specifier] ?? .init(
-                    path: packagePath,
-                    fs: self.fileSystem
-                )
+                let repository =
+                    self.repositoryProvider.specifierMap[specifier]
+                    ?? .init(
+                        path: packagePath,
+                        fs: self.fileSystem
+                    )
                 try writePackageContent(fileSystem: repository, root: .root, toolsVersion: packageToolsVersion)
 
                 let versions = packageVersions.compactMap { $0 }
@@ -331,15 +336,19 @@ public final class MockWorkspace {
                     platforms: package.platforms,
                     version: v,
                     toolsVersion: packageToolsVersion,
-                    dependencies: package.dependencies.map { try $0.convert(
-                        baseURL: self.packagesDir,
-                        identityResolver: self.identityResolver
-                    ) },
-                    products: package.products.map { try ProductDescription(
-                        name: $0.name,
-                        type: .library(.automatic),
-                        targets: $0.modules
-                    ) },
+                    dependencies: package.dependencies.map {
+                        try $0.convert(
+                            baseURL: self.packagesDir,
+                            identityResolver: self.identityResolver
+                        )
+                    },
+                    products: package.products.map {
+                        try ProductDescription(
+                            name: $0.name,
+                            type: .library(.automatic),
+                            targets: $0.modules
+                        )
+                    },
                     targets: package.targets.map { try $0.convert(identityResolver: self.identityResolver) },
                     traits: package.traits,
                     pruneDependencies: self.pruneDependencies
@@ -544,10 +553,12 @@ public final class MockWorkspace {
         packages: [String] = [],
         _ result: ([Basics.Diagnostic]) -> Void
     ) async throws {
-        let dependencies = try deps.map { try $0.convert(
-            baseURL: self.packagesDir,
-            identityResolver: self.identityResolver
-        ) }
+        let dependencies = try deps.map {
+            try $0.convert(
+                baseURL: self.packagesDir,
+                identityResolver: self.identityResolver
+            )
+        }
 
         let observability = ObservabilitySystem.makeForTesting()
         await observability.topScope.trap {
@@ -571,10 +582,12 @@ public final class MockWorkspace {
         deps: [MockDependency] = [],
         _ result: ([(PackageReference, Workspace.PackageStateChange)]?, [Basics.Diagnostic]) -> Void
     ) async throws {
-        let dependencies = try deps.map { try $0.convert(
-            baseURL: self.packagesDir,
-            identityResolver: self.identityResolver
-        ) }
+        let dependencies = try deps.map {
+            try $0.convert(
+                baseURL: self.packagesDir,
+                identityResolver: self.identityResolver
+            )
+        }
         let rootInput = try PackageGraphRootInput(
             packages: rootPaths(for: roots),
             dependencies: dependencies,
@@ -582,14 +595,15 @@ public final class MockWorkspace {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let changes = await observability.topScope.trap { () -> [(PackageReference, Workspace.PackageStateChange)]? in
-            let workspace = try self.getOrCreateWorkspace()
-            return try await workspace.updateDependencies(
-                root: rootInput,
-                dryRun: true,
-                observabilityScope: observability.topScope
-            )
-        } ?? nil
+        let changes =
+            await observability.topScope.trap { () -> [(PackageReference, Workspace.PackageStateChange)]? in
+                let workspace = try self.getOrCreateWorkspace()
+                return try await workspace.updateDependencies(
+                    root: rootInput,
+                    dryRun: true,
+                    observabilityScope: observability.topScope
+                )
+            } ?? nil
         result(changes, observability.diagnostics)
     }
 
@@ -598,10 +612,12 @@ public final class MockWorkspace {
         deps: [MockDependency],
         _ result: (ModulesGraph, [Basics.Diagnostic]) throws -> Void
     ) async throws {
-        let dependencies = try deps.map { try $0.convert(
-            baseURL: self.packagesDir,
-            identityResolver: self.identityResolver
-        ) }
+        let dependencies = try deps.map {
+            try $0.convert(
+                baseURL: self.packagesDir,
+                identityResolver: self.identityResolver
+            )
+        }
         try await self.checkPackageGraph(roots: roots, dependencies: dependencies, result)
     }
 
@@ -614,7 +630,9 @@ public final class MockWorkspace {
     ) async throws {
         let observability = ObservabilitySystem.makeForTesting()
         let rootInput = try PackageGraphRootInput(
-            packages: rootPaths(for: roots), dependencies: dependencies, traitConfiguration: traitConfiguration
+            packages: rootPaths(for: roots),
+            dependencies: dependencies,
+            traitConfiguration: traitConfiguration
         )
         let workspace = try self.getOrCreateWorkspace()
         do {
@@ -639,10 +657,12 @@ public final class MockWorkspace {
         deps: [MockDependency],
         _ result: ([Basics.Diagnostic]) -> Void
     ) async throws {
-        let dependencies = try deps.map { try $0.convert(
-            baseURL: self.packagesDir,
-            identityResolver: self.identityResolver
-        ) }
+        let dependencies = try deps.map {
+            try $0.convert(
+                baseURL: self.packagesDir,
+                identityResolver: self.identityResolver
+            )
+        }
         await self.checkPackageGraphFailure(roots: roots, dependencies: dependencies, result)
     }
 
@@ -944,13 +964,17 @@ public final class MockWorkspace {
         _ result: (Workspace.DependencyManifests, [Basics.Diagnostic]) -> Void
     ) async throws {
         let observability = ObservabilitySystem.makeForTesting()
-        let dependencies = try deps.map { try $0.convert(
-            baseURL: self.packagesDir,
-            identityResolver: self.identityResolver
-        ) }
+        let dependencies = try deps.map {
+            try $0.convert(
+                baseURL: self.packagesDir,
+                identityResolver: self.identityResolver
+            )
+        }
         let workspace = try self.getOrCreateWorkspace()
         let rootInput = try PackageGraphRootInput(
-            packages: rootPaths(for: roots), dependencies: dependencies, traitConfiguration: traitConfiguration
+            packages: rootPaths(for: roots),
+            dependencies: dependencies,
+            traitConfiguration: traitConfiguration
         )
         let rootManifests = try await workspace.loadRootManifests(
             packages: rootInput.packages,

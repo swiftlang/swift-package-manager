@@ -41,9 +41,9 @@ struct BasicTests {
                                 start: .init(path: path, line: 1, column: 1),
                                 end: .init(path: path, line: 1, column: 4),
                                 text: "let"
-                            ),
+                            )
                         ]
-                    ),
+                    )
                 ]
             )
         }
@@ -69,11 +69,11 @@ struct BasicTests {
                                         start: .init(path: path, line: 1, column: 1),
                                         end: .init(path: path, line: 1, column: 4),
                                         text: "let"
-                                    ),
+                                    )
                                 ]
-                            ),
+                            )
                         ]
-                    ),
+                    )
                 ]
             )
         }
@@ -99,9 +99,9 @@ struct BasicTests {
                                         start: .init(path: path, line: 1, column: 1),
                                         end: .init(path: path, line: 1, column: 4),
                                         text: "let"
-                                    ),
+                                    )
                                 ]
-                            ),
+                            )
                         ]
                     ),
                     PrimaryDiagnostic(
@@ -118,9 +118,9 @@ struct BasicTests {
                                         start: .init(path: path, line: 1, column: 9),
                                         end: .init(path: path, line: 1, column: 10),
                                         text: "22"
-                                    ),
+                                    )
                                 ]
-                            ),
+                            )
                         ]
                     ),
                 ]
@@ -134,17 +134,17 @@ struct BasicTests {
             .init(
                 edits: .init(
                     input: """
-                    var x = 1
-                    var y = 2
-                    var z = 3
-                    var w = foo(1, 2)
-                    """,
+                        var x = 1
+                        var y = 2
+                        var z = 3
+                        var w = foo(1, 2)
+                        """,
                     result: """
-                    let x = 1
-                    var y = 244
-                    z = 3
-                    w = fooo(1, 233)
-                    """
+                        let x = 1
+                        var y = 244
+                        z = 3
+                        w = fooo(1, 233)
+                        """
                 ),
                 summary: .init(numberOfFixItsApplied: 2, numberOfFilesChanged: 1),
                 diagnostics: [
@@ -230,7 +230,7 @@ struct BasicTests {
                                 text: "let"
                             ),
                         ]
-                    ),
+                    )
                 ]
             )
         }
@@ -257,7 +257,7 @@ struct BasicTests {
                                 start: .init(path: path, line: 1, column: 1),
                                 end: .init(path: path, line: 1, column: 6),
                                 text: "_"
-                            ),
+                            )
                         ]
                     ),
                     PrimaryDiagnostic(
@@ -270,7 +270,7 @@ struct BasicTests {
                                 start: .init(path: path, line: 1, column: 1),
                                 end: .init(path: path, line: 1, column: 4),
                                 text: "let"
-                            ),
+                            )
                         ]
                     ),
                 ]
@@ -298,7 +298,7 @@ struct BasicTests {
                                 start: .init(path: path1, line: 1, column: 1),
                                 end: .init(path: path1, line: 1, column: 4),
                                 text: "let"
-                            ),
+                            )
                         ]
                     ),
                     PrimaryDiagnostic(
@@ -310,7 +310,7 @@ struct BasicTests {
                                 start: .init(path: path1, line: 1, column: 5),
                                 end: .init(path: path1, line: 1, column: 6),
                                 text: "_"
-                            ),
+                            )
                         ]
                     ),
                     // path2
@@ -323,7 +323,7 @@ struct BasicTests {
                                 start: .init(path: path2, line: 1, column: 5),
                                 end: .init(path: path2, line: 1, column: 6),
                                 text: "_"
-                            ),
+                            )
                         ]
                     ),
                     PrimaryDiagnostic(
@@ -335,7 +335,7 @@ struct BasicTests {
                                 start: .init(path: path2, line: 1, column: 1),
                                 end: .init(path: path2, line: 1, column: 4),
                                 text: "let"
-                            ),
+                            )
                         ]
                     ),
                 ]
@@ -366,11 +366,11 @@ struct BasicTests {
                                         start: .init(path: path1, line: 1, column: 1),
                                         end: .init(path: path1, line: 1, column: 4),
                                         text: "let"
-                                    ),
+                                    )
                                 ]
-                            ),
+                            )
                         ]
-                    ),
+                    )
                 ]
             )
         }
@@ -396,9 +396,9 @@ struct BasicTests {
                                     start: .init(path: path1, line: 1, column: 1),
                                     end: .init(path: path1, line: 1, column: 4),
                                     text: "let"
-                                ),
+                                )
                             ]
-                        ),
+                        )
                     ]
                 )
             }

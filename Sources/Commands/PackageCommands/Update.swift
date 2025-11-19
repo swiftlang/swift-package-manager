@@ -27,17 +27,19 @@ extension SwiftPackageCommand {
 
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
-        
-        @Flag(name: [.long, .customShort("n")],
-              help: "Display the list of dependencies that can be updated.")
+
+        @Flag(
+            name: [.long, .customShort("n")],
+            help: "Display the list of dependencies that can be updated."
+        )
         var dryRun: Bool = false
-        
+
         @Argument(help: "The packages to update.")
         var packages: [String] = []
-        
+
         func run(_ swiftCommandState: SwiftCommandState) async throws {
             let workspace = try swiftCommandState.getActiveWorkspace()
-            
+
             let changes = try await workspace.updateDependencies(
                 root: swiftCommandState.getWorkspaceRoot(),
                 packages: packages,
@@ -45,10 +47,10 @@ extension SwiftPackageCommand {
                 observabilityScope: swiftCommandState.observabilityScope
             )
 
-            if self.dryRun, let changes = changes, let resolvedPackagesStore = swiftCommandState.observabilityScope.trap({ try workspace.resolvedPackagesStore.load() }){
+            if self.dryRun, let changes = changes, let resolvedPackagesStore = swiftCommandState.observabilityScope.trap({ try workspace.resolvedPackagesStore.load() }) {
                 self.logPackageChanges(changes: changes, store: resolvedPackagesStore)
             }
-            
+
             if !self.dryRun {
                 // Throw if there were errors when loading the graph.
                 // The actual errors will be printed before exiting.
@@ -57,10 +59,10 @@ extension SwiftPackageCommand {
                 }
             }
         }
-        
+
         private func logPackageChanges(changes: [(PackageReference, Workspace.PackageStateChange)], store: ResolvedPackagesStore) {
             let changes = changes.filter { $0.1 != .unchanged }
-            
+
             var report = "\(changes.count) dependenc\(changes.count == 1 ? "y has" : "ies have") changed\(changes.count > 0 ? ":" : ".")"
             for (package, change) in changes {
                 let currentVersion = store.resolvedPackages[package.identity]?.state.description ?? ""
@@ -78,7 +80,7 @@ extension SwiftPackageCommand {
                     continue
                 }
             }
-            
+
             print(report)
         }
     }

@@ -22,9 +22,9 @@ import PackageSigning
 import Workspace
 
 #if USE_IMPL_ONLY_IMPORTS
-@_implementationOnly import X509 // FIXME: need this import or else SwiftSigningIdentity initializer fails
+    @_implementationOnly import X509  // FIXME: need this import or else SwiftSigningIdentity initializer fails
 #else
-import X509
+    import X509
 #endif
 
 import struct TSCBasic.ByteString
@@ -65,7 +65,7 @@ extension PackageRegistryCommand {
         )
         var customMetadataPath: AbsolutePath?
 
-        @Option(help: .hidden) // help: "Signature format identifier. Defaults to 'cms-1.0.0'.
+        @Option(help: .hidden)  // help: "Signature format identifier. Defaults to 'cms-1.0.0'.
         var signatureFormat: SignatureFormat = .cms_1_0_0
 
         @Option(
@@ -120,7 +120,9 @@ extension PackageRegistryCommand {
                 }
             }
 
-            let workingDirectory = self.customWorkingDirectory ?? Workspace.DefaultLocations
+            let workingDirectory =
+                self.customWorkingDirectory
+                ?? Workspace.DefaultLocations
                 .scratchDirectory(forRootPackage: packageDirectory).appending(components: ["registry", "publish"])
             if localFileSystem.exists(workingDirectory) {
                 try localFileSystem.removeFileTree(workingDirectory)
@@ -157,8 +159,10 @@ extension PackageRegistryCommand {
             )
 
             // step 1: publishing configuration
-            let signingRequired = self.signingIdentity != nil || self.privateKeyPath != nil || !self
-                .certificateChainPaths.isEmpty
+            let signingRequired =
+                self.signingIdentity != nil || self.privateKeyPath != nil
+                || !self
+                    .certificateChainPaths.isEmpty
 
             let archivePath: AbsolutePath
             var archiveSignature: [UInt8]? = .none

@@ -11,19 +11,19 @@
 //===----------------------------------------------------------------------===//
 
 #if USE_IMPL_ONLY_IMPORTS
-#if canImport(Security)
-@_implementationOnly import Security
-#endif
+    #if canImport(Security)
+        @_implementationOnly import Security
+    #endif
 
-@_implementationOnly import Crypto
-@_implementationOnly import X509
+    @_implementationOnly import Crypto
+    @_implementationOnly import X509
 #else
-#if canImport(Security)
-import Security
-#endif
+    #if canImport(Security)
+        import Security
+    #endif
 
-import Crypto
-import X509
+    import Crypto
+    import X509
 #endif
 
 import Basics
@@ -34,7 +34,7 @@ public protocol SigningIdentity {}
 // MARK: - SecIdentity conformance to SigningIdentity
 
 #if canImport(Security)
-extension SecIdentity: SigningIdentity {}
+    extension SecIdentity: SigningIdentity {}
 #endif
 
 // MARK: - SwiftSigningIdentity is created using raw private key and certificate bytes
@@ -84,41 +84,41 @@ public struct SigningIdentityStore {
 
     public func find(by label: String) -> [SigningIdentity] {
         #if os(macOS)
-        // Find in Keychain
-        let query: [String: Any] = [
-            // Use kSecClassCertificate instead of kSecClassIdentity because the latter
-            // seems to always return all results, whether matching given label or not.
-            kSecClass as String: kSecClassCertificate,
-            kSecReturnRef as String: true,
-            kSecAttrLabel as String: label,
-            // TODO: too restrictive to require kSecAttrCanSign == true?
-//            kSecAttrCanSign as String: true,
-            kSecMatchLimit as String: kSecMatchLimitAll,
-        ]
+            // Find in Keychain
+            let query: [String: Any] = [
+                // Use kSecClassCertificate instead of kSecClassIdentity because the latter
+                // seems to always return all results, whether matching given label or not.
+                kSecClass as String: kSecClassCertificate,
+                kSecReturnRef as String: true,
+                kSecAttrLabel as String: label,
+                // TODO: too restrictive to require kSecAttrCanSign == true?
+                //            kSecAttrCanSign as String: true,
+                kSecMatchLimit as String: kSecMatchLimitAll,
+            ]
 
-        var result: CFTypeRef?
-        let status = SecItemCopyMatching(query as CFDictionary, &result)
-        guard status == errSecSuccess else {
-            self.observabilityScope.emit(warning: "Failed to search for '\(label)' in Keychain: status \(status)")
-            return []
-        }
-
-        let certificates = result as? [SecCertificate] ?? []
-        return certificates.compactMap { secCertificate in
-            var identity: SecIdentity?
-            let status = SecIdentityCreateWithCertificate(nil, secCertificate, &identity)
-            guard status == errSecSuccess, let identity else {
-                self.observabilityScope
-                    .emit(
-                        warning: "Failed to create SecIdentity from SecCertificate[\(secCertificate)]: status \(status)"
-                    )
-                return nil
+            var result: CFTypeRef?
+            let status = SecItemCopyMatching(query as CFDictionary, &result)
+            guard status == errSecSuccess else {
+                self.observabilityScope.emit(warning: "Failed to search for '\(label)' in Keychain: status \(status)")
+                return []
             }
-            return identity
-        }
+
+            let certificates = result as? [SecCertificate] ?? []
+            return certificates.compactMap { secCertificate in
+                var identity: SecIdentity?
+                let status = SecIdentityCreateWithCertificate(nil, secCertificate, &identity)
+                guard status == errSecSuccess, let identity else {
+                    self.observabilityScope
+                        .emit(
+                            warning: "Failed to create SecIdentity from SecCertificate[\(secCertificate)]: status \(status)"
+                        )
+                    return nil
+                }
+                return identity
+            }
         #else
-        // No identity store support on other platforms
-        return []
+            // No identity store support on other platforms
+            return []
         #endif
     }
 }

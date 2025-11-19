@@ -41,11 +41,12 @@ private struct NativeBuildSystemFactory: BuildSystemFactory {
     ) async throws -> any BuildSystem {
         _ = try await swiftCommandState.getRootPackageInformation(enableAllTraits)
         let testEntryPointPath = productsBuildParameters?.testProductStyle.explicitlySpecifiedEntryPointPath
-        let cacheBuildManifest = if cacheBuildManifest {
-            try await self.swiftCommandState.canUseCachedBuildManifest()
-        } else {
-            false
-        }
+        let cacheBuildManifest =
+            if cacheBuildManifest {
+                try await self.swiftCommandState.canUseCachedBuildManifest()
+            } else {
+                false
+            }
         return try BuildOperation(
             productsBuildParameters: try productsBuildParameters ?? self.swiftCommandState.productsBuildParameters,
             toolsBuildParameters: try toolsBuildParameters ?? self.swiftCommandState.toolsBuildParameters,
@@ -70,7 +71,8 @@ private struct NativeBuildSystemFactory: BuildSystemFactory {
             logLevel: logLevel ?? self.swiftCommandState.logLevel,
             fileSystem: self.swiftCommandState.fileSystem,
             observabilityScope: observabilityScope ?? self.swiftCommandState.observabilityScope,
-            delegate: delegate)
+            delegate: delegate
+        )
     }
 }
 
@@ -150,7 +152,7 @@ extension SwiftCommandState {
         .init(providers: [
             .native: NativeBuildSystemFactory(swiftCommandState: self),
             .swiftbuild: SwiftBuildSystemFactory(swiftCommandState: self),
-            .xcode: XcodeBuildSystemFactory(swiftCommandState: self)
+            .xcode: XcodeBuildSystemFactory(swiftCommandState: self),
         ])
     }
 }

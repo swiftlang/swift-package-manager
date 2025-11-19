@@ -19,8 +19,8 @@ struct SetConfiguration: ConfigurationSubcommand {
     static let configuration = CommandConfiguration(
         commandName: "set",
         abstract: """
-        Sets configuration options for installed Swift SDKs.
-        """
+            Sets configuration options for installed Swift SDKs.
+            """
     )
 
     @OptionGroup(visibility: .hidden)
@@ -38,34 +38,34 @@ struct SetConfiguration: ConfigurationSubcommand {
     @Option(
         parsing: .singleValue,
         help: """
-        A path to a directory containing headers. Multiple paths can be specified by providing this option multiple \
-        times to the command.
-        """
+            A path to a directory containing headers. Multiple paths can be specified by providing this option multiple \
+            times to the command.
+            """
     )
     var includeSearchPath: [String] = []
 
     @Option(
         parsing: .singleValue,
         help: """
-        "A path to a directory containing libraries. Multiple paths can be specified by providing this option multiple \
-        times to the command.
-        """
+            "A path to a directory containing libraries. Multiple paths can be specified by providing this option multiple \
+            times to the command.
+            """
     )
     var librarySearchPath: [String] = []
 
     @Option(
         parsing: .singleValue,
         help: """
-        "A path to a toolset file. Multiple paths can be specified by providing this option multiple times to the command.
-        """
+            "A path to a toolset file. Multiple paths can be specified by providing this option multiple times to the command.
+            """
     )
     var toolsetPath: [String] = []
 
     @Argument(
         help: """
-        An identifier of an already installed Swift SDK. Use the `list` subcommand to see all available \
-        identifiers.
-        """
+            An identifier of an already installed Swift SDK. Use the `list` subcommand to see all available \
+            identifiers.
+            """
     )
     var sdkID: String
 
@@ -123,9 +123,9 @@ struct SetConfiguration: ConfigurationSubcommand {
         guard !updatedProperties.isEmpty else {
             observabilityScope.emit(
                 error: """
-                No properties of Swift SDK `\(sdkID)` for target triple `\(targetTriple)` were updated \
-                since none were specified. Pass `--help` flag to see the list of all available properties.
-                """
+                    No properties of Swift SDK `\(sdkID)` for target triple `\(targetTriple)` were updated \
+                    since none were specified. Pass `--help` flag to see the list of all available properties.
+                    """
             )
             return
         }
@@ -136,9 +136,9 @@ struct SetConfiguration: ConfigurationSubcommand {
 
         observabilityScope.emit(
             info: """
-            These properties of Swift SDK `\(sdkID)` for target triple \
-            `\(targetTriple)` were successfully updated: \(updatedProperties.joined(separator: ", ")).
-            """
+                These properties of Swift SDK `\(sdkID)` for target triple \
+                `\(targetTriple)` were successfully updated: \(updatedProperties.joined(separator: ", ")).
+                """
         )
     }
 }

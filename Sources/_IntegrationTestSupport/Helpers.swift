@@ -22,11 +22,11 @@ public let sdkRoot: AbsolutePath? = {
     }
 
     #if os(macOS)
-    let result = try! AsyncProcess.popen(arguments: ["xcrun", "--sdk", "macosx", "--show-sdk-path"])
-    let sdkRoot = try! AbsolutePath(validating: result.utf8Output().spm_chomp())
-    return sdkRoot
+        let result = try! AsyncProcess.popen(arguments: ["xcrun", "--sdk", "macosx", "--show-sdk-path"])
+        let sdkRoot = try! AbsolutePath(validating: result.utf8Output().spm_chomp())
+        return sdkRoot
     #else
-    return nil
+        return nil
     #endif
 }()
 
@@ -36,13 +36,13 @@ public let toolchainPath: AbsolutePath = {
     }
 
     #if os(macOS)
-    let swiftcPath = try! AbsolutePath(
-        validating: sh("xcrun", "--find", "swift").stdout.spm_chomp()
-    )
+        let swiftcPath = try! AbsolutePath(
+            validating: sh("xcrun", "--find", "swift").stdout.spm_chomp()
+        )
     #elseif os(Windows)
-    let swiftcPath = try! AbsolutePath(validating: sh("where.exe", "swift.exe").stdout.spm_chomp())
+        let swiftcPath = try! AbsolutePath(validating: sh("where.exe", "swift.exe").stdout.spm_chomp())
     #else
-    let swiftcPath = try! AbsolutePath(validating: sh("which", "swift").stdout.spm_chomp())
+        let swiftcPath = try! AbsolutePath(validating: sh("which", "swift").stdout.spm_chomp())
     #endif
     let toolchainPath = swiftcPath.parentDirectory.parentDirectory.parentDirectory
     return toolchainPath
@@ -59,12 +59,12 @@ public let clang: AbsolutePath = {
 
 public let xcodebuild: AbsolutePath = {
     #if os(macOS)
-    let xcodebuildPath = try! AbsolutePath(
-        validating: sh("xcrun", "--find", "xcodebuild").stdout.spm_chomp()
-    )
-    return xcodebuildPath
+        let xcodebuildPath = try! AbsolutePath(
+            validating: sh("xcrun", "--find", "xcodebuild").stdout.spm_chomp()
+        )
+        return xcodebuildPath
     #else
-    fatalError("should not be used on other platforms than macOS")
+        fatalError("should not be used on other platforms than macOS")
     #endif
 }()
 
@@ -107,7 +107,8 @@ package func _sh(
     }
 
     let result = try AsyncProcess.popen(
-        arguments: arguments.map(\.description), environment: environment
+        arguments: arguments.map(\.description),
+        environment: environment
     )
     return result
 }
@@ -124,13 +125,26 @@ public func binaryTargetsFixture(_ closure: (AbsolutePath) async throws -> Void)
             let headersPath = subpath.appending(component: "include")
             let libraryPath = tmpDir.appending(component: "libStaticLibrary.a")
             try sh(
-                clang, "-c", sourcePath, "-I", headersPath, "-fobjc-arc", "-fmodules", "-o",
+                clang,
+                "-c",
+                sourcePath,
+                "-I",
+                headersPath,
+                "-fobjc-arc",
+                "-fmodules",
+                "-o",
                 libraryPath
             )
             let xcframeworkPath = packagePath.appending(component: "StaticLibrary.xcframework")
             try sh(
-                xcodebuild, "-create-xcframework", "-library", libraryPath, "-headers", headersPath,
-                "-output", xcframeworkPath
+                xcodebuild,
+                "-create-xcframework",
+                "-library",
+                libraryPath,
+                "-headers",
+                headersPath,
+                "-output",
+                xcframeworkPath
             )
         }
 
@@ -141,13 +155,26 @@ public func binaryTargetsFixture(_ closure: (AbsolutePath) async throws -> Void)
             let headersPath = subpath.appending(component: "include")
             let libraryPath = tmpDir.appending(component: "libDynamicLibrary.dylib")
             try sh(
-                clang, sourcePath, "-I", headersPath, "-fobjc-arc", "-fmodules", "-dynamiclib",
-                "-o", libraryPath
+                clang,
+                sourcePath,
+                "-I",
+                headersPath,
+                "-fobjc-arc",
+                "-fmodules",
+                "-dynamiclib",
+                "-o",
+                libraryPath
             )
             let xcframeworkPath = packagePath.appending(component: "DynamicLibrary.xcframework")
             try sh(
-                xcodebuild, "-create-xcframework", "-library", libraryPath, "-headers", headersPath,
-                "-output", xcframeworkPath
+                xcodebuild,
+                "-create-xcframework",
+                "-library",
+                libraryPath,
+                "-headers",
+                headersPath,
+                "-output",
+                xcframeworkPath
             )
         }
 
@@ -156,8 +183,15 @@ public func binaryTargetsFixture(_ closure: (AbsolutePath) async throws -> Void)
             let subpath = inputsPath.appending(component: "SwiftFramework")
             let projectPath = subpath.appending(component: "SwiftFramework.xcodeproj")
             try sh(
-                xcodebuild, "-project", projectPath, "-scheme", "SwiftFramework",
-                "-derivedDataPath", tmpDir, "COMPILER_INDEX_STORE_ENABLE=NO", "DEPLOYMENT_LOCATION=NO"
+                xcodebuild,
+                "-project",
+                projectPath,
+                "-scheme",
+                "SwiftFramework",
+                "-derivedDataPath",
+                tmpDir,
+                "COMPILER_INDEX_STORE_ENABLE=NO",
+                "DEPLOYMENT_LOCATION=NO"
             )
             let frameworkPath = try AbsolutePath(
                 validating: "Build/Products/Debug/SwiftFramework.framework",
@@ -165,7 +199,11 @@ public func binaryTargetsFixture(_ closure: (AbsolutePath) async throws -> Void)
             )
             let xcframeworkPath = packagePath.appending(component: "SwiftFramework.xcframework")
             try sh(
-                xcodebuild, "-create-xcframework", "-framework", frameworkPath, "-output",
+                xcodebuild,
+                "-create-xcframework",
+                "-framework",
+                frameworkPath,
+                "-output",
                 xcframeworkPath
             )
         }

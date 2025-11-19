@@ -30,7 +30,7 @@ struct AdjacencyMatrix {
     init(rows: Int, columns: Int) {
         self.columns = columns
         self.rows = rows
-        
+
         let (quotient, remainder) = (rows * columns).quotientAndRemainder(dividingBy: 8)
         self.bytes = .init(repeating: 0, count: quotient + (remainder > 0 ? 1 : 0))
     }

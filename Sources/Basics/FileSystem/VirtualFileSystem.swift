@@ -116,7 +116,7 @@ extension FileSystem {
                     contents: contents
                 )
             } else if isDirectory(current) {
-                if $0.hasPrefix(".") { return nil } // we ignore hidden files
+                if $0.hasPrefix(".") { return nil }  // we ignore hidden files
                 return .directory(
                     name: $0,
                     isSymlink: isSymlink,

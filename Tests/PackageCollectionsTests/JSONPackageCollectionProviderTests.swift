@@ -31,12 +31,24 @@ class JSONPackageCollectionProviderTests: XCTestCase {
                 XCTAssertEqual(request.url, url, "url should match")
                 switch request.method {
                 case .head:
-                    completion(.success(.init(statusCode: 200,
-                                              headers: .init([.init(name: "Content-Length", value: "\(data.count)")]))))
+                    completion(
+                        .success(
+                            .init(
+                                statusCode: 200,
+                                headers: .init([.init(name: "Content-Length", value: "\(data.count)")])
+                            )
+                        )
+                    )
                 case .get:
-                    completion(.success(.init(statusCode: 200,
-                                              headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
-                                              body: data)))
+                    completion(
+                        .success(
+                            .init(
+                                statusCode: 200,
+                                headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
+                                body: data
+                            )
+                        )
+                    )
                 default:
                     XCTFail("method should match")
                 }
@@ -79,7 +91,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(version.signer?.commonName, "J. Appleseed")
             XCTAssertNotNil(version.createdAt)
             XCTAssertFalse(collection.isSigned)
-            
+
             XCTAssertEqual(collection.packages[1].identity, .init(urlString: "https://www.example.com/repos/RepoTwo.git"))
 
             // "1.8.3" is originally "v1.8.3"
@@ -127,7 +139,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(version.signer?.commonName, "J. Appleseed")
             XCTAssertNotNil(version.createdAt)
             XCTAssertFalse(collection.isSigned)
-            
+
             XCTAssertEqual(collection.packages[1].identity, .init(urlString: "https://www.example.com/repos/RepoTwo.git"))
 
             // "1.8.3" is originally "v1.8.3"
@@ -142,12 +154,16 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         httpClient.configuration.circuitBreakerStrategy = .none
         httpClient.configuration.retryStrategy = .none
         let provider = JSONPackageCollectionProvider(httpClient: httpClient)
-        await XCTAssertAsyncThrowsError(try await provider.get(source), "expected error", { error in
-            guard case .invalidSource(let errorMessage) = error as? JSONPackageCollectionProviderError else {
-                return XCTFail("invalid error \(error)")
+        await XCTAssertAsyncThrowsError(
+            try await provider.get(source),
+            "expected error",
+            { error in
+                guard case .invalidSource(let errorMessage) = error as? JSONPackageCollectionProviderError else {
+                    return XCTFail("invalid error \(error)")
+                }
+                XCTAssertTrue(errorMessage.contains("Scheme (\"ftp\") not allowed: \(url.absoluteString)"))
             }
-            XCTAssertTrue(errorMessage.contains("Scheme (\"ftp\") not allowed: \(url.absoluteString)"))
-        })
+        )
     }
 
     func testExceedsDownloadSizeLimitHead() async throws {
@@ -158,8 +174,14 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         let handler: LegacyHTTPClient.Handler = { request, _, completion in
             XCTAssertEqual(request.url, url, "url should match")
             XCTAssertEqual(request.method, .head, "method should match")
-            completion(.success(.init(statusCode: 200,
-                                      headers: .init([.init(name: "Content-Length", value: "\(maxSize * 2)")]))))
+            completion(
+                .success(
+                    .init(
+                        statusCode: 200,
+                        headers: .init([.init(name: "Content-Length", value: "\(maxSize * 2)")])
+                    )
+                )
+            )
         }
 
         let httpClient = LegacyHTTPClient(handler: handler)
@@ -167,9 +189,13 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         httpClient.configuration.retryStrategy = .none
         let configuration = JSONPackageCollectionProvider.Configuration(maximumSizeInBytes: 10)
         let provider = JSONPackageCollectionProvider(configuration: configuration, httpClient: httpClient)
-        await XCTAssertAsyncThrowsError(try await provider.get(source), "expected error", { error in
-            XCTAssertEqual(error as? JSONPackageCollectionProviderError, .responseTooLarge(url, maxSize * 2))
-        })
+        await XCTAssertAsyncThrowsError(
+            try await provider.get(source),
+            "expected error",
+            { error in
+                XCTAssertEqual(error as? JSONPackageCollectionProviderError, .responseTooLarge(url, maxSize * 2))
+            }
+        )
     }
 
     func testExceedsDownloadSizeLimitGet() async throws {
@@ -181,11 +207,23 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(request.url, url, "url should match")
             switch request.method {
             case .head:
-                completion(.success(.init(statusCode: 200,
-                                          headers: .init([.init(name: "Content-Length", value: "0")]))))
+                completion(
+                    .success(
+                        .init(
+                            statusCode: 200,
+                            headers: .init([.init(name: "Content-Length", value: "0")])
+                        )
+                    )
+                )
             case .get:
-                completion(.success(.init(statusCode: 200,
-                                          headers: .init([.init(name: "Content-Length", value: "\(maxSize * 2)")]))))
+                completion(
+                    .success(
+                        .init(
+                            statusCode: 200,
+                            headers: .init([.init(name: "Content-Length", value: "\(maxSize * 2)")])
+                        )
+                    )
+                )
             default:
                 XCTFail("method should match")
             }
@@ -196,9 +234,13 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         httpClient.configuration.retryStrategy = .none
         let configuration = JSONPackageCollectionProvider.Configuration(maximumSizeInBytes: 10)
         let provider = JSONPackageCollectionProvider(configuration: configuration, httpClient: httpClient)
-        await XCTAssertAsyncThrowsError(try await provider.get(source), "expected error", { error in
-            XCTAssertEqual(error as? JSONPackageCollectionProviderError, .responseTooLarge(url, maxSize * 2))
-        })
+        await XCTAssertAsyncThrowsError(
+            try await provider.get(source),
+            "expected error",
+            { error in
+                XCTAssertEqual(error as? JSONPackageCollectionProviderError, .responseTooLarge(url, maxSize * 2))
+            }
+        )
     }
 
     func testNoContentLengthOnGet() async throws {
@@ -216,9 +258,13 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         httpClient.configuration.retryStrategy = .none
         let configuration = JSONPackageCollectionProvider.Configuration(maximumSizeInBytes: 10)
         let provider = JSONPackageCollectionProvider(configuration: configuration, httpClient: httpClient)
-        await XCTAssertAsyncThrowsError(try await provider.get(source), "expected error", { error in
-            XCTAssertEqual(error as? JSONPackageCollectionProviderError, .invalidResponse(url, "Missing Content-Length header"))
-        })
+        await XCTAssertAsyncThrowsError(
+            try await provider.get(source),
+            "expected error",
+            { error in
+                XCTAssertEqual(error as? JSONPackageCollectionProviderError, .invalidResponse(url, "Missing Content-Length header"))
+            }
+        )
     }
 
     func testExceedsDownloadSizeLimitProgress() async throws {
@@ -230,8 +276,14 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(request.url, url, "url should match")
             switch request.method {
             case .head:
-                completion(.success(.init(statusCode: 200,
-                                          headers: .init([.init(name: "Content-Length", value: "0")]))))
+                completion(
+                    .success(
+                        .init(
+                            statusCode: 200,
+                            headers: .init([.init(name: "Content-Length", value: "0")])
+                        )
+                    )
+                )
             case .get:
                 do {
                     try progress?(Int64(maxSize * 2), 0)
@@ -248,15 +300,19 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         httpClient.configuration.retryStrategy = .none
         let configuration = JSONPackageCollectionProvider.Configuration(maximumSizeInBytes: 10)
         let provider = JSONPackageCollectionProvider(configuration: configuration, httpClient: httpClient)
-        await XCTAssertAsyncThrowsError(try await provider.get(source), "expected error", { error in
-            XCTAssertEqual(error as? HTTPClientError, .responseTooLarge(maxSize * 2))
-        })
+        await XCTAssertAsyncThrowsError(
+            try await provider.get(source),
+            "expected error",
+            { error in
+                XCTAssertEqual(error as? HTTPClientError, .responseTooLarge(maxSize * 2))
+            }
+        )
     }
 
     func testUnsuccessfulHead_unavailable() async throws {
         let url = URL("https://www.test.com/collection.json")
         let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
-        let statusCode = Int.random(in: 500 ... 550) // Don't use 404 because it leads to a different error message
+        let statusCode = Int.random(in: 500...550)  // Don't use 404 because it leads to a different error message
 
         let handler: LegacyHTTPClient.Handler = { request, _, completion in
             XCTAssertEqual(request.url, url, "url should match")
@@ -268,15 +324,19 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         httpClient.configuration.circuitBreakerStrategy = .none
         httpClient.configuration.retryStrategy = .none
         let provider = JSONPackageCollectionProvider(httpClient: httpClient)
-        await XCTAssertAsyncThrowsError(try await provider.get(source), "expected error", { error in
-            XCTAssertEqual(error as? JSONPackageCollectionProviderError, .collectionUnavailable(url, statusCode))
-        })
+        await XCTAssertAsyncThrowsError(
+            try await provider.get(source),
+            "expected error",
+            { error in
+                XCTAssertEqual(error as? JSONPackageCollectionProviderError, .collectionUnavailable(url, statusCode))
+            }
+        )
     }
 
     func testUnsuccessfulGet_unavailable() async throws {
         let url = URL("https://www.test.com/collection.json")
         let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
-        let statusCode = Int.random(in: 500 ... 550) // Don't use 404 because it leads to a different error message
+        let statusCode = Int.random(in: 500...550)  // Don't use 404 because it leads to a different error message
 
         let handler: LegacyHTTPClient.Handler = { request, _, completion in
             XCTAssertEqual(request.url, url, "url should match")
@@ -294,9 +354,13 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         httpClient.configuration.circuitBreakerStrategy = .none
         httpClient.configuration.retryStrategy = .none
         let provider = JSONPackageCollectionProvider(httpClient: httpClient)
-        await XCTAssertAsyncThrowsError(try await provider.get(source), "expected error", { error in
-            XCTAssertEqual(error as? JSONPackageCollectionProviderError, .collectionUnavailable(url, statusCode))
-        })
+        await XCTAssertAsyncThrowsError(
+            try await provider.get(source),
+            "expected error",
+            { error in
+                XCTAssertEqual(error as? JSONPackageCollectionProviderError, .collectionUnavailable(url, statusCode))
+            }
+        )
     }
 
     func testUnsuccessfulHead_notFound() async throws {
@@ -313,9 +377,13 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         httpClient.configuration.circuitBreakerStrategy = .none
         httpClient.configuration.retryStrategy = .none
         let provider = JSONPackageCollectionProvider(httpClient: httpClient)
-        await XCTAssertAsyncThrowsError(try await provider.get(source), "expected error", { error in
-            XCTAssertEqual(error as? JSONPackageCollectionProviderError, .collectionNotFound(url))
-        })
+        await XCTAssertAsyncThrowsError(
+            try await provider.get(source),
+            "expected error",
+            { error in
+                XCTAssertEqual(error as? JSONPackageCollectionProviderError, .collectionNotFound(url))
+            }
+        )
     }
 
     func testUnsuccessfulGet_notFound() async throws {
@@ -338,9 +406,13 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         httpClient.configuration.circuitBreakerStrategy = .none
         httpClient.configuration.retryStrategy = .none
         let provider = JSONPackageCollectionProvider(httpClient: httpClient)
-        await XCTAssertAsyncThrowsError(try await provider.get(source), "expected error", { error in
-            XCTAssertEqual(error as? JSONPackageCollectionProviderError, .collectionNotFound(url))
-        })
+        await XCTAssertAsyncThrowsError(
+            try await provider.get(source),
+            "expected error",
+            { error in
+                XCTAssertEqual(error as? JSONPackageCollectionProviderError, .collectionNotFound(url))
+            }
+        )
     }
 
     func testBadJSON() async throws {
@@ -353,9 +425,15 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             case .head:
                 completion(.success(.init(statusCode: 200, headers: .init([.init(name: "Content-Length", value: "\(data.count)")]))))
             case .get:
-                completion(.success(.init(statusCode: 200,
-                                          headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
-                                          body: data)))
+                completion(
+                    .success(
+                        .init(
+                            statusCode: 200,
+                            headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
+                            body: data
+                        )
+                    )
+                )
             default:
                 XCTFail("method should match")
             }
@@ -366,9 +444,13 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         httpClient.configuration.retryStrategy = .none
         let provider = JSONPackageCollectionProvider(httpClient: httpClient)
         let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
-        await XCTAssertAsyncThrowsError(try await provider.get(source), "expected error", { error in
-            XCTAssertEqual(error as? JSONPackageCollectionProviderError, .invalidJSON(url))
-        })
+        await XCTAssertAsyncThrowsError(
+            try await provider.get(source),
+            "expected error",
+            { error in
+                XCTAssertEqual(error as? JSONPackageCollectionProviderError, .invalidJSON(url))
+            }
+        )
     }
 
     func testSignedGood() async throws {
@@ -383,12 +465,24 @@ class JSONPackageCollectionProviderTests: XCTestCase {
                 XCTAssertEqual(request.url, url, "url should match")
                 switch request.method {
                 case .head:
-                    completion(.success(.init(statusCode: 200,
-                                              headers: .init([.init(name: "Content-Length", value: "\(data.count)")]))))
+                    completion(
+                        .success(
+                            .init(
+                                statusCode: 200,
+                                headers: .init([.init(name: "Content-Length", value: "\(data.count)")])
+                            )
+                        )
+                    )
                 case .get:
-                    completion(.success(.init(statusCode: 200,
-                                              headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
-                                              body: data)))
+                    completion(
+                        .success(
+                            .init(
+                                statusCode: 200,
+                                headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
+                                body: data
+                            )
+                        )
+                    )
                 default:
                     XCTFail("method should match")
                 }
@@ -438,7 +532,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertTrue(signature.isVerified)
             XCTAssertEqual("Sample Subject", signature.certificate.subject.commonName)
             XCTAssertEqual("Sample Issuer", signature.certificate.issuer.commonName)
-            
+
             XCTAssertEqual(collection.packages[1].identity, .init(urlString: "https://www.example.com/repos/RepoTwo.git"))
 
             // "1.8.3" is originally "v1.8.3"
@@ -456,12 +550,24 @@ class JSONPackageCollectionProviderTests: XCTestCase {
                 XCTAssertEqual(request.url, url, "url should match")
                 switch request.method {
                 case .head:
-                    completion(.success(.init(statusCode: 200,
-                                              headers: .init([.init(name: "Content-Length", value: "\(data.count)")]))))
+                    completion(
+                        .success(
+                            .init(
+                                statusCode: 200,
+                                headers: .init([.init(name: "Content-Length", value: "\(data.count)")])
+                            )
+                        )
+                    )
                 case .get:
-                    completion(.success(.init(statusCode: 200,
-                                              headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
-                                              body: data)))
+                    completion(
+                        .success(
+                            .init(
+                                statusCode: 200,
+                                headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
+                                body: data
+                            )
+                        )
+                    )
                 default:
                     XCTFail("method should match")
                 }
@@ -510,7 +616,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertFalse(signature.isVerified)
             XCTAssertEqual("Sample Subject", signature.certificate.subject.commonName)
             XCTAssertEqual("Sample Issuer", signature.certificate.issuer.commonName)
-            
+
             XCTAssertEqual(collection.packages[1].identity, .init(urlString: "https://www.example.com/repos/RepoTwo.git"))
         }
     }
@@ -527,12 +633,24 @@ class JSONPackageCollectionProviderTests: XCTestCase {
                 XCTAssertEqual(request.url, url, "url should match")
                 switch request.method {
                 case .head:
-                    completion(.success(.init(statusCode: 200,
-                                              headers: .init([.init(name: "Content-Length", value: "\(data.count)")]))))
+                    completion(
+                        .success(
+                            .init(
+                                statusCode: 200,
+                                headers: .init([.init(name: "Content-Length", value: "\(data.count)")])
+                            )
+                        )
+                    )
                 case .get:
-                    completion(.success(.init(statusCode: 200,
-                                              headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
-                                              body: data)))
+                    completion(
+                        .success(
+                            .init(
+                                statusCode: 200,
+                                headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
+                                body: data
+                            )
+                        )
+                    )
                 default:
                     XCTFail("method should match")
                 }
@@ -546,14 +664,18 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             let provider = JSONPackageCollectionProvider(httpClient: httpClient, signatureValidator: signatureValidator)
             let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
 
-            await XCTAssertAsyncThrowsError(try await provider.get(source), "expected error", { error in
-                switch error {
-                case PackageCollectionError.cannotVerifySignature:
-                    break
-                default:
-                    XCTFail("unexpected error \(error)")
+            await XCTAssertAsyncThrowsError(
+                try await provider.get(source),
+                "expected error",
+                { error in
+                    switch error {
+                    case PackageCollectionError.cannotVerifySignature:
+                        break
+                    default:
+                        XCTFail("unexpected error \(error)")
+                    }
                 }
-            })
+            )
         }
     }
 
@@ -569,12 +691,24 @@ class JSONPackageCollectionProviderTests: XCTestCase {
                 XCTAssertEqual(request.url, url, "url should match")
                 switch request.method {
                 case .head:
-                    completion(.success(.init(statusCode: 200,
-                                              headers: .init([.init(name: "Content-Length", value: "\(data.count)")]))))
+                    completion(
+                        .success(
+                            .init(
+                                statusCode: 200,
+                                headers: .init([.init(name: "Content-Length", value: "\(data.count)")])
+                            )
+                        )
+                    )
                 case .get:
-                    completion(.success(.init(statusCode: 200,
-                                              headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
-                                              body: data)))
+                    completion(
+                        .success(
+                            .init(
+                                statusCode: 200,
+                                headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
+                                body: data
+                            )
+                        )
+                    )
                 default:
                     XCTFail("method should match")
                 }
@@ -589,14 +723,18 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             let provider = JSONPackageCollectionProvider(httpClient: httpClient, signatureValidator: signatureValidator)
             let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
 
-            await XCTAssertAsyncThrowsError(try await provider.get(source), "expected error", { error in
-                switch error {
-                case PackageCollectionError.invalidSignature:
-                    break
-                default:
-                    XCTFail("unexpected error \(error)")
+            await XCTAssertAsyncThrowsError(
+                try await provider.get(source),
+                "expected error",
+                { error in
+                    switch error {
+                    case PackageCollectionError.invalidSignature:
+                        break
+                    default:
+                        XCTFail("unexpected error \(error)")
+                    }
                 }
-            })
+            )
         }
     }
 
@@ -664,12 +802,24 @@ class JSONPackageCollectionProviderTests: XCTestCase {
                 XCTAssertEqual(request.url, url, "url should match")
                 switch request.method {
                 case .head:
-                    completion(.success(.init(statusCode: 200,
-                                              headers: .init([.init(name: "Content-Length", value: "\(data.count)")]))))
+                    completion(
+                        .success(
+                            .init(
+                                statusCode: 200,
+                                headers: .init([.init(name: "Content-Length", value: "\(data.count)")])
+                            )
+                        )
+                    )
                 case .get:
-                    completion(.success(.init(statusCode: 200,
-                                              headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
-                                              body: data)))
+                    completion(
+                        .success(
+                            .init(
+                                statusCode: 200,
+                                headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
+                                body: data
+                            )
+                        )
+                    )
                 default:
                     XCTFail("method should match")
                 }
@@ -685,8 +835,11 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             let sourceCertPolicy = PackageCollectionSourceCertificatePolicy(
                 sourceCertPolicies: ["www.test.com": [.init(certPolicyKey: CertificatePolicyKey.default, base64EncodedRootCerts: nil)]]
             )
-            let provider = JSONPackageCollectionProvider(httpClient: httpClient, signatureValidator: signatureValidator,
-                                                         sourceCertPolicy: sourceCertPolicy)
+            let provider = JSONPackageCollectionProvider(
+                httpClient: httpClient,
+                signatureValidator: signatureValidator,
+                sourceCertPolicy: sourceCertPolicy
+            )
             let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
             let collection = try await provider.get(source)
 
@@ -723,7 +876,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertTrue(signature.isVerified)
             XCTAssertEqual("Sample Subject", signature.certificate.subject.commonName)
             XCTAssertEqual("Sample Issuer", signature.certificate.issuer.commonName)
-            
+
             XCTAssertEqual(collection.packages[1].identity, .init(urlString: "https://www.example.com/repos/RepoTwo.git"))
         }
     }
@@ -738,12 +891,24 @@ class JSONPackageCollectionProviderTests: XCTestCase {
                 XCTAssertEqual(request.url, url, "url should match")
                 switch request.method {
                 case .head:
-                    completion(.success(.init(statusCode: 200,
-                                              headers: .init([.init(name: "Content-Length", value: "\(data.count)")]))))
+                    completion(
+                        .success(
+                            .init(
+                                statusCode: 200,
+                                headers: .init([.init(name: "Content-Length", value: "\(data.count)")])
+                            )
+                        )
+                    )
                 case .get:
-                    completion(.success(.init(statusCode: 200,
-                                              headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
-                                              body: data)))
+                    completion(
+                        .success(
+                            .init(
+                                statusCode: 200,
+                                headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
+                                body: data
+                            )
+                        )
+                    )
                 default:
                     XCTFail("method should match")
                 }
@@ -761,11 +926,14 @@ class JSONPackageCollectionProviderTests: XCTestCase {
                     "www.test.com": [
                         .init(certPolicyKey: CertificatePolicyKey.default, base64EncodedRootCerts: nil),
                         .init(certPolicyKey: CertificatePolicyKey.default(subjectUserID: "test"), base64EncodedRootCerts: nil),
-                    ],
+                    ]
                 ]
             )
-            let provider = JSONPackageCollectionProvider(httpClient: httpClient, signatureValidator: signatureValidator,
-                                                         sourceCertPolicy: sourceCertPolicy)
+            let provider = JSONPackageCollectionProvider(
+                httpClient: httpClient,
+                signatureValidator: signatureValidator,
+                sourceCertPolicy: sourceCertPolicy
+            )
             let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
             let collection = try await provider.get(source)
 
@@ -802,7 +970,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertTrue(signature.isVerified)
             XCTAssertEqual("Sample Subject", signature.certificate.subject.commonName)
             XCTAssertEqual("Sample Issuer", signature.certificate.issuer.commonName)
-            
+
             XCTAssertEqual(collection.packages[1].identity, .init(urlString: "https://www.example.com/repos/RepoTwo.git"))
         }
     }
@@ -817,12 +985,24 @@ class JSONPackageCollectionProviderTests: XCTestCase {
                 XCTAssertEqual(request.url, url, "url should match")
                 switch request.method {
                 case .head:
-                    completion(.success(.init(statusCode: 200,
-                                              headers: .init([.init(name: "Content-Length", value: "\(data.count)")]))))
+                    completion(
+                        .success(
+                            .init(
+                                statusCode: 200,
+                                headers: .init([.init(name: "Content-Length", value: "\(data.count)")])
+                            )
+                        )
+                    )
                 case .get:
-                    completion(.success(.init(statusCode: 200,
-                                              headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
-                                              body: data)))
+                    completion(
+                        .success(
+                            .init(
+                                statusCode: 200,
+                                headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
+                                body: data
+                            )
+                        )
+                    )
                 default:
                     XCTFail("method should match")
                 }
@@ -838,18 +1018,25 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             let sourceCertPolicy = PackageCollectionSourceCertificatePolicy(
                 sourceCertPolicies: ["www.test.com": [.init(certPolicyKey: CertificatePolicyKey.default, base64EncodedRootCerts: nil)]]
             )
-            let provider = JSONPackageCollectionProvider(httpClient: httpClient, signatureValidator: signatureValidator,
-                                                         sourceCertPolicy: sourceCertPolicy)
+            let provider = JSONPackageCollectionProvider(
+                httpClient: httpClient,
+                signatureValidator: signatureValidator,
+                sourceCertPolicy: sourceCertPolicy
+            )
             let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
 
-            await XCTAssertAsyncThrowsError(try await provider.get(source), "expected error", { error in
-                switch error {
-                case PackageCollectionError.missingSignature:
-                    break
-                default:
-                    XCTFail("unexpected error \(error)")
+            await XCTAssertAsyncThrowsError(
+                try await provider.get(source),
+                "expected error",
+                { error in
+                    switch error {
+                    case PackageCollectionError.missingSignature:
+                        break
+                    default:
+                        XCTFail("unexpected error \(error)")
+                    }
                 }
-            })
+            )
         }
     }
 }
@@ -875,7 +1062,7 @@ internal extension JSONPackageCollectionProvider {
             fileSystem: fileSystem,
             observabilityScope: ObservabilitySystem.NOOP,
             sourceCertPolicy: sourceCertPolicy,
-            customHTTPClient: httpClient ,
+            customHTTPClient: httpClient,
             customSignatureValidator: signatureValidator
         )
     }

@@ -17,8 +17,7 @@ import PackageLoading
 import PackageModel
 import TSCUtility
 
-@_spi(SwiftPMInternal)
-import SPMBuildCore
+@_spi(SwiftPMInternal) import SPMBuildCore
 
 import func TSCBasic.topologicalSort
 import var TSCBasic.stdoutStream
@@ -208,7 +207,7 @@ public final class PIFBuilder {
         let outputDir = self.parameters.pluginWorkingDirectory.appending("outputs")
 
         let pluginsPerModule = graph.pluginsPerModule(
-            satisfying: buildParameters.buildEnvironment // .buildEnvironment(for: .host)
+            satisfying: buildParameters.buildEnvironment  // .buildEnvironment(for: .host)
         )
 
         let availablePluginTools = try await availableBuildPluginTools(
@@ -228,10 +227,10 @@ public final class PIFBuilder {
             }
 
             let sortedPackages = self.graph.packages
-                .sorted { $0.manifest.displayName < $1.manifest.displayName } // TODO: use identity instead?
-            
+                .sorted { $0.manifest.displayName < $1.manifest.displayName }  // TODO: use identity instead?
+
             var packagesAndProjects: [(ResolvedPackage, ProjectModel.Project)] = []
-            
+
             for package in sortedPackages {
                 var buildToolPluginResultsByTargetName: [String: [PackagePIFBuilder.BuildToolPluginInvocationResult]] = [:]
 
@@ -336,48 +335,50 @@ public final class PIFBuilder {
 
                         prebuildCommands.append(contentsOf: result.prebuildCommands)
 
-                        buildCommands.append(contentsOf: result.buildCommands.map( { buildCommand in
-                            var newEnv: Environment = buildCommand.configuration.environment
+                        buildCommands.append(
+                            contentsOf: result.buildCommands.map({ buildCommand in
+                                var newEnv: Environment = buildCommand.configuration.environment
 
-                            // FIXME: This is largely a workaround for improper rpath setup on Linux. It should be
-                            // removed once the Swift Build backend switches to use swiftc as the linker driver
-                            // for targets with Swift sources. For now, limit the scope to non-macOS, so that
-                            // plugins do not inadvertently use the toolchain stdlib instead of the OS stdlib
-                            // when built with a Swift.org toolchain.
-                            #if !os(macOS)
-                            let runtimeLibPaths = buildParameters.toolchain.runtimeLibraryPaths
+                                // FIXME: This is largely a workaround for improper rpath setup on Linux. It should be
+                                // removed once the Swift Build backend switches to use swiftc as the linker driver
+                                // for targets with Swift sources. For now, limit the scope to non-macOS, so that
+                                // plugins do not inadvertently use the toolchain stdlib instead of the OS stdlib
+                                // when built with a Swift.org toolchain.
+                                #if !os(macOS)
+                                    let runtimeLibPaths = buildParameters.toolchain.runtimeLibraryPaths
 
-                            // Add paths to swift standard runtime libraries to the library path so that they can be found at runtime
-                            for libPath in runtimeLibPaths {
-                                newEnv.appendPath(key: .libraryPath, value: libPath.pathString)
-                            }
-                            #endif
+                                    // Add paths to swift standard runtime libraries to the library path so that they can be found at runtime
+                                    for libPath in runtimeLibPaths {
+                                        newEnv.appendPath(key: .libraryPath, value: libPath.pathString)
+                                    }
+                                #endif
 
-                            // Append the system path at the end so that necessary system tool paths can be found
-                            if let pathValue = Environment.current[EnvironmentKey.path] {
-                                newEnv.appendPath(key: .path, value: pathValue)
-                            }
+                                // Append the system path at the end so that necessary system tool paths can be found
+                                if let pathValue = Environment.current[EnvironmentKey.path] {
+                                    newEnv.appendPath(key: .path, value: pathValue)
+                                }
 
-                            let writableDirectories: [AbsolutePath] = [pluginOutputDir]
+                                let writableDirectories: [AbsolutePath] = [pluginOutputDir]
 
-                            return PackagePIFBuilder.CustomBuildCommand(
-                                displayName: buildCommand.configuration.displayName,
-                                executable: buildCommand.configuration.executable.pathString,
-                                arguments: buildCommand.configuration.arguments,
-                                environment: .init(newEnv),
-                                workingDir: package.path,
-                                inputPaths: buildCommand.inputFiles,
-                                outputPaths: buildCommand.outputFiles.map(\.pathString),
-                                sandboxProfile:
-                                    self.parameters.disableSandbox ?
-                                        nil :
-                                        .init(
+                                return PackagePIFBuilder.CustomBuildCommand(
+                                    displayName: buildCommand.configuration.displayName,
+                                    executable: buildCommand.configuration.executable.pathString,
+                                    arguments: buildCommand.configuration.arguments,
+                                    environment: .init(newEnv),
+                                    workingDir: package.path,
+                                    inputPaths: buildCommand.inputFiles,
+                                    outputPaths: buildCommand.outputFiles.map(\.pathString),
+                                    sandboxProfile:
+                                        self.parameters.disableSandbox
+                                        ? nil
+                                        : .init(
                                             strictness: .writableTemporaryDirectory,
                                             writableDirectories: writableDirectories,
                                             readOnlyDirectories: buildCommand.inputFiles
                                         )
-                            )
-                        }))
+                                )
+                            })
+                        )
                     }
 
                     // Run the prebuild commands generated from the plugin invocation now for this module. This will
@@ -390,7 +391,7 @@ public final class PIFBuilder {
                     )
 
                     let result = PackagePIFBuilder.BuildToolPluginInvocationResult(
-                        prebuildCommandOutputPaths: runResults.flatMap( { $0.derivedFiles }),
+                        prebuildCommandOutputPaths: runResults.flatMap({ $0.derivedFiles }),
                         buildCommands: buildCommands
                     )
 
@@ -417,11 +418,11 @@ public final class PIFBuilder {
                     fileSystem: self.fileSystem,
                     observabilityScope: self.observabilityScope
                 )
-                
+
                 try packagePIFBuilder.build()
                 packagesAndProjects.append((package, packagePIFBuilder.pifProject))
             }
-            
+
             var projects = packagesAndProjects.map(\.1)
             projects.append(
                 try buildAggregateProject(
@@ -434,7 +435,7 @@ public final class PIFBuilder {
 
             let workspace = PIF.Workspace(
                 id: "Workspace:\(rootPackage.path.pathString)",
-                name: rootPackage.manifest.displayName, // TODO: use identity instead?
+                name: rootPackage.manifest.displayName,  // TODO: use identity instead?
                 path: rootPackage.path,
                 projects: projects
             )
@@ -460,8 +461,7 @@ public final class PIFBuilder {
             for command in pluginResult.prebuildCommands {
                 observabilityScope
                     .emit(
-                        info: "Running " +
-                            (command.configuration.displayName ?? command.configuration.executable.basename)
+                        info: "Running " + (command.configuration.displayName ?? command.configuration.executable.basename)
                     )
 
                 // Run the command configuration as a subshell. This doesn't return until it is done.
@@ -534,35 +534,35 @@ public final class PIFBuilder {
 
 fileprivate final class PackagePIFBuilderDelegate: PackagePIFBuilder.BuildDelegate {
     let package: ResolvedPackage
-    
+
     init(package: ResolvedPackage) {
         self.package = package
     }
-    
+
     var isRootPackage: Bool {
         self.package.manifest.packageKind.isRoot
     }
-    
+
     var hostsOnlyPackages: Bool {
         false
     }
-    
+
     var isUserManaged: Bool {
         true
     }
-    
+
     var isBranchOrRevisionBased: Bool {
         false
     }
-    
+
     func customProductType(forExecutable product: PackageModel.Product) -> ProjectModel.Target.ProductType? {
         nil
     }
-    
+
     func deviceFamilyIDs() -> Set<Int> {
         []
     }
-    
+
     func shouldPackagesBuildForARM64e(platform: PackageModel.Platform) -> Bool {
         false
     }
@@ -570,43 +570,43 @@ fileprivate final class PackagePIFBuilderDelegate: PackagePIFBuilder.BuildDelega
     var isPluginExecutionSandboxingDisabled: Bool {
         false
     }
-    
+
     func configureProjectBuildSettings(_ buildSettings: inout ProjectModel.BuildSettings) {
         /* empty */
     }
-    
+
     func configureSourceModuleBuildSettings(sourceModule: ResolvedModule, settings: inout ProjectModel.BuildSettings) {
         /* empty */
     }
-    
+
     func customInstallPath(product: PackageModel.Product) -> String? {
         nil
     }
-    
+
     func customExecutableName(product: PackageModel.Product) -> String? {
         nil
     }
-    
+
     func customLibraryType(product: PackageModel.Product) -> PackageModel.ProductType.LibraryType? {
         nil
     }
-    
+
     func customSDKOptions(forPlatform: PackageModel.Platform) -> [String] {
         []
     }
-    
+
     func addCustomTargets(pifProject: inout SwiftBuild.ProjectModel.Project) throws -> [PackagePIFBuilder.ModuleOrProduct] {
         return []
     }
-    
+
     func shouldSuppressProductDependency(product: PackageModel.Product, buildSettings: inout SwiftBuild.ProjectModel.BuildSettings) -> Bool {
         false
     }
-    
+
     func shouldSetInstallPathForDynamicLib(productName: String) -> Bool {
         false
     }
-    
+
     func configureLibraryProduct(
         product: PackageModel.Product,
         project: inout ProjectModel.Project,
@@ -615,11 +615,11 @@ fileprivate final class PackagePIFBuilderDelegate: PackagePIFBuilder.BuildDelega
     ) {
         /* empty */
     }
-    
+
     func suggestAlignedPlatformVersionGiveniOSVersion(platform: PackageModel.Platform, iOSVersion: PackageModel.PlatformVersion) -> String? {
         nil
     }
-    
+
     func validateMacroFingerprint(for macroModule: ResolvedModule) -> Bool {
         true
     }
@@ -632,7 +632,7 @@ fileprivate func buildAggregateProject(
     buildParameters: BuildParameters
 ) throws -> ProjectModel.Project {
     precondition(!packagesAndProjects.isEmpty)
-    
+
     var aggregateProject = ProjectModel.Project(
         id: "AGGREGATE",
         path: packagesAndProjects[0].project.path,
@@ -641,17 +641,17 @@ fileprivate func buildAggregateProject(
         developmentRegion: "en"
     )
     observabilityScope.logPIF(.debug, "Created project '\(aggregateProject.id)' with name '\(aggregateProject.name)'")
-    
+
     var settings = ProjectModel.BuildSettings()
     settings[.PRODUCT_NAME] = "$(TARGET_NAME)"
     settings[.SUPPORTED_PLATFORMS] = ["$(AVAILABLE_PLATFORMS)"]
     settings[.SDKROOT] = "auto"
     settings[.SDK_VARIANT] = "auto"
     settings[.SKIP_INSTALL] = "YES"
-    
+
     aggregateProject.addBuildConfig { id in BuildConfig(id: id, name: "Debug", settings: settings) }
     aggregateProject.addBuildConfig { id in BuildConfig(id: id, name: "Release", settings: settings) }
-    
+
     func addEmptyBuildConfig(
         to targetKeyPath: WritableKeyPath<ProjectModel.Project, ProjectModel.AggregateTarget>,
         name: String
@@ -661,7 +661,7 @@ fileprivate func buildAggregateProject(
             BuildConfig(id: id, name: name, settings: emptySettings)
         }
     }
-    
+
     let allIncludingTestsTargetKeyPath = try aggregateProject.addAggregateTarget { _ in
         ProjectModel.AggregateTarget(
             id: "ALL-INCLUDING-TESTS",
@@ -670,7 +670,7 @@ fileprivate func buildAggregateProject(
     }
     addEmptyBuildConfig(to: allIncludingTestsTargetKeyPath, name: "Debug")
     addEmptyBuildConfig(to: allIncludingTestsTargetKeyPath, name: "Release")
-    
+
     let allExcludingTestsTargetKeyPath = try aggregateProject.addAggregateTarget { _ in
         ProjectModel.AggregateTarget(
             id: "ALL-EXCLUDING-TESTS",
@@ -679,7 +679,7 @@ fileprivate func buildAggregateProject(
     }
     addEmptyBuildConfig(to: allExcludingTestsTargetKeyPath, name: "Debug")
     addEmptyBuildConfig(to: allExcludingTestsTargetKeyPath, name: "Release")
-    
+
     for (package, packageProject) in packagesAndProjects where package.manifest.packageKind.isRoot {
         for target in packageProject.targets {
             switch target {
@@ -715,31 +715,29 @@ fileprivate func buildAggregateProject(
             }
         }
     }
-    
+
     do {
         let allIncludingTests = aggregateProject[keyPath: allIncludingTestsTargetKeyPath]
         let allExcludingTests = aggregateProject[keyPath: allExcludingTestsTargetKeyPath]
-        
+
         observabilityScope.logPIF(
             .debug,
             indent: 1,
-            "Created target '\(allIncludingTests.id)' with name '\(allIncludingTests.name)' " +
-            "and \(allIncludingTests.common.dependencies.count) (unlinked) dependencies"
+            "Created target '\(allIncludingTests.id)' with name '\(allIncludingTests.name)' " + "and \(allIncludingTests.common.dependencies.count) (unlinked) dependencies"
         )
         observabilityScope.logPIF(
             .debug,
             indent: 1,
-            "Created target '\(allExcludingTests.id)' with name '\(allExcludingTests.name)' " +
-            "and \(allExcludingTests.common.dependencies.count) (unlinked) dependencies"
+            "Created target '\(allExcludingTests.id)' with name '\(allExcludingTests.name)' " + "and \(allExcludingTests.common.dependencies.count) (unlinked) dependencies"
         )
     }
-    
+
     return aggregateProject
 }
 
 public enum PIFGenerationError: Error {
     case rootPackageNotFound, multipleRootPackagesFound
-    
+
     case unsupportedSwiftLanguageVersions(
         targetName: String,
         versions: [SwiftLanguageVersion],
@@ -764,8 +762,7 @@ extension PIFGenerationError: CustomStringConvertible {
             versions: let given,
             supportedVersions: let supported
         ):
-            "None of the Swift language versions used in target '\(target)' settings are supported." +
-            " (given: \(given), supported: \(supported))"
+            "None of the Swift language versions used in target '\(target)' settings are supported." + " (given: \(given), supported: \(supported))"
 
         case .printedPIFManifestGraphviz:
             "Printed PIF manifest as graphviz"

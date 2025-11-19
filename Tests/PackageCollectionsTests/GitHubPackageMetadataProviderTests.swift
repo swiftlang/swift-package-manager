@@ -55,39 +55,75 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
                     case (.get, apiURL):
                         let path = fixturePath.appending(components: "GitHub", "metadata.json")
                         let data: Data = try! localFileSystem.readFileContents(path)
-                        completion(.success(.init(statusCode: 200,
-                                                  headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
-                                                  body: data)))
+                        completion(
+                            .success(
+                                .init(
+                                    statusCode: 200,
+                                    headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
+                                    body: data
+                                )
+                            )
+                        )
                     case (.get, releasesURL):
                         let path = fixturePath.appending(components: "GitHub", "releases.json")
                         let data: Data = try! localFileSystem.readFileContents(path)
-                        completion(.success(.init(statusCode: 200,
-                                                  headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
-                                                  body: data)))
+                        completion(
+                            .success(
+                                .init(
+                                    statusCode: 200,
+                                    headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
+                                    body: data
+                                )
+                            )
+                        )
                     case (.get, apiURL.appendingPathComponent("contributors")):
                         let path = fixturePath.appending(components: "GitHub", "contributors.json")
                         let data: Data = try! localFileSystem.readFileContents(path)
-                        completion(.success(.init(statusCode: 200,
-                                                  headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
-                                                  body: data)))
+                        completion(
+                            .success(
+                                .init(
+                                    statusCode: 200,
+                                    headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
+                                    body: data
+                                )
+                            )
+                        )
                     case (.get, apiURL.appendingPathComponent("readme")):
                         let path = fixturePath.appending(components: "GitHub", "readme.json")
                         let data: Data = try! localFileSystem.readFileContents(path)
-                        completion(.success(.init(statusCode: 200,
-                                                  headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
-                                                  body: data)))
+                        completion(
+                            .success(
+                                .init(
+                                    statusCode: 200,
+                                    headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
+                                    body: data
+                                )
+                            )
+                        )
                     case (.get, apiURL.appendingPathComponent("license")):
                         let path = fixturePath.appending(components: "GitHub", "license.json")
                         let data: Data = try! localFileSystem.readFileContents(path)
-                        completion(.success(.init(statusCode: 200,
-                                                  headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
-                                                  body: data)))
+                        completion(
+                            .success(
+                                .init(
+                                    statusCode: 200,
+                                    headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
+                                    body: data
+                                )
+                            )
+                        )
                     case (.get, apiURL.appendingPathComponent("languages")):
                         let path = fixturePath.appending(components: "GitHub", "languages.json")
                         let data: Data = try! localFileSystem.readFileContents(path)
-                        completion(.success(.init(statusCode: 200,
-                                                  headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
-                                                  body: data)))
+                        completion(
+                            .success(
+                                .init(
+                                    statusCode: 200,
+                                    headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
+                                    body: data
+                                )
+                            )
+                        )
                     default:
                         XCTFail("method and url should match")
                     }
@@ -113,9 +149,16 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
                 XCTAssertEqual(metadata.versions[1].title, "1.0.0")
                 XCTAssertEqual(metadata.versions[1].summary, "Description of the release")
                 XCTAssertEqual(metadata.versions[1].author?.username, "octocat")
-                XCTAssertEqual(metadata.authors, [PackageCollectionsModel.Package.Author(username: "octocat",
-                                                                                         url: "https://api.github.com/users/octocat",
-                                                                                         service: .init(name: "GitHub"))])
+                XCTAssertEqual(
+                    metadata.authors,
+                    [
+                        PackageCollectionsModel.Package.Author(
+                            username: "octocat",
+                            url: "https://api.github.com/users/octocat",
+                            service: .init(name: "GitHub")
+                        )
+                    ]
+                )
                 XCTAssertEqual(metadata.readmeURL, "https://raw.githubusercontent.com/octokit/octokit.rb/master/README.md")
                 XCTAssertEqual(metadata.license?.type, PackageCollectionsModel.LicenseType.MIT)
                 XCTAssertEqual(metadata.license?.url, "https://raw.githubusercontent.com/benbalter/gman/master/LICENSE?lab=true")
@@ -158,9 +201,15 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
                 let handler: LegacyHTTPClient.Handler = { request, _, completion in
                     switch (request.method, request.url) {
                     case (.get, apiURL):
-                        completion(.success(.init(statusCode: 200,
-                                                  headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
-                                                  body: data)))
+                        completion(
+                            .success(
+                                .init(
+                                    statusCode: 200,
+                                    headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
+                                    body: data
+                                )
+                            )
+                        )
                     default:
                         completion(.success(.init(statusCode: 500)))
                     }
@@ -258,9 +307,15 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
                     } else if request.url == apiURL {
                         remaining = remaining - 1
                         headers.add(name: "Content-Length", value: "\(data.count)")
-                        completion(.success(.init(statusCode: 200,
-                                                  headers: headers,
-                                                  body: data)))
+                        completion(
+                            .success(
+                                .init(
+                                    statusCode: 200,
+                                    headers: headers,
+                                    body: data
+                                )
+                            )
+                        )
                     } else {
                         completion(.success(.init(statusCode: 500)))
                     }
@@ -276,7 +331,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
                 let provider = GitHubPackageMetadataProvider(configuration: configuration, httpClient: httpClient)
                 defer { XCTAssertNoThrow(try provider.close()) }
 
-                for index in 0 ... total * 2 {
+                for index in 0...total * 2 {
                     if index >= total {
                         await XCTAssertAsyncThrowsError(try await provider.syncGet(identity: .init(url: repoURL), location: repoURL.absoluteString), "should throw error") { error in
                             XCTAssertEqual(error as? GitHubPackageMetadataProviderError, .apiLimitsExceeded(apiURL, total))
@@ -326,7 +381,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
     func testForRealz() async throws {
         #if ENABLE_GITHUB_NETWORK_TEST
         #else
-        try XCTSkipIf(true)
+            try XCTSkipIf(true)
         #endif
 
         let repoURL = SourceControlURL("https://github.com/apple/swift-numerics.git")
@@ -336,7 +391,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
         httpClient.configuration.retryStrategy = .none
         httpClient.configuration.requestHeaders = .init()
         httpClient.configuration.requestHeaders!.add(name: "Cache-Control", value: "no-cache")
-        var configuration = GitHubPackageMetadataProvider.Configuration(disableCache: true) // Disable cache so we hit the API
+        var configuration = GitHubPackageMetadataProvider.Configuration(disableCache: true)  // Disable cache so we hit the API
         if let token = Environment.current["GITHUB_API_TOKEN"] {
             configuration.authTokens = { [.github("github.com"): token] }
         }
@@ -344,7 +399,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
         let provider = GitHubPackageMetadataProvider(configuration: configuration, httpClient: httpClient)
         defer { XCTAssertNoThrow(try provider.close()) }
 
-        for _ in 0 ... 60 {
+        for _ in 0...60 {
             let metadata = try await provider.syncGet(identity: .init(url: repoURL), location: repoURL.absoluteString)
             XCTAssertNotNil(metadata)
             XCTAssert(metadata.versions.count > 0)

@@ -34,37 +34,40 @@ struct TraitTests {
         .tags(
             Tag.Feature.Command.Run,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
+        BuildConfiguration.allCases,
     )
     func traits_whenNoFlagPassed(
         buildSystem: BuildSystemProvider.Kind,
         configuration: BuildConfiguration,
     ) async throws {
         try await withKnownIssue(isIntermittent: (ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild)) {
-        try await fixture(name: "Traits") { fixturePath in
-            let (stdout, stderr) = try await executeSwiftRun(
-                fixturePath.appending("Example"),
-                "Example",
-                configuration: configuration,
-                buildSystem: buildSystem,
-            )
-            // We expect no warnings to be produced. Specifically no unused dependency warnings.
-            let unusedDependencyRegex = try Regex("warning: '.*': dependency '.*' is not used by any target")
-            #expect(!stderr.contains(unusedDependencyRegex))
-            #expect(stdout == """
-            Package1Library1 trait1 enabled
-            Package2Library1 trait2 enabled
-            Package3Library1 trait3 enabled
-            Package4Library1 trait1 disabled
-            DEFINE1 enabled
-            DEFINE2 disabled
-            DEFINE3 disabled
+            try await fixture(name: "Traits") { fixturePath in
+                let (stdout, stderr) = try await executeSwiftRun(
+                    fixturePath.appending("Example"),
+                    "Example",
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                )
+                // We expect no warnings to be produced. Specifically no unused dependency warnings.
+                let unusedDependencyRegex = try Regex("warning: '.*': dependency '.*' is not used by any target")
+                #expect(!stderr.contains(unusedDependencyRegex))
+                #expect(
+                    stdout == """
+                        Package1Library1 trait1 enabled
+                        Package2Library1 trait2 enabled
+                        Package3Library1 trait3 enabled
+                        Package4Library1 trait1 disabled
+                        DEFINE1 enabled
+                        DEFINE2 disabled
+                        DEFINE3 disabled
 
-            """)
-        }
+                        """
+                )
+            }
         } when: {
             (ProcessInfo.hostOperatingSystem == .windows && (CiEnvironment.runningInSmokeTestPipeline || buildSystem == .swiftbuild))
-            || (buildSystem == .swiftbuild && [.windows].contains(ProcessInfo.hostOperatingSystem))
+                || (buildSystem == .swiftbuild && [.windows].contains(ProcessInfo.hostOperatingSystem))
         }
     }
 
@@ -75,7 +78,8 @@ struct TraitTests {
         .tags(
             Tag.Feature.Command.Run,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
+        BuildConfiguration.allCases,
     )
     func traits_whenTraitUnification(
         buildSystem: BuildSystemProvider.Kind,
@@ -87,33 +91,35 @@ struct TraitTests {
             """,
             isIntermittent: (ProcessInfo.hostOperatingSystem == .windows),
         ) {
-        try await fixture(name: "Traits") { fixturePath in
-            let (stdout, stderr) = try await executeSwiftRun(
-                fixturePath.appending("Example"),
-                "Example",
-                configuration: configuration,
-                extraArgs: ["--traits", "default,Package9,Package10"],
-                buildSystem: buildSystem,
-            )
-            // We expect no warnings to be produced. Specifically no unused dependency warnings.
-            let unusedDependencyRegex = try Regex("warning: '.*': dependency '.*' is not used by any target")
-            #expect(!stderr.contains(unusedDependencyRegex))
-            #expect(stdout == """
-            Package1Library1 trait1 enabled
-            Package2Library1 trait2 enabled
-            Package3Library1 trait3 enabled
-            Package4Library1 trait1 disabled
-            Package10Library1 trait1 enabled
-            Package10Library1 trait2 enabled
-            Package10Library1 trait1 enabled
-            Package10Library1 trait2 enabled
-            Package10Library2 has been included.
-            DEFINE1 enabled
-            DEFINE2 disabled
-            DEFINE3 disabled
+            try await fixture(name: "Traits") { fixturePath in
+                let (stdout, stderr) = try await executeSwiftRun(
+                    fixturePath.appending("Example"),
+                    "Example",
+                    configuration: configuration,
+                    extraArgs: ["--traits", "default,Package9,Package10"],
+                    buildSystem: buildSystem,
+                )
+                // We expect no warnings to be produced. Specifically no unused dependency warnings.
+                let unusedDependencyRegex = try Regex("warning: '.*': dependency '.*' is not used by any target")
+                #expect(!stderr.contains(unusedDependencyRegex))
+                #expect(
+                    stdout == """
+                        Package1Library1 trait1 enabled
+                        Package2Library1 trait2 enabled
+                        Package3Library1 trait3 enabled
+                        Package4Library1 trait1 disabled
+                        Package10Library1 trait1 enabled
+                        Package10Library1 trait2 enabled
+                        Package10Library1 trait1 enabled
+                        Package10Library1 trait2 enabled
+                        Package10Library2 has been included.
+                        DEFINE1 enabled
+                        DEFINE2 disabled
+                        DEFINE3 disabled
 
-            """)
-        }
+                        """
+                )
+            }
         } when: {
             (ProcessInfo.hostOperatingSystem == .windows && (CiEnvironment.runningInSmokeTestPipeline || buildSystem == .swiftbuild))
         }
@@ -126,7 +132,8 @@ struct TraitTests {
         .tags(
             Tag.Feature.Command.Run,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
+        BuildConfiguration.allCases,
     )
     func traits_whenTraitUnification_whenSecondTraitNotEnabled(
         buildSystem: BuildSystemProvider.Kind,
@@ -138,30 +145,32 @@ struct TraitTests {
             """,
             isIntermittent: (ProcessInfo.hostOperatingSystem == .windows),
         ) {
-        try await fixture(name: "Traits") { fixturePath in
-            let (stdout, stderr) = try await executeSwiftRun(
-                fixturePath.appending("Example"),
-                "Example",
-                configuration: configuration,
-                extraArgs: ["--traits", "default,Package9"],
-                buildSystem: buildSystem,
-            )
-            // We expect no warnings to be produced. Specifically no unused dependency warnings.
-            let unusedDependencyRegex = try Regex("warning: '.*': dependency '.*' is not used by any target")
-            #expect(!stderr.contains(unusedDependencyRegex))
-            #expect(stdout == """
-            Package1Library1 trait1 enabled
-            Package2Library1 trait2 enabled
-            Package3Library1 trait3 enabled
-            Package4Library1 trait1 disabled
-            Package10Library1 trait1 enabled
-            Package10Library1 trait2 enabled
-            DEFINE1 enabled
-            DEFINE2 disabled
-            DEFINE3 disabled
+            try await fixture(name: "Traits") { fixturePath in
+                let (stdout, stderr) = try await executeSwiftRun(
+                    fixturePath.appending("Example"),
+                    "Example",
+                    configuration: configuration,
+                    extraArgs: ["--traits", "default,Package9"],
+                    buildSystem: buildSystem,
+                )
+                // We expect no warnings to be produced. Specifically no unused dependency warnings.
+                let unusedDependencyRegex = try Regex("warning: '.*': dependency '.*' is not used by any target")
+                #expect(!stderr.contains(unusedDependencyRegex))
+                #expect(
+                    stdout == """
+                        Package1Library1 trait1 enabled
+                        Package2Library1 trait2 enabled
+                        Package3Library1 trait3 enabled
+                        Package4Library1 trait1 disabled
+                        Package10Library1 trait1 enabled
+                        Package10Library1 trait2 enabled
+                        DEFINE1 enabled
+                        DEFINE2 disabled
+                        DEFINE3 disabled
 
-            """)
-        }
+                        """
+                )
+            }
         } when: {
             (ProcessInfo.hostOperatingSystem == .windows && (CiEnvironment.runningInSmokeTestPipeline || buildSystem == .swiftbuild))
         }
@@ -174,7 +183,8 @@ struct TraitTests {
         .tags(
             Tag.Feature.Command.Run,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
+        BuildConfiguration.allCases,
     )
     func traits_whenIndividualTraitsEnabled_andDefaultTraits(
         buildSystem: BuildSystemProvider.Kind,
@@ -186,34 +196,36 @@ struct TraitTests {
             """,
             isIntermittent: (ProcessInfo.hostOperatingSystem == .windows),
         ) {
-        try await fixture(name: "Traits") { fixturePath in
-            let (stdout, stderr) = try await executeSwiftRun(
-                fixturePath.appending("Example"),
-                "Example",
-                configuration: configuration,
-                extraArgs: [
-                    "--traits",
-                    "default,Package5,Package7,BuildCondition3",
-                ],
-                buildSystem: buildSystem,
-            )
-            // We expect no warnings to be produced. Specifically no unused dependency warnings.
-            let unusedDependencyRegex = try Regex("warning: '.*': dependency '.*' is not used by any target")
-            #expect(!stderr.contains(unusedDependencyRegex))
-            #expect(stdout == """
-            Package1Library1 trait1 enabled
-            Package2Library1 trait2 enabled
-            Package3Library1 trait3 enabled
-            Package4Library1 trait1 disabled
-            Package5Library1 trait1 enabled
-            Package6Library1 trait1 enabled
-            Package7Library1 trait1 disabled
-            DEFINE1 enabled
-            DEFINE2 disabled
-            DEFINE3 enabled
+            try await fixture(name: "Traits") { fixturePath in
+                let (stdout, stderr) = try await executeSwiftRun(
+                    fixturePath.appending("Example"),
+                    "Example",
+                    configuration: configuration,
+                    extraArgs: [
+                        "--traits",
+                        "default,Package5,Package7,BuildCondition3",
+                    ],
+                    buildSystem: buildSystem,
+                )
+                // We expect no warnings to be produced. Specifically no unused dependency warnings.
+                let unusedDependencyRegex = try Regex("warning: '.*': dependency '.*' is not used by any target")
+                #expect(!stderr.contains(unusedDependencyRegex))
+                #expect(
+                    stdout == """
+                        Package1Library1 trait1 enabled
+                        Package2Library1 trait2 enabled
+                        Package3Library1 trait3 enabled
+                        Package4Library1 trait1 disabled
+                        Package5Library1 trait1 enabled
+                        Package6Library1 trait1 enabled
+                        Package7Library1 trait1 disabled
+                        DEFINE1 enabled
+                        DEFINE2 disabled
+                        DEFINE3 enabled
 
-            """)
-        }
+                        """
+                )
+            }
         } when: {
             (ProcessInfo.hostOperatingSystem == .windows && (CiEnvironment.runningInSmokeTestPipeline || buildSystem == .swiftbuild))
         }
@@ -226,31 +238,34 @@ struct TraitTests {
         .tags(
             Tag.Feature.Command.Run,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
+        BuildConfiguration.allCases,
     )
     func traits_whenDefaultTraitsDisabled(
         buildSystem: BuildSystemProvider.Kind,
         configuration: BuildConfiguration,
     ) async throws {
         try await withKnownIssue(isIntermittent: (ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild)) {
-        try await fixture(name: "Traits") { fixturePath in
-            let (stdout, stderr) = try await executeSwiftRun(
-                fixturePath.appending("Example"),
-                "Example",
-                configuration: configuration,
-                extraArgs: ["--disable-default-traits"],
-                buildSystem: buildSystem,
-            )
-            // We expect no warnings to be produced. Specifically no unused dependency warnings.
-            let unusedDependencyRegex = try Regex("warning: '.*': dependency '.*' is not used by any target")
-            #expect(!stderr.contains(unusedDependencyRegex))
-            #expect(stdout == """
-            DEFINE1 disabled
-            DEFINE2 disabled
-            DEFINE3 disabled
+            try await fixture(name: "Traits") { fixturePath in
+                let (stdout, stderr) = try await executeSwiftRun(
+                    fixturePath.appending("Example"),
+                    "Example",
+                    configuration: configuration,
+                    extraArgs: ["--disable-default-traits"],
+                    buildSystem: buildSystem,
+                )
+                // We expect no warnings to be produced. Specifically no unused dependency warnings.
+                let unusedDependencyRegex = try Regex("warning: '.*': dependency '.*' is not used by any target")
+                #expect(!stderr.contains(unusedDependencyRegex))
+                #expect(
+                    stdout == """
+                        DEFINE1 disabled
+                        DEFINE2 disabled
+                        DEFINE3 disabled
 
-            """)
-        }
+                        """
+                )
+            }
         } when: {
             (ProcessInfo.hostOperatingSystem == .windows && (CiEnvironment.runningInSmokeTestPipeline || buildSystem == .swiftbuild))
         }
@@ -263,38 +278,42 @@ struct TraitTests {
         .tags(
             Tag.Feature.Command.Run,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
+        BuildConfiguration.allCases,
     )
     func traits_whenIndividualTraitsEnabled_andDefaultTraitsDisabled(
         buildSystem: BuildSystemProvider.Kind,
         configuration: BuildConfiguration,
     ) async throws {
-        try await withKnownIssue("""
+        try await withKnownIssue(
+            """
             Windows: https://github.com/swiftlang/swift-build/issues/609
             """,
             isIntermittent: (ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild),
         ) {
-        try await fixture(name: "Traits") { fixturePath in
-            let (stdout, stderr) = try await executeSwiftRun(
-                fixturePath.appending("Example"),
-                "Example",
-                configuration: configuration,
-                extraArgs: ["--traits", "Package5,Package7"],
-                buildSystem: buildSystem,
-            )
-            // We expect no warnings to be produced. Specifically no unused dependency warnings.
-            let unusedDependencyRegex = try Regex("warning: '.*': dependency '.*' is not used by any target")
-            #expect(!stderr.contains(unusedDependencyRegex))
-            #expect(stdout == """
-            Package5Library1 trait1 enabled
-            Package6Library1 trait1 enabled
-            Package7Library1 trait1 disabled
-            DEFINE1 disabled
-            DEFINE2 disabled
-            DEFINE3 disabled
+            try await fixture(name: "Traits") { fixturePath in
+                let (stdout, stderr) = try await executeSwiftRun(
+                    fixturePath.appending("Example"),
+                    "Example",
+                    configuration: configuration,
+                    extraArgs: ["--traits", "Package5,Package7"],
+                    buildSystem: buildSystem,
+                )
+                // We expect no warnings to be produced. Specifically no unused dependency warnings.
+                let unusedDependencyRegex = try Regex("warning: '.*': dependency '.*' is not used by any target")
+                #expect(!stderr.contains(unusedDependencyRegex))
+                #expect(
+                    stdout == """
+                        Package5Library1 trait1 enabled
+                        Package6Library1 trait1 enabled
+                        Package7Library1 trait1 disabled
+                        DEFINE1 disabled
+                        DEFINE2 disabled
+                        DEFINE3 disabled
 
-            """)
-        }
+                        """
+                )
+            }
         } when: {
             (ProcessInfo.hostOperatingSystem == .windows && (CiEnvironment.runningInSmokeTestPipeline || buildSystem == .swiftbuild))
         }
@@ -307,7 +326,8 @@ struct TraitTests {
         .tags(
             Tag.Feature.Command.Run,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
+        BuildConfiguration.allCases,
     )
     func traits_whenAllTraitsEnabled(
         buildSystem: BuildSystemProvider.Kind,
@@ -319,37 +339,39 @@ struct TraitTests {
             """,
             isIntermittent: (ProcessInfo.hostOperatingSystem == .windows),
         ) {
-        try await fixture(name: "Traits") { fixturePath in
-            let (stdout, stderr) = try await executeSwiftRun(
-                fixturePath.appending("Example"),
-                "Example",
-                configuration: configuration,
-                extraArgs: ["--enable-all-traits"],
-                buildSystem: buildSystem,
-            )
-            // We expect no warnings to be produced. Specifically no unused dependency warnings.
-            let unusedDependencyRegex = try Regex("warning: '.*': dependency '.*' is not used by any target")
-            #expect(!stderr.contains(unusedDependencyRegex))
-            #expect(stdout == """
-            Package1Library1 trait1 enabled
-            Package2Library1 trait2 enabled
-            Package3Library1 trait3 enabled
-            Package4Library1 trait1 disabled
-            Package5Library1 trait1 enabled
-            Package6Library1 trait1 enabled
-            Package7Library1 trait1 disabled
-            Package10Library1 trait1 enabled
-            Package10Library1 trait2 enabled
-            Package10Library1 trait1 enabled
-            Package10Library1 trait2 enabled
-            Package10Library2 has been included.
-            Package10Library2 has been included.
-            DEFINE1 enabled
-            DEFINE2 enabled
-            DEFINE3 enabled
+            try await fixture(name: "Traits") { fixturePath in
+                let (stdout, stderr) = try await executeSwiftRun(
+                    fixturePath.appending("Example"),
+                    "Example",
+                    configuration: configuration,
+                    extraArgs: ["--enable-all-traits"],
+                    buildSystem: buildSystem,
+                )
+                // We expect no warnings to be produced. Specifically no unused dependency warnings.
+                let unusedDependencyRegex = try Regex("warning: '.*': dependency '.*' is not used by any target")
+                #expect(!stderr.contains(unusedDependencyRegex))
+                #expect(
+                    stdout == """
+                        Package1Library1 trait1 enabled
+                        Package2Library1 trait2 enabled
+                        Package3Library1 trait3 enabled
+                        Package4Library1 trait1 disabled
+                        Package5Library1 trait1 enabled
+                        Package6Library1 trait1 enabled
+                        Package7Library1 trait1 disabled
+                        Package10Library1 trait1 enabled
+                        Package10Library1 trait2 enabled
+                        Package10Library1 trait1 enabled
+                        Package10Library1 trait2 enabled
+                        Package10Library2 has been included.
+                        Package10Library2 has been included.
+                        DEFINE1 enabled
+                        DEFINE2 enabled
+                        DEFINE3 enabled
 
-            """)
-        }
+                        """
+                )
+            }
         } when: {
             (ProcessInfo.hostOperatingSystem == .windows && (CiEnvironment.runningInSmokeTestPipeline || buildSystem == .swiftbuild))
         }
@@ -362,7 +384,8 @@ struct TraitTests {
         .tags(
             Tag.Feature.Command.Run,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
+        BuildConfiguration.allCases,
     )
     func traits_whenAllTraitsEnabled_andDefaultTraitsDisabled(
         buildSystem: BuildSystemProvider.Kind,
@@ -374,40 +397,42 @@ struct TraitTests {
             """,
             isIntermittent: (ProcessInfo.hostOperatingSystem == .windows)
         ) {
-        try await fixture(name: "Traits") { fixturePath in
-            let (stdout, stderr) = try await executeSwiftRun(
-                fixturePath.appending("Example"),
-                "Example",
-                configuration: configuration,
-                extraArgs: [
-                    "--enable-all-traits",
-                    "--disable-default-traits",
-                ],
-                buildSystem: buildSystem,
-            )
-            // We expect no warnings to be produced. Specifically no unused dependency warnings.
-            let unusedDependencyRegex = try Regex("warning: '.*': dependency '.*' is not used by any target")
-            #expect(!stderr.contains(unusedDependencyRegex))
-            #expect(stdout == """
-            Package1Library1 trait1 enabled
-            Package2Library1 trait2 enabled
-            Package3Library1 trait3 enabled
-            Package4Library1 trait1 disabled
-            Package5Library1 trait1 enabled
-            Package6Library1 trait1 enabled
-            Package7Library1 trait1 disabled
-            Package10Library1 trait1 enabled
-            Package10Library1 trait2 enabled
-            Package10Library1 trait1 enabled
-            Package10Library1 trait2 enabled
-            Package10Library2 has been included.
-            Package10Library2 has been included.
-            DEFINE1 enabled
-            DEFINE2 enabled
-            DEFINE3 enabled
+            try await fixture(name: "Traits") { fixturePath in
+                let (stdout, stderr) = try await executeSwiftRun(
+                    fixturePath.appending("Example"),
+                    "Example",
+                    configuration: configuration,
+                    extraArgs: [
+                        "--enable-all-traits",
+                        "--disable-default-traits",
+                    ],
+                    buildSystem: buildSystem,
+                )
+                // We expect no warnings to be produced. Specifically no unused dependency warnings.
+                let unusedDependencyRegex = try Regex("warning: '.*': dependency '.*' is not used by any target")
+                #expect(!stderr.contains(unusedDependencyRegex))
+                #expect(
+                    stdout == """
+                        Package1Library1 trait1 enabled
+                        Package2Library1 trait2 enabled
+                        Package3Library1 trait3 enabled
+                        Package4Library1 trait1 disabled
+                        Package5Library1 trait1 enabled
+                        Package6Library1 trait1 enabled
+                        Package7Library1 trait1 disabled
+                        Package10Library1 trait1 enabled
+                        Package10Library1 trait2 enabled
+                        Package10Library1 trait1 enabled
+                        Package10Library1 trait2 enabled
+                        Package10Library2 has been included.
+                        Package10Library2 has been included.
+                        DEFINE1 enabled
+                        DEFINE2 enabled
+                        DEFINE3 enabled
 
-            """)
-        }
+                        """
+                )
+            }
         } when: {
             (ProcessInfo.hostOperatingSystem == .windows && (CiEnvironment.runningInSmokeTestPipeline || buildSystem == .swiftbuild))
         }
@@ -417,7 +442,8 @@ struct TraitTests {
         .tags(
             Tag.Feature.Command.Package.DumpPackage,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
+        BuildConfiguration.allCases,
     )
     func traits_dumpPackage(
         buildSystem: BuildSystemProvider.Kind,
@@ -444,31 +470,32 @@ struct TraitTests {
         .tags(
             Tag.Feature.Command.Test,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
+        BuildConfiguration.allCases,
     )
     func tests_whenNoFlagPassed(
         buildSystem: BuildSystemProvider.Kind,
         configuration: BuildConfiguration,
     ) async throws {
         try await withKnownIssue {
-        try await fixture(name: "Traits") { fixturePath in
-            let (stdout, _) = try await executeSwiftTest(
-                fixturePath.appending("Example"),
-                configuration: configuration,
-                buildSystem: buildSystem,
-            )
-            let expectedOut = """
-            Package1Library1 trait1 enabled
-            Package2Library1 trait2 enabled
-            Package3Library1 trait3 enabled
-            Package4Library1 trait1 disabled
-            DEFINE1 enabled
-            DEFINE2 disabled
-            DEFINE3 disabled
+            try await fixture(name: "Traits") { fixturePath in
+                let (stdout, _) = try await executeSwiftTest(
+                    fixturePath.appending("Example"),
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                )
+                let expectedOut = """
+                    Package1Library1 trait1 enabled
+                    Package2Library1 trait2 enabled
+                    Package3Library1 trait3 enabled
+                    Package4Library1 trait1 disabled
+                    DEFINE1 enabled
+                    DEFINE2 disabled
+                    DEFINE3 disabled
 
-            """
-            #expect(stdout.contains(expectedOut))
-        }
+                    """
+                #expect(stdout.contains(expectedOut))
+            }
         } when: {
             (buildSystem == .swiftbuild && [.windows].contains(ProcessInfo.hostOperatingSystem))
         }
@@ -479,7 +506,8 @@ struct TraitTests {
         .tags(
             Tag.Feature.Command.Test,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
+        BuildConfiguration.allCases,
     )
     func tests_whenAllTraitsEnabled_andDefaultTraitsDisabled(
         buildSystem: BuildSystemProvider.Kind,
@@ -502,22 +530,22 @@ struct TraitTests {
                     buildSystem: buildSystem,
                 )
                 let expectedOut = """
-                Package1Library1 trait1 enabled
-                Package2Library1 trait2 enabled
-                Package3Library1 trait3 enabled
-                Package4Library1 trait1 disabled
-                Package5Library1 trait1 enabled
-                Package6Library1 trait1 enabled
-                Package7Library1 trait1 disabled
-                Package10Library1 trait1 enabled
-                Package10Library1 trait2 enabled
-                Package10Library1 trait1 enabled
-                Package10Library1 trait2 enabled
-                DEFINE1 enabled
-                DEFINE2 enabled
-                DEFINE3 enabled
+                    Package1Library1 trait1 enabled
+                    Package2Library1 trait2 enabled
+                    Package3Library1 trait3 enabled
+                    Package4Library1 trait1 disabled
+                    Package5Library1 trait1 enabled
+                    Package6Library1 trait1 enabled
+                    Package7Library1 trait1 disabled
+                    Package10Library1 trait1 enabled
+                    Package10Library1 trait2 enabled
+                    Package10Library1 trait1 enabled
+                    Package10Library1 trait2 enabled
+                    DEFINE1 enabled
+                    DEFINE2 enabled
+                    DEFINE3 enabled
 
-                """
+                    """
                 #expect(stdout.contains(expectedOut), "got stdout: '\(stdout)'\nstderr: '\(stderr)'")
             }
         } when: {
@@ -529,34 +557,39 @@ struct TraitTests {
         .tags(
             Tag.Feature.Command.Package.DumpSymbolGraph,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
+        BuildConfiguration.allCases,
     )
     func packageDumpSymbolGraph_enablesAllTraits(
         buildSystem: BuildSystemProvider.Kind,
         configuration: BuildConfiguration,
     ) async throws {
-        try await withKnownIssue(isIntermittent: true, {
-            try await fixture(name: "Traits") { fixturePath in
-                let (stdout, _) = try await executeSwiftPackage(
-                    fixturePath.appending("Package10"),
-                    configuration: configuration,
-                    extraArgs: ["dump-symbol-graph"],
-                    buildSystem: buildSystem,
-                )
-                let optionalPath = stdout
-                    .lazy
-                    .split(whereSeparator: \.isNewline)
-                    .first { String($0).hasPrefix("Files written to ") }?
-                    .dropFirst(17)
+        try await withKnownIssue(
+            isIntermittent: true,
+            {
+                try await fixture(name: "Traits") { fixturePath in
+                    let (stdout, _) = try await executeSwiftPackage(
+                        fixturePath.appending("Package10"),
+                        configuration: configuration,
+                        extraArgs: ["dump-symbol-graph"],
+                        buildSystem: buildSystem,
+                    )
+                    let optionalPath = stdout
+                        .lazy
+                        .split(whereSeparator: \.isNewline)
+                        .first { String($0).hasPrefix("Files written to ") }?
+                        .dropFirst(17)
 
-                let path = try String(#require(optionalPath))
-                let symbolGraph = try String(contentsOfFile: "\(path)/Package10Library1.symbols.json", encoding: .utf8)
-                #expect(symbolGraph.contains("TypeGatedByPackage10Trait1"))
-                #expect(symbolGraph.contains("TypeGatedByPackage10Trait2"))
+                    let path = try String(#require(optionalPath))
+                    let symbolGraph = try String(contentsOfFile: "\(path)/Package10Library1.symbols.json", encoding: .utf8)
+                    #expect(symbolGraph.contains("TypeGatedByPackage10Trait1"))
+                    #expect(symbolGraph.contains("TypeGatedByPackage10Trait2"))
+                }
+            },
+            when: {
+                ProcessInfo.hostOperatingSystem == .windows
             }
-        }, when: {
-            ProcessInfo.hostOperatingSystem == .windows
-        })
+        )
     }
 
     @Test(
@@ -564,12 +597,13 @@ struct TraitTests {
         .tags(
             Tag.Feature.Command.Package.Plugin,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
+        BuildConfiguration.allCases,
     )
     func packagePluginGetSymbolGraph_enablesAllTraits(
         buildSystem: BuildSystemProvider.Kind,
         configuration: BuildConfiguration,
-        ) async throws {
+    ) async throws {
         try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Traits") { fixturePath in
                 // The swiftbuild build system doesn't yet have the ability for command plugins to request symbol graphs
@@ -607,7 +641,8 @@ struct TraitTests {
         .tags(
             Tag.Feature.Command.Run,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
+        BuildConfiguration.allCases,
     )
     func packageDisablingDefaultsTrait_whenNoTraits(
         buildSystem: BuildSystemProvider.Kind,
@@ -616,7 +651,7 @@ struct TraitTests {
         try await fixture(name: "Traits") { fixturePath in
             let error = await #expect(throws: SwiftPMError.self) {
                 try await executeSwiftRun(
-                fixturePath.appending("DisablingEmptyDefaultsExample"),
+                    fixturePath.appending("DisablingEmptyDefaultsExample"),
                     "DisablingEmptyDefaultsExample",
                     configuration: configuration,
                     buildSystem: buildSystem,
@@ -642,39 +677,42 @@ struct TraitTests {
             Tag.Feature.Command.Run,
         ),
         arguments:
-        getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            getBuildData(for: SupportedBuildSystemOnAllPlatforms),
         getTraitCombinations(
-            ("ExtraTrait",
-            """
-            Package10Library2 has been included.
-            DEFINE1 disabled
-            DEFINE2 disabled
-            DEFINE3 disabled
-            
-            """
+            (
+                "ExtraTrait",
+                """
+                Package10Library2 has been included.
+                DEFINE1 disabled
+                DEFINE2 disabled
+                DEFINE3 disabled
+
+                """
             ),
-            ("Package10",
-            """
-            Package10Library1 trait1 disabled
-            Package10Library1 trait2 enabled
-            Package10Library2 has been included.
-            DEFINE1 disabled
-            DEFINE2 disabled
-            DEFINE3 disabled
-            
-            """
+            (
+                "Package10",
+                """
+                Package10Library1 trait1 disabled
+                Package10Library1 trait2 enabled
+                Package10Library2 has been included.
+                DEFINE1 disabled
+                DEFINE2 disabled
+                DEFINE3 disabled
+
+                """
             ),
-            ("ExtraTrait,Package10",
-            """
-            Package10Library1 trait1 disabled
-            Package10Library1 trait2 enabled
-            Package10Library2 has been included.
-            Package10Library2 has been included.
-            DEFINE1 disabled
-            DEFINE2 disabled
-            DEFINE3 disabled
-            
-            """
+            (
+                "ExtraTrait,Package10",
+                """
+                Package10Library1 trait1 disabled
+                Package10Library1 trait2 enabled
+                Package10Library2 has been included.
+                Package10Library2 has been included.
+                DEFINE1 disabled
+                DEFINE2 disabled
+                DEFINE3 disabled
+
+                """
             )
         )
     )

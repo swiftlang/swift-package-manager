@@ -59,7 +59,7 @@ public struct FilePackageSigningEntityStorage: PackageSigningEntityStorage {
                     package: package,
                     version: version,
                     given: signingEntity,
-                    existing: otherSigningEntities.first! // !-safe because otherSigningEntities is not empty
+                    existing: otherSigningEntities.first!  // !-safe because otherSigningEntities is not empty
                 )
             }
 
@@ -214,9 +214,11 @@ private enum StorageModel {
         }
 
         func packageSigners() throws -> PackageSigners {
-            let signers = try Dictionary(throwingUniqueKeysWithValues: self.signers.map {
-                ($0.signingEntity, $0)
-            })
+            let signers = try Dictionary(
+                throwingUniqueKeysWithValues: self.signers.map {
+                    ($0.signingEntity, $0)
+                }
+            )
             return PackageSigners(
                 expectedSigner: self.expectedSigner.map { ($0.signingEntity, $0.fromVersion) },
                 signers: signers

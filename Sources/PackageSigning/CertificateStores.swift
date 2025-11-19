@@ -11,11 +11,11 @@
 //===----------------------------------------------------------------------===//
 
 #if USE_IMPL_ONLY_IMPORTS
-@_implementationOnly import X509
-@_implementationOnly import SwiftASN1
+    @_implementationOnly import X509
+    @_implementationOnly import SwiftASN1
 #else
-import X509
-import SwiftASN1
+    import X509
+    import SwiftASN1
 #endif
 
 enum Certificates {

@@ -14,7 +14,9 @@ import Foundation
 import protocol TSCBasic.WritableByteStream
 
 package func detectDefaultObjects(
-    clang: AbsolutePath, fileSystem: any FileSystem, hostTriple: Triple,
+    clang: AbsolutePath,
+    fileSystem: any FileSystem,
+    hostTriple: Triple,
     observabilityScope: ObservabilityScope
 ) async throws -> [AbsolutePath] {
     let clangProcess = AsyncProcess(args: clang.pathString, "-###", "-x", "c", "-")
@@ -97,7 +99,8 @@ package func detectDefaultObjects(
                         // First try and locate the file relative to the linker script.
                         let siblingPath = try AbsolutePath(
                             validating: arg,
-                            relativeTo: try AbsolutePath(validating: library.dirname))
+                            relativeTo: try AbsolutePath(validating: library.dirname)
+                        )
                         if fileSystem.isFile(siblingPath) {
                             try handleArgument(siblingPath.pathString)
                         } else {

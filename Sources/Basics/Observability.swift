@@ -553,7 +553,7 @@ public struct ObservabilityMetadata: Sendable, CustomDebugStringConvertible {
          if lhs.count != rhs.count {
              return false
          }
-
+    
          var equals = true
          lhs.forEach { (key, value) in
              if rhs._storage[key]?.description != value.description {
@@ -561,7 +561,7 @@ public struct ObservabilityMetadata: Sendable, CustomDebugStringConvertible {
                  return
              }
          }
-
+    
          return equals
      }*/
 

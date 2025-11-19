@@ -14,9 +14,9 @@ import Dispatch
 import Foundation
 import class TSCBasic.Thread
 #if canImport(WinSDK)
-import WinSDK
+    import WinSDK
 #elseif canImport(Android)
-import Android
+    import Android
 #endif
 
 public typealias CancellationHandler = @Sendable (DispatchTime) async throws -> Void
@@ -36,8 +36,8 @@ public final class Cancellator: Cancellable, Sendable {
     }
 
     #if os(Windows)
-    // unfortunately this is needed for C callback handlers used by Windows shutdown handler
-    static var shared: Cancellator?
+        // unfortunately this is needed for C callback handlers used by Windows shutdown handler
+        static var shared: Cancellator?
     #endif
 
     /// Installs signal handlers to terminate sub-processes on cancellation.
@@ -46,51 +46,54 @@ public final class Cancellator: Cancellable, Sendable {
             precondition(!Self.isSignalHandlerInstalled)
 
             #if os(Windows)
-            // Closures passed to `SetConsoleCtrlHandler` can't capture context, working around that with a global.
-            Self.shared = self
+                // Closures passed to `SetConsoleCtrlHandler` can't capture context, working around that with a global.
+                Self.shared = self
 
-            // set shutdown handler to terminate sub-processes, etc
-            _ = SetConsoleCtrlHandler({ _ in
-                // Terminate all processes on receiving an interrupt signal.
-                try? Cancellator.shared?.cancel(deadline: .now() + .seconds(30))
+                // set shutdown handler to terminate sub-processes, etc
+                _ = SetConsoleCtrlHandler(
+                    { _ in
+                        // Terminate all processes on receiving an interrupt signal.
+                        try? Cancellator.shared?.cancel(deadline: .now() + .seconds(30))
 
-                // Reset the handler.
-                _ = SetConsoleCtrlHandler(nil, false)
+                        // Reset the handler.
+                        _ = SetConsoleCtrlHandler(nil, false)
 
-                // Exit as if by signal()
-                TerminateProcess(GetCurrentProcess(), 3)
+                        // Exit as if by signal()
+                        TerminateProcess(GetCurrentProcess(), 3)
 
-                return true
-            }, true)
-            #else
-            // trap SIGINT to terminate sub-processes, etc
-            signal(SIGINT, SIG_IGN)
-            let interruptSignalSource = DispatchSource.makeSignalSource(signal: SIGINT)
-            interruptSignalSource.setEventHandler { [weak self] in
-                // cancel the trap?
-                interruptSignalSource.cancel()
-
-                // Terminate all processes on receiving an interrupt signal.
-                try? self?.cancel(deadline: .now() + .seconds(30))
-
-                // Install the default signal handler.
-                var action = sigaction()
-                #if canImport(Darwin) || os(OpenBSD) || os(FreeBSD)
-                action.__sigaction_u.__sa_handler = SIG_DFL
-                #elseif canImport(Musl)
-                action.__sa_handler.sa_handler = SIG_DFL
-                #elseif os(Android)
-                action.sa_handler = SIG_DFL
-                #else
-                action.__sigaction_handler = unsafeBitCast(
-                    SIG_DFL,
-                    to: sigaction.__Unnamed_union___sigaction_handler.self
+                        return true
+                    },
+                    true
                 )
-                #endif
-                sigaction(SIGINT, &action, nil)
-                kill(getpid(), SIGINT)
-            }
-            interruptSignalSource.resume()
+            #else
+                // trap SIGINT to terminate sub-processes, etc
+                signal(SIGINT, SIG_IGN)
+                let interruptSignalSource = DispatchSource.makeSignalSource(signal: SIGINT)
+                interruptSignalSource.setEventHandler { [weak self] in
+                    // cancel the trap?
+                    interruptSignalSource.cancel()
+
+                    // Terminate all processes on receiving an interrupt signal.
+                    try? self?.cancel(deadline: .now() + .seconds(30))
+
+                    // Install the default signal handler.
+                    var action = sigaction()
+                    #if canImport(Darwin) || os(OpenBSD) || os(FreeBSD)
+                        action.__sigaction_u.__sa_handler = SIG_DFL
+                    #elseif canImport(Musl)
+                        action.__sa_handler.sa_handler = SIG_DFL
+                    #elseif os(Android)
+                        action.sa_handler = SIG_DFL
+                    #else
+                        action.__sigaction_handler = unsafeBitCast(
+                            SIG_DFL,
+                            to: sigaction.__Unnamed_union___sigaction_handler.self
+                        )
+                    #endif
+                    sigaction(SIGINT, &action, nil)
+                    kill(getpid(), SIGINT)
+                }
+                interruptSignalSource.resume()
             #endif
 
             Self.isSignalHandlerInstalled = true
@@ -129,9 +132,9 @@ public final class Cancellator: Cancellable, Sendable {
     }
 
     #if !canImport(Darwin) || os(macOS)
-    public func register(_ process: Foundation.Process) -> RegistrationKey? {
-        self.register(name: "\(process.description)", handler: process.terminate(timeout:))
-    }
+        public func register(_ process: Foundation.Process) -> RegistrationKey? {
+            self.register(name: "\(process.description)", handler: process.terminate(timeout:))
+        }
     #endif
 
     public func deregister(_ key: RegistrationKey) {
@@ -212,10 +215,10 @@ public struct CancellationError: Error, CustomStringConvertible {
     static func failedToRegisterProcess(_ process: AsyncProcess) -> Self {
         Self(
             description: """
-            failed to register a cancellation handler for this process invocation `\(
-                process.arguments.joined(separator: " ")
-            )`
-            """
+                    failed to register a cancellation handler for this process invocation `\(
+                    process.arguments.joined(separator: " ")
+                )`
+                """
         )
     }
 }
@@ -231,47 +234,47 @@ extension AsyncProcess {
             if case .timedOut = forceKillSemaphore.wait(timeout: timeout) {
                 // send a force-kill signal
                 #if os(Windows)
-                self.signal(SIGTERM)
+                    self.signal(SIGTERM)
                 #else
-                self.signal(SIGKILL)
+                    self.signal(SIGKILL)
                 #endif
             }
         }
         forceKillThread.start()
         _ = try? self.waitUntilExit()
-        forceKillSemaphore.signal() // let the force-kill thread know we do not need it any more
+        forceKillSemaphore.signal()  // let the force-kill thread know we do not need it any more
         // join the force-kill thread thread so we don't exit before everything terminates
         forceKillThread.join()
     }
 }
 
 #if !canImport(Darwin) || os(macOS)
-extension Foundation.Process {
-    fileprivate func terminate(timeout: DispatchTime) {
-        guard self.isRunning else {
-            return
-        }
-
-        // send graceful shutdown signal (SIGINT)
-        self.interrupt()
-
-        // start a thread to see if we need to terminate more forcibly
-        let forceKillSemaphore = DispatchSemaphore(value: 0)
-        let forceKillThread = TSCBasic.Thread {
-            if case .timedOut = forceKillSemaphore.wait(timeout: timeout) {
-                guard self.isRunning else {
-                    return
-                }
-
-                // force kill (SIGTERM)
-                self.terminate()
+    extension Foundation.Process {
+        fileprivate func terminate(timeout: DispatchTime) {
+            guard self.isRunning else {
+                return
             }
+
+            // send graceful shutdown signal (SIGINT)
+            self.interrupt()
+
+            // start a thread to see if we need to terminate more forcibly
+            let forceKillSemaphore = DispatchSemaphore(value: 0)
+            let forceKillThread = TSCBasic.Thread {
+                if case .timedOut = forceKillSemaphore.wait(timeout: timeout) {
+                    guard self.isRunning else {
+                        return
+                    }
+
+                    // force kill (SIGTERM)
+                    self.terminate()
+                }
+            }
+            forceKillThread.start()
+            self.waitUntilExit()
+            forceKillSemaphore.signal()  // let the force-kill thread know we do not need it any more
+            // join the force-kill thread thread so we don't exit before everything terminates
+            forceKillThread.join()
         }
-        forceKillThread.start()
-        self.waitUntilExit()
-        forceKillSemaphore.signal() // let the force-kill thread know we do not need it any more
-        // join the force-kill thread thread so we don't exit before everything terminates
-        forceKillThread.join()
     }
-}
 #endif

@@ -14,12 +14,11 @@ import Foundation
 import Basics
 import struct Foundation.URL
 #if os(macOS)
-import class Foundation.Bundle
+    import class Foundation.Bundle
 #endif
 import OrderedCollections
 
-@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
-import PackageGraph
+@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly) import PackageGraph
 
 import PackageLoading
 import PackageModel
@@ -140,7 +139,7 @@ public func testWithTemporaryDirectory<Result>(
                 fixtureDir: fixtureDir,
                 in: tmpDirPath,
                 copyName: copyName,
-                createGitRepo:createGitRepo
+                createGitRepo: createGitRepo
             )
             return try body(preparedFixture)
         }
@@ -185,7 +184,7 @@ public func testWithTemporaryDirectory<Result>(
                 fixtureDir: fixtureDir,
                 in: tmpDirPath,
                 copyName: copyName,
-                createGitRepo:createGitRepo
+                createGitRepo: createGitRepo
             )
             return try body(preparedFixture)
         }
@@ -228,7 +227,7 @@ public enum TestError: Error {
                 fixtureDir: fixtureDir,
                 in: tmpDirPath,
                 copyName: copyName,
-                createGitRepo:createGitRepo
+                createGitRepo: createGitRepo
             )
             return try await body(preparedFixture)
         }
@@ -273,7 +272,7 @@ public enum TestError: Error {
                 fixtureDir: fixtureDir,
                 in: tmpDirPath,
                 copyName: copyName,
-                createGitRepo:createGitRepo
+                createGitRepo: createGitRepo
             )
             return try await body(preparedFixture)
         }
@@ -318,11 +317,11 @@ fileprivate func setup(
 ) throws -> AbsolutePath {
     func copy(from srcDir: AbsolutePath, to dstDir: AbsolutePath) throws {
         #if os(Windows)
-        try localFileSystem.copy(from: srcDir, to: dstDir)
+            try localFileSystem.copy(from: srcDir, to: dstDir)
         #else
-        try Process.checkNonZeroExit(args: "cp", "-R", "-H", srcDir.pathString, dstDir.pathString)
+            try Process.checkNonZeroExit(args: "cp", "-R", "-H", srcDir.pathString, dstDir.pathString)
         #endif
-        
+
         // Ensure we get a clean test fixture.
         try localFileSystem.removeFileTree(dstDir.appending(component: ".build"))
         try localFileSystem.removeFileTree(dstDir.appending(component: ".swiftpm"))
@@ -405,7 +404,7 @@ public func getBuildSystemArgs(for buildSystem: BuildSystemProvider.Kind?) -> [S
 
     return [
         "--build-system",
-        "\(system)"
+        "\(system)",
     ]
 }
 
@@ -549,7 +548,8 @@ private func swiftArgs(
     return args
 }
 
-@available(*, 
+@available(
+    *,
     deprecated,
     renamed: "loadModulesGraph",
     message: "Rename for consistency: the type of this functions return value is named `ModulesGraph`."
@@ -694,18 +694,18 @@ public func getNumberOfMatches(of match: String, in value: String) -> Int {
 }
 
 public extension String {
-    var withSwiftLineEnding: String {   
+    var withSwiftLineEnding: String {
         return replacingOccurrences(of: "\r\n", with: "\n")
     }
 }
 
 public func executableName(_ name: String) -> String {
-#if os(Windows)
-  if name.count > 4, name.suffix(from: name.index(name.endIndex, offsetBy: -4)) == ProcessInfo.exeSuffix {
-    return name
-  }
-  return "\(name)\(ProcessInfo.exeSuffix)"
-#else
-  return name
-#endif
+    #if os(Windows)
+        if name.count > 4, name.suffix(from: name.index(name.endIndex, offsetBy: -4)) == ProcessInfo.exeSuffix {
+            return name
+        }
+        return "\(name)\(ProcessInfo.exeSuffix)"
+    #else
+        return name
+    #endif
 }

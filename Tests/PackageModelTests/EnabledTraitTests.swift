@@ -47,7 +47,7 @@ struct EnabledTraitTests {
         let unifiedBananaTrait = try #require(bananaTraitSetByBread.unify(bananaTraitSetByFruit))
         let setters: Set<EnabledTrait.Setter> = [
             EnabledTrait.Setter.package(.init(identity: "Fruit")),
-            EnabledTrait.Setter.trait(.init("Bread"))
+            EnabledTrait.Setter.trait(.init("Bread")),
         ]
 
         #expect(unifiedBananaTrait.setters == setters)
@@ -72,8 +72,8 @@ struct EnabledTraitTests {
     func enabledTrait_compareToStringLiteral() {
         let appleTrait = EnabledTrait(name: "Apple", setBy: .default)
 
-        #expect("Apple" == appleTrait) // test when EnabledTrait rhs
-        #expect(appleTrait == "Apple") // test when EnabledTrait lhs
+        #expect("Apple" == appleTrait)  // test when EnabledTrait rhs
+        #expect(appleTrait == "Apple")  // test when EnabledTrait lhs
     }
 
     /// Tests that `EnabledTrait` can be compared to a `String` for equality in both
@@ -83,8 +83,8 @@ struct EnabledTraitTests {
         let appleTrait = EnabledTrait(name: "Apple", setBy: .default)
         let stringTrait = "Apple"
 
-        #expect(stringTrait.asEnabledTrait == appleTrait) // test when EnabledTrait rhs
-        #expect(appleTrait == stringTrait.asEnabledTrait) // test when EnabledTrait lhs
+        #expect(stringTrait.asEnabledTrait == appleTrait)  // test when EnabledTrait rhs
+        #expect(appleTrait == stringTrait.asEnabledTrait)  // test when EnabledTrait lhs
     }
 
     /// Verifies that an `EnabledTrait` can be initialized using a string literal and is
@@ -139,11 +139,12 @@ struct EnabledTraitTests {
             name: "Coffee",
             setBy: [
                 .package(.init(identity: "Cafe")),
-                .package(.init(identity:"Home")),
+                .package(.init(identity: "Home")),
                 .package(.init(identity: "Breakfast")),
                 .trait("NotAPackage"),
-                .traitConfiguration
-            ])
+                .traitConfiguration,
+            ]
+        )
 
         let parentPackagesFromTrait = traitSetByPackages.parentPackages
 
@@ -161,7 +162,7 @@ struct EnabledTraitTests {
         let toTestAgainst = EnabledTraits([
             EnabledTrait(name: "One", setBy: .default),
             EnabledTrait(name: "Two", setBy: .default),
-            EnabledTrait(name: "Three", setBy: .default)
+            EnabledTrait(name: "Three", setBy: .default),
         ])
 
         #expect(enabledTraits == toTestAgainst)
@@ -212,7 +213,6 @@ struct EnabledTraitTests {
         #expect(enabledTraits.count == 3)
         #expect(enabledTraits == ["Apple", "Banana", "Orange"])
 
-
         // Assure that Apple trait is removed and returned
         let appleTrait = enabledTraits.remove("Apple")
         let unwrappedAppleTrait = try #require(appleTrait)
@@ -236,7 +236,6 @@ struct EnabledTraitTests {
 
         let newTrait = EnabledTrait(name: "Apple", setBy: [.package(.init(identity: "Fruit")), .trait("FavouriteFruit")])
 
-
         // Try to remove Apple trait before inserting:
         #expect(enabledTraits.remove("Apple") == nil)
         #expect(enabledTraits.count == 1)
@@ -258,11 +257,12 @@ struct EnabledTraitTests {
         })
 
         #expect(
-            transformedTraits == EnabledTraits([
-                EnabledTrait(name: "Apple", setBy: .package(.init(identity: "Breakfast"))),
-                EnabledTrait(name: "Coffee", setBy: .package(.init(identity: "Breakfast"))),
-                EnabledTrait(name: "Cookie", setBy: .package(.init(identity: "Breakfast")))
-            ])
+            transformedTraits
+                == EnabledTraits([
+                    EnabledTrait(name: "Apple", setBy: .package(.init(identity: "Breakfast"))),
+                    EnabledTrait(name: "Coffee", setBy: .package(.init(identity: "Breakfast"))),
+                    EnabledTrait(name: "Cookie", setBy: .package(.init(identity: "Breakfast"))),
+                ])
         )
     }
 
@@ -285,12 +285,12 @@ struct EnabledTraitTests {
     func enabledTraits_unionWithExistingTraits() throws {
         let enabledTraits: EnabledTraits = [
             EnabledTrait(name: "Banana", setBy: .default),
-            EnabledTrait(name: "Apple", setBy: .package(.init(identity: "MyFruits")))
+            EnabledTrait(name: "Apple", setBy: .package(.init(identity: "MyFruits"))),
         ]
         let newTraits: EnabledTraits = [
             EnabledTrait(name: "Banana", setBy: [.package(.init(identity: "OtherFruits")), .trait("Bread")]),
             EnabledTrait(name: "Apple", setBy: .default),
-            "Milkshake"
+            "Milkshake",
         ]
 
         var unifiedSetOfTraits = enabledTraits.union(newTraits)
@@ -304,20 +304,22 @@ struct EnabledTraitTests {
 
         #expect(unifiedSetOfTraits.count == 2)
         #expect(
-            bananaTrait.setters == Set([
-                .package(.init(identity: "OtherFruits")),
-                .trait("Bread"),
-                .default
-            ])
+            bananaTrait.setters
+                == Set([
+                    .package(.init(identity: "OtherFruits")),
+                    .trait("Bread"),
+                    .default,
+                ])
         )
 
         let appleTrait = try unifiedSetOfTraits.unwrapRemove(EnabledTrait(name: "Apple", setBy: .default))
         #expect(unifiedSetOfTraits.count == 1)
         #expect(
-            appleTrait.setters == Set([
-                .package(.init(identity: "MyFruits")),
-                .default
-            ])
+            appleTrait.setters
+                == Set([
+                    .package(.init(identity: "MyFruits")),
+                    .default,
+                ])
         )
 
         let milkshakeTrait = try unifiedSetOfTraits.unwrapRemove("Milkshake")
@@ -332,7 +334,7 @@ struct EnabledTraitTests {
         var traits: EnabledTraits = [
             "Banana",
             EnabledTrait(name: "Banana", setBy: .default),
-            "Chocolate"
+            "Chocolate",
         ]
 
         #expect(traits.count == 2)
@@ -373,7 +375,7 @@ struct EnabledTraitTests {
         let enabledTraits: EnabledTraits = ["Apple", "Banana", "Orange"]
         var otherEnabledTraits: EnabledTraits = ["Banana", "Chocolate"]
         #expect(enabledTraits != otherEnabledTraits)
-        
+
         let intersection = enabledTraits.intersection(otherEnabledTraits)
         #expect(intersection.count == 1)
         #expect(intersection.contains("Banana"))
@@ -455,7 +457,7 @@ struct EnabledTraitTests {
     func enabledTraitsMap_initWithDictionaryLiteral() {
         let map: EnabledTraitsMap = [
             "PackageA": ["Apple", "Banana"],
-            "PackageB": ["Coffee"]
+            "PackageB": ["Coffee"],
         ]
 
         #expect(map["PackageA"] == ["Apple", "Banana"])
@@ -467,7 +469,7 @@ struct EnabledTraitTests {
     func enabledTraitsMap_initWithDictionary() {
         let dictionary: [String: EnabledTraits] = [
             "PackageA": ["Apple", "Banana"],
-            "PackageB": ["Coffee"]
+            "PackageB": ["Coffee"],
         ]
 
         let map = EnabledTraitsMap(dictionary)
@@ -991,7 +993,6 @@ struct EnabledTraitTests {
         #expect(map[defaultSettersFor: packageId] == nil)
     }
 }
-
 
 // MARK: - Test Helpers
 extension EnabledTraits {

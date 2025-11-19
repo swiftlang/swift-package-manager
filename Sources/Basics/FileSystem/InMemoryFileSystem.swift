@@ -23,7 +23,7 @@ public final class InMemoryFileSystem: FileSystem {
     private class Node {
         /// The actual node data.
         let contents: NodeContents
-        
+
         /// Whether the node has executable bit enabled.
         var isExecutable: Bool
 
@@ -415,10 +415,11 @@ public final class InMemoryFileSystem: FileSystem {
         return lock.withLock {
             // Ignore root and get the parent node's content if its a directory.
             guard !path.isRoot,
-                  let parent = try? getNode(path.parentDirectory),
-                  case .directory(let contents) = parent.contents else {
-                      return
-                  }
+                let parent = try? getNode(path.parentDirectory),
+                case .directory(let contents) = parent.contents
+            else {
+                return
+            }
             // Set it to nil to release the contents.
             contents.entries[path.basename] = nil
         }
@@ -500,9 +501,9 @@ public final class InMemoryFileSystem: FileSystem {
             }
         }
 
-        return try fileQueue.sync(flags: type == .exclusive ? .barrier : .init() , execute: body)
+        return try fileQueue.sync(flags: type == .exclusive ? .barrier : .init(), execute: body)
     }
-    
+
     public func withLock<T>(on path: TSCBasic.AbsolutePath, type: FileLock.LockType, blocking: Bool, _ body: () throws -> T) throws -> T {
         try self.withLock(on: path, type: type, body)
     }

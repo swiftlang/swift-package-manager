@@ -22,8 +22,8 @@ struct ConfigureSwiftSDK: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "configure",
         abstract: """
-        Manages configuration options for installed Swift SDKs.
-        """
+            Manages configuration options for installed Swift SDKs.
+            """
     )
 
     @OptionGroup(visibility: .hidden)
@@ -41,51 +41,51 @@ struct ConfigureSwiftSDK: AsyncParsableCommand {
     @Option(
         parsing: .singleValue,
         help: """
-        A path to a directory containing headers. Multiple paths can be specified by providing this option multiple \
-        times to the command.
-        """
+            A path to a directory containing headers. Multiple paths can be specified by providing this option multiple \
+            times to the command.
+            """
     )
     var includeSearchPath: [String] = []
 
     @Option(
         parsing: .singleValue,
         help: """
-        "A path to a directory containing libraries. Multiple paths can be specified by providing this option multiple \
-        times to the command.
-        """
+            "A path to a directory containing libraries. Multiple paths can be specified by providing this option multiple \
+            times to the command.
+            """
     )
     var librarySearchPath: [String] = []
 
     @Option(
         parsing: .singleValue,
         help: """
-        "A path to a toolset file. Multiple paths can be specified by providing this option multiple times to the command.
-        """
+            "A path to a toolset file. Multiple paths can be specified by providing this option multiple times to the command.
+            """
     )
     var toolsetPath: [String] = []
 
     @Flag(
         name: .customLong("reset"),
         help: """
-        Resets configuration properties currently applied to a given Swift SDK and target triple. If no specific \
-        property is specified, all of them are reset for the Swift SDK.
-        """
+            Resets configuration properties currently applied to a given Swift SDK and target triple. If no specific \
+            property is specified, all of them are reset for the Swift SDK.
+            """
     )
     var shouldReset: Bool = false
 
     @Flag(
         name: .customLong("show-configuration"),
         help: """
-        Prints all configuration properties currently applied to a given Swift SDK and target triple.
-        """
+            Prints all configuration properties currently applied to a given Swift SDK and target triple.
+            """
     )
     var shouldShowConfiguration: Bool = false
 
     @Argument(
         help: """
-        An identifier of an already installed Swift SDK. Use the `list` subcommand to see all available \
-        identifiers.
-        """
+            An identifier of an already installed Swift SDK. Use the `list` subcommand to see all available \
+            identifiers.
+            """
     )
     var sdkID: String
 

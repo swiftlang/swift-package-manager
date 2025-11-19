@@ -86,7 +86,7 @@ final class PluginDelegate: PluginInvocationDelegate {
         }
 
         var position: Int {
-            return 0 // should be related to the downstreams somehow
+            return 0  // should be related to the downstreams somehow
         }
 
         public func write(_ byte: UInt8) {
@@ -99,7 +99,7 @@ final class PluginDelegate: PluginInvocationDelegate {
             for downstream in downstreams {
                 downstream.write(bytes)
             }
-		}
+        }
 
         public func flush() {
             for downstream in downstreams {
@@ -197,14 +197,17 @@ final class PluginDelegate: PluginInvocationDelegate {
         return PluginInvocationBuildResult(
             succeeded: success,
             logText: bufferedOutputStream.bytes.cString,
-            builtArtifacts: builtArtifacts)
+            builtArtifacts: builtArtifacts
+        )
     }
 
     func pluginRequestedTestOperation(
         subset: PluginInvocationTestSubset,
         parameters: PluginInvocationTestParameters,
-        completion: @escaping (Result<PluginInvocationTestResult, Error>
-        ) -> Void) {
+        completion: @escaping (
+            Result<PluginInvocationTestResult, Error>
+        ) -> Void
+    ) {
         // Run the test in the background and call the completion handler when done.
         Task {
             do {
@@ -241,7 +244,7 @@ final class PluginDelegate: PluginInvocationDelegate {
             toolchain: toolchain,
             destinationBuildParameters: toolsBuildParameters,
             sanitizers: swiftCommandState.options.build.sanitizers,
-            library: .xctest // FIXME: support both libraries
+            library: .xctest  // FIXME: support both libraries
         )
 
         // Iterate over the tests and run those that match the filter.
@@ -268,9 +271,11 @@ final class PluginDelegate: PluginInvocationDelegate {
                         // Check if we should filter out this test.
                         let testSpecifier = testCase.name + "/" + testName
                         if case .filtered(let regexes) = subset {
-                            guard regexes.contains(
-                                where: { testSpecifier.range(of: $0, options: .regularExpression) != nil }
-                            ) else {
+                            guard
+                                regexes.contains(
+                                    where: { testSpecifier.range(of: $0, options: .regularExpression) != nil }
+                                )
+                            else {
                                 continue
                             }
                         }
@@ -284,11 +289,12 @@ final class PluginDelegate: PluginInvocationDelegate {
                             toolchain: toolchain,
                             testEnv: testEnvironment,
                             observabilityScope: swiftCommandState.observabilityScope,
-                            library: .xctest) // FIXME: support both libraries
+                            library: .xctest
+                        )  // FIXME: support both libraries
 
                         // Run the test — for now we run the sequentially so we can capture accurate timing results.
                         let startTime = DispatchTime.now()
-                        let result = testRunner.test(outputHandler: { _ in }) // this drops the tests output
+                        let result = testRunner.test(outputHandler: { _ in })  // this drops the tests output
                         let duration = Double(startTime.distance(to: .now()).milliseconds() ?? 0) / 1000.0
                         numFailedTests += (result != .failure) ? 0 : 1
                         testResults.append(
@@ -304,11 +310,10 @@ final class PluginDelegate: PluginInvocationDelegate {
                     let testTargetName = testCase.name.prefix(while: { $0 != "." })
                     if let lastTestTargetName = testTargetResults.last?.name, testTargetName == lastTestTargetName {
                         // Same as last one, just extend its list of cases. We know we have a last one at this point.
-                        testTargetResults[testTargetResults.count-1].testCases.append(
+                        testTargetResults[testTargetResults.count - 1].testCases.append(
                             .init(name: testCase.name, tests: testResults)
                         )
-                    }
-                    else {
+                    } else {
                         // Not the same, so start a new target result.
                         testTargetResults.append(
                             .init(
@@ -352,8 +357,7 @@ final class PluginDelegate: PluginInvocationDelegate {
 
             // Return the path of the exported code coverage data file.
             codeCoverageDataFile = jsonCovFile
-        }
-        else {
+        } else {
             codeCoverageDataFile = nil
         }
 
@@ -361,7 +365,8 @@ final class PluginDelegate: PluginInvocationDelegate {
         return PluginInvocationTestResult(
             succeeded: (numFailedTests == 0),
             testTargets: testTargetResults,
-            codeCoverageDataFile: codeCoverageDataFile?.pathString)
+            codeCoverageDataFile: codeCoverageDataFile?.pathString
+        )
     }
 
     func pluginRequestedSymbolGraph(
@@ -414,13 +419,14 @@ final class PluginDelegate: PluginInvocationDelegate {
             // historically how this was setup. Ideally we should be building for both "host"
             // and "target" if module is configured for them but that would require changing
             // `PluginInvocationSymbolGraphResult` to carry multiple directories.
-            let description = if let targetDescription = lookupDescription(for: targetName, destination: .target) {
-                targetDescription
-            } else if let hostDescription = lookupDescription(for: targetName, destination: .host) {
-                hostDescription
-            } else {
-                throw InternalError("could not find a target named: \(targetName)")
-            }
+            let description =
+                if let targetDescription = lookupDescription(for: targetName, destination: .target) {
+                    targetDescription
+                } else if let hostDescription = lookupDescription(for: targetName, destination: .host) {
+                    hostDescription
+                } else {
+                    throw InternalError("could not find a target named: \(targetName)")
+                }
 
             // Configure the symbol graph extractor.
             var symbolGraphExtractor = try SymbolGraphExtract(
@@ -487,13 +493,15 @@ extension BuildSystem {
 
 extension BuildOutput {
     static func symbolGraph(_ options: PluginInvocationSymbolGraphOptions) -> BuildOutput {
-        return .symbolGraph(SymbolGraphOptions(
+        return .symbolGraph(
+            SymbolGraphOptions(
                 minimumAccessLevel: .accessLevel(options.minimumAccessLevel),
                 includeInheritedDocs: options.includeInheritedDocs,
                 includeSynthesized: options.includeSynthesized,
                 includeSPI: options.includeSPI,
                 emitExtensionBlocks: options.emitExtensionBlocks
-        ))
+            )
+        )
     }
 }
 

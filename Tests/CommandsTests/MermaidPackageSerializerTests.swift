@@ -14,16 +14,14 @@ import Foundation
 import class Basics.InMemoryFileSystem
 import class Basics.ObservabilitySystem
 
-@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
-import func PackageGraph.loadModulesGraph
+@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly) import func PackageGraph.loadModulesGraph
 
 import class PackageModel.Manifest
 import struct PackageModel.ProductDescription
 import struct PackageModel.TargetDescription
 import func _InternalTestSupport.XCTAssertNoDiagnostics
 
-@testable
-import Commands
+@testable import Commands
 
 import Testing
 import _InternalTestSupport
@@ -31,7 +29,7 @@ import _InternalTestSupport
 struct MermaidPackageSerializerTests {
     @Test(
         .tags(
-            .TestSize.medium, //?
+            .TestSize.medium,  //?
         ),
     )
     func simplePackage() throws {
@@ -51,7 +49,7 @@ struct MermaidPackageSerializerTests {
                         TargetDescription(name: "ATarget"),
                         TargetDescription(name: "ATargetTests", dependencies: ["ATarget"], type: .test),
                     ]
-                ),
+                )
             ],
             observabilityScope: observability.topScope
         )
@@ -60,22 +58,24 @@ struct MermaidPackageSerializerTests {
         #expect(graph.packages.count == 1)
         let package = try #require(graph.packages.first)
         let serializer = MermaidPackageSerializer(package: package.underlying)
-        #expect(serializer.renderedMarkdown == """
-            ```mermaid
-            flowchart TB
-                subgraph a
-                    product:APackageTests[[APackageTests]]-->target:ATargetTests(ATargetTests)
-                    product:ATarget[[ATarget]]-->target:ATarget(ATarget)
-                    target:ATargetTests(ATargetTests)-->target:ATarget(ATarget)
-                end
-            ```
+        #expect(
+            serializer.renderedMarkdown == """
+                ```mermaid
+                flowchart TB
+                    subgraph a
+                        product:APackageTests[[APackageTests]]-->target:ATargetTests(ATargetTests)
+                        product:ATarget[[ATarget]]-->target:ATarget(ATarget)
+                        target:ATargetTests(ATargetTests)-->target:ATarget(ATarget)
+                    end
+                ```
 
-            """)
+                """
+        )
     }
 
     @Test(
         .tags(
-            .TestSize.medium, //?
+            .TestSize.medium,  //?
         ),
     )
     func dependenciesOnProducts() throws {
@@ -95,7 +95,7 @@ struct MermaidPackageSerializerTests {
                     displayName: "A",
                     path: "/A",
                     dependencies: [
-                        .localSourceControl(path: "/B", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/B", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     targets: [
                         TargetDescription(name: "ATarget", dependencies: ["BLibrary"]),
@@ -106,7 +106,7 @@ struct MermaidPackageSerializerTests {
                     displayName: "B",
                     path: "/B",
                     products: [
-                        ProductDescription(name: "BLibrary", type: .library(.automatic), targets: ["BTarget"]),
+                        ProductDescription(name: "BLibrary", type: .library(.automatic), targets: ["BTarget"])
                     ],
                     targets: [
                         TargetDescription(name: "BTarget", dependencies: []),
@@ -121,22 +121,24 @@ struct MermaidPackageSerializerTests {
         #expect(graph.packages.count == 2)
         let package = try #require(graph.package(for: .plain("A")))
         let serializer = MermaidPackageSerializer(package: package.underlying)
-        #expect(serializer.renderedMarkdown == """
-            ```mermaid
-            flowchart TB
-                subgraph a
-                    product:APackageTests[[APackageTests]]-->target:ATargetTests(ATargetTests)
-                    target:ATargetTests(ATargetTests)-->target:ATarget(ATarget)
-                    target:ATarget(ATarget)-->BLibrary{{BLibrary}}
-                end
-            ```
+        #expect(
+            serializer.renderedMarkdown == """
+                ```mermaid
+                flowchart TB
+                    subgraph a
+                        product:APackageTests[[APackageTests]]-->target:ATargetTests(ATargetTests)
+                        target:ATargetTests(ATargetTests)-->target:ATarget(ATarget)
+                        target:ATarget(ATarget)-->BLibrary{{BLibrary}}
+                    end
+                ```
 
-            """)
+                """
+        )
     }
 
     @Test(
         .tags(
-            .TestSize.medium, //?
+            .TestSize.medium,  //?
         ),
     )
     func dependenciesOnPackages() throws {
@@ -156,7 +158,7 @@ struct MermaidPackageSerializerTests {
                     displayName: "A",
                     path: "/A",
                     dependencies: [
-                        .localSourceControl(path: "/B", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/B", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     targets: [
                         TargetDescription(name: "ATarget", dependencies: [.product(name: "BLibrary", package: "B")]),
@@ -167,7 +169,7 @@ struct MermaidPackageSerializerTests {
                     displayName: "B",
                     path: "/B",
                     products: [
-                        ProductDescription(name: "BLibrary", type: .library(.automatic), targets: ["BTarget"]),
+                        ProductDescription(name: "BLibrary", type: .library(.automatic), targets: ["BTarget"])
                     ],
                     targets: [
                         TargetDescription(name: "BTarget", dependencies: []),
@@ -182,19 +184,21 @@ struct MermaidPackageSerializerTests {
         #expect(graph.packages.count == 2)
         let package = try #require(graph.package(for: .plain("A")))
         let serializer = MermaidPackageSerializer(package: package.underlying)
-        #expect(serializer.renderedMarkdown == """
-            ```mermaid
-            flowchart TB
-                subgraph a
-                    product:APackageTests[[APackageTests]]-->target:ATargetTests(ATargetTests)
-                    target:ATargetTests(ATargetTests)-->target:ATarget(ATarget)
-                end
+        #expect(
+            serializer.renderedMarkdown == """
+                ```mermaid
+                flowchart TB
+                    subgraph a
+                        product:APackageTests[[APackageTests]]-->target:ATargetTests(ATargetTests)
+                        target:ATargetTests(ATargetTests)-->target:ATarget(ATarget)
+                    end
 
-                subgraph B
-                    target:ATarget(ATarget)-->BLibrary{{BLibrary}}
-                end
-            ```
+                    subgraph B
+                        target:ATarget(ATarget)-->BLibrary{{BLibrary}}
+                    end
+                ```
 
-            """)
+                """
+        )
     }
 }

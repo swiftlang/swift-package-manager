@@ -22,8 +22,8 @@ public struct MinimumDeploymentTarget {
         let platform: PackageModel.Platform
     }
 
-    private let minimumDeploymentTargets = ThreadSafeKeyValueStore<MinimumDeploymentTargetKey,PlatformVersion>()
-    private let xcTestMinimumDeploymentTargets = ThreadSafeKeyValueStore<PackageModel.Platform,PlatformVersion>()
+    private let minimumDeploymentTargets = ThreadSafeKeyValueStore<MinimumDeploymentTargetKey, PlatformVersion>()
+    private let xcTestMinimumDeploymentTargets = ThreadSafeKeyValueStore<PackageModel.Platform, PlatformVersion>()
 
     public static let `default`: MinimumDeploymentTarget = .init()
 
@@ -72,13 +72,13 @@ public struct MinimumDeploymentTarget {
 
         // On macOS, we are determining the deployment target by looking at the XCTest binary.
         #if os(macOS)
-        do {
-            let runResult = try AsyncProcess.popen(arguments: ["/usr/bin/xcrun", "--sdk", sdkName, "--show-sdk-platform-path"])
+            do {
+                let runResult = try AsyncProcess.popen(arguments: ["/usr/bin/xcrun", "--sdk", sdkName, "--show-sdk-platform-path"])
 
-            if let version = try computeXCTestMinimumDeploymentTarget(with: runResult, platform: platform) {
-                return version
-            }
-        } catch { } // we do not treat this a fatal and instead use the fallback minimum deployment target
+                if let version = try computeXCTestMinimumDeploymentTarget(with: runResult, platform: platform) {
+                    return version
+                }
+            } catch {}  // we do not treat this a fatal and instead use the fallback minimum deployment target
         #endif
 
         return platform.oldestSupportedVersion
@@ -101,7 +101,7 @@ private extension PackageModel.Platform {
         case .visionOS:
             return ("xros", "XROS")
         case .driverKit:
-            return nil // DriverKit does not support XCTest.
+            return nil  // DriverKit does not support XCTest.
         default:
             return nil
         }

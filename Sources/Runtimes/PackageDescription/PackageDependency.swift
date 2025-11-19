@@ -11,9 +11,9 @@
 //===----------------------------------------------------------------------===//
 
 #if USE_IMPL_ONLY_IMPORTS
-@_implementationOnly import Foundation
+    @_implementationOnly import Foundation
 #else
-import Foundation
+    import Foundation
 #endif
 
 extension Package {
@@ -165,7 +165,7 @@ extension Package {
                 traits: traits
             )
         }
-        
+
         convenience init(
             name: String?,
             location: String,
@@ -181,7 +181,7 @@ extension Package {
                 traits: traits
             )
         }
-        
+
         convenience init(
             id: String,
             requirement: RegistryRequirement,
@@ -702,10 +702,13 @@ extension Package.Dependency {
         // Increase upperbound's patch version by one.
         let upper = closedRange.upperBound
         let upperBound = Version(
-            upper.major, upper.minor, upper.patch + 1,
+            upper.major,
+            upper.minor,
+            upper.patch + 1,
             prereleaseIdentifiers: upper.prereleaseIdentifiers,
-            buildMetadataIdentifiers: upper.buildMetadataIdentifiers)
-        return .package(name: name, url: url, requirement: .range(closedRange.lowerBound ..< upperBound))
+            buildMetadataIdentifiers: upper.buildMetadataIdentifiers
+        )
+        return .package(name: name, url: url, requirement: .range(closedRange.lowerBound..<upperBound))
     }
 
     /// Adds a remote package dependency starting with a specific minimum version, going
@@ -734,14 +737,17 @@ extension Package.Dependency {
         // Increase upperbound's patch version by one.
         let upper = closedRange.upperBound
         let upperBound = Version(
-            upper.major, upper.minor, upper.patch + 1,
+            upper.major,
+            upper.minor,
+            upper.patch + 1,
             prereleaseIdentifiers: upper.prereleaseIdentifiers,
-            buildMetadataIdentifiers: upper.buildMetadataIdentifiers)
+            buildMetadataIdentifiers: upper.buildMetadataIdentifiers
+        )
         return .package(
             name: name,
             url: url,
             requirement: .range(
-                closedRange.lowerBound ..< upperBound
+                closedRange.lowerBound..<upperBound
             ),
             traits: traits
         )
@@ -1067,7 +1073,7 @@ extension Package.Dependency {
     /// ```swift
     /// .package(id: "scope.name", "1.2.3"..."1.2.6"),
     /// ```
-    /// 
+    ///
     /// If the package you depend on defines traits, the package manager uses the dependency with its default set of traits.
     ///
     /// - Parameters:
@@ -1083,10 +1089,13 @@ extension Package.Dependency {
         // Increase upperbound's patch version by one.
         let upper = range.upperBound
         let upperBound = Version(
-            upper.major, upper.minor, upper.patch + 1,
+            upper.major,
+            upper.minor,
+            upper.patch + 1,
             prereleaseIdentifiers: upper.prereleaseIdentifiers,
-            buildMetadataIdentifiers: upper.buildMetadataIdentifiers)
-        return .package(id: id, range.lowerBound ..< upperBound)
+            buildMetadataIdentifiers: upper.buildMetadataIdentifiers
+        )
+        return .package(id: id, range.lowerBound..<upperBound)
     }
 
     /// Adds a remote package dependency starting with a specific minimum version, going
@@ -1114,10 +1123,13 @@ extension Package.Dependency {
         // Increase upperbound's patch version by one.
         let upper = range.upperBound
         let upperBound = Version(
-            upper.major, upper.minor, upper.patch + 1,
+            upper.major,
+            upper.minor,
+            upper.patch + 1,
             prereleaseIdentifiers: upper.prereleaseIdentifiers,
-            buildMetadataIdentifiers: upper.buildMetadataIdentifiers)
-        return .package(id: id, range.lowerBound ..< upperBound, traits: traits)
+            buildMetadataIdentifiers: upper.buildMetadataIdentifiers
+        )
+        return .package(id: id, range.lowerBound..<upperBound, traits: traits)
     }
 
     // intentionally private to hide enum detail

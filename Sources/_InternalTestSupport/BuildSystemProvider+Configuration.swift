@@ -21,19 +21,19 @@ extension BuildSystemProvider.Kind {
         let suffix: String
 
         #if os(Linux)
-        suffix = "-linux"
+            suffix = "-linux"
         #elseif os(Windows)
-        suffix = "-windows"
+            suffix = "-windows"
         #else
-        suffix = ""
+            suffix = ""
         #endif
         switch self {
-            case .native:
-                return ["\(config)".lowercased()]
-            case .swiftbuild:
-                return ["Products" , "\(config)".capitalized + suffix]
-            case .xcode:
-                return ["apple", "Products" , "\(config)".capitalized + suffix]
+        case .native:
+            return ["\(config)".lowercased()]
+        case .swiftbuild:
+            return ["Products", "\(config)".capitalized + suffix]
+        case .xcode:
+            return ["apple", "Products", "\(config)".capitalized + suffix]
         }
     }
 

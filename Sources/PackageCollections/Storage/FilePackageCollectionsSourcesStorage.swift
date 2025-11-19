@@ -163,8 +163,12 @@ private extension Model.CollectionSource {
     func source() -> StorageModel.Source {
         switch self.type {
         case .json:
-            return .init(type: StorageModel.SourceType.json.rawValue, value: self.url.absoluteString,
-                         isTrusted: self.isTrusted, skipSignatureCheck: self.skipSignatureCheck)
+            return .init(
+                type: StorageModel.SourceType.json.rawValue,
+                value: self.url.absoluteString,
+                isTrusted: self.isTrusted,
+                skipSignatureCheck: self.skipSignatureCheck
+            )
         }
     }
 }

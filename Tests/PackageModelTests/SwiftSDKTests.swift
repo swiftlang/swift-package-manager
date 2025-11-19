@@ -12,8 +12,7 @@
 
 @testable import Basics
 
-@_spi(SwiftPMInternal)
-@testable import PackageModel
+@_spi(SwiftPMInternal) @testable import PackageModel
 
 @testable import SPMBuildCore
 import XCTest
@@ -141,7 +140,6 @@ private let invalidToolsetDestinationV3 = (
     """# as SerializedJSON
 )
 
-
 private let wasiWithoutToolsetsSwiftSDKv4 = (
     path: bundleRootPath.appending(component: "wasiSwiftSDKv4.json"),
     json: #"""
@@ -246,9 +244,11 @@ private let invalidToolsetSwiftSDKv4 = (
     """# as SerializedJSON
 )
 
-private let usrBinTools = Dictionary(uniqueKeysWithValues: Toolset.KnownTool.allCases.map {
-    ($0, "/usr/bin/\($0.rawValue)")
-})
+private let usrBinTools = Dictionary(
+    uniqueKeysWithValues: Toolset.KnownTool.allCases.map {
+        ($0, "/usr/bin/\($0.rawValue)")
+    }
+)
 
 private let otherToolsNoRoot = (
     path: try! AbsolutePath(validating: "/tools/otherToolsNoRoot.json"),
@@ -435,7 +435,7 @@ final class SwiftSDKTests: XCTestCase {
                     pathsConfiguration: .init(
                         sdkRootPath: sdkRootAbsolutePath
                     )
-                ),
+                )
             ]
         )
 
@@ -466,12 +466,14 @@ final class SwiftSDKTests: XCTestCase {
 
         XCTAssertEqual(toolsetRootDestinationV3Decoded, [parsedToolsetRootDestination])
 
-        XCTAssertThrowsError(try SwiftSDK.decode(
-            fromFile: missingToolsetDestinationV3.path,
-            hostToolchainBinDir: toolchainBinAbsolutePath,
-            fileSystem: fs,
-            observabilityScope: observability
-        )) {
+        XCTAssertThrowsError(
+            try SwiftSDK.decode(
+                fromFile: missingToolsetDestinationV3.path,
+                hostToolchainBinDir: toolchainBinAbsolutePath,
+                fileSystem: fs,
+                observabilityScope: observability
+            )
+        ) {
             let toolsetDefinition: AbsolutePath = "/tools/asdf.json"
             XCTAssertEqual(
                 $0 as? StringError,
@@ -483,19 +485,23 @@ final class SwiftSDKTests: XCTestCase {
                 )
             )
         }
-        XCTAssertThrowsError(try SwiftSDK.decode(
-            fromFile: invalidVersionDestinationV3.path,
-            hostToolchainBinDir: bundleRootPath.appending(toolchainBinDir),
-            fileSystem: fs,
-            observabilityScope: observability
-        ))
+        XCTAssertThrowsError(
+            try SwiftSDK.decode(
+                fromFile: invalidVersionDestinationV3.path,
+                hostToolchainBinDir: bundleRootPath.appending(toolchainBinDir),
+                fileSystem: fs,
+                observabilityScope: observability
+            )
+        )
 
-        XCTAssertThrowsError(try SwiftSDK.decode(
-            fromFile: invalidToolsetDestinationV3.path,
-            hostToolchainBinDir: bundleRootPath.appending(toolchainBinDir),
-            fileSystem: fs,
-            observabilityScope: observability
-        )) {
+        XCTAssertThrowsError(
+            try SwiftSDK.decode(
+                fromFile: invalidToolsetDestinationV3.path,
+                hostToolchainBinDir: bundleRootPath.appending(toolchainBinDir),
+                fileSystem: fs,
+                observabilityScope: observability
+            )
+        ) {
             let toolsetDefinition: AbsolutePath = "/tools/invalidToolset.json"
             XCTAssertTrue(
                 ($0 as? StringError)?.description
@@ -530,12 +536,14 @@ final class SwiftSDKTests: XCTestCase {
 
         XCTAssertEqual(androidWithoutSDKRootPathSwiftSDKv4Decoded, [parsedToolsetNoSDKRootPathDestination])
 
-        XCTAssertThrowsError(try SwiftSDK.decode(
-            fromFile: missingToolsetSwiftSDKv4.path,
-            hostToolchainBinDir: toolchainBinAbsolutePath,
-            fileSystem: fs,
-            observabilityScope: observability
-        )) {
+        XCTAssertThrowsError(
+            try SwiftSDK.decode(
+                fromFile: missingToolsetSwiftSDKv4.path,
+                hostToolchainBinDir: toolchainBinAbsolutePath,
+                fileSystem: fs,
+                observabilityScope: observability
+            )
+        ) {
             let toolsetDefinition: AbsolutePath = "/tools/asdf.json"
             XCTAssertEqual(
                 $0 as? StringError,
@@ -547,19 +555,23 @@ final class SwiftSDKTests: XCTestCase {
                 )
             )
         }
-        XCTAssertThrowsError(try SwiftSDK.decode(
-            fromFile: invalidVersionSwiftSDKv4.path,
-            hostToolchainBinDir: toolchainBinAbsolutePath,
-            fileSystem: fs,
-            observabilityScope: observability
-        ))
+        XCTAssertThrowsError(
+            try SwiftSDK.decode(
+                fromFile: invalidVersionSwiftSDKv4.path,
+                hostToolchainBinDir: toolchainBinAbsolutePath,
+                fileSystem: fs,
+                observabilityScope: observability
+            )
+        )
 
-        XCTAssertThrowsError(try SwiftSDK.decode(
-            fromFile: invalidToolsetSwiftSDKv4.path,
-            hostToolchainBinDir: toolchainBinAbsolutePath,
-            fileSystem: fs,
-            observabilityScope: observability
-        )) {
+        XCTAssertThrowsError(
+            try SwiftSDK.decode(
+                fromFile: invalidToolsetSwiftSDKv4.path,
+                hostToolchainBinDir: toolchainBinAbsolutePath,
+                fileSystem: fs,
+                observabilityScope: observability
+            )
+        ) {
             let toolsetDefinition: AbsolutePath = "/tools/invalidToolset.json"
             XCTAssertTrue(
                 ($0 as? StringError)?.description
@@ -597,7 +609,7 @@ final class SwiftSDKTests: XCTestCase {
                                 supportedTriples: [hostTriple]
                             ),
                             swiftSDKs: [parsedDestinationV2GNU]
-                        ),
+                        )
                     ],
                     "id2": [
                         .init(
@@ -606,7 +618,7 @@ final class SwiftSDKTests: XCTestCase {
                                 supportedTriples: []
                             ),
                             swiftSDKs: [parsedDestinationV2GNU]
-                        ),
+                        )
                     ],
                     "id3": [
                         .init(
@@ -615,7 +627,7 @@ final class SwiftSDKTests: XCTestCase {
                                 supportedTriples: [hostTriple]
                             ),
                             swiftSDKs: [parsedDestinationV2Musl]
-                        ),
+                        )
                     ],
                     "id4": [
                         .init(
@@ -624,7 +636,7 @@ final class SwiftSDKTests: XCTestCase {
                                 supportedTriples: [olderHostTriple]
                             ),
                             swiftSDKs: [parsedDestinationForOlderHost]
-                        ),
+                        )
                     ],
                     "id5": [
                         .init(
@@ -633,10 +645,10 @@ final class SwiftSDKTests: XCTestCase {
                                 supportedTriples: nil
                             ),
                             swiftSDKs: [parsedDestinationV2GNU]
-                        ),
+                        )
                     ],
                 ]
-            ),
+            )
         ]
 
         let system = ObservabilitySystem.makeForTesting()
@@ -710,24 +722,26 @@ final class SwiftSDKTests: XCTestCase {
         let hostSDK = try SwiftSDK.hostSwiftSDK("/prefix/bin")
 
         #if os(macOS)
-        let iOSPlatform = try AbsolutePath(validating: "/usr/share/iPhoneOS.platform")
-        let iOSRoot = try AbsolutePath(validating: "/usr/share/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk")
-        let iOSTriple = try Triple("arm64-apple-ios")
-        let iOS = try XCTUnwrap(SwiftSDK.defaultSwiftSDK(
-            for: iOSTriple,
-            hostSDK: hostSDK,
-            environment: [
-                "SWIFTPM_PLATFORM_PATH_iphoneos": iOSPlatform.pathString,
-                "SWIFTPM_SDKROOT_iphoneos": iOSRoot.pathString,
-            ]
-        ))
-        XCTAssertEqual(iOS.toolset.rootPaths, hostSDK.toolset.rootPaths)
+            let iOSPlatform = try AbsolutePath(validating: "/usr/share/iPhoneOS.platform")
+            let iOSRoot = try AbsolutePath(validating: "/usr/share/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk")
+            let iOSTriple = try Triple("arm64-apple-ios")
+            let iOS = try XCTUnwrap(
+                SwiftSDK.defaultSwiftSDK(
+                    for: iOSTriple,
+                    hostSDK: hostSDK,
+                    environment: [
+                        "SWIFTPM_PLATFORM_PATH_iphoneos": iOSPlatform.pathString,
+                        "SWIFTPM_SDKROOT_iphoneos": iOSRoot.pathString,
+                    ]
+                )
+            )
+            XCTAssertEqual(iOS.toolset.rootPaths, hostSDK.toolset.rootPaths)
 
-        XCTAssertEqual(iOS.pathsConfiguration.sdkRootPath, iOSRoot)
+            XCTAssertEqual(iOS.pathsConfiguration.sdkRootPath, iOSRoot)
 
-        let cFlags = iOS.toolset.knownTools[.cCompiler]?.extraCLIOptions ?? []
-        XCTAssert(cFlags.contains(["-F", "\(iOSPlatform.pathString)/Developer/Library/Frameworks"]))
-        XCTAssertFalse(cFlags.contains { $0.lowercased().contains("macos") }, "Found macOS path in \(cFlags)")
+            let cFlags = iOS.toolset.knownTools[.cCompiler]?.extraCLIOptions ?? []
+            XCTAssert(cFlags.contains(["-F", "\(iOSPlatform.pathString)/Developer/Library/Frameworks"]))
+            XCTAssertFalse(cFlags.contains { $0.lowercased().contains("macos") }, "Found macOS path in \(cFlags)")
         #endif
     }
 }

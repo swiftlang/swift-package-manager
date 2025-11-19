@@ -19,8 +19,8 @@ final class ResourcesTests: XCTestCase {
     func testSimpleResources() async throws {
         try XCTSkipOnWindows(
             because: """
-            Invalid path. Possibly related to https://github.com/swiftlang/swift-package-manager/issues/8511 or https://github.com/swiftlang/swift-package-manager/issues/8602
-            """,
+                Invalid path. Possibly related to https://github.com/swiftlang/swift-package-manager/issues/8511 or https://github.com/swiftlang/swift-package-manager/issues/8602
+                """,
             skipPlatformCi: true,
         )
 
@@ -29,8 +29,8 @@ final class ResourcesTests: XCTestCase {
 
             // Objective-C module requires macOS
             #if os(macOS)
-            executables.append("SeaResource")
-            executables.append("CPPResource")
+                executables.append("SeaResource")
+                executables.append("CPPResource")
             #endif
 
             for execName in executables {
@@ -54,19 +54,22 @@ final class ResourcesTests: XCTestCase {
             let exec = AbsolutePath(".build/debug/exe", relativeTo: fixturePath)
             // Note: <rdar://problem/59738569> Source from LANG and -AppleLanguages on command line for Linux resources
             let output = try await AsyncProcess.checkNonZeroExit(args: exec.pathString, "-AppleLanguages", "(en_US)").withSwiftLineEnding
-            XCTAssertEqual(output, """
+            XCTAssertEqual(
+                output,
+                """
                 ¡Hola Mundo!
                 Hallo Welt!
                 Bonjour le monde !
 
-                """)
+                """
+            )
         }
     }
 
     func testResourcesInMixedClangPackage() async throws {
         #if !os(macOS)
-        // Running swift-test fixtures on linux is not yet possible.
-        try XCTSkipIf(true, "test is only supported on macOS")
+            // Running swift-test fixtures on linux is not yet possible.
+            try XCTSkipIf(true, "test is only supported on macOS")
         #endif
 
         try await fixtureXCTest(name: "Resources/Simple") { fixturePath in
@@ -84,16 +87,17 @@ final class ResourcesTests: XCTestCase {
 
             // Objective-C module requires macOS
             #if os(macOS)
-            executables.append("SeaResource")
+                executables.append("SeaResource")
             #endif
 
-            let binPath = try AbsolutePath(validating:
-                await executeSwiftBuild(
-                    fixturePath,
-                    configuration: .release,
-                    extraArgs: ["--show-bin-path"],
-                    buildSystem: .native,
-                ).stdout
+            let binPath = try AbsolutePath(
+                validating:
+                    await executeSwiftBuild(
+                        fixturePath,
+                        configuration: .release,
+                        extraArgs: ["--show-bin-path"],
+                        buildSystem: .native,
+                    ).stdout
                     .trimmingCharacters(in: .whitespacesAndNewlines)
             )
 
@@ -141,8 +145,8 @@ final class ResourcesTests: XCTestCase {
 
     func testResourceBundleInClangPackageWhenRunningSwiftTest() async throws {
         #if !os(macOS)
-        // Running swift-test fixtures on linux is not yet possible.
-        try XCTSkipIf(true, "test is only supported on macOS")
+            // Running swift-test fixtures on linux is not yet possible.
+            try XCTSkipIf(true, "test is only supported on macOS")
         #endif
 
         try await fixtureXCTest(name: "Resources/Simple") { fixturePath in
@@ -164,7 +168,10 @@ final class ResourcesTests: XCTestCase {
             let result = try await AsyncProcess.checkNonZeroExit(args: execPath.pathString)
             XCTAssertMatch(result, .contains("hello world"))
             let resourcePath = fixturePath.appending(
-                components: "Sources", "EmbedInCodeSimple", "best.txt")
+                components: "Sources",
+                "EmbedInCodeSimple",
+                "best.txt"
+            )
 
             // Check incremental builds
             for i in 0..<2 {
@@ -175,7 +182,7 @@ final class ResourcesTests: XCTestCase {
                     fixturePath,
                     buildSystem: .native,
                 )
-                 // Run the executable again.
+                // Run the executable again.
                 let result2 = try await AsyncProcess.checkNonZeroExit(args: execPath.pathString)
                 XCTAssertMatch(result2, .contains("\(content)"))
             }
@@ -191,23 +198,27 @@ final class ResourcesTests: XCTestCase {
             try localFileSystem.writeFileContents(
                 manifestFile,
                 string: """
-                // swift-tools-version: 6.0
-                import PackageDescription
-                let package = Package(name: "MyPackage",
-                    targets: [
-                        .executableTarget(
-                            name: "exec",
-                            resources: [.copy("../resources")]
-                        )
-                    ])
-                """)
+                    // swift-tools-version: 6.0
+                    import PackageDescription
+                    let package = Package(name: "MyPackage",
+                        targets: [
+                            .executableTarget(
+                                name: "exec",
+                                resources: [.copy("../resources")]
+                            )
+                        ])
+                    """
+            )
 
             let targetSourceFile = packageDir.appending(components: "Sources", "exec", "main.swift")
             try localFileSystem.createDirectory(targetSourceFile.parentDirectory, recursive: true)
-            try localFileSystem.writeFileContents(targetSourceFile, string: """
-            import Foundation
-            print(Bundle.module.resourcePath ?? "<empty>")
-            """)
+            try localFileSystem.writeFileContents(
+                targetSourceFile,
+                string: """
+                    import Foundation
+                    print(Bundle.module.resourcePath ?? "<empty>")
+                    """
+            )
 
             let resource = packageDir.appending(components: "Sources", "resources", "best.txt")
             try localFileSystem.createDirectory(resource.parentDirectory, recursive: true)
@@ -215,12 +226,12 @@ final class ResourcesTests: XCTestCase {
 
             let (_, stderr) = try await executeSwiftBuild(
                 packageDir,
-                env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"],
+                env: ["SWIFT_DRIVER_SWIFTSCAN_LIB": "/this/is/a/bad/path"],
                 buildSystem: .native,
             )
             // Filter some unrelated output that could show up on stderr.
             let filteredStderr = stderr.components(separatedBy: "\n").filter { !$0.contains("[logging]") }
-                                                                     .filter { !$0.contains("Unable to locate libSwiftScan") }.joined(separator: "\n")
+                .filter { !$0.contains("Unable to locate libSwiftScan") }.joined(separator: "\n")
             XCTAssertEqual(filteredStderr, "", "unexpectedly received error output: \(stderr)")
 
             let builtProductsDir = packageDir.appending(components: [".build", "debug"])

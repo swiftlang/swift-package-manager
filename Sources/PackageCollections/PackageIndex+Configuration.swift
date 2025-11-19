@@ -19,10 +19,10 @@ public struct PackageIndexConfiguration: Equatable {
     public var cacheDirectory: AbsolutePath
     public var cacheTTLInSeconds: Int
     public var cacheMaxSizeInMegabytes: Int
-    
+
     // TODO: rdar://87575573 remove feature flag
     public internal(set) var enabled = ProcessInfo.processInfo.environment["SWIFTPM_ENABLE_PACKAGE_INDEX"] == "1"
-    
+
     public init(
         url: URL? = nil,
         searchResultMaxItemsCount: Int? = nil,
@@ -52,7 +52,7 @@ public struct PackageIndexConfigurationStorage {
         self.encoder = JSONEncoder.makeWithDefaults()
         self.decoder = JSONDecoder.makeWithDefaults()
     }
-    
+
     public func load() throws -> PackageIndexConfiguration {
         guard self.fileSystem.exists(self.path) else {
             return .init()
@@ -73,7 +73,7 @@ public struct PackageIndexConfigurationStorage {
         let buffer = try encoder.encode(container)
         try self.fileSystem.writeFileContents(self.path, data: buffer)
     }
-    
+
     @discardableResult
     public func update(with handler: (inout PackageIndexConfiguration) throws -> Void) throws -> PackageIndexConfiguration {
         let configuration = try self.load()
@@ -124,7 +124,7 @@ private extension PackageIndexConfiguration {
                 throw SerializationError.invalidURL(urlString)
             }
         }
-        
+
         let cacheDirectory: AbsolutePath?
         switch from.cacheDirectory {
         case .none:

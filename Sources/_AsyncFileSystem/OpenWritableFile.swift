@@ -21,11 +21,11 @@ package actor OpenWritableFile: WritableStream {
         /// Operating system file descriptor and a queue used for reading from that file descriptor without blocking
         /// the Swift Concurrency thread pool.
         case real(FileDescriptor, DispatchQueue)
-        
+
         /// Reference to the ``MockFileSystem`` actor that provides file storage.
         case mock(MockFileSystem)
     }
-    
+
     /// Concrete instance of underlying storage.
     let storage: Storage
 
@@ -34,7 +34,7 @@ package actor OpenWritableFile: WritableStream {
 
     /// Whether the underlying file descriptor has been closed.
     private var isClosed = false
-    
+
     /// Creates a new write-only file handle.
     /// - Parameters:
     ///   - storage: Underlying storage for the file.
@@ -43,7 +43,7 @@ package actor OpenWritableFile: WritableStream {
         self.storage = storage
         self.path = path
     }
-    
+
     /// Writes a sequence of bytes to the buffer.
     package func write(_ bytes: some Collection<UInt8> & Sendable) async throws {
         assert(!isClosed)
@@ -76,4 +76,3 @@ package actor OpenWritableFile: WritableStream {
         }
     }
 }
-

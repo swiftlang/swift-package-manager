@@ -57,22 +57,26 @@ extension Workspace {
         var root: PackageGraphRoot
 
         /// The dependency manifests in the transitive closure of root manifest.
-        let dependencies: [(
-            manifest: Manifest,
-            dependency: ManagedDependency,
-            productFilter: ProductFilter,
-            fileSystem: FileSystem
-        )]
+        let dependencies:
+            [(
+                manifest: Manifest,
+                dependency: ManagedDependency,
+                productFilter: ProductFilter,
+                fileSystem: FileSystem
+            )]
 
         private let workspace: Workspace
 
         private let observabilityScope: ObservabilityScope
 
-        private let _dependencies: LoadableResult<(
-            required: OrderedCollections.OrderedSet<PackageReference>,
-            missing: OrderedCollections.OrderedSet<PackageReference>,
-            unused: OrderedCollections.OrderedSet<PackageReference>
-        )>
+        private let _dependencies:
+            LoadableResult<
+                (
+                    required: OrderedCollections.OrderedSet<PackageReference>,
+                    missing: OrderedCollections.OrderedSet<PackageReference>,
+                    unused: OrderedCollections.OrderedSet<PackageReference>
+                )
+            >
 
         private let _constraints: LoadableResult<[PackageContainerConstraint]>
 
@@ -109,14 +113,18 @@ extension Workspace {
         }
 
         /// Returns all manifests contained in DependencyManifests.
-        public var allDependencyManifests: OrderedCollections.OrderedDictionary<
-            PackageIdentity,
-            (manifest: Manifest, fs: FileSystem)
-        > {
-            self.dependencies.reduce(into: OrderedCollections.OrderedDictionary<
+        public var allDependencyManifests:
+            OrderedCollections.OrderedDictionary<
                 PackageIdentity,
                 (manifest: Manifest, fs: FileSystem)
-            >()) { partial, item in
+            >
+        {
+            self.dependencies.reduce(
+                into: OrderedCollections.OrderedDictionary<
+                    PackageIdentity,
+                    (manifest: Manifest, fs: FileSystem)
+                >()
+            ) { partial, item in
                 partial[item.dependency.packageRef.identity] = (item.manifest, item.fileSystem)
             }
         }
@@ -208,32 +216,35 @@ extension Workspace {
             var unusedIdentities: OrderedCollections.OrderedSet<PackageReference> = []
             var inputIdentities: OrderedCollections.OrderedSet<PackageReference> = []
 
-            let inputNodes: [GraphLoadingNode] = try root.packages.map { identity, package in
-                inputIdentities.append(package.reference)
+            let inputNodes: [GraphLoadingNode] =
+                try root.packages.map { identity, package in
+                    inputIdentities.append(package.reference)
 
-                let node = try GraphLoadingNode(
-                    identity: identity,
-                    manifest: package.manifest,
-                    productFilter: .everything,
-                    enabledTraits: workspace.enabledTraitsMap[package.reference.identity]
-                )
-                return node
-            } + root.dependencies.compactMap { dependency in
-                let package = dependency.packageRef
-                inputIdentities.append(package)
-                return try manifestsMap[dependency.identity].map { manifest in
-
-                    return try GraphLoadingNode(
-                        identity: dependency.identity,
-                        manifest: manifest,
-                        productFilter: dependency.productFilter,
-                        enabledTraits: workspace.enabledTraitsMap[dependency.identity]
+                    let node = try GraphLoadingNode(
+                        identity: identity,
+                        manifest: package.manifest,
+                        productFilter: .everything,
+                        enabledTraits: workspace.enabledTraitsMap[package.reference.identity]
                     )
+                    return node
                 }
-            }
+                + root.dependencies.compactMap { dependency in
+                    let package = dependency.packageRef
+                    inputIdentities.append(package)
+                    return try manifestsMap[dependency.identity].map { manifest in
+
+                        return try GraphLoadingNode(
+                            identity: dependency.identity,
+                            manifest: manifest,
+                            productFilter: dependency.productFilter,
+                            enabledTraits: workspace.enabledTraitsMap[dependency.identity]
+                        )
+                    }
+                }
 
             // Begin with all packages having everything as an unused dependency.
-            var unusedDepsPerPackage: [PackageIdentity: [PackageReference]] = manifestsMap
+            var unusedDepsPerPackage: [PackageIdentity: [PackageReference]] =
+                manifestsMap
                 .reduce(into: [PackageIdentity: [PackageReference]]()) { depsMap, manifestMap in
                     depsMap[manifestMap.key] = manifestsMap.compactMap { identity, manifest in
                         guard !root.manifests.contains(where: { identity == $0.key }) else { return nil }
@@ -259,16 +270,20 @@ extension Workspace {
                         )
                         if !isDepUsed && workspace.configuration.pruneDependencies {
                             if !node.enabledTraits.isEmpty {
-                                observabilityScope.emit(debug: """
-                            '\(package.identity)' from '\(package.locationString)' was omitted \
-                            from required dependencies because it is being guarded by the following traits:' \
-                            \(node.enabledTraits.joined(separator: ", "))
-                            """)
+                                observabilityScope.emit(
+                                    debug: """
+                                        '\(package.identity)' from '\(package.locationString)' was omitted \
+                                        from required dependencies because it is being guarded by the following traits:' \
+                                        \(node.enabledTraits.joined(separator: ", "))
+                                        """
+                                )
                             } else {
-                                observabilityScope.emit(debug: """
-                            '\(package.identity)' from '\(package.locationString)' was omitted \
-                            from required dependencies because it is unused
-                            """)
+                                observabilityScope.emit(
+                                    debug: """
+                                        '\(package.identity)' from '\(package.locationString)' was omitted \
+                                        from required dependencies because it is unused
+                                        """
+                                )
                             }
                         } else {
                             unusedDepsPerPackage[node.identity, default: []] = unusedDepsPerPackage[
@@ -286,20 +301,24 @@ extension Workspace {
                                         if topLevelDependencies.contains(where: {
                                             $0.locationString == existing.locationString
                                         }) {
-                                            observabilityScope.emit(debug: """
-                                            similar variants of package '\(package.identity)' \
-                                            found at '\(package.locationString)' and '\(existing.locationString)'. \
-                                            using preferred root variant '\(existing.locationString)'
-                                            """)
+                                            observabilityScope.emit(
+                                                debug: """
+                                                    similar variants of package '\(package.identity)' \
+                                                    found at '\(package.locationString)' and '\(existing.locationString)'. \
+                                                    using preferred root variant '\(existing.locationString)'
+                                                    """
+                                            )
                                         } else {
                                             let preferred = [existing, package].sorted(by: {
                                                 $0.locationString > $1.locationString
-                                            }).first! // safe
-                                            observabilityScope.emit(debug: """
-                                            similar variants of package '\(package.identity)' \
-                                            found at '\(package.locationString)' and '\(existing.locationString)'. \
-                                            using preferred variant '\(preferred.locationString)'
-                                            """)
+                                            }).first!  // safe
+                                            observabilityScope.emit(
+                                                debug: """
+                                                    similar variants of package '\(package.identity)' \
+                                                    found at '\(package.locationString)' and '\(existing.locationString)'. \
+                                                    using preferred variant '\(preferred.locationString)'
+                                                    """
+                                            )
                                             if preferred.locationString != existing.locationString {
                                                 requiredIdentities.remove(existing)
                                                 requiredIdentities.insert(preferred, at: index)
@@ -307,11 +326,13 @@ extension Workspace {
                                         }
                                     }
                                 } else {
-                                    observabilityScope.emit(debug: """
-                                    '\(package.identity)' from '\(package.locationString)' was omitted \
-                                    from required dependencies because it has the same identity as the \
-                                    one from '\(existing.locationString)'
-                                    """)
+                                    observabilityScope.emit(
+                                        debug: """
+                                            '\(package.identity)' from '\(package.locationString)' was omitted \
+                                            from required dependencies because it has the same identity as the \
+                                            one from '\(existing.locationString)'
+                                            """
+                                    )
                                 }
                             }
                         }
@@ -343,20 +364,22 @@ extension Workspace {
                 requiredIdentities = requiredIdentities.subtracting(unusedIdentities)
             }
 
-            var availableIdentities: Set<PackageReference> = try Set(manifestsMap.map {
-                // FIXME: adding this guard to ensure refactoring is correct 9/21
-                // we only care about remoteSourceControl for this validation. it would otherwise trigger for
-                // a dependency is put into edit mode, which we want to deprecate anyways
-                if case .remoteSourceControl = $0.1.packageKind {
-                    let effectiveURL = workspace.mirrors.effective(for: $0.1.packageLocation)
-                    guard effectiveURL == $0.1.packageKind.locationString else {
-                        throw InternalError(
-                            "effective url for \($0.1.packageLocation) is \(effectiveURL), different from expected \($0.1.packageKind.locationString)"
-                        )
+            var availableIdentities: Set<PackageReference> = try Set(
+                manifestsMap.map {
+                    // FIXME: adding this guard to ensure refactoring is correct 9/21
+                    // we only care about remoteSourceControl for this validation. it would otherwise trigger for
+                    // a dependency is put into edit mode, which we want to deprecate anyways
+                    if case .remoteSourceControl = $0.1.packageKind {
+                        let effectiveURL = workspace.mirrors.effective(for: $0.1.packageLocation)
+                        guard effectiveURL == $0.1.packageKind.locationString else {
+                            throw InternalError(
+                                "effective url for \($0.1.packageLocation) is \(effectiveURL), different from expected \($0.1.packageKind.locationString)"
+                            )
+                        }
                     }
+                    return PackageReference(identity: $0.key, kind: $0.1.packageKind)
                 }
-                return PackageReference(identity: $0.key, kind: $0.1.packageKind)
-            })
+            )
 
             if workspace.configuration.pruneDependencies {
                 availableIdentities = availableIdentities.subtracting(unusedIdentities)
@@ -474,13 +497,14 @@ extension Workspace {
             throw StringError("unexpected manifest loader kind")
         }
 
-        let manifestToolsVersion = (try? ToolsVersionParser.parse(
-            manifestPath: manifestPath,
-            fileSystem: self.fileSystem
-        )) ?? self.currentToolsVersion
+        let manifestToolsVersion =
+            (try? ToolsVersionParser.parse(
+                manifestPath: manifestPath,
+                fileSystem: self.fileSystem
+            )) ?? self.currentToolsVersion
 
         guard self.currentToolsVersion >= manifestToolsVersion || SwiftVersion.current.isDevelopment,
-              manifestToolsVersion >= ToolsVersion.minimumRequired
+            manifestToolsVersion >= ToolsVersion.minimumRequired
         else {
             throw StringError("invalid tools version")
         }
@@ -581,9 +605,12 @@ extension Workspace {
             )
         }
 
-        let topLevelManifests = rootManifests.merging(rootDependenciesManifests, uniquingKeysWith: { lhs, _ in
-            lhs // prefer roots!
-        })
+        let topLevelManifests = rootManifests.merging(
+            rootDependenciesManifests,
+            uniquingKeysWith: { lhs, _ in
+                lhs  // prefer roots!
+            }
+        )
 
         // optimization: preload first level dependencies manifest (in parallel)
         let firstLevelDependencies = try topLevelManifests.values.map { manifest in
@@ -612,44 +639,44 @@ extension Workspace {
         // Continue to load the rest of the manifest for this graph
         // Creates a map of loaded manifests. We do this to avoid reloading the shared nodes.
         var loadedManifests = firstLevelManifests
-        let successorNodes: (KeyedPair<GraphLoadingNode, PackageIdentity>) async throws -> [KeyedPair<
-            GraphLoadingNode,
-            PackageIdentity
-        >] = { node in
-            // optimization: preload manifest we know about in parallel
-            // avoid loading dependencies that are trait-guarded here since this is redundant.
-            let dependenciesRequired = try node.item.manifest.dependenciesRequired(
-                for: node.item.productFilter,
-                node.item.enabledTraits
-            )
-            let dependenciesToLoad = dependenciesRequired.map(\.packageRef)
-                .filter { !loadedManifests.keys.contains($0.identity) }
-            try await prepopulateManagedDependencies(dependenciesToLoad)
-            let dependenciesManifests = try await self.loadManagedManifests(
-                for: dependenciesToLoad,
-                observabilityScope: observabilityScope
-            )
-            dependenciesManifests.forEach { loadedManifests[$0.key] = $0.value }
-            return try dependenciesRequired.compactMap { dependency in
-                return try loadedManifests[dependency.identity].flatMap { manifest in
-                    // we also compare the location as this function may attempt to load
-                    // dependencies that have the same identity but from a different location
-                    // which is an error case we diagnose an report about in the GraphLoading part which
-                    // is prepared to handle the case where not all manifest are available
-                    return manifest.canonicalPackageLocation == dependency.packageRef.canonicalLocation ?
-                        try KeyedPair(
-                            GraphLoadingNode(
-                                identity: dependency.identity,
-                                manifest: manifest,
-                                productFilter: dependency.productFilter,
-                                enabledTraits: self.enabledTraitsMap[dependency.identity]
-                            ),
-                            key: dependency.identity
-                        ) :
-                        nil
+        let successorNodes:
+            (KeyedPair<GraphLoadingNode, PackageIdentity>) async throws -> [KeyedPair<
+                GraphLoadingNode,
+                PackageIdentity
+            >] = { node in
+                // optimization: preload manifest we know about in parallel
+                // avoid loading dependencies that are trait-guarded here since this is redundant.
+                let dependenciesRequired = try node.item.manifest.dependenciesRequired(
+                    for: node.item.productFilter,
+                    node.item.enabledTraits
+                )
+                let dependenciesToLoad = dependenciesRequired.map(\.packageRef)
+                    .filter { !loadedManifests.keys.contains($0.identity) }
+                try await prepopulateManagedDependencies(dependenciesToLoad)
+                let dependenciesManifests = try await self.loadManagedManifests(
+                    for: dependenciesToLoad,
+                    observabilityScope: observabilityScope
+                )
+                dependenciesManifests.forEach { loadedManifests[$0.key] = $0.value }
+                return try dependenciesRequired.compactMap { dependency in
+                    return try loadedManifests[dependency.identity].flatMap { manifest in
+                        // we also compare the location as this function may attempt to load
+                        // dependencies that have the same identity but from a different location
+                        // which is an error case we diagnose an report about in the GraphLoading part which
+                        // is prepared to handle the case where not all manifest are available
+                        return manifest.canonicalPackageLocation == dependency.packageRef.canonicalLocation
+                            ? try KeyedPair(
+                                GraphLoadingNode(
+                                    identity: dependency.identity,
+                                    manifest: manifest,
+                                    productFilter: dependency.productFilter,
+                                    enabledTraits: self.enabledTraitsMap[dependency.identity]
+                                ),
+                                key: dependency.identity
+                            ) : nil
+                    }
                 }
             }
-        }
 
         var allNodes = OrderedDictionary<PackageIdentity, GraphLoadingNode>()
 
@@ -691,7 +718,7 @@ extension Workspace {
         let rootManifestsByName = Array(root.manifests.values).spm_createDictionary { ($0.displayName, $0) }
         for (_, node) in dependencyManifests {
             if let override = rootManifestsByName[node.manifest.displayName],
-               override.packageLocation != node.manifest.packageLocation
+                override.packageLocation != node.manifest.packageLocation
             {
                 observabilityScope
                     .emit(

@@ -167,8 +167,12 @@ final class PackageCollectionsSourcesStorageTest: XCTestCase {
         XCTAssertNotEqual(buffer.count, 0, "expected file to be written")
         print(buffer)
 
-        await XCTAssertAsyncThrowsError(try await storage.list(), "expected an error", { error in
-            XCTAssert(error is DecodingError, "expected error to match")
-        })
+        await XCTAssertAsyncThrowsError(
+            try await storage.list(),
+            "expected an error",
+            { error in
+                XCTAssert(error is DecodingError, "expected error to match")
+            }
+        )
     }
 }
