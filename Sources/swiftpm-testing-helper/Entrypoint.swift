@@ -14,6 +14,10 @@
 import Darwin.C
 #elseif canImport(Android)
 import Android
+#elseif canImport(Glibc)
+import Glibc
+#elseif canImport(Musl)
+import Musl
 #endif
 
 @main

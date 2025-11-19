@@ -83,13 +83,15 @@ let swiftPMProduct = (
     ]
 )
 
+let isStaticBuild = ProcessInfo.processInfo.environment["SWIFTPM_STATIC_LINK"] != nil
+
 #if os(Windows)
 let includeDynamicLibrary: Bool = false
 let systemSQLitePkgConfig: String? = nil
 #else
-let includeDynamicLibrary: Bool = true
+let includeDynamicLibrary: Bool = !isStaticBuild
 var systemSQLitePkgConfig: String? = "sqlite3"
-if ProcessInfo.processInfo.environment["SWIFTCI_INSTALL_RPATH_OS"] == "android" {
+if ProcessInfo.processInfo.environment["SWIFTCI_INSTALL_RPATH_OS"] == "android" || isStaticBuild {
     systemSQLitePkgConfig = nil
 }
 #endif
@@ -218,7 +220,12 @@ let package = Package(
 
         // MARK: SwiftPM specific support libraries
 
-        .systemLibrary(name: "SPMSQLite3", pkgConfig: systemSQLitePkgConfig),
+        .target(
+            name: "SPMSQLite3",
+            dependencies: isStaticBuild ? [
+                .product(name: "SwiftToolchainCSQLite", package: "swift-toolchain-sqlite"),
+            ] : []
+        ),
 
         .target(
             name: "_AsyncFileSystem",
@@ -1169,5 +1176,16 @@ if !shouldUseSwiftBuildFramework {
         package.dependencies += [
             .package(path: "../swift-build"),
         ]
+    }
+}
+
+if isStaticBuild {
+    package.targets = package.targets.filter { target in
+        target.type != .test && !target.name.hasSuffix("TestSupport")
+    }
+    package.products = package.products.filter { product in
+        !product.name.hasSuffix("TestSupport")
+            // FIXME: This probably doesn't produce a particularly useful result...
+            && !["PackageDescription", "AppleProductTypes", "PackagePlugin"].contains(product.name)
     }
 }
