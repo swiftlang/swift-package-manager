@@ -1,0 +1,40 @@
+name: Pull request
+
+permissions:
+  contents: read
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: Test
+    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@main
+    with:
+      linux_os_versions: '["amazonlinux2", "bookworm", "noble", "jammy", "rhel-ubi9"]'
+      linux_swift_versions: '["nightly-main"]'
+      linux_pre_build_command: ./.github/scripts/prebuild.sh
+      linux_build_command: 'swift build'
+      windows_swift_versions: '["nightly-main"]'
+      windows_pre_build_command: 'Invoke-Program .\.github\scripts\prebuild.ps1'
+      windows_build_command: 'Invoke-Program swift build'
+      enable_ios_checks: true
+      enable_macos_checks: true
+      macos_exclude_xcode_versions: "[{\"xcode_version\": \"16.3\"}, {\"xcode_version\": \"16.4\"}]"
+      macos_build_command: 'swift build'
+
+  soundness:
+    name: Soundness
+    uses: swiftlang/github-workflows/.github/workflows/soundness.yml@main
+    with:
+      license_header_check_project_name: "Swift"
+      license_header_check_enabled: false
+      unacceptable_language_check_enabled: false
+      api_breakage_check_enabled: false
+      format_check_enabled: false
+      shell_check_enabled: false

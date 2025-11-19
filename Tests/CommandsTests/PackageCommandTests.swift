@@ -3069,22 +3069,28 @@ struct PackageCommandTests {
     func purgeCacheWithoutPackage(
         data: BuildData,
     ) async throws {
-        // Create a temporary directory without Package.swift
-        try await fixture(name: "Miscellaneous") { fixturePath in
-            let tempDir = fixturePath.appending("empty-dir-for-purge-test")
-            try localFileSystem.createDirectory(tempDir, recursive: true)
+        try await withKnownIssue(
+            isIntermittent: ProcessInfo.isHostAmazonLinux2() //rdar://134238535
+        ) {
+            // Create a temporary directory without Package.swift
+            try await fixture(name: "Miscellaneous") { fixturePath in
+                let tempDir = fixturePath.appending("empty-dir-for-purge-test")
+                try localFileSystem.createDirectory(tempDir, recursive: true)
 
-            // Use a unique temporary cache directory to avoid conflicts with parallel tests
-            try await withTemporaryDirectory(removeTreeOnDeinit: true) { cacheDir in
-                let result = try await executeSwiftPackage(
-                    tempDir,
-                    configuration: data.config,
-                    extraArgs: ["purge-cache", "--cache-path", cacheDir.pathString],
-                    buildSystem: data.buildSystem
-                )
+                // Use a unique temporary cache directory to avoid conflicts with parallel tests
+                try await withTemporaryDirectory(removeTreeOnDeinit: true) { cacheDir in
+                    let result = try await executeSwiftPackage(
+                        tempDir,
+                        configuration: data.config,
+                        extraArgs: ["purge-cache", "--cache-path", cacheDir.pathString],
+                        buildSystem: data.buildSystem
+                    )
 
-                #expect(!result.stderr.contains("Could not find Package.swift"))
+                    #expect(!result.stderr.contains("Could not find Package.swift"))
+                }
             }
+        } when: {
+            ProcessInfo.isHostAmazonLinux2()
         }
     }
 

@@ -244,6 +244,7 @@ def parse_global_args(args):
     args.source_dirs["swift-driver"]          = os.path.join(args.project_root, "..", "swift-driver")
     args.source_dirs["swift-system"]          = os.path.join(args.project_root, "..", "swift-system")
     args.source_dirs["swift-collections"]     = os.path.join(args.project_root, "..", "swift-collections")
+    args.source_dirs["swift-tools-protocols"] = os.path.join(args.project_root, "..", "swift-tools-protocols")
     args.source_dirs["swift-certificates"]    = os.path.join(args.project_root, "..", "swift-certificates")
     args.source_dirs["swift-asn1"]            = os.path.join(args.project_root, "..", "swift-asn1")
     args.source_dirs["swift-syntax"]          = os.path.join(args.project_root, "..", "swift-syntax")
@@ -441,6 +442,7 @@ def build(args):
         ]
         build_dependency(args, "swift-driver", swift_driver_cmake_flags)
         build_dependency(args, "swift-collections")
+        build_dependency(args, "swift-tools-protocols")
         build_dependency(args, "swift-asn1")
         build_dependency(args, "swift-crypto",
             ["-DSwiftASN1_DIR=" + os.path.join(args.build_dirs["swift-asn1"], "cmake/modules")])
@@ -455,6 +457,7 @@ def build(args):
             "-DTSC_DIR=" + os.path.join(args.build_dirs["tsc"], "cmake/modules"),
             "-DArgumentParser_DIR=" + os.path.join(args.build_dirs["swift-argument-parser"], "cmake/modules"),
             "-DSwiftDriver_DIR=" + os.path.join(args.build_dirs["swift-driver"], "cmake/modules"),
+            "-DSwiftToolsProtocols_DIR=" + os.path.join(args.build_dirs["swift-tools-protocols"], "cmake/modules"),
         ]
         build_dependency(args, "swift-build", swift_build_cmake_flags)
         build_swiftpm_with_cmake(args)
@@ -732,15 +735,16 @@ def build_swiftpm_with_cmake(args):
 
     cmake_flags = [
         get_llbuild_cmake_arg(args),
-        "-DTSC_DIR="               + os.path.join(args.build_dirs["tsc"],                   "cmake/modules"),
-        "-DArgumentParser_DIR="    + os.path.join(args.build_dirs["swift-argument-parser"], "cmake/modules"),
-        "-DSwiftDriver_DIR="       + os.path.join(args.build_dirs["swift-driver"],          "cmake/modules"),
-        "-DSwiftSystem_DIR="       + os.path.join(args.build_dirs["swift-system"],          "cmake/modules"),
-        "-DSwiftCollections_DIR="  + os.path.join(args.build_dirs["swift-collections"],     "cmake/modules"),
-        "-DSwiftCrypto_DIR="       + os.path.join(args.build_dirs["swift-crypto"],          "cmake/modules"),
-        "-DSwiftASN1_DIR="         + os.path.join(args.build_dirs["swift-asn1"],            "cmake/modules"),
-        "-DSwiftCertificates_DIR=" + os.path.join(args.build_dirs["swift-certificates"],    "cmake/modules"),
-        "-DSwiftBuild_DIR="        + os.path.join(args.build_dirs["swift-build"],           "cmake/modules"),
+        "-DTSC_DIR="                 + os.path.join(args.build_dirs["tsc"],                   "cmake/modules"),
+        "-DArgumentParser_DIR="      + os.path.join(args.build_dirs["swift-argument-parser"], "cmake/modules"),
+        "-DSwiftToolsProtocols_DIR=" + os.path.join(args.build_dirs["swift-tools-protocols"], "cmake/modules"),
+        "-DSwiftDriver_DIR="         + os.path.join(args.build_dirs["swift-driver"],          "cmake/modules"),
+        "-DSwiftSystem_DIR="         + os.path.join(args.build_dirs["swift-system"],          "cmake/modules"),
+        "-DSwiftCollections_DIR="    + os.path.join(args.build_dirs["swift-collections"],     "cmake/modules"),
+        "-DSwiftCrypto_DIR="         + os.path.join(args.build_dirs["swift-crypto"],          "cmake/modules"),
+        "-DSwiftASN1_DIR="           + os.path.join(args.build_dirs["swift-asn1"],            "cmake/modules"),
+        "-DSwiftCertificates_DIR="   + os.path.join(args.build_dirs["swift-certificates"],    "cmake/modules"),
+        "-DSwiftBuild_DIR="          + os.path.join(args.build_dirs["swift-build"],           "cmake/modules"),
         "-DSWIFTPM_PATH_TO_SWIFT_SYNTAX_SOURCE=" + args.source_dirs["swift-syntax"],
         "-DSwiftPMRuntime_MODULE_TRIPLE={}".format(module_triple),
     ]
@@ -770,6 +774,7 @@ def build_swiftpm_with_cmake(args):
         add_rpath_for_cmake_build(args, os.path.join(args.build_dirs["swift-driver"],          "lib"))
         add_rpath_for_cmake_build(args, os.path.join(args.build_dirs["swift-system"],          "lib"))
         add_rpath_for_cmake_build(args, os.path.join(args.build_dirs["swift-collections"],     "lib"))
+        add_rpath_for_cmake_build(args, os.path.join(args.build_dirs["swift-tools-protocols"], "lib"))
         add_rpath_for_cmake_build(args, os.path.join(args.build_dirs["swift-asn1"],            "lib"))
         add_rpath_for_cmake_build(args, os.path.join(args.build_dirs["swift-certificates"],    "lib"))
         add_rpath_for_cmake_build(args, os.path.join(args.build_dirs["swift-build"],          "lib"))
@@ -908,6 +913,7 @@ def get_swiftpm_env_cmd(args):
             os.path.join(args.build_dirs["swift-driver"],          "lib"),
             os.path.join(args.build_dirs["swift-system"],          "lib"),
             os.path.join(args.build_dirs["swift-collections"],     "lib"),
+            os.path.join(args.build_dirs["swift-tools-protocols"], "lib"),
             os.path.join(args.build_dirs["swift-asn1"],            "lib"),
             os.path.join(args.build_dirs["swift-certificates"],    "lib"),
             os.path.join(args.build_dirs["swift-build"],           "lib"),

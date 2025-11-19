@@ -82,6 +82,8 @@ private func readpassword(_ prompt: String) throws -> String {
 
         return String(cString: passwordPtr)
     }
+    #elseif canImport(Android)
+    throw StringError("unable to read input - not implemented on this platform")
     #else
     // GNU C implementation of getpass has no limit on the password length
     // (https://man7.org/linux/man-pages/man3/getpass.3.html)

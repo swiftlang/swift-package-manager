@@ -2,46 +2,54 @@ name: Bug Report
 description: Something isn't working as expected
 labels: [bug]
 body:
-- type: checkboxes
-  id: cat-preferences
-  attributes:
-    label: "Is it reproducible with SwiftPM command-line tools: `swift build`, `swift test`, `swift package` etc?"
-    description: "Issues related to closed-source software are not tracked by this repository and will be closed. For Xcode and `xcodebuild`, please file a feedback at https://feedbackassistant.apple.com instead."
-    options:
-      - label: Confirmed reproduction steps with SwiftPM CLI. The description text _must_ include reproduction steps with either of command-line SwiftPM commands, `swift build`, `swift test`, `swift package` etc.
-        required: true
-- type: textarea
-  attributes:
-    label: Description
-  validations:
-    required: true
-- type: textarea
-  attributes:
-    label: Expected behavior
-    description: What you expected to happen.
-  validations:
-    required: false
-- type: textarea
-  attributes:
-    label: Actual behavior
-    description: What actually happened.
-  validations:
-    required: false
-- type: textarea
-  attributes:
-    label: Steps to reproduce
-    placeholder: |
-      1. ...
-      2. ...
-  validations:
-    required: false
-- type: input
-  attributes:
-    label: Swift Package Manager version/commit hash
-  validations:
-    required: false 
-- type: textarea
-  attributes:
-    label: Swift & OS version (output of `swift --version ; uname -a`)
-  validations:
-    required: false 
+  - type: checkboxes
+    id: cat-preferences
+    attributes:
+      label: >-
+        Is it reproducible with SwiftPM command-line tools: `swift build`,
+        `swift test`, `swift package` etc?
+      description: >-
+        Issues related to closed-source software are not tracked by this
+        repository and will be closed. For Xcode and `xcodebuild`, please
+        file a feedback at https://feedbackassistant.apple.com instead."
+      options:
+        - label: >-
+            Confirmed reproduction steps with SwiftPM CLI. The description
+            text _must_ include reproduction steps with either of command-line
+            SwiftPM commands, `swift build`, `swift test`, `swift package` etc.
+          required: true
+  - type: textarea
+    attributes:
+      label: Description
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Expected behavior
+      description: What you expected to happen.
+    validations:
+      required: false
+  - type: textarea
+    attributes:
+      label: Actual behavior
+      description: What actually happened.
+    validations:
+      required: false
+  - type: textarea
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. ...
+        2. ...
+    validations:
+      required: false
+  - type: input
+    attributes:
+      label: Swift Package Manager version/commit hash
+    validations:
+      required: false
+  - type: textarea
+    attributes:
+      label: Swift & OS version (output of `swift --version ; uname -a`)
+    validations:
+      required: false

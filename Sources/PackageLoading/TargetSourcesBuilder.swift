@@ -12,6 +12,7 @@
 
 import Basics
 import Foundation
+import OrderedCollections
 import PackageModel
 import TSCBasic
 
@@ -33,7 +34,7 @@ public struct TargetSourcesBuilder {
     public let targetPath: Basics.AbsolutePath
 
     /// The list of declared sources in the package manifest.
-    public let declaredSources: [Basics.AbsolutePath]?
+    public let declaredSources: OrderedCollections.OrderedSet<Basics.AbsolutePath>?
 
     /// The list of declared resources in the package manifest.
     public let declaredResources: [(path: Basics.AbsolutePath, rule: TargetDescription.Resource.Rule)]
@@ -89,23 +90,28 @@ public struct TargetSourcesBuilder {
         )
         self.fileSystem = fileSystem
 
-        self.observabilityScope = observabilityScope.makeChildScope(description: "TargetSourcesBuilder") {
+        let childObservabilityScope = observabilityScope.makeChildScope(description: "TargetSourcesBuilder") {
             var metadata = ObservabilityMetadata.packageMetadata(identity: packageIdentity, kind: packageKind)
             metadata.moduleName = target.name
             return metadata
         }
+        self.observabilityScope = childObservabilityScope
 
-        let declaredSources = target.sources?.compactMap { try? AbsolutePath(validating: $0, relativeTo: path) }
-        if let declaredSources {
-            // Diagnose duplicate entries.
-            let duplicates = declaredSources.spm_findDuplicateElements()
-            if !duplicates.isEmpty {
-                for duplicate in duplicates {
-                    self.observabilityScope.emit(warning: "found duplicate sources declaration in the package manifest: \(duplicate.map{ $0.pathString }[0])")
+        var declaredSources: OrderedCollections.OrderedSet<Basics.AbsolutePath>? = nil
+
+        if let targetSources = target.sources {
+            for targetSource in targetSources {
+                if let targetSourcePath = try? AbsolutePath(validating: targetSource, relativeTo: path) {
+                    declaredSources = declaredSources ?? OrderedCollections.OrderedSet<Basics.AbsolutePath>()
+                    if declaredSources?.updateOrAppend(targetSourcePath) != nil {
+                        childObservabilityScope.emit(warning: "found duplicate sources declaration in the package manifest: \(targetSourcePath.pathString)")
+
+                    }
                 }
             }
         }
-        self.declaredSources = declaredSources?.spm_uniqueElements()
+
+        self.declaredSources = declaredSources
 
         self.declaredResources = (try? target.resources.map {
             (path: try AbsolutePath(validating: $0.path, relativeTo: path), rule: $0.rule)
@@ -237,7 +243,7 @@ public struct TargetSourcesBuilder {
         toolsVersion: ToolsVersion,
         rules: [FileRuleDescription],
         declaredResources: [(path: Basics.AbsolutePath, rule: TargetDescription.Resource.Rule)],
-        declaredSources: [Basics.AbsolutePath]?,
+        declaredSources: OrderedCollections.OrderedSet<Basics.AbsolutePath>?,
         matchingResourceRuleHandler: (Basics.AbsolutePath) -> () = { _ in },
         observabilityScope: ObservabilityScope
     ) -> FileRuleDescription.Rule {
@@ -257,11 +263,10 @@ public struct TargetSourcesBuilder {
 
         // Match any sources explicitly declared in the manifest file.
         if let declaredSources {
-            for sourcePath in declaredSources {
-                if path.isDescendantOfOrEqual(to: sourcePath) {
-                    if matchedRule != .none {
-                        observabilityScope.emit(error: "duplicate rule found for file at '\(path)'")
-                    }
+            if isDescendantOfOrEqualToAny(path, declaredSources) {
+                if matchedRule != .none {
+                    observabilityScope.emit(error: "duplicate rule found for file at '\(path)'")
+                }
 
                     // Check for header files as they're allowed to be mixed with sources.
                     if let ext = path.extension,
@@ -276,10 +281,8 @@ public struct TargetSourcesBuilder {
                     // The source file might have been declared twice so
                     // exit on first match.
                     // FIXME: We should emitting warnings for duplicate// declarations.
-                    break
                 }
             }
-        }
 
         // We haven't found a rule using that's explicitly declared in the manifest
         // so try doing an automatic match.
@@ -301,6 +304,23 @@ public struct TargetSourcesBuilder {
         }
 
         return matchedRule
+    }
+    
+    private static func isDescendantOfOrEqualToAny(_ path: Basics.AbsolutePath, _ ancestorPaths: OrderedCollections.OrderedSet<Basics.AbsolutePath>) -> Bool {
+        var currentPath = path
+        while true {
+            if ancestorPaths.contains(currentPath) {
+                return true
+            }
+
+            let parentPath = currentPath.parentDirectory
+            if parentPath == currentPath {
+                break
+            }
+            currentPath = parentPath
+        }
+
+        return false
     }
 
     /// Returns the `Resource` file associated with a file and a particular rule, if there is one.

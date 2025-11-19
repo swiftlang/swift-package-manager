@@ -27,7 +27,7 @@ services:
       - ~/.ssh:/root/.ssh
       - ~/.cache:/root/.cache
       - ~/.swiftpm/cache:/root/.swiftpm/cache
-      - ~/.swiftpm/configuration:/root/.swiftpm/config # old location, remove after 5.6
+      - ~/.swiftpm/configuration:/root/.swiftpm/config  # old location, remove after 5.6
       - ~/.swiftpm/configuration:/root/.swiftpm/configuration
       - ~/.swiftpm/security:/root/.swiftpm/security
       # swift-package-manager code

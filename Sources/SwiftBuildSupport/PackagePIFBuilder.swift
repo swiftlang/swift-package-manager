@@ -581,7 +581,7 @@ public final class PackagePIFBuilder {
                 log(.warning, "Ignoring options '\(platformOptions.joined(separator: " "))' specified for unknown platform \(platform.name)")
                 continue
             }
-            settings[.SPECIALIZATION_SDK_OPTIONS, pifPlatform]?.append(contentsOf: platformOptions)
+            settings[.SPECIALIZATION_SDK_OPTIONS, pifPlatform] = (settings[.SPECIALIZATION_SDK_OPTIONS, pifPlatform] ?? []) + platformOptions
         }
 
         let deviceFamilyIDs: Set<Int> = self.delegate.deviceFamilyIDs()
@@ -607,7 +607,7 @@ public final class PackagePIFBuilder {
                 } catch {
                     preconditionFailure("Unhandled arm64e platform: \(error)")
                 }
-                settings[.ARCHS, pifPlatform]?.append(contentsOf: ["arm64e"])
+                settings[.ARCHS, pifPlatform] = (settings[.ARCHS, pifPlatform] ?? []) + ["arm64e"]
             }
         }
 
