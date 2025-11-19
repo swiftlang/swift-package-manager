@@ -20,6 +20,10 @@ import _InternalTestSupport
 import TSCTestSupport
 import Testing
 
+#if canImport(Android)
+import Android
+#endif
+
 import enum PackageModel.BuildConfiguration
 import class Basics.AsyncProcess
 
