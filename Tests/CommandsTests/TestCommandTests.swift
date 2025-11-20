@@ -987,7 +987,7 @@ struct TestCommandTests {
         buildSystem: BuildSystemProvider.Kind,
         configuration: BuildConfiguration,
     ) async throws {
-        try await withKnownIssue("Failes to find test executable") {
+        try await withKnownIssue("Failed to find test executable") {
             try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
                 // build first
                 try await withKnownIssue("Failed to save attachment", isIntermittent: (.windows == ProcessInfo.hostOperatingSystem)) { // windows: native, debug did not record issue
