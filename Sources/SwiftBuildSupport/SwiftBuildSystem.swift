@@ -1211,7 +1211,6 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                 + buildParameters.flags.swiftCompilerFlags.map { $0.shellEscaped() }
         ).joined(separator: " ")
 
-        // TODO bp passing -v flag via verboseFlag here; investigate linker messages
         settings["OTHER_LDFLAGS"] = (
             verboseFlag + // clang will be invoked to link so the verbose flag is valid for it
                 ["$(inherited)"]

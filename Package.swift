@@ -1165,9 +1165,6 @@ if !shouldUseSwiftBuildFramework {
         package.dependencies += [
             .package(url: "https://github.com/swiftlang/swift-build.git", branch: relatedDependenciesBranch),
         ]
-//        package.dependencies += [
-//            .package(path: "../swift-build")
-//        ]
     } else {
         package.dependencies += [
             .package(path: "../swift-build"),
