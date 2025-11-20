@@ -76,9 +76,15 @@ struct BuildCommandOptions: ParsableArguments {
     var buildTests: Bool = false
 
     /// Whether to enable code coverage.
-    @Flag(name: .customLong("code-coverage"),
-          inversion: .prefixedEnableDisable,
-          help: "Enable code coverage.")
+    @Flag(
+        name: [
+            .customLong("codecov"),
+            .customLong("code-coverage"),
+            .customLong("coverage"),
+        ],
+        inversion: .prefixedEnableDisable,
+        help: "Enable code coverage.",
+    )
     var enableCodeCoverage: Bool = false
 
     /// If the binary output path should be printed.
