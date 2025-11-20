@@ -822,7 +822,7 @@ package final class AsyncProcess {
     }
 
     /// Executes the process I/O state machine, calling completion block when finished.
-    private func waitUntilExit(_ completion: @escaping (Result<AsyncProcessResult, Swift.Error>) -> Void) {
+    private func waitUntilExit(_ completion: @escaping @Sendable (Result<AsyncProcessResult, Swift.Error>) -> Void) {
         self.stateLock.lock()
         switch self.state {
         case .idle:
@@ -1099,7 +1099,7 @@ extension AsyncProcess {
         environment: Environment = .current,
         loggingHandler: LoggingHandler? = .none,
         queue: DispatchQueue? = nil,
-        completion: @escaping (Result<AsyncProcessResult, Swift.Error>) -> Void
+        completion: @escaping @Sendable (Result<AsyncProcessResult, Swift.Error>) -> Void
     ) {
         let completionQueue = queue ?? Self.sharedCompletionQueue
 
