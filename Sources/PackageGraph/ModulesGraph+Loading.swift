@@ -154,7 +154,7 @@ extension ModulesGraph {
                 // Create a package from the manifest and sources.
 
                 // Special case to handle: if the traits enabled for this node is simply ["default"],
-                // this means that we don't have any defined traits for this package and should there
+                // this means that we don't have any defined traits for this package and should therefore
                 // flatten the set to be empty for the PackageBuilder.
                 var enabledTraits = node.enabledTraits
                 if enabledTraits == ["default"] {
@@ -1027,59 +1027,6 @@ private func emitDuplicateProductDiagnostic(
         product: productName,
         packages: packages
     )
-}
-
-private func calculateEnabledTraits(
-    parentPackage: PackageIdentity?,
-    identity: PackageIdentity,
-    manifest: Manifest,
-    explictlyEnabledTraits: Set<String>?
-) throws -> Set<String> {
-    // This the point where we flatten the enabled traits and resolve the recursive traits
-    var recursiveEnabledTraits = explictlyEnabledTraits ?? []
-    let areDefaultsEnabled = recursiveEnabledTraits.remove("default") != nil
-
-    // We are going to calculate which traits are actually enabled for a node here. To do this
-    // we have to check if default traits should be used and then flatten all the enabled traits.
-    for trait in recursiveEnabledTraits {
-        // Check if the enabled trait is a valid trait
-        if manifest.traits.first(where: { $0.name == trait }) == nil {
-            // The enabled trait is invalid
-            throw ModuleError.invalidTrait(package: identity, trait: trait)
-        }
-    }
-
-    if let parentPackage, !(explictlyEnabledTraits == nil || areDefaultsEnabled) && !manifest.supportsTraits {
-        // We throw an error when default traits are disabled for a package without any traits
-        // This allows packages to initially move new API behind traits once.
-        throw ModuleError.disablingDefaultTraitsOnEmptyTraits(
-            parentPackage: parentPackage,
-            packageName: manifest.displayName
-        )
-    }
-
-    // We have to enable all default traits if no traits are enabled or the defaults are explicitly enabled
-    if explictlyEnabledTraits == nil || areDefaultsEnabled {
-        recursiveEnabledTraits.formUnion(manifest.traits.first { $0.name == "default" }?.enabledTraits ?? [])
-    }
-
-    while true {
-        let flattendEnabledTraits = Set(
-            manifest.traits
-                .lazy
-                .filter { recursiveEnabledTraits.contains($0.name) }
-                .map(\.enabledTraits)
-                .joined()
-        )
-        let newRecursiveEnabledTraits = recursiveEnabledTraits.union(flattendEnabledTraits)
-        if newRecursiveEnabledTraits.count == recursiveEnabledTraits.count {
-            break
-        } else {
-            recursiveEnabledTraits = newRecursiveEnabledTraits
-        }
-    }
-
-    return recursiveEnabledTraits
 }
 
 extension Package {
