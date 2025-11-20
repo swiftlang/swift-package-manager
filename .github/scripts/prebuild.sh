@@ -13,6 +13,8 @@
 
 set -e
 
+df -h
+
 if [[ $(uname) == Darwin ]] ; then
     if [[ "$INSTALL_CMAKE" == "1" ]] ; then
         mkdir -p "$RUNNER_TOOL_CACHE"

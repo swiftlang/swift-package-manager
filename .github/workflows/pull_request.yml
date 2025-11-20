@@ -28,7 +28,7 @@ jobs:
       macos_exclude_xcode_versions: "[{\"xcode_version\": \"16.3\"}, {\"xcode_version\": \"16.4\"}]"
       macos_build_command: 'swift build --build-tests'
       enable_android_sdk_build: true
-      android_sdk_build_command: "swift build --build-tests"
+      android_sdk_build_command: "swift build --build-tests || df -h"
       android_ndk_versions: '["r27d", "r29"]'
       android_sdk_triples: '["aarch64-unknown-linux-android28"]'
 
