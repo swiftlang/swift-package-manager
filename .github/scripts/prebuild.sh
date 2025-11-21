@@ -46,25 +46,6 @@ elif command -v apt-get >/dev/null 2>&1 ; then # bookworm, noble, jammy
     if [[ "$INSTALL_CMAKE" == "1" ]] ; then
         apt-get install -y cmake ninja-build
     fi
-
-    # Android NDK
-    dpkg_architecture="$(dpkg --print-architecture)"
-    if [[ "$SKIP_ANDROID" != "1" ]] && [[ "$dpkg_architecture" == amd64 ]] ; then
-        eval "$(cat /etc/os-release)"
-        case "$VERSION_CODENAME" in
-            bookworm|jammy)
-                : # Not available
-                ;;
-            noble)
-                apt-get install -y google-android-ndk-r26c-installer
-                ;;
-            *)
-                echo "Unable to fetch Android NDK for unknown Linux distribution: $VERSION_CODENAME" >&2
-                exit 1
-        esac
-    else
-        echo "Skipping Android NDK installation on $dpkg_architecture" >&2
-    fi
 elif command -v dnf >/dev/null 2>&1 ; then # rhel-ubi9
     dnf update -y
 
