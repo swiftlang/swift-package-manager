@@ -609,7 +609,7 @@ public struct SwiftSDK: Equatable {
         extraCCFlags += ["-fPIC"]
         #endif
 
-        return SwiftSDK(
+        let returnValue = SwiftSDK(
             toolset: .init(
                 knownTools: [
                     .cCompiler: .init(extraCLIOptions: extraCCFlags),
@@ -620,6 +620,7 @@ public struct SwiftSDK: Equatable {
             pathsConfiguration: .init(sdkRootPath: sdkPath),
             xctestSupport: xctestSupport
         )
+        return returnValue
     }
 
     /// Auxiliary platform frameworks and libraries.

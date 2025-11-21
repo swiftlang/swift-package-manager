@@ -43,7 +43,7 @@ struct SessionFailedError: Error {
     var diagnostics: [SwiftBuild.SwiftBuildMessage.DiagnosticInfo]
 }
 
-func withService<T>(
+package func withService<T>(
     connectionMode: SWBBuildServiceConnectionMode = .default,
     variant: SWBBuildServiceVariant = .default,
     serviceBundleURL: URL? = nil,
@@ -860,7 +860,11 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         )
     }
 
-    private func makeBuildParameters(session: SWBBuildServiceSession, symbolGraphOptions: BuildOutput.SymbolGraphOptions?) async throws -> SwiftBuild.SWBBuildParameters {
+    internal func makeBuildParameters(
+        session: SWBBuildServiceSession,
+        symbolGraphOptions: BuildOutput.SymbolGraphOptions?,
+        setToolchainSetting: Bool = true,
+    ) async throws -> SwiftBuild.SWBBuildParameters {
         // Generate the run destination parameters.
         let runDestination = makeRunDestination()
 
@@ -872,17 +876,19 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         // Generate a table of any overriding build settings.
         var settings: [String: String] = [:]
 
-        // If the SwiftPM toolchain corresponds to a toolchain registered with the lower level build system, add it to the toolchain stack.
-        // Otherwise, apply overrides for each component of the SwiftPM toolchain.
-        if let toolchainID = try await session.lookupToolchain(at: buildParameters.toolchain.toolchainDir.pathString) {
-            settings["TOOLCHAINS"] = "\(toolchainID.rawValue) $(inherited)"
-        } else {
-            // FIXME: This list of overrides is incomplete.
-            // An error with determining the override should not be fatal here.
-            settings["CC"] = try? buildParameters.toolchain.getClangCompiler().pathString
-            // Always specify the path of the effective Swift compiler, which was determined in the same way as for the
-            // native build system.
-            settings["SWIFT_EXEC"] = buildParameters.toolchain.swiftCompilerPath.pathString
+        if setToolchainSetting {
+            // If the SwiftPM toolchain corresponds to a toolchain registered with the lower level build system, add it to the toolchain stack.
+            // Otherwise, apply overrides for each component of the SwiftPM toolchain.
+            if let toolchainID = try await session.lookupToolchain(at: buildParameters.toolchain.toolchainDir.pathString) {
+                settings["TOOLCHAINS"] = "\(toolchainID.rawValue) $(inherited)"
+            } else {
+                // FIXME: This list of overrides is incomplete.
+                // An error with determining the override should not be fatal here.
+                settings["CC"] = try? buildParameters.toolchain.getClangCompiler().pathString
+                // Always specify the path of the effective Swift compiler, which was determined in the same way as for the
+                // native build system.
+                settings["SWIFT_EXEC"] = buildParameters.toolchain.swiftCompilerPath.pathString
+            }
         }
 
         // FIXME: workaround for old Xcode installations such as what is in CI
@@ -983,6 +989,38 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         // When building with the CLI for macOS, test bundles should generate entrypoints for compatibility with swiftpm-testing-helper.
         if buildParameters.triple.isMacOSX {
             settings["GENERATE_TEST_ENTRYPOINTS_FOR_BUNDLES"] = "YES"
+        }
+
+        // Set the value of the index store
+        struct IndexStoreSettings {
+            let enableVariableName: String
+            let pathVariable: String
+        }
+
+        let indexStoreSettingNames: [IndexStoreSettings] = [
+            IndexStoreSettings(
+                enableVariableName: "CLANG_INDEX_STORE_ENABLE",
+                pathVariable: "CLANG_INDEX_STORE_PATH",
+            ),
+            IndexStoreSettings(
+                enableVariableName: "SWIFT_INDEX_STORE_ENABLE",
+                pathVariable: "SWIFT_INDEX_STORE_PATH",
+            ),
+        ]
+
+        switch self.buildParameters.indexStoreMode {
+        case .on:
+            for setting in indexStoreSettingNames {
+                settings[setting.enableVariableName] = "YES"
+                settings[setting.pathVariable] = self.buildParameters.indexStore.pathString
+            }
+        case .off:
+            for setting in indexStoreSettingNames {
+                settings[setting.enableVariableName] = "NO"
+            }
+        case .auto:
+            // The settings are handles in the PIF builder
+            break
         }
 
         func reportConflict(_ a: String, _ b: String) throws -> String {
@@ -1223,13 +1261,13 @@ fileprivate extension SwiftBuild.SwiftBuildMessage.DiagnosticInfo.Location {
             case .none:
                 return path
             }
-        
+
         case .buildSettings(let names):
             return names.joined(separator: ", ")
-        
+
         case .buildFiles(let buildFiles, let targetGUID):
             return "\(targetGUID): " + buildFiles.map { String(describing: $0) }.joined(separator: ", ")
-            
+
         case .unknown:
             return nil
         }
