@@ -920,7 +920,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         }
         try settings.merge(Self.constructDebuggingSettingsOverrides(from: buildParameters.debuggingParameters), uniquingKeysWith: reportConflict)
         try settings.merge(Self.constructDriverSettingsOverrides(from: buildParameters.driverParameters), uniquingKeysWith: reportConflict)
-        try settings.merge(Self.constructLinkerSettingsOverrides(from: buildParameters.linkingParameters), uniquingKeysWith: reportConflict)
+        try settings.merge(self.constructLinkerSettingsOverrides(from: buildParameters.linkingParameters, triple: buildParameters.triple), uniquingKeysWith: reportConflict)
         try settings.merge(Self.constructTestingSettingsOverrides(from: buildParameters.testingParameters), uniquingKeysWith: reportConflict)
         try settings.merge(Self.constructAPIDigesterSettingsOverrides(from: buildParameters.apiDigesterMode), uniquingKeysWith: reportConflict)
 
@@ -1007,7 +1007,10 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         return settings
     }
 
-    private static func constructLinkerSettingsOverrides(from parameters: BuildParameters.Linking) -> [String: String] {
+    private func constructLinkerSettingsOverrides(
+        from parameters: BuildParameters.Linking,
+        triple: Triple,
+    ) -> [String: String] {
         var settings: [String: String] = [:]
 
         if parameters.linkerDeadStrip {
@@ -1025,7 +1028,19 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             break
         }
 
-        // TODO: shouldLinkStaticSwiftStdlib
+        if triple.isDarwin() && parameters.shouldLinkStaticSwiftStdlib {
+            self.observabilityScope.emit(.swiftBackDeployWarning)
+        } else {
+            if parameters.shouldLinkStaticSwiftStdlib {
+                settings["SWIFT_FORCE_STATIC_LINK_STDLIB"] = "YES"
+            } else {
+                settings["SWIFT_FORCE_STATIC_LINK_STDLIB"] = "NO"
+            }
+        }
+
+        if let resourcesPath = self.buildParameters.toolchain.swiftResourcesPath(isStatic: parameters.shouldLinkStaticSwiftStdlib) {
+            settings["SWIFT_RESOURCE_DIR"] = resourcesPath.pathString
+        }
 
         return settings
     }
