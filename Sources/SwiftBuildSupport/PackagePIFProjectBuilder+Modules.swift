@@ -440,6 +440,9 @@ extension PackagePIFProjectBuilder {
                 // Redirect the built executable into a separate directory so it won't conflict with the real one.
                 settings[.TARGET_BUILD_DIR] = "$(TARGET_BUILD_DIR)/ExecutableModules"
 
+                // on windows modules are libraries, so we need to add a search path so the linker finds them
+                impartedSettings[.LIBRARY_SEARCH_PATHS, .windows] = ["$(inherited)", "$(TARGET_BUILD_DIR)/ExecutableModules"]
+
                 // Don't install the Swift module of the testable side-built artifact, lest it conflict with the regular
                 // one.
                 // The modules should have compatible contents in any case — only the entry point function name is
