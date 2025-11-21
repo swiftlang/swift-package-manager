@@ -15,6 +15,7 @@ import Basics
 @_spi(SwiftPMInternal)
 @testable import PackageModel
 
+import _InternalTestSupport
 import func TSCBasic.withTemporaryFile
 import XCTest
 
@@ -198,5 +199,91 @@ final class PackageModelTests: XCTestCase {
                 // The first swiftc in the search paths should be chosen.
                 XCTAssertEqual(compilers.compile, binDirs.first?.appending(expectedExecuable))
             }
+    }
+
+    func testDetermineSwiftCompilersWarnsOnInvalidSWIFT_EXEC() throws {
+        let fs = localFileSystem
+        try withTemporaryDirectory(removeTreeOnDeinit: true) { tmp in
+            let toolchainPath = tmp.appending("swift.xctoolchain")
+            let toolchainBinDir = toolchainPath.appending(components: "usr", "bin")
+            try fs.createDirectory(toolchainBinDir, recursive: true)
+
+            #if os(Windows)
+            let exeSuffix = ".exe"
+            #else
+            let exeSuffix = ""
+            #endif
+
+            // Create a valid swiftc in the toolchain
+            let validSwiftc = toolchainBinDir.appending("swiftc\(exeSuffix)")
+            try fs.writeFileContents(validSwiftc, bytes: ByteString(Self.tinyPEBytes))
+            #if !os(Windows)
+            try fs.chmod(.executable, path: validSwiftc, options: [])
+            #endif
+
+            // Test 1: SWIFT_EXEC points to non-existent file
+            do {
+                let observability = ObservabilitySystem.makeForTesting()
+                let nonExistentPath = tmp.appending(components: "nonexistent", "path", "to", "swiftc")
+                let environment: Environment = ["SWIFT_EXEC": nonExistentPath.pathString]
+
+                _ = try UserToolchain.determineSwiftCompilers(
+                    binDirectories: [toolchainBinDir],
+                    useXcrun: false,
+                    environment: environment,
+                    searchPaths: [],
+                    fileSystem: fs,
+                    observabilityScope: observability.topScope
+                )
+
+                testDiagnostics(observability.diagnostics) { result in
+                    result.check(diagnostic: .contains("SWIFT_EXEC is set to '\(nonExistentPath.pathString)' but the file does not exist; ignoring"), severity: .warning)
+                }
+            }
+
+            // Test 2: SWIFT_EXEC points to file that exists but is not executable
+            do {
+                let observability = ObservabilitySystem.makeForTesting()
+                let notExecutablePath = tmp.appending("not-executable")
+                try fs.writeFileContents(notExecutablePath, bytes: "")
+                #if !os(Windows)
+                try fs.chmod(.userUnWritable, path: notExecutablePath, options: [])
+                #endif
+
+                let environment: Environment = ["SWIFT_EXEC": notExecutablePath.pathString]
+
+                _ = try UserToolchain.determineSwiftCompilers(
+                    binDirectories: [toolchainBinDir],
+                    useXcrun: false,
+                    environment: environment,
+                    searchPaths: [],
+                    fileSystem: fs,
+                    observabilityScope: observability.topScope
+                )
+
+                testDiagnostics(observability.diagnostics) { result in
+                    result.check(diagnostic: .contains("SWIFT_EXEC is set to '\(notExecutablePath.pathString)' which exists but is not executable; ignoring"), severity: .warning)
+                }
+            }
+
+            // Test 3: SWIFT_EXEC is not an absolute path and not found in search paths
+            do {
+                let observability = ObservabilitySystem.makeForTesting()
+                let environment: Environment = ["SWIFT_EXEC": "nonexistent-compiler"]
+
+                _ = try UserToolchain.determineSwiftCompilers(
+                    binDirectories: [toolchainBinDir],
+                    useXcrun: false,
+                    environment: environment,
+                    searchPaths: [],
+                    fileSystem: fs,
+                    observabilityScope: observability.topScope
+                )
+
+                testDiagnostics(observability.diagnostics) { result in
+                    result.check(diagnostic: .contains("SWIFT_EXEC is set to 'nonexistent-compiler' but no executable was found in search paths; ignoring"), severity: .warning)
+                }
+            }
+        }
     }
 }
