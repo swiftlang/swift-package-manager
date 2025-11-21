@@ -174,6 +174,255 @@ private final class PlanningOperationDelegate: SWBPlanningOperationDelegate, Sen
     }
 }
 
+/// Convenience extensions to extract taskID and targetID from the LocationContext.
+extension SwiftBuildMessage.LocationContext {
+    var taskID: Int? {
+        switch self {
+        case .task(let id, _), .globalTask(let id):
+            return id
+        case .target, .global:
+            return nil
+        }
+    }
+
+    var targetID: Int? {
+        switch self {
+        case .task(_, let id), .target(let id):
+            return id
+        case .global, .globalTask:
+            return nil
+        }
+    }
+}
+
+/// Handler for SwiftBuildMessage events sent by the SWBBuildOperation.
+public final class SwiftBuildSystemMessageHandler {
+    private let observabilityScope: ObservabilityScope
+    private let outputStream: OutputByteStream
+    private let logLevel: Basics.Diagnostic.Severity
+    private var buildState: BuildState = .init()
+    private var tasksEmitted: Set<String> = []
+
+    let progressAnimation: ProgressAnimationProtocol
+    var serializedDiagnosticPathsByTargetName: [String: [Basics.AbsolutePath]] = [:]
+
+    private var unprocessedDiagnostics: [SwiftBuildMessage.DiagnosticInfo] = []
+
+    public init(
+        observabilityScope: ObservabilityScope,
+        outputStream: OutputByteStream,
+        logLevel: Basics.Diagnostic.Severity
+    )
+    {
+        self.observabilityScope = observabilityScope
+        self.outputStream = outputStream
+        self.logLevel = logLevel
+        self.progressAnimation = ProgressAnimation.ninja(
+            stream: self.outputStream,
+            verbose: self.logLevel.isVerbose
+        )
+    }
+
+    struct BuildState {
+        private var targetsByID: [Int: SwiftBuild.SwiftBuildMessage.TargetStartedInfo] = [:]
+        private var activeTasks: [Int: SwiftBuild.SwiftBuildMessage.TaskStartedInfo] = [:]
+        private var taskBuffer: [String: Data] = [:]
+        private var taskIDToSignature: [Int: String] = [:]
+        var collectedBacktraceFrames = SWBBuildOperationCollectedBacktraceFrames()
+
+        mutating func started(task: SwiftBuild.SwiftBuildMessage.TaskStartedInfo) throws {
+            if activeTasks[task.taskID] != nil {
+                throw Diagnostics.fatalError
+            }
+            activeTasks[task.taskID] = task
+            taskIDToSignature[task.taskID] = task.taskSignature
+        }
+
+        mutating func completed(task: SwiftBuild.SwiftBuildMessage.TaskCompleteInfo) throws -> SwiftBuild.SwiftBuildMessage.TaskStartedInfo {
+            guard let task = activeTasks[task.taskID] else {
+                throw Diagnostics.fatalError
+            }
+            return task
+        }
+
+        mutating func started(target: SwiftBuild.SwiftBuildMessage.TargetStartedInfo) throws {
+            if targetsByID[target.targetID] != nil {
+                throw Diagnostics.fatalError
+            }
+            targetsByID[target.targetID] = target
+        }
+
+        func target(for task: SwiftBuild.SwiftBuildMessage.TaskStartedInfo) throws -> SwiftBuild.SwiftBuildMessage.TargetStartedInfo? {
+            guard let id = task.targetID else {
+                return nil
+            }
+            guard let target = targetsByID[id] else {
+                throw Diagnostics.fatalError
+            }
+            return target
+        }
+
+        func taskSignature(for id: Int) -> String? {
+            if let signature = taskIDToSignature[id] {
+                return signature
+            }
+            return nil
+        }
+
+        mutating func appendToBuffer(_ task: String, data: Data) {
+            taskBuffer[task, default: .init()].append(data)
+        }
+
+        func dataBuffer(for task: SwiftBuild.SwiftBuildMessage.TaskStartedInfo) -> Data? {
+            guard let data = taskBuffer[task.taskSignature] else {
+                // If there is no available buffer, simply return nil.
+                return nil
+            }
+
+            return data
+        }
+    }
+
+    private func emitInfoAsDiagnostic(info: SwiftBuildMessage.DiagnosticInfo) {
+        // Assure that we haven't already emitted this diagnostic.
+        let fixItsDescription = if info.fixIts.hasContent {
+            ": " + info.fixIts.map { String(describing: $0) }.joined(separator: ", ")
+        } else {
+            ""
+        }
+        let message = if let locationDescription = info.location.userDescription {
+            "\(locationDescription) \(info.message)\(fixItsDescription)"
+        } else {
+            "\(info.message)\(fixItsDescription)"
+        }
+        let severity: Diagnostic.Severity = switch info.kind {
+        case .error: .error
+        case .warning: .warning
+        case .note: .info
+        case .remark: .debug
+        }
+        self.observabilityScope.emit(severity: severity, message: "\(message)\n")
+
+        for childDiagnostic in info.childDiagnostics {
+            emitInfoAsDiagnostic(info: childDiagnostic)
+        }
+    }
+
+    private func emitDiagnosticCompilerOutput(_ info: SwiftBuildMessage.TaskStartedInfo) {
+        // Don't redundantly emit tasks.
+        guard !self.tasksEmitted.contains(info.taskSignature) else {
+            return
+        }
+        // Assure we have a data buffer to decode.
+        guard let buffer = buildState.dataBuffer(for: info) else {
+            return
+        }
+
+        // Decode the buffer to a string
+        let decodedOutput = String(decoding: buffer, as: UTF8.self)
+
+        // Emit to output stream.
+        outputStream.send(decodedOutput)
+
+        // Record that we've emitted the output for a given task signature.
+        self.tasksEmitted.insert(info.taskSignature)
+    }
+
+    func emitEvent(_ message: SwiftBuild.SwiftBuildMessage, _ buildSystem: SwiftBuildSystem) throws {
+        guard !self.logLevel.isQuiet else { return }
+        switch message {
+        case .buildCompleted(let info):
+            progressAnimation.complete(success: info.result == .ok)
+            if info.result == .cancelled {
+                buildSystem.delegate?.buildSystemDidCancel(buildSystem)
+            } else {
+                buildSystem.delegate?.buildSystem(buildSystem, didFinishWithResult: info.result == .ok)
+            }
+        case .didUpdateProgress(let progressInfo):
+            var step = Int(progressInfo.percentComplete)
+            if step < 0 { step = 0 }
+            let message = if let targetName = progressInfo.targetName {
+                "\(targetName) \(progressInfo.message)"
+            } else {
+                "\(progressInfo.message)"
+            }
+            progressAnimation.update(step: step, total: 100, text: message)
+            buildSystem.delegate?.buildSystem(buildSystem, didUpdateTaskProgress: message)
+        case .diagnostic(let info):
+            if info.appendToOutputStream {
+                emitInfoAsDiagnostic(info: info)
+            } else {
+                unprocessedDiagnostics.append(info)
+            }
+        case .output(let info):
+            // Grab the taskID to append to buffer-per-task storage
+            guard let taskSignature = info.locationContext2.taskSignature else {
+                // If we cannot find the task signature from the locationContext2,
+                // use deprecated locationContext instead.
+                if let taskID = info.locationContext.taskID,
+                    let taskSignature = buildState.taskSignature(for: taskID) {
+                    buildState.appendToBuffer(taskSignature, data: info.data)
+                }
+
+                return
+            }
+
+            buildState.appendToBuffer(taskSignature, data: info.data)
+        case .taskStarted(let info):
+            try buildState.started(task: info)
+
+            if let commandLineDisplay = info.commandLineDisplayString {
+                self.observabilityScope.emit(info: "\(info.executionDescription)\n\(commandLineDisplay)")
+            } else {
+                self.observabilityScope.emit(info: "\(info.executionDescription)")
+            }
+
+            let targetInfo = try buildState.target(for: info)
+            buildSystem.delegate?.buildSystem(buildSystem, willStartCommand: BuildSystemCommand(info, targetInfo: targetInfo))
+            buildSystem.delegate?.buildSystem(buildSystem, didStartCommand: BuildSystemCommand(info, targetInfo: targetInfo))
+        case .taskComplete(let info):
+            let startedInfo = try buildState.completed(task: info)
+
+            // If we've captured the compiler output with formatted diagnostics, emit them.
+            emitDiagnosticCompilerOutput(startedInfo)
+
+            if info.result != .success {
+                self.observabilityScope.emit(severity: .error, message: "\(startedInfo.ruleInfo) failed with a nonzero exit code. Command line: \(startedInfo.commandLineDisplayString ?? "<no command line>")")
+            }
+            let targetInfo = try buildState.target(for: startedInfo)
+            buildSystem.delegate?.buildSystem(buildSystem, didFinishCommand: BuildSystemCommand(startedInfo, targetInfo: targetInfo))
+            if let targetName = targetInfo?.targetName {
+                try serializedDiagnosticPathsByTargetName[targetName, default: []].append(contentsOf: startedInfo.serializedDiagnosticsPaths.compactMap {
+                    try Basics.AbsolutePath(validating: $0.pathString)
+                })
+            }
+            if buildSystem.enableTaskBacktraces {
+                if let id = SWBBuildOperationBacktraceFrame.Identifier(taskSignatureData: Data(startedInfo.taskSignature.utf8)),
+                   let backtrace = SWBTaskBacktrace(from: id, collectedFrames: buildState.collectedBacktraceFrames) {
+                    let formattedBacktrace = backtrace.renderTextualRepresentation()
+                    if !formattedBacktrace.isEmpty {
+                        self.observabilityScope.emit(info: "Task backtrace:\n\(formattedBacktrace)")
+                    }
+                }
+            }
+        case .targetStarted(let info):
+            try buildState.started(target: info)
+        case .backtraceFrame(let info):
+            if buildSystem.enableTaskBacktraces {
+                buildState.collectedBacktraceFrames.add(frame: info)
+            }
+        case .planningOperationStarted, .planningOperationCompleted, .reportBuildDescription, .reportPathMap, .preparedForIndex, .buildStarted, .preparationComplete, .targetUpToDate, .targetComplete, .taskUpToDate:
+            break
+        case .buildDiagnostic, .targetDiagnostic, .taskDiagnostic:
+            break // deprecated
+        case .buildOutput, .targetOutput, .taskOutput:
+            break // deprecated
+        @unknown default:
+            break
+        }
+    }
+}
+
 public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
     private let buildParameters: BuildParameters
     private let packageGraphLoader: () async throws -> ModulesGraph
@@ -232,6 +481,10 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
     }
 
     public var hasIntegratedAPIDigesterSupport: Bool { true }
+
+    public var enableTaskBacktraces: Bool {
+        self.buildParameters.outputParameters.enableTaskBacktraces
+    }
 
     public init(
         buildParameters: BuildParameters,
@@ -537,12 +790,12 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         return try await withService(connectionMode: .inProcessStatic(swiftbuildServiceEntryPoint)) { service in
             let derivedDataPath = self.buildParameters.dataPath
 
-            let progressAnimation = ProgressAnimation.ninja(
-                stream: self.outputStream,
-                verbose: self.logLevel.isVerbose
+            let buildMessageHandler = SwiftBuildSystemMessageHandler(
+                observabilityScope: self.observabilityScope,
+                outputStream: self.outputStream,
+                logLevel: self.logLevel
             )
 
-            var serializedDiagnosticPathsByTargetName: [String: [Basics.AbsolutePath]] = [:]
             do {
                 try await withSession(service: service, name: self.buildParameters.pifManifest.pathString, toolchainPath: self.buildParameters.toolchain.toolchainDir, packageManagerResourcesDirectory: self.packageManagerResourcesDirectory) { session, _ in
                     self.outputStream.send("Building for \(self.buildParameters.configuration == .debug ? "debugging" : "production")...\n")
@@ -582,148 +835,6 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
                     let request = try await self.makeBuildRequest(session: session, configuredTargets: configuredTargets, derivedDataPath: derivedDataPath, symbolGraphOptions: symbolGraphOptions)
 
-                    struct BuildState {
-                        private var targetsByID: [Int: SwiftBuild.SwiftBuildMessage.TargetStartedInfo] = [:]
-                        private var activeTasks: [Int: SwiftBuild.SwiftBuildMessage.TaskStartedInfo] = [:]
-                        var collectedBacktraceFrames = SWBBuildOperationCollectedBacktraceFrames()
-
-                        mutating func started(task: SwiftBuild.SwiftBuildMessage.TaskStartedInfo) throws {
-                            if activeTasks[task.taskID] != nil {
-                                throw Diagnostics.fatalError
-                            }
-                            activeTasks[task.taskID] = task
-                        }
-
-                        mutating func completed(task: SwiftBuild.SwiftBuildMessage.TaskCompleteInfo) throws -> SwiftBuild.SwiftBuildMessage.TaskStartedInfo {
-                            guard let task = activeTasks[task.taskID] else {
-                                throw Diagnostics.fatalError
-                            }
-                            return task
-                        }
-
-                        mutating func started(target: SwiftBuild.SwiftBuildMessage.TargetStartedInfo) throws {
-                            if targetsByID[target.targetID] != nil {
-                                throw Diagnostics.fatalError
-                            }
-                            targetsByID[target.targetID] = target
-                        }
-
-                        mutating func target(for task: SwiftBuild.SwiftBuildMessage.TaskStartedInfo) throws -> SwiftBuild.SwiftBuildMessage.TargetStartedInfo? {
-                            guard let id = task.targetID else {
-                                return nil
-                            }
-                            guard let target = targetsByID[id] else {
-                                throw Diagnostics.fatalError
-                            }
-                            return target
-                        }
-                    }
-
-                    func emitEvent(_ message: SwiftBuild.SwiftBuildMessage, buildState: inout BuildState) throws {
-                        guard !self.logLevel.isQuiet else { return }
-                        switch message {
-                        case .buildCompleted(let info):
-                            progressAnimation.complete(success: info.result == .ok)
-                            if info.result == .cancelled {
-                                self.delegate?.buildSystemDidCancel(self)
-                            } else {
-                                self.delegate?.buildSystem(self, didFinishWithResult: info.result == .ok)
-                            }
-                        case .didUpdateProgress(let progressInfo):
-                            var step = Int(progressInfo.percentComplete)
-                            if step < 0 { step = 0 }
-                            let message = if let targetName = progressInfo.targetName {
-                                "\(targetName) \(progressInfo.message)"
-                            } else {
-                                "\(progressInfo.message)"
-                            }
-                            progressAnimation.update(step: step, total: 100, text: message)
-                            self.delegate?.buildSystem(self, didUpdateTaskProgress: message)
-                        case .diagnostic(let info):
-                            func emitInfoAsDiagnostic(info: SwiftBuildMessage.DiagnosticInfo) {
-                                let fixItsDescription = if info.fixIts.hasContent {
-                                    ": " + info.fixIts.map { String(describing: $0) }.joined(separator: ", ")
-                                } else {
-                                    ""
-                                }
-                                let message = if let locationDescription = info.location.userDescription {
-                                    "\(locationDescription) \(info.message)\(fixItsDescription)"
-                                } else {
-                                    "\(info.message)\(fixItsDescription)"
-                                }
-                                let severity: Diagnostic.Severity = switch info.kind {
-                                case .error: .error
-                                case .warning: .warning
-                                case .note: .info
-                                case .remark: .debug
-                                }
-                                self.observabilityScope.emit(severity: severity, message: "\(message)\n")
-
-                                for childDiagnostic in info.childDiagnostics {
-                                    emitInfoAsDiagnostic(info: childDiagnostic)
-                                }
-                            }
-
-                            emitInfoAsDiagnostic(info: info)
-                        case .output(let info):
-                            self.observabilityScope.emit(info: "\(String(decoding: info.data, as: UTF8.self))")
-                        case .taskStarted(let info):
-                            try buildState.started(task: info)
-
-                            if let commandLineDisplay = info.commandLineDisplayString {
-                                self.observabilityScope.emit(info: "\(info.executionDescription)\n\(commandLineDisplay)")
-                            } else {
-                                self.observabilityScope.emit(info: "\(info.executionDescription)")
-                            }
-
-                            if self.logLevel.isVerbose {
-                                if let commandLineDisplay = info.commandLineDisplayString {
-                                    self.outputStream.send("\(info.executionDescription)\n\(commandLineDisplay)")
-                                } else {
-                                    self.outputStream.send("\(info.executionDescription)")
-                                }
-                            }
-                            let targetInfo = try buildState.target(for: info)
-                            self.delegate?.buildSystem(self, willStartCommand: BuildSystemCommand(info, targetInfo: targetInfo))
-                            self.delegate?.buildSystem(self, didStartCommand: BuildSystemCommand(info, targetInfo: targetInfo))
-                        case .taskComplete(let info):
-                            let startedInfo = try buildState.completed(task: info)
-                            if info.result != .success {
-                                self.observabilityScope.emit(severity: .error, message: "\(startedInfo.ruleInfo) failed with a nonzero exit code. Command line: \(startedInfo.commandLineDisplayString ?? "<no command line>")")
-                            }
-                            let targetInfo = try buildState.target(for: startedInfo)
-                            self.delegate?.buildSystem(self, didFinishCommand: BuildSystemCommand(startedInfo, targetInfo: targetInfo))
-                            if let targetName = targetInfo?.targetName {
-                                serializedDiagnosticPathsByTargetName[targetName, default: []].append(contentsOf: startedInfo.serializedDiagnosticsPaths.compactMap {
-                                    try? Basics.AbsolutePath(validating: $0.pathString)
-                                })
-                            }
-                            if self.buildParameters.outputParameters.enableTaskBacktraces {
-                                if let id = SWBBuildOperationBacktraceFrame.Identifier(taskSignatureData: Data(startedInfo.taskSignature.utf8)),
-                                   let backtrace = SWBTaskBacktrace(from: id, collectedFrames: buildState.collectedBacktraceFrames) {
-                                    let formattedBacktrace = backtrace.renderTextualRepresentation()
-                                    if !formattedBacktrace.isEmpty {
-                                        self.observabilityScope.emit(info: "Task backtrace:\n\(formattedBacktrace)")
-                                    }
-                                }
-                            }
-                        case .targetStarted(let info):
-                            try buildState.started(target: info)
-                        case .backtraceFrame(let info):
-                            if self.buildParameters.outputParameters.enableTaskBacktraces {
-                                buildState.collectedBacktraceFrames.add(frame: info)
-                            }
-                        case .planningOperationStarted, .planningOperationCompleted, .reportBuildDescription, .reportPathMap, .preparedForIndex, .buildStarted, .preparationComplete, .targetUpToDate, .targetComplete, .taskUpToDate:
-                            break
-                        case .buildDiagnostic, .targetDiagnostic, .taskDiagnostic:
-                            break // deprecated
-                        case .buildOutput, .targetOutput, .taskOutput:
-                            break // deprecated
-                        @unknown default:
-                            break
-                        }
-                    }
-
                     let operation = try await session.createBuildOperation(
                         request: request,
                         delegate: PlanningOperationDelegate(),
@@ -731,7 +842,6 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                     )
 
                     var buildDescriptionID: SWBBuildDescriptionID? = nil
-                    var buildState = BuildState()
                     for try await event in try await operation.start() {
                         if case .reportBuildDescription(let info) = event {
                             if buildDescriptionID != nil {
@@ -739,7 +849,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                             }
                             buildDescriptionID = SWBBuildDescriptionID(info.buildDescriptionID)
                         }
-                        try emitEvent(event, buildState: &buildState)
+                        try buildMessageHandler.emitEvent(event, self)
                     }
 
                     await operation.waitForCompletion()
@@ -747,8 +857,8 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                     switch operation.state {
                     case .succeeded:
                         guard !self.logLevel.isQuiet else { return }
-                        progressAnimation.update(step: 100, total: 100, text: "")
-                        progressAnimation.complete(success: true)
+                        buildMessageHandler.progressAnimation.update(step: 100, total: 100, text: "")
+                        buildMessageHandler.progressAnimation.complete(success: true)
                         let duration = ContinuousClock.Instant.now - buildStartTime
                         let formattedDuration = duration.formatted(.units(allowed: [.seconds], fractionalPart: .show(length: 2, rounded: .up)))
                         self.outputStream.send("Build complete! (\(formattedDuration))\n")
@@ -815,7 +925,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             }
 
             return BuildResult(
-                serializedDiagnosticPathsByTargetName: .success(serializedDiagnosticPathsByTargetName),
+                serializedDiagnosticPathsByTargetName: .success(buildMessageHandler.serializedDiagnosticPathsByTargetName),
                 symbolGraph: SymbolGraphResult(
                     outputLocationForTarget: { target, buildParameters in
                         return ["\(buildParameters.triple.archName)", "\(target).symbolgraphs"]
