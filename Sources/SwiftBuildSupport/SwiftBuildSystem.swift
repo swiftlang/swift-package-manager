@@ -377,13 +377,6 @@ public final class SwiftBuildSystemMessageHandler {
                 self.observabilityScope.emit(info: "\(info.executionDescription)")
             }
 
-            if self.logLevel.isVerbose {
-                if let commandLineDisplay = info.commandLineDisplayString {
-                    self.outputStream.send("\(info.executionDescription)\n\(commandLineDisplay)")
-                } else {
-                    self.outputStream.send("\(info.executionDescription)")
-                }
-            }
             let targetInfo = try buildState.target(for: info)
             buildSystem.delegate?.buildSystem(buildSystem, willStartCommand: BuildSystemCommand(info, targetInfo: targetInfo))
             buildSystem.delegate?.buildSystem(buildSystem, didStartCommand: BuildSystemCommand(info, targetInfo: targetInfo))
@@ -399,8 +392,8 @@ public final class SwiftBuildSystemMessageHandler {
             let targetInfo = try buildState.target(for: startedInfo)
             buildSystem.delegate?.buildSystem(buildSystem, didFinishCommand: BuildSystemCommand(startedInfo, targetInfo: targetInfo))
             if let targetName = targetInfo?.targetName {
-                serializedDiagnosticPathsByTargetName[targetName, default: []].append(contentsOf: startedInfo.serializedDiagnosticsPaths.compactMap {
-                    try? Basics.AbsolutePath(validating: $0.pathString)
+                try serializedDiagnosticPathsByTargetName[targetName, default: []].append(contentsOf: startedInfo.serializedDiagnosticsPaths.compactMap {
+                    try Basics.AbsolutePath(validating: $0.pathString)
                 })
             }
             if buildSystem.enableTaskBacktraces {
