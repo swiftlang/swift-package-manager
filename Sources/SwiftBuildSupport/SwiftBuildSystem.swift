@@ -112,13 +112,28 @@ func withSession(
 }
 
 private final class PlanningOperationDelegate: SWBPlanningOperationDelegate, Sendable {
+    private let shouldEnableMacOsDebuggingEntitlement: Bool
+
+    init(shouldEnableMacOsDebuggingEntitlement: Bool) {
+        self.shouldEnableMacOsDebuggingEntitlement = shouldEnableMacOsDebuggingEntitlement
+    }
+
     public func provisioningTaskInputs(
         targetGUID: String,
         provisioningSourceData: SWBProvisioningTaskInputsSourceData
     ) async -> SWBProvisioningTaskInputs {
-        let identity = provisioningSourceData.signingCertificateIdentifier
+        // if we need to add debug entitlement we have to do codesigning, so we need to ensure at least ad-hoc signing
+        let identity = if provisioningSourceData.signingCertificateIdentifier
+            .isEmpty && shouldEnableMacOsDebuggingEntitlement && provisioningSourceData.supportsEntitlements
+        {
+            "-"
+        } else {
+            provisioningSourceData.signingCertificateIdentifier
+        }
+
         if identity == "-" {
-            let signedEntitlements = provisioningSourceData.entitlementsDestination == "Signature"
+            let signedEntitlements = provisioningSourceData
+                .entitlementsDestination == "Signature" && provisioningSourceData.sdkRoot.contains("iphoneos")
                 ? provisioningSourceData.productTypeEntitlements.merging(
                     ["application-identifier": .plString(provisioningSourceData.bundleIdentifier)],
                     uniquingKeysWith: { _, new in new }
@@ -132,6 +147,16 @@ private final class PlanningOperationDelegate: SWBPlanningOperationDelegate, Sen
                 ).merging(provisioningSourceData.projectEntitlements ?? [:], uniquingKeysWith: { _, new in new })
                 : [:]
 
+            var additionalEntitlements: [String: SWBPropertyListItem] = [:]
+
+            if provisioningSourceData.sdkRoot.contains("simulator") {
+                additionalEntitlements["get-task-allow"] = .plBool(true)
+            }
+
+            if shouldEnableMacOsDebuggingEntitlement {
+                additionalEntitlements["com.apple.security.get-task-allow"] = .plBool(true)
+            }
+
             return SWBProvisioningTaskInputs(
                 identityHash: "-",
                 identityName: "-",
@@ -140,7 +165,7 @@ private final class PlanningOperationDelegate: SWBPlanningOperationDelegate, Sen
                 profilePath: nil,
                 designatedRequirements: nil,
                 signedEntitlements: signedEntitlements.merging(
-                    provisioningSourceData.sdkRoot.contains("simulator") ? ["get-task-allow": .plBool(true)] : [:],
+                    additionalEntitlements,
                     uniquingKeysWith: { _, new in new }
                 ),
                 simulatedEntitlements: simulatedEntitlements,
@@ -726,7 +751,10 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
                     let operation = try await session.createBuildOperation(
                         request: request,
-                        delegate: PlanningOperationDelegate(),
+                        delegate: PlanningOperationDelegate(shouldEnableMacOsDebuggingEntitlement: self.buildParameters
+                            .triple.darwinPlatform == .macOS && self.buildParameters.debuggingParameters
+                            .shouldEnableDebuggingEntitlement
+                        ),
                         retainBuildDescription: true
                     )
 
@@ -1054,7 +1082,9 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
     private static func constructDebuggingSettingsOverrides(from parameters: BuildParameters.Debugging) -> [String: String] {
         var settings: [String: String] = [:]
         // TODO: debugInfoFormat: https://github.com/swiftlang/swift-build/issues/560
-        // TODO: shouldEnableDebuggingEntitlement: Enable/Disable get-task-allow
+        if parameters.shouldEnableDebuggingEntitlement {
+            settings["ENTITLEMENTS_DONT_REMOVE_GET_TASK_ALLOW"] = "YES"
+        }
         // TODO: omitFramePointer: https://github.com/swiftlang/swift-build/issues/561
         return settings
     }
