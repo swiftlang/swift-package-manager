@@ -14,6 +14,7 @@ extension Tag {
     public enum TestSize {}
     public enum Feature {}
     public enum Platform {}
+    public enum FunctionalArea {}
     @Tag public static var UserWorkflow: Tag
 }
 
@@ -25,6 +26,12 @@ extension Tag.TestSize {
 
 extension Tag.Platform {
     @Tag public static var FileSystem: Tag
+}
+
+extension Tag.FunctionalArea {
+    @Tag public static var PIF: Tag
+    @Tag public static var IndexMode: Tag
+    @Tag public static var Sanitizer: Tag
 }
 
 extension Tag.Feature {
