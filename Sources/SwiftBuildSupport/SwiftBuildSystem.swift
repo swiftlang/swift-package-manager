@@ -196,7 +196,7 @@ extension SwiftBuildMessage.LocationContext {
 }
 
 /// Handler for SwiftBuildMessage events sent by the SWBBuildOperation.
-final class SwiftBuildSystemMessageHandler {
+public final class SwiftBuildSystemMessageHandler {
     private let observabilityScope: ObservabilityScope
     private let outputStream: OutputByteStream
     private let logLevel: Basics.Diagnostic.Severity
@@ -252,7 +252,7 @@ final class SwiftBuildSystemMessageHandler {
             targetsByID[target.targetID] = target
         }
 
-        mutating func target(for task: SwiftBuild.SwiftBuildMessage.TaskStartedInfo) throws -> SwiftBuild.SwiftBuildMessage.TargetStartedInfo? {
+        func target(for task: SwiftBuild.SwiftBuildMessage.TaskStartedInfo) throws -> SwiftBuild.SwiftBuildMessage.TargetStartedInfo? {
             guard let id = task.targetID else {
                 return nil
             }
@@ -308,91 +308,6 @@ final class SwiftBuildSystemMessageHandler {
         }
     }
 
-    /// Represents a parsed diagnostic segment from compiler output
-    private struct ParsedDiagnostic {
-        /// The file path if present
-        let filePath: String?
-        /// The line number if present
-        let line: Int?
-        /// The column number if present
-        let column: Int?
-        /// The severity (error, warning, note, remark)
-        let severity: String
-        /// The diagnostic message text
-        let message: String
-        /// The full text including any multi-line context (code snippets, carets, etc.)
-        let fullText: String
-
-        /// Parse severity string to Diagnostic.Severity
-        func toDiagnosticSeverity() -> Basics.Diagnostic.Severity {
-            switch severity.lowercased() {
-            case "error": return .error
-            case "warning": return .warning
-            case "note": return .info
-            case "remark": return .debug
-            default: return .info
-            }
-        }
-    }
-
-    /// Split compiler output into individual diagnostic segments
-    /// Format: /path/to/file.swift:line:column: severity: message
-    private func splitIntoDiagnostics(_ output: String) -> [ParsedDiagnostic] {
-        var diagnostics: [ParsedDiagnostic] = []
-
-        // Regex pattern to match diagnostic lines
-        // Matches: path:line:column: severity: message (path is required)
-        // The path must contain at least one character and line must be present
-        let diagnosticPattern = #"^(.+?):(\d+):(?:(\d+):)?\s*(error|warning|note|remark):\s*(.*)$"#
-        guard let regex = try? NSRegularExpression(pattern: diagnosticPattern, options: [.anchorsMatchLines]) else {
-            return []
-        }
-
-        let nsString = output as NSString
-        let matches = regex.matches(in: output, options: [], range: NSRange(location: 0, length: nsString.length))
-
-        // Process each match and gather full text including subsequent lines
-        for (index, match) in matches.enumerated() {
-            let matchRange = match.range
-
-            // Extract components
-            let filePathRange = match.range(at: 1)
-            let lineRange = match.range(at: 2)
-            let columnRange = match.range(at: 3)
-            let severityRange = match.range(at: 4)
-            let messageRange = match.range(at: 5)
-
-            let filePath = nsString.substring(with: filePathRange)
-            let line = Int(nsString.substring(with: lineRange))
-            let column = columnRange.location != NSNotFound ? Int(nsString.substring(with: columnRange)) : nil
-            let severity = nsString.substring(with: severityRange)
-            let message = nsString.substring(with: messageRange)
-
-            // Determine the full text range (from this diagnostic to the next one, or end)
-            let startLocation = matchRange.location
-            let endLocation: Int
-            if index + 1 < matches.count {
-                endLocation = matches[index + 1].range.location
-            } else {
-                endLocation = nsString.length
-            }
-
-            let fullTextRange = NSRange(location: startLocation, length: endLocation - startLocation)
-            let fullText = nsString.substring(with: fullTextRange).trimmingCharacters(in: .whitespacesAndNewlines)
-
-            diagnostics.append(ParsedDiagnostic(
-                filePath: filePath,
-                line: line,
-                column: column,
-                severity: severity,
-                message: message,
-                fullText: fullText
-            ))
-        }
-
-        return diagnostics
-    }
-
     private func emitDiagnosticCompilerOutput(_ info: SwiftBuildMessage.TaskStartedInfo) {
         // Don't redundantly emit tasks.
         guard !self.tasksEmitted.contains(info.taskSignature) else {
@@ -406,47 +321,8 @@ final class SwiftBuildSystemMessageHandler {
         // Decode the buffer to a string
         let decodedOutput = String(decoding: buffer, as: UTF8.self)
 
-        // Split the output into individual diagnostic segments
-        let parsedDiagnostics = splitIntoDiagnostics(decodedOutput)
-
-        if parsedDiagnostics.isEmpty {
-            // No structured diagnostics found - emit as-is based on task signature matching
-            // Fetch the task signature for a SwiftBuildMessage.DiagnosticInfo
-            func getTaskSignature(from info: SwiftBuildMessage.DiagnosticInfo) -> String? {
-                if let taskSignature = info.locationContext2.taskSignature {
-                    return taskSignature
-                } else if let taskID = info.locationContext.taskID,
-                          let taskSignature = self.buildState.taskSignature(for: taskID)
-                {
-                    return taskSignature
-                }
-                return nil
-            }
-
-            // Use existing logic as fallback
-            if unprocessedDiagnostics.compactMap(getTaskSignature).contains(where: { $0 == info.taskSignature }) {
-                self.observabilityScope.emit(error: decodedOutput)
-            } else {
-                self.observabilityScope.emit(info: decodedOutput)
-            }
-        } else {
-            // Process each parsed diagnostic derived from the decodedOutput
-            for parsedDiag in parsedDiagnostics {
-                let severity = parsedDiag.toDiagnosticSeverity()
-
-                // Use the appropriate emit method based on severity
-                switch severity {
-                case .error:
-                    self.observabilityScope.emit(error: parsedDiag.fullText)
-                case .warning:
-                    self.observabilityScope.emit(warning: parsedDiag.fullText)
-                case .info:
-                    self.observabilityScope.emit(info: parsedDiag.fullText)
-                case .debug:
-                    self.observabilityScope.emit(severity: .debug, message: parsedDiag.fullText)
-                }
-            }
-        }
+        // Emit to output stream.
+        outputStream.send(decodedOutput)
 
         // Record that we've emitted the output for a given task signature.
         self.tasksEmitted.insert(info.taskSignature)
@@ -515,9 +391,7 @@ final class SwiftBuildSystemMessageHandler {
             let startedInfo = try buildState.completed(task: info)
 
             // If we've captured the compiler output with formatted diagnostics, emit them.
-//            if let buffer = buildState.dataBuffer(for: startedInfo) {
             emitDiagnosticCompilerOutput(startedInfo)
-//            }
 
             if info.result != .success {
                 self.observabilityScope.emit(severity: .error, message: "\(startedInfo.ruleInfo) failed with a nonzero exit code. Command line: \(startedInfo.commandLineDisplayString ?? "<no command line>")")
