@@ -151,7 +151,7 @@ struct InMemoryFileSystemTests {
 
             // WHEN we write contents to the file
             // THEn we expect an error to occus
-            withKnownIssue {
+            #expect(throws: (any Error).self) {
                 try fs.writeFileContents(pathUnderTest, bytes: expectedContents)
             }
 
@@ -171,7 +171,7 @@ struct InMemoryFileSystemTests {
 
             // WHEN we write contents to the file
             // THEN we expect an error to occur
-            withKnownIssue {
+            #expect(throws: (any Error).self) {
                 try fs.writeFileContents(pathUnderTest, bytes: expectedContents)
             }
 
@@ -191,7 +191,7 @@ struct InMemoryFileSystemTests {
 
             // WHEN we write contents to the file
             // THEN we expect an error to occur
-            withKnownIssue {
+            #expect(throws: (any Error).self) {
                 try fs.writeFileContents(pathUnderTest, bytes: expectedContents)
             }
 
@@ -207,7 +207,7 @@ struct InMemoryFileSystemTests {
 
             // WHEN we read a non-existing file
             // THEN an error occurs
-            withKnownIssue {
+            #expect(throws: (any Error).self) {
                 let _ = try fs.readFileContents("/file/does/not/exists")
             }
         }
@@ -323,8 +323,8 @@ struct InMemoryFileSystemTests {
 
             // WHEN we read the contents of a directory
             // THEN we expect a failure to occur
-            withKnownIssue {
-                let _ = try fs.readFileContents(pathUnderTest.parentDirectory)
+            #expect(throws: (any Error).self) {
+                try fs.readFileContents(pathUnderTest.parentDirectory)
             }
         }
     }

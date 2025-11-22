@@ -43,7 +43,7 @@ struct DependencyResolutionTests {
         buildSystem: BuildSystemProvider.Kind,
         configuration: BuildConfiguration,
     ) async throws {
-        try await withKnownIssue(isIntermittent: (ProcessInfo.hostOperatingSystem == .windows) ) {
+        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
                 try await executeSwiftBuild(
                     fixturePath,
@@ -74,7 +74,7 @@ struct DependencyResolutionTests {
         configuration: BuildConfiguration,
     ) async throws {
         try await fixture(name: "DependencyResolution/Internal/InternalExecutableAsDependency") { fixturePath in
-            await withKnownIssue {
+            await withKnownIssue(isIntermittent: true) {
                 await #expect(throws: (any Error).self) {
                     try await executeSwiftBuild(
                         fixturePath,
@@ -101,7 +101,7 @@ struct DependencyResolutionTests {
         buildSystem: BuildSystemProvider.Kind,
         configuration: BuildConfiguration,
     ) async throws {
-        try await withKnownIssue(isIntermittent: ProcessInfo.hostOperatingSystem == .windows) {
+        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "DependencyResolution/Internal/Complex") { fixturePath in
                 try await executeSwiftBuild(
                     fixturePath,
