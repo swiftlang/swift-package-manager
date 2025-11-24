@@ -925,6 +925,7 @@ public enum PIF {
             case CLANG_COVERAGE_MAPPING_LINKER_ARGS
             case MACH_O_TYPE
             case MACOSX_DEPLOYMENT_TARGET
+            case MTL_COMPILER_PATH
             case MODULEMAP_FILE
             case MODULEMAP_FILE_CONTENTS
             case MODULEMAP_PATH

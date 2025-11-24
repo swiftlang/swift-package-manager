@@ -220,6 +220,8 @@ struct PackagePIFProjectBuilder {
         settings[.COREML_COMPILER_CONTAINER] = "swift-package"
         settings[.COREML_CODEGEN_LANGUAGE] = "None"
 
+        settings[.MTL_COMPILER_PATH] = self.pifBuilder.metalCompilerPath
+
         self.project[keyPath: resourcesTargetKeyPath].common.addBuildConfig { id in
             BuildConfig(id: id, name: "Debug", settings: settings)
         }

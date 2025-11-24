@@ -19,6 +19,8 @@ import struct Basics.SourceControlURL
 import struct Basics.Diagnostic
 import struct Basics.ObservabilityMetadata
 import class Basics.ObservabilityScope
+import class Basics.AsyncProcess
+import struct Basics.AsyncProcessResult
 
 import class PackageModel.Manifest
 import class PackageModel.Package
@@ -179,6 +181,9 @@ public final class PackagePIFBuilder {
     /// The file system to read from.
     let fileSystem: FileSystem
 
+    /// Path to the Metal compiler, resolved via `xcrun --find metal` or 'metal' if not found.
+    let metalCompilerPath: String
+
     /// Whether to suppress warnings from compilers, linkers, and other build tools for package dependencies.
     private var suppressWarningsForPackageDependencies: Bool {
         UserDefaults.standard.bool(forKey: "SuppressWarningsForPackageDependencies", defaultValue: true)
@@ -215,6 +220,7 @@ public final class PackagePIFBuilder {
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope
         self.addLocalRpaths = addLocalRpaths
+        self.metalCompilerPath = Self.findMetalCompilerPath(observabilityScope: observabilityScope)
     }
 
     public init(
@@ -239,6 +245,7 @@ public final class PackagePIFBuilder {
         self.packageDisplayVersion = packageDisplayVersion
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope
+        self.metalCompilerPath = Self.findMetalCompilerPath(observabilityScope: observabilityScope)
     }
 
     /// Build an empty PIF project.
@@ -658,6 +665,36 @@ public final class PackagePIFBuilder {
         init(_ resource: PackageModel.Resource) {
             self.path = resource.path.pathString
             self.rule = resource.rule
+        }
+    }
+
+    private static func findMetalCompilerPath(observabilityScope: ObservabilityScope) -> String {
+        do {
+            let result = try AsyncProcess.popen(
+                arguments: ["xcrun", "--find", "metal"]
+            )
+            guard result.exitStatus == .terminated(code: 0) else {
+                observabilityScope.emit(
+                    debug: "Failed to find Metal compiler using xcrun, exited with \(result.exitStatus).  Defaulting to 'metal'"
+                )
+                return "metal"
+            }
+
+            let output = try result.utf8Output()
+
+            let path = output.trimmingCharacters(in: .whitespacesAndNewlines)
+
+            guard !path.isEmpty else {
+                observabilityScope.emit(debug: "Metal compiler path is empty, defaulting to 'metal'")
+                return "metal"
+            }
+
+            return path
+        } catch {
+            observabilityScope.emit(
+                debug: "Error \(error) finding Metal compiler, defaulting to 'metal'"
+            )
+            return "metal"
         }
     }
 }
