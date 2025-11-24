@@ -227,6 +227,7 @@ public final class SwiftBuildSystemMessageHandler {
         private var targetsByID: [Int: SwiftBuild.SwiftBuildMessage.TargetStartedInfo] = [:]
         private var activeTasks: [Int: SwiftBuild.SwiftBuildMessage.TaskStartedInfo] = [:]
         private var taskBuffer: [String: Data] = [:]
+//        private var taskBuffer: [SwiftBuildMessage.LocationContext: Data] = [:]
         private var taskIDToSignature: [Int: String] = [:]
         var collectedBacktraceFrames = SWBBuildOperationCollectedBacktraceFrames()
 
@@ -284,7 +285,6 @@ public final class SwiftBuildSystemMessageHandler {
     }
 
     private func emitInfoAsDiagnostic(info: SwiftBuildMessage.DiagnosticInfo) {
-        // Assure that we haven't already emitted this diagnostic.
         let fixItsDescription = if info.fixIts.hasContent {
             ": " + info.fixIts.map { String(describing: $0) }.joined(separator: ", ")
         } else {
@@ -322,7 +322,8 @@ public final class SwiftBuildSystemMessageHandler {
         let decodedOutput = String(decoding: buffer, as: UTF8.self)
 
         // Emit to output stream.
-        outputStream.send(decodedOutput)
+//        outputStream.send(decodedOutput)
+        observabilityScope.print(message: decodedOutput)
 
         // Record that we've emitted the output for a given task signature.
         self.tasksEmitted.insert(info.taskSignature)
