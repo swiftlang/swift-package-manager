@@ -198,7 +198,6 @@ extension SwiftBuildMessage.LocationContext {
 /// Handler for SwiftBuildMessage events sent by the SWBBuildOperation.
 public final class SwiftBuildSystemMessageHandler {
     private let observabilityScope: ObservabilityScope
-    private let outputStream: OutputByteStream
     private let logLevel: Basics.Diagnostic.Severity
     private var buildState: BuildState = .init()
     private var tasksEmitted: Set<String> = []
@@ -215,10 +214,9 @@ public final class SwiftBuildSystemMessageHandler {
     )
     {
         self.observabilityScope = observabilityScope
-        self.outputStream = outputStream
         self.logLevel = logLevel
         self.progressAnimation = ProgressAnimation.ninja(
-            stream: self.outputStream,
+            stream: outputStream,
             verbose: self.logLevel.isVerbose
         )
     }
@@ -226,10 +224,103 @@ public final class SwiftBuildSystemMessageHandler {
     struct BuildState {
         private var targetsByID: [Int: SwiftBuild.SwiftBuildMessage.TargetStartedInfo] = [:]
         private var activeTasks: [Int: SwiftBuild.SwiftBuildMessage.TaskStartedInfo] = [:]
-        private var taskBuffer: [String: Data] = [:]
-//        private var taskBuffer: [SwiftBuildMessage.LocationContext: Data] = [:]
+        private var taskDataBuffer: TaskDataBuffer = [:]
         private var taskIDToSignature: [Int: String] = [:]
         var collectedBacktraceFrames = SWBBuildOperationCollectedBacktraceFrames()
+
+        struct TaskDataBuffer: ExpressibleByDictionaryLiteral {
+            typealias Key = String
+            typealias Value = Data
+
+            // Default taskSignature -> Data buffer
+            private var storage: [Key: Value] = [:]
+
+            // Others
+            private var taskIDDataBuffer: [Int: Data] = [:]
+            private var globalDataBuffer: Data = Data()
+            private var targetIDDataBuffer: [Int: Data] = [:]
+
+            subscript(key: String) -> Value? {
+                self.storage[key]
+            }
+
+            subscript(key: String, default defaultValue: Value) -> Value {
+                get { self.storage[key] ?? defaultValue }
+                set { self.storage[key] = newValue }
+            }
+
+            subscript(key: SwiftBuildMessage.LocationContext, default defaultValue: Value) -> Value {
+                get {
+                    if let taskID = key.taskID, let result = self.taskIDDataBuffer[taskID] {
+                        return result
+                        // ask for build state to fetch taskSignature for a given id?
+                    } else if let targetID = key.targetID, let result = self.targetIDDataBuffer[targetID] {
+                        return result
+                    } else if !self.globalDataBuffer.isEmpty {
+                        return self.globalDataBuffer
+                    } else {
+                        return defaultValue
+                    }
+                }
+
+                set {
+                    if let taskID = key.taskID {
+                        self.taskIDDataBuffer[taskID] = newValue
+                        if let targetID = key.targetID {
+                            self.targetIDDataBuffer[targetID] = newValue
+                        }
+                    } else if let targetID = key.targetID {
+                        self.targetIDDataBuffer[targetID] = newValue
+                    } else {
+                        self.globalDataBuffer = newValue
+                    }
+                }
+            }
+
+            subscript(key: SwiftBuildMessage.LocationContext2) -> Value? {
+                get {
+                    if let taskSignature = key.taskSignature {
+                        return self.storage[taskSignature]
+                    } else if let targetID = key.targetID {
+                        return self.targetIDDataBuffer[targetID]
+                    }
+
+                    return nil
+                }
+
+                set {
+                    if let taskSignature = key.taskSignature {
+                        self.storage[taskSignature] = newValue
+                    } else if let targetID = key.targetID {
+                        self.targetIDDataBuffer[targetID] = newValue
+                    }
+                }
+            }
+
+            subscript(task: SwiftBuildMessage.TaskStartedInfo) -> Value? {
+                get {
+                    guard let result = self.storage[task.taskSignature] else {
+                        // Default to checking targetID and taskID.
+                        if let result = self.taskIDDataBuffer[task.taskID] {
+                            return result
+                        } else if let targetID = task.targetID,
+                                  let result = self.targetIDDataBuffer[targetID] {
+                            return result
+                        }
+
+                        return nil
+                    }
+
+                    return result
+                }
+            }
+
+            init(dictionaryLiteral elements: (String, Data)...) {
+                for (key, value) in elements {
+                    self.storage[key] = value
+                }
+            }
+        }
 
         mutating func started(task: SwiftBuild.SwiftBuildMessage.TaskStartedInfo) throws {
             if activeTasks[task.taskID] != nil {
@@ -270,15 +361,35 @@ public final class SwiftBuildSystemMessageHandler {
             return nil
         }
 
-        mutating func appendToBuffer(_ task: String, data: Data) {
-            taskBuffer[task, default: .init()].append(data)
+        mutating func appendToBuffer(_ info: SwiftBuildMessage.OutputInfo) {
+            // Attempt to key by taskSignature; at times this may not be possible,
+            // in which case we'd need to fall back to using LocationContext.
+            guard let taskSignature = info.locationContext2.taskSignature else {
+                // If we cannot find the task signature from the locationContext2,
+                // use deprecated locationContext instead to find task signature.
+                // If this fails to find an associated task signature, track
+                // relevant IDs from the location context in the task buffer.
+                if let taskID = info.locationContext.taskID,
+                    let taskSignature = self.taskSignature(for: taskID) {
+                    self.taskDataBuffer[taskSignature, default: .init()].append(info.data)
+                    self.taskDataBuffer[info.locationContext, default: .init()].append(info.data)
+                } else {
+                    self.taskDataBuffer[info.locationContext, default: .init()].append(info.data)
+                }
+
+                return
+            }
+
+            self.taskDataBuffer[taskSignature, default: .init()].append(info.data)
         }
 
         func dataBuffer(for task: SwiftBuild.SwiftBuildMessage.TaskStartedInfo) -> Data? {
-            guard let data = taskBuffer[task.taskSignature] else {
-                // If there is no available buffer, simply return nil.
-                return nil
+            guard let data = taskDataBuffer[task.taskSignature] else {
+                // Fallback to checking taskID and targetID.
+                return taskDataBuffer[task]
             }
+
+            // todo bp "-fno-color-diagnostics",
 
             return data
         }
@@ -321,8 +432,9 @@ public final class SwiftBuildSystemMessageHandler {
         // Decode the buffer to a string
         let decodedOutput = String(decoding: buffer, as: UTF8.self)
 
-        // Emit to output stream.
-//        outputStream.send(decodedOutput)
+        // Emit message.
+        // Note: This is a temporary workaround until we can re-architect
+        // how we'd like to format and handle diagnostic output.
         observabilityScope.print(message: decodedOutput)
 
         // Record that we've emitted the output for a given task signature.
@@ -356,19 +468,8 @@ public final class SwiftBuildSystemMessageHandler {
                 unprocessedDiagnostics.append(info)
             }
         case .output(let info):
-            // Grab the taskID to append to buffer-per-task storage
-            guard let taskSignature = info.locationContext2.taskSignature else {
-                // If we cannot find the task signature from the locationContext2,
-                // use deprecated locationContext instead.
-                if let taskID = info.locationContext.taskID,
-                    let taskSignature = buildState.taskSignature(for: taskID) {
-                    buildState.appendToBuffer(taskSignature, data: info.data)
-                }
-
-                return
-            }
-
-            buildState.appendToBuffer(taskSignature, data: info.data)
+            // Append to buffer-per-task storage
+            buildState.appendToBuffer(info)
         case .taskStarted(let info):
             try buildState.started(task: info)
 
