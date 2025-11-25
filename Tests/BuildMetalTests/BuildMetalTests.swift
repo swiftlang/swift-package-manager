@@ -13,11 +13,16 @@
 import _InternalTestSupport
 import Testing
 import Basics
+import Foundation
+import Metal
 
 @Suite
 struct BuildMetalTests {
 
     @Test(
+        .tags(
+            .TestSize.large
+            ),
         .requireHostOS(.macOS),
         arguments: getBuildData(for: [.swiftbuild]),
     )
@@ -52,6 +57,12 @@ struct BuildMetalTests {
                 localFileSystem.exists(metallibPath),
                 "Expected default.metallib to exist at \(metallibPath)"
             )
+
+            // Verify we can load the metal library
+            let device = MTLCreateSystemDefaultDevice()!
+            let library = try device.makeLibrary(URL: URL(fileURLWithPath: metallibPath.pathString))
+
+            #expect(library.functionNames.contains("simpleVertexShader"))
         }
     }
 
