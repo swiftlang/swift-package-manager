@@ -232,32 +232,33 @@ public final class SwiftBuildSystemMessageHandler {
             typealias Key = String
             typealias Value = Data
 
-            // Default taskSignature -> Data buffer
-            private var storage: [Key: Value] = [:]
-
-            // Others
-            private var taskIDDataBuffer: [Int: Data] = [:]
-            private var globalDataBuffer: Data = Data()
-            private var targetIDDataBuffer: [Int: Data] = [:]
+            private var taskSignatureBuffer: [Key: Value] = [:]
+            private var taskIDBuffer: [Int: Data] = [:]
+            private var targetIDBuffer: [Int: Data] = [:]
+            private var globalBuffer: Data = Data()
 
             subscript(key: String) -> Value? {
-                self.storage[key]
+                self.taskSignatureBuffer[key]
             }
 
             subscript(key: String, default defaultValue: Value) -> Value {
-                get { self.storage[key] ?? defaultValue }
-                set { self.storage[key] = newValue }
+                get { self.taskSignatureBuffer[key] ?? defaultValue }
+                set { self.taskSignatureBuffer[key] = newValue }
             }
 
             subscript(key: SwiftBuildMessage.LocationContext, default defaultValue: Value) -> Value {
                 get {
-                    if let taskID = key.taskID, let result = self.taskIDDataBuffer[taskID] {
+                    // Check each ID kind and try to fetch the associated buffer.
+                    // If unable to get a non-nil result, then follow through to the
+                    // next check.
+                    if let taskID = key.taskID,
+                       let result = self.taskIDBuffer[taskID] {
                         return result
-                        // ask for build state to fetch taskSignature for a given id?
-                    } else if let targetID = key.targetID, let result = self.targetIDDataBuffer[targetID] {
+                    } else if let targetID = key.targetID,
+                              let result = self.targetIDBuffer[targetID] {
                         return result
-                    } else if !self.globalDataBuffer.isEmpty {
-                        return self.globalDataBuffer
+                    } else if !self.globalBuffer.isEmpty {
+                        return self.globalBuffer
                     } else {
                         return defaultValue
                     }
@@ -265,14 +266,14 @@ public final class SwiftBuildSystemMessageHandler {
 
                 set {
                     if let taskID = key.taskID {
-                        self.taskIDDataBuffer[taskID] = newValue
+                        self.taskIDBuffer[taskID] = newValue
                         if let targetID = key.targetID {
-                            self.targetIDDataBuffer[targetID] = newValue
+                            self.targetIDBuffer[targetID] = newValue
                         }
                     } else if let targetID = key.targetID {
-                        self.targetIDDataBuffer[targetID] = newValue
+                        self.targetIDBuffer[targetID] = newValue
                     } else {
-                        self.globalDataBuffer = newValue
+                        self.globalBuffer = newValue
                     }
                 }
             }
@@ -280,9 +281,9 @@ public final class SwiftBuildSystemMessageHandler {
             subscript(key: SwiftBuildMessage.LocationContext2) -> Value? {
                 get {
                     if let taskSignature = key.taskSignature {
-                        return self.storage[taskSignature]
+                        return self.taskSignatureBuffer[taskSignature]
                     } else if let targetID = key.targetID {
-                        return self.targetIDDataBuffer[targetID]
+                        return self.targetIDBuffer[targetID]
                     }
 
                     return nil
@@ -290,25 +291,26 @@ public final class SwiftBuildSystemMessageHandler {
 
                 set {
                     if let taskSignature = key.taskSignature {
-                        self.storage[taskSignature] = newValue
+                        self.taskSignatureBuffer[taskSignature] = newValue
                     } else if let targetID = key.targetID {
-                        self.targetIDDataBuffer[targetID] = newValue
+                        self.targetIDBuffer[targetID] = newValue
                     }
                 }
             }
 
             subscript(task: SwiftBuildMessage.TaskStartedInfo) -> Value? {
                 get {
-                    guard let result = self.storage[task.taskSignature] else {
+                    guard let result = self.taskSignatureBuffer[task.taskSignature] else {
                         // Default to checking targetID and taskID.
-                        if let result = self.taskIDDataBuffer[task.taskID] {
+                        if let result = self.taskIDBuffer[task.taskID] {
                             return result
                         } else if let targetID = task.targetID,
-                                  let result = self.targetIDDataBuffer[targetID] {
+                                  let result = self.targetIDBuffer[targetID] {
                             return result
                         }
 
-                        return nil
+                        // Return global buffer if none of the above are found.
+                        return self.globalBuffer
                     }
 
                     return result
@@ -317,7 +319,7 @@ public final class SwiftBuildSystemMessageHandler {
 
             init(dictionaryLiteral elements: (String, Data)...) {
                 for (key, value) in elements {
-                    self.storage[key] = value
+                    self.taskSignatureBuffer[key] = value
                 }
             }
         }
@@ -372,10 +374,10 @@ public final class SwiftBuildSystemMessageHandler {
                 if let taskID = info.locationContext.taskID,
                     let taskSignature = self.taskSignature(for: taskID) {
                     self.taskDataBuffer[taskSignature, default: .init()].append(info.data)
-                    self.taskDataBuffer[info.locationContext, default: .init()].append(info.data)
-                } else {
-                    self.taskDataBuffer[info.locationContext, default: .init()].append(info.data)
                 }
+
+                // TODO bp: extra tracking for taskIDs/targetIDs/possible global buffers
+                self.taskDataBuffer[info.locationContext, default: .init()].append(info.data)
 
                 return
             }
