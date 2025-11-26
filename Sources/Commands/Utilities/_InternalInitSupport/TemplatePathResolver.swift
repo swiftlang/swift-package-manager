@@ -323,9 +323,12 @@ struct GitTemplateFetcher: TemplateFetcher {
         case invalidVersionRange(lowerBound: String, upperBound: String)
         case invalidVersion(String)
         case authenticationRequired(source: String, error: Error)
+        case noVersionAvailable
 
         var errorDescription: String? {
             switch self {
+            case .noVersionAvailable:
+                "No matching version available"
             case .cloneFailed(let source):
                 "Failed to clone repository from '\(source)'"
             case .invalidRepositoryDirectory(let path):

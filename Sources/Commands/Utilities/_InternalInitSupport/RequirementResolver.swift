@@ -10,10 +10,12 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Basics
 import CoreCommands
 import PackageFingerprint
 import PackageRegistry
 import PackageSigning
+import SourceControl
 @_spi(PackageRefactor) import SwiftRefactor
 import TSCBasic
 import TSCUtility
@@ -25,8 +27,8 @@ import struct PackageModel.PackageIdentity
 /// A protocol defining interfaces for resolving package dependency requirements
 /// based on versioning input (e.g., version, branch, or revision).
 protocol DependencyRequirementResolving {
-    func resolveSourceControl() throws -> SwiftRefactor.PackageDependency.SourceControl.Requirement
-    func resolveRegistry() async throws -> SwiftRefactor.PackageDependency.Registry.Requirement?
+    func resolveSourceControl() async throws -> SwiftRefactor.PackageDependency.SourceControl.Requirement
+    func resolveRegistry() async throws -> SwiftRefactor.PackageDependency.Registry.Requirement
 }
 
 /// A utility for resolving a single, well-formed package dependency requirement
@@ -39,8 +41,13 @@ protocol DependencyRequirementResolving {
 struct DependencyRequirementResolver: DependencyRequirementResolving {
     /// Package-id for registry
     let packageIdentity: String?
+
+    /// Template URL for git repositories
+    let templateURL: String?
+
     /// SwiftCommandstate
     let swiftCommandState: SwiftCommandState
+
     /// An exact version to use.
     let exact: Version?
 
@@ -64,7 +71,16 @@ struct DependencyRequirementResolver: DependencyRequirementResolving {
     /// - Returns: A valid `PackageDependency.SourceControl.Requirement`.
     /// - Throws: `StringError` if multiple or no input fields are set, or if `to` is used without `from` or
     /// `upToNextMinorFrom`.
-    func resolveSourceControl() throws -> SwiftRefactor.PackageDependency.SourceControl.Requirement {
+    func resolveSourceControl() async throws -> SwiftRefactor.PackageDependency.SourceControl.Requirement {
+        // Handle the case when no requirement is specified - fetch the latest tag
+        if exact == nil, from == nil, upToNextMinorFrom == nil, self.to == nil, branch == nil, revision == nil {
+            guard let url = self.templateURL else {
+                throw DependencyRequirementError.noRequirementSpecified
+            }
+            let resolvedVersion = try await resolveGitLatestTag(from: url)
+            return .exact(resolvedVersion.description)
+        }
+
         var specifiedRequirements: [SwiftRefactor.PackageDependency.SourceControl.Requirement] = []
 
         if let exact {
@@ -120,12 +136,51 @@ struct DependencyRequirementResolver: DependencyRequirementResolving {
         return requirement
     }
 
+    /// Resolves the latest semver-compliant tag from a git repository (remote or local)
+    ///
+    /// - Parameters:
+    ///   - url: The git repository URL (can be remote or local path)
+    /// - Returns: The latest semver-compliant version tag
+    /// - Throws: Error if fetching tags fails or no valid version tags are found
+    func resolveGitLatestTag(from url: String) async throws -> Version {
+        try await withTemporaryDirectory(removeTreeOnDeinit: true) { tempDir in
+            let bareCopyPath = tempDir.appending(component: "bare-copy")
+
+            // Clone the bare repository
+            let sourceControlURL = SourceControlURL(url)
+            let repositorySpecifier = RepositorySpecifier(url: sourceControlURL)
+            let provider = GitRepositoryProvider()
+
+            do {
+                try await provider.fetch(repository: repositorySpecifier, to: bareCopyPath)
+            } catch {
+                throw DependencyRequirementError.failedToCloneGitRepository(url: url, error: error)
+            }
+
+            // Validate the repository
+            guard try provider.isValidDirectory(bareCopyPath) else {
+                throw DependencyRequirementError.invalidGitRepository(url: url)
+            }
+
+            // Get all tags from the repository
+            let repository = provider.open(repository: repositorySpecifier, at: bareCopyPath)
+            let tags = try repository.getTags()
+            let versions = tags.compactMap { Version($0) }
+
+            guard let latestVersion = versions.max() else {
+                throw DependencyRequirementError.noVersionTagsFound(url: url)
+            }
+
+            return latestVersion
+        }
+    }
+
     /// Internal helper for resolving a registry-based requirement.
     ///
     /// - Returns: A valid `PackageDependency.Registry.Requirement`.
     /// - Throws: `StringError` if more than one registry versioning input is provided or if `to` is used without a base
     /// range.
-    func resolveRegistry() async throws -> SwiftRefactor.PackageDependency.Registry.Requirement? {
+    func resolveRegistry() async throws -> SwiftRefactor.PackageDependency.Registry.Requirement {
         if exact == nil, from == nil, upToNextMinorFrom == nil, self.to == nil {
             let config = try RegistryTemplateFetcher.getRegistriesConfig(self.swiftCommandState, global: true)
             let auth = try swiftCommandState.getRegistryAuthorizationProvider()
@@ -146,7 +201,7 @@ struct DependencyRequirementResolver: DependencyRequirementResolving {
                 checksumAlgorithm: SHA256()
             )
 
-            let resolvedVersion = try await resolveVersion(for: identity, using: registryClient)
+            let resolvedVersion = try await resolveRegistryLatestVersion(for: identity, using: registryClient)
             return .exact(resolvedVersion.description)
         }
 
@@ -204,7 +259,7 @@ struct DependencyRequirementResolver: DependencyRequirementResolving {
     ///   - registryClient: The registry client to use for fetching metadata
     /// - Returns: The resolved version to use
     /// - Throws: Error if version resolution fails
-    func resolveVersion(
+    func resolveRegistryLatestVersion(
         for packageIdentity: PackageIdentity,
         using registryClient: RegistryClient
     ) async throws -> Version {
@@ -237,6 +292,9 @@ enum DependencyRequirementError: Error, CustomStringConvertible, Equatable {
     case noRequirementSpecified
     case invalidToParameterWithoutFrom
     case failedToFetchLatestVersion(metadata: RegistryClient.PackageMetadata, packageIdentity: PackageIdentity)
+    case failedToCloneGitRepository(url: String, error: Error)
+    case invalidGitRepository(url: String)
+    case noVersionTagsFound(url: String)
 
     var description: String {
         switch self {
@@ -252,6 +310,12 @@ enum DependencyRequirementError: Error, CustomStringConvertible, Equatable {
             Here is the metadata of the package you were trying to query:
             \(metadata)
             """
+        case .failedToCloneGitRepository(let url, let error):
+            "Failed to clone git repository from '\(url)': \(error)"
+        case .invalidGitRepository(let url):
+            "Invalid git repository at '\(url)'"
+        case .noVersionTagsFound(let url):
+            "No semver-compliant version tags found in git repository at '\(url)'"
         }
     }
 

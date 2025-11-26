@@ -246,6 +246,7 @@ class TemplateTests {
             await #expect(throws: DependencyRequirementError.noRequirementSpecified.self) {
                 try await DependencyRequirementResolver(
                     packageIdentity: nil,
+                    templateURL: nil,
                     swiftCommandState: tool,
                     exact: nil,
                     revision: "revision",
@@ -259,6 +260,7 @@ class TemplateTests {
             // test exact specification
             let exactRegistryDependency = try await DependencyRequirementResolver(
                 packageIdentity: nil,
+                templateURL: nil,
                 swiftCommandState: tool,
                 exact: lowerBoundVersion,
                 revision: nil,
@@ -277,6 +279,7 @@ class TemplateTests {
             // test from to
             let fromToRegistryDependency = try await DependencyRequirementResolver(
                 packageIdentity: nil,
+                templateURL: nil,
                 swiftCommandState: tool,
                 exact: nil,
                 revision: nil,
@@ -296,6 +299,7 @@ class TemplateTests {
             // test up-to-next-minor-from and to
             let upToNextMinorFromToRegistryDependency = try await DependencyRequirementResolver(
                 packageIdentity: nil,
+                templateURL: nil,
                 swiftCommandState: tool,
                 exact: nil,
                 revision: nil,
@@ -319,6 +323,7 @@ class TemplateTests {
             // test just from
             let fromRegistryDependency = try await DependencyRequirementResolver(
                 packageIdentity: nil,
+                templateURL: nil,
                 swiftCommandState: tool,
                 exact: nil,
                 revision: nil,
@@ -338,6 +343,7 @@ class TemplateTests {
             // test just up-to-next-minor-from
             let upToNextMinorFromRegistryDependency = try await DependencyRequirementResolver(
                 packageIdentity: nil,
+                templateURL: nil,
                 swiftCommandState: tool,
                 exact: nil,
                 revision: nil,
@@ -361,6 +367,7 @@ class TemplateTests {
             await #expect(throws: DependencyRequirementError.multipleRequirementsSpecified.self) {
                 try await DependencyRequirementResolver(
                     packageIdentity: nil,
+                    templateURL: nil,
                     swiftCommandState: tool,
                     exact: lowerBoundVersion,
                     revision: nil,
@@ -374,6 +381,7 @@ class TemplateTests {
             await #expect(throws: DependencyRequirementError.noRequirementSpecified.self) {
                 try await DependencyRequirementResolver(
                     packageIdentity: nil,
+                    templateURL: nil,
                     swiftCommandState: tool,
                     exact: nil,
                     revision: nil,
@@ -387,6 +395,7 @@ class TemplateTests {
             await #expect(throws: DependencyRequirementError.invalidToParameterWithoutFrom.self) {
                 try await DependencyRequirementResolver(
                     packageIdentity: nil,
+                    templateURL: nil,
                     swiftCommandState: tool,
                     exact: lowerBoundVersion,
                     revision: nil,
@@ -399,7 +408,7 @@ class TemplateTests {
         }
 
         @Test
-        func resolveSourceControlDependencyRequirements() throws {
+        func resolveSourceControlDependencyRequirements() async throws {
             let options = try GlobalOptions.parse([])
 
             let tool = try SwiftCommandState.makeMockState(options: options)
@@ -407,8 +416,9 @@ class TemplateTests {
             let lowerBoundVersion = Version(stringLiteral: "1.2.0")
             let higherBoundVersion = Version(stringLiteral: "3.0.0")
 
-            let branchSourceControlDependency = try DependencyRequirementResolver(
+            let branchSourceControlDependency = try await DependencyRequirementResolver(
                 packageIdentity: nil,
+                templateURL: nil,
                 swiftCommandState: tool,
                 exact: nil,
                 revision: nil,
@@ -427,8 +437,9 @@ class TemplateTests {
                     )
             }
 
-            let revisionSourceControlDependency = try DependencyRequirementResolver(
+            let revisionSourceControlDependency = try await DependencyRequirementResolver(
                 packageIdentity: nil,
+                templateURL: nil,
                 swiftCommandState: tool,
                 exact: nil,
                 revision: "dae86e",
@@ -448,8 +459,9 @@ class TemplateTests {
             }
 
             // test exact specification
-            let exactSourceControlDependency = try DependencyRequirementResolver(
+            let exactSourceControlDependency = try await DependencyRequirementResolver(
                 packageIdentity: nil,
+                templateURL: nil,
                 swiftCommandState: tool,
                 exact: lowerBoundVersion,
                 revision: nil,
@@ -469,8 +481,9 @@ class TemplateTests {
             }
 
             // test from to
-            let fromToSourceControlDependency = try DependencyRequirementResolver(
+            let fromToSourceControlDependency = try await DependencyRequirementResolver(
                 packageIdentity: nil,
+                templateURL: nil,
                 swiftCommandState: tool,
                 exact: nil,
                 revision: nil,
@@ -491,8 +504,9 @@ class TemplateTests {
             }
 
             // test up-to-next-minor-from and to
-            let upToNextMinorFromToSourceControlDependency = try DependencyRequirementResolver(
+            let upToNextMinorFromToSourceControlDependency = try await DependencyRequirementResolver(
                 packageIdentity: nil,
+                templateURL: nil,
                 swiftCommandState: tool,
                 exact: nil,
                 revision: nil,
@@ -514,8 +528,9 @@ class TemplateTests {
             }
 
             // test just from
-            let fromSourceControlDependency = try DependencyRequirementResolver(
+            let fromSourceControlDependency = try await DependencyRequirementResolver(
                 packageIdentity: nil,
+                templateURL: nil,
                 swiftCommandState: tool,
                 exact: nil,
                 revision: nil,
@@ -535,8 +550,9 @@ class TemplateTests {
             }
 
             // test just up-to-next-minor-from
-            let upToNextMinorFromSourceControlDependency = try DependencyRequirementResolver(
+            let upToNextMinorFromSourceControlDependency = try await DependencyRequirementResolver(
                 packageIdentity: nil,
+                templateURL: nil,
                 swiftCommandState: tool,
                 exact: nil,
                 revision: nil,
@@ -557,9 +573,10 @@ class TemplateTests {
                     )
             }
 
-            #expect(throws: DependencyRequirementError.multipleRequirementsSpecified.self) {
-                try DependencyRequirementResolver(
+            await #expect(throws: DependencyRequirementError.multipleRequirementsSpecified.self) {
+                try await DependencyRequirementResolver(
                     packageIdentity: nil,
+                    templateURL: nil,
                     swiftCommandState: tool,
                     exact: lowerBoundVersion,
                     revision: "dae86e",
@@ -570,22 +587,24 @@ class TemplateTests {
                 ).resolveSourceControl()
             }
 
-            #expect(throws: DependencyRequirementError.noRequirementSpecified.self) {
-                try DependencyRequirementResolver(
+            await #expect(throws: DependencyRequirementError.noRequirementSpecified.self) {
+                try await DependencyRequirementResolver(
                     packageIdentity: nil,
+                    templateURL: nil,
                     swiftCommandState: tool,
                     exact: nil,
                     revision: nil,
                     branch: nil,
                     from: nil,
                     upToNextMinorFrom: nil,
-                    to: lowerBoundVersion
+                    to: nil
                 ).resolveSourceControl()
             }
 
-            #expect(throws: DependencyRequirementError.invalidToParameterWithoutFrom.self) {
-                try DependencyRequirementResolver(
+            await #expect(throws: DependencyRequirementError.invalidToParameterWithoutFrom.self) {
+                try await DependencyRequirementResolver(
                     packageIdentity: nil,
+                    templateURL: nil,
                     swiftCommandState: tool,
                     exact: lowerBoundVersion,
                     revision: nil,
@@ -596,8 +615,130 @@ class TemplateTests {
                 ).resolveSourceControl()
             }
 
-            let range = try DependencyRequirementResolver(
+
+            // Git stuff
+
+
+            try await testWithTemporaryDirectory { path in
+                let templateRepoPath = path.appending(component: "template-repo")
+                let sourceControlURL = SourceControlURL(stringLiteral: templateRepoPath.pathString)
+                try! makeDirectories(templateRepoPath)
+                initGitRepo(templateRepoPath, tag: lowerBoundVersion.defaultValueDescription)
+
+                let exactVersion = try await DependencyRequirementResolver(
+                    packageIdentity: nil,
+                    templateURL: sourceControlURL.absoluteString,
+                    swiftCommandState: tool,
+                    exact: nil,
+                    revision: nil,
+                    branch: nil,
+                    from: nil,
+                    upToNextMinorFrom: nil,
+                    to: nil
+                ).resolveSourceControl()
+
+                if case .exact(let version) = exactVersion {
+                    #expect(version == lowerBoundVersion.description)
+                } else {
+                    Issue
+                        .record(
+                            "Expected exact source control dependency, got \(String(describing: exactSourceControlDependency))"
+                        )
+                }
+            }
+
+            try await testWithTemporaryDirectory { path in
+                let templateRepoPath = path.appending(component: "template-repo")
+                let sourceControlURL = SourceControlURL(stringLiteral: templateRepoPath.pathString)
+                try! makeDirectories(templateRepoPath)
+                initGitRepo(templateRepoPath, tag: "not-a-semver-compliant-version")
+
+                await #expect(throws: DependencyRequirementError.noVersionTagsFound(url: sourceControlURL.absoluteString).self) {
+                    let _ = try await DependencyRequirementResolver(
+                        packageIdentity: nil,
+                        templateURL: sourceControlURL.absoluteString,
+                        swiftCommandState: tool,
+                        exact: nil,
+                        revision: nil,
+                        branch: nil,
+                        from: nil,
+                        upToNextMinorFrom: nil,
+                        to: nil
+                    ).resolveSourceControl()
+                }
+            }
+
+            try await testWithTemporaryDirectory { path in
+                let templateRepoPath = path.appending(component: "template-repo")
+                let sourceControlURL = SourceControlURL(stringLiteral: templateRepoPath.pathString)
+                try! makeDirectories(templateRepoPath)
+                initGitRepo(templateRepoPath, tag: "not-a-semver-compliant-version")
+
+                await #expect(throws: DependencyRequirementError.noVersionTagsFound(url: sourceControlURL.absoluteString).self) {
+                    let _ = try await DependencyRequirementResolver(
+                        packageIdentity: nil,
+                        templateURL: sourceControlURL.absoluteString,
+                        swiftCommandState: tool,
+                        exact: nil,
+                        revision: nil,
+                        branch: nil,
+                        from: nil,
+                        upToNextMinorFrom: nil,
+                        to: nil
+                    ).resolveSourceControl()
+                }
+            }
+
+            await #expect(throws: (any Error).self) {
+                let _ = try await DependencyRequirementResolver(
+                    packageIdentity: nil,
+                    templateURL: "url-that-does-not-exist",
+                    swiftCommandState: tool,
+                    exact: nil,
+                    revision: nil,
+                    branch: nil,
+                    from: nil,
+                    upToNextMinorFrom: nil,
+                    to: nil
+                ).resolveSourceControl()
+            }
+
+            func resolveGitTemplatePath() async throws {
+                try await testWithTemporaryDirectory { path in
+                    let sourceControlRequirement = SwiftRefactor.PackageDependency.SourceControl.Requirement.branch("main")
+                    let options = try GlobalOptions.parse([])
+
+                    let tool = try SwiftCommandState.makeMockState(options: options)
+
+                    let templateRepoPath = path.appending(component: "template-repo")
+                    let sourceControlURL = SourceControlURL(stringLiteral: templateRepoPath.pathString)
+                    let templateRepoURL = sourceControlURL.url
+                    try! makeDirectories(templateRepoPath)
+                    initGitRepo(templateRepoPath, tag: "1.2.3")
+
+                    let resolver = try TemplatePathResolver(
+                        source: .git,
+                        templateDirectory: nil,
+                        templateURL: templateRepoURL?.absoluteString,
+                        sourceControlRequirement: sourceControlRequirement,
+                        registryRequirement: nil,
+                        packageIdentity: nil,
+                        swiftCommandState: tool
+                    )
+                    let path = try await resolver.resolve()
+                    #expect(
+                        localFileSystem.exists(path.appending(component: "file.swift")),
+                        "Template was not fetched correctly"
+                    )
+                }
+            }
+
+
+
+
+            let range = try await DependencyRequirementResolver(
                 packageIdentity: nil,
+                templateURL: nil,
                 swiftCommandState: tool,
                 exact: nil,
                 revision: nil,
@@ -870,22 +1011,17 @@ class TemplateTests {
             let templateURL = "git@github.com:foo/bar"
             let templatePackageID = "foo.bar"
 
-            let versionResolver = DependencyRequirementResolver(
-                packageIdentity: templatePackageID, swiftCommandState: tool, exact: Version(stringLiteral: "1.2.0"),
+            let versionResolver =  DependencyRequirementResolver(
+                packageIdentity: templatePackageID, templateURL: nil, swiftCommandState: tool, exact: Version(stringLiteral: "1.2.0"),
                 revision: nil, branch: nil, from: nil, upToNextMinorFrom: nil, to: nil
             )
 
-            let sourceControlRequirement: SwiftRefactor.PackageDependency.SourceControl
-                .Requirement = try versionResolver.resolveSourceControl()
-            guard let registryRequirement = try await versionResolver.resolveRegistry() else {
-                Issue.record("Registry ID of template could not be resolved.")
-                return
-            }
+            let sourceControlRequirement: SwiftRefactor.PackageDependency.SourceControl.Requirement = try await versionResolver.resolveSourceControl()
+            let registryRequirement = try await versionResolver.resolveRegistry()
 
             let resolvedTemplatePath: AbsolutePath = try AbsolutePath(validating: "/fake/path/to/template")
 
             // local
-
             let localDependency = try DefaultPackageDependencyBuilder(
                 templateSource: .local,
                 packageName: packageName,
@@ -3258,6 +3394,7 @@ class TemplateTests {
             // Test version requirement resolution integration
             let versionResolver = DependencyRequirementResolver(
                 packageIdentity: "test.package",
+                templateURL: nil,
                 swiftCommandState: tool,
                 exact: nil,
                 revision: nil,
@@ -3267,7 +3404,7 @@ class TemplateTests {
                 to: higherBoundVersion
             )
 
-            let sourceControlRequirement = try versionResolver.resolveSourceControl()
+            let sourceControlRequirement = try await versionResolver.resolveSourceControl()
             let registryRequirement = try await versionResolver.resolveRegistry()
 
             // Test dependency building with resolved requirements

@@ -251,6 +251,7 @@ struct PackageInitConfiguration {
 
             self.versionResolver = DependencyRequirementResolver(
                 packageIdentity: packageID,
+                templateURL: self.url,
                 swiftCommandState: swiftCommandState,
                 exact: versionFlags.exact,
                 revision: versionFlags.revision,

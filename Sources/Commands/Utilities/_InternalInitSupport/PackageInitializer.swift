@@ -51,7 +51,7 @@ struct TemplatePackageInitializer: PackageInitializer {
                 sourceControlRequirement = nil
                 registryRequirement = nil
             case .git:
-                sourceControlRequirement = try? self.versionResolver.resolveSourceControl()
+                sourceControlRequirement = try? await self.versionResolver.resolveSourceControl()
                 registryRequirement = nil
             case .registry:
                 sourceControlRequirement = nil

@@ -117,6 +117,7 @@ struct ShowTemplates: AsyncSwiftCommand {
     ) async throws -> Basics.AbsolutePath {
         let requirementResolver = DependencyRequirementResolver(
             packageIdentity: templatePackageID,
+            templateURL: self.templateURL,
             swiftCommandState: swiftCommandState,
             exact: exact,
             revision: revision,
@@ -134,11 +135,11 @@ struct ShowTemplates: AsyncSwiftCommand {
             sourceControlRequirement = nil
             registryRequirement = nil
         case .git:
-            sourceControlRequirement = try? requirementResolver.resolveSourceControl()
+            sourceControlRequirement = try await requirementResolver.resolveSourceControl()
             registryRequirement = nil
         case .registry:
             sourceControlRequirement = nil
-            registryRequirement = try? await requirementResolver.resolveRegistry()
+            registryRequirement = try await requirementResolver.resolveRegistry()
         }
 
         return try await TemplatePathResolver(
