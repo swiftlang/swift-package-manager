@@ -50,7 +50,7 @@ extension SwiftSDK {
 
 extension UserToolchain {
     public static func `default`() async throws -> Self {
-        return try await .init(swiftSDK: await SwiftSDK.default(), environment: .current, fileSystem: localFileSystem)
+        return try .init(swiftSDK: await SwiftSDK.default(), environment: .current, fileSystem: localFileSystem)
     }
 }
 

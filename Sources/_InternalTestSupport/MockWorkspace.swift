@@ -385,7 +385,7 @@ public final class MockWorkspace {
             return workspace
         }
 
-        let workspace = try await Workspace._init(
+        let workspace = try Workspace._init(
             fileSystem: self.fileSystem,
             environment: .mockEnvironment,
             location: .init(

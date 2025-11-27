@@ -62,7 +62,7 @@ extension Trait where Self == Testing.ConditionTrait {
     /// Enabled only is stdlib is supported by the toolchain
     public static var requiresStdlibSupport: Self {
         enabled("skipping because static stdlib is not supported by the toolchain") {
-            let args = try [
+            let args = [
                 (try await UserToolchain.default()).swiftCompilerPath.pathString,
                 "-static-stdlib", "-emit-executable", "-o", "/dev/null", "-",
             ]
