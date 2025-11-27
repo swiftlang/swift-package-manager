@@ -257,26 +257,27 @@ package final class AsyncProcess {
     #endif
 
     /// Typealias for stdout/stderr output closure.
-    package typealias OutputClosure = ([UInt8]) -> Void
+    package typealias OutputClosure = @Sendable ([UInt8]) -> Void
 
     /// Typealias for logging handling closure
-    package typealias LoggingHandler = (String) -> Void
+    package typealias LoggingHandler = @Sendable (String) -> Void
 
-    private static var _loggingHandler: LoggingHandler?
+    nonisolated(unsafe) private static var _loggingHandler: LoggingHandler?
     private static let loggingHandlerLock = NSLock()
 
     /// Global logging handler. Use with care! preferably use instance level instead of setting one globally.
-    @available(
-        *,
-        deprecated,
-        message: "use instance level `loggingHandler` passed via `init` instead of setting one globally."
-    )
     package static var loggingHandler: LoggingHandler? {
         get {
             Self.loggingHandlerLock.withLock {
                 self._loggingHandler
             }
-        } set {
+        }
+        @available(
+            *,
+            deprecated,
+            message: "use instance level `loggingHandler` passed via `init` instead of setting one globally."
+        )
+        set {
             Self.loggingHandlerLock.withLock {
                 self._loggingHandler = newValue
             }
@@ -330,7 +331,7 @@ package final class AsyncProcess {
     ///
     /// Key: Executable name or path.
     /// Value: Path to the executable, if found.
-    private static var validatedExecutablesMap = [String: AbsolutePath?]()
+    nonisolated(unsafe) private static var validatedExecutablesMap = [String: AbsolutePath?]()
     private static let validatedExecutablesMapLock = NSLock()
 
     /// Create a new process instance.
@@ -812,17 +813,17 @@ package final class AsyncProcess {
     package func waitUntilExit() throws -> AsyncProcessResult {
         let group = DispatchGroup()
         group.enter()
-        var processResult: Result<AsyncProcessResult, Swift.Error>?
+        let resultBox = ThreadSafeBox<Result<AsyncProcessResult, Swift.Error>>()
         self.waitUntilExit { result in
-            processResult = result
+            resultBox.put(result)
             group.leave()
         }
         group.wait()
-        return try processResult.unsafelyUnwrapped.get()
+        return try resultBox.get().unsafelyUnwrapped.get()
     }
 
     /// Executes the process I/O state machine, calling completion block when finished.
-    private func waitUntilExit(_ completion: @escaping (Result<AsyncProcessResult, Swift.Error>) -> Void) {
+    private func waitUntilExit(_ completion: @Sendable @escaping (Result<AsyncProcessResult, Swift.Error>) -> Void) {
         self.stateLock.lock()
         switch self.state {
         case .idle:
@@ -1099,7 +1100,7 @@ extension AsyncProcess {
         environment: Environment = .current,
         loggingHandler: LoggingHandler? = .none,
         queue: DispatchQueue? = nil,
-        completion: @escaping (Result<AsyncProcessResult, Swift.Error>) -> Void
+        completion: @Sendable @escaping (Result<AsyncProcessResult, Swift.Error>) -> Void
     ) {
         let completionQueue = queue ?? Self.sharedCompletionQueue
 

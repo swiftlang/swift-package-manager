@@ -385,7 +385,7 @@ struct RunCommandTests {
                     self.sync = sync
                 }
 
-                func handle(bytes: [UInt8]) {
+                @Sendable func handle(bytes: [UInt8]) {
                     guard let output = String(bytes: bytes, encoding: .utf8) else {
                         return
                     }
