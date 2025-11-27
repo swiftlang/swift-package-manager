@@ -425,7 +425,7 @@ final class AsyncProcessTests: XCTestCase {
     func testAsyncStream() async throws {
         // rdar://133548796
         try XCTSkipIfPlatformCI()
-        try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8547: 'swift test' was hanging.")
+        try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8547: 'swift test' was stalled.")
 
         let (stdoutStream, stdoutContinuation) = AsyncProcess.ReadableStream.makeStream()
         let (stderrStream, stderrContinuation) = AsyncProcess.ReadableStream.makeStream()
@@ -483,7 +483,7 @@ final class AsyncProcessTests: XCTestCase {
     func testAsyncStreamHighLevelAPI() async throws {
         // rdar://133548796
         try XCTSkipIfPlatformCI()
-        try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8547: 'swift test' was hanging.")
+        try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8547: 'swift test' was stalled.")
 
         let result = try await AsyncProcess.popen(
             scriptName: "echo\(ProcessInfo.batSuffix)", // maps to 'processInputs/echo' script
