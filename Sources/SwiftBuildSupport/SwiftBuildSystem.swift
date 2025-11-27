@@ -206,6 +206,7 @@ public final class SwiftBuildSystemMessageHandler {
     var serializedDiagnosticPathsByTargetName: [String: [Basics.AbsolutePath]] = [:]
 
     private var unprocessedDiagnostics: [SwiftBuildMessage.DiagnosticInfo] = []
+    private var failedTasks: [SwiftBuildMessage.TaskCompleteInfo] = []
 
     public init(
         observabilityScope: ObservabilityScope,
@@ -224,6 +225,7 @@ public final class SwiftBuildSystemMessageHandler {
     struct BuildState {
         private var targetsByID: [Int: SwiftBuild.SwiftBuildMessage.TargetStartedInfo] = [:]
         private var activeTasks: [Int: SwiftBuild.SwiftBuildMessage.TaskStartedInfo] = [:]
+        private var completedTasks: [Int: SwiftBuild.SwiftBuildMessage.TaskCompleteInfo] = [:]
         private var taskDataBuffer: TaskDataBuffer = [:]
         private var taskIDToSignature: [Int: String] = [:]
         var collectedBacktraceFrames = SWBBuildOperationCollectedBacktraceFrames()
@@ -333,10 +335,14 @@ public final class SwiftBuildSystemMessageHandler {
         }
 
         mutating func completed(task: SwiftBuild.SwiftBuildMessage.TaskCompleteInfo) throws -> SwiftBuild.SwiftBuildMessage.TaskStartedInfo {
-            guard let task = activeTasks[task.taskID] else {
+            guard let startedTaskInfo = activeTasks[task.taskID] else {
                 throw Diagnostics.fatalError
             }
-            return task
+            if completedTasks[task.taskID] != nil {
+                throw Diagnostics.fatalError
+            }
+            self.completedTasks[task.taskID] = task
+            return startedTaskInfo
         }
 
         mutating func started(target: SwiftBuild.SwiftBuildMessage.TargetStartedInfo) throws {
@@ -443,6 +449,28 @@ public final class SwiftBuildSystemMessageHandler {
         self.tasksEmitted.insert(info.taskSignature)
     }
 
+    private func handleFailedTask(
+        _ info: SwiftBuildMessage.TaskCompleteInfo,
+        _ startedInfo: SwiftBuildMessage.TaskStartedInfo
+    ) {
+        guard info.result != .success else {
+            return
+        }
+
+        // Track failed tasks.
+        self.failedTasks.append(info)
+
+        let message = "\(startedInfo.ruleInfo) failed with a nonzero exit code."
+        // If we have the command line display string available, then we should continue to emit
+        // this as an error. Otherwise, this doesn't give enough information to the user for it
+        // to be useful so we can demote it to an info-level log.
+        if let cmdLineDisplayStr = startedInfo.commandLineDisplayString {
+            self.observabilityScope.emit(severity: .error, message: "\(message) Command line: \(cmdLineDisplayStr)")
+        } else {
+            self.observabilityScope.emit(severity: .info, message: message)
+        }
+    }
+
     func emitEvent(_ message: SwiftBuild.SwiftBuildMessage, _ buildSystem: SwiftBuildSystem) throws {
         guard !self.logLevel.isQuiet else { return }
         switch message {
@@ -487,12 +515,13 @@ public final class SwiftBuildSystemMessageHandler {
         case .taskComplete(let info):
             let startedInfo = try buildState.completed(task: info)
 
-            // If we've captured the compiler output with formatted diagnostics, emit them.
+            // Handler for failed tasks, if applicable.
+            handleFailedTask(info, startedInfo)
+
+            // If we've captured the compiler output with formatted diagnostics keyed by
+            // this task's signature, emit them.
             emitDiagnosticCompilerOutput(startedInfo)
 
-            if info.result != .success {
-                self.observabilityScope.emit(severity: .error, message: "\(startedInfo.ruleInfo) failed with a nonzero exit code. Command line: \(startedInfo.commandLineDisplayString ?? "<no command line>")")
-            }
             let targetInfo = try buildState.target(for: startedInfo)
             buildSystem.delegate?.buildSystem(buildSystem, didFinishCommand: BuildSystemCommand(startedInfo, targetInfo: targetInfo))
             if let targetName = targetInfo?.targetName {
