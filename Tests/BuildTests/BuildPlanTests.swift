@@ -623,7 +623,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
 
     func testPackageNameFlag() async throws {
         try XCTSkipIfPlatformCI() // test is disabled because it isn't stable, see rdar://118239206
-        try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8547: 'swift test' was hanging.")
+        try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8547: 'swift test' was stalled.")
         let isFlagSupportedInDriver = try DriverSupport.checkToolchainDriverFlags(
             flags: ["package-name"],
             toolchain: UserToolchain.default,

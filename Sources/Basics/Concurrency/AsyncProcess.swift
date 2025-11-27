@@ -342,7 +342,7 @@ package final class AsyncProcess {
     ///   - workingDirectory: The path to the directory under which to run the process.
     ///   - outputRedirection: How process redirects its output. Default value is .collect.
     ///   - startNewProcessGroup: If true, a new progress group is created for the child making it
-    ///     continue running even if the parent is killed or interrupted. Default value is true.
+    ///     continue running even if the parent is killed or interrupted. Default value is true.    //ignore-unacceptable-language
     ///   - loggingHandler: Handler for logging messages
     ///
     package init(
@@ -370,7 +370,7 @@ package final class AsyncProcess {
     ///   - outputRedirection: How process redirects its output. Default value is .collect.
     ///   - verbose: If true, launch() will print the arguments of the subprocess before launching it.
     ///   - startNewProcessGroup: If true, a new progress group is created for the child making it
-    ///     continue running even if the parent is killed or interrupted. Default value is true.
+    ///     continue running even if the parent is killed or interrupted. Default value is true.    //ignore-unacceptable-language
     ///   - loggingHandler: Handler for logging messages
     package init(
         arguments: [String],
@@ -933,7 +933,7 @@ package final class AsyncProcess {
         }
         #else
         assert(self.launched, "The process is not yet launched.")
-        kill(self.startNewProcessGroup ? -self.processID : self.processID, signal)
+        kill(self.startNewProcessGroup ? -self.processID : self.processID, signal)      //ignore-unacceptable-language
         #endif
     }
 }

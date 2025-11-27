@@ -837,40 +837,40 @@ final class PubGrubTests: XCTestCase {
 
     func testUnversioned4() async throws {
         try builder.serve("foo", at: .unversioned)
-        try builder.serve("bar", at: .revision("master"), with: [
+        try builder.serve("bar", at: .revision("main"), with: [
             "bar": ["foo": (.versionSet(v1Range), .specific(["foo"]))]
         ])
 
         let resolver = builder.create()
         let dependencies = try builder.create(dependencies: [
             "foo": (.unversioned, .specific(["foo"])),
-            "bar": (.revision("master"), .specific(["bar"]))
+            "bar": (.revision("main"), .specific(["bar"]))
         ])
         let result = await resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
             ("foo", .unversioned),
-            ("bar", .revision("master"))
+            ("bar", .revision("main"))
         ])
     }
 
     func testUnversioned5() async throws {
         try builder.serve("foo", at: .unversioned)
-        try builder.serve("foo", at: .revision("master"))
-        try builder.serve("bar", at: .revision("master"), with: [
-            "bar": ["foo": (.revision("master"), .specific(["foo"]))]
+        try builder.serve("foo", at: .revision("main"))
+        try builder.serve("bar", at: .revision("main"), with: [
+            "bar": ["foo": (.revision("main"), .specific(["foo"]))]
         ])
 
         let resolver = builder.create()
         let dependencies = try builder.create(dependencies: [
             "foo": (.unversioned, .specific(["foo"])),
-            "bar": (.revision("master"), .specific(["bar"]))
+            "bar": (.revision("main"), .specific(["bar"]))
         ])
         let result = await resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
             ("foo", .unversioned),
-            ("bar", .revision("master"))
+            ("bar", .revision("main"))
         ])
     }
 
@@ -1200,92 +1200,92 @@ final class PubGrubTests: XCTestCase {
     }
 
     func testResolutionWithSimpleBranchBasedDependency() async throws {
-        try builder.serve("foo", at: .revision("master"), with: ["foo": ["bar": (.versionSet(v1Range), .specific(["bar"]))]])
+        try builder.serve("foo", at: .revision("main"), with: ["foo": ["bar": (.versionSet(v1Range), .specific(["bar"]))]])
         try builder.serve("bar", at: v1)
 
         let resolver = builder.create()
         let dependencies = try builder.create(dependencies: [
-            "foo": (.revision("master"), .specific(["foo"])),
+            "foo": (.revision("main"), .specific(["foo"])),
             "bar": (.versionSet(v1Range), .specific(["bar"]))
         ])
         let result = await resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
-            ("foo", .revision("master")),
+            ("foo", .revision("main")),
             ("bar", .version(v1))
         ])
     }
 
     func testResolutionWithSimpleBranchBasedDependency2() async throws {
-        try builder.serve("foo", at: .revision("master"), with: ["foo": ["bar": (.versionSet(v1Range), .specific(["bar"]))]])
+        try builder.serve("foo", at: .revision("main"), with: ["foo": ["bar": (.versionSet(v1Range), .specific(["bar"]))]])
         try builder.serve("bar", at: v1)
 
         let resolver = builder.create()
         let dependencies = try builder.create(dependencies: [
-            "foo": (.revision("master"), .specific(["foo"])),
+            "foo": (.revision("main"), .specific(["foo"])),
         ])
         let result = await resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
-            ("foo", .revision("master")),
+            ("foo", .revision("main")),
             ("bar", .version(v1))
         ])
     }
 
     func testResolutionWithOverridingBranchBasedDependency() async throws {
-        try builder.serve("foo", at: .revision("master"))
+        try builder.serve("foo", at: .revision("main"))
         try builder.serve("bar", at: v1, with: ["bar": ["foo": (.versionSet(v1Range), .specific(["foo"]))]])
 
         let resolver = builder.create()
         let dependencies = try builder.create(dependencies: [
-            "foo": (.revision("master"), .specific(["foo"])),
+            "foo": (.revision("main"), .specific(["foo"])),
             "bar": (.versionSet(.exact(v1)), .specific(["bar"])),
 
         ])
         let result = await resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
-            ("foo", .revision("master")),
+            ("foo", .revision("main")),
             ("bar", .version(v1))
         ])
     }
 
     func testResolutionWithOverridingBranchBasedDependency2() async throws {
-        try builder.serve("foo", at: .revision("master"))
+        try builder.serve("foo", at: .revision("main"))
         try builder.serve("bar", at: v1, with: ["bar": ["foo": (.versionSet(v1Range), .specific(["foo"]))]])
 
         let resolver = builder.create()
         let dependencies = try builder.create(dependencies: [
             "bar": (.versionSet(.exact(v1)), .specific(["bar"])),
-            "foo": (.revision("master"), .specific(["foo"])),
+            "foo": (.revision("main"), .specific(["foo"])),
         ])
         let result = await resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
-            ("foo", .revision("master")),
+            ("foo", .revision("main")),
             ("bar", .version(v1))
         ])
     }
 
     func testResolutionWithOverridingBranchBasedDependency3() async throws {
-        try builder.serve("foo", at: .revision("master"), with: ["foo": ["bar": (.revision("master"), .specific(["bar"]))]])
+        try builder.serve("foo", at: .revision("main"), with: ["foo": ["bar": (.revision("main"), .specific(["bar"]))]])
 
-        try builder.serve("bar", at: .revision("master"))
+        try builder.serve("bar", at: .revision("main"))
         try builder.serve("bar", at: v1)
 
-        try builder.serve("baz", at: .revision("master"), with: ["baz": ["bar": (.versionSet(v1Range), .specific(["bar"]))]])
+        try builder.serve("baz", at: .revision("main"), with: ["baz": ["bar": (.versionSet(v1Range), .specific(["bar"]))]])
 
         let resolver = builder.create()
         let dependencies = try builder.create(dependencies: [
-            "foo": (.revision("master"), .specific(["foo"])),
-            "baz": (.revision("master"), .specific(["baz"])),
+            "foo": (.revision("main"), .specific(["foo"])),
+            "baz": (.revision("main"), .specific(["baz"])),
         ])
         let result = await resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
-            ("foo", .revision("master")),
-            ("bar", .revision("master")),
-            ("baz", .revision("master")),
+            ("foo", .revision("main")),
+            ("bar", .revision("main")),
+            ("baz", .revision("main")),
         ])
     }
 
@@ -1294,7 +1294,7 @@ final class PubGrubTests: XCTestCase {
 
         let resolver = builder.create()
         let dependencies = try builder.create(dependencies: [
-            "foo": (.revision("master"), .specific(["foo"]))
+            "foo": (.revision("main"), .specific(["foo"]))
         ])
         let result = await resolver.solve(constraints: dependencies)
 
@@ -1302,27 +1302,27 @@ final class PubGrubTests: XCTestCase {
     }
 
     func testResolutionWithRevisionConflict() async throws {
-        try builder.serve("foo", at: .revision("master"), with: ["foo": ["bar": (.revision("master"), .specific(["bar"]))]])
+        try builder.serve("foo", at: .revision("main"), with: ["foo": ["bar": (.revision("main"), .specific(["bar"]))]])
         try builder.serve("bar", at: .version(v1))
-        try builder.serve("bar", at: .revision("master"))
+        try builder.serve("bar", at: .revision("main"))
 
         let resolver = builder.create()
         let dependencies = try builder.create(dependencies: [
             "bar": (.versionSet(v1Range), .specific(["bar"])),
-            "foo": (.revision("master"), .specific(["foo"])),
+            "foo": (.revision("main"), .specific(["foo"])),
         ])
         let result = await resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
-            ("foo", .revision("master")),
-            ("bar", .revision("master")),
+            ("foo", .revision("main")),
+            ("bar", .revision("main")),
         ])
     }
 
     func testBranchOverriding3() async throws {
         try builder.serve("swift-nio", at: v1)
-        try builder.serve("swift-nio", at: .revision("master"))
-        try builder.serve("swift-nio-ssl", at: .revision("master"), with: [
+        try builder.serve("swift-nio", at: .revision("main"))
+        try builder.serve("swift-nio-ssl", at: .revision("main"), with: [
             "swift-nio-ssl": ["swift-nio": (.versionSet(v2Range), .specific(["swift-nio"]))],
         ])
         try builder.serve("foo", at: "1.0.0", with: [
@@ -1332,28 +1332,28 @@ final class PubGrubTests: XCTestCase {
         let resolver = builder.create()
         let dependencies = try builder.create(dependencies: [
             "foo": (.versionSet(v1Range), .specific(["foo"])),
-            "swift-nio": (.revision("master"), .specific(["swift-nio"])),
-            "swift-nio-ssl": (.revision("master"), .specific(["swift-nio-ssl"])),
+            "swift-nio": (.revision("main"), .specific(["swift-nio"])),
+            "swift-nio-ssl": (.revision("main"), .specific(["swift-nio-ssl"])),
         ])
         let result = await resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
-            ("swift-nio-ssl", .revision("master")),
-            ("swift-nio", .revision("master")),
+            ("swift-nio-ssl", .revision("main")),
+            ("swift-nio", .revision("main")),
             ("foo", .version(v1))
         ])
     }
 
     func testBranchOverriding4() async throws {
         try builder.serve("swift-nio", at: v1)
-        try builder.serve("swift-nio", at: .revision("master"))
-        try builder.serve("swift-nio-ssl", at: .revision("master"), with: [
+        try builder.serve("swift-nio", at: .revision("main"))
+        try builder.serve("swift-nio-ssl", at: .revision("main"), with: [
             "swift-nio-ssl": ["swift-nio": (.versionSet(v2Range), .specific(["swift-nio"]))],
         ])
-        try builder.serve("nio-postgres", at: .revision("master"), with: [
+        try builder.serve("nio-postgres", at: .revision("main"), with: [
             "nio-postgres": [
-                "swift-nio": (.revision("master"), .specific(["swift-nio"])),
-                "swift-nio-ssl": (.revision("master"), .specific(["swift-nio-ssl"])),
+                "swift-nio": (.revision("main"), .specific(["swift-nio"])),
+                "swift-nio-ssl": (.revision("main"), .specific(["swift-nio-ssl"])),
             ]
         ])
         try builder.serve("http-client", at: v1, with: [
@@ -1368,16 +1368,16 @@ final class PubGrubTests: XCTestCase {
 
         let resolver = builder.create()
         let dependencies = try builder.create(dependencies: [
-            "nio-postgres": (.revision("master"), .specific(["nio-postgres"])),
+            "nio-postgres": (.revision("main"), .specific(["nio-postgres"])),
             "http-client": (.versionSet(v1Range), .specific(["https-client"])),
             "boring-ssl": (.versionSet(v1Range), .specific(["boring-ssl"])),
         ])
         let result = await resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
-            ("swift-nio-ssl", .revision("master")),
-            ("swift-nio", .revision("master")),
-            ("nio-postgres", .revision("master")),
+            ("swift-nio-ssl", .revision("main")),
+            ("swift-nio", .revision("main")),
+            ("nio-postgres", .revision("main")),
             ("http-client", .version(v1)),
             ("boring-ssl", .version(v1)),
         ])
@@ -1385,7 +1385,7 @@ final class PubGrubTests: XCTestCase {
 
     func testNonVersionDependencyInVersionDependency2() async throws {
         try builder.serve("foo", at: v1_1, with: [
-            "foo": ["bar": (.revision("master"), .specific(["bar"]))]
+            "foo": ["bar": (.revision("main"), .specific(["bar"]))]
         ])
         try builder.serve("foo", at: v1)
         let resolver = builder.create()
@@ -1491,16 +1491,16 @@ final class PubGrubTests: XCTestCase {
         // This test ensures that we get the SHA listed in Package.resolved for branch-based
         // dependencies.
         try builder.serve("a", at: .revision("develop-sha-1"))
-        try builder.serve("b", at: .revision("master-sha-2"))
+        try builder.serve("b", at: .revision("main-sha-2"))
 
         let dependencies = try builder.create(dependencies: [
             "a": (.revision("develop"), .specific(["a"])),
-            "b": (.revision("master"), .specific(["b"])),
+            "b": (.revision("main"), .specific(["b"])),
         ])
 
         let resolvedPackagesStore = try builder.create(resolvedPackages: [
             "a": (.branch(name: "develop", revision: "develop-sha-1"), .specific(["a"])),
-            "b": (.branch(name: "master", revision: "master-sha-2"), .specific(["b"])),
+            "b": (.branch(name: "main", revision: "main-sha-2"), .specific(["b"])),
         ])
 
         let resolver = builder.create(resolvedPackages: resolvedPackagesStore.resolvedPackages)
@@ -1508,7 +1508,7 @@ final class PubGrubTests: XCTestCase {
 
         AssertResult(result, [
             ("a", .revision("develop-sha-1", branch: "develop")),
-            ("b", .revision("master-sha-2", branch: "master")),
+            ("b", .revision("main-sha-2", branch: "main")),
         ])
     }
 
@@ -2420,14 +2420,14 @@ final class PubGrubDiagnosticsTests: XCTestCase {
 
     func testUnversioned6() async throws {
         try builder.serve("foo", at: .unversioned)
-        try builder.serve("bar", at: .revision("master"), with: [
+        try builder.serve("bar", at: .revision("main"), with: [
             "bar": ["foo": (.unversioned, .specific(["foo"]))]
         ])
 
         let resolver = builder.create()
 
         let dependencies = try builder.create(dependencies: [
-            "bar": (.revision("master"), .specific(["bar"]))
+            "bar": (.revision("main"), .specific(["bar"]))
         ])
         let result = await resolver.solve(constraints: dependencies)
 
@@ -2435,28 +2435,28 @@ final class PubGrubDiagnosticsTests: XCTestCase {
     }
 
     func testResolutionWithOverridingBranchBasedDependency4() async throws {
-        try builder.serve("foo", at: .revision("master"), with: ["foo": ["bar": (.revision("master"), .specific(["bar"]))]])
+        try builder.serve("foo", at: .revision("main"), with: ["foo": ["bar": (.revision("main"), .specific(["bar"]))]])
 
-        try builder.serve("bar", at: .revision("master"))
+        try builder.serve("bar", at: .revision("main"))
         try builder.serve("bar", at: v1)
 
-        try builder.serve("baz", at: .revision("master"), with: ["baz": ["bar": (.revision("develop"), .specific(["baz"]))]])
+        try builder.serve("baz", at: .revision("main"), with: ["baz": ["bar": (.revision("develop"), .specific(["baz"]))]])
 
         let resolver = builder.create()
         let dependencies = try builder.create(dependencies: [
-            "foo": (.revision("master"), .specific(["foo"])),
-            "baz": (.revision("master"), .specific(["baz"])),
+            "foo": (.revision("main"), .specific(["foo"])),
+            "baz": (.revision("main"), .specific(["baz"])),
         ])
         let result = await resolver.solve(constraints: dependencies)
 
-        XCTAssertEqual(result.errorMsg, "bar is required using two different revision-based requirements (master and develop), which is not supported")
+        XCTAssertEqual(result.errorMsg, "bar is required using two different revision-based requirements (main and develop), which is not supported")
     }
 
     func testNonVersionDependencyInVersionDependency1() async throws {
         try builder.serve("foo", at: v1_1, with: [
-            "foo": ["bar": (.revision("master"), .specific(["bar"]))]
+            "foo": ["bar": (.revision("main"), .specific(["bar"]))]
         ])
-        try builder.serve("bar", at: .revision("master"))
+        try builder.serve("bar", at: .revision("main"))
 
         let resolver = builder.create()
         let dependencies = try builder.create(dependencies: [
@@ -2489,15 +2489,15 @@ final class PubGrubDiagnosticsTests: XCTestCase {
 
     func testNonVersionDependencyInVersionDependency3() async throws {
         try builder.serve("foo", at: "1.0.0-beta.1", with: [
-            "foo": ["bar": (.revision("master"), .specific(["bar"]))]
+            "foo": ["bar": (.revision("main"), .specific(["bar"]))]
         ])
         try builder.serve("foo", at: "1.0.0-beta.2", with: [
-            "foo": ["bar": (.revision("master"), .specific(["bar"]))]
+            "foo": ["bar": (.revision("main"), .specific(["bar"]))]
         ])
         try builder.serve("foo", at: "1.0.0-beta.3", with: [
-            "foo": ["bar": (.revision("master"), .specific(["bar"]))]
+            "foo": ["bar": (.revision("main"), .specific(["bar"]))]
         ])
-        try builder.serve("bar", at: .revision("master"))
+        try builder.serve("bar", at: .revision("main"))
 
         let resolver = builder.create()
         let dependencies = try builder.create(dependencies: [
