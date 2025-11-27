@@ -200,13 +200,18 @@ public final class SwiftBuildSystemMessageHandler {
     private let observabilityScope: ObservabilityScope
     private let logLevel: Basics.Diagnostic.Severity
     private var buildState: BuildState = .init()
-    private var tasksEmitted: Set<String> = []
 
     let progressAnimation: ProgressAnimationProtocol
     var serializedDiagnosticPathsByTargetName: [String: [Basics.AbsolutePath]] = [:]
 
+    /// Tracks the diagnostics that we have not yet emitted.
     private var unprocessedDiagnostics: [SwiftBuildMessage.DiagnosticInfo] = []
-    private var failedTasks: [SwiftBuildMessage.TaskCompleteInfo] = []
+    /// Tracks the task IDs for failed tasks.
+    private var failedTasks: [Int] = []
+    /// Tracks the tasks by their signature for which we have already emitted output.
+    private var tasksEmitted: Set<String> = []
+    /// Tracks the tasks by their ID for which we have already emitted output.
+    private var taskIDsEmitted: Set<Int> = []
 
     public init(
         observabilityScope: ObservabilityScope,
@@ -226,29 +231,28 @@ public final class SwiftBuildSystemMessageHandler {
         private var targetsByID: [Int: SwiftBuild.SwiftBuildMessage.TargetStartedInfo] = [:]
         private var activeTasks: [Int: SwiftBuild.SwiftBuildMessage.TaskStartedInfo] = [:]
         private var completedTasks: [Int: SwiftBuild.SwiftBuildMessage.TaskCompleteInfo] = [:]
-        private var taskDataBuffer: TaskDataBuffer = [:]
+        private var taskDataBuffer: TaskDataBuffer = .init()
         private var taskIDToSignature: [Int: String] = [:]
         var collectedBacktraceFrames = SWBBuildOperationCollectedBacktraceFrames()
 
-        struct TaskDataBuffer: ExpressibleByDictionaryLiteral {
-            typealias Key = String
-            typealias Value = Data
-
-            private var taskSignatureBuffer: [Key: Value] = [:]
+        /// Rich model to store data buffers for a given `SwiftBuildMessage.LocationContext` or
+        /// a `SwiftBuildMessage.LocationContext2`.
+        struct TaskDataBuffer {
+            private var taskSignatureBuffer: [String: Data] = [:]
             private var taskIDBuffer: [Int: Data] = [:]
             private var targetIDBuffer: [Int: Data] = [:]
             private var globalBuffer: Data = Data()
 
-            subscript(key: String) -> Value? {
+            subscript(key: String) -> Data? {
                 self.taskSignatureBuffer[key]
             }
 
-            subscript(key: String, default defaultValue: Value) -> Value {
+            subscript(key: String, default defaultValue: Data) -> Data {
                 get { self.taskSignatureBuffer[key] ?? defaultValue }
                 set { self.taskSignatureBuffer[key] = newValue }
             }
 
-            subscript(key: SwiftBuildMessage.LocationContext, default defaultValue: Value) -> Value {
+            subscript(key: SwiftBuildMessage.LocationContext, default defaultValue: Data) -> Data {
                 get {
                     // Check each ID kind and try to fetch the associated buffer.
                     // If unable to get a non-nil result, then follow through to the
@@ -280,7 +284,7 @@ public final class SwiftBuildSystemMessageHandler {
                 }
             }
 
-            subscript(key: SwiftBuildMessage.LocationContext2) -> Value? {
+            subscript(key: SwiftBuildMessage.LocationContext2) -> Data? {
                 get {
                     if let taskSignature = key.taskSignature {
                         return self.taskSignatureBuffer[taskSignature]
@@ -300,7 +304,7 @@ public final class SwiftBuildSystemMessageHandler {
                 }
             }
 
-            subscript(task: SwiftBuildMessage.TaskStartedInfo) -> Value? {
+            subscript(task: SwiftBuildMessage.TaskStartedInfo) -> Data? {
                 get {
                     guard let result = self.taskSignatureBuffer[task.taskSignature] else {
                         // Default to checking targetID and taskID.
@@ -316,12 +320,6 @@ public final class SwiftBuildSystemMessageHandler {
                     }
 
                     return result
-                }
-            }
-
-            init(dictionaryLiteral elements: (String, Data)...) {
-                for (key, value) in elements {
-                    self.taskSignatureBuffer[key] = value
                 }
             }
         }
@@ -382,7 +380,6 @@ public final class SwiftBuildSystemMessageHandler {
                     self.taskDataBuffer[taskSignature, default: .init()].append(info.data)
                 }
 
-                // TODO bp: extra tracking for taskIDs/targetIDs/possible global buffers
                 self.taskDataBuffer[info.locationContext, default: .init()].append(info.data)
 
                 return
@@ -396,8 +393,6 @@ public final class SwiftBuildSystemMessageHandler {
                 // Fallback to checking taskID and targetID.
                 return taskDataBuffer[task]
             }
-
-            // todo bp "-fno-color-diagnostics",
 
             return data
         }
@@ -428,8 +423,11 @@ public final class SwiftBuildSystemMessageHandler {
     }
 
     private func emitDiagnosticCompilerOutput(_ info: SwiftBuildMessage.TaskStartedInfo) {
-        // Don't redundantly emit tasks.
+        // Don't redundantly emit task output.
         guard !self.tasksEmitted.contains(info.taskSignature) else {
+            return
+        }
+        guard hasUnprocessedDiagnostics(info) else {
             return
         }
         // Assure we have a data buffer to decode.
@@ -441,34 +439,83 @@ public final class SwiftBuildSystemMessageHandler {
         let decodedOutput = String(decoding: buffer, as: UTF8.self)
 
         // Emit message.
-        // Note: This is a temporary workaround until we can re-architect
-        // how we'd like to format and handle diagnostic output.
         observabilityScope.print(message: decodedOutput)
 
         // Record that we've emitted the output for a given task signature.
         self.tasksEmitted.insert(info.taskSignature)
+        self.taskIDsEmitted.insert(info.taskID)
     }
 
-    private func handleFailedTask(
+    private func hasUnprocessedDiagnostics(_ info: SwiftBuildMessage.TaskStartedInfo) -> Bool {
+        let diagnosticTaskSignature = unprocessedDiagnostics.compactMap(\.locationContext2.taskSignature)
+        let diagnosticTaskIDs = unprocessedDiagnostics.compactMap(\.locationContext.taskID)
+
+        return diagnosticTaskSignature.contains(info.taskSignature) || diagnosticTaskIDs.contains(info.taskID)
+    }
+
+    private func handleTaskOutput(
+        _ info: SwiftBuildMessage.TaskCompleteInfo,
+        _ startedInfo: SwiftBuildMessage.TaskStartedInfo,
+        _ enableTaskBacktraces: Bool
+    ) throws {
+        if info.result != .success {
+            emitFailedTaskOutput(info, startedInfo)
+        } else if let data = buildState.dataBuffer(for: startedInfo), !tasksEmitted.contains(startedInfo.taskSignature) {
+            let decodedOutput = String(decoding: data, as: UTF8.self)
+            if !decodedOutput.isEmpty {
+                observabilityScope.emit(info: decodedOutput)
+            }
+        }
+
+        // Handle task backtraces, if applicable.
+        if enableTaskBacktraces {
+            if let id = SWBBuildOperationBacktraceFrame.Identifier(taskSignatureData: Data(startedInfo.taskSignature.utf8)),
+               let backtrace = SWBTaskBacktrace(from: id, collectedFrames: buildState.collectedBacktraceFrames) {
+                let formattedBacktrace = backtrace.renderTextualRepresentation()
+                if !formattedBacktrace.isEmpty {
+                    self.observabilityScope.emit(info: "Task backtrace:\n\(formattedBacktrace)")
+                }
+            }
+        }
+    }
+
+    private func emitFailedTaskOutput(
         _ info: SwiftBuildMessage.TaskCompleteInfo,
         _ startedInfo: SwiftBuildMessage.TaskStartedInfo
     ) {
+        // Assure that the task has failed.
         guard info.result != .success else {
+            return
+        }
+        // Don't redundantly emit task output.
+        guard !tasksEmitted.contains(startedInfo.taskSignature) else {
             return
         }
 
         // Track failed tasks.
-        self.failedTasks.append(info)
+        self.failedTasks.append(info.taskID)
+
+        // Check for existing diagnostics with matching taskID/taskSignature.
+        // If we've captured the compiler output with formatted diagnostics keyed by
+        // this task's signature, emit them.
+        // Note that this is a workaround instead of emitting directly from a `DiagnosticInfo`
+        // message, as here we receive the formatted code snippet directly from the compiler.
+        emitDiagnosticCompilerOutput(startedInfo)
 
         let message = "\(startedInfo.ruleInfo) failed with a nonzero exit code."
-        // If we have the command line display string available, then we should continue to emit
-        // this as an error. Otherwise, this doesn't give enough information to the user for it
-        // to be useful so we can demote it to an info-level log.
+        // If we have the command line display string available, then we
+        // should continue to emit this as an error. Otherwise, this doesn't
+        // give enough information to the user for it to be useful so we can
+        // demote it to an info-level log.
         if let cmdLineDisplayStr = startedInfo.commandLineDisplayString {
             self.observabilityScope.emit(severity: .error, message: "\(message) Command line: \(cmdLineDisplayStr)")
         } else {
             self.observabilityScope.emit(severity: .info, message: message)
         }
+
+        // Track that we have emitted output for this task.
+        tasksEmitted.insert(startedInfo.taskSignature)
+        taskIDsEmitted.insert(info.taskID)
     }
 
     func emitEvent(_ message: SwiftBuild.SwiftBuildMessage, _ buildSystem: SwiftBuildSystem) throws {
@@ -516,11 +563,7 @@ public final class SwiftBuildSystemMessageHandler {
             let startedInfo = try buildState.completed(task: info)
 
             // Handler for failed tasks, if applicable.
-            handleFailedTask(info, startedInfo)
-
-            // If we've captured the compiler output with formatted diagnostics keyed by
-            // this task's signature, emit them.
-            emitDiagnosticCompilerOutput(startedInfo)
+            try handleTaskOutput(info, startedInfo, buildSystem.enableTaskBacktraces)
 
             let targetInfo = try buildState.target(for: startedInfo)
             buildSystem.delegate?.buildSystem(buildSystem, didFinishCommand: BuildSystemCommand(startedInfo, targetInfo: targetInfo))
@@ -528,15 +571,6 @@ public final class SwiftBuildSystemMessageHandler {
                 try serializedDiagnosticPathsByTargetName[targetName, default: []].append(contentsOf: startedInfo.serializedDiagnosticsPaths.compactMap {
                     try Basics.AbsolutePath(validating: $0.pathString)
                 })
-            }
-            if buildSystem.enableTaskBacktraces {
-                if let id = SWBBuildOperationBacktraceFrame.Identifier(taskSignatureData: Data(startedInfo.taskSignature.utf8)),
-                   let backtrace = SWBTaskBacktrace(from: id, collectedFrames: buildState.collectedBacktraceFrames) {
-                    let formattedBacktrace = backtrace.renderTextualRepresentation()
-                    if !formattedBacktrace.isEmpty {
-                        self.observabilityScope.emit(info: "Task backtrace:\n\(formattedBacktrace)")
-                    }
-                }
             }
         case .targetStarted(let info):
             try buildState.started(target: info)
