@@ -37,7 +37,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
     private let cancellator: Cancellator
     private let verboseOutput: Bool
 
-    private let sdkRootCache = ThreadSafeBox<Basics.AbsolutePath>()
+    private let sdkRootCache = ThreadSafeBox<Basics.AbsolutePath?>()
 
     public init(
         fileSystem: Basics.FileSystem,
@@ -402,26 +402,23 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
     /// Returns path to the sdk, if possible.
     // FIXME: This is copied from ManifestLoader.  This should be consolidated when ManifestLoader is cleaned up.
     private func sdkRoot() -> Basics.AbsolutePath? {
-        if let sdkRoot = self.sdkRootCache.get() {
-            return sdkRoot
-        }
+        return self.sdkRootCache.memoizeOptional(body: {
+            var sdkRootPath: Basics.AbsolutePath?
+            // Find SDKROOT on macOS using xcrun.
+            #if os(macOS)
+            let foundPath = try? AsyncProcess.checkNonZeroExit(
+                args: "/usr/bin/xcrun", "--sdk", "macosx", "--show-sdk-path"
+            )
+            guard let sdkRoot = foundPath?.spm_chomp(), !sdkRoot.isEmpty else {
+                return nil
+            }
+            if let path = try? Basics.AbsolutePath(validating: sdkRoot) {
+                sdkRootPath = path
+            }
+            #endif
 
-        var sdkRootPath: Basics.AbsolutePath?
-        // Find SDKROOT on macOS using xcrun.
-        #if os(macOS)
-        let foundPath = try? AsyncProcess.checkNonZeroExit(
-            args: "/usr/bin/xcrun", "--sdk", "macosx", "--show-sdk-path"
-        )
-        guard let sdkRoot = foundPath?.spm_chomp(), !sdkRoot.isEmpty else {
-            return nil
-        }
-        if let path = try? Basics.AbsolutePath(validating: sdkRoot) {
-            sdkRootPath = path
-            self.sdkRootCache.put(path)
-        }
-        #endif
-
-        return sdkRootPath
+            return sdkRootPath
+        })
     }
     
     /// Private function that invokes a compiled plugin executable and communicates with it until it finishes.

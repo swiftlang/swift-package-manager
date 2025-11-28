@@ -77,7 +77,7 @@ final class AsyncProcessTests: XCTestCase {
         let args = ["whoami"]
         let answer = NSUserName()
         #endif
-        let popenResult = ThreadSafeBox<Result<AsyncProcessResult, Error>>()
+        let popenResult = ThreadSafeBox<Result<AsyncProcessResult, Error>?>()
         let group = DispatchGroup()
         group.enter()
         AsyncProcess.popen(arguments: args) { result in
@@ -246,7 +246,7 @@ final class AsyncProcessTests: XCTestCase {
         let stdout = ThreadSafeBox<[UInt8]>([])
         let process = AsyncProcess(scriptName: "in-to-out\(ProcessInfo.batSuffix)", outputRedirection: .stream(stdout: { stdoutBytes in
             stdout.mutate {
-                $0?.append(contentsOf: stdoutBytes)
+                $0.append(contentsOf: stdoutBytes)
             }
         }, stderr: { _ in }))
         let stdinStream = try process.launch()
@@ -258,7 +258,7 @@ final class AsyncProcessTests: XCTestCase {
 
         try process.waitUntilExit()
 
-        XCTAssertEqual(String(decoding: stdout.get(default: []), as: UTF8.self), "hello\(ProcessInfo.EOL)")
+        XCTAssertEqual(String(decoding: stdout.get(), as: UTF8.self), "hello\(ProcessInfo.EOL)")
     }
 
     func testStdoutStdErr() throws {
@@ -359,19 +359,19 @@ final class AsyncProcessTests: XCTestCase {
         let stderr = ThreadSafeBox<[UInt8]>([])
         let process = AsyncProcess(scriptName: "long-stdout-stderr\(ProcessInfo.batSuffix)", outputRedirection: .stream(stdout: { stdoutBytes in
             stdout.mutate {
-                $0?.append(contentsOf: stdoutBytes)
+                $0.append(contentsOf: stdoutBytes)
             }
         }, stderr: { stderrBytes in
             stderr.mutate {
-                $0?.append(contentsOf: stderrBytes)
+                $0.append(contentsOf: stderrBytes)
             }
         }))
         try process.launch()
         try process.waitUntilExit()
 
         let count = 16 * 1024
-        XCTAssertEqual(String(bytes: stdout.get(default: []), encoding: .utf8), String(repeating: "1", count: count))
-        XCTAssertEqual(String(bytes: stderr.get(default: []), encoding: .utf8), String(repeating: "2", count: count))
+        XCTAssertEqual(String(bytes: stdout.get(), encoding: .utf8), String(repeating: "1", count: count))
+        XCTAssertEqual(String(bytes: stderr.get(), encoding: .utf8), String(repeating: "2", count: count))
     }
 
     func testStdoutStdErrStreamingRedirected() throws {
@@ -380,11 +380,11 @@ final class AsyncProcessTests: XCTestCase {
 
         let process = AsyncProcess(scriptName: "long-stdout-stderr\(ProcessInfo.batSuffix)", outputRedirection: .stream(stdout: { stdoutBytes in
             stdout.mutate {
-                $0?.append(contentsOf: stdoutBytes)
+                $0.append(contentsOf: stdoutBytes)
             }
         }, stderr: { stderrBytes in
             stderr.mutate {
-                $0?.append(contentsOf: stderrBytes)
+                $0.append(contentsOf: stderrBytes)
             }
         }, redirectStderr: true))
         try process.launch()
@@ -398,8 +398,8 @@ final class AsyncProcessTests: XCTestCase {
         let expectedStdout = String(repeating: "12", count: count)
         let expectedStderr = ""
         #endif
-        XCTAssertEqual(String(bytes: stdout.get(default: []), encoding: .utf8), expectedStdout)
-        XCTAssertEqual(String(bytes: stderr.get(default: []), encoding: .utf8), expectedStderr)
+        XCTAssertEqual(String(bytes: stdout.get(), encoding: .utf8), expectedStdout)
+        XCTAssertEqual(String(bytes: stderr.get(), encoding: .utf8), expectedStderr)
     }
 
     func testWorkingDirectory() throws {

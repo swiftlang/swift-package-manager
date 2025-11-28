@@ -31,7 +31,7 @@ public class RegistryPackageContainer: PackageContainer {
     private let currentToolsVersion: ToolsVersion
     private let observabilityScope: ObservabilityScope
 
-    private var knownVersionsCache = ThreadSafeBox<[Version]>()
+    private var knownVersionsCache = AsyncMemoizableThreadSafeBox<[Version]>()
     private var toolsVersionsCache = ThrowingAsyncKeyValueMemoizer<Version, ToolsVersion>()
     private var validToolsVersionsCache = AsyncKeyValueMemoizer<Version, Bool>()
     private var manifestsCache = ThrowingAsyncKeyValueMemoizer<Version, Manifest>()

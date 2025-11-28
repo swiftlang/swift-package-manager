@@ -85,45 +85,6 @@ struct ConcurrencyHelpersTest {
        }
     }
 
-    @Test(
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8770"),
-    )
-    func threadSafeBox() async throws {
-        // Actor to serialize the critical section that was previously handled by the serial queue
-        actor SerialCoordinator {
-            func processTask(_ index: Int, winner: inout Int?, cache: ThreadSafeBox<Int>) {
-                // This simulates the serial queue behavior - both winner determination
-                // and cache memoization happen atomically in the same serial context
-                if winner == nil {
-                    winner = index
-                }
-                cache.memoize {
-                    index
-                }
-            }
-        }
-
-        for num in 0 ..< 100 {
-            var winner: Int?
-            let cache = ThreadSafeBox<Int>()
-            let coordinator = SerialCoordinator()
-
-            try await withThrowingTaskGroup(of: Void.self) { group in
-                for index in 0 ..< 1000 {
-                    group.addTask {
-                        // Random sleep to simulate concurrent access timing
-                        try await Task.sleep(nanoseconds: UInt64(Double.random(in: 100 ... 300) * 1000))
-
-                        // Process both winner determination and cache memoization serially
-                        await coordinator.processTask(index, winner: &winner, cache: cache)
-                    }
-                }
-                try await group.waitForAll()
-            }
-            #expect(cache.get() == winner, "Iteration \(num) failed")
-        }
-    }
-
     @Suite
     struct AsyncOperationQueueTests {
         fileprivate actor ResultsTracker {
@@ -277,4 +238,531 @@ struct ConcurrencyHelpersTest {
             #expect(results.count < totalTasks)
         }
     }
+}
+
+extension ConcurrencyHelpersTest {
+    @Suite struct ThreadSafeBoxTests {
+        // MARK: - Basic Functionality Tests
+
+        @Test
+        func basicGetAndPut() {
+            let box = ThreadSafeBox(42)
+            #expect(box.get() == 42)
+
+            box.put(100)
+            #expect(box.get() == 100)
+        }
+
+        @Test
+        func mutateReturningNewValue() {
+            let box = ThreadSafeBox(10)
+            box.mutate { value in
+                value * 2
+            }
+            #expect(box.get() == 20)
+        }
+
+        @Test
+        func mutateInPlace() {
+            let box = ThreadSafeBox([1, 2, 3])
+            box.mutate { value in
+                value.append(4)
+            }
+            #expect(box.get() == [1, 2, 3, 4])
+        }
+
+        // MARK: - Optional Value Tests
+
+        @Test
+        func optionalInitEmpty() {
+            let box = ThreadSafeBox<Int?>()
+            #expect(box.get() == nil)
+        }
+
+        @Test
+        func optionalClear() {
+            let box = ThreadSafeBox<Int?>(42)
+            #expect(box.get() == 42)
+
+            box.clear()
+            #expect(box.get() == nil)
+        }
+
+        @Test
+        func optionalGetWithDefault() {
+            let emptyBox = ThreadSafeBox<Int?>()
+            #expect(emptyBox.get(default: 999) == 999)
+
+            let filledBox = ThreadSafeBox<Int?>(42)
+            #expect(filledBox.get(default: 999) == 42)
+        }
+
+        @Test
+        func memoizeComputesOnce() {
+            let box = ThreadSafeBox<Int?>()
+            var computeCount = 0
+
+            let result1 = box.memoize {
+                computeCount += 1
+                return 42
+            }
+            #expect(result1 == 42)
+            #expect(computeCount == 1)
+
+            let result2 = box.memoize {
+                computeCount += 1
+                return 99
+            }
+            #expect(result2 == 42)
+            #expect(computeCount == 1)
+        }
+
+        @Test
+        func memoizeOptionalNilValue() {
+            let box = ThreadSafeBox<Int?>()
+            var computeCount = 0
+
+            let result1 = box.memoizeOptional {
+                computeCount += 1
+                return nil
+            }
+            #expect(result1 == nil)
+            #expect(computeCount == 1)
+
+            // Should recompute since result was nil
+            let result2 = box.memoizeOptional {
+                computeCount += 1
+                return 42
+            }
+            #expect(result2 == 42)
+            #expect(computeCount == 2)
+
+            // Now should use cached value
+            let result3 = box.memoizeOptional {
+                computeCount += 1
+                return 99
+            }
+            #expect(result3 == 42)
+            #expect(computeCount == 2)
+        }
+
+        // MARK: - Int Extension Tests
+
+        @Test
+        func intIncrement() {
+            let box = ThreadSafeBox(0)
+            box.increment()
+            #expect(box.get() == 1)
+            box.increment()
+            #expect(box.get() == 2)
+        }
+
+        @Test
+        func intDecrement() {
+            let box = ThreadSafeBox(10)
+            box.decrement()
+            #expect(box.get() == 9)
+            box.decrement()
+            #expect(box.get() == 8)
+        }
+
+        // MARK: - String Extension Tests
+
+        @Test
+        func stringAppend() {
+            let box = ThreadSafeBox("Hello")
+            box.append(" World")
+            #expect(box.get() == "Hello World")
+            box.append("!")
+            #expect(box.get() == "Hello World!")
+        }
+
+        // MARK: - Dynamic Member Lookup Tests
+
+        @Test
+        func dynamicMemberReadOnly() {
+            struct Person {
+                let name: String
+                let age: Int
+            }
+
+            let box = ThreadSafeBox(Person(name: "Alice", age: 30))
+            #expect(box.name == "Alice")
+            #expect(box.age == 30)
+        }
+
+        @Test
+        func dynamicMemberWritable() {
+            struct Counter {
+                var count: Int
+                var label: String
+            }
+
+            let box = ThreadSafeBox(Counter(count: 0, label: "Test"))
+            #expect(box.count == 0)
+            #expect(box.label == "Test")
+
+            box.count = 42
+            #expect(box.count == 42)
+            #expect(box.label == "Test")
+
+            box.label = "Updated"
+            #expect(box.count == 42)
+            #expect(box.label == "Updated")
+        }
+
+        // MARK: - Thread Safety Tests
+
+        @Test(
+            .bug("https://github.com/swiftlang/swift-package-manager/issues/8770"),
+        )
+        func concurrentMemoization() async throws {
+            actor SerialCoordinator {
+                func processTask(_ index: Int, winner: inout Int?, cache: ThreadSafeBox<Int?>) {
+                    if winner == nil {
+                        winner = index
+                    }
+                    cache.memoize {
+                        index
+                    }
+                }
+            }
+
+            for num in 0 ..< 100 {
+                var winner: Int?
+                let cache = ThreadSafeBox<Int?>()
+                let coordinator = SerialCoordinator()
+
+                try await withThrowingTaskGroup(of: Void.self) { group in
+                    for index in 0 ..< 1000 {
+                        group.addTask {
+                            try await Task.sleep(nanoseconds: UInt64(Double.random(in: 100 ... 300) * 1000))
+                            await coordinator.processTask(index, winner: &winner, cache: cache)
+                        }
+                    }
+                    try await group.waitForAll()
+                }
+                #expect(cache.get() == winner, "Iteration \(num) failed")
+            }
+        }
+
+        @Test
+        func concurrentIncrements() async throws {
+            let box = ThreadSafeBox(0)
+            let iterations = 1000
+
+            try await withThrowingTaskGroup(of: Void.self) { group in
+                for _ in 0..<iterations {
+                    group.addTask {
+                        box.increment()
+                    }
+                }
+                try await group.waitForAll()
+            }
+
+            #expect(box.get() == iterations)
+        }
+
+        @Test
+        func concurrentMutations() async throws {
+            let box = ThreadSafeBox([Int]())
+
+            try await withThrowingTaskGroup(of: Void.self) { group in
+                for index in 0..<100 {
+                    group.addTask {
+                        box.mutate { value in
+                            value.append(index)
+                        }
+                    }
+                }
+                try await group.waitForAll()
+            }
+
+            let result = box.get()
+            #expect(result.count == 100)
+            #expect(Set(result).count == 100)
+        }
+
+        @Test
+        func concurrentDynamicMemberWrites() async throws {
+            struct Counter {
+                var value: Int
+            }
+
+            let box = ThreadSafeBox(Counter(value: 0))
+
+            try await withThrowingTaskGroup(of: Void.self) { group in
+                for i in 0..<1000 {
+                    group.addTask {
+                        box.value = i
+                    }
+                }
+                try await group.waitForAll()
+            }
+
+            // Value should be one of the concurrent writes
+            let finalValue = box.value
+            #expect(finalValue >= 0 && finalValue < 1000)
+        }
+    }
+
+    @Suite struct AsyncMemoizableThreadSafeBoxTests {
+        // MARK: - Basic Functionality Tests
+
+        @Test
+        func initiallyEmpty() {
+            let box = AsyncMemoizableThreadSafeBox<Int>()
+            #expect(box.get() == nil)
+        }
+
+        @Test
+        func memoizeStoresValue() async throws {
+            let box = AsyncMemoizableThreadSafeBox<Int>()
+
+            let result = try await box.memoize {
+                42
+            }
+
+            #expect(result == 42)
+            #expect(box.get() == 42)
+        }
+
+        @Test
+        func memoizeComputesOnlyOnce() async throws {
+            let box = AsyncMemoizableThreadSafeBox<Int>()
+            nonisolated(unsafe) var computeCount = 0
+
+            let result1 = try await box.memoize {
+                computeCount += 1
+                return 42
+            }
+            #expect(result1 == 42)
+            #expect(computeCount == 1)
+
+            let result2 = try await box.memoize {
+                computeCount += 1
+                return 99
+            }
+            #expect(result2 == 42)
+            #expect(computeCount == 1)
+            #expect(box.get() == 42)
+        }
+
+        @Test
+        func memoizeWithAsyncWork() async throws {
+            let box = AsyncMemoizableThreadSafeBox<String>()
+
+            let result = try await box.memoize {
+                try await Task.sleep(nanoseconds: 1_000_000)
+                return "computed"
+            }
+
+            #expect(result == "computed")
+            #expect(box.get() == "computed")
+        }
+
+        @Test
+        func memoizeThrowsError() async throws {
+            struct TestError: Error, Equatable {}
+            let box = AsyncMemoizableThreadSafeBox<Int>()
+
+            await #expect(throws: TestError.self) {
+                try await box.memoize {
+                    throw TestError()
+                }
+            }
+
+            // After error, value should still be nil
+            #expect(box.get() == nil)
+
+            // Should be able to memoize again after error
+            let result = try await box.memoize {
+                100
+            }
+            #expect(result == 100)
+            #expect(box.get() == 100)
+        }
+
+        // MARK: - Concurrency Tests
+
+        @Test
+        func concurrentMemoizationSharesWork() async throws {
+            let box = AsyncMemoizableThreadSafeBox<Int>()
+            nonisolated(unsafe) var computeCount = 0
+            let lock = NSLock()
+
+            try await withThrowingTaskGroup(of: Int.self) { group in
+                for _ in 0..<100 {
+                    group.addTask {
+                        try await box.memoize {
+                            lock.withLock {
+                                computeCount += 1
+                            }
+                            try await Task.sleep(nanoseconds: 10_000_000)
+                            return 42
+                        }
+                    }
+                }
+
+                var results = [Int]()
+                for try await result in group {
+                    results.append(result)
+                }
+
+                #expect(results.count == 100)
+                #expect(results.allSatisfy { $0 == 42 })
+            }
+
+            // Should only compute once despite 100 concurrent calls
+            #expect(computeCount == 1)
+            #expect(box.get() == 42)
+        }
+
+        @Test
+        func concurrentMemoizationWithQuickCompletion() async throws {
+            let box = AsyncMemoizableThreadSafeBox<String>()
+            nonisolated(unsafe) var computeCount = 0
+            let lock = NSLock()
+
+            try await withThrowingTaskGroup(of: String.self) { group in
+                for i in 0..<50 {
+                    group.addTask {
+                        try await box.memoize {
+                            lock.withLock {
+                                computeCount += 1
+                            }
+                            return "value-\(i)"
+                        }
+                    }
+                }
+
+                var results = [String]()
+                for try await result in group {
+                    results.append(result)
+                }
+
+                #expect(results.count == 50)
+                // All results should be the same (from the first caller)
+                #expect(Set(results).count == 1)
+            }
+
+            #expect(computeCount == 1)
+        }
+
+        @Test
+        func concurrentErrorPropagation() async throws {
+            struct TestError: Error {}
+            let box = AsyncMemoizableThreadSafeBox<Int>()
+            var errorCount = 0
+            let lock = NSLock()
+
+            await withThrowingTaskGroup(of: Void.self) { group in
+                for _ in 0..<20 {
+                    group.addTask {
+                        do {
+                            _ = try await box.memoize {
+                                try await Task.sleep(nanoseconds: 5_000_000)
+                                throw TestError()
+                            }
+                        } catch {
+                            lock.withLock {
+                                errorCount += 1
+                            }
+                        }
+                    }
+                }
+
+                // Consume all results (ignoring errors)
+                while let _ = try? await group.next() {}
+            }
+
+            // All concurrent calls should receive the error
+            #expect(errorCount == 20)
+            #expect(box.get() == nil)
+        }
+
+        @Test
+        func sequentialMemoizationAfterSuccess() async throws {
+            let box = AsyncMemoizableThreadSafeBox<Int>()
+
+            let first = try await box.memoize {
+                try await Task.sleep(nanoseconds: 1_000_000)
+                return 42
+            }
+            #expect(first == 42)
+
+            let second = try await box.memoize {
+                try await Task.sleep(nanoseconds: 1_000_000)
+                return 99
+            }
+            #expect(second == 42)
+            #expect(box.get() == 42)
+        }
+
+        @Test
+        func complexValueType() async throws {
+            struct ComplexValue: Sendable, Equatable {
+                let id: Int
+                let name: String
+                let tags: [String]
+            }
+
+            let box = AsyncMemoizableThreadSafeBox<ComplexValue>()
+
+            let result = try await box.memoize {
+                try await Task.sleep(nanoseconds: 1_000_000)
+                return ComplexValue(id: 1, name: "Test", tags: ["a", "b", "c"])
+            }
+
+            #expect(result.id == 1)
+            #expect(result.name == "Test")
+            #expect(result.tags == ["a", "b", "c"])
+            #expect(box.get() == result)
+        }
+
+        @Test
+        func memoizeWithVariableDelay() async throws {
+            let box = AsyncMemoizableThreadSafeBox<Int>()
+            nonisolated(unsafe) var firstCallComplete = false
+            let lock = NSLock()
+
+            try await withThrowingTaskGroup(of: Int.self) { group in
+                // First task with delay
+                group.addTask {
+                    try await box.memoize {
+                        try await Task.sleep(nanoseconds: 20_000_000)
+                        lock.withLock {
+                            firstCallComplete = true
+                        }
+                        return 100
+                    }
+                }
+
+                // Wait a bit then add more tasks
+                try await Task.sleep(nanoseconds: 5_000_000)
+
+                for _ in 0..<10 {
+                    group.addTask {
+                        try await box.memoize {
+                            return 999
+                        }
+                    }
+                }
+
+                var results = [Int]()
+                for try await result in group {
+                    results.append(result)
+                }
+
+                #expect(results.count == 11)
+                #expect(results.allSatisfy { $0 == 100 })
+            }
+
+            let wasFirstCallComplete = lock.withLock { firstCallComplete }
+            #expect(wasFirstCallComplete == true)
+            #expect(box.get() == 100)
+        }
+    }
+
+
 }

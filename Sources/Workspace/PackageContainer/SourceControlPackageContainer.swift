@@ -69,7 +69,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
     private var dependenciesCache = [String: [ProductFilter: (Manifest, [Constraint])]]()
     private var dependenciesCacheLock = NSLock()
 
-    private var knownVersionsCache = ThreadSafeBox<[Version: String]>()
+    private var knownVersionsCache = ThreadSafeBox<[Version: String]?>()
     private var manifestsCache = ThrowingAsyncKeyValueMemoizer<String, Manifest>()
     private var toolsVersionsCache = ThreadSafeKeyValueStore<Version, ToolsVersion>()
 

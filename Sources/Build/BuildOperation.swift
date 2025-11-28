@@ -171,10 +171,10 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     }
 
     /// The build description resulting from planing.
-    private let buildDescription = ThreadSafeBox<BuildDescription>()
+    private let buildDescription = AsyncMemoizableThreadSafeBox<BuildDescription>()
 
     /// The loaded package graph.
-    private let packageGraph = ThreadSafeBox<ModulesGraph>()
+    private let packageGraph = AsyncMemoizableThreadSafeBox<ModulesGraph>()
 
     /// File system to operate on.
     private var fileSystem: Basics.FileSystem {

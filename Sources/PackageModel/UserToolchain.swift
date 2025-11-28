@@ -43,7 +43,7 @@ public final class UserToolchain: Toolchain {
     public let librarySearchPaths: [AbsolutePath]
 
     /// Thread-safe cached runtime library paths
-    private let _runtimeLibraryPaths = ThreadSafeBox<[AbsolutePath]>()
+    private let _runtimeLibraryPaths = ThreadSafeBox<[AbsolutePath]?>()
 
     /// An array of paths to use with binaries produced by this toolchain at run time.
     public var runtimeLibraryPaths: [AbsolutePath] {
@@ -94,7 +94,7 @@ public final class UserToolchain: Toolchain {
     private let _cachedTargetInfo = ThreadSafeBox<JSON?>()
 
     private var targetInfo: JSON? {
-        return _cachedTargetInfo.memoize {
+        return _cachedTargetInfo.memoizeOptional {
             // Only call out to the swift compiler to fetch the target info when necessary
             return try? _targetInfo ?? Self.getTargetInfo(swiftCompiler: swiftCompilerPath)
         }
@@ -105,7 +105,7 @@ public final class UserToolchain: Toolchain {
 
     // A version string that can be used to identify the swift compiler version
     public var swiftCompilerVersion: String? {
-        return _swiftCompilerVersion.memoize {
+        return _swiftCompilerVersion.memoizeOptional {
             guard let targetInfo = self.targetInfo else {
                 return nil
             }
