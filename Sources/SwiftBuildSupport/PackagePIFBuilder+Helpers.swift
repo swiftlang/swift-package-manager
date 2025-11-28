@@ -28,6 +28,7 @@ import enum PackageModel.BuildConfiguration
 import enum PackageModel.BuildSettings
 import class PackageModel.ClangModule
 import struct PackageModel.ConfigurationCondition
+import struct PackageModel.HostCondition
 import class PackageModel.Manifest
 import class PackageModel.Module
 import enum PackageModel.ModuleMapType
@@ -255,12 +256,14 @@ extension Sequence<PackageModel.PackageCondition> {
         var platformConditions: [PackageModel.PlatformsCondition] = []
         var configurationConditions: [PackageModel.ConfigurationCondition] = []
         var traitConditions: [PackageModel.TraitCondition] = []
+        var hostConditions: [PackageModel.HostCondition] = []
 
         for packageCondition in self {
             switch packageCondition {
             case .platforms(let condition): platformConditions.append(condition)
             case .configuration(let condition): configurationConditions.append(condition)
             case .traits(let condition): traitConditions.append(condition)
+            case .host(let condition): hostConditions.append(condition)
             }
         }
 
