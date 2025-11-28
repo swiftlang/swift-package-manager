@@ -36,7 +36,13 @@ public class Product: Identifiable {
     /// The suffix for REPL product name.
     public static let replProductSuffix: String = "__REPL"
 
-    public init(package: PackageIdentity, name: String, type: ProductType, modules: [Module], testEntryPointPath: AbsolutePath? = nil) throws {
+    /// The suffix for the Playground runner product name.
+    public static let playgroundRunnerProductSuffix: String = "__Playgrounds"
+
+    /// Whether the product represents a Playground runner.
+    public let isPlaygroundRunner: Bool
+
+    public init(package: PackageIdentity, name: String, type: ProductType, modules: [Module], testEntryPointPath: AbsolutePath? = nil, isPlaygroundRunner: Bool = false) throws {
         guard !modules.isEmpty else {
             throw InternalError("Targets cannot be empty")
         }
@@ -55,6 +61,7 @@ public class Product: Identifiable {
         self.identity = package.description.lowercased() + "_" + name
         self.modules = modules
         self.testEntryPointPath = testEntryPointPath
+        self.isPlaygroundRunner = isPlaygroundRunner
     }
 }
 
