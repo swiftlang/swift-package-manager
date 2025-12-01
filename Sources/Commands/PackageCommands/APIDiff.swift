@@ -87,7 +87,12 @@ struct APIDiff: AsyncSwiftCommand {
         let repository = GitRepository(path: packageRoot)
         let baselineRevision = try repository.resolveRevision(identifier: treeish)
 
-        let baselineDir = try overrideBaselineDir?.appending(component: baselineRevision.identifier) ?? swiftCommandState.productsBuildParameters.apiDiff.appending(component: "\(baselineRevision.identifier)-baselines")
+        let baselineDir: Basics.AbsolutePath
+        if let overrideBaselineDir {
+            baselineDir = overrideBaselineDir.appending(component: baselineRevision.identifier)
+        } else {
+            baselineDir = try await swiftCommandState.productsBuildParameters.apiDiff.appending(component: "\(baselineRevision.identifier)-baselines")
+        }
         let packageGraph = try await swiftCommandState.loadPackageGraph()
         let modulesToDiff = try Self.determineModulesToDiff(
             packageGraph: packageGraph,
@@ -118,7 +123,7 @@ struct APIDiff: AsyncSwiftCommand {
     }
 
     private func runWithSwiftPMCoordinatedDiffing(_ swiftCommandState: SwiftCommandState, buildSystem: any BuildSystem, baselineRevision: Revision, modulesToDiff: Set<String>) async throws {
-        let apiDigesterPath = try swiftCommandState.getTargetToolchain().getSwiftAPIDigester()
+        let apiDigesterPath = try await swiftCommandState.getTargetToolchain().getSwiftAPIDigester()
         let apiDigesterTool = SwiftAPIDigester(fileSystem: swiftCommandState.fileSystem, tool: apiDigesterPath)
 
         // Build the current package.
@@ -201,7 +206,7 @@ struct APIDiff: AsyncSwiftCommand {
         let modulesWithBaselines = try await generateAPIBaselineUsingIntegratedAPIDigesterSupport(swiftCommandState, baselineRevision: baselineRevision, baselineDir: baselineDir, modulesNeedingBaselines: modulesToDiff)
 
         // Build the package and run a comparison agains the baselines.
-        var productsBuildParameters = try swiftCommandState.productsBuildParameters
+        var productsBuildParameters = try await swiftCommandState.productsBuildParameters
         productsBuildParameters.apiDigesterMode = .compareToBaselines(
             baselinesDirectory: baselineDir,
             modulesToCompare: modulesWithBaselines,
@@ -261,7 +266,7 @@ struct APIDiff: AsyncSwiftCommand {
 
     private func generateAPIBaselineUsingIntegratedAPIDigesterSupport(_ swiftCommandState: SwiftCommandState, baselineRevision: Revision, baselineDir: Basics.AbsolutePath, modulesNeedingBaselines: Set<String>) async throws -> Set<String> {
         // Setup a temporary directory where we can checkout and build the baseline treeish.
-        let baselinePackageRoot = try swiftCommandState.productsBuildParameters.apiDiff.appending("\(baselineRevision.identifier)-checkout")
+        let baselinePackageRoot = try await swiftCommandState.productsBuildParameters.apiDiff.appending("\(baselineRevision.identifier)-checkout")
         if swiftCommandState.fileSystem.exists(baselinePackageRoot) {
             try swiftCommandState.fileSystem.removeFileTree(baselinePackageRoot)
         }
@@ -282,7 +287,7 @@ struct APIDiff: AsyncSwiftCommand {
         try workingCopy.checkout(revision: baselineRevision)
 
         // Create the workspace for this package.
-        let workspace = try Workspace(
+        let workspace = try await Workspace.create(
             forRootPackage: baselinePackageRoot,
             cancellator: swiftCommandState.cancellator
         )
@@ -310,7 +315,7 @@ struct APIDiff: AsyncSwiftCommand {
         }
 
         // Update the data path input build parameters so it's built in the sandbox.
-        var productsBuildParameters = try swiftCommandState.productsBuildParameters
+        var productsBuildParameters = try await swiftCommandState.productsBuildParameters
         productsBuildParameters.dataPath = workspace.location.scratchDirectory
         productsBuildParameters.apiDigesterMode = .generateBaselines(baselinesDirectory: baselineDir, modulesRequestingBaselines: modulesNeedingBaselines)
 

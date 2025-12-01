@@ -50,7 +50,7 @@ extension SwiftPackageCommand {
 
             let alreadyExisting = (try? InstalledPackageProduct.installedProducts(commandState.fileSystem)) ?? []
 
-            let workspace = try commandState.getActiveWorkspace()
+            let workspace = try await commandState.getActiveWorkspace()
             let packageRoot = try commandState.getPackageRoot()
 
             let packageGraph = try await workspace.loadPackageGraph(
@@ -92,7 +92,7 @@ extension SwiftPackageCommand {
             try await commandState.createBuildSystem(explicitProduct: productToInstall.name)
                 .build(subset: .product(productToInstall.name), buildOutputs: [])
 
-            let binPath = try commandState.productsBuildParameters.buildPath.appending(component: productToInstall.name)
+            let binPath = try await commandState.productsBuildParameters.buildPath.appending(component: productToInstall.name)
             let finalBinPath = swiftpmBinDir.appending(component: binPath.basename)
             try commandState.fileSystem.copy(from: binPath, to: finalBinPath)
 

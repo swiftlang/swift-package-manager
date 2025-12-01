@@ -17,7 +17,7 @@ import Workspace
 
 import struct TSCBasic.SHA256
 
-struct ComputeChecksum: SwiftCommand {
+struct ComputeChecksum: AsyncSwiftCommand {
     static let configuration = CommandConfiguration(
         abstract: "Compute the checksum for a binary artifact.",
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)]
@@ -29,7 +29,7 @@ struct ComputeChecksum: SwiftCommand {
     @Argument(help: "The absolute or relative path to the binary artifact.")
     var path: AbsolutePath
 
-    func run(_ swiftCommandState: SwiftCommandState) throws {
+    func run(_ swiftCommandState: SwiftCommandState) async throws {
         let checksum = try Workspace.BinaryArtifactsManager.checksum(
             forBinaryArtifactAt: self.path,
             fileSystem: swiftCommandState.fileSystem

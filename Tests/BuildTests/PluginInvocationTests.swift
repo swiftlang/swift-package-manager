@@ -130,9 +130,15 @@ final class PluginInvocationTests: XCTestCase {
 
         // A fake PluginScriptRunner that just checks the input conditions and returns canned output.
         struct MockPluginScriptRunner: PluginScriptRunner {
+            let _hostTriple: Triple
+
+            init(hostTriple: Triple) {
+                self._hostTriple = hostTriple
+            }
+
             var hostTriple: Triple {
                 get throws {
-                    return try UserToolchain.default.targetTriple
+                    return _hostTriple
                 }
             }
             
@@ -230,8 +236,9 @@ final class PluginInvocationTests: XCTestCase {
 
         // Construct a canned input and run plugins using our MockPluginScriptRunner().
         let outputDir = AbsolutePath("/Foo/.build")
-        let pluginRunner = MockPluginScriptRunner()
-        let buildParameters = mockBuildParameters(
+        let hostTriple = try (try await UserToolchain.default()).targetTriple
+        let pluginRunner = MockPluginScriptRunner(hostTriple: hostTriple)
+        let buildParameters = try await mockBuildParameters(
             destination: .host,
             environment: BuildEnvironment(platform: .macOS, configuration: .debug)
         )
@@ -321,10 +328,10 @@ final class PluginInvocationTests: XCTestCase {
 
             // Load a workspace from the package.
             let observability = ObservabilitySystem.makeForTesting()
-            let workspace = try Workspace(
+            let workspace = try await Workspace.create(
                 fileSystem: localFileSystem,
                 forRootPackage: packageDir,
-                customManifestLoader: ManifestLoader(toolchain: UserToolchain.default),
+                customManifestLoader: ManifestLoader(toolchain: try await UserToolchain.default()),
                 delegate: MockWorkspaceDelegate()
             )
             
@@ -354,7 +361,7 @@ final class PluginInvocationTests: XCTestCase {
             let pluginScriptRunner = DefaultPluginScriptRunner(
                 fileSystem: localFileSystem,
                 cacheDir: pluginCacheDir,
-                toolchain: try UserToolchain.default
+                toolchain: try await UserToolchain.default()
             )
             
             // Define a plugin compilation delegate that just captures the passed information.
@@ -455,7 +462,7 @@ final class PluginInvocationTests: XCTestCase {
                 XCTAssertEqual(delegate.compiledResult, result)
                 XCTAssertNil(delegate.cachedResult)
 
-                if try UserToolchain.default.supportsSerializedDiagnostics() {
+                if try (try await UserToolchain.default()).supportsSerializedDiagnostics() {
                     // Check the serialized diagnostics. We should no longer have an error but now have a warning.
                     let diaFileContents = try localFileSystem.readFileContents(result.diagnosticsFile)
                     let diagnosticsSet = try SerializedDiagnostics(bytes: diaFileContents)
@@ -505,7 +512,7 @@ final class PluginInvocationTests: XCTestCase {
                 XCTAssertNil(delegate.compiledResult)
                 XCTAssertEqual(delegate.cachedResult, result)
 
-                if try UserToolchain.default.supportsSerializedDiagnostics() {
+                if try (try await UserToolchain.default()).supportsSerializedDiagnostics() {
                     // Check that the diagnostics still have the same warning as before.
                     let diaFileContents = try localFileSystem.readFileContents(result.diagnosticsFile)
                     let diagnosticsSet = try SerializedDiagnostics(bytes: diaFileContents)
@@ -635,7 +642,8 @@ final class PluginInvocationTests: XCTestCase {
 
     func testUnsupportedDependencyProduct() async throws {
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
-        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+        let supportsConcurrency = try (try await UserToolchain.default()).supportsSwiftConcurrency()
+        try XCTSkipIf(!supportsConcurrency, "skipping because test environment doesn't support concurrency")
 
         try await testWithTemporaryDirectory { tmpPath in
             // Create a sample package with a library product and a plugin.
@@ -701,10 +709,10 @@ final class PluginInvocationTests: XCTestCase {
 
             // Load a workspace from the package.
             let observability = ObservabilitySystem.makeForTesting()
-            let workspace = try Workspace(
+            let workspace = try await Workspace.create(
                 fileSystem: localFileSystem,
                 forRootPackage: packageDir,
-                customManifestLoader: ManifestLoader(toolchain: UserToolchain.default),
+                customManifestLoader: ManifestLoader(toolchain: try await UserToolchain.default()),
                 delegate: MockWorkspaceDelegate()
             )
 
@@ -733,7 +741,8 @@ final class PluginInvocationTests: XCTestCase {
 
     func testUnsupportedDependencyTarget() async throws {
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
-        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+        let supportsConcurrency = try (try await UserToolchain.default()).supportsSwiftConcurrency()
+        try XCTSkipIf(!supportsConcurrency, "skipping because test environment doesn't support concurrency")
 
         try await testWithTemporaryDirectory { tmpPath in
             // Create a sample package with a library target and a plugin.
@@ -780,10 +789,10 @@ final class PluginInvocationTests: XCTestCase {
 
             // Load a workspace from the package.
             let observability = ObservabilitySystem.makeForTesting()
-            let workspace = try Workspace(
+            let workspace = try await Workspace.create(
                 fileSystem: localFileSystem,
                 forRootPackage: packageDir,
-                customManifestLoader: ManifestLoader(toolchain: UserToolchain.default),
+                customManifestLoader: ManifestLoader(toolchain: try await UserToolchain.default()),
                 delegate: MockWorkspaceDelegate()
             )
 
@@ -812,7 +821,8 @@ final class PluginInvocationTests: XCTestCase {
 
     func testPrebuildPluginShouldUseBinaryTarget() async throws {
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
-        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+        let supportsConcurrency = try (try await UserToolchain.default()).supportsSwiftConcurrency()
+        try XCTSkipIf(!supportsConcurrency, "skipping because test environment doesn't support concurrency")
 
         try await testWithTemporaryDirectory { tmpPath in
             // Create a sample package with a library target and a plugin.
@@ -889,7 +899,7 @@ final class PluginInvocationTests: XCTestCase {
                   }
                   """)
             
-            let artifactVariants = [try UserToolchain.default.targetTriple].map {
+            let artifactVariants = [try (try await UserToolchain.default()).targetTriple].map {
                 """
                 { "path": "Y", "supportedTriples": ["\($0.tripleString)"] }
                 """
@@ -919,10 +929,10 @@ final class PluginInvocationTests: XCTestCase {
 
             // Load a workspace from the package.
             let observability = ObservabilitySystem.makeForTesting()
-            let workspace = try Workspace(
+            let workspace = try await Workspace.create(
                 fileSystem: localFileSystem,
                 forRootPackage: packageDir,
-                customManifestLoader: ManifestLoader(toolchain: UserToolchain.default),
+                customManifestLoader: ManifestLoader(toolchain: try await UserToolchain.default()),
                 delegate: MockWorkspaceDelegate()
             )
 
@@ -952,13 +962,13 @@ final class PluginInvocationTests: XCTestCase {
             let pluginScriptRunner = DefaultPluginScriptRunner(
                 fileSystem: localFileSystem,
                 cacheDir: pluginCacheDir,
-                toolchain: try UserToolchain.default
+                toolchain: try await UserToolchain.default()
             )
 
             // Invoke build tool plugin
             do {
                 let outputDir = packageDir.appending(".build")
-                let buildParameters = mockBuildParameters(
+                let buildParameters = try await mockBuildParameters(
                     destination: .host,
                     environment: BuildEnvironment(platform: .macOS, configuration: .debug)
                 )
@@ -983,7 +993,8 @@ final class PluginInvocationTests: XCTestCase {
 
     func testPrebuildPluginShouldNotUseExecTarget() async throws {
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
-        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+        let supportsConcurrency = try (try await UserToolchain.default()).supportsSwiftConcurrency()
+        try XCTSkipIf(!supportsConcurrency, "skipping because test environment doesn't support concurrency")
 
         try await testWithTemporaryDirectory { tmpPath in
             // Create a sample package with a library target and a plugin.
@@ -1061,10 +1072,10 @@ final class PluginInvocationTests: XCTestCase {
 
             // Load a workspace from the package.
             let observability = ObservabilitySystem.makeForTesting()
-            let workspace = try Workspace(
+            let workspace = try await Workspace.create(
                 fileSystem: localFileSystem,
                 forRootPackage: packageDir,
-                customManifestLoader: ManifestLoader(toolchain: UserToolchain.default),
+                customManifestLoader: ManifestLoader(toolchain: try await UserToolchain.default()),
                 delegate: MockWorkspaceDelegate()
             )
 
@@ -1094,13 +1105,13 @@ final class PluginInvocationTests: XCTestCase {
             let pluginScriptRunner = DefaultPluginScriptRunner(
                 fileSystem: localFileSystem,
                 cacheDir: pluginCacheDir,
-                toolchain: try UserToolchain.default
+                toolchain: try await UserToolchain.default()
             )
 
             // Invoke build tool plugin
             do {
                 let outputDir = packageDir.appending(".build")
-                let buildParameters = mockBuildParameters(
+                let buildParameters = try await mockBuildParameters(
                     destination: .host,
                     environment: BuildEnvironment(platform: .macOS, configuration: .debug)
                 )
@@ -1125,7 +1136,8 @@ final class PluginInvocationTests: XCTestCase {
 
     func testScanImportsInPluginTargets() async throws {
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
-        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+        let supportsConcurrency = try (try await UserToolchain.default()).supportsSwiftConcurrency()
+        try XCTSkipIf(!supportsConcurrency, "skipping because test environment doesn't support concurrency")
 
         try await testWithTemporaryDirectory { tmpPath in
             // Create a sample package with a library target and a plugin.
@@ -1249,17 +1261,17 @@ final class PluginInvocationTests: XCTestCase {
             // Load a workspace from the package.
             let observability = ObservabilitySystem.makeForTesting()
             let environment = Environment.current
-            let workspace = try Workspace(
+            let workspace = try await Workspace.create(
                 fileSystem: localFileSystem,
                 location: try Workspace.Location(forRootPackage: packageDir, fileSystem: localFileSystem),
-                customHostToolchain: UserToolchain(
-                    swiftSDK: .hostSwiftSDK(
+                customHostToolchain: await UserToolchain(
+                    swiftSDK: await SwiftSDK.hostSwiftSDK(
                         environment: environment
                     ),
                     environment: environment,
                     customLibrariesLocation: .init(manifestLibraryPath: fakeExtraModulesDir, pluginLibraryPath: fakeExtraModulesDir)
                 ),
-                customManifestLoader: ManifestLoader(toolchain: UserToolchain.default),
+                customManifestLoader: ManifestLoader(toolchain: try await UserToolchain.default()),
                 delegate: MockWorkspaceDelegate()
             )
 
@@ -1311,7 +1323,8 @@ final class PluginInvocationTests: XCTestCase {
         hostTriple: Triple
     ) async throws -> [ResolvedModule.ID: [BuildToolPluginInvocationResult]]  {
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
-        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+        let supportsConcurrency = try (try await UserToolchain.default()).supportsSwiftConcurrency()
+        try XCTSkipIf(!supportsConcurrency, "skipping because test environment doesn't support concurrency")
 
         return try await testWithTemporaryDirectory { tmpPath in
             // Create a sample package with a library target and a plugin.
@@ -1402,10 +1415,10 @@ final class PluginInvocationTests: XCTestCase {
             )
             // Load a workspace from the package.
             let observability = ObservabilitySystem.makeForTesting()
-            let workspace = try Workspace(
+            let workspace = try await Workspace.create(
                 fileSystem: localFileSystem,
                 forRootPackage: packageDir,
-                customManifestLoader: ManifestLoader(toolchain: UserToolchain.default),
+                customManifestLoader: ManifestLoader(toolchain: try await UserToolchain.default()),
                 delegate: MockWorkspaceDelegate()
             )
 
@@ -1433,8 +1446,8 @@ final class PluginInvocationTests: XCTestCase {
             XCTAssertEqual(buildToolPlugin.capability, .buildTool)
 
             // Construct a toolchain with a made-up host/target triple
-            let swiftSDK = try SwiftSDK.default
-            let toolchain = try UserToolchain(
+            let swiftSDK = try await SwiftSDK.default()
+            let toolchain = try await UserToolchain.create(
                 swiftSDK: SwiftSDK(
                     hostTriple: hostTriple,
                     targetTriple: hostTriple,
@@ -1454,7 +1467,7 @@ final class PluginInvocationTests: XCTestCase {
 
             // Invoke build tool plugin
             let outputDir = packageDir.appending(".build")
-            let buildParameters = mockBuildParameters(
+            let buildParameters = try await mockBuildParameters(
                 destination: .host,
                 environment: BuildEnvironment(platform: .macOS, configuration: .debug)
             )
@@ -1471,7 +1484,7 @@ final class PluginInvocationTests: XCTestCase {
     }
 
     func testParseArtifactNotSupportedOnTargetPlatform() async throws {
-        let hostTriple = try UserToolchain.default.targetTriple
+        let hostTriple = try (try await UserToolchain.default()).targetTriple
         let artifactSupportedTriples = try [Triple("riscv64-apple-windows-android")]
 
         var checked = false
@@ -1488,7 +1501,7 @@ final class PluginInvocationTests: XCTestCase {
         #if !os(macOS)
         throw XCTSkip("platform versions are only available if the host is macOS")
         #else
-        let hostTriple = try UserToolchain.default.targetTriple
+        let hostTriple = try (try await UserToolchain.default()).targetTriple
         let artifactSupportedTriples = try [Triple("\(hostTriple.withoutVersion().tripleString)20.0")]
 
         let result = try await checkParseArtifactsPlatformCompatibility(artifactSupportedTriples: artifactSupportedTriples, hostTriple: hostTriple)
@@ -1502,7 +1515,7 @@ final class PluginInvocationTests: XCTestCase {
     }
 
     func testParseArtifactsConsidersAllSupportedTriples() async throws {
-        let hostTriple = try UserToolchain.default.targetTriple
+        let hostTriple = try (try await UserToolchain.default()).targetTriple
         let artifactSupportedTriples = [hostTriple, try Triple("riscv64-apple-windows-android")]
 
         let result = try await checkParseArtifactsPlatformCompatibility(artifactSupportedTriples: artifactSupportedTriples, hostTriple: hostTriple)
@@ -1541,6 +1554,8 @@ final class PluginInvocationTests: XCTestCase {
             workDirectory: outputDir.parentDirectory,
             disableSandbox: false
         )
+
+        let hostTriple = try await hostTriple()
 
         for (moduleID, _) in pluginsPerModule {
             let module = graph.allModules[moduleID]!

@@ -240,11 +240,11 @@ struct PluginCommand: AsyncSwiftCommand {
             )
 
         // The `plugins` directory is inside the workspace's main data directory, and contains all temporary files related to this plugin in the workspace.
-        let pluginsDir = try swiftCommandState.getActiveWorkspace().location.pluginWorkingDirectory
+        let pluginsDir = try await swiftCommandState.getActiveWorkspace().location.pluginWorkingDirectory
             .appending(component: plugin.name)
 
         // The `cache` directory is in the plugin’s directory and is where the plugin script runner caches compiled plugin binaries and any other derived information for this plugin.
-        let pluginScriptRunner = try swiftCommandState.getPluginScriptRunner(
+        let pluginScriptRunner = try await swiftCommandState.getPluginScriptRunner(
             customPluginsDir: pluginsDir
         )
 
@@ -330,10 +330,10 @@ struct PluginCommand: AsyncSwiftCommand {
             .contains { package.path.isDescendantOfOrEqual(to: $0) } ? [] : [package.path]
 
         // Use the directory containing the compiler as an additional search directory, and add the $PATH.
-        let toolSearchDirs = [try swiftCommandState.getTargetToolchain().swiftCompilerPath.parentDirectory]
+        let toolSearchDirs = [try await swiftCommandState.getTargetToolchain().swiftCompilerPath.parentDirectory]
             + getEnvSearchPaths(pathString: Environment.current[.path], currentWorkingDirectory: .none)
 
-        var buildParameters = try swiftCommandState.toolsBuildParameters
+        var buildParameters = try await swiftCommandState.toolsBuildParameters
         buildParameters.buildSystemKind = buildSystemKind
 
         // Build or bring up-to-date any executable host-side tools on which this plugin depends. Add them and any binary dependencies to the tool-names-to-path map.

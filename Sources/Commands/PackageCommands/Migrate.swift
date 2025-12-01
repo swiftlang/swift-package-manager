@@ -69,7 +69,7 @@ extension SwiftPackageCommand {
 
         public func run(_ swiftCommandState: SwiftCommandState) async throws {
             // First, validate and resolve the requested feature names.
-            let features = try self.resolveRequestedFeatures(swiftCommandState)
+            let features = try await self.resolveRequestedFeatures(swiftCommandState)
 
             let buildSystem = try await createBuildSystem(
                 swiftCommandState,
@@ -164,7 +164,7 @@ extension SwiftPackageCommand {
             print("> Updating manifest")
             for target in targetsToMigrate.sorted() {
                 swiftCommandState.observabilityScope.emit(debug: "Adding feature(s) to '\(target)'")
-                try self.updateManifest(
+                try await self.updateManifest(
                     for: target,
                     add: features,
                     using: swiftCommandState
@@ -177,8 +177,8 @@ extension SwiftPackageCommand {
         /// - Returns: An array of resolved features, sorted by name.
         private func resolveRequestedFeatures(
             _ swiftCommandState: SwiftCommandState
-        ) throws -> [SwiftCompilerFeature] {
-            let toolchain = try swiftCommandState.productsBuildParameters.toolchain
+        ) async throws -> [SwiftCompilerFeature] {
+            let toolchain = try await swiftCommandState.productsBuildParameters.toolchain
 
             // Query the compiler for supported features.
             let supportedFeatures = try toolchain.swiftCompilerSupportedFeatures
@@ -219,8 +219,8 @@ extension SwiftPackageCommand {
             targets: OrderedSet<String>,
             features: [SwiftCompilerFeature]
         ) async throws -> BuildSystem {
-            let toolsBuildParameters = try swiftCommandState.toolsBuildParameters
-            let destinationBuildParameters = try swiftCommandState.productsBuildParameters
+            let toolsBuildParameters = try await swiftCommandState.toolsBuildParameters
+            let destinationBuildParameters = try await swiftCommandState.productsBuildParameters
 
             let modulesGraph = try await swiftCommandState.loadPackageGraph()
 
@@ -262,7 +262,7 @@ extension SwiftPackageCommand {
             for target: String,
             add features: [SwiftCompilerFeature],
             using swiftCommandState: SwiftCommandState
-        ) throws {
+        ) async throws {
             typealias SwiftSetting = SwiftPackageCommand.AddSetting.SwiftSetting
 
             let settings: [(SwiftSetting, String)] = try features.map {
@@ -270,7 +270,7 @@ extension SwiftPackageCommand {
             }
 
             do {
-                try SwiftPackageCommand.AddSetting.editSwiftSettings(
+                try await SwiftPackageCommand.AddSetting.editSwiftSettings(
                     of: target,
                     using: swiftCommandState,
                     settings,

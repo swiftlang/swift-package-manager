@@ -171,17 +171,17 @@ final class WorkspaceTests: XCTestCase {
     func testInterpreterFlags() async throws {
         let fs = localFileSystem
 
-        try testWithTemporaryDirectory { path in
+        try await testWithTemporaryDirectory { path in
             let foo = path.appending("foo")
             let packageManifest = foo.appending("Package.swift")
 
-            func createWorkspace(_ content: String) throws -> Workspace {
+            func createWorkspace(_ content: String) async throws -> Workspace {
                 try fs.writeFileContents(packageManifest, string: content)
 
-                let manifestLoader = try ManifestLoader(toolchain: UserToolchain.default)
+                let manifestLoader = try ManifestLoader(toolchain: try await UserToolchain.default())
 
                 let sandbox = path.appending("ws")
-                return try Workspace(
+                return try await Workspace.create(
                     fileSystem: fs,
                     forRootPackage: sandbox,
                     customManifestLoader: manifestLoader,
@@ -190,7 +190,7 @@ final class WorkspaceTests: XCTestCase {
             }
 
             do {
-                let ws = try createWorkspace(
+                let ws = try await createWorkspace(
                     """
                     // swift-tools-version:4.0
                     import PackageDescription
@@ -204,7 +204,7 @@ final class WorkspaceTests: XCTestCase {
             }
 
             do {
-                let ws = try createWorkspace(
+                let ws = try await createWorkspace(
                     """
                     // swift-tools-version:3.1
                     import PackageDescription
@@ -218,7 +218,7 @@ final class WorkspaceTests: XCTestCase {
             }
 
             do {
-                let ws = try createWorkspace(
+                let ws = try await createWorkspace(
                     """
                     // swift-tools-version:999.0
                     import PackageDescription
@@ -237,7 +237,7 @@ final class WorkspaceTests: XCTestCase {
             }
 
             do {
-                let ws = try createWorkspace(
+                let ws = try await createWorkspace(
                 """
                 // swift-tools-version:6.0
                 import PackageDescription
@@ -251,7 +251,7 @@ final class WorkspaceTests: XCTestCase {
             }
 
             do {
-                let ws = try createWorkspace(
+                let ws = try await createWorkspace(
                 """
                 // swift-tools-version:6.1
                 import PackageDescription
@@ -266,7 +266,7 @@ final class WorkspaceTests: XCTestCase {
             }
 
             do {
-                let ws = try createWorkspace(
+                let ws = try await createWorkspace(
                 """
                 // swift-tools-version:6.2
                 import PackageDescription
@@ -281,7 +281,7 @@ final class WorkspaceTests: XCTestCase {
             }
 
             do {
-                let ws = try createWorkspace(
+                let ws = try await createWorkspace(
                     """
                     // swift-tools-version:5.9.2
                     import PackageDescription
@@ -296,7 +296,7 @@ final class WorkspaceTests: XCTestCase {
 
             do {
                 // Invalid package manifest should still produce build settings.
-                let ws = try createWorkspace(
+                let ws = try await createWorkspace(
                     """
                     // swift-tools-version:5.9.2
                     import PackageDescription
@@ -307,7 +307,7 @@ final class WorkspaceTests: XCTestCase {
             }
 
             do {
-                let ws = try createWorkspace(
+                let ws = try await createWorkspace(
                     """
                     // swift-tools-version:3.0
                     import PackageDescription
@@ -326,7 +326,7 @@ final class WorkspaceTests: XCTestCase {
 
             do {
                 // Invalid package manifest should still produce build settings.
-                let ws = try createWorkspace(
+                let ws = try await createWorkspace(
                     """
                     // swift-tools-version:5.1
                     import PackageDescription
@@ -358,10 +358,10 @@ final class WorkspaceTests: XCTestCase {
                 )
                 """
             )
-            let workspace = try Workspace(
+            let workspace = try await Workspace.create(
                 fileSystem: localFileSystem,
                 forRootPackage: pkgDir,
-                customManifestLoader: ManifestLoader(toolchain: UserToolchain.default),
+                customManifestLoader: ManifestLoader(toolchain: try await UserToolchain.default()),
                 delegate: MockWorkspaceDelegate()
             )
             let rootInput = PackageGraphRootInput(packages: [pkgDir], dependencies: [])
@@ -889,7 +889,7 @@ final class WorkspaceTests: XCTestCase {
                 result.check(dependency: "a", at: .checkout(.version("1.0.0")))
                 result.check(dependency: "aa", at: .checkout(.version("1.0.0")))
             }
-            workspace.checkResolved { result in
+            await workspace.checkResolved { result in
                 result.check(dependency: "a", at: .checkout(.version("1.0.0")))
                 result.check(dependency: "aa", at: .checkout(.version("1.0.0")))
             }
@@ -910,7 +910,7 @@ final class WorkspaceTests: XCTestCase {
                 result.check(dependency: "a", at: .checkout(.version("1.0.1")))
                 result.check(dependency: "aa", at: .checkout(.version("2.0.0")))
             }
-            workspace.checkResolved { result in
+            await workspace.checkResolved { result in
                 result.check(dependency: "a", at: .checkout(.version("1.0.1")))
                 result.check(dependency: "aa", at: .checkout(.version("2.0.0")))
             }
@@ -1913,7 +1913,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // Drop a build artifact in data directory.
-        let ws = try workspace.getOrCreateWorkspace()
+        let ws = try await workspace.getOrCreateWorkspace()
         let buildArtifact = ws.location.scratchDirectory.appending("test.o")
         try fs.writeFileContents(buildArtifact, bytes: "Hi")
 
@@ -1922,7 +1922,7 @@ final class WorkspaceTests: XCTestCase {
         XCTAssert(fs.exists(ws.location.repositoriesCheckoutsDirectory))
 
         // Check clean.
-        workspace.checkClean { diagnostics in
+        await workspace.checkClean { diagnostics in
             // Only the build artifact should be removed.
             XCTAssertFalse(fs.exists(buildArtifact))
             XCTAssert(fs.exists(ws.location.repositoriesCheckoutsDirectory))
@@ -2207,7 +2207,7 @@ final class WorkspaceTests: XCTestCase {
         await workspace.checkManagedDependencies { result in
             result.check(dependency: "foo", at: .checkout(.version("1.2.3")))
         }
-        workspace.checkResolved { result in
+        await workspace.checkResolved { result in
             result.check(dependency: "foo", at: .checkout(.version("1.2.3")))
         }
 
@@ -2218,7 +2218,7 @@ final class WorkspaceTests: XCTestCase {
         await workspace.checkManagedDependencies { result in
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
         }
-        workspace.checkResolved { result in
+        await workspace.checkResolved { result in
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
         }
 
@@ -2231,7 +2231,7 @@ final class WorkspaceTests: XCTestCase {
         await workspace.checkManagedDependencies { result in
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
         }
-        workspace.checkResolved { result in
+        await workspace.checkResolved { result in
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
         }
     }
@@ -2269,7 +2269,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertNoDiagnostics(diagnostics)
         }
 
-        try fs.removeFileTree(workspace.getOrCreateWorkspace().location.repositoriesCheckoutsDirectory)
+        try fs.removeFileTree(await workspace.getOrCreateWorkspace().location.repositoriesCheckoutsDirectory)
 
         try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
             PackageGraphTesterXCTest(graph) { result in
@@ -2457,7 +2457,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // Edit foo.
-        let fooPath = try workspace.getOrCreateWorkspace().location.editsDirectory.appending("foo")
+        let fooPath = try await workspace.getOrCreateWorkspace().location.editsDirectory.appending("foo")
         await workspace.checkEdit(packageIdentity: "foo") { diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
         }
@@ -2611,7 +2611,7 @@ final class WorkspaceTests: XCTestCase {
         try await workspace.checkPackageGraph(roots: ["Root"]) { _, _ in }
 
         // Edit foo.
-        let fooPath = try workspace.getOrCreateWorkspace().location.editsDirectory.appending("Foo")
+        let fooPath = try await workspace.getOrCreateWorkspace().location.editsDirectory.appending("Foo")
         await workspace.checkEdit(packageIdentity: "Foo") { diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
         }
@@ -2662,7 +2662,7 @@ final class WorkspaceTests: XCTestCase {
         let deps: [MockDependency] = [
             .sourceControl(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0"), products: .specific(["Foo"])),
         ]
-        let ws = try workspace.getOrCreateWorkspace()
+        let ws = try await workspace.getOrCreateWorkspace()
 
         // Load the graph and edit foo.
         try await workspace.checkPackageGraph(deps: deps) { graph, diagnostics in
@@ -2779,7 +2779,7 @@ final class WorkspaceTests: XCTestCase {
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
             result.check(dependency: "bar", at: .edited(nil))
         }
-        workspace.checkResolved { result in
+        await workspace.checkResolved { result in
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
             result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
         }
@@ -2800,7 +2800,7 @@ final class WorkspaceTests: XCTestCase {
             result.check(dependency: "foo", at: .checkout(.version("1.2.0")))
             result.check(dependency: "bar", at: .edited(nil))
         }
-        workspace.checkResolved { result in
+        await workspace.checkResolved { result in
             result.check(dependency: "foo", at: .checkout(.version("1.2.0")))
             result.check(notPresent: "bar")
         }
@@ -2813,7 +2813,7 @@ final class WorkspaceTests: XCTestCase {
             result.check(dependency: "foo", at: .checkout(.version("1.3.2")))
             result.check(dependency: "bar", at: .edited(nil))
         }
-        workspace.checkResolved { result in
+        await workspace.checkResolved { result in
             result.check(dependency: "foo", at: .checkout(.version("1.3.2")))
             result.check(notPresent: "bar")
         }
@@ -2826,7 +2826,7 @@ final class WorkspaceTests: XCTestCase {
             result.check(dependency: "foo", at: .checkout(.version("1.3.2")))
             result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
         }
-        workspace.checkResolved { result in
+        await workspace.checkResolved { result in
             result.check(dependency: "foo", at: .checkout(.version("1.3.2")))
             result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
         }
@@ -3060,7 +3060,7 @@ final class WorkspaceTests: XCTestCase {
         await workspace.checkManagedDependencies { result in
             result.check(dependency: "foo", at: .edited(nil))
         }
-        workspace.checkResolved { result in
+        await workspace.checkResolved { result in
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
         }
 
@@ -3183,7 +3183,7 @@ final class WorkspaceTests: XCTestCase {
             }
         }
 
-        let underlying = try workspace.getOrCreateWorkspace()
+        let underlying = try await workspace.getOrCreateWorkspace()
         let fooEditPath = sandbox.appending(components: ["edited", "foo"])
 
         // mimic external process putting a dependency into edit mode
@@ -3857,7 +3857,7 @@ final class WorkspaceTests: XCTestCase {
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
         }
         do {
-            let ws = try workspace.getOrCreateWorkspace()
+            let ws = try await workspace.getOrCreateWorkspace()
             let locationString = await ws.state.dependencies[.plain("foo")]?.packageRef.locationString
             XCTAssertEqual(locationString, "https://scm.com/org/foo")
         }
@@ -3872,7 +3872,7 @@ final class WorkspaceTests: XCTestCase {
             result.check(dependency: "foo", at: .checkout(.version("1.1.0")))
         }
         do {
-            let ws = try workspace.getOrCreateWorkspace()
+            let ws = try await workspace.getOrCreateWorkspace()
             let locationString = await ws.state.dependencies[.plain("foo")]?.packageRef.locationString
             XCTAssertEqual(locationString, "https://scm.com/other/foo")
         }
@@ -3918,7 +3918,7 @@ final class WorkspaceTests: XCTestCase {
         await workspace.checkManagedDependencies { result in
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
         }
-        workspace.checkResolved { result in
+        await workspace.checkResolved { result in
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
         }
 
@@ -3928,7 +3928,7 @@ final class WorkspaceTests: XCTestCase {
         await workspace.checkManagedDependencies { result in
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
         }
-        workspace.checkResolved { result in
+        await workspace.checkResolved { result in
             result.check(notPresent: "foo")
         }
     }
@@ -3990,13 +3990,13 @@ final class WorkspaceTests: XCTestCase {
             await workspace.checkManagedDependencies { result in
                 result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
             }
-            workspace.checkResolved { result in
+            await workspace.checkResolved { result in
                 result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
             }
 
             let minToolsVersion = [pair.0, pair.1].min()!
             let expectedSchemeVersion = minToolsVersion >= .v5_6 ? 2 : 1
-            let actualSchemeVersion = try workspace.getOrCreateWorkspace().resolvedPackagesStore.load().schemeVersion()
+            let actualSchemeVersion = try await workspace.getOrCreateWorkspace().resolvedPackagesStore.load().schemeVersion()
             XCTAssertEqual(
                 actualSchemeVersion,
                 expectedSchemeVersion,
@@ -4107,7 +4107,7 @@ final class WorkspaceTests: XCTestCase {
                 "https://localhost/org/bar"
             )
         }
-        workspace.checkResolved { result in
+        await workspace.checkResolved { result in
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
             result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
             XCTAssertEqual(
@@ -4148,7 +4148,7 @@ final class WorkspaceTests: XCTestCase {
                 "https://localhost/org/bar.git"
             )
         }
-        workspace.checkResolved { result in
+        await workspace.checkResolved { result in
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
             result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
             // URLs should be stable since URLs are canonically the same and we kept the resolved file between the two
@@ -4190,7 +4190,7 @@ final class WorkspaceTests: XCTestCase {
                 "https://localhost/org/bar.git"
             )
         }
-        workspace.checkResolved { result in
+        await workspace.checkResolved { result in
             result.check(dependency: "foo", at: .checkout(.version("1.1.0")))
             result.check(dependency: "bar", at: .checkout(.version("1.1.0")))
             // URLs should reflect the actual dependencies since the new version forces rewrite of the resolved file
@@ -4232,7 +4232,7 @@ final class WorkspaceTests: XCTestCase {
                 "https://localhost/org/bar.git"
             )
         }
-        workspace.checkResolved { result in
+        await workspace.checkResolved { result in
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
             result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
             // URLs should reflect the actual dependencies since we deleted the resolved file
@@ -4330,12 +4330,12 @@ final class WorkspaceTests: XCTestCase {
                 }
             }
 
-            workspace.checkResolved { result in
+            await workspace.checkResolved { result in
                 result.check(dependency: "foo", at: .checkout(.version("1.3.1")))
                 result.check(dependency: "bar", at: .checkout(.version("1.1.1")))
             }
 
-            let resolvedPackagesStore = try workspace.getOrCreateWorkspace().resolvedPackagesStore.load()
+            let resolvedPackagesStore = try await workspace.getOrCreateWorkspace().resolvedPackagesStore.load()
             checkPinnedVersion(pin: resolvedPackagesStore.resolvedPackages["foo"]!, version: "1.3.1")
             checkPinnedVersion(pin: resolvedPackagesStore.resolvedPackages["bar"]!, version: "1.1.1")
         }
@@ -5160,7 +5160,7 @@ final class WorkspaceTests: XCTestCase {
                 "https://scm.com/org/foo"
             )
         }
-        workspace.checkResolved { result in
+        await workspace.checkResolved { result in
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
             result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
             XCTAssertEqual(
@@ -5190,7 +5190,7 @@ final class WorkspaceTests: XCTestCase {
                 "https://scm.com/other/foo"
             )
         }
-        workspace.checkResolved { result in
+        await workspace.checkResolved { result in
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
             result.check(dependency: "bar", at: .checkout(.version("1.1.0")))
             XCTAssertEqual(
@@ -5255,14 +5255,14 @@ final class WorkspaceTests: XCTestCase {
             result.check(dependency: "foo", at: .checkout(.version("1.3.2")))
             result.check(dependency: "bar", at: .checkout(.branch("develop")))
         }
-        workspace.checkResolved { result in
+        await workspace.checkResolved { result in
             result.check(dependency: "foo", at: .checkout(.version("1.3.2")))
             result.check(dependency: "bar", at: .checkout(.branch("develop")))
         }
 
         // Change pin of foo to something else.
         do {
-            let ws = try workspace.getOrCreateWorkspace()
+            let ws = try await workspace.getOrCreateWorkspace()
             let resolvedPackagesStore = try ws.resolvedPackagesStore.load()
             let fooPin = try XCTUnwrap(
                 resolvedPackagesStore.resolvedPackages.values
@@ -5294,7 +5294,7 @@ final class WorkspaceTests: XCTestCase {
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
             result.check(dependency: "bar", at: .checkout(.branch("develop")))
         }
-        workspace.checkResolved { result in
+        await workspace.checkResolved { result in
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
             result.check(dependency: "bar", at: .checkout(.branch("develop")))
         }
@@ -5307,7 +5307,7 @@ final class WorkspaceTests: XCTestCase {
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
             result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
         }
-        workspace.checkResolved { result in
+        await workspace.checkResolved { result in
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
             result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
         }
@@ -5320,7 +5320,7 @@ final class WorkspaceTests: XCTestCase {
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
             result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
         }
-        workspace.checkResolved { result in
+        await workspace.checkResolved { result in
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
             result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
         }
@@ -5533,9 +5533,9 @@ final class WorkspaceTests: XCTestCase {
 
             // Load the workspace.
             let observability = ObservabilitySystem.makeForTesting()
-            let workspace = try Workspace(
+            let workspace = try await Workspace.create(
                 forRootPackage: packagePath,
-                customHostToolchain: UserToolchain.default
+                customHostToolchain: try await UserToolchain.default()
             )
 
             // From here the API should be simple and straightforward:
@@ -5978,7 +5978,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // Edit foo.
-        let fooPath = try workspace.getOrCreateWorkspace().location.editsDirectory.appending("Foo")
+        let fooPath = try await workspace.getOrCreateWorkspace().location.editsDirectory.appending("Foo")
         await workspace.checkEdit(packageIdentity: "Foo") { diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
         }
@@ -8098,7 +8098,7 @@ final class WorkspaceTests: XCTestCase {
         let binaryArtifactsManager = try Workspace.BinaryArtifactsManager(
             fileSystem: fs,
             authorizationProvider: .none,
-            hostToolchain: UserToolchain.mockHostToolchain(fs),
+            hostToolchain: try await UserToolchain.mockHostToolchain(fs),
             checksumAlgorithm: checksumAlgorithm,
             cachePath: .none,
             customHTTPClient: .none,
@@ -9291,7 +9291,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let wks = try workspace.getOrCreateWorkspace()
+        let wks = try await workspace.getOrCreateWorkspace()
         _ = try await wks.loadRootPackage(
             at: workspace.rootsDir.appending("Root"),
             observabilityScope: observability.topScope
@@ -9304,7 +9304,7 @@ final class WorkspaceTests: XCTestCase {
         let fs = InMemoryFileSystem()
         try fs.createMockToolchain()
         let downloads = ThreadSafeKeyValueStore<URL, AbsolutePath>()
-        let hostToolchain = try UserToolchain.mockHostToolchain(fs)
+        let hostToolchain = try await UserToolchain.mockHostToolchain(fs)
 
         let ariFiles = [
             """
@@ -9587,7 +9587,7 @@ final class WorkspaceTests: XCTestCase {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         try fs.createMockToolchain()
-        let hostToolchain = try UserToolchain.mockHostToolchain(fs)
+        let hostToolchain = try await UserToolchain.mockHostToolchain(fs)
 
         let ari = """
         {
@@ -9703,7 +9703,7 @@ final class WorkspaceTests: XCTestCase {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         try fs.createMockToolchain()
-        let hostToolchain = try UserToolchain.mockHostToolchain(fs)
+        let hostToolchain = try await UserToolchain.mockHostToolchain(fs)
 
         let ari = """
         {
@@ -9810,7 +9810,7 @@ final class WorkspaceTests: XCTestCase {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         try fs.createMockToolchain()
-        let hostToolchain = try UserToolchain.mockHostToolchain(fs)
+        let hostToolchain = try await UserToolchain.mockHostToolchain(fs)
 
         let ari = """
         {
@@ -9884,7 +9884,7 @@ final class WorkspaceTests: XCTestCase {
 
         try fs.createMockToolchain()
 
-        let hostToolchain = try UserToolchain.mockHostToolchain(fs)
+        let hostToolchain = try await UserToolchain.mockHostToolchain(fs)
         let androidTriple = try Triple("x86_64-unknown-linux-android")
         let macTriple = try Triple("arm64-apple-macosx")
         let notHostTriple = hostToolchain.targetTriple == androidTriple ? macTriple : androidTriple
@@ -11913,7 +11913,7 @@ final class WorkspaceTests: XCTestCase {
             )
         }
 
-        workspace.checkResolved { result in
+        await workspace.checkResolved { result in
             XCTAssertEqual(
                 result.store.resolvedPackages["foo"]?.packageRef.locationString,
                 "https://github.com/org/foo.git"
@@ -12052,7 +12052,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertEqual(result.managedDependencies["foo"]?.packageRef.locationString, "git@github.com:org/foo.git")
         }
 
-        workspace.checkResolved { result in
+        await workspace.checkResolved { result in
             XCTAssertEqual(
                 result.store.resolvedPackages["foo"]?.packageRef.locationString,
                 "git@github.com:org/foo.git"
@@ -12185,7 +12185,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertEqual(result.managedDependencies["foo"]?.packageRef.locationString, "git@github.com:org/foo.git")
         }
 
-        workspace.checkResolved { result in
+        await workspace.checkResolved { result in
             XCTAssertEqual(
                 result.store.resolvedPackages["foo"]?.packageRef.locationString,
                 "git@github.com:org/foo.git"
@@ -12214,7 +12214,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertEqual(result.managedDependencies["foo"]?.packageRef.locationString, "git@github.com:org/foo.git")
         }
 
-        workspace.checkResolved { result in
+        await workspace.checkResolved { result in
             XCTAssertEqual(
                 result.store.resolvedPackages["foo"]?.packageRef.locationString,
                 "https://github.com/org/foo"
@@ -12305,7 +12305,7 @@ final class WorkspaceTests: XCTestCase {
             )
         }
 
-        workspace.checkResolved { result in
+        await workspace.checkResolved { result in
             XCTAssertEqual(
                 result.store.resolvedPackages["foo"]?.packageRef.locationString,
                 "https://github.com/org/foo.git"
@@ -12327,7 +12327,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertEqual(result.managedDependencies["foo"]?.packageRef.locationString, "git@github.com:org/foo.git")
         }
 
-        workspace.checkResolved { result in
+        await workspace.checkResolved { result in
             XCTAssertEqual(
                 result.store.resolvedPackages["foo"]?.packageRef.locationString,
                 "git@github.com:org/foo.git"
@@ -12465,7 +12465,7 @@ final class WorkspaceTests: XCTestCase {
             )
         }
 
-        workspace.checkResolved { result in
+        await workspace.checkResolved { result in
             XCTAssertEqual(
                 result.store.resolvedPackages["foo"]?.packageRef.locationString,
                 "https://github.com/org/foo.git"
@@ -12493,7 +12493,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertEqual(result.managedDependencies["foo"]?.packageRef.locationString, "git@github.com:org/foo.git")
         }
 
-        workspace.checkResolved { result in
+        await workspace.checkResolved { result in
             XCTAssertEqual(
                 result.store.resolvedPackages["foo"]?.packageRef.locationString,
                 "git@github.com:org/foo.git"
@@ -12708,9 +12708,9 @@ final class WorkspaceTests: XCTestCase {
                 """
             )
 
-            let manifestLoader = try ManifestLoader(toolchain: UserToolchain.default)
+            let manifestLoader = try ManifestLoader(toolchain: try await UserToolchain.default())
             let sandbox = path.appending("ws")
-            let workspace = try Workspace(
+            let workspace = try await Workspace.create(
                 fileSystem: fs,
                 forRootPackage: sandbox,
                 customManifestLoader: manifestLoader,
@@ -12779,12 +12779,12 @@ final class WorkspaceTests: XCTestCase {
             fileSystem: fs
         )
 
-        let customHostToolchain = try UserToolchain.mockHostToolchain(fs)
+        let customHostToolchain = try await UserToolchain.mockHostToolchain(fs)
 
         do {
             // no error
             let delegate = MockWorkspaceDelegate()
-            let workspace = try Workspace(
+            let workspace = try await Workspace.create(
                 fileSystem: fs,
                 environment: .mockEnvironment,
                 forRootPackage: .root,
@@ -12802,7 +12802,7 @@ final class WorkspaceTests: XCTestCase {
         do {
             // actual error
             let delegate = MockWorkspaceDelegate()
-            let workspace = try Workspace(
+            let workspace = try await Workspace.create(
                 fileSystem: fs,
                 environment: .mockEnvironment,
                 forRootPackage: .root,

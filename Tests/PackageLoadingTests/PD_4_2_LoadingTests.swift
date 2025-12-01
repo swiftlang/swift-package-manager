@@ -403,7 +403,7 @@ final class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                 )
             }
             // Check we can load the repository.
-            let manifest = try await manifestLoader.load(
+            let manifest = try await (try await manifestLoader()).load(
                 packagePath: root,
                 packageKind: .root(.root),
                 currentToolsVersion: .v4_2,
@@ -432,7 +432,7 @@ final class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             string: manifestContents
         )
         // Check we can load the manifest.
-        let manifest = try await manifestLoader.load(packagePath: packageDir, packageKind: .root(packageDir), currentToolsVersion: .v4_2, fileSystem: fs, observabilityScope: observability.topScope)
+        let manifest = try await (try await manifestLoader()).load(packagePath: packageDir, packageKind: .root(packageDir), currentToolsVersion: .v4_2, fileSystem: fs, observabilityScope: observability.topScope)
         XCTAssertNoDiagnostics(observability.diagnostics)
         XCTAssertEqual(manifest.displayName, "Trivial")
 
@@ -446,7 +446,7 @@ final class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             string: "// swift-tools-version:4.0\n" + manifestContents
         )
         // Check we can load the manifest.
-        let manifest2 = try await manifestLoader.load(packagePath: packageDir, packageKind: .root(packageDir), currentToolsVersion: .v4_2, fileSystem: fs, observabilityScope: observability.topScope)
+        let manifest2 = try await (try await manifestLoader()).load(packagePath: packageDir, packageKind: .root(packageDir), currentToolsVersion: .v4_2, fileSystem: fs, observabilityScope: observability.topScope)
         XCTAssertNoDiagnostics(observability.diagnostics)
         XCTAssertEqual(manifest2.displayName, "Trivial")
     }
@@ -622,7 +622,7 @@ final class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
 
             let observability = ObservabilitySystem.makeForTesting()
             let delegate = ManifestTestDelegate()
-            let manifestLoader = ManifestLoader(toolchain: try UserToolchain.default, cacheDir: path, delegate: delegate)
+            let manifestLoader = ManifestLoader(toolchain: try await UserToolchain.default(), cacheDir: path, delegate: delegate)
             let identityResolver = DefaultIdentityResolver()
             let dependencyMapper = DefaultDependencyMapper(identityResolver: identityResolver)
 
@@ -682,7 +682,7 @@ final class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             let total = 100
             let observability = ObservabilitySystem.makeForTesting()
             let delegate = ManifestTestDelegate()
-            let manifestLoader = ManifestLoader(toolchain: try UserToolchain.default, cacheDir: path, delegate: delegate)
+            let manifestLoader = ManifestLoader(toolchain: try await UserToolchain.default(), cacheDir: path, delegate: delegate)
             let identityResolver = DefaultIdentityResolver()
             let dependencyMapper = DefaultDependencyMapper(identityResolver: identityResolver)
 

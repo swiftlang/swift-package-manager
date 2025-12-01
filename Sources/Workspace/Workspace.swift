@@ -237,6 +237,144 @@ public class Workspace {
         )
     }
 
+    /// Create a new package workspace.
+    ///
+    /// This initializer is designed for use cases when the workspace needs to be highly customized such as testing.
+    /// In other cases, use the other, more straight forward, initializers
+    ///
+    /// This will automatically load the persisted state for the package, if
+    /// present. If the state isn't present then a default state will be
+    /// constructed.
+    ///
+    /// - Parameters:
+    ///   - fileSystem: The file system to use.
+    ///   - location: Workspace location configuration.
+    ///   - authorizationProvider: Provider of authentication information for outbound network requests.
+    ///   - registryAuthorizationProvider: Provider of authentication information for registry requests.
+    ///   - configuration: Configuration to fine tune the dependency resolution behavior.
+    ///   - cancellator: Cancellation handler
+    ///   - initializationWarningHandler: Initialization warnings handler
+    ///   - customHostToolchain: Custom host toolchain. Used to create a customized ManifestLoader, customizing how
+    /// manifest are loaded.
+    ///   - customManifestLoader: Custom manifest loader. Used to customize how manifest are loaded.
+    ///   - customPackageContainerProvider: Custom package container provider. Used to provide specialized package
+    /// providers.
+    ///   - customRepositoryProvider: Custom repository provider. Used to customize source control access.
+    ///   - delegate: Delegate for workspace events
+    public static func create(
+        fileSystem: any FileSystem,
+        environment: Environment = .current,
+        location: Location,
+        authorizationProvider: (any AuthorizationProvider)? = .none,
+        registryAuthorizationProvider: (any AuthorizationProvider)? = .none,
+        configuration: WorkspaceConfiguration? = .none,
+        cancellator: Cancellator? = .none,
+        initializationWarningHandler: ((String) -> Void)? = .none,
+        // optional customization used for advanced integration situations
+        customHostToolchain: UserToolchain? = .none,
+        customManifestLoader: (any ManifestLoaderProtocol)? = .none,
+        customPackageContainerProvider: (any PackageContainerProvider)? = .none,
+        customRepositoryProvider: (any RepositoryProvider)? = .none,
+        // delegate
+        delegate: Delegate? = .none
+    ) async throws -> Workspace {
+        try await Workspace(
+            fileSystem: fileSystem,
+            environment: environment,
+            location: location,
+            authorizationProvider: authorizationProvider,
+            registryAuthorizationProvider: registryAuthorizationProvider,
+            configuration: configuration,
+            cancellator: cancellator,
+            initializationWarningHandler: initializationWarningHandler,
+            customRegistriesConfiguration: .none,
+            customFingerprints: .none,
+            customSigningEntities: .none,
+            skipSignatureValidation: false,
+            customMirrors: .none,
+            customToolsVersion: .none,
+            customHostToolchain: customHostToolchain,
+            customManifestLoader: customManifestLoader,
+            customPackageContainerProvider: customPackageContainerProvider,
+            customRepositoryManager: .none,
+            customRepositoryProvider: customRepositoryProvider,
+            customRegistryClient: .none,
+            customBinaryArtifactsManager: .none,
+            customPrebuiltsManager: .none,
+            customIdentityResolver: .none,
+            customDependencyMapper: .none,
+            customChecksumAlgorithm: .none,
+            delegate: delegate
+        )
+    }
+    /// A convenience method for creating a workspace for the given root
+    /// package path.
+    ///
+    /// The root package path is used to compute the build directory and other
+    /// default paths.
+    ///
+    /// - Parameters:
+    ///   - fileSystem: The file system to use, defaults to local file system.
+    ///   - forRootPackage: The path for the root package.
+    ///   - authorizationProvider: Provider of authentication information for outbound network requests.
+    ///   - registryAuthorizationProvider: Provider of authentication information for registry requests.
+    ///   - configuration: Configuration to fine tune the dependency resolution behavior.
+    ///   - cancellator: Cancellation handler
+    ///   - initializationWarningHandler: Initialization warnings handler
+    ///   - customManifestLoader: Custom manifest loader. Used to customize how manifest are loaded.
+    ///   - customPackageContainerProvider: Custom package container provider. Used to provide specialized package
+    /// providers.
+    ///   - customRepositoryProvider: Custom repository provider. Used to customize source control access.
+    ///   - delegate: Delegate for workspace events
+    public static func create(
+        fileSystem: FileSystem? = .none,
+        environment: Environment = .current,
+        forRootPackage packagePath: AbsolutePath,
+        authorizationProvider: AuthorizationProvider? = .none,
+        registryAuthorizationProvider: AuthorizationProvider? = .none,
+        configuration: WorkspaceConfiguration? = .none,
+        cancellator: Cancellator? = .none,
+        initializationWarningHandler: ((String) -> Void)? = .none,
+        // optional customization used for advanced integration situations
+        customHostToolchain: UserToolchain? = .none,
+        customManifestLoader: ManifestLoaderProtocol? = .none,
+        customPackageContainerProvider: PackageContainerProvider? = .none,
+        customRepositoryProvider: RepositoryProvider? = .none,
+        // delegate
+        delegate: Delegate? = .none
+    ) async throws -> Workspace {
+        let fileSystem = fileSystem ?? localFileSystem
+        let location = try Location(forRootPackage: packagePath, fileSystem: fileSystem)
+        return try await Workspace(
+            fileSystem: fileSystem,
+            environment: environment,
+            location: location,
+            authorizationProvider: authorizationProvider,
+            registryAuthorizationProvider: registryAuthorizationProvider,
+            configuration: configuration,
+            cancellator: cancellator,
+            initializationWarningHandler: initializationWarningHandler,
+            customRegistriesConfiguration: .none,
+            customFingerprints: .none,
+            customSigningEntities: .none,
+            skipSignatureValidation: false,
+            customMirrors: .none,
+            customToolsVersion: .none,
+            customHostToolchain: customHostToolchain,
+            customManifestLoader: customManifestLoader,
+            customPackageContainerProvider: customPackageContainerProvider,
+            customRepositoryManager: .none,
+            customRepositoryProvider: customRepositoryProvider,
+            customRegistryClient: .none,
+            customBinaryArtifactsManager: .none,
+            customPrebuiltsManager: .none,
+            customIdentityResolver: .none,
+            customDependencyMapper: .none,
+            customChecksumAlgorithm: .none,
+            delegate: delegate
+        )
+    }
+
     /// A convenience method for creating a workspace for the given root
     /// package path.
     ///
@@ -466,6 +604,239 @@ public class Workspace {
             environment: environment,
             fileSystem: fileSystem
         )
+        var manifestLoader = customManifestLoader ?? ManifestLoader(
+            toolchain: hostToolchain,
+            cacheDir: location.sharedManifestsCacheDirectory,
+            importRestrictions: configuration?.manifestImportRestrictions,
+            pruneDependencies: configuration?.pruneDependencies ?? false
+        )
+        // set delegate if not set
+        if let manifestLoader = manifestLoader as? ManifestLoader, manifestLoader.delegate == nil {
+            manifestLoader.delegate = delegate.map(WorkspaceManifestLoaderDelegate.init(workspaceDelegate:))
+        }
+
+        let configuration = configuration ?? .default
+
+        let mirrors = try customMirrors ?? Workspace.Configuration.Mirrors(
+            fileSystem: fileSystem,
+            localMirrorsFile: location.localMirrorsConfigurationFile,
+            sharedMirrorsFile: location.sharedMirrorsConfigurationFile
+        ).mirrors
+
+        let identityResolver = customIdentityResolver ?? DefaultIdentityResolver(
+            locationMapper: mirrors.effective(for:),
+            identityMapper: mirrors.effectiveIdentity(for:)
+        )
+        let dependencyMapper = customDependencyMapper ?? DefaultDependencyMapper(identityResolver: identityResolver)
+        let checksumAlgorithm = customChecksumAlgorithm ?? SHA256()
+
+        let repositoryProvider = customRepositoryProvider ?? GitRepositoryProvider()
+        let repositoryManager = customRepositoryManager ?? RepositoryManager(
+            fileSystem: fileSystem,
+            path: location.repositoriesDirectory,
+            provider: repositoryProvider,
+            cachePath: configuration.sharedDependenciesCacheEnabled ? location.sharedRepositoriesCacheDirectory : .none,
+            initializationWarningHandler: initializationWarningHandler,
+            delegate: delegate.map(WorkspaceRepositoryManagerDelegate.init(workspaceDelegate:))
+        )
+        // register the source control dependencies fetcher with the cancellation handler
+        cancellator?.register(name: "repository fetching", handler: repositoryManager)
+
+        let fingerprints = customFingerprints ?? location.sharedFingerprintsDirectory.map {
+            FilePackageFingerprintStorage(
+                fileSystem: fileSystem,
+                directoryPath: $0
+            )
+        }
+
+        let signingEntities = customSigningEntities ?? location.sharedSigningEntitiesDirectory.map {
+            FilePackageSigningEntityStorage(
+                fileSystem: fileSystem,
+                directoryPath: $0
+            )
+        }
+
+        let registriesConfiguration = try customRegistriesConfiguration ?? Workspace.Configuration.Registries(
+            fileSystem: fileSystem,
+            localRegistriesFile: location.localRegistriesConfigurationFile,
+            sharedRegistriesFile: location.sharedRegistriesConfigurationFile
+        ).configuration
+
+        let registryClient = customRegistryClient ?? RegistryClient(
+            configuration: registriesConfiguration,
+            fingerprintStorage: fingerprints,
+            fingerprintCheckingMode: FingerprintCheckingMode.map(configuration.fingerprintCheckingMode),
+            skipSignatureValidation: skipSignatureValidation,
+            signingEntityStorage: signingEntities,
+            signingEntityCheckingMode: SigningEntityCheckingMode.map(configuration.signingEntityCheckingMode),
+            authorizationProvider: registryAuthorizationProvider,
+            delegate: WorkspaceRegistryClientDelegate(workspaceDelegate: delegate),
+            checksumAlgorithm: checksumAlgorithm
+        )
+
+        // set default registry if not already set by configuration
+        if registryClient.defaultRegistry == nil, let defaultRegistry = configuration.defaultRegistry {
+            registryClient.defaultRegistry = defaultRegistry
+        }
+
+        let registryDownloadsManager = RegistryDownloadsManager(
+            fileSystem: fileSystem,
+            path: location.registryDownloadDirectory,
+            cachePath: configuration.sharedDependenciesCacheEnabled ? location
+                .sharedRegistryDownloadsCacheDirectory : .none,
+            registryClient: registryClient,
+            delegate: delegate.map(WorkspaceRegistryDownloadsManagerDelegate.init(workspaceDelegate:))
+        )
+        // register the registry dependencies downloader with the cancellation handler
+        cancellator?.register(name: "registry downloads", handler: registryDownloadsManager)
+
+        if let transformationMode = RegistryAwareManifestLoader
+            .TransformationMode(configuration.sourceControlToRegistryDependencyTransformation)
+        {
+            manifestLoader = RegistryAwareManifestLoader(
+                underlying: manifestLoader,
+                registryClient: registryClient,
+                transformationMode: transformationMode
+            )
+        }
+
+        let binaryArtifactsManager = BinaryArtifactsManager(
+            fileSystem: fileSystem,
+            authorizationProvider: authorizationProvider,
+            hostToolchain: hostToolchain,
+            checksumAlgorithm: checksumAlgorithm,
+            cachePath: customBinaryArtifactsManager?.useCache == false || !configuration
+                .sharedDependenciesCacheEnabled ? .none : location.sharedBinaryArtifactsCacheDirectory,
+            customHTTPClient: customBinaryArtifactsManager?.httpClient,
+            customArchiver: customBinaryArtifactsManager?.archiver,
+            delegate: delegate.map(WorkspaceBinaryArtifactsManagerDelegate.init(workspaceDelegate:))
+        )
+        // register the binary artifacts downloader with the cancellation handler
+        cancellator?.register(name: "binary artifacts downloads", handler: binaryArtifactsManager)
+
+        var prebuiltsManager: PrebuiltsManager?
+        if configuration.usePrebuilts,
+           let hostPlatform = customPrebuiltsManager?.hostPlatform ?? PrebuiltsManifest.Platform.hostPlatform
+        {
+            let rootCertPath: AbsolutePath?
+            if let path = configuration.prebuiltsRootCertPath {
+                rootCertPath = try AbsolutePath(validating: path)
+            } else {
+                rootCertPath = nil
+            }
+
+            let prebuiltsManagerObj = PrebuiltsManager(
+                fileSystem: fileSystem,
+                hostPlatform: hostPlatform,
+                authorizationProvider: authorizationProvider,
+                scratchPath: location.prebuiltsDirectory,
+                cachePath: customPrebuiltsManager?.useCache == false || !configuration.sharedDependenciesCacheEnabled ? .none : location.sharedPrebuiltsCacheDirectory,
+                customSwiftCompilerVersion: customPrebuiltsManager?.swiftVersion,
+                customHTTPClient: customPrebuiltsManager?.httpClient,
+                customArchiver: customPrebuiltsManager?.archiver,
+                delegate: delegate.map(WorkspacePrebuiltsManagerDelegate.init(workspaceDelegate:)),
+                prebuiltsDownloadURL: configuration.prebuiltsDownloadURL,
+                rootCertPath: customPrebuiltsManager?.rootCertPath ?? rootCertPath
+            )
+            cancellator?.register(name: "package prebuilts downloads", handler: prebuiltsManagerObj)
+            prebuiltsManager = prebuiltsManagerObj
+        } else {
+            prebuiltsManager = nil
+        }
+
+        // initialize
+        let resolvedPackagesStore = LoadableResult {
+            try ResolvedPackagesStore(
+                packageResolvedFile: location.resolvedVersionsFile,
+                workingDirectory: location.scratchDirectory,
+                fileSystem: fileSystem,
+                mirrors: mirrors
+            )
+        }
+
+        let state = WorkspaceState(
+            fileSystem: fileSystem,
+            storageDirectory: location.scratchDirectory,
+            initializationWarningHandler: initializationWarningHandler
+        )
+
+        self.init(
+            fileSystem: fileSystem,
+            configuration: configuration,
+            location: location,
+            delegate: delegate,
+            mirrors: mirrors,
+            hostToolchain: hostToolchain,
+            manifestLoader: manifestLoader,
+            currentToolsVersion: currentToolsVersion,
+            customPackageContainerProvider: customPackageContainerProvider,
+            repositoryManager: repositoryManager,
+            registryClient: registryClient,
+            registryDownloadsManager: registryDownloadsManager,
+            binaryArtifactsManager: binaryArtifactsManager,
+            identityResolver: identityResolver,
+            dependencyMapper: dependencyMapper,
+            fingerprints: fingerprints,
+            resolvedPackagesStore: resolvedPackagesStore,
+            prebuiltsManager: prebuiltsManager,
+            state: state
+        )
+    }
+
+    private convenience init(
+        // core
+        fileSystem: FileSystem,
+        environment: Environment,
+        location: Location,
+        authorizationProvider: AuthorizationProvider?,
+        registryAuthorizationProvider: AuthorizationProvider?,
+        configuration: WorkspaceConfiguration?,
+        cancellator: Cancellator?,
+        initializationWarningHandler: ((String) -> Void)?,
+        // optional customization, primarily designed for testing but also used in some cases by libSwiftPM consumers
+        customRegistriesConfiguration: RegistryConfiguration?,
+        customFingerprints: PackageFingerprintStorage?,
+        customSigningEntities: PackageSigningEntityStorage?,
+        skipSignatureValidation: Bool,
+        customMirrors: DependencyMirrors?,
+        customToolsVersion: ToolsVersion?,
+        customHostToolchain: UserToolchain?,
+        customManifestLoader: ManifestLoaderProtocol?,
+        customPackageContainerProvider: PackageContainerProvider?,
+        customRepositoryManager: RepositoryManager?,
+        customRepositoryProvider: RepositoryProvider?,
+        customRegistryClient: RegistryClient?,
+        customBinaryArtifactsManager: CustomBinaryArtifactsManager?,
+        customPrebuiltsManager: CustomPrebuiltsManager?,
+        customIdentityResolver: IdentityResolver?,
+        customDependencyMapper: DependencyMapper?,
+        customChecksumAlgorithm: HashAlgorithm?,
+        // delegate
+        delegate: Delegate?
+    ) async throws {
+        // we do not store an observabilityScope in the workspace initializer as the workspace is designed to be long
+        // lived.
+        // instead, observabilityScope is passed into the individual workspace methods which are short lived.
+        let initializationWarningHandler = initializationWarningHandler ?? warnToStderr
+        // validate locations, returning a potentially modified one to deal with non-accessible or non-writable shared
+        // locations
+        let location = try location.validatingSharedLocations(
+            fileSystem: fileSystem,
+            warningHandler: initializationWarningHandler
+        )
+
+        let currentToolsVersion = customToolsVersion ?? ToolsVersion.current
+        let hostToolchain: UserToolchain
+        if let customHostToolchain {
+            hostToolchain = customHostToolchain
+        } else {
+            let swiftSDK = try await SwiftSDK.hostSwiftSDKAsync(environment: environment)
+            hostToolchain = try await UserToolchain.create(
+                swiftSDK: swiftSDK,
+                environment: environment,
+                fileSystem: fileSystem
+            )
+        }
         var manifestLoader = customManifestLoader ?? ManifestLoader(
             toolchain: hostToolchain,
             cacheDir: location.sharedManifestsCacheDirectory,

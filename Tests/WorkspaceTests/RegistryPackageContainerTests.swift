@@ -37,7 +37,7 @@ final class RegistryPackageContainerTests: XCTestCase {
         let packageVersion = Version("1.0.0")
         let packagePath = AbsolutePath.root
 
-        func createProvider(_ toolsVersion: ToolsVersion) throws -> PackageContainerProvider {
+        func createProvider(_ toolsVersion: ToolsVersion) async throws -> PackageContainerProvider {
             let registryClient = try makeRegistryClient(
                 packageIdentity: packageIdentity,
                 packageVersion: packageVersion,
@@ -86,19 +86,19 @@ final class RegistryPackageContainerTests: XCTestCase {
                 }
             )
 
-            return try Workspace._init(
+            return try await Workspace._init(
                 fileSystem: fs,
                 environment: .mockEnvironment,
                 location: .init(forRootPackage: packagePath, fileSystem: fs),
                 customToolsVersion: toolsVersion,
-                customHostToolchain: .mockHostToolchain(fs),
+                customHostToolchain: await .mockHostToolchain(fs),
                 customManifestLoader: MockManifestLoader(manifests: [:]),
                 customRegistryClient: registryClient
             )
         }
 
         do {
-            let provider = try createProvider(.v4)
+            let provider = try await createProvider(.v4)
             let ref = PackageReference.registry(identity: packageIdentity)
             let container = try await provider.getContainer(for: ref)
             let versions = try await container.toolsVersionsAppropriateVersionsDescending()
@@ -106,7 +106,7 @@ final class RegistryPackageContainerTests: XCTestCase {
         }
 
         do {
-            let provider = try createProvider(.v4_2)
+            let provider = try await createProvider(.v4_2)
             let ref = PackageReference.registry(identity: packageIdentity)
             let container = try await provider.getContainer(for: ref)
             let versions = try await container.toolsVersionsAppropriateVersionsDescending()
@@ -114,7 +114,7 @@ final class RegistryPackageContainerTests: XCTestCase {
         }
 
         do {
-            let provider = try createProvider(.v5_4)
+            let provider = try await createProvider(.v5_4)
             let ref = PackageReference.registry(identity: packageIdentity)
             let container = try await provider.getContainer(for: ref)
             let versions = try await container.toolsVersionsAppropriateVersionsDescending()
@@ -130,7 +130,7 @@ final class RegistryPackageContainerTests: XCTestCase {
         let packageVersion = Version("1.0.0")
         let packagePath = AbsolutePath.root
 
-        func createProvider(_ toolsVersion: ToolsVersion) throws -> PackageContainerProvider {
+        func createProvider(_ toolsVersion: ToolsVersion) async throws -> PackageContainerProvider {
             let registryClient = try makeRegistryClient(
                 packageIdentity: packageIdentity,
                 packageVersion: packageVersion,
@@ -152,19 +152,19 @@ final class RegistryPackageContainerTests: XCTestCase {
                 }
             )
 
-            return try Workspace._init(
+            return try await Workspace._init(
                 fileSystem: fs,
                 environment: .mockEnvironment,
                 location: .init(forRootPackage: packagePath, fileSystem: fs),
                 customToolsVersion: toolsVersion,
-                customHostToolchain: .mockHostToolchain(fs),
+                customHostToolchain: await .mockHostToolchain(fs),
                 customManifestLoader: MockManifestLoader(manifests: [:]),
                 customRegistryClient: registryClient
             )
         }
 
         do {
-            let provider = try createProvider(.v5_2) // the version of the alternate
+            let provider = try await createProvider(.v5_2) // the version of the alternate
             let ref = PackageReference.registry(identity: packageIdentity)
             let container = try await provider.getContainer(for: ref)
             let version = try await container.toolsVersion(for: packageVersion)
@@ -174,7 +174,7 @@ final class RegistryPackageContainerTests: XCTestCase {
         }
 
         do {
-            let provider = try createProvider(.v5_3) // the version of the alternate
+            let provider = try await createProvider(.v5_3) // the version of the alternate
             let ref = PackageReference.registry(identity: packageIdentity)
             let container = try await provider.getContainer(for: ref)
             let version = try await container.toolsVersion(for: packageVersion)
@@ -184,7 +184,7 @@ final class RegistryPackageContainerTests: XCTestCase {
         }
 
         do {
-            let provider = try createProvider(.v5_4) // the version of the alternate
+            let provider = try await createProvider(.v5_4) // the version of the alternate
             let ref = PackageReference.registry(identity: packageIdentity)
             let container = try await provider.getContainer(for: ref)
             let version = try await container.toolsVersion(for: packageVersion)
@@ -194,7 +194,7 @@ final class RegistryPackageContainerTests: XCTestCase {
         }
 
         do {
-            let provider = try createProvider(.v5_5) // the version of the alternate
+            let provider = try await createProvider(.v5_5) // the version of the alternate
             let ref = PackageReference.registry(identity: packageIdentity)
             let container = try await provider.getContainer(for: ref)
             let version = try await container.toolsVersion(for: packageVersion)
@@ -204,7 +204,7 @@ final class RegistryPackageContainerTests: XCTestCase {
         }
 
         do {
-            let provider = try createProvider(.v5_6) // the version of the alternate
+            let provider = try await createProvider(.v5_6) // the version of the alternate
             let ref = PackageReference.registry(identity: packageIdentity)
             let container = try await provider.getContainer(for: ref)
             let version = try await container.toolsVersion(for: packageVersion)
@@ -224,7 +224,7 @@ final class RegistryPackageContainerTests: XCTestCase {
 
         let v5_3_3 = ToolsVersion(string: "5.3.3")!
 
-        func createProvider(_ toolsVersion: ToolsVersion) throws -> PackageContainerProvider {
+        func createProvider(_ toolsVersion: ToolsVersion) async throws -> PackageContainerProvider {
             let supportedVersions = Set<ToolsVersion>([ToolsVersion.v5, .v5_3, v5_3_3, .v5_4, .v5_5])
             let registryClient = try makeRegistryClient(
                 packageIdentity: packageIdentity,
@@ -251,12 +251,12 @@ final class RegistryPackageContainerTests: XCTestCase {
                 }
             )
 
-            return try Workspace._init(
+            return try await Workspace._init(
                 fileSystem: fs,
                 environment: .mockEnvironment,
                 location: .init(forRootPackage: packagePath, fileSystem: fs),
                 customToolsVersion: toolsVersion,
-                customHostToolchain: .mockHostToolchain(fs),
+                customHostToolchain: await .mockHostToolchain(fs),
                 customManifestLoader: MockManifestLoader(),
                 customRegistryClient: registryClient
             )
@@ -292,7 +292,7 @@ final class RegistryPackageContainerTests: XCTestCase {
         }
 
         do {
-            let provider = try createProvider(.v5_3) // the version of the alternate
+            let provider = try await createProvider(.v5_3) // the version of the alternate
             let ref = PackageReference.registry(identity: packageIdentity)
             let container = try await provider.getContainer(for: ref) as! RegistryPackageContainer
             let manifest = try await container.loadManifest(version: packageVersion)
@@ -300,7 +300,7 @@ final class RegistryPackageContainerTests: XCTestCase {
         }
 
         do {
-            let provider = try createProvider(v5_3_3) // the version of the alternate
+            let provider = try await createProvider(v5_3_3) // the version of the alternate
             let ref = PackageReference.registry(identity: packageIdentity)
             let container = try await provider.getContainer(for: ref) as! RegistryPackageContainer
             let manifest = try await container.loadManifest(version: packageVersion)
@@ -308,7 +308,7 @@ final class RegistryPackageContainerTests: XCTestCase {
         }
 
         do {
-            let provider = try createProvider(.v5_4) // the version of the alternate
+            let provider = try await createProvider(.v5_4) // the version of the alternate
             let ref = PackageReference.registry(identity: packageIdentity)
             let container = try await provider.getContainer(for: ref) as! RegistryPackageContainer
             let manifest = try await container.loadManifest(version: packageVersion)
@@ -316,7 +316,7 @@ final class RegistryPackageContainerTests: XCTestCase {
         }
 
         do {
-            let provider = try createProvider(.v5_5) // the version of the alternate
+            let provider = try await createProvider(.v5_5) // the version of the alternate
             let ref = PackageReference.registry(identity: packageIdentity)
             let container = try await provider.getContainer(for: ref) as! RegistryPackageContainer
             let manifest = try await container.loadManifest(version: packageVersion)
@@ -324,7 +324,7 @@ final class RegistryPackageContainerTests: XCTestCase {
         }
 
         do {
-            let provider = try createProvider(.v5_6) // the version of the alternate
+            let provider = try await createProvider(.v5_6) // the version of the alternate
             let ref = PackageReference.registry(identity: packageIdentity)
             let container = try await provider.getContainer(for: ref) as! RegistryPackageContainer
             let manifest = try await container.loadManifest(version: packageVersion)
@@ -332,7 +332,7 @@ final class RegistryPackageContainerTests: XCTestCase {
         }
 
         do {
-            let provider = try createProvider(.v5) // the version of the alternate
+            let provider = try await createProvider(.v5) // the version of the alternate
             let ref = PackageReference.registry(identity: packageIdentity)
             let container = try await provider.getContainer(for: ref) as! RegistryPackageContainer
             let manifest = try await container.loadManifest(version: packageVersion)

@@ -41,7 +41,7 @@ extension BuildSystemProvider.Kind {
         for config: BuildConfiguration,
         scratchPath: [String] = [".build"],
         triple: String? = nil,
-    ) throws -> [String] {
+    ) async throws -> [String] {
         let suffix: String
 
         #if os(Linux)
@@ -57,7 +57,7 @@ extension BuildSystemProvider.Kind {
             tripleString = triple
         } else {
             do {
-                tripleString = try UserToolchain.default.targetTriple.platformBuildPathComponent
+                tripleString = try await UserToolchain.default().targetTriple.platformBuildPathComponent
             } catch {
                 tripleString = ""
             }

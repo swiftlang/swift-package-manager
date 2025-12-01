@@ -18,7 +18,7 @@ import Workspace
 
 // This is named as `ToolsVersionCommand` instead of `ToolsVersion` to avoid naming conflicts, as the latter already
 // exists to denote the version itself.
-struct ToolsVersionCommand: SwiftCommand {
+struct ToolsVersionCommand: AsyncSwiftCommand {
     static let configuration = CommandConfiguration(
         commandName: "tools-version",
         abstract: "Manipulate tools version of the current package.",
@@ -51,7 +51,7 @@ struct ToolsVersionCommand: SwiftCommand {
         }
     }
 
-    func run(_ swiftCommandState: SwiftCommandState) throws {
+    func run(_ swiftCommandState: SwiftCommandState) async throws {
         let pkg = try swiftCommandState.getPackageRoot()
 
         switch toolsVersionMode {

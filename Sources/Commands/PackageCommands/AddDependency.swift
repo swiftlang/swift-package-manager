@@ -25,7 +25,7 @@ import Workspace
 import class PackageModel.Manifest
 
 extension SwiftPackageCommand {
-    struct AddDependency: SwiftCommand {
+    struct AddDependency: AsyncSwiftCommand {
         package static let configuration = CommandConfiguration(
             abstract: "Add a package dependency to the manifest.",
             helpNames: [.short, .long, .customLong("help", withSingleDash: true)]
@@ -64,8 +64,8 @@ extension SwiftPackageCommand {
             case registry
         }
 
-        func run(_ swiftCommandState: SwiftCommandState) throws {
-            let workspace = try swiftCommandState.getActiveWorkspace()
+        func run(_ swiftCommandState: SwiftCommandState) async throws {
+            let workspace = try await swiftCommandState.getActiveWorkspace()
             guard let packagePath = try swiftCommandState.getWorkspaceRoot().packages.first else {
                 throw StringError("unknown package")
             }

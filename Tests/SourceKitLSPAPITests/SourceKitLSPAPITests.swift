@@ -280,13 +280,13 @@ final class SourceKitLSPAPITests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let destinationBuildParameters = mockBuildParameters(destination: .target)
+        let destinationBuildParameters = try await mockBuildParameters(destination: .target)
         try await withTemporaryDirectory { tmpDir in
             let pluginConfiguration = PluginConfiguration(
                 scriptRunner: DefaultPluginScriptRunner(
                     fileSystem: fs,
                     cacheDir: tmpDir.appending("cache"),
-                    toolchain: try UserToolchain.default
+                    toolchain: try await UserToolchain.default()
                 ),
                 workDirectory: tmpDir.appending("work"),
                 disableSandbox: false
@@ -295,7 +295,7 @@ final class SourceKitLSPAPITests: XCTestCase {
 
             let loaded = try await BuildDescription.load(
                 destinationBuildParameters: destinationBuildParameters,
-                toolsBuildParameters: mockBuildParameters(destination: .host),
+                toolsBuildParameters: try await mockBuildParameters(destination: .host),
                 packageGraph: graph,
                 pluginConfiguration: pluginConfiguration,
                 traitConfiguration: TraitConfiguration(),

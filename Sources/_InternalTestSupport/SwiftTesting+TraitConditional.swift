@@ -34,36 +34,36 @@ extension Trait where Self == Testing.ConditionTrait {
     /// Enabled only if toolchain support swift concurrency
     public static var requiresSwiftConcurrencySupport: Self {
         enabled("skipping because test environment doesn't support concurrency") {
-            (try? UserToolchain.default)?.supportsSwiftConcurrency() != nil
+            (try? await UserToolchain.default())?.supportsSwiftConcurrency() != nil
         }
     }
 
     /// Enabled only if 'llvm-profdata' is available
     public static var requiresLLVMProfData: Self {
         disabled("skipping test because the `llvm-profdata` tool isn't available") {
-            try (try? UserToolchain.default)?.getLLVMProf() == nil
+            try (try? await UserToolchain.default())?.getLLVMProf() == nil
         }
     }
 
     /// Enabled only if 'llvm-cov' is available
     public static var requiresLLVMCov: Self {
         disabled("skipping test because the `llvm-cov` tool isn't available") {
-            try (try? UserToolchain.default)?.getLLVMCov() == nil
+            try (try? await UserToolchain.default())?.getLLVMCov() == nil
         }
     }
 
     /// Enabled only if 'swift-symbolgraph-extract' is available
     public static var requiresSymbolgraphExtract: Self {
         disabled("skipping test because the `swift-symbolgraph-extract` tools isn't available") {
-            try (try? UserToolchain.default)?.getSymbolGraphExtract() == nil
+            try (try? await UserToolchain.default())?.getSymbolGraphExtract() == nil
         }
     }
 
     /// Enabled only is stdlib is supported by the toolchain
     public static var requiresStdlibSupport: Self {
         enabled("skipping because static stdlib is not supported by the toolchain") {
-            let args = try [
-                UserToolchain.default.swiftCompilerPath.pathString,
+            let args = [
+                (try await UserToolchain.default()).swiftCompilerPath.pathString,
                 "-static-stdlib", "-emit-executable", "-o", "/dev/null", "-",
             ]
             let process = AsyncProcess(arguments: args)
@@ -79,14 +79,14 @@ extension Trait where Self == Testing.ConditionTrait {
     /// Enabled if toolsupm suported SDK Dependent Tests
     public static var requiresSDKDependentTestsSupport: Self {
         enabled("skipping because test environment doesn't support this test") {
-            (try? UserToolchain.default)!.supportsSDKDependentTests()
+            (try? await UserToolchain.default())!.supportsSDKDependentTests()
         }
     }
 
     // Enabled if the toolchain has supported features
     public static var supportsSupportedFeatures: Self {
         enabled("skipping because test environment compiler doesn't support `-print-supported-features`") {
-            (try? UserToolchain.default)!.supportsSupportedFeatures
+            (try? await UserToolchain.default())!.supportsSupportedFeatures
         }
     }
 
@@ -122,13 +122,13 @@ extension Trait where Self == Testing.ConditionTrait {
     /// Check for required compiler support
     public static func requiresFrontEndFlags(flags: Set<String>) -> Self {
         enabled("test requires \(flags.joined(separator: ", "))") {
-            try DriverSupport.checkSupportedFrontendFlags(flags: flags, toolchain: UserToolchain.default, fileSystem: localFileSystem)
+            try DriverSupport.checkSupportedFrontendFlags(flags: flags, toolchain: await UserToolchain.default(), fileSystem: localFileSystem)
         }
     }
 
     private static func requiresHostLibrary(lib: String) -> Self {
         enabled("test requires `\(lib)` to exist in the host toolchain") {
-            let libSwiftSyntaxMacrosPath = try UserToolchain.default.hostLibDir.appending("libSwiftSyntaxMacros.dylib")
+            let libSwiftSyntaxMacrosPath = try (await UserToolchain.default()).hostLibDir.appending("libSwiftSyntaxMacros.dylib")
             return localFileSystem.exists(libSwiftSyntaxMacrosPath)
         }
     }

@@ -46,7 +46,7 @@ extension SwiftPackageCommand {
             }
 
             // Get the root package.
-            let workspace = try swiftCommandState.getActiveWorkspace()
+            let workspace = try await swiftCommandState.getActiveWorkspace()
 
             guard let packagePath = try swiftCommandState.getWorkspaceRoot().packages.first else {
                 throw StringError("unknown package")

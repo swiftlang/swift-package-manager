@@ -707,10 +707,11 @@ struct PluginTests {
 
             // Load a workspace from the package.
             let observability = ObservabilitySystem.makeForTesting()
-            let workspace = try Workspace(
+            let defaultToolchain = try await UserToolchain.default()
+            let workspace = try await Workspace.create(
                 fileSystem: localFileSystem,
                 forRootPackage: packageDir,
-                customManifestLoader: ManifestLoader(toolchain: UserToolchain.default),
+                customManifestLoader: ManifestLoader(toolchain: defaultToolchain),
                 delegate: MockWorkspaceDelegate()
             )
 
@@ -805,10 +806,10 @@ struct PluginTests {
                     let scriptRunner = DefaultPluginScriptRunner(
                         fileSystem: localFileSystem,
                         cacheDir: pluginDir.appending("cache"),
-                        toolchain: try UserToolchain.default
+                        toolchain: try await UserToolchain.default()
                     )
 
-                    let toolSearchDirectories = [try UserToolchain.default.swiftCompilerPath.parentDirectory]
+                    let toolSearchDirectories = [try await UserToolchain.default().swiftCompilerPath.parentDirectory]
                     let success = try await withCheckedThrowingContinuation { continuation in
                       plugin.invoke(
                         action: .performCommand(package: package, arguments: arguments),
@@ -912,10 +913,11 @@ struct PluginTests {
         try await fixture(name: "Miscellaneous/Plugins/MySourceGenPlugin") { packageDir in
             // Load a workspace from the package.
             let observability = ObservabilitySystem.makeForTesting()
-            let workspace = try Workspace(
+            let defaultToolchain = try await UserToolchain.default()
+            let workspace = try await Workspace.create(
                 fileSystem: localFileSystem,
                 forRootPackage: packageDir,
-                customManifestLoader: ManifestLoader(toolchain: UserToolchain.default),
+                customManifestLoader: ManifestLoader(toolchain: defaultToolchain),
                 delegate: MockWorkspaceDelegate()
             )
 
@@ -1011,10 +1013,11 @@ struct PluginTests {
 
             // Load a workspace from the package.
             let observability = ObservabilitySystem.makeForTesting()
-            let workspace = try Workspace(
+            let defaultToolchain = try await UserToolchain.default()
+            let workspace = try await Workspace.create(
                 fileSystem: localFileSystem,
                 forRootPackage: packageDir,
-                customManifestLoader: ManifestLoader(toolchain: UserToolchain.default),
+                customManifestLoader: ManifestLoader(toolchain: defaultToolchain),
                 delegate: MockWorkspaceDelegate()
             )
 
@@ -1103,7 +1106,7 @@ struct PluginTests {
             let scriptRunner = DefaultPluginScriptRunner(
                 fileSystem: localFileSystem,
                 cacheDir: pluginDir.appending("cache"),
-                toolchain: try UserToolchain.default
+                toolchain: try await UserToolchain.default()
             )
             let delegate = PluginDelegate(delegateQueue: delegateQueue)
             // Use a task with timeout to test cancellation
@@ -1115,13 +1118,13 @@ struct PluginTests {
                         scriptRunner: scriptRunner,
                         workingDirectory: package.path,
                         outputDirectory: pluginDir.appending("output"),
-                        toolSearchDirectories: [try UserToolchain.default.swiftCompilerPath.parentDirectory],
+                        toolSearchDirectories: [try await UserToolchain.default().swiftCompilerPath.parentDirectory],
                         accessibleTools: [:],
                         writableDirectories: [pluginDir.appending("output")],
                         readOnlyDirectories: [package.path],
                         allowNetworkConnections: [],
                         pkgConfigDirectories: [],
-                        sdkRootPath: try UserToolchain.default.sdkRootPath,
+                        sdkRootPath: try await UserToolchain.default().sdkRootPath,
                         fileSystem: localFileSystem,
                         modulesGraph: packageGraph,
                         observabilityScope: observability.topScope,
@@ -1332,10 +1335,10 @@ struct PluginTests {
 
             // Load a workspace from the package.
             let observability = ObservabilitySystem.makeForTesting()
-            let workspace = try Workspace(
+            let workspace = try await Workspace.create(
                 fileSystem: localFileSystem,
                 location: .init(forRootPackage: packageDir, fileSystem: localFileSystem),
-                customManifestLoader: ManifestLoader(toolchain: UserToolchain.default),
+                customManifestLoader: ManifestLoader(toolchain: try await UserToolchain.default()),
                 delegate: MockWorkspaceDelegate()
             )
 
@@ -1417,7 +1420,7 @@ struct PluginTests {
                 ).stdout.split(whereSeparator: \.isNewline)
 
                 for snippet in snippets {
-                    try expectFileExists(
+                    try await expectFileExists(
                         at: fixturePath.appending(components: data.buildSystem.binPath(for: data.config) + ["\(snippet)"])
                     )
                 }

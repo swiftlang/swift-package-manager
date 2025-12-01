@@ -117,7 +117,7 @@ final class PluginDelegate: PluginInvocationDelegate {
         parameters: PluginInvocationBuildParameters
     ) async throws -> PluginInvocationBuildResult {
         // Configure the build parameters.
-        var buildParameters = try self.swiftCommandState.productsBuildParameters
+        var buildParameters = try await self.swiftCommandState.productsBuildParameters
         switch parameters.configuration {
         case .debug:
             buildParameters.configuration = .debug
@@ -221,8 +221,8 @@ final class PluginDelegate: PluginInvocationDelegate {
     ) async throws -> PluginInvocationTestResult {
         // Build the tests. Ideally we should only build those that match the subset, but we don't have a way to know
         // which ones they are until we've built them and can examine the binaries.
-        let toolchain = try swiftCommandState.getHostToolchain()
-        var toolsBuildParameters = try swiftCommandState.toolsBuildParameters
+        let toolchain = try await swiftCommandState.getHostToolchain()
+        var toolsBuildParameters = try await swiftCommandState.toolsBuildParameters
         toolsBuildParameters.testingParameters.explicitlyEnabledTestability = true
         toolsBuildParameters.testingParameters.enableCodeCoverage = parameters.enableCodeCoverage
         let buildSystem = try await swiftCommandState.createBuildSystem(
@@ -237,7 +237,7 @@ final class PluginDelegate: PluginInvocationDelegate {
         }
 
         // Construct the environment we'll pass down to the tests.
-        let testEnvironment = try TestingSupport.constructTestEnvironment(
+        let testEnvironment = try await TestingSupport.constructTestEnvironment(
             toolchain: toolchain,
             destinationBuildParameters: toolsBuildParameters,
             sanitizers: swiftCommandState.options.build.sanitizers,
@@ -249,7 +249,7 @@ final class PluginDelegate: PluginInvocationDelegate {
         var numFailedTests = 0
         for testProduct in await buildSystem.builtTestProducts {
             // Get the test suites in the bundle. Each is just a container for test cases.
-            let testSuites = try TestingSupport.getTestSuites(
+            let testSuites = try await TestingSupport.getTestSuites(
                 fromTestAt: testProduct.bundlePath,
                 swiftCommandState: swiftCommandState,
                 enableCodeCoverage: parameters.enableCodeCoverage,
@@ -397,8 +397,8 @@ final class PluginDelegate: PluginInvocationDelegate {
         let buildResult = try await buildSystem.build(subset: .target(targetName), buildOutputs: [.symbolGraph(options), .buildPlan])
 
         if let symbolGraph = buildResult.symbolGraph {
-            let path = (try swiftCommandState.productsBuildParameters.buildPath)
-            return PluginInvocationSymbolGraphResult(directoryPath: "\(path)/\(symbolGraph.outputLocationForTarget(targetName, try swiftCommandState.productsBuildParameters).joined(separator:"/"))")
+            let path = (try await swiftCommandState.productsBuildParameters.buildPath)
+            return PluginInvocationSymbolGraphResult(directoryPath: "\(path)/\(symbolGraph.outputLocationForTarget(targetName, try await swiftCommandState.productsBuildParameters).joined(separator:"/"))")
         } else if let buildPlan = buildResult.buildPlan {
             func lookupDescription(
                 for moduleName: String,
@@ -425,7 +425,7 @@ final class PluginDelegate: PluginInvocationDelegate {
             // Configure the symbol graph extractor.
             var symbolGraphExtractor = try SymbolGraphExtract(
                 fileSystem: swiftCommandState.fileSystem,
-                tool: swiftCommandState.getTargetToolchain().getSymbolGraphExtract(),
+                tool: await swiftCommandState.getTargetToolchain().getSymbolGraphExtract(),
                 observabilityScope: swiftCommandState.observabilityScope
             )
             symbolGraphExtractor.skipSynthesizedMembers = !options.includeSynthesized
