@@ -901,6 +901,8 @@ public final class UserToolchain: Toolchain {
             )
         }
 
+        let metalToolchainPath = try? Self.deriveMetalToolchainPath(triple: triple, environment: environment)
+
         self.configuration = .init(
             librarianPath: librarianPath,
             swiftCompilerPath: swiftCompilers.manifest,
@@ -909,7 +911,8 @@ public final class UserToolchain: Toolchain {
             swiftPMLibrariesLocation: swiftPMLibrariesLocation,
             sdkRootPath: self.swiftSDK.pathsConfiguration.sdkRootPath,
             xctestPath: xctestPath,
-            swiftTestingPath: swiftTestingPath
+            swiftTestingPath: swiftTestingPath,
+            metalToolchainPath: metalToolchainPath
         )
 
         self.fileSystem = fileSystem
@@ -1039,6 +1042,35 @@ public final class UserToolchain: Toolchain {
         }
 
         return (platform, info)
+    }
+
+    private static func deriveMetalToolchainPath(
+        triple: Basics.Triple,
+        environment: Environment
+    ) throws -> AbsolutePath? {
+        guard triple.isDarwin() else {
+            return nil
+        }
+
+        let xcodebuildArgs = ["/usr/bin/xcodebuild", "-showComponent", "metalToolchain", "-json"]
+        guard let output = try? AsyncProcess.checkNonZeroExit(arguments: xcodebuildArgs, environment: environment)
+            .spm_chomp() else {
+            return nil
+        }
+
+        guard let json = try? JSON(string: output) else {
+            return nil
+        }
+
+        guard let status = try? json.get("status") as String, status == "installed" else {
+            return nil
+        }
+
+        guard let toolchainSearchPath = try? json.get("toolchainSearchPath") as String else {
+            return nil
+        }
+
+        return try AbsolutePath(validating: toolchainSearchPath).appending(component: "Metal.xctoolchain")
     }
 
     // TODO: We should have some general utility to find tools.
@@ -1222,6 +1254,10 @@ public final class UserToolchain: Toolchain {
 
     public var sdkRootPath: AbsolutePath? {
         configuration.sdkRootPath
+    }
+
+    public var metalToolchainPath: AbsolutePath? {
+        configuration.metalToolchainPath
     }
 
     public var swiftCompilerEnvironment: Environment {

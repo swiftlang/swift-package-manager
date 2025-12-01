@@ -46,6 +46,10 @@ public struct ToolchainConfiguration {
     /// Currently computed only for Windows.
     public var swiftTestingPath: AbsolutePath?
 
+    /// Path to the Metal toolchain.
+    /// This is optional and only available on Darwin platforms.
+    public var metalToolchainPath: AbsolutePath?
+
     /// Creates the set of manifest resources associated with a `swiftc` executable.
     ///
     /// - Parameters:
@@ -56,6 +60,8 @@ public struct ToolchainConfiguration {
     ///     - swiftPMLibrariesRootPath: Custom path for SwiftPM libraries. Computed based on the compiler path by default.
     ///     - sdkRootPath: Optional path to SDK root.
     ///     - xctestPath: Optional path to XCTest.
+    ///     - swiftTestingPath: Optional path to swift-testing.
+    ///     - metalToolchainPath: Optional path to Metal toolchain.
     public init(
         librarianPath: AbsolutePath,
         swiftCompilerPath: AbsolutePath,
@@ -64,7 +70,8 @@ public struct ToolchainConfiguration {
         swiftPMLibrariesLocation: SwiftPMLibrariesLocation? = nil,
         sdkRootPath: AbsolutePath? = nil,
         xctestPath: AbsolutePath? = nil,
-        swiftTestingPath: AbsolutePath? = nil
+        swiftTestingPath: AbsolutePath? = nil,
+        metalToolchainPath: AbsolutePath? = nil
     ) {
         let swiftPMLibrariesLocation = swiftPMLibrariesLocation ?? {
             return .init(swiftCompilerPath: swiftCompilerPath)
@@ -78,6 +85,7 @@ public struct ToolchainConfiguration {
         self.sdkRootPath = sdkRootPath
         self.xctestPath = xctestPath
         self.swiftTestingPath = swiftTestingPath
+        self.metalToolchainPath = metalToolchainPath
     }
 }
 

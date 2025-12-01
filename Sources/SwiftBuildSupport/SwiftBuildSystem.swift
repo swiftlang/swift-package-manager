@@ -885,6 +885,15 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             settings["SWIFT_EXEC"] = buildParameters.toolchain.swiftCompilerPath.pathString
         }
 
+        if let metalToolchainPath = buildParameters.toolchain.metalToolchainPath {
+            let metalToolchainID = try await session.registerToolchain(at: metalToolchainPath.pathString)
+            if let toolChains = settings["TOOLCHAINS"] {
+                settings["TOOLCHAINS"] =  "\(metalToolchainID) " + toolChains
+            } else {
+                settings["TOOLCHAINS"] = "\(metalToolchainID)"
+            }
+        }
+
         // FIXME: workaround for old Xcode installations such as what is in CI
         settings["LM_SKIP_METADATA_EXTRACTION"] = "YES"
         if let symbolGraphOptions {
