@@ -56,7 +56,7 @@ extension SwiftPM {
     }
 
     public var xctestBinaryPath: AbsolutePath {
-        Self.xctestBinaryPath(for: RelativePath("swift-package-manager"))
+        Self.xctestBinaryPath(for: RelativePath(self.executableName))
     }
 
     public static func xctestBinaryPath(for executableName: RelativePath) -> AbsolutePath {
