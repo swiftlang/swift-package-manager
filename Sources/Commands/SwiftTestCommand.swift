@@ -265,28 +265,29 @@ public struct CoverageOptions: ParsableArguments {
     public init() {}
 
     /// If the path of the exported code coverage JSON should be printed.
-    @Flag(
+    @Option(
         name: [
             .customLong("show-codecov-path"),
             .customLong("show-code-coverage-path"),
             .customLong("show-coverage-path"),
         ],
+        parsing: .scanningForValue(default: CoveragePrintPathMode.text),
         help: "Print the path of the exported code coverage files.",
     )
-    var shouldPrintPath: Bool = false
+    var printPathMode: CoveragePrintPathMode?
 
-    /// If the path of the exported code coverage JSON should be printed.
-    @Option(
-        name: [
-            .customLong("show-codecov-path-mode"),
-            .customLong("show-code-coverage-path-mode"),
-            .customLong("show-coverage-path-mode"),
-        ],
-        help: ArgumentHelp(
-            "How to display the paths of the selected code coverage file formats.",
-        )
-    )
-    var printPathMode: CoveragePrintPathMode = .text
+    // /// If the path of the exported code coverage JSON should be printed.
+    // @Option(
+    //     name: [
+    //         .customLong("show-codecov-path-mode"),
+    //         .customLong("show-code-coverage-path-mode"),
+    //         .customLong("show-coverage-path-mode"),
+    //     ],
+    //     help: ArgumentHelp(
+    //         "How to display the paths of the selected code coverage file formats.",
+    //     )
+    // )
+    // var printPathMode: CoveragePrintPathMode = .text
 
     /// Whether to enable code coverage.
     @Flag(
@@ -697,11 +698,11 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             throw ExitCode.failure
         }
 
-        if self.options.coverageOptions.shouldPrintPath {
+        if let printMode = self.options.coverageOptions.printPathMode {
             try await printCodeCovPath(
                 swiftCommandState,
                 formats: uniqueCoverageFormats,
-                printMode: options.coverageOptions.printPathMode,
+                printMode: printMode,
             )
         } else if self.options._deprecated_shouldListTests {
             // backward compatibility 6/2022 for deprecation of flag into a subcommand
