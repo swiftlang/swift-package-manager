@@ -116,7 +116,7 @@ public struct SwiftCommandObservabilityHandler: ObservabilityHandlerProvider {
             }
         }
 
-        func print(message: String) {
+        func printToOutput(message: String) {
             self.queue.async(group: self.sync) {
                 self.write(message)
             }

@@ -57,8 +57,8 @@ public class ObservabilitySystem {
             self.underlying(scope, diagnostic)
         }
 
-        func print(message: String) {
-            self.diagnosticsHandler.print(message: message)
+        func printToOutput(message: String) {
+            self.diagnosticsHandler.printToOutput(message: message)
         }
     }
 
@@ -133,7 +133,7 @@ public final class ObservabilityScope: DiagnosticsEmitterProtocol, Sendable, Cus
     }
 
     public func print(message: String) {
-        self.diagnosticsHandler.print(message: message)
+        self.diagnosticsHandler.printToOutput(message: message)
     }
 
     // DiagnosticsEmitterProtocol
@@ -158,8 +158,8 @@ public final class ObservabilityScope: DiagnosticsEmitterProtocol, Sendable, Cus
             self.underlying.handleDiagnostic(scope: scope, diagnostic: diagnostic)
         }
 
-        public func print(message: String) {
-            self.underlying.print(message: message)
+        public func printToOutput(message: String) {
+            self.underlying.printToOutput(message: message)
         }
 
         var errorsReported: Bool {
@@ -173,7 +173,7 @@ public final class ObservabilityScope: DiagnosticsEmitterProtocol, Sendable, Cus
 public protocol DiagnosticsHandler: Sendable {
     func handleDiagnostic(scope: ObservabilityScope, diagnostic: Diagnostic)
 
-    func print(message: String)
+    func printToOutput(message: String)
 }
 
 /// Helper protocol to share default behavior.

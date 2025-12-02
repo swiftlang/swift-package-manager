@@ -309,6 +309,10 @@ struct ObservabilitySystemTest {
         func handleDiagnostic(scope: ObservabilityScope, diagnostic: Diagnostic) {
             self._diagnostics.append(diagnostic)
         }
+
+        func printToOutput(message: String) {
+            print(message)
+        }
     }
 }
 
