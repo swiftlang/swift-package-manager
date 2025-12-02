@@ -200,6 +200,10 @@ public final class SwiftBuildSystemMessageHandler {
     private let observabilityScope: ObservabilityScope
     private let logLevel: Basics.Diagnostic.Severity
     private var buildState: BuildState = .init()
+    private let enableBacktraces: Bool
+    private let buildDelegate: SPMBuildCore.BuildSystemDelegate?
+
+    public typealias BuildSystemCallback = (SwiftBuildSystem) -> Void
 
     let progressAnimation: ProgressAnimationProtocol
     var serializedDiagnosticPathsByTargetName: [String: [Basics.AbsolutePath]] = [:]
@@ -216,7 +220,9 @@ public final class SwiftBuildSystemMessageHandler {
     public init(
         observabilityScope: ObservabilityScope,
         outputStream: OutputByteStream,
-        logLevel: Basics.Diagnostic.Severity
+        logLevel: Basics.Diagnostic.Severity,
+        enableBacktraces: Bool = false,
+        buildDelegate: SPMBuildCore.BuildSystemDelegate? = nil
     )
     {
         self.observabilityScope = observabilityScope
@@ -225,6 +231,8 @@ public final class SwiftBuildSystemMessageHandler {
             stream: outputStream,
             verbose: self.logLevel.isVerbose
         )
+        self.enableBacktraces = enableBacktraces
+        self.buildDelegate = buildDelegate
     }
 
     struct BuildState {
@@ -518,15 +526,22 @@ public final class SwiftBuildSystemMessageHandler {
         taskIDsEmitted.insert(info.taskID)
     }
 
-    func emitEvent(_ message: SwiftBuild.SwiftBuildMessage, _ buildSystem: SwiftBuildSystem) throws {
-        guard !self.logLevel.isQuiet else { return }
+    public func emitEvent(_ message: SwiftBuild.SwiftBuildMessage) throws -> BuildSystemCallback? {
+        var callback: BuildSystemCallback? = nil
+
+        guard !self.logLevel.isQuiet else { return callback }
+
         switch message {
         case .buildCompleted(let info):
             progressAnimation.complete(success: info.result == .ok)
             if info.result == .cancelled {
-                buildSystem.delegate?.buildSystemDidCancel(buildSystem)
+                callback = { [weak self] buildSystem in
+                    self?.buildDelegate?.buildSystemDidCancel(buildSystem)
+                }
             } else {
-                buildSystem.delegate?.buildSystem(buildSystem, didFinishWithResult: info.result == .ok)
+                callback = { [weak self] buildSystem in
+                    self?.buildDelegate?.buildSystem(buildSystem, didFinishWithResult: info.result == .ok)
+                }
             }
         case .didUpdateProgress(let progressInfo):
             var step = Int(progressInfo.percentComplete)
@@ -537,7 +552,9 @@ public final class SwiftBuildSystemMessageHandler {
                 "\(progressInfo.message)"
             }
             progressAnimation.update(step: step, total: 100, text: message)
-            buildSystem.delegate?.buildSystem(buildSystem, didUpdateTaskProgress: message)
+            callback = { [weak self] buildSystem in
+                self?.buildDelegate?.buildSystem(buildSystem, didUpdateTaskProgress: message)
+            }
         case .diagnostic(let info):
             if info.appendToOutputStream {
                 emitInfoAsDiagnostic(info: info)
@@ -557,16 +574,20 @@ public final class SwiftBuildSystemMessageHandler {
             }
 
             let targetInfo = try buildState.target(for: info)
-            buildSystem.delegate?.buildSystem(buildSystem, willStartCommand: BuildSystemCommand(info, targetInfo: targetInfo))
-            buildSystem.delegate?.buildSystem(buildSystem, didStartCommand: BuildSystemCommand(info, targetInfo: targetInfo))
+            callback = { [weak self] buildSystem in
+                self?.buildDelegate?.buildSystem(buildSystem, willStartCommand: BuildSystemCommand(info, targetInfo: targetInfo))
+                self?.buildDelegate?.buildSystem(buildSystem, didStartCommand: BuildSystemCommand(info, targetInfo: targetInfo))
+            }
         case .taskComplete(let info):
             let startedInfo = try buildState.completed(task: info)
 
             // Handler for failed tasks, if applicable.
-            try handleTaskOutput(info, startedInfo, buildSystem.enableTaskBacktraces)
+            try handleTaskOutput(info, startedInfo, self.enableBacktraces)
 
             let targetInfo = try buildState.target(for: startedInfo)
-            buildSystem.delegate?.buildSystem(buildSystem, didFinishCommand: BuildSystemCommand(startedInfo, targetInfo: targetInfo))
+            callback = { [weak self] buildSystem in
+                self?.buildDelegate?.buildSystem(buildSystem, didFinishCommand: BuildSystemCommand(startedInfo, targetInfo: targetInfo))
+            }
             if let targetName = targetInfo?.targetName {
                 try serializedDiagnosticPathsByTargetName[targetName, default: []].append(contentsOf: startedInfo.serializedDiagnosticsPaths.compactMap {
                     try Basics.AbsolutePath(validating: $0.pathString)
@@ -575,7 +596,7 @@ public final class SwiftBuildSystemMessageHandler {
         case .targetStarted(let info):
             try buildState.started(target: info)
         case .backtraceFrame(let info):
-            if buildSystem.enableTaskBacktraces {
+            if self.enableBacktraces {
                 buildState.collectedBacktraceFrames.add(frame: info)
             }
         case .planningOperationStarted, .planningOperationCompleted, .reportBuildDescription, .reportPathMap, .preparedForIndex, .buildStarted, .preparationComplete, .targetUpToDate, .targetComplete, .taskUpToDate:
@@ -587,6 +608,8 @@ public final class SwiftBuildSystemMessageHandler {
         @unknown default:
             break
         }
+
+        return callback
     }
 }
 
@@ -960,7 +983,9 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             let buildMessageHandler = SwiftBuildSystemMessageHandler(
                 observabilityScope: self.observabilityScope,
                 outputStream: self.outputStream,
-                logLevel: self.logLevel
+                logLevel: self.logLevel,
+                enableBacktraces: self.enableTaskBacktraces,
+                buildDelegate: self.delegate
             )
 
             do {
@@ -1016,7 +1041,9 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                             }
                             buildDescriptionID = SWBBuildDescriptionID(info.buildDescriptionID)
                         }
-                        try buildMessageHandler.emitEvent(event, self)
+                        if let delegateCallback = try buildMessageHandler.emitEvent(event) {
+                            delegateCallback(self)
+                        }
                     }
 
                     await operation.waitForCompletion()
