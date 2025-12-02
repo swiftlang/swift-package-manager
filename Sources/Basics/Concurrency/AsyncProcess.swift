@@ -259,18 +259,16 @@ package final class AsyncProcess {
     /// Typealias for stdout/stderr output closure.
     package typealias OutputClosure = @Sendable ([UInt8]) -> Void
 
-    /// Typealias for logging handling closure
+    /// Typealias for logging handling closure.
     package typealias LoggingHandler = @Sendable (String) -> Void
 
-    nonisolated(unsafe) private static var _loggingHandler: LoggingHandler?
-    private static let loggingHandlerLock = NSLock()
+    /// Global logging handler storage.
+    private static let _loggingHandler = ThreadSafeBox<LoggingHandler?>()
 
     /// Global logging handler. Use with care! preferably use instance level instead of setting one globally.
     package static var loggingHandler: LoggingHandler? {
         get {
-            Self.loggingHandlerLock.withLock {
-                self._loggingHandler
-            }
+            return _loggingHandler.get() ?? nil
         }
         @available(
             *,
@@ -278,9 +276,7 @@ package final class AsyncProcess {
             message: "use instance level `loggingHandler` passed via `init` instead of setting one globally."
         )
         set {
-            Self.loggingHandlerLock.withLock {
-                self._loggingHandler = newValue
-            }
+            _loggingHandler.put(newValue)
         }
     }
 
@@ -331,8 +327,7 @@ package final class AsyncProcess {
     ///
     /// Key: Executable name or path.
     /// Value: Path to the executable, if found.
-    nonisolated(unsafe) private static var validatedExecutablesMap = [String: AbsolutePath?]()
-    private static let validatedExecutablesMapLock = NSLock()
+    private static let validatedExecutablesMap = ThreadSafeKeyValueStore<String, AbsolutePath?>()
 
     /// Create a new process instance.
     ///
@@ -452,14 +447,7 @@ package final class AsyncProcess {
         }
         // This should cover the most common cases, i.e. when the cache is most helpful.
         if workingDirectory == localFileSystem.currentWorkingDirectory {
-            return AsyncProcess.validatedExecutablesMapLock.withLock {
-                if let value = AsyncProcess.validatedExecutablesMap[program] {
-                    return value
-                }
-                let value = lookup()
-                AsyncProcess.validatedExecutablesMap[program] = value
-                return value
-            }
+            return AsyncProcess.validatedExecutablesMap.memoize(program, body: lookup)
         } else {
             return lookup()
         }
