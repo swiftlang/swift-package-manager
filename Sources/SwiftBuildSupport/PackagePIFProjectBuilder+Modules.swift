@@ -809,7 +809,7 @@ extension PackagePIFProjectBuilder {
 
         // Collect linked binaries.
         let linkedPackageBinaries: [PackagePIFBuilder.LinkedPackageBinary] = sourceModule.dependencies.compactMap {
-            PackagePIFBuilder.LinkedPackageBinary(dependency: $0, package: self.package)
+            PackagePIFBuilder.LinkedPackageBinary(dependency: $0)
         }
 
         let productOrModuleType: PackagePIFBuilder.ModuleOrProductType = if desiredModuleType == .dynamicLibrary {
