@@ -50,6 +50,10 @@ public struct ToolchainConfiguration {
     /// This is optional and only available on Darwin platforms.
     public var metalToolchainPath: AbsolutePath?
 
+    /// Metal toolchain identifier
+    /// This is optional and only available on Darwin platforms.
+    public var metalToolchainId: String?
+
     /// Creates the set of manifest resources associated with a `swiftc` executable.
     ///
     /// - Parameters:
@@ -71,7 +75,8 @@ public struct ToolchainConfiguration {
         sdkRootPath: AbsolutePath? = nil,
         xctestPath: AbsolutePath? = nil,
         swiftTestingPath: AbsolutePath? = nil,
-        metalToolchainPath: AbsolutePath? = nil
+        metalToolchainPath: AbsolutePath? = nil,
+        metalToolchainId: String? = nil
     ) {
         let swiftPMLibrariesLocation = swiftPMLibrariesLocation ?? {
             return .init(swiftCompilerPath: swiftCompilerPath)
@@ -86,6 +91,7 @@ public struct ToolchainConfiguration {
         self.xctestPath = xctestPath
         self.swiftTestingPath = swiftTestingPath
         self.metalToolchainPath = metalToolchainPath
+        self.metalToolchainId = metalToolchainId
     }
 }
 

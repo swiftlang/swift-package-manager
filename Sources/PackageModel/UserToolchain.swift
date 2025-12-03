@@ -901,7 +901,7 @@ public final class UserToolchain: Toolchain {
             )
         }
 
-        let metalToolchainPath = try? Self.deriveMetalToolchainPath(triple: triple, environment: environment)
+        let metalToolchain = try? Self.deriveMetalToolchainPath(triple: triple, environment: environment)
 
         self.configuration = .init(
             librarianPath: librarianPath,
@@ -912,7 +912,8 @@ public final class UserToolchain: Toolchain {
             sdkRootPath: self.swiftSDK.pathsConfiguration.sdkRootPath,
             xctestPath: xctestPath,
             swiftTestingPath: swiftTestingPath,
-            metalToolchainPath: metalToolchainPath
+            metalToolchainPath: metalToolchain?.path,
+            metalToolchainId: metalToolchain?.identifier
         )
 
         self.fileSystem = fileSystem
@@ -1047,12 +1048,12 @@ public final class UserToolchain: Toolchain {
     private static func deriveMetalToolchainPath(
         triple: Basics.Triple,
         environment: Environment
-    ) throws -> AbsolutePath? {
+    ) throws -> (path: AbsolutePath, identifier: String)? {
         guard triple.isDarwin() else {
             return nil
         }
 
-        let xcodebuildArgs = ["/usr/bin/xcodebuild", "-showComponent", "metalToolchain", "-json"]
+        let xcodebuildArgs = ["/usr/bin/xcrun", "xcodebuild", "-showComponent", "metalToolchain", "-json"]
         guard let output = try? AsyncProcess.checkNonZeroExit(arguments: xcodebuildArgs, environment: environment)
             .spm_chomp() else {
             return nil
@@ -1066,11 +1067,13 @@ public final class UserToolchain: Toolchain {
             return nil
         }
 
-        guard let toolchainSearchPath = try? json.get("toolchainSearchPath") as String else {
+        guard let toolchainSearchPath = try? json.get("toolchainSearchPath") as String,
+              let toolchainIdentifier = try? json.get("toolchainIdentifier") as String else {
             return nil
         }
 
-        return try AbsolutePath(validating: toolchainSearchPath).appending(component: "Metal.xctoolchain")
+        let path = try AbsolutePath(validating: toolchainSearchPath)
+        return (path: path, identifier: toolchainIdentifier)
     }
 
     // TODO: We should have some general utility to find tools.
@@ -1258,6 +1261,10 @@ public final class UserToolchain: Toolchain {
 
     public var metalToolchainPath: AbsolutePath? {
         configuration.metalToolchainPath
+    }
+
+    public var metalToolchainId: String? {
+        configuration.metalToolchainId
     }
 
     public var swiftCompilerEnvironment: Environment {
