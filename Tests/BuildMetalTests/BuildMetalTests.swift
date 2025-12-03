@@ -19,6 +19,7 @@ import Metal
 @Suite
 struct BuildMetalTests {
 
+#if os(macOS)
     @Test(
         .tags(
             .TestSize.large
@@ -65,5 +66,5 @@ struct BuildMetalTests {
             #expect(library.functionNames.contains("simpleVertexShader"))
         }
     }
-
+#endif
 }

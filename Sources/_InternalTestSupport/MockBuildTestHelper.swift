@@ -20,6 +20,7 @@ import SPMBuildCore
 import TSCUtility
 
 public struct MockToolchain: PackageModel.Toolchain {
+    public let metalToolchainId: String?
     public let metalToolchainPath: Basics.AbsolutePath?
     #if os(Windows)
     public let librarianPath = AbsolutePath("/fake/path/to/link.exe")
