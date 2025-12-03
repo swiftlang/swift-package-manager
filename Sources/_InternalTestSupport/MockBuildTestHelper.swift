@@ -57,6 +57,7 @@ public struct MockToolchain: PackageModel.Toolchain {
     public init(swiftResourcesPath: AbsolutePath? = nil) {
         self.swiftResourcesPath = swiftResourcesPath
         self.metalToolchainPath = nil
+        self.metalToolchainId = nil
     }
 }
 
