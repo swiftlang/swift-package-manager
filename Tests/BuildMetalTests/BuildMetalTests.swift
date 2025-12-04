@@ -21,11 +21,10 @@ struct BuildMetalTests {
 
 #if os(macOS)
     @Test(
-        .tags(
-            .TestSize.large
-            ),
+        .disabled("Require downloadable Metal toolchain"),
+        .tags(.TestSize.large),
         .requireHostOS(.macOS),
-        arguments: getBuildData(for: [.swiftbuild]),
+        arguments: getBuildData(for: [.swiftbuild])
     )
     func simpleLibrary(data: BuildData) async throws {
         let buildSystem = data.buildSystem
