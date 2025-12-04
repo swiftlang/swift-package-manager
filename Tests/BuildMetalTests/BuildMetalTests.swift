@@ -59,7 +59,7 @@ struct BuildMetalTests {
             )
 
             // Verify we can load the metal library
-            let device = MTLCreateSystemDefaultDevice()!
+            let device = try #require(MTLCreateSystemDefaultDevice())
             let library = try device.makeLibrary(URL: URL(fileURLWithPath: metallibPath.pathString))
 
             #expect(library.functionNames.contains("simpleVertexShader"))
