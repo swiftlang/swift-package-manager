@@ -901,7 +901,7 @@ public final class UserToolchain: Toolchain {
             )
         }
 
-        let metalToolchain = try? Self.deriveMetalToolchainPath(triple: triple, environment: environment)
+        let metalToolchain = try? Self.deriveMetalToolchainPath(fileSystem: fileSystem, triple: triple, environment: environment)
 
         self.configuration = .init(
             librarianPath: librarianPath,
@@ -1046,6 +1046,7 @@ public final class UserToolchain: Toolchain {
     }
 
     private static func deriveMetalToolchainPath(
+        fileSystem: FileSystem,
         triple: Basics.Triple,
         environment: Environment
     ) throws -> (path: AbsolutePath, identifier: String)? {
@@ -1053,27 +1054,44 @@ public final class UserToolchain: Toolchain {
             return nil
         }
 
-        let xcodebuildArgs = ["/usr/bin/xcrun", "xcodebuild", "-showComponent", "metalToolchain", "-json"]
-        guard let output = try? AsyncProcess.checkNonZeroExit(arguments: xcodebuildArgs, environment: environment)
-            .spm_chomp() else {
+        let xcrunCmd = ["/usr/bin/xcrun", "--find", "metal"]
+        guard let output = try? AsyncProcess.checkNonZeroExit(arguments: xcrunCmd, environment: environment).spm_chomp() else {
             return nil
         }
 
-        guard let json = try? JSON(string: output) else {
+        guard let metalPath = try? AbsolutePath(validating: output) else {
             return nil
         }
 
-        guard let status = try? json.get("status") as String, status == "installed" else {
+        guard let toolchainPath: AbsolutePath = {
+            var currentPath = metalPath
+            while currentPath != currentPath.parentDirectory {
+                if currentPath.basename == "Metal.xctoolchain" {
+                    return currentPath
+                }
+                currentPath = currentPath.parentDirectory
+            }
+            return nil
+        }() else {
             return nil
         }
 
-        guard let toolchainSearchPath = try? json.get("toolchainSearchPath") as String,
-              let toolchainIdentifier = try? json.get("toolchainIdentifier") as String else {
+        let toolchainInfoPlist = toolchainPath.appending(component: "ToolchainInfo.plist")
+
+        struct MetalToolchainInfo: Decodable {
+            let Identifier: String
+        }
+
+        let toolchainIdentifier: String
+        do {
+            let data: Data = try fileSystem.readFileContents(toolchainInfoPlist)
+            let info = try PropertyListDecoder().decode(MetalToolchainInfo.self, from: data)
+            toolchainIdentifier = info.Identifier
+        } catch {
             return nil
         }
 
-        let path = try AbsolutePath(validating: toolchainSearchPath)
-        return (path: path, identifier: toolchainIdentifier)
+        return (path: toolchainPath.parentDirectory, identifier: toolchainIdentifier)
     }
 
     // TODO: We should have some general utility to find tools.
