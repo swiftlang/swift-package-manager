@@ -3148,6 +3148,39 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
         let identities = try await registryClient.lookupIdentities(scmURL: packageURL)
         #expect([PackageIdentity.plain("mona.LinkedList")] == identities)
     }
+
+    @Test func serverReturns400_throwsInvalidSourceControlURL() async throws {
+        // Test that when the server returns 400 Bad Request, the client throws invalidSourceControlURL
+        let scmURL = packageURL
+
+        let handler: HTTPClient.Implementation = { request, _ in
+            // Server returns 400 Bad Request for invalid URLs
+            let data = #"{"message": "Invalid repository URL"}"#.data(using: .utf8)!
+            return .init(
+                statusCode: 400,
+                headers: .init([
+                    .init(name: "Content-Length", value: "\(data.count)"),
+                    .init(name: "Content-Type", value: "application/json"),
+                    .init(name: "Content-Version", value: "1"),
+                ]),
+                body: data
+            )
+        }
+
+        let httpClient = HTTPClient(implementation: handler)
+        var configuration = RegistryConfiguration()
+        configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
+
+        let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
+        await #expect {
+            try await registryClient.lookupIdentities(scmURL: scmURL)
+        } throws: { error in
+            if case RegistryError.invalidSourceControlURL(scmURL) = error {
+                return true
+            }
+            return false
+        }
+    }
 }
 
 @Suite("Login") struct Login {

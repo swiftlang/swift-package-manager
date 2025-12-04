@@ -38,6 +38,32 @@ public struct SourceControlURL: Codable, Equatable, Hashable, Sendable {
     public var url: URL? {
         return URL(string: self.urlString)
     }
+
+    /// Whether this URL appears to be a valid source control URL.
+    ///
+    /// Valid source control URLs must:
+    /// - Be parseable as a URL (or match SSH-style git URL format)
+    /// - Have a non-empty host
+    /// - Not contain whitespace (which would indicate a malformed URL,
+    ///   e.g., one concatenated with an error message)
+    public var isValid: Bool {
+        // URLs with whitespace are invalid (typically indicates concatenated error messages)
+        guard !self.urlString.contains(where: \.isWhitespace) else {
+            return false
+        }
+
+        // Check for standard URL format (http://, https://, ssh://, etc.)
+        if let url = self.url,
+           let host = url.host,
+           !host.isEmpty {
+            return true
+        }
+
+        // Check for SSH-style git URLs: git@host:path or user@host:path
+        // These don't parse as standard URLs but are valid git URLs
+        let sshPattern = #/^[\w.-]+@[\w.-]+:.+/#
+        return self.urlString.contains(sshPattern)
+    }
 }
 
 extension SourceControlURL: CustomStringConvertible {
