@@ -881,7 +881,8 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
         // If the SwiftPM toolchain corresponds to a toolchain registered with the lower level build system, add it to the toolchain stack.
         // Otherwise, apply overrides for each component of the SwiftPM toolchain.
-        if let toolchainID = try await session.lookupToolchain(at: buildParameters.toolchain.toolchainDir.pathString) {
+        let toolchainID = try await session.lookupToolchain(at: buildParameters.toolchain.toolchainDir.pathString)
+        if let toolchainID {
             settings["TOOLCHAINS"] = "\(toolchainID.rawValue) $(inherited)"
         } else {
             // FIXME: This list of overrides is incomplete.
@@ -892,12 +893,9 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             settings["SWIFT_EXEC"] = buildParameters.toolchain.swiftCompilerPath.pathString
         }
 
-        if let metalToolchainId = buildParameters.toolchain.metalToolchainId {
-            if let toolChains = settings["TOOLCHAINS"] {
-                settings["TOOLCHAINS"] =  "\(metalToolchainId) " + toolChains
-            } else {
-                settings["TOOLCHAINS"] = "\(metalToolchainId)"
-            }
+        let overrideToolchains = [buildParameters.toolchain.metalToolchainId, toolchainID?.rawValue].compactMap { $0 }
+        if !overrideToolchains.isEmpty {
+            settings["TOOLCHAINS"] = (overrideToolchains + ["$(inherited)"]).joined(separator: " ")
         }
 
         // FIXME: workaround for old Xcode installations such as what is in CI
