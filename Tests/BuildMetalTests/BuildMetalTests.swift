@@ -14,7 +14,9 @@ import _InternalTestSupport
 import Testing
 import Basics
 import Foundation
+#if os(macOS)
 import Metal
+#endif
 
 @Suite
 struct BuildMetalTests {
