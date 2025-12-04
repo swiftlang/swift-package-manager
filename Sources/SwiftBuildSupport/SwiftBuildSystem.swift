@@ -882,9 +882,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         // If the SwiftPM toolchain corresponds to a toolchain registered with the lower level build system, add it to the toolchain stack.
         // Otherwise, apply overrides for each component of the SwiftPM toolchain.
         let toolchainID = try await session.lookupToolchain(at: buildParameters.toolchain.toolchainDir.pathString)
-        if let toolchainID {
-            settings["TOOLCHAINS"] = "\(toolchainID.rawValue) $(inherited)"
-        } else {
+        if toolchainID == nil {
             // FIXME: This list of overrides is incomplete.
             // An error with determining the override should not be fatal here.
             settings["CC"] = try? buildParameters.toolchain.getClangCompiler().pathString
