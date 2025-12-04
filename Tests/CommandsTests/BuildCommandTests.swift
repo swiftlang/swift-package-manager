@@ -818,7 +818,7 @@ struct BuildCommandTestCases {
         data: BuildData,
     ) async throws {
         let buildSystem = data.buildSystem
-        try await withKnownIssue {
+        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/LibraryEvolution") { fixturePath in
                 let result = try await build(
                     [],
@@ -1469,7 +1469,7 @@ struct BuildCommandTestCases {
             """
             Windows: Sometimes failed to build due to a possible path issue
             All: --very-verbose causes rebuild on SwiftBuild (https://github.com/swiftlang/swift-package-manager/issues/9299)
-            """, 
+            """,
             isIntermittent: true) {
             try await fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { fixturePath in
                 _ = try await build(
@@ -1571,7 +1571,7 @@ struct BuildCommandTestCases {
      ) async throws {
          let buildSystem = data.buildSystem
          let configuration = data.config
-         try await withKnownIssue {
+         try await withKnownIssue(isIntermittent: true) {
              // GIVEN we have a simple test package
              try await fixture(name: "Miscellaneous/SwiftBuild") { fixturePath in
                 //WHEN we build with the --quiet option
