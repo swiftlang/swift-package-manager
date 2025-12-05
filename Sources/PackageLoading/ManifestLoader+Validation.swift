@@ -60,6 +60,16 @@ public struct ManifestValidator {
             diagnostics.append(.duplicateTargetName(targetName: name))
         }
 
+        let targetsInProducts = Set(self.manifest.products.flatMap { $0.targets })
+
+        let templateTargetsWithoutProducts = self.manifest.targets.filter { target in
+            target.templateInitializationOptions != nil && !targetsInProducts.contains(target.name)
+        }
+
+        for target in templateTargetsWithoutProducts {
+            diagnostics.append(.templateTargetWithoutProduct(targetName: target.name))
+        }
+
         return diagnostics
     }
 
@@ -286,6 +296,10 @@ extension Basics.Diagnostic {
 
     static func emptyProductTargets(productName: String) -> Self {
         .error("product '\(productName)' doesn't reference any targets")
+    }
+
+    static func templateTargetWithoutProduct(targetName: String) -> Self {
+        .error("template target named '\(targetName) must be referenced by a product'")
     }
 
     static func productTargetNotFound(productName: String, targetName: String, validTargets: [String]) -> Self {

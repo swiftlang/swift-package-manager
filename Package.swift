@@ -526,7 +526,8 @@ let package = Package(
                 "SourceControl",
                 "SPMBuildCore",
                 .product(name: "OrderedCollections", package: "swift-collections"),
-            ],
+                .product(name: "ArgumentParser", package: "swift-argument-parser"),
+            ] + swiftSyntaxDependencies(["SwiftIDEUtils", "SwiftParser", "SwiftRefactor"]),
             exclude: ["CMakeLists.txt"],
             swiftSettings: commonExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
@@ -584,7 +585,7 @@ let package = Package(
                 "Workspace",
                 "XCBuildSupport",
                 "SwiftBuildSupport",
-                "SwiftFixIt",
+                "SwiftFixIt"
             ] + swiftSyntaxDependencies(["SwiftIDEUtils", "SwiftRefactor"]),
             exclude: ["CMakeLists.txt", "README.md"],
             swiftSettings: swift6CompatibleExperimentalFeatures + [
@@ -1108,7 +1109,7 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         // utils/update_checkout/update-checkout-config.json
         // They are used to build the official swift toolchain.
         .package(url: "https://github.com/swiftlang/swift-syntax.git", branch: relatedDependenciesBranch),
-        .package(url: "https://github.com/apple/swift-argument-parser.git", revision: "1.5.1"),
+        .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.6.1"),
         .package(url: "https://github.com/apple/swift-crypto.git", revision: "3.12.5"),
         .package(url: "https://github.com/apple/swift-system.git", revision: "1.5.0"),
         .package(url: "https://github.com/apple/swift-collections.git", revision: "1.1.6"),

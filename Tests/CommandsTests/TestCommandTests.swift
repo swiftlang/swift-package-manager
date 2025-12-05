@@ -21,6 +21,35 @@ import _InternalTestSupport
 import TSCTestSupport
 import Testing
 
+// to delete later
+import Basics
+
+import ArgumentParserToolInfo
+@testable import Commands
+@_spi(SwiftPMInternal)
+@testable import CoreCommands
+import Foundation
+@testable import Workspace
+
+import _InternalTestSupport
+@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
+
+import PackageGraph
+import PackageLoading
+import SourceControl
+import SPMBuildCore
+import Testing
+import TSCUtility
+import Workspace
+
+@_spi(PackageRefactor) import SwiftRefactor
+
+import class Basics.AsyncProcess
+import class TSCBasic.BufferedOutputByteStream
+import struct TSCBasic.ByteString
+import enum TSCBasic.JSON
+
+
 @Suite(
     .serialized,  // to limit the number of swift executable running.
     .tags(
@@ -1250,5 +1279,4 @@ struct TestCommandTests {
             ProcessInfo.hostOperatingSystem == .windows
         }
     }
-
 }

@@ -46,6 +46,7 @@ public final class SystemLibraryModule: Module {
             buildSettingsDescription: [],
             pluginUsages: [],
             usesUnsafeFlags: false,
+            template: false, // System libraries are not templates
             implicit: isImplicit
         )
     }
