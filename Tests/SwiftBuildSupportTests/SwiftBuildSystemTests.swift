@@ -269,4 +269,36 @@ struct SwiftBuildSystemTests {
             )
        }
     }
+
+    @Test(
+        arguments: [
+            0,
+            1,
+            2,
+            10,
+        ],
+    )
+    func numberOfWorkersBuildParameterSetsTheExpectedSwiftBuildRequest(
+        expectedNumberOfWorkers: UInt32,
+    ) async throws {
+        try await withTemporaryDirectory { tempDir in
+            try await withInstantiatedSwiftBuildSystem(
+                fromFixture: "PIFBuilder/Simple",
+                buildParameters: mockBuildParameters(
+                    destination: .host,
+                    numberOfWorkers: expectedNumberOfWorkers,
+                ),
+            ) { swiftBuild, session, observabilityScope, buildParameters in
+                let buildRequest = try await swiftBuild.makeBuildRequest(
+                    session: session,
+                    configuredTargets: [],
+                    derivedDataPath: tempDir,
+                    symbolGraphOptions: nil,
+                    setToolchainSetting: false
+                )
+
+                #expect(buildRequest.schedulerLaneWidthOverride == expectedNumberOfWorkers)
+            }
+        }
+    }
 }
