@@ -5,8 +5,8 @@
 // Copyright (c) 2023-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
-// See https://swift.org/LICENSE.txt for license information
-// See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
 
@@ -30,7 +30,7 @@ package struct OpenReadableFile: Sendable {
 
     /// Concrete instance of underlying file storage.
     let fileHandle: Storage
-    
+
     /// Creates a readable ``AsyncSequence`` that can be iterated on to read from this file handle.
     /// - Returns: `ReadableFileStream` value conforming to ``AsyncSequence``, ready for asynchronous iteration.
     package func read() async throws -> ReadableFileStream {
@@ -43,7 +43,7 @@ package struct OpenReadableFile: Sendable {
                     readChunkSize: self.chunkSize
                 )
             )
-            
+
         case .mock(let array):
             return ReadableFileStream.mock(.init(bytes: array, chunkSize: self.chunkSize))
         }
