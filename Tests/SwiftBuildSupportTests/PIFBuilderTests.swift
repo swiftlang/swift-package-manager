@@ -118,6 +118,19 @@ extension SwiftBuildSupport.PIF.Project {
             throw StringError("Multiple targets named \(name) in PIF project")
         }
     }
+
+    fileprivate func buildConfig(named name: String) throws -> SwiftBuild.ProjectModel.BuildConfig {
+        let matchingConfigs = underlying.buildConfigs.filter {
+            $0.name == name
+        }
+        if matchingConfigs.isEmpty {
+            throw StringError("No config named \(name) in PIF project")
+        } else if matchingConfigs.count > 1 {
+            throw StringError("Multiple configs named \(name) in PIF project")
+        } else {
+            return matchingConfigs[0]
+        }
+    }
 }
 
 extension SwiftBuild.ProjectModel.BaseTarget {
@@ -137,6 +150,26 @@ extension SwiftBuild.ProjectModel.BaseTarget {
 
 @Suite
 struct PIFBuilderTests {
+
+    @Test func platformExecutableModuleLibrarySearchPath() async throws {
+        try await withGeneratedPIF(fromFixture: "PIFBuilder/BasicExecutable") { pif, observabilitySystem in
+            let releaseConfig = try pif.workspace
+                .project(named: "BasicExecutable")
+                .target(named: "Executable")
+                .buildConfig(named: "Release")
+
+            for platform in ProjectModel.BuildSettings.Platform.allCases {
+                let search_paths = releaseConfig.impartedBuildProperties.settings[.LIBRARY_SEARCH_PATHS, platform]
+                switch platform {
+                    case .macOS, .macCatalyst, .iOS, .watchOS, .tvOS, .xrOS, .driverKit, .freebsd, .android, .linux, .wasi, .openbsd, ._iOSDevice:
+                         #expect(search_paths == nil, "for platform \(platform)")
+                    case .windows:
+                        #expect(search_paths == ["$(inherited)", "$(TARGET_BUILD_DIR)/ExecutableModules"], "for platform \(platform)")
+                }
+            }
+        }
+    }
+
     @Test func platformConditionBasics() async throws {
         try await withGeneratedPIF(fromFixture: "PIFBuilder/UnknownPlatforms") { pif, observabilitySystem in
             // We should emit a warning to the PIF log about the unknown platform
@@ -169,11 +202,24 @@ struct PIFBuilderTests {
                     case .macOS, .macCatalyst, .iOS, .watchOS, .tvOS, .xrOS, .driverKit, .freebsd:
                          #expect(ld_flags == ["-lc++", "$(inherited)"], "for platform \(platform)")
                     case .android, .linux, .wasi, .openbsd:
-                        #expect(ld_flags == ["-lstdc++", "$(inherited)"], "for platform \(platform)")                    
+                        #expect(ld_flags == ["-lstdc++", "$(inherited)"], "for platform \(platform)")
                     case .windows, ._iOSDevice:
                         #expect(ld_flags == nil, "for platform \(platform)")
                 }
             }
+        }
+    }
+
+    @Test func packageWithInternal() async throws {
+        try await withGeneratedPIF(fromFixture: "PIFBuilder/PackageWithSDKSpecialization") { pif, observabilitySystem in
+            let errors = observabilitySystem.diagnostics.filter { $0.severity == .error }
+            #expect(errors.isEmpty, "Expected no errors during PIF generation, but got: \(errors)")
+
+            let releaseConfig = try pif.workspace
+                .project(named: "PackageWithSDKSpecialization")
+                .buildConfig(named: "Release")
+
+            #expect(releaseConfig.settings[.SPECIALIZATION_SDK_OPTIONS, .macOS] == ["foo"])
         }
     }
 

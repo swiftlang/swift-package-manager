@@ -284,7 +284,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
                     let isBranchRev = sha1RegEx.matchGroups(in: revision).compactMap { $0 }.isEmpty
                     let errorMessage = "could not find " + (isBranchRev ? "a branch named ‘\(revision)’" : "the commit \(revision)")
                     let mainBranchExists = (try? repository.resolveRevision(identifier: "main")) != nil
-                    let suggestion = (revision == "master" && mainBranchExists) ? "did you mean ‘main’?" : nil
+                    let suggestion = (revision == "master" && mainBranchExists) ? "did you mean ‘main’?" : nil          //ignore-unacceptable-language
                     throw GetDependenciesError(
                         repository: self.repositorySpecifier,
                         reference: revision,

@@ -342,7 +342,7 @@ package final class AsyncProcess {
     ///   - workingDirectory: The path to the directory under which to run the process.
     ///   - outputRedirection: How process redirects its output. Default value is .collect.
     ///   - startNewProcessGroup: If true, a new progress group is created for the child making it
-    ///     continue running even if the parent is killed or interrupted. Default value is true.
+    ///     continue running even if the parent is killed or interrupted. Default value is true.    //ignore-unacceptable-language
     ///   - loggingHandler: Handler for logging messages
     ///
     package init(
@@ -370,7 +370,7 @@ package final class AsyncProcess {
     ///   - outputRedirection: How process redirects its output. Default value is .collect.
     ///   - verbose: If true, launch() will print the arguments of the subprocess before launching it.
     ///   - startNewProcessGroup: If true, a new progress group is created for the child making it
-    ///     continue running even if the parent is killed or interrupted. Default value is true.
+    ///     continue running even if the parent is killed or interrupted. Default value is true.    //ignore-unacceptable-language
     ///   - loggingHandler: Handler for logging messages
     package init(
         arguments: [String],
@@ -517,7 +517,8 @@ package final class AsyncProcess {
 
             group.enter()
             stdoutPipe.fileHandleForReading.readabilityHandler = { (fh: FileHandle) in
-                let data = (try? fh.read(upToCount: Int.max)) ?? Data()
+                // 4096 is default pipe buffer size so reading in that size seems most efficient and still get output as it available
+                let data = (try? fh.read(upToCount: 4096)) ?? Data()
                 if data.count == 0 {
                     stdoutPipe.fileHandleForReading.readabilityHandler = nil
                     group.leave()
@@ -532,7 +533,8 @@ package final class AsyncProcess {
 
             group.enter()
             stderrPipe.fileHandleForReading.readabilityHandler = { (fh: FileHandle) in
-                let data = (try? fh.read(upToCount: Int.max)) ?? Data()
+                // 4096 is default pipe buffer size so reading in that size seems most efficient and still get output as it available
+                let data = (try? fh.read(upToCount: 4096)) ?? Data()
                 if data.count == 0 {
                     stderrPipe.fileHandleForReading.readabilityHandler = nil
                     group.leave()
@@ -567,7 +569,9 @@ package final class AsyncProcess {
         return stdinPipe.fileHandleForWriting
         #elseif(!canImport(Darwin) || os(macOS))
         // Initialize the spawn attributes.
-        #if canImport(Darwin) || os(Android) || os(OpenBSD) || os(FreeBSD)
+        #if os(Android)
+        var attributes: posix_spawnattr_t! = nil
+        #elseif canImport(Darwin) || os(OpenBSD) || os(FreeBSD)
         var attributes: posix_spawnattr_t? = nil
         #else
         var attributes = posix_spawnattr_t()
@@ -612,7 +616,9 @@ package final class AsyncProcess {
         posix_spawnattr_setflags(&attributes, Int16(flags))
 
         // Setup the file actions.
-        #if canImport(Darwin) || os(Android) || os(OpenBSD) || os(FreeBSD)
+        #if os(Android)
+        var fileActions: posix_spawn_file_actions_t! = nil
+        #elseif canImport(Darwin) || os(Android) || os(OpenBSD) || os(FreeBSD)
         var fileActions: posix_spawn_file_actions_t? = nil
         #else
         var fileActions = posix_spawn_file_actions_t()
@@ -929,7 +935,7 @@ package final class AsyncProcess {
         }
         #else
         assert(self.launched, "The process is not yet launched.")
-        kill(self.startNewProcessGroup ? -self.processID : self.processID, signal)
+        kill(self.startNewProcessGroup ? -self.processID : self.processID, signal)      //ignore-unacceptable-language
         #endif
     }
 }
