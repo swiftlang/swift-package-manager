@@ -109,14 +109,11 @@ private struct SwiftPMTests {
     }
 
     @Test(
-        .bug(id: 0, "SWBINTTODO: Linux: /lib/x86_64-linux-gnu/Scrt1.o:function _start: error:"),
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8380", "lld-link: error: subsystem must be defined"),
-        .bug(id: 0, "SWBINTTODO: MacOS: Could not find or use auto-linked library 'Testing': library 'Testing' not found"),
         .tags(
             Tag.Feature.Command.Package.Init,
             Tag.Feature.PackageType.Library,
         ),
-        arguments: SupportedBuildSystemOnPlatform,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func packageInitLibrary(_ buildSystemProvider: BuildSystemProvider.Kind) async throws {
         try await withTemporaryDirectory { tmpDir in
@@ -127,28 +124,17 @@ private struct SwiftPMTests {
                 extraArgs: ["init", "--type", "library"],
                 buildSystem: buildSystemProvider,
             )
-            try await withKnownIssue(
-                """
-                Linux: /lib/x86_64-linux-gnu/Scrt1.o:function _start: error: undefined reference to 'main'
-                Windows: lld-link: error: subsystem must be defined
-                MacOS: Could not find or use auto-linked library 'Testing': library 'Testing' not found
-                """,
-                isIntermittent: true
-            ) {
-                try await executeSwiftBuild(
-                    packagePath,
-                    buildSystem: buildSystemProvider,
-                )
-                let testOutput = try await executeSwiftTest(
-                    packagePath,
-                    buildSystem: buildSystemProvider,
-                )
-                // #expect(testOutput.returnCode == .terminated(code: 0))
-                #expect(!testOutput.stderr.contains("error:"))
-
-            } when: {
-                (buildSystemProvider == .swiftbuild) || (buildSystemProvider == .xcode && ProcessInfo.hostOperatingSystem == .macOS)
-            }
+            try await executeSwiftBuild(
+                packagePath,
+                buildSystem: buildSystemProvider,
+                throwIfCommandFails: true
+            )
+            let testOutput = try await executeSwiftTest(
+                packagePath,
+                throwIfCommandFails: true,
+                buildSystem: buildSystemProvider
+            )
+            #expect(!testOutput.stderr.contains("error:"))
         }
     }
 
