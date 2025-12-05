@@ -515,9 +515,9 @@ extension SwiftBuildMessage.LocationContext {
 
     var isGlobal: Bool {
         switch self {
-        case .global, .globalTask:
+        case .global:
             return true
-        case .task, .target:
+        case .task, .target, .globalTask:
             return false
         }
     }
