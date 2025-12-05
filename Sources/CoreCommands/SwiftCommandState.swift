@@ -900,7 +900,7 @@ public final class SwiftCommandState {
     }
 
     static let entitlementsMacOSWarning = """
-    `--disable-get-task-allow-entitlement` and `--disable-get-task-allow-entitlement` only have an effect \
+    `--enable-get-task-allow-entitlement` and `--disable-get-task-allow-entitlement` only have an effect \
     when building on macOS.
     """
 
