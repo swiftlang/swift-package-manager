@@ -119,9 +119,9 @@ extension SwiftBuildSupport.PIF.Project {
         }
     }
 
-    fileprivate func buildConfig(named name: String) throws -> SwiftBuild.ProjectModel.BuildConfig {
+    fileprivate func buildConfig(named name: BuildConfiguration) throws -> SwiftBuild.ProjectModel.BuildConfig {
         let matchingConfigs = underlying.buildConfigs.filter {
-            $0.name == name
+            $0.name == name.pifConfiguration
         }
         if matchingConfigs.isEmpty {
             throw StringError("No config named \(name) in PIF project")
@@ -133,10 +133,17 @@ extension SwiftBuildSupport.PIF.Project {
     }
 }
 
+extension BuildConfiguration {
+    var pifConfiguration: String {
+        switch self {
+            case .debug, .release: self.rawValue.capitalized
+        }
+    }
+}
 extension SwiftBuild.ProjectModel.BaseTarget {
-    fileprivate func buildConfig(named name: String) throws -> SwiftBuild.ProjectModel.BuildConfig {
+    fileprivate func buildConfig(named name: BuildConfiguration) throws -> SwiftBuild.ProjectModel.BuildConfig {
         let matchingConfigs = common.buildConfigs.filter {
-            $0.name == name
+            $0.name == name.pifConfiguration
         }
         if matchingConfigs.isEmpty {
             throw StringError("No config named \(name) in PIF target")
@@ -160,7 +167,7 @@ struct PIFBuilderTests {
             let releaseConfig = try pif.workspace
                 .project(named: "UnknownPlatforms")
                 .target(named: "UnknownPlatforms")
-                .buildConfig(named: "Release")
+                .buildConfig(named: .release)
 
             // The platforms with conditional settings should have those propagated to the PIF.
             #expect(releaseConfig.settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS, .linux] == ["$(inherited)", "BAR"])
@@ -174,7 +181,7 @@ struct PIFBuilderTests {
             let releaseConfig = try pif.workspace
                 .project(named: "CCPackage")
                 .target(id: "PACKAGE-TARGET:CCTarget")
-                .buildConfig(named: "Release")
+                .buildConfig(named: .release)
 
             for platform in ProjectModel.BuildSettings.Platform.allCases {
                 let ld_flags = releaseConfig.impartedBuildProperties.settings[.OTHER_LDFLAGS, platform]
@@ -182,7 +189,7 @@ struct PIFBuilderTests {
                     case .macOS, .macCatalyst, .iOS, .watchOS, .tvOS, .xrOS, .driverKit, .freebsd:
                          #expect(ld_flags == ["-lc++", "$(inherited)"], "for platform \(platform)")
                     case .android, .linux, .wasi, .openbsd:
-                        #expect(ld_flags == ["-lstdc++", "$(inherited)"], "for platform \(platform)")                    
+                        #expect(ld_flags == ["-lstdc++", "$(inherited)"], "for platform \(platform)")
                     case .windows, ._iOSDevice:
                         #expect(ld_flags == nil, "for platform \(platform)")
                 }
@@ -192,12 +199,12 @@ struct PIFBuilderTests {
 
     @Test func packageWithInternal() async throws {
         try await withGeneratedPIF(fromFixture: "PIFBuilder/PackageWithSDKSpecialization") { pif, observabilitySystem in
-            let errors = observabilitySystem.diagnostics.filter { $0.severity == .error }
+            let errors: [Diagnostic] = observabilitySystem.diagnostics.filter { $0.severity == .error }
             #expect(errors.isEmpty, "Expected no errors during PIF generation, but got: \(errors)")
 
             let releaseConfig = try pif.workspace
                 .project(named: "PackageWithSDKSpecialization")
-                .buildConfig(named: "Release")
+                .buildConfig(named: .release)
 
             #expect(releaseConfig.settings[.SPECIALIZATION_SDK_OPTIONS, .macOS] == ["foo"])
         }
@@ -231,6 +238,31 @@ struct PIFBuilderTests {
         }
     }
 
+    @Test(
+        .disabled("TO BE enabled before merge"),
+        .serialized,
+        arguments: BuildConfiguration.allCases,
+    )
+    func executablePrefixIsSetCorrectly(
+        configuration: BuildConfiguration,
+    ) async throws {
+        try await withGeneratedPIF(fromFixture: "PIFBuilder/PackageWithSDKSpecialization") { pif, observabilitySystem in
+            let errors: [Diagnostic] = observabilitySystem.diagnostics.filter { $0.severity == .error }
+            #expect(errors.isEmpty, "Expected no errors during PIF generation, but got: \(errors)")
+
+            let releaseConfig = try pif.workspace
+                .project(named: "PackageWithSDKSpecialization")
+                .buildConfig(named: configuration)
+
+            let actualValue = try #require(releaseConfig.settings[.EXECUTABLE_PREFIX])
+            let actualValueForWindows = try #require(releaseConfig.settings[.EXECUTABLE_PREFIX, .windows])
+            #expect(actualValue == "lib")
+            #expect(actualValueForWindows == "")
+        }
+    }
+
+
+
     @Test func impartedModuleMaps() async throws {
         try await withGeneratedPIF(fromFixture: "CFamilyTargets/ModuleMapGenerationCases") { pif, observabilitySystem in
             #expect(observabilitySystem.diagnostics.filter {
@@ -241,7 +273,7 @@ struct PIFBuilderTests {
                 let releaseConfig = try pif.workspace
                     .project(named: "ModuleMapGenerationCases")
                     .target(named: "UmbrellaHeader")
-                    .buildConfig(named: "Release")
+                    .buildConfig(named: .release)
 
                 #expect(releaseConfig.impartedBuildProperties.settings[.OTHER_CFLAGS] == ["-fmodule-map-file=\(RelativePath("$(GENERATED_MODULEMAP_DIR)").appending(component: "UmbrellaHeader.modulemap").pathString)", "$(inherited)"])
             }
@@ -250,7 +282,7 @@ struct PIFBuilderTests {
                 let releaseConfig = try pif.workspace
                     .project(named: "ModuleMapGenerationCases")
                     .target(named: "UmbrellaDirectoryInclude")
-                    .buildConfig(named: "Release")
+                    .buildConfig(named: .release)
 
                 #expect(releaseConfig.impartedBuildProperties.settings[.OTHER_CFLAGS] == ["-fmodule-map-file=\(RelativePath("$(GENERATED_MODULEMAP_DIR)").appending(component: "UmbrellaDirectoryInclude.modulemap").pathString)", "$(inherited)"])
             }
@@ -259,7 +291,7 @@ struct PIFBuilderTests {
                 let releaseConfig = try pif.workspace
                     .project(named: "ModuleMapGenerationCases")
                     .target(named: "CustomModuleMap")
-                    .buildConfig(named: "Release")
+                    .buildConfig(named: .release)
                 let arg = try #require(releaseConfig.impartedBuildProperties.settings[.OTHER_CFLAGS]?.first)
                 #expect(arg.hasPrefix("-fmodule-map-file") && arg.hasSuffix(RelativePath("CustomModuleMap").appending(components: ["include", "module.modulemap"]).pathString))
             }
@@ -276,7 +308,7 @@ struct PIFBuilderTests {
                 let releaseConfig = try pif.workspace
                     .project(named: "Foo")
                     .target(named: "Foo")
-                    .buildConfig(named: "Release")
+                    .buildConfig(named: .release)
 
                 #expect(releaseConfig.impartedBuildProperties.settings[.LD_RUNPATH_SEARCH_PATHS] == ["$(RPATH_ORIGIN)", "$(inherited)"])
             }
@@ -291,7 +323,7 @@ struct PIFBuilderTests {
                 let releaseConfig = try pif.workspace
                     .project(named: "Foo")
                     .target(named: "Foo")
-                    .buildConfig(named: "Release")
+                    .buildConfig(named: .release)
 
                 #expect(releaseConfig.impartedBuildProperties.settings[.LD_RUNPATH_SEARCH_PATHS] == nil)
             }
