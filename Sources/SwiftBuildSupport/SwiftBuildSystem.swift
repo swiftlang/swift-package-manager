@@ -43,7 +43,7 @@ struct SessionFailedError: Error {
     var diagnostics: [SwiftBuild.SwiftBuildMessage.DiagnosticInfo]
 }
 
-func withService<T>(
+package func withService<T>(
     connectionMode: SWBBuildServiceConnectionMode = .default,
     variant: SWBBuildServiceVariant = .default,
     serviceBundleURL: URL? = nil,
@@ -860,7 +860,11 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         )
     }
 
-    private func makeBuildParameters(session: SWBBuildServiceSession, symbolGraphOptions: BuildOutput.SymbolGraphOptions?) async throws -> SwiftBuild.SWBBuildParameters {
+    internal func makeBuildParameters(
+        session: SWBBuildServiceSession,
+        symbolGraphOptions: BuildOutput.SymbolGraphOptions?,
+        setToolchainSetting: Bool = true,
+    ) async throws -> SwiftBuild.SWBBuildParameters {
         // Generate the run destination parameters.
         let runDestination = makeRunDestination()
 
@@ -872,17 +876,33 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         // Generate a table of any overriding build settings.
         var settings: [String: String] = [:]
 
-        // If the SwiftPM toolchain corresponds to a toolchain registered with the lower level build system, add it to the toolchain stack.
-        // Otherwise, apply overrides for each component of the SwiftPM toolchain.
-        if let toolchainID = try await session.lookupToolchain(at: buildParameters.toolchain.toolchainDir.pathString) {
-            settings["TOOLCHAINS"] = "\(toolchainID.rawValue) $(inherited)"
-        } else {
-            // FIXME: This list of overrides is incomplete.
-            // An error with determining the override should not be fatal here.
-            settings["CC"] = try? buildParameters.toolchain.getClangCompiler().pathString
-            // Always specify the path of the effective Swift compiler, which was determined in the same way as for the
-            // native build system.
-            settings["SWIFT_EXEC"] = buildParameters.toolchain.swiftCompilerPath.pathString
+        if setToolchainSetting {
+            // If the SwiftPM toolchain corresponds to a toolchain registered with the lower level build system, add it to the toolchain stack.
+            // Otherwise, apply overrides for each component of the SwiftPM toolchain.
+            if let toolchainID = try await session.lookupToolchain(at: buildParameters.toolchain.toolchainDir.pathString) {
+                settings["TOOLCHAINS"] = "\(toolchainID.rawValue) $(inherited)"
+            } else {
+                // FIXME: This list of overrides is incomplete.
+                // An error with determining the override should not be fatal here.
+                settings["CC"] = try? buildParameters.toolchain.getClangCompiler().pathString
+                // Always specify the path of the effective Swift compiler, which was determined in the same way as for the
+                // native build system.
+                settings["SWIFT_EXEC"] = buildParameters.toolchain.swiftCompilerPath.pathString
+            }
+        }
+
+        for sanitizer in buildParameters.sanitizers.sanitizers {
+            self.observabilityScope.emit(debug:"Enabling \(sanitizer) sanitizer")
+            switch sanitizer {
+                case .address:
+                    settings["ENABLE_ADDRESS_SANITIZER"] = "YES"
+                case .thread:
+                    settings["ENABLE_THREAD_SANITIZER"] = "YES"
+                case .undefined:
+                    settings["ENABLE_UNDEFINED_BEHAVIOR_SANITIZER"] = "YES"
+                case .fuzzer, .scudo:
+                    throw StringError("\(sanitizer) is not currently supported with this build system.")
+            }
         }
 
         // FIXME: workaround for old Xcode installations such as what is in CI
@@ -985,12 +1005,44 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             settings["GENERATE_TEST_ENTRYPOINTS_FOR_BUNDLES"] = "YES"
         }
 
+        // Set the value of the index store
+        struct IndexStoreSettings {
+            let enableVariableName: String
+            let pathVariable: String
+        }
+
+        let indexStoreSettingNames: [IndexStoreSettings] = [
+            IndexStoreSettings(
+                enableVariableName: "CLANG_INDEX_STORE_ENABLE",
+                pathVariable: "CLANG_INDEX_STORE_PATH",
+            ),
+            IndexStoreSettings(
+                enableVariableName: "SWIFT_INDEX_STORE_ENABLE",
+                pathVariable: "SWIFT_INDEX_STORE_PATH",
+            ),
+        ]
+
+        switch self.buildParameters.indexStoreMode {
+        case .on:
+            for setting in indexStoreSettingNames {
+                settings[setting.enableVariableName] = "YES"
+                settings[setting.pathVariable] = self.buildParameters.indexStore.pathString
+            }
+        case .off:
+            for setting in indexStoreSettingNames {
+                settings[setting.enableVariableName] = "NO"
+            }
+        case .auto:
+            // The settings are handles in the PIF builder
+            break
+        }
+
         func reportConflict(_ a: String, _ b: String) throws -> String {
             throw StringError("Build parameters constructed conflicting settings overrides '\(a)' and '\(b)'")
         }
         try settings.merge(Self.constructDebuggingSettingsOverrides(from: buildParameters.debuggingParameters), uniquingKeysWith: reportConflict)
         try settings.merge(Self.constructDriverSettingsOverrides(from: buildParameters.driverParameters), uniquingKeysWith: reportConflict)
-        try settings.merge(Self.constructLinkerSettingsOverrides(from: buildParameters.linkingParameters), uniquingKeysWith: reportConflict)
+        try settings.merge(self.constructLinkerSettingsOverrides(from: buildParameters.linkingParameters, triple: buildParameters.triple), uniquingKeysWith: reportConflict)
         try settings.merge(Self.constructTestingSettingsOverrides(from: buildParameters.testingParameters), uniquingKeysWith: reportConflict)
         try settings.merge(Self.constructAPIDigesterSettingsOverrides(from: buildParameters.apiDigesterMode), uniquingKeysWith: reportConflict)
 
@@ -1007,9 +1059,19 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         return params
     }
 
-    public func makeBuildRequest(session: SWBBuildServiceSession, configuredTargets: [SWBTargetGUID], derivedDataPath: Basics.AbsolutePath, symbolGraphOptions: BuildOutput.SymbolGraphOptions?) async throws -> SWBBuildRequest {
+    public func makeBuildRequest(
+        session: SWBBuildServiceSession,
+        configuredTargets: [SWBTargetGUID],
+        derivedDataPath: Basics.AbsolutePath,
+        symbolGraphOptions: BuildOutput.SymbolGraphOptions?,
+        setToolchainSetting: Bool = true,
+        ) async throws -> SWBBuildRequest {
         var request = SWBBuildRequest()
-        request.parameters = try await makeBuildParameters(session: session, symbolGraphOptions: symbolGraphOptions)
+        request.parameters = try await makeBuildParameters(
+            session: session,
+            symbolGraphOptions: symbolGraphOptions,
+            setToolchainSetting: setToolchainSetting,
+        )
         request.configuredTargets = configuredTargets.map { SWBConfiguredTarget(guid: $0.rawValue, parameters: request.parameters) }
         request.useParallelTargets = true
         request.useImplicitDependencies = false
@@ -1017,6 +1079,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         request.hideShellScriptEnvironment = true
         request.showNonLoggedProgress = true
         request.recordBuildBacktraces = buildParameters.outputParameters.enableTaskBacktraces
+        request.schedulerLaneWidthOverride = buildParameters.workers
 
         // Override the arena. We need to apply the arena info to both the request-global build
         // parameters as well as the target-specific build parameters, since they may have been
@@ -1077,7 +1140,10 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         return settings
     }
 
-    private static func constructLinkerSettingsOverrides(from parameters: BuildParameters.Linking) -> [String: String] {
+    private func constructLinkerSettingsOverrides(
+        from parameters: BuildParameters.Linking,
+        triple: Triple,
+    ) -> [String: String] {
         var settings: [String: String] = [:]
 
         if parameters.linkerDeadStrip {
@@ -1095,7 +1161,19 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             break
         }
 
-        // TODO: shouldLinkStaticSwiftStdlib
+        if triple.isDarwin() && parameters.shouldLinkStaticSwiftStdlib {
+            self.observabilityScope.emit(.swiftBackDeployWarning)
+        } else {
+            if parameters.shouldLinkStaticSwiftStdlib {
+                settings["SWIFT_FORCE_STATIC_LINK_STDLIB"] = "YES"
+            } else {
+                settings["SWIFT_FORCE_STATIC_LINK_STDLIB"] = "NO"
+            }
+        }
+
+        if let resourcesPath = self.buildParameters.toolchain.swiftResourcesPath(isStatic: parameters.shouldLinkStaticSwiftStdlib) {
+            settings["SWIFT_RESOURCE_DIR"] = resourcesPath.pathString
+        }
 
         return settings
     }
@@ -1223,13 +1301,13 @@ fileprivate extension SwiftBuild.SwiftBuildMessage.DiagnosticInfo.Location {
             case .none:
                 return path
             }
-        
+
         case .buildSettings(let names):
             return names.joined(separator: ", ")
-        
+
         case .buildFiles(let buildFiles, let targetGUID):
             return "\(targetGUID): " + buildFiles.map { String(describing: $0) }.joined(separator: ", ")
-            
+
         case .unknown:
             return nil
         }
