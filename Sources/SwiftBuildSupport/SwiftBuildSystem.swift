@@ -118,7 +118,9 @@ func withSession(
     }
 }
 
-private final class PlanningOperationDelegate: SWBPlanningOperationDelegate, Sendable {
+package final class SwiftBuildSystemPlanningOperationDelegate: SWBPlanningOperationDelegate, SWBIndexingDelegate, Sendable {
+    package init() {}
+    
     public func provisioningTaskInputs(
         targetGUID: String,
         provisioningSourceData: SWBProvisioningTaskInputsSourceData
@@ -182,7 +184,7 @@ private final class PlanningOperationDelegate: SWBPlanningOperationDelegate, Sen
 }
 
 public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
-    private let buildParameters: BuildParameters
+    package let buildParameters: BuildParameters
     private let packageGraphLoader: () async throws -> ModulesGraph
     private let packageManagerResourcesDirectory: Basics.AbsolutePath?
     private let logLevel: Basics.Diagnostic.Severity
@@ -348,7 +350,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             return result
         }
 
-        try await writePIF(buildParameters: buildParameters)
+        try await writePIF(buildParameters: self.buildParameters)
 
         return try await startSWBuildOperation(
             pifTargetName: subset.pifTargetName,
@@ -733,7 +735,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
                     let operation = try await session.createBuildOperation(
                         request: request,
-                        delegate: PlanningOperationDelegate(),
+                        delegate: SwiftBuildSystemPlanningOperationDelegate(),
                         retainBuildDescription: true
                     )
 
@@ -1220,16 +1222,41 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
     }
 
     public func generatePIF(preserveStructure: Bool) async throws -> String {
-        return try await getPIFBuilder().generatePIF(
+        pifBuilder = .init()
+        packageGraph = .init()
+        let pifBuilder = try await getPIFBuilder()
+        let pif = try await pifBuilder.generatePIF(
             preservePIFModelStructure: preserveStructure,
             printPIFManifestGraphviz: buildParameters.printPIFManifestGraphviz,
             buildParameters: buildParameters
         )
+        return pif
     }
 
     public func writePIF(buildParameters: BuildParameters) async throws {
         let pif = try await generatePIF(preserveStructure: false)
         try self.fileSystem.writeIfChanged(path: buildParameters.pifManifest, string: pif)
+    }
+
+    package struct LongLivedBuildServiceSession {
+        package var session: SWBBuildServiceSession
+        package var diagnostics: [SwiftBuildMessage.DiagnosticInfo]
+        package var teardownHandler: () async throws -> Void
+    }
+
+    package func createLongLivedSession(name: String) async throws -> LongLivedBuildServiceSession {
+        let service = try await SWBBuildService(connectionMode: .inProcessStatic(swiftbuildServiceEntryPoint))
+        do {
+            let (session, diagnostics) = try await createSession(service: service, name: name, toolchainPath: buildParameters.toolchain.toolchainDir, packageManagerResourcesDirectory: packageManagerResourcesDirectory)
+            let teardownHandler = {
+                try await session.close()
+                await service.close()
+            }
+            return LongLivedBuildServiceSession(session: session, diagnostics: diagnostics, teardownHandler: teardownHandler)
+        } catch {
+            await service.close()
+            throw error
+        }
     }
 
     public func cancel(deadline: DispatchTime) throws {}
