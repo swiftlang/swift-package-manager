@@ -28,6 +28,13 @@ extension Tag.Platform {
     @Tag public static var FileSystem: Tag
 }
 
+extension Tag.FunctionalArea {
+    @Tag public static var PIF: Tag
+    @Tag public static var IndexMode: Tag
+    @Tag public static var Sanitizer: Tag
+    @Tag public static var LinkSwiftStaticStdlib: Tag
+}
+
 extension Tag.Feature {
     public enum Command {}
     public enum CommandLineArguments {}
@@ -191,9 +198,4 @@ extension Tag.Feature.PackageType {
 extension Tag.Feature.Product {
     @Tag public static var Execute: Tag
     @Tag public static var Link: Tag
-}
-
-extension Tag.FunctionalArea {
-    @Tag public static var PIF: Tag
-    @Tag public static var IndexMode: Tag
 }

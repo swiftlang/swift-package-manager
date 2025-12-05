@@ -113,12 +113,170 @@ func withInstantiatedSwiftBuildSystem(
     }
 }
 
+extension PackageModel.Sanitizer {
+    var hasSwiftBuildSupport: Bool {
+        switch self {
+            case .address, .thread, .undefined: true
+            case .fuzzer, .scudo: false
+        }
+    }
+
+    var swiftBuildSettingName: String? {
+        switch self {
+            case .address: "ENABLE_ADDRESS_SANITIZER"
+            case .thread: "ENABLE_THREAD_SANITIZER"
+            case .undefined: "ENABLE_UNDEFINED_BEHAVIOR_SANITIZER"
+            case .fuzzer, .scudo: nil
+        }
+
+    }
+}
+
 @Suite(
     .tags(
         .TestSize.medium,
     ),
 )
 struct SwiftBuildSystemTests {
+
+    @Suite(
+        .tags(
+            .FunctionalArea.Sanitizer,
+        )
+    )
+    struct SanitizerTests {
+
+        @Test(
+            arguments: PackageModel.Sanitizer.allCases.filter { $0.hasSwiftBuildSupport },
+        )
+        func sanitizersSettingSetCorrectBuildRequest(
+            sanitizer: Sanitizer,
+        ) async throws {
+            try await withInstantiatedSwiftBuildSystem(
+                fromFixture: "PIFBuilder/Simple",
+                buildParameters: mockBuildParameters(
+                    destination: .host,
+                    sanitizers: [sanitizer],
+                ),
+            ) { swiftBuild, session, observabilityScope, buildParameters in
+                let buildSettings: SWBBuildParameters = try await swiftBuild.makeBuildParameters(
+                    session: session,
+                    symbolGraphOptions: nil,
+                    setToolchainSetting: false, // Set this to false as SwiftBuild checks the toolchain path
+                )
+
+                let synthesizedArgs = try #require(buildSettings.overrides.synthesized)
+
+                let swbSettingName = try #require(sanitizer.swiftBuildSettingName)
+                #expect(synthesizedArgs.table[swbSettingName] == "YES")
+            }
+
+        }
+
+        @Test(
+            arguments: PackageModel.Sanitizer.allCases.filter { !$0.hasSwiftBuildSupport },
+        )
+        func unsupportedSanitizersRaisesError(
+            sanitizer: Sanitizer,
+        ) async throws {
+            try await withInstantiatedSwiftBuildSystem(
+                fromFixture: "PIFBuilder/Simple",
+                buildParameters: mockBuildParameters(
+                    destination: .host,
+                    sanitizers: [sanitizer],
+                ),
+            ) { swiftBuild, session, observabilityScope, buildParameters in
+                await #expect(throws: (any Error).self) {
+                    try await swiftBuild.makeBuildParameters(
+                        session: session,
+                        symbolGraphOptions: nil,
+                        setToolchainSetting: false, // Set this to false as SwiftBuild checks the toolchain path
+                    )
+                }
+            }
+        }
+    }
+
+    @Suite(
+        .tags(
+            .FunctionalArea.LinkSwiftStaticStdlib,
+        ),
+    )
+    struct SwiftStaticStdlibSettingTests {
+        @Test
+        func makingBuildParametersRaisesAWarningWhenRunOnDarwin() async throws {
+            // GIVEN we have a Darwin triple
+            let triple = try Triple("x86_64-apple-macosx")
+            // AND we want to statically link Swift sdtlib
+            let shouldLinkStaticSwiftStdlib = true
+            try await withInstantiatedSwiftBuildSystem(
+                fromFixture: "PIFBuilder/Simple",
+                buildParameters: mockBuildParameters(
+                    destination: .host,
+                    shouldLinkStaticSwiftStdlib: shouldLinkStaticSwiftStdlib,
+                    triple: triple,
+                ),
+            ) { swiftBuild, session, observabilityScope, buildParameters in
+                // WHEN we make the build parameter
+                let _: SWBBuildParameters = try await swiftBuild.makeBuildParameters(
+                    session: session,
+                    symbolGraphOptions: nil,
+                    setToolchainSetting: false, // Set this to false as SwiftBuild checks the toolchain path
+                )
+
+                // THEN we expect a warning to be emitted
+                let warnings = observabilityScope.diagnostics.filter {
+                    $0.severity == .warning
+                }
+                #expect(warnings.count == 1)
+
+                let diagnostic = try #require(warnings.first)
+                // AND we expect the diagnostic message, severity and description to be as expected
+                #expect(diagnostic.message == Basics.Diagnostic.swiftBackDeployWarning.message)
+                #expect(diagnostic.severity == Basics.Diagnostic.swiftBackDeployWarning.severity)
+                #expect(diagnostic.description == Basics.Diagnostic.swiftBackDeployWarning.description)
+            }
+        }
+
+        @Test(
+            arguments: [
+                (shouldLinkStaticSwiftStdlib: true, expectedValue: "YES"),
+                (shouldLinkStaticSwiftStdlib: false, expectedValue: "NO"),
+            ]
+        )
+        func swiftStaticStdLibSettingIsSetCorrectly(
+            shouldLinkStaticSwiftStdlib: Bool,
+            expectedValue: String
+        ) async throws {
+            // GIVEN we have a non-darwin triple AND we want statically link Swift sdtlib or not
+            let nonDarwinTriple = try Triple("i686-pc-windows-cygnus")
+            try await withInstantiatedSwiftBuildSystem(
+                fromFixture: "PIFBuilder/Simple",
+                buildParameters: mockBuildParameters(
+                    destination: .host,
+                    shouldLinkStaticSwiftStdlib: shouldLinkStaticSwiftStdlib,
+                    triple: nonDarwinTriple,
+                ),
+            ) { swiftBuild, session, observabilityScope, buildParameters in
+                // WHEN we make the build parameter
+                let buildSettings = try await swiftBuild.makeBuildParameters(
+                    session: session,
+                    symbolGraphOptions: nil,
+                    setToolchainSetting: false, // Set this to false as SwiftBuild checks the toolchain path
+                )
+
+                // THEN we don't expect any warnings to be emitted
+                let warnings = observabilityScope.diagnostics.filter {
+                    $0.severity == .warning
+                }
+                #expect(warnings.isEmpty)
+
+                // AND we expect the build setting to be set correctly
+                let synthesizedArgs = try #require(buildSettings.overrides.synthesized)
+                #expect(synthesizedArgs.table["SWIFT_FORCE_STATIC_LINK_STDLIB"] == expectedValue)
+            }
+        }
+    }
 
     @Test(
         arguments: BuildParameters.IndexStoreMode.allCases,

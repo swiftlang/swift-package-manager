@@ -180,7 +180,7 @@ struct PIFBuilderTests {
             let releaseConfig = try pif.workspace
                 .project(named: "BasicExecutable")
                 .target(named: "Executable")
-                .buildConfig(named: "Release")
+                .buildConfig(named: .release)
 
             for platform in ProjectModel.BuildSettings.Platform.allCases {
                 let search_paths = releaseConfig.impartedBuildProperties.settings[.LIBRARY_SEARCH_PATHS, platform]
