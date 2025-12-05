@@ -28,8 +28,14 @@ public final class SwiftBuildSystemMessageHandler {
     private var buildState: BuildState = .init()
 
     let progressAnimation: ProgressAnimationProtocol
-    // TODO bp key by ID; must map to target name when passed to BuildResult
-    var serializedDiagnosticPathsByTargetName: [String: [Basics.AbsolutePath]] = [:]
+    var serializedDiagnosticPathsByTargetID: [Int: [Basics.AbsolutePath]] = [:]
+    var serializedDiagnosticPathsByTargetName: [String: [Basics.AbsolutePath]] {
+        serializedDiagnosticPathsByTargetID.reduce(into: [:]) { result, entry in
+            if let name = buildState.targetsByID[entry.key]?.targetName {
+                result[name, default: []].append(contentsOf: entry.value)
+            }
+        }
+    }
 
     /// Tracks the task IDs for failed tasks.
     private var failedTasks: [Int] = []
@@ -51,7 +57,7 @@ public final class SwiftBuildSystemMessageHandler {
     }
 
     struct BuildState {
-        private var targetsByID: [Int: SwiftBuild.SwiftBuildMessage.TargetStartedInfo] = [:]
+        internal var targetsByID: [Int: SwiftBuild.SwiftBuildMessage.TargetStartedInfo] = [:]
         private var activeTasks: [Int: SwiftBuild.SwiftBuildMessage.TaskStartedInfo] = [:]
         private var completedTasks: [Int: SwiftBuild.SwiftBuildMessage.TaskCompleteInfo] = [:]
         private var completedTargets: [Int: SwiftBuild.SwiftBuildMessage.TargetCompleteInfo] = [:]
@@ -428,8 +434,8 @@ public final class SwiftBuildSystemMessageHandler {
 
             let targetInfo = try buildState.target(for: startedInfo)
             buildSystem.delegate?.buildSystem(buildSystem, didFinishCommand: BuildSystemCommand(startedInfo, targetInfo: targetInfo))
-            if let targetName = targetInfo?.targetName {
-                try serializedDiagnosticPathsByTargetName[targetName, default: []].append(contentsOf: startedInfo.serializedDiagnosticsPaths.compactMap {
+            if let targetID = targetInfo?.targetID {
+                try serializedDiagnosticPathsByTargetID[targetID, default: []].append(contentsOf: startedInfo.serializedDiagnosticsPaths.compactMap {
                     try Basics.AbsolutePath(validating: $0.pathString)
                 })
             }
