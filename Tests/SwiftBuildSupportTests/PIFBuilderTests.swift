@@ -118,6 +118,19 @@ extension SwiftBuildSupport.PIF.Project {
             throw StringError("Multiple targets named \(name) in PIF project")
         }
     }
+
+    fileprivate func buildConfig(named name: String) throws -> SwiftBuild.ProjectModel.BuildConfig {
+        let matchingConfigs = underlying.buildConfigs.filter {
+            $0.name == name
+        }
+        if matchingConfigs.isEmpty {
+            throw StringError("No config named \(name) in PIF project")
+        } else if matchingConfigs.count > 1 {
+            throw StringError("Multiple configs named \(name) in PIF project")
+        } else {
+            return matchingConfigs[0]
+        }
+    }
 }
 
 extension SwiftBuild.ProjectModel.BaseTarget {
@@ -174,6 +187,19 @@ struct PIFBuilderTests {
                         #expect(ld_flags == nil, "for platform \(platform)")
                 }
             }
+        }
+    }
+
+    @Test func packageWithInternal() async throws {
+        try await withGeneratedPIF(fromFixture: "PIFBuilder/PackageWithSDKSpecialization") { pif, observabilitySystem in
+            let errors = observabilitySystem.diagnostics.filter { $0.severity == .error }
+            #expect(errors.isEmpty, "Expected no errors during PIF generation, but got: \(errors)")
+
+            let releaseConfig = try pif.workspace
+                .project(named: "PackageWithSDKSpecialization")
+                .buildConfig(named: "Release")
+
+            #expect(releaseConfig.settings[.SPECIALIZATION_SDK_OPTIONS, .macOS] == ["foo"])
         }
     }
 

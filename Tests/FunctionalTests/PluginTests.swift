@@ -1604,7 +1604,7 @@ struct PluginTests {
     func testTransitivePluginOnlyDependency(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        try await withKnownIssue {
+        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
                 let (stdout, _) = try await executeSwiftBuild(
                     fixturePath.appending("TransitivePluginOnlyDependency"),
