@@ -225,12 +225,12 @@ paths:
               schema:
                 type: string
                 description: |-
-                  One value for each version-specific package manifest file in the release's source archive, 
+                  One value for each version-specific package manifest file in the release's source archive,
                   whose filename matches the following regular expression pattern:
                   `\APackage@swift-(\d+)(?:\.(\d+))?(?:\.(\d+))?.swift\z`
 
-                  Each link value should have the alternate relation type, a filename attribute set to the version-specific package manifest filename 
-                  (for example, Package@swift-4.swift), and a swift-tools-version attribute set to the Swift tools version specified by the package 
+                  Each link value should have the alternate relation type, a filename attribute set to the version-specific package manifest filename
+                  (for example, Package@swift-4.swift), and a swift-tools-version attribute set to the Swift tools version specified by the package
                   manifest file (for example, 4.0 for a manifest beginning with the comment // swift-tools-version:4.0).
           content:
             text/x-swift:
@@ -277,8 +277,8 @@ paths:
                 type: string
                 example: 'sha-256=oqxUzyX7wa0AKPA/CqS5aDO4O7BaFOUQiSuyfepNyBI='
             Content-Disposition:
-              description: |- 
-                A header set to attachment with a filename parameter equal to the name of the package followed by a hyphen (-), 
+              description: |-
+                A header set to attachment with a filename parameter equal to the name of the package followed by a hyphen (-),
                 the version number, and file extension (for example, "LinkedList-1.1.1.zip")
               schema:
                 type: string
@@ -455,7 +455,7 @@ components:
     PackageLinks:
       schema:
         type: string
-        description: |- 
+        description: |-
           A set of related links.
 
           An example:
@@ -583,13 +583,13 @@ components:
           format: uri
           description: |-
             A URI reference that identifies the problem type.
-            This specification encourages that, when dereferenced, 
+            This specification encourages that, when dereferenced,
             it provides human-readable documentation for the problem type.
           example: 'https://example.com/problem/invalid-request-parameters'
         title:
           type: string
           description: |-
-            A short, human-readable summary of the problem type. 
+            A short, human-readable summary of the problem type.
             It should not change from occurrence to occurrence of the
             problem, except for purposes of localization.
           example: 'Invalid request parameters'
@@ -682,7 +682,7 @@ components:
           type: string
           format: date-time
           description: |-
-            The ISO 8601-formatted datetime string of when the package release was published, as recorded by the registry. 
+            The ISO 8601-formatted datetime string of when the package release was published, as recorded by the registry.
             See related `originalPublicationTime` in metadata.
       required:
         - id

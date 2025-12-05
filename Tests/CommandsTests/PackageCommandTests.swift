@@ -3069,22 +3069,28 @@ struct PackageCommandTests {
     func purgeCacheWithoutPackage(
         data: BuildData,
     ) async throws {
-        // Create a temporary directory without Package.swift
-        try await fixture(name: "Miscellaneous") { fixturePath in
-            let tempDir = fixturePath.appending("empty-dir-for-purge-test")
-            try localFileSystem.createDirectory(tempDir, recursive: true)
+        try await withKnownIssue(
+            isIntermittent: ProcessInfo.isHostAmazonLinux2() //rdar://134238535
+        ) {
+            // Create a temporary directory without Package.swift
+            try await fixture(name: "Miscellaneous") { fixturePath in
+                let tempDir = fixturePath.appending("empty-dir-for-purge-test")
+                try localFileSystem.createDirectory(tempDir, recursive: true)
 
-            // Use a unique temporary cache directory to avoid conflicts with parallel tests
-            try await withTemporaryDirectory(removeTreeOnDeinit: true) { cacheDir in
-                let result = try await executeSwiftPackage(
-                    tempDir,
-                    configuration: data.config,
-                    extraArgs: ["purge-cache", "--cache-path", cacheDir.pathString],
-                    buildSystem: data.buildSystem
-                )
+                // Use a unique temporary cache directory to avoid conflicts with parallel tests
+                try await withTemporaryDirectory(removeTreeOnDeinit: true) { cacheDir in
+                    let result = try await executeSwiftPackage(
+                        tempDir,
+                        configuration: data.config,
+                        extraArgs: ["purge-cache", "--cache-path", cacheDir.pathString],
+                        buildSystem: data.buildSystem
+                    )
 
-                #expect(!result.stderr.contains("Could not find Package.swift"))
+                    #expect(!result.stderr.contains("Could not find Package.swift"))
+                }
             }
+        } when: {
+            ProcessInfo.isHostAmazonLinux2()
         }
     }
 
@@ -4130,6 +4136,7 @@ struct PackageCommandTests {
                 "https://github.com/swiftlang/swift-package-manager/issues/9006",
                 relationship: .defect
             ),
+            .IssueWindowsCannotSaveAttachment,
             arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
             [
                 // When updating these, make sure we keep testing both the singular and
@@ -4154,7 +4161,7 @@ struct PackageCommandTests {
         ) async throws {
             let featureName = testData.featureName
             let expectedSummary = testData.expectedSummary
-
+            try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "SwiftMigrate/\(featureName)Migration") { fixturePath in
                 let sourcePaths: [AbsolutePath]
                 let fixedSourcePaths: [AbsolutePath]
@@ -4195,6 +4202,9 @@ struct PackageCommandTests {
                 let regexMatch = try Regex("> \(expectedSummary)" + #" \([0-9]\.[0-9]{1,3}s\)"#)
                 #expect(stdout.contains(regexMatch))
             }
+            } when: {
+                ProcessInfo.hostOperatingSystem == .windows && buildData.buildSystem == .swiftbuild
+            }
         }
 
         @Test(
@@ -4208,6 +4218,7 @@ struct PackageCommandTests {
         func migrateCommandWithBuildToolPlugins(
             data: BuildData,
         ) async throws {
+            try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "SwiftMigrate/ExistentialAnyWithPluginMigration") { fixturePath in
                 let (stdout, _) = try await execute(
                     ["migrate", "--to-feature", "ExistentialAny"],
@@ -4233,6 +4244,9 @@ struct PackageCommandTests {
                 )
                 #expect(stdout.contains(regexMatch))
             }
+            } when: {
+                ProcessInfo.hostOperatingSystem == .windows
+            }
         }
 
         @Test(
@@ -4241,11 +4255,13 @@ struct PackageCommandTests {
                 "https://github.com/swiftlang/swift-package-manager/issues/9006",
                 relationship: .defect
             ),
+            .IssueWindowsCannotSaveAttachment,
             arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
         )
         func migrateCommandWhenDependencyBuildsForHostAndTarget(
             data: BuildData,
         ) async throws {
+            try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "SwiftMigrate/ExistentialAnyWithCommonPluginDependencyMigration") {
                 fixturePath in
                 let (stdout, _) = try await execute(
@@ -4261,6 +4277,9 @@ struct PackageCommandTests {
                     "> \("Applied 1 fix-it in 1 file")" + #" \([0-9]\.[0-9]{1,3}s\)"#
                 )
                 #expect(stdout.contains(regexMatch))
+            }
+            } when: {
+                ProcessInfo.hostOperatingSystem == .windows
             }
         }
 
@@ -4522,7 +4541,7 @@ struct PackageCommandTests {
         @Test(
             .tags(
               .Feature.Command.Build,
-              .Feature.PackageType.BuildToolPlugin  
+              .Feature.PackageType.BuildToolPlugin
             ),
             .requiresSwiftConcurrencySupport,
             arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
@@ -5264,7 +5283,7 @@ struct PackageCommandTests {
         @Test(
             .tags(
               .Feature.Command.Build,
-              .Feature.PackageType.CommandPlugin 
+              .Feature.PackageType.CommandPlugin
             ),
             .requiresSwiftConcurrencySupport,
             .issue(

@@ -251,7 +251,7 @@ struct BuildPrebuilts: AsyncParsableCommand {
 
         guard let swiftVersion = try computeSwiftVersion() else {
             print("Unable to determine swift compiler version")
-            _exit(1)
+            Foundation.exit(1)
         }
 
         let id = "swift-syntax"
@@ -296,7 +296,7 @@ struct BuildPrebuilts: AsyncParsableCommand {
                     let manifestURL = URL(string: prebuiltsUrl)?.appending(components: id, version, manifestFile)
                     guard let manifestURL else {
                         print("Invalid URL \(prebuiltsUrl)")
-                        _exit(1)
+                        Foundation.exit(1)
                     }
 
                     var headers = HTTPClientHeaders()
