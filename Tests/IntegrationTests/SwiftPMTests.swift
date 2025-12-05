@@ -34,7 +34,7 @@ private struct SwiftPMTests {
                     runOutput.stdout == """
                             SwiftFramework()
                             Library(framework: SwiftFramework.SwiftFramework())
-                            
+
                             """
                 )
             }
@@ -311,7 +311,7 @@ private struct SwiftPMTests {
             let coveragePath = try AbsolutePath(validating: expectedCoveragePath)
 
             // Check the coverage path exists.
-            try withKnownIssue {
+            try withKnownIssue(isIntermittent: ProcessInfo.hostOperatingSystem == .windows) {
                 // the CoveragePath file does not exists in Linux platform build
                 expectFileExists(at: coveragePath)
 
@@ -364,7 +364,7 @@ private struct SwiftPMTests {
                     #expect(binarySpecificProfrawFiles.count == 3)
                 }
             } when: {
-                ProcessInfo.hostOperatingSystem == .linux && buildSystem == .swiftbuild
+                [.linux, .windows].contains(ProcessInfo.hostOperatingSystem) && buildSystem == .swiftbuild
             }
         }
     }

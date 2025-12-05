@@ -941,6 +941,7 @@ public final class SwiftCommandState {
             sanitizers: options.build.enabledSanitizers,
             indexStoreMode: options.build.indexStoreMode.buildParameter,
             prepareForIndexing: prepareForIndexingMode,
+            enableXCFrameworksOnLinux: options.build.enableXCFrameworksOnLinux,
             debuggingParameters: .init(
                 debugInfoFormat: self.options.build.debugInfoFormat.buildParameter,
                 triple: triple,
@@ -1058,6 +1059,7 @@ public final class SwiftCommandState {
                 swiftSDK: swiftSDK,
                 environment: self.environment,
                 customTargetInfo: targetInfo,
+                observabilityScope: self.observabilityScope,
                 fileSystem: self.fileSystem)
         })
     }()
@@ -1074,6 +1076,7 @@ public final class SwiftCommandState {
             swiftSDK: hostSwiftSDK,
             environment: self.environment,
             customTargetInfo: targetInfo,
+            observabilityScope: self.observabilityScope,
             fileSystem: self.fileSystem
         )
     })

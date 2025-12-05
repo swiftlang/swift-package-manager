@@ -9,7 +9,7 @@
     "id": 1,
     "node_id": "MDc6UmVsZWFzZTE=",
     "tag_name": "v2.0.0",
-    "target_commitish": "master",
+    "target_commitish": "main",
     "name": "2.0.0",
     "body": "Description of the release",
     "draft": false,
@@ -72,7 +72,7 @@
         }
       }
     ]
-  },  
+  },
   {
     "url": "https://api.github.com/repos/octocat/Hello-World/releases/1",
     "html_url": "https://github.com/octocat/Hello-World/releases/v1.0.0",
@@ -83,7 +83,7 @@
     "id": 1,
     "node_id": "MDc6UmVsZWFzZTE=",
     "tag_name": "1.0.0",
-    "target_commitish": "master",
+    "target_commitish": "main",
     "name": "1.0.0",
     "body": "Description of the release",
     "draft": false,

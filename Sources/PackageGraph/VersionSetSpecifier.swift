@@ -367,7 +367,7 @@ extension VersionSetSpecifier {
             return self.difference(.ranges([r]))
 
         case (.ranges(let lhs), .ranges(let rhs)):
-            // Based on the difference method in https://github.com/dart-lang/pub_semver/blob/master/lib/src/version_union.dart
+            // Based on the difference method in https://github.com/dart-lang/pub_semver/blob/master/lib/src/version_union.dart     //ignore-unacceptable-language
             var lhsItr = lhs.makeIterator()
             var rhsItr = rhs.makeIterator()
 

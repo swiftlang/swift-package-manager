@@ -162,6 +162,12 @@ struct TestCommandOptions: ParsableArguments {
             help: "Number of tests to execute in parallel.")
     var numberOfWorkers: Int?
 
+    /// Width of task group used by Swift Testing.
+    ///
+    /// This argument is consumed by Swift Testing and is passed through verbatim by SwiftPM.
+    @Option(help: .hidden)
+    var experimentalMaximumParallelizationWidth: Int? = nil
+
     /// List the tests and exit.
     @Flag(name: [.customLong("list-tests"), .customShort("l")],
           help: "Lists test methods in specifier format.")

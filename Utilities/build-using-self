@@ -236,6 +236,7 @@ def main() -> None:
                     *global_args,
                     "--configuration",
                     args.config,
+                    "--build-tests",
                     *ignore_args,
                     *args.additional_build_args.split(" ")
                 ]
@@ -252,6 +253,7 @@ def main() -> None:
                     *global_args,
                     "--configuration",
                     args.config,
+                    "--vv",
                     "--parallel",
                     "--scratch-path",
                     ".test",

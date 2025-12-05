@@ -116,9 +116,9 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
                 XCTAssertEqual(metadata.authors, [PackageCollectionsModel.Package.Author(username: "octocat",
                                                                                          url: "https://api.github.com/users/octocat",
                                                                                          service: .init(name: "GitHub"))])
-                XCTAssertEqual(metadata.readmeURL, "https://raw.githubusercontent.com/octokit/octokit.rb/master/README.md")
+                XCTAssertEqual(metadata.readmeURL, "https://raw.githubusercontent.com/octokit/octokit.rb/main/README.md")
                 XCTAssertEqual(metadata.license?.type, PackageCollectionsModel.LicenseType.MIT)
-                XCTAssertEqual(metadata.license?.url, "https://raw.githubusercontent.com/benbalter/gman/master/LICENSE?lab=true")
+                XCTAssertEqual(metadata.license?.url, "https://raw.githubusercontent.com/benbalter/gman/main/LICENSE?lab=true")
                 XCTAssertEqual(metadata.watchersCount, 80)
                 XCTAssertEqual(metadata.languages, ["Swift", "Shell", "C"])
             }

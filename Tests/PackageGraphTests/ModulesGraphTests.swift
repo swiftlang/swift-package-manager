@@ -1789,7 +1789,7 @@ struct ModulesGraphTests {
                     path: "/Foo",
                     toolsVersion: .v5_2,
                     dependencies: [
-                        .localSourceControl(path: "/Bar", requirement: .branch("master")),
+                        .localSourceControl(path: "/Bar", requirement: .branch("main")),
                         .localSourceControl(path: "/BizPath", requirement: .exact("1.2.3")),
                         .localSourceControl(path: "/FizPath", requirement: .upToNextMajor(from: "1.1.2")),
                     ],
@@ -1872,7 +1872,7 @@ struct ModulesGraphTests {
                     path: "/Foo",
                     toolsVersion: .v5_2,
                     dependencies: [
-                        .localSourceControl(deprecatedName: "UnBar", path: "/Bar", requirement: .branch("master")),
+                        .localSourceControl(deprecatedName: "UnBar", path: "/Bar", requirement: .branch("main")),
                     ],
                     targets: [
                         TargetDescription(name: "Foo", dependencies: [.product(name: "BarProduct", package: "UnBar")]),
