@@ -94,6 +94,7 @@ public func mockBuildParameters(
     enableXCFrameworksOnLinux: Bool = false,
     prepareForIndexing: BuildParameters.PrepareForIndexingMode = .off,
     sanitizers: [Sanitizer] = [],
+    numberOfWorkers: UInt32 = 3,
 ) -> BuildParameters {
     try! BuildParameters(
         destination: destination,
@@ -104,7 +105,7 @@ public func mockBuildParameters(
         flags: flags,
         buildSystemKind: buildSystemKind,
         pkgConfigDirectories: [],
-        workers: 3,
+        workers: numberOfWorkers,
         sanitizers: EnabledSanitizers(Set(sanitizers)),
         indexStoreMode: indexStoreMode,
         prepareForIndexing: prepareForIndexing,
