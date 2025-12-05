@@ -43,13 +43,24 @@ extension PIFBuilderParameters {
     }
 }
 
-fileprivate func withGeneratedPIF(fromFixture fixtureName: String, addLocalRpaths: Bool = true, do doIt: (SwiftBuildSupport.PIF.TopLevelObject, TestingObservability) async throws -> ()) async throws {
+fileprivate func withGeneratedPIF(
+    fromFixture fixtureName: String,
+    addLocalRpaths: Bool = true,
+    buildParameters: BuildParameters? = nil,
+    do doIt: (SwiftBuildSupport.PIF.TopLevelObject, TestingObservability) async throws -> (),
+) async throws {
+    let buildParameters = if let buildParameters {
+        buildParameters
+    } else {
+       mockBuildParameters(destination: .host)
+    }
     try await fixture(name: fixtureName) { fixturePath in
-        let observabilitySystem = ObservabilitySystem.makeForTesting()
+        let observabilitySystem: TestingObservability = ObservabilitySystem.makeForTesting()
+        let toolchain = try UserToolchain.default
         let workspace = try Workspace(
             fileSystem: localFileSystem,
             forRootPackage: fixturePath,
-            customManifestLoader: ManifestLoader(toolchain: UserToolchain.default),
+            customManifestLoader: ManifestLoader(toolchain: toolchain),
             delegate: MockWorkspaceDelegate()
         )
         let rootInput = PackageGraphRootInput(packages: [fixturePath], dependencies: [])
@@ -64,7 +75,7 @@ fileprivate func withGeneratedPIF(fromFixture fixtureName: String, addLocalRpath
             observabilityScope: observabilitySystem.topScope
         )
         let pif = try await builder.constructPIF(
-            buildParameters: mockBuildParameters(destination: .host)
+            buildParameters: buildParameters,
         )
         try await doIt(pif, observabilitySystem)
     }
@@ -119,9 +130,9 @@ extension SwiftBuildSupport.PIF.Project {
         }
     }
 
-    fileprivate func buildConfig(named name: String) throws -> SwiftBuild.ProjectModel.BuildConfig {
+    fileprivate func buildConfig(named name: BuildConfiguration) throws -> SwiftBuild.ProjectModel.BuildConfig {
         let matchingConfigs = underlying.buildConfigs.filter {
-            $0.name == name
+            $0.name == name.rawValue.capitalized
         }
         if matchingConfigs.isEmpty {
             throw StringError("No config named \(name) in PIF project")
@@ -134,9 +145,9 @@ extension SwiftBuildSupport.PIF.Project {
 }
 
 extension SwiftBuild.ProjectModel.BaseTarget {
-    fileprivate func buildConfig(named name: String) throws -> SwiftBuild.ProjectModel.BuildConfig {
+    fileprivate func buildConfig(named name: BuildConfiguration) throws -> SwiftBuild.ProjectModel.BuildConfig {
         let matchingConfigs = common.buildConfigs.filter {
-            $0.name == name
+            $0.name == name.pifConfiguration
         }
         if matchingConfigs.isEmpty {
             throw StringError("No config named \(name) in PIF target")
@@ -148,8 +159,41 @@ extension SwiftBuild.ProjectModel.BaseTarget {
     }
 }
 
-@Suite
+extension BuildConfiguration {
+    var pifConfiguration: String {
+        switch self {
+            case .debug, .release: self.rawValue.capitalized
+        }
+    }
+}
+
+@Suite(
+    .tags(
+        .TestSize.medium,
+        .FunctionalArea.PIF,
+    ),
+)
 struct PIFBuilderTests {
+
+    @Test func platformExecutableModuleLibrarySearchPath() async throws {
+        try await withGeneratedPIF(fromFixture: "PIFBuilder/BasicExecutable") { pif, observabilitySystem in
+            let releaseConfig = try pif.workspace
+                .project(named: "BasicExecutable")
+                .target(named: "Executable")
+                .buildConfig(named: "Release")
+
+            for platform in ProjectModel.BuildSettings.Platform.allCases {
+                let search_paths = releaseConfig.impartedBuildProperties.settings[.LIBRARY_SEARCH_PATHS, platform]
+                switch platform {
+                    case .macOS, .macCatalyst, .iOS, .watchOS, .tvOS, .xrOS, .driverKit, .freebsd, .android, .linux, .wasi, .openbsd, ._iOSDevice:
+                         #expect(search_paths == nil, "for platform \(platform)")
+                    case .windows:
+                        #expect(search_paths == ["$(inherited)", "$(TARGET_BUILD_DIR)/ExecutableModules"], "for platform \(platform)")
+                }
+            }
+        }
+    }
+
     @Test func platformConditionBasics() async throws {
         try await withGeneratedPIF(fromFixture: "PIFBuilder/UnknownPlatforms") { pif, observabilitySystem in
             // We should emit a warning to the PIF log about the unknown platform
@@ -160,7 +204,7 @@ struct PIFBuilderTests {
             let releaseConfig = try pif.workspace
                 .project(named: "UnknownPlatforms")
                 .target(named: "UnknownPlatforms")
-                .buildConfig(named: "Release")
+                .buildConfig(named: .release)
 
             // The platforms with conditional settings should have those propagated to the PIF.
             #expect(releaseConfig.settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS, .linux] == ["$(inherited)", "BAR"])
@@ -174,7 +218,7 @@ struct PIFBuilderTests {
             let releaseConfig = try pif.workspace
                 .project(named: "CCPackage")
                 .target(id: "PACKAGE-TARGET:CCTarget")
-                .buildConfig(named: "Release")
+                .buildConfig(named: .release)
 
             for platform in ProjectModel.BuildSettings.Platform.allCases {
                 let ld_flags = releaseConfig.impartedBuildProperties.settings[.OTHER_LDFLAGS, platform]
@@ -182,7 +226,7 @@ struct PIFBuilderTests {
                     case .macOS, .macCatalyst, .iOS, .watchOS, .tvOS, .xrOS, .driverKit, .freebsd:
                          #expect(ld_flags == ["-lc++", "$(inherited)"], "for platform \(platform)")
                     case .android, .linux, .wasi, .openbsd:
-                        #expect(ld_flags == ["-lstdc++", "$(inherited)"], "for platform \(platform)")                    
+                        #expect(ld_flags == ["-lstdc++", "$(inherited)"], "for platform \(platform)")
                     case .windows, ._iOSDevice:
                         #expect(ld_flags == nil, "for platform \(platform)")
                 }
@@ -197,7 +241,7 @@ struct PIFBuilderTests {
 
             let releaseConfig = try pif.workspace
                 .project(named: "PackageWithSDKSpecialization")
-                .buildConfig(named: "Release")
+                .buildConfig(named: .release)
 
             #expect(releaseConfig.settings[.SPECIALIZATION_SDK_OPTIONS, .macOS] == ["foo"])
         }
@@ -241,7 +285,7 @@ struct PIFBuilderTests {
                 let releaseConfig = try pif.workspace
                     .project(named: "ModuleMapGenerationCases")
                     .target(named: "UmbrellaHeader")
-                    .buildConfig(named: "Release")
+                    .buildConfig(named: .release)
 
                 #expect(releaseConfig.impartedBuildProperties.settings[.OTHER_CFLAGS] == ["-fmodule-map-file=\(RelativePath("$(GENERATED_MODULEMAP_DIR)").appending(component: "UmbrellaHeader.modulemap").pathString)", "$(inherited)"])
             }
@@ -250,7 +294,7 @@ struct PIFBuilderTests {
                 let releaseConfig = try pif.workspace
                     .project(named: "ModuleMapGenerationCases")
                     .target(named: "UmbrellaDirectoryInclude")
-                    .buildConfig(named: "Release")
+                    .buildConfig(named: .release)
 
                 #expect(releaseConfig.impartedBuildProperties.settings[.OTHER_CFLAGS] == ["-fmodule-map-file=\(RelativePath("$(GENERATED_MODULEMAP_DIR)").appending(component: "UmbrellaDirectoryInclude.modulemap").pathString)", "$(inherited)"])
             }
@@ -259,7 +303,7 @@ struct PIFBuilderTests {
                 let releaseConfig = try pif.workspace
                     .project(named: "ModuleMapGenerationCases")
                     .target(named: "CustomModuleMap")
-                    .buildConfig(named: "Release")
+                    .buildConfig(named: .release)
                 let arg = try #require(releaseConfig.impartedBuildProperties.settings[.OTHER_CFLAGS]?.first)
                 #expect(arg.hasPrefix("-fmodule-map-file") && arg.hasSuffix(RelativePath("CustomModuleMap").appending(components: ["include", "module.modulemap"]).pathString))
             }
@@ -276,7 +320,7 @@ struct PIFBuilderTests {
                 let releaseConfig = try pif.workspace
                     .project(named: "Foo")
                     .target(named: "Foo")
-                    .buildConfig(named: "Release")
+                    .buildConfig(named: .release)
 
                 #expect(releaseConfig.impartedBuildProperties.settings[.LD_RUNPATH_SEARCH_PATHS] == ["$(RPATH_ORIGIN)", "$(inherited)"])
             }
@@ -291,9 +335,62 @@ struct PIFBuilderTests {
                 let releaseConfig = try pif.workspace
                     .project(named: "Foo")
                     .target(named: "Foo")
-                    .buildConfig(named: "Release")
+                    .buildConfig(named: .release)
 
                 #expect(releaseConfig.impartedBuildProperties.settings[.LD_RUNPATH_SEARCH_PATHS] == nil)
+            }
+        }
+    }
+
+    @Suite(
+        .tags(
+            .FunctionalArea.IndexMode,
+        ),
+    )
+    struct IndexModeSettingTests {
+
+        @Test(
+            arguments: [BuildParameters.IndexStoreMode.auto], [BuildConfiguration.debug],
+            // arguments: BuildParameters.IndexStoreMode.allCases, BuildConfiguration.allCases,
+        )
+         func indexModeSettingSetTo(
+            indexStoreSettingUT: BuildParameters.IndexStoreMode,
+            configuration: BuildConfiguration,
+         ) async throws {
+            try await withGeneratedPIF(
+                fromFixture: "PIFBuilder/Simple",
+                buildParameters: mockBuildParameters(destination: .host, indexStoreMode: indexStoreSettingUT),
+            ) { pif, observabilitySystem in
+                // #expect(false, "fail purposefully...")
+                #expect(observabilitySystem.diagnostics.filter {
+                    $0.severity == .error
+                }.isEmpty)
+
+                let targetConfig = try pif.workspace
+                    .project(named: "Simple")
+                    // .target(named: "Simple")
+                    .buildConfig(named: configuration)
+                switch indexStoreSettingUT {
+                    case .on, .off:
+                        #expect(targetConfig.settings[.SWIFT_INDEX_STORE_ENABLE] == nil)
+                    case .auto:
+                        let expectedSwiftIndexStoreEnableValue: String? = switch configuration {
+                            case .debug: "YES"
+                            case .release: nil
+                        }
+                        #expect(targetConfig.settings[.SWIFT_INDEX_STORE_ENABLE] == expectedSwiftIndexStoreEnableValue)
+                }
+
+                let testTargetConfig = try pif.workspace
+                    .project(named: "Simple")
+                    .target(named: "SimplePackageTests-product")
+                    .buildConfig(named: configuration)
+                switch indexStoreSettingUT {
+                    case .on, .off:
+                        #expect(testTargetConfig.settings[.SWIFT_INDEX_STORE_ENABLE] == nil)
+                    case .auto:
+                        #expect(testTargetConfig.settings[.SWIFT_INDEX_STORE_ENABLE] == "YES")
+                }
             }
         }
     }
