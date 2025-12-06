@@ -70,9 +70,15 @@ public struct TestingObservability {
         // TODO: do something useful with scope
         func handleDiagnostic(scope: ObservabilityScope, diagnostic: Basics.Diagnostic) {
             if self.verbose {
-                print(diagnostic.description)
+                Swift.print(diagnostic.description)
             }
             self.diagnostics.append(diagnostic)
+        }
+
+        func print(_ output: String, verbose: Bool) {
+            if verbose {
+                Swift.print(output)
+            }
         }
 
         var hasErrors: Bool {
