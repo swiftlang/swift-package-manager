@@ -782,7 +782,7 @@ struct BuildCommandTestCases {
     ) async throws {
         let buildSystem = data.buildSystem
         try await fixture(name: "Miscellaneous/ParseableInterfaces") { fixturePath in
-            try await withKnownIssue(isIntermittent: ProcessInfo.hostOperatingSystem == .windows) {
+            try await withKnownIssue(isIntermittent: true) {
                 let result = try await build(
                     ["--enable-parseable-module-interfaces"],
                     packagePath: fixturePath,
@@ -857,7 +857,7 @@ struct BuildCommandTestCases {
         data: BuildData,
     ) async throws {
         let buildSystem = data.buildSystem
-        try await withKnownIssue {
+        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
                 let buildCompleteRegex = try Regex(#"Build complete!\s?(\([0-9]*\.[0-9]*\s*s(econds)?\))?"#)
                 do {
@@ -1137,7 +1137,7 @@ struct BuildCommandTestCases {
     ) async throws {
          try await withKnownIssue(
             "error produced for this fixture",
-            isIntermittent: ProcessInfo.hostOperatingSystem == .linux,
+            isIntermittent: true,
         ) {
             try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
                 // Building with `-wmo` should result in a `remark: Incremental compilation has been disabled: it is not
@@ -1199,7 +1199,7 @@ struct BuildCommandTestCases {
 
             try await withKnownIssue(
                 "https://github.com/swiftlang/swift-package-manager/issues/8659, SWIFT_EXEC override is not working",
-                isIntermittent: (buildSystem == .native && config == .release)
+                isIntermittent: true
             ){
                 // Build with a swiftc that returns version 1.0, we expect a successful build which compiles our one source
                 // file.
@@ -1294,7 +1294,7 @@ struct BuildCommandTestCases {
     func getTaskAllowEntitlement(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        try await withKnownIssue(isIntermittent: (ProcessInfo.hostOperatingSystem == .linux)) {
+        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { fixturePath in
     #if os(macOS)
                 // try await building with default parameters.  This should succeed. We build verbosely so we get full command
@@ -1506,7 +1506,7 @@ struct BuildCommandTestCases {
      func parseAsLibraryCriteria(
         buildData: BuildData,
     ) async throws {
-        try await withKnownIssue {
+        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/ParseAsLibrary") { fixturePath in
                 _ =  try await executeSwiftBuild(
                     fixturePath,

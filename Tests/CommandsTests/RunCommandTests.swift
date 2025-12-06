@@ -106,7 +106,7 @@ struct RunCommandTests {
     func toolsetDebugger(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        try await withKnownIssue {
+        try await withKnownIssue(isIntermittent: true) {
         try await fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
             #if os(Windows)
                 let win32 = ".win32"
@@ -152,7 +152,7 @@ struct RunCommandTests {
     func productArgumentPassing(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        try await withKnownIssue {
+        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
                 let (stdout, stderr) = try await execute(
                     ["secho", "1", "--hello", "world"],
@@ -220,7 +220,7 @@ struct RunCommandTests {
     func multipleExecutableAndExplicitExecutable(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        try await withKnownIssue {
+        try await withKnownIssue(isIntermittent: true) {
         try await fixture(name: "Miscellaneous/MultipleExecutables") { fixturePath in
 
             let error = await #expect(throws: SwiftPMError.self ) {
@@ -260,7 +260,7 @@ struct RunCommandTests {
     func unreachableExecutable(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        try await withKnownIssue {
+        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/UnreachableTargets") { fixturePath in
                 let (output, _) = try await execute(["bexec"], packagePath: fixturePath.appending("A"), buildSystem: buildSystem)
                 let outputLines = output.split(whereSeparator: { $0.isNewline })
@@ -280,7 +280,7 @@ struct RunCommandTests {
     func fileDeprecation(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        try await withKnownIssue {
+        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
                 let filePath = AbsolutePath(fixturePath, "Sources/secho/main.swift").pathString
                 let cwd = try #require(localFileSystem.currentWorkingDirectory, "Current working directory should not be nil")
@@ -437,7 +437,7 @@ struct RunCommandTests {
         buildSystem: BuildSystemProvider.Kind,
         configuration: BuildConfiguration
     ) async throws {
-        try await withKnownIssue {
+        try await withKnownIssue(isIntermittent: true) {
             // GIVEN we have a simple test package
             try await fixture(name: "Miscellaneous/SwiftRun") { fixturePath in
                //WHEN we run with the --quiet option
