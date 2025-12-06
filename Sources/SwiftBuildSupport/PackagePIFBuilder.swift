@@ -36,7 +36,7 @@ import struct SPMBuildCore.BuildParameters
 
 import enum SwiftBuild.ProjectModel
 
-typealias GUID = SwiftBuild.ProjectModel.GUID
+public typealias GUID = SwiftBuild.ProjectModel.GUID
 typealias BuildFile = SwiftBuild.ProjectModel.BuildFile
 typealias BuildConfig = SwiftBuild.ProjectModel.BuildConfig
 typealias BuildSettings = SwiftBuild.ProjectModel.BuildSettings
