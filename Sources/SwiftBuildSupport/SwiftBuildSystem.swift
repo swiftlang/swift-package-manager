@@ -1261,7 +1261,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
     package func createLongLivedSession(name: String) async throws -> LongLivedBuildServiceSession {
         let service = try await SWBBuildService(connectionMode: .inProcessStatic(swiftbuildServiceEntryPoint))
         do {
-            let (session, diagnostics) = try await createSession(service: service, name: name, toolchainPath: buildParameters.toolchain.toolchainDir, packageManagerResourcesDirectory: packageManagerResourcesDirectory)
+            let (session, diagnostics) = try await createSession(service: service, name: name, toolchain: buildParameters.toolchain, packageManagerResourcesDirectory: packageManagerResourcesDirectory)
             let teardownHandler = {
                 try await session.close()
                 await service.close()
