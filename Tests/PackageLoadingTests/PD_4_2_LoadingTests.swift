@@ -258,7 +258,7 @@ final class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                    .package(path: "\(AbsolutePath("/path/to/foo4").escapedPathString)"),
                    .package(url: "\(AbsolutePath("/foo5").escapedPathString)", .exact("1.2.3")),
                    .package(url: "\(AbsolutePath("/foo6").escapedPathString)", "1.2.3"..<"2.0.0"),
-                   .package(url: "\(AbsolutePath("/foo7").escapedPathString)", .branch("master")),
+                   .package(url: "\(AbsolutePath("/foo7").escapedPathString)", .branch("main")),
                    .package(url: "\(AbsolutePath("/foo8").escapedPathString)", .upToNextMinor(from: "1.3.4")),
                    .package(url: "\(AbsolutePath("/foo9").escapedPathString)", .upToNextMajor(from: "1.3.4")),
                    .package(path: "~/path/to/foo10"),
@@ -293,7 +293,7 @@ final class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
 
         XCTAssertEqual(deps["foo5"], .localSourceControl(path: "/foo5", requirement: .exact("1.2.3")))
         XCTAssertEqual(deps["foo6"], .localSourceControl(path: "/foo6", requirement: .range("1.2.3"..<"2.0.0")))
-        XCTAssertEqual(deps["foo7"], .localSourceControl(path: "/foo7", requirement: .branch("master")))
+        XCTAssertEqual(deps["foo7"], .localSourceControl(path: "/foo7", requirement: .branch("main")))
         XCTAssertEqual(deps["foo8"], .localSourceControl(path: "/foo8", requirement: .upToNextMinor(from: "1.3.4")))
         XCTAssertEqual(deps["foo9"], .localSourceControl(path: "/foo9", requirement: .upToNextMajor(from: "1.3.4")))
 

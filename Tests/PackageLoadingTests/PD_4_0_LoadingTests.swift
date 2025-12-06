@@ -295,7 +295,7 @@ final class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
                name: "Foo",
                dependencies: [
                    .package(url: "/foo1", version: "1.0.0"),
-                   .package(url: "/foo2", branch: "master"),
+                   .package(url: "/foo2", branch: "main"),
                    .package(url: "/foo3", revision: "rev"),
                    .package(url: "/foo4", range: "1.0.0"..<"1.5.0"),
                ]

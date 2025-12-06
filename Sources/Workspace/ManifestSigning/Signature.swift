@@ -64,7 +64,7 @@ extension Signature {
     }
 }
 
-// Reference: https://github.com/vapor/jwt-kit/blob/master/Sources/JWTKit/JWTSerializer.swift
+// Reference: https://github.com/vapor/jwt-kit/blob/main/Sources/JWTKit/JWTSerializer.swift
 extension Signature {
     static let rsaSigningPadding = _RSA.Signing.Padding.insecurePKCS1v1_5
 
@@ -100,7 +100,7 @@ extension Signature {
     }
 }
 
-// Reference: https://github.com/vapor/jwt-kit/blob/master/Sources/JWTKit/JWTParser.swift
+// Reference: https://github.com/vapor/jwt-kit/blob/main/Sources/JWTKit/JWTParser.swift
 extension Signature {
     typealias CertChainValidate = ([Data]) async throws -> [Certificate]
 

@@ -217,7 +217,6 @@ extension Triple {
         case _ where isDarwin():
             return ".bundle"
         default:
-            // See: https://github.com/apple/swift-corelibs-foundation/blob/master/Docs/FHS%20Bundles.md
             return ".resources"
         }
     }

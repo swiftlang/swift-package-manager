@@ -846,6 +846,23 @@ struct BuildCommandTestCases {
         }
     }
 
+    @Test
+    func pifManifestFileIsCreatedInTheRootScratchPathDirectory() async throws {
+        try await fixture(name: "Miscellaneous/ParseableInterfaces") { fixturePath in
+            try await withTemporaryDirectory { tmpDir in
+                try await executeSwiftBuild(
+                    fixturePath,
+                    extraArgs: [
+                        "--scratch-path",
+                        tmpDir.pathString,
+                    ],
+                    buildSystem: .swiftbuild
+                )
+                expectFileExists(at: tmpDir.appending("manifest.pif"))
+            }
+        }
+    }
+
     @Test(
         .tags(
             .Feature.BuildCache,
@@ -857,47 +874,43 @@ struct BuildCommandTestCases {
         data: BuildData,
     ) async throws {
         let buildSystem = data.buildSystem
-        try await withKnownIssue {
-            try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
-                let buildCompleteRegex = try Regex(#"Build complete!\s?(\([0-9]*\.[0-9]*\s*s(econds)?\))?"#)
-                do {
-                    let result = try await execute(
-                        packagePath: fixturePath,
-                        configuration: data.config,
-                        buildSystem: buildSystem,
-                    )
-                    // This test fails to match the 'Compiling' regex; rdar://101815761
-                    // XCTAssertMatch(result.stdout, .regex("\\[[1-9][0-9]*\\/[1-9][0-9]*\\] Compiling"))
-                    let lines = result.stdout.split(whereSeparator: { $0.isNewline })
-                    let lastLine = try #require(lines.last)
-                    #expect(lastLine.contains(buildCompleteRegex))
-                }
-
-                do {
-                    // test second time, to stabilize the cache
-                    try await execute(
-                        packagePath: fixturePath,
-                        configuration: data.config,
-                        buildSystem: buildSystem,
-                    )
-                }
-
-                do {
-                    // test third time, to make sure message is presented even when nothing to build (cached)
-                    let result = try await execute(
-                        packagePath: fixturePath,
-                        configuration: data.config,
-                        buildSystem: buildSystem,
-                    )
-                    // This test fails to match the 'Compiling' regex; rdar://101815761
-                    // XCTAssertNoMatch(result.stdout, .regex("\\[[1-9][0-9]*\\/[1-9][0-9]*\\] Compiling"))
-                    let lines = result.stdout.split(whereSeparator: { $0.isNewline })
-                    let lastLine = try #require(lines.last)
-                    #expect(lastLine.contains(buildCompleteRegex))
-                }
+        try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
+            let buildCompleteRegex = try Regex(#"Build complete!\s?(\([0-9]*\.[0-9]*\s*s(econds)?\))?"#)
+            do {
+                let result = try await execute(
+                    packagePath: fixturePath,
+                    configuration: data.config,
+                    buildSystem: buildSystem,
+                )
+                // This test fails to match the 'Compiling' regex; rdar://101815761
+                // XCTAssertMatch(result.stdout, .regex("\\[[1-9][0-9]*\\/[1-9][0-9]*\\] Compiling"))
+                let lines = result.stdout.split(whereSeparator: { $0.isNewline })
+                let lastLine = try #require(lines.last)
+                #expect(lastLine.contains(buildCompleteRegex))
             }
-        } when: {
-            buildSystem == .swiftbuild && (ProcessInfo.hostOperatingSystem == .windows)
+
+            do {
+                // test second time, to stabilize the cache
+                try await execute(
+                    packagePath: fixturePath,
+                    configuration: data.config,
+                    buildSystem: buildSystem,
+                )
+            }
+
+            do {
+                // test third time, to make sure message is presented even when nothing to build (cached)
+                let result = try await execute(
+                    packagePath: fixturePath,
+                    configuration: data.config,
+                    buildSystem: buildSystem,
+                )
+                // This test fails to match the 'Compiling' regex; rdar://101815761
+                // XCTAssertNoMatch(result.stdout, .regex("\\[[1-9][0-9]*\\/[1-9][0-9]*\\] Compiling"))
+                let lines = result.stdout.split(whereSeparator: { $0.isNewline })
+                let lastLine = try #require(lines.last)
+                #expect(lastLine.contains(buildCompleteRegex))
+            }
         }
     }
 
@@ -1135,31 +1148,24 @@ struct BuildCommandTestCases {
     func swiftDriverRawOutputGetsNewlines(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-         try await withKnownIssue(
-            "error produced for this fixture",
-            isIntermittent: ProcessInfo.hostOperatingSystem == .linux,
-        ) {
-            try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
-                // Building with `-wmo` should result in a `remark: Incremental compilation has been disabled: it is not
-                // compatible with whole module optimization` message, which should have a trailing newline.  Since that
-                // message won't be there at all when the legacy compiler driver is used, we gate this check on whether the
-                // remark is there in the first place.
-                let result = try await execute(
-                    ["-Xswiftc", "-wmo"],
-                    packagePath: fixturePath,
-                    configuration: .release,
-                    buildSystem: buildSystem,
-                )
-                if result.stdout.contains(
-                    "remark: Incremental compilation has been disabled: it is not compatible with whole module optimization"
-                ) {
-                    #expect(result.stdout.contains("optimization\n"))
-                    #expect(!result.stdout.contains("optimization["))
-                    #expect(!result.stdout.contains("optimizationremark"))
-                }
+        try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
+            // Building with `-wmo` should result in a `remark: Incremental compilation has been disabled: it is not
+            // compatible with whole module optimization` message, which should have a trailing newline.  Since that
+            // message won't be there at all when the legacy compiler driver is used, we gate this check on whether the
+            // remark is there in the first place.
+            let result = try await execute(
+                ["-Xswiftc", "-wmo"],
+                packagePath: fixturePath,
+                configuration: .release,
+                buildSystem: buildSystem,
+            )
+            if result.stdout.contains(
+                "remark: Incremental compilation has been disabled: it is not compatible with whole module optimization"
+            ) {
+                #expect(result.stdout.contains("optimization\n"))
+                #expect(!result.stdout.contains("optimization["))
+                #expect(!result.stdout.contains("optimizationremark"))
             }
-        } when: {
-            ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild
         }
     }
 

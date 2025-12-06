@@ -573,8 +573,8 @@ public struct PubGrubDependencyResolver {
     }
 
     // Based on:
-    // https://github.com/dart-lang/pub/tree/master/doc/solver.md#conflict-resolution
-    // https://github.com/dart-lang/pub/blob/master/lib/src/solver/version_solver.dart#L201
+    // https://github.com/dart-lang/pub/tree/master/doc/solver.md#conflict-resolution               //ignore-unacceptable-language
+    // https://github.com/dart-lang/pub/blob/master/lib/src/solver/version_solver.dart#L201         //ignore-unacceptable-language
     internal func resolve(state: State, conflict: Incompatibility) throws -> Incompatibility {
         self.delegate?.conflict(conflict: conflict)
 
