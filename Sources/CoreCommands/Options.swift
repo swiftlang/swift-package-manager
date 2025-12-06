@@ -459,11 +459,11 @@ public struct BuildOptions: ParsableArguments {
     public var customCompileTriple: Triple?
 
     /// Path to the compilation destination’s SDK.
-    @Option(name: .customLong("sdk"))
+    @Option(name: .customLong("sdk"), help: .hidden)
     public var customCompileSDK: AbsolutePath?
 
     /// Path to the compilation destination’s toolchain.
-    @Option(name: .customLong("toolchain"))
+    @Option(name: .customLong("toolchain"), help: .hidden)
     public var customCompileToolchain: AbsolutePath?
 
     /// The architectures to compile for.
