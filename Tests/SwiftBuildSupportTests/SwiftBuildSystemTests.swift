@@ -46,7 +46,7 @@ func withInstantiatedSwiftBuildSystem(
             let observabilitySystem: TestingObservability = ObservabilitySystem.makeForTesting()
             let toolchain = try UserToolchain.default
             let workspace = try Workspace(
-                fileSystem: localFileSystem,
+                fileSystem: fileSystem,
                 forRootPackage: fixturePath,
                 customManifestLoader: ManifestLoader(toolchain: toolchain),
             )
@@ -234,5 +234,39 @@ struct SwiftBuildSystemTests {
             #expect(synthesizedArgs.table["SWIFT_INDEX_STORE_PATH"] == expectedPathValue)
             #expect(synthesizedArgs.table["CLANG_INDEX_STORE_PATH"] == expectedPathValue)
         }
+    }
+
+    @Test(
+        .serialized,
+        arguments: [
+            (linkerDeadStripUT: true, expectedValue: "YES"),
+            (linkerDeadStripUT: false, expectedValue: nil),
+        ]
+    )
+    func validateDeadStripSetting(
+        linkerDeadStripUT: Bool,
+        expectedValue: String?
+    ) async throws {
+        try await withInstantiatedSwiftBuildSystem(
+            fromFixture: "PIFBuilder/Simple",
+            buildParameters: mockBuildParameters(
+                destination: .host,
+                linkerDeadStrip: linkerDeadStripUT,
+            ),
+        ) { swiftBuild, session, observabilityScope, buildParameters in
+
+            let buildSettings = try await swiftBuild.makeBuildParameters(
+                session: session,
+                symbolGraphOptions: nil,
+                setToolchainSetting: false, // Set this to false as SwiftBuild checks the toolchain path
+            )
+
+            let synthesizedArgs = try #require(buildSettings.overrides.synthesized)
+            let actual = synthesizedArgs.table["DEAD_CODE_STRIPPING"]
+            #expect(
+                actual == expectedValue,
+                "dead strip: \(linkerDeadStripUT) >>> Actual: '\(actual)' expected: '\(String(describing: expectedValue))'",
+            )
+       }
     }
 }
