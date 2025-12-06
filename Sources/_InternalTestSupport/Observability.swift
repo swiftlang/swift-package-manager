@@ -75,6 +75,10 @@ public struct TestingObservability {
             self.diagnostics.append(diagnostic)
         }
 
+        func printToOutput(message: String) {
+            print(message)
+        }
+
         var hasErrors: Bool {
             self.diagnostics.get().hasErrors
         }
