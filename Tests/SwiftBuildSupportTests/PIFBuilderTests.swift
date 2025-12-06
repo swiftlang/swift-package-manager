@@ -132,7 +132,7 @@ extension SwiftBuildSupport.PIF.Project {
 
     fileprivate func buildConfig(named name: BuildConfiguration) throws -> SwiftBuild.ProjectModel.BuildConfig {
         let matchingConfigs = underlying.buildConfigs.filter {
-            $0.name == name.rawValue.capitalized
+            $0.name == name.pifConfiguration
         }
         if matchingConfigs.isEmpty {
             throw StringError("No config named \(name) in PIF project")
@@ -236,7 +236,7 @@ struct PIFBuilderTests {
 
     @Test func packageWithInternal() async throws {
         try await withGeneratedPIF(fromFixture: "PIFBuilder/PackageWithSDKSpecialization") { pif, observabilitySystem in
-            let errors = observabilitySystem.diagnostics.filter { $0.severity == .error }
+            let errors: [Diagnostic] = observabilitySystem.diagnostics.filter { $0.severity == .error }
             #expect(errors.isEmpty, "Expected no errors during PIF generation, but got: \(errors)")
 
             let releaseConfig = try pif.workspace
@@ -274,6 +274,55 @@ struct PIFBuilderTests {
             #expect(binaryArtifactMessages.count > 0, "Expected to find binary artifact processing messages")
         }
     }
+
+    @Test(
+        arguments: BuildConfiguration.allCases,
+    )
+    func executablePrefixIsSetCorrectly(
+        configuration: BuildConfiguration,
+    ) async throws {
+        try await withGeneratedPIF(fromFixture: "PIFBuilder/Library") { pif, observabilitySystem in
+            let errors: [Diagnostic] = observabilitySystem.diagnostics.filter { $0.severity == .error }
+            #expect(errors.isEmpty, "Expected no errors during PIF generation, but got: \(errors)")
+
+            struct ExpectedValue {
+                let targetName: String
+                let expectedValue: String?
+                let expectedValueForWindows: String?
+            }
+            let targetsUnderTest = [
+                ExpectedValue(
+                    targetName: "LibraryDynamic-product",
+                    expectedValue: "lib",
+                    expectedValueForWindows: "",
+                ),
+                ExpectedValue(
+                    targetName: "LibraryStatic-product",
+                    expectedValue: nil,
+                    expectedValueForWindows: nil,
+                ),
+                ExpectedValue(
+                    targetName: "LibraryAuto-product",
+                    expectedValue: nil,
+                    expectedValueForWindows: nil,
+                ),
+            ]
+            for targetUnderTest in targetsUnderTest {
+                let projectConfig = try pif.workspace
+                    .project(named: "Library")
+                    .target(named: targetUnderTest.targetName)
+                    .buildConfig(named: configuration)
+
+                let actualValue = projectConfig.settings[.EXECUTABLE_PREFIX]
+                let actualValueForWindows = projectConfig.settings[.EXECUTABLE_PREFIX, .windows]
+                #expect(actualValue == targetUnderTest.expectedValue)
+                #expect(actualValueForWindows == targetUnderTest.expectedValueForWindows)
+
+            }
+        }
+    }
+
+
 
     @Test func impartedModuleMaps() async throws {
         try await withGeneratedPIF(fromFixture: "CFamilyTargets/ModuleMapGenerationCases") { pif, observabilitySystem in
