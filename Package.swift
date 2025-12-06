@@ -1017,6 +1017,13 @@ let package = Package(
             name: "SwiftBuildSupportTests",
             dependencies: ["SwiftBuildSupport", "_InternalTestSupport", "_InternalBuildTestSupport"]
         ),
+        .testTarget(
+            name: "BuildMetalTests",
+            dependencies: [
+                "_InternalTestSupport",
+                "Basics"
+            ]
+        ),
         // Examples (These are built to ensure they stay up to date with the API.)
         .executableTarget(
             name: "package-info",

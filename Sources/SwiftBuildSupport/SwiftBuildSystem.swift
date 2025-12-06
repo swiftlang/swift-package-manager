@@ -64,14 +64,21 @@ package func withService<T>(
 public func createSession(
     service: SWBBuildService,
     name: String,
-    toolchainPath: Basics.AbsolutePath,
+    toolchain: Toolchain,
     packageManagerResourcesDirectory: Basics.AbsolutePath?
 ) async throws-> (SWBBuildServiceSession, [SwiftBuildMessage.DiagnosticInfo]) {
+
+    var buildSessionEnv: [String: String]? = nil
+    if let metalToolchainPath = toolchain.metalToolchainPath {
+        buildSessionEnv = ["EXTERNAL_TOOLCHAINS_DIR": metalToolchainPath.pathString]
+    }
+    let toolchainPath = try toolchain.toolchainDir
+
     // SWIFT_EXEC and SWIFT_EXEC_MANIFEST may need to be overridden in debug scenarios in order to pick up Open Source toolchains
     let sessionResult = if toolchainPath.components.contains(where: { $0.hasSuffix(".app") }) {
-        await service.createSession(name: name, developerPath: nil, resourceSearchPaths: packageManagerResourcesDirectory.map { [$0.pathString] } ?? [], cachePath: nil, inferiorProductsPath: nil, environment: nil)
+        await service.createSession(name: name, developerPath: nil, resourceSearchPaths: packageManagerResourcesDirectory.map { [$0.pathString] } ?? [], cachePath: nil, inferiorProductsPath: nil, environment: buildSessionEnv)
     } else {
-        await service.createSession(name: name, swiftToolchainPath: toolchainPath.pathString, resourceSearchPaths: packageManagerResourcesDirectory.map { [$0.pathString] } ?? [], cachePath: nil, inferiorProductsPath: nil, environment: nil)
+        await service.createSession(name: name, swiftToolchainPath: toolchainPath.pathString, resourceSearchPaths: packageManagerResourcesDirectory.map { [$0.pathString] } ?? [], cachePath: nil, inferiorProductsPath: nil, environment: buildSessionEnv)
     }
     switch sessionResult {
     case (.success(let session), let diagnostics):
@@ -84,14 +91,14 @@ public func createSession(
 func withSession(
     service: SWBBuildService,
     name: String,
-    toolchainPath: Basics.AbsolutePath,
+    toolchain: Toolchain,
     packageManagerResourcesDirectory: Basics.AbsolutePath?,
     body: @escaping (
         _ session: SWBBuildServiceSession,
         _ diagnostics: [SwiftBuild.SwiftBuildMessage.DiagnosticInfo]
     ) async throws -> Void
 ) async throws {
-    let (session, diagnostics) = try await createSession(service: service, name: name, toolchainPath: toolchainPath, packageManagerResourcesDirectory: packageManagerResourcesDirectory)
+    let (session, diagnostics) = try await createSession(service: service, name: name, toolchain: toolchain, packageManagerResourcesDirectory: packageManagerResourcesDirectory)
     do {
         try await body(session, diagnostics)
     } catch let bodyError {
@@ -546,7 +553,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
             var serializedDiagnosticPathsByTargetName: [String: [Basics.AbsolutePath]] = [:]
             do {
-                try await withSession(service: service, name: self.buildParameters.pifManifest.pathString, toolchainPath: self.buildParameters.toolchain.toolchainDir, packageManagerResourcesDirectory: self.packageManagerResourcesDirectory) { session, _ in
+                try await withSession(service: service, name: self.buildParameters.pifManifest.pathString, toolchain: self.buildParameters.toolchain, packageManagerResourcesDirectory: self.packageManagerResourcesDirectory) { session, _ in
                     self.outputStream.send("Building for \(self.buildParameters.configuration == .debug ? "debugging" : "production")...\n")
 
                     // Load the workspace, and set the system information to the default
@@ -881,15 +888,19 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         if setToolchainSetting {
             // If the SwiftPM toolchain corresponds to a toolchain registered with the lower level build system, add it to the toolchain stack.
             // Otherwise, apply overrides for each component of the SwiftPM toolchain.
-            if let toolchainID = try await session.lookupToolchain(at: buildParameters.toolchain.toolchainDir.pathString) {
-                settings["TOOLCHAINS"] = "\(toolchainID.rawValue) $(inherited)"
-            } else {
+            let toolchainID = try await session.lookupToolchain(at: buildParameters.toolchain.toolchainDir.pathString)
+            if toolchainID == nil {
                 // FIXME: This list of overrides is incomplete.
                 // An error with determining the override should not be fatal here.
                 settings["CC"] = try? buildParameters.toolchain.getClangCompiler().pathString
                 // Always specify the path of the effective Swift compiler, which was determined in the same way as for the
                 // native build system.
                 settings["SWIFT_EXEC"] = buildParameters.toolchain.swiftCompilerPath.pathString
+            }
+            
+            let overrideToolchains = [buildParameters.toolchain.metalToolchainId, toolchainID?.rawValue].compactMap { $0 }
+            if !overrideToolchains.isEmpty {
+                settings["TOOLCHAINS"] = (overrideToolchains + ["$(inherited)"]).joined(separator: " ")
             }
         }
 
@@ -1250,7 +1261,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
     package func createLongLivedSession(name: String) async throws -> LongLivedBuildServiceSession {
         let service = try await SWBBuildService(connectionMode: .inProcessStatic(swiftbuildServiceEntryPoint))
         do {
-            let (session, diagnostics) = try await createSession(service: service, name: name, toolchainPath: buildParameters.toolchain.toolchainDir, packageManagerResourcesDirectory: packageManagerResourcesDirectory)
+            let (session, diagnostics) = try await createSession(service: service, name: name, toolchain: buildParameters.toolchain, packageManagerResourcesDirectory: packageManagerResourcesDirectory)
             let teardownHandler = {
                 try await session.close()
                 await service.close()
