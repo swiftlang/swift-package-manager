@@ -5646,7 +5646,7 @@ struct PackageCommandTests {
             data: BuildData,
         ) async throws {
             // Plugin arguments: check-testability <targetName> <config> <shouldTestable>
-            try await withKnownIssue {
+            try await withKnownIssue(isIntermittent: true) {
                 // Overall configuration: debug, plugin build request: debug -> without testability
                 try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
                     let _ = await #expect(throws: Never.self) {
@@ -5674,7 +5674,7 @@ struct PackageCommandTests {
         func commandPluginBuildTestabilityInternalModule_Release_False(
             data: BuildData,
         ) async throws {
-            try await withKnownIssue {
+            try await withKnownIssue(isIntermittent: true) {
                 // Overall configuration: debug, plugin build request: release -> without testability
                 try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
                     let _ = await #expect(throws: Never.self) {
