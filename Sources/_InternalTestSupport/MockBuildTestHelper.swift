@@ -96,7 +96,8 @@ public func mockBuildParameters(
     linkTimeOptimizationMode: BuildParameters.LinkTimeOptimizationMode? = nil,
     omitFramePointers: Bool? = nil,
     enableXCFrameworksOnLinux: Bool = false,
-    prepareForIndexing: BuildParameters.PrepareForIndexingMode = .off
+    prepareForIndexing: BuildParameters.PrepareForIndexingMode = .off,
+    sanitizers: [Sanitizer] = [],
 ) -> BuildParameters {
     try! BuildParameters(
         destination: destination,
@@ -108,6 +109,7 @@ public func mockBuildParameters(
         buildSystemKind: buildSystemKind,
         pkgConfigDirectories: [],
         workers: 3,
+        sanitizers: EnabledSanitizers(Set(sanitizers)),
         indexStoreMode: indexStoreMode,
         prepareForIndexing: prepareForIndexing,
         enableXCFrameworksOnLinux: enableXCFrameworksOnLinux,
@@ -124,7 +126,7 @@ public func mockBuildParameters(
             linkTimeOptimizationMode: linkTimeOptimizationMode,
             shouldDisableLocalRpath: shouldDisableLocalRpath,
             shouldLinkStaticSwiftStdlib: shouldLinkStaticSwiftStdlib
-        )
+        ),
     )
 }
 

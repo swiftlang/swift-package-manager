@@ -904,6 +904,20 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             }
         }
 
+        for sanitizer in buildParameters.sanitizers.sanitizers {
+            self.observabilityScope.emit(debug:"Enabling \(sanitizer) sanitizer")
+            switch sanitizer {
+                case .address:
+                    settings["ENABLE_ADDRESS_SANITIZER"] = "YES"
+                case .thread:
+                    settings["ENABLE_THREAD_SANITIZER"] = "YES"
+                case .undefined:
+                    settings["ENABLE_UNDEFINED_BEHAVIOR_SANITIZER"] = "YES"
+                case .fuzzer, .scudo:
+                    throw StringError("\(sanitizer) is not currently supported with this build system.")
+            }
+        }
+
         // FIXME: workaround for old Xcode installations such as what is in CI
         settings["LM_SKIP_METADATA_EXTRACTION"] = "YES"
         if let symbolGraphOptions {
