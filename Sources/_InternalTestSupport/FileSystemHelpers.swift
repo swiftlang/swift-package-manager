@@ -1,3 +1,14 @@
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift open source project
+//
+// Copyright (c) 2025 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
 import Foundation
 import Basics
 
@@ -48,15 +59,15 @@ public func getFiles(
 ) throws -> [AbsolutePath] {
     var matchingFiles: [AbsolutePath] = []
     let normalizedExtension = `extension`.lowercased()
-    
+
     guard fileSystem.exists(directory) else {
         throw StringError("Directory does not exist: \(directory)")
     }
-    
+
     guard fileSystem.isDirectory(directory) else {
         throw StringError("Path is not a directory: \(directory)")
     }
-    
+
     if recursive {
         try fileSystem.enumerate(directory: directory) { filePath in
             if fileSystem.isFile(filePath) {
@@ -79,7 +90,7 @@ public func getFiles(
             }
         }
     }
-    
+
     return matchingFiles
 }
 
@@ -102,7 +113,7 @@ public func getFiles(
     guard let currentWorkingDirectory = fileSystem.currentWorkingDirectory else {
         throw StringError("Cannot determine current working directory")
     }
-    
+
     let absoluteDirectory = currentWorkingDirectory.appending(directory)
     let absoluteResults = try getFiles(
         in: absoluteDirectory,
@@ -110,7 +121,7 @@ public func getFiles(
         recursive: recursive,
         fileSystem: fileSystem
     )
-    
+
     // Convert results back to RelativePath
     return absoluteResults.map { absolutePath in
         absolutePath.relative(to: currentWorkingDirectory)

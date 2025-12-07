@@ -29,7 +29,7 @@ components that this product depends on.
 The dependency resolver is influenced by Dart project (pub tool).
 
   * LICENSE (BSD 3-Clause "New" or "Revised" License):
-    * https://github.com/dart-lang/pub/blob/master/LICENSE
+    * https://github.com/dart-lang/pub/blob/master/LICENSE          // ignore-unacceptable-language
   * HOMEPAGE:
     * https://dart.dev
     * https://github.com/dart-lang/pub

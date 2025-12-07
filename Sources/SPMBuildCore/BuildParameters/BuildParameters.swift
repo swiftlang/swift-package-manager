@@ -29,7 +29,7 @@ public struct BuildParameters: Encodable {
     }
 
     /// Mode for the indexing-while-building feature.
-    public enum IndexStoreMode: String, Encodable {
+    public enum IndexStoreMode: String, Encodable, CaseIterable {
         /// Index store should be enabled.
         case on
         /// Index store should be disabled.

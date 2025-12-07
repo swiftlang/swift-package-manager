@@ -77,7 +77,7 @@
   "watchers_count": 80,
   "watchers": 80,
   "size": 108,
-  "default_branch": "master",
+  "default_branch": "main",
   "open_issues_count": 0,
   "open_issues": 0,
   "is_template": true,
@@ -215,7 +215,7 @@
     "stargazers_count": 80,
     "watchers_count": 80,
     "size": 108,
-    "default_branch": "master",
+    "default_branch": "main",
     "open_issues_count": 0,
     "is_template": true,
     "topics": [
@@ -337,7 +337,7 @@
     "stargazers_count": 80,
     "watchers_count": 80,
     "size": 108,
-    "default_branch": "master",
+    "default_branch": "main",
     "open_issues_count": 0,
     "is_template": true,
     "topics": [

@@ -26,13 +26,9 @@ import enum TSCUtility.Diagnostics
 
 /// swift-package tool namespace
 public struct SwiftPackageCommand: AsyncParsableCommand {
-    public static var configuration = CommandConfiguration(
-        commandName: "package",
-        _superCommandName: "swift",
-        abstract: "Perform operations on Swift packages.",
-        discussion: "SEE ALSO: swift build, swift run, swift test \n(Run this command without --help to see possible dynamic plugin commands.)",
-        version: SwiftVersion.current.completeDisplayString,
-        subcommands: [
+
+    private static var subcommands: [any ParsableCommand.Type] = {
+        var subcommands: [any ParsableCommand.Type] = [
             AddDependency.self,
             AddProduct.self,
             AddTarget.self,
@@ -75,7 +71,22 @@ public struct SwiftPackageCommand: AsyncParsableCommand {
 
             DefaultCommand.self,
         ]
-            + (ProcessInfo.processInfo.environment["SWIFTPM_ENABLE_SNIPPETS"] == "1" ? [Learn.self] : []),
+        if ProcessInfo.processInfo.environment["SWIFTPM_ENABLE_SNIPPETS"] == "1" {
+            subcommands.append(Learn.self)
+        }
+        #if canImport(LanguageServerProtocol)
+        subcommands.append(BuildServer.self)
+        #endif
+        return subcommands
+    }()
+
+    public static var configuration = CommandConfiguration(
+        commandName: "package",
+        _superCommandName: "swift",
+        abstract: "Perform operations on Swift packages.",
+        discussion: "SEE ALSO: swift build, swift run, swift test \n(Run this command without --help to see possible dynamic plugin commands.)",
+        version: SwiftVersion.current.completeDisplayString,
+        subcommands: Self.subcommands,
         defaultSubcommand: DefaultCommand.self,
         helpNames: []
     )

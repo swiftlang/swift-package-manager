@@ -1,3 +1,15 @@
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift open source project
+//
+// Copyright (c) 2024 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
+
 @_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
 import Basics
 import Benchmark
@@ -103,8 +115,8 @@ let benchmarks = {
         )
     ) { benchmark in
         try syntheticModulesGraph(
-            benchmark, 
-            modulesGraphDepth: modulesGraphDepth, 
+            benchmark,
+            modulesGraphDepth: modulesGraphDepth,
             modulesGraphWidth: modulesGraphWidth,
             includeMacros: true
         )
@@ -112,9 +124,9 @@ let benchmarks = {
 }
 
 func syntheticModulesGraph(
-    _ benchmark: Benchmark, 
-    modulesGraphDepth: Int, 
-    modulesGraphWidth: Int, 
+    _ benchmark: Benchmark,
+    modulesGraphDepth: Int,
+    modulesGraphWidth: Int,
     includeMacros: Bool = false
 ) throws {
     // If macros are included, modules are split in three parts:

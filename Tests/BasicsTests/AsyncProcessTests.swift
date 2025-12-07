@@ -1,13 +1,14 @@
-/*
- This source file is part of the Swift.org open source project
-
- Copyright (c) 2014 - 2020 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
-
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
- */
-
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift open source project
+//
+// Copyright (c) 2014 - 2020 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
 import _InternalTestSupport
 import _Concurrency
 import Basics
@@ -425,7 +426,7 @@ final class AsyncProcessTests: XCTestCase {
     func testAsyncStream() async throws {
         // rdar://133548796
         try XCTSkipIfPlatformCI()
-        try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8547: 'swift test' was hanging.")
+        try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8547: 'swift test' was stalled.")
 
         let (stdoutStream, stdoutContinuation) = AsyncProcess.ReadableStream.makeStream()
         let (stderrStream, stderrContinuation) = AsyncProcess.ReadableStream.makeStream()
@@ -483,7 +484,7 @@ final class AsyncProcessTests: XCTestCase {
     func testAsyncStreamHighLevelAPI() async throws {
         // rdar://133548796
         try XCTSkipIfPlatformCI()
-        try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8547: 'swift test' was hanging.")
+        try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8547: 'swift test' was stalled.")
 
         let result = try await AsyncProcess.popen(
             scriptName: "echo\(ProcessInfo.batSuffix)", // maps to 'processInputs/echo' script

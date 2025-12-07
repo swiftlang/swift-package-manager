@@ -531,7 +531,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
             try packageRepo.commit(message: "Initial")
             try packageRepo.tag(name: "1.0.0")
 
-            // Rename the `master` branch to `main`.
+            // Rename the default branch to `main`.
             try await AsyncProcess.checkNonZeroExit(args: Git.tool, "-C", packageDir.pathString, "branch", "-m", "main")
 
             // Create a repository manager for it.
@@ -563,13 +563,13 @@ final class SourceControlPackageContainerTests: XCTestCase {
             let packageRef = PackageReference.localSourceControl(identity: PackageIdentity(path: packageDir), path: packageDir)
             let container = try await containerProvider.getContainer(for: packageRef) as! SourceControlPackageContainer
 
-            // Simulate accessing a fictitious dependency on the `master` branch, and check that we get back the expected error.
-            do { _ = try await container.getDependencies(at: "master", productFilter: .everything) }
+            // Simulate accessing a fictitious dependency on the `master` branch, and check that we get back the expected error.                //ignore-unacceptable-language
+            do { _ = try await container.getDependencies(at: "master", productFilter: .everything) }                                            //ignore-unacceptable-language
             catch let error as SourceControlPackageContainer.GetDependenciesError {
                 // We expect to get an error message that mentions main.
-                XCTAssertMatch(error.description, .and(.prefix("could not find a branch named ‘master’"), .suffix("(did you mean ‘main’?)")))
+                XCTAssertMatch(error.description, .and(.prefix("could not find a branch named ‘master’"), .suffix("(did you mean ‘main’?)")))   //ignore-unacceptable-language
                 XCTAssertMatch(error.repository.description, .suffix("SomePackage"))
-                XCTAssertMatch(error.reference, "master")
+                XCTAssertMatch(error.reference, "master")                                                                                       //ignore-unacceptable-language
             }
 
             // Simulate accessing a fictitious dependency on some random commit that doesn't exist, and check that we get back the expected error.

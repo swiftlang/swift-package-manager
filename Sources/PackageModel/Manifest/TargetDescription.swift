@@ -119,7 +119,7 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
     /// The exclude patterns.
     public let exclude: [String]
 
-    // FIXME: Kill this.
+    // FIXME: Remote this.
     //
     /// Returns true if the target type is test.
     public var isTest: Bool {
@@ -140,16 +140,16 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
 
     /// The providers of a system library target.
     public let providers: [SystemPackageProviderDescription]?
-    
+
     /// The declared capability for a package plugin target.
     public let pluginCapability: PluginCapability?
-    
+
     /// Represents the declared capability of a package plugin.
     public enum PluginCapability: Hashable, Sendable {
         case buildTool
         case command(intent: PluginCommandIntent, permissions: [PluginPermission])
     }
-    
+
     public enum PluginCommandIntent: Hashable, Codable, Sendable {
         case documentationGeneration
         case sourceCodeFormatting
@@ -185,7 +185,7 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
 
     /// The binary target checksum.
     public let checksum: String?
-    
+
     /// The usages of package plugins by the target.
     public let pluginUsages: [PluginUsage]?
 

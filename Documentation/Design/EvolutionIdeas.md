@@ -13,7 +13,7 @@ If you're interested in participating in a particular evolution idea, please
 familiarize yourself with the existing discussion on that topic and start
 participating in the discussion thread of that idea. If a thread doesn't exist
 for that idea, please start one with a [draft
-proposal](https://github.com/swiftlang/swift-evolution/blob/master/proposal-templates/0000-swiftpm-template.md)
+proposal](https://github.com/swiftlang/swift-evolution/blob/main/proposal-templates/0000-swiftpm-template.md)
 that can be used as a starting point.
 
 **Important Note**: This list is not in any particular order. I plan to keep

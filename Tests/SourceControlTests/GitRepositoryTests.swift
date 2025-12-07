@@ -63,7 +63,7 @@ class GitRepositoryTests: XCTestCase {
     /// Test the basic provider functions.
     func testProvider() async throws {
         // Skipping all tests that call git on Windows.
-        // We have a hang in CI when running in parallel.
+        // We have a test stall in CI when running in parallel.
         try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8564", skipSelfHostedCI: true)
         try await testWithTemporaryDirectory { path in
             let testRepoPath = path.appending("test-repo")
@@ -145,8 +145,10 @@ class GitRepositoryTests: XCTestCase {
 
             // Check hash resolution.
             let repo = GitRepository(path: testRepoPath)
-            XCTAssertEqual(try repo.resolveHash(treeish: "1.0", type: "commit"),
-                           try repo.resolveHash(treeish: "master"))
+            XCTAssertEqual(
+                try repo.resolveHash(treeish: "1.0", type: "commit"),
+                try repo.resolveHash(treeish: "main"),
+            )
 
             // Get the initial commit.
             let initialCommitHash = try repo.resolveHash(treeish: "a8b9fcb")
