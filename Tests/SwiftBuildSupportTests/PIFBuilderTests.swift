@@ -70,7 +70,10 @@ fileprivate func withGeneratedPIF(
         )
         let builder = PIFBuilder(
             graph: graph,
-            parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(temporaryDirectory: fixturePath, addLocalRpaths: addLocalRpaths),
+            parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
+                temporaryDirectory: fixturePath,
+                addLocalRpaths: addLocalRpaths
+            ),
             fileSystem: localFileSystem,
             observabilityScope: observabilitySystem.topScope
         )
