@@ -2,7 +2,7 @@
 
 There are several types of contributions one can make. Bug fixes, documentation and enhancements that do not materially change the user facing semantics of Swift Package Manager should be submitted directly as PR.
 
-Larger changes that do materially change the semantics of Swift Package Manager (e.g. changes to the manifest format or behavior) are required to go through [Swift Evolution Process](https://github.com/swiftlang/swift-evolution/blob/master/process.md).
+Larger changes that do materially change the semantics of Swift Package Manager (e.g. changes to the manifest format or behavior) are required to go through [Swift Evolution Process](https://github.com/swiftlang/swift-evolution/blob/main/process.md).
 
 To see how previous evolution decisions for SwiftPM have been made and have some direction for the development of future features please check out the [Community Proposals](https://forums.swift.org/tag/packagemanager).
 
@@ -16,7 +16,7 @@ Fill the following fields:
 
 * `Title`: A one line summary of the problem you're facing.
 * `Description`: The complete description of the problem. Be specific.
-* `Expected behavior`: How you expect SwiftPM to behave. 
+* `Expected behavior`: How you expect SwiftPM to behave.
 * `Actual behavior` : What actually happens.
 * `Steps to reproduce`: Be specific, provide steps to reproduce the bug.
 * `Swift Package Manager version/commit hash` : With which version are you testing.
@@ -510,5 +510,5 @@ Make sure to update your TSC (Tools Support Core):
 ```bash
 $> swift package update
 ```
-Alternatively, if you are using Xcode, you can update to the latest version of all packages:  
+Alternatively, if you are using Xcode, you can update to the latest version of all packages:
 **Xcode App** > *File* > *Swift Packages* > *Update to Latest Package Versions*

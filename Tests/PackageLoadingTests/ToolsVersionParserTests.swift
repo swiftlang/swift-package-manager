@@ -349,7 +349,7 @@ final class ToolsVersionParserTests: XCTestCase {
             "/// We are the knights who say 'Ni!'",
             // Missing version specifiers are diagnosed before backward-compatibility checks.
             "\r\n//\tswift-tools-version:",
-            "\n\r///The swifts hung in the sky in much the same way that bricks don't.\u{85}",
+            "\n\r///The swifts hovered in the sky in much the same way that bricks don't.\u{85}",
         ]
 
         for manifestSnippet in manifestSnippetsWithoutVersionSpecifier {

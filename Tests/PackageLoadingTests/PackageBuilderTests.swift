@@ -1077,7 +1077,7 @@ struct PackageBuilderTests {
                     try TargetDescription(name: "Random"),
                 ]
             )
-            
+
             try PackageBuilderTester(manifest, in: fs) { package, diagnostics in
                 try package.checkModule("Random") { result in
                     #expect("/\(predefinedSourceDir)" == result.target.path)
@@ -1177,7 +1177,7 @@ struct PackageBuilderTests {
                     try TargetDescription(name: "MyTests", type: .test),
                 ]
             )
-            
+
             try PackageBuilderTester(manifest, in: fs) { package, diagnostics in
                 try package.checkModule("MyTests") { result in
                     #expect("/\(predefinedSourceDir)" == result.target.path)
@@ -1280,7 +1280,7 @@ struct PackageBuilderTests {
                     try TargetDescription(name: "MyPlugin", type: .plugin, pluginCapability: .buildTool),
                 ]
             )
-            
+
             try PackageBuilderTester(manifest, in: fs) { package, diagnostics in
                 try package.checkModule("MyPlugin") { result in
                     result.checkSources(root: result.target.path.appending(component: predefinedSourceDir).pathString, paths: "Foo.swift")
@@ -2838,19 +2838,19 @@ struct PackageBuilderTests {
                         // invalid - same target in package "Bar"
                         "Bar",
                         "Bar",
-                        
+
                         // invalid - same target in package "Bar"
                         "Bar2",
                         .product(name: "Bar2", package: "Bar"),
-                        
+
                         // invalid - same target in this package
                         "Foo2",
                         "Foo2",
-                        
+
                         // invalid - same target in this package
                         "Foo3",
                         .target(name: "Foo3"),
-                        
+
                         // valid - different packages
                         "Qux",
                         .product(name: "Qux", package: "Bar")
@@ -2979,7 +2979,7 @@ struct PackageBuilderTests {
     func testXcodeResources5_4AndEarlier() throws {
         // In SwiftTools 5.4 and earlier, supported xcbuild file types are supported by default.
         // Of course, modern file types such as xcstrings won't be supported here because those require a newer Swift tools version in general.
-        
+
         let root: AbsolutePath = "/Foo"
         let foo = root.appending(components: "Sources", "Foo")
 
@@ -3011,11 +3011,11 @@ struct PackageBuilderTests {
             }
         }
     }
-    
+
     @Test
     func testXcodeResources5_5AndLater() throws {
         // In SwiftTools 5.5 and later, xcbuild file types are only supported when explicitly passed via additionalFileRules.
-        
+
         let root: AbsolutePath = "/Foo"
         let foo = root.appending(components: "Sources", "Foo")
 
@@ -3140,7 +3140,7 @@ struct PackageBuilderTests {
                                         internalSourcesDir.appending("Internal.swift").pathString,
             productSourcesDir.appending("Product.swift").pathString,
             snippetsDir.appending("ASnippet.swift").pathString)
-        
+
         let manifest = Manifest.createRootManifest(
             displayName: "Foo", toolsVersion: .v5_7,
             products: [
@@ -3150,7 +3150,7 @@ struct PackageBuilderTests {
                 try TargetDescription(name: "Internal"),
                 try TargetDescription(name: "Product"),
             ])
-        
+
         try PackageBuilderTester(manifest, path: root, in: fs) { result, diagnostics in
             result.checkProduct("Product") { product in
                 product.check(type: .library(.automatic), targets: ["Product"])
@@ -3315,7 +3315,7 @@ struct PackageBuilderTests {
             }
         }
     }
-    
+
     @Test
     func testCWarningControlFlags() throws {
         let fs = InMemoryFileSystem(emptyFiles:

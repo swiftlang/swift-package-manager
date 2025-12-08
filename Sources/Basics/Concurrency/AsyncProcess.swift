@@ -1,12 +1,14 @@
-/*
- This source file is part of the Swift.org open source project
-
- Copyright (c) 2014 - 2020 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
-
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
- */
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift open source project
+//
+// Copyright (c) 2014-2020 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
 
 import _Concurrency
 import Dispatch
@@ -342,7 +344,7 @@ package final class AsyncProcess {
     ///   - workingDirectory: The path to the directory under which to run the process.
     ///   - outputRedirection: How process redirects its output. Default value is .collect.
     ///   - startNewProcessGroup: If true, a new progress group is created for the child making it
-    ///     continue running even if the parent is killed or interrupted. Default value is true.
+    ///     continue running even if the parent is killed or interrupted. Default value is true.    //ignore-unacceptable-language
     ///   - loggingHandler: Handler for logging messages
     ///
     package init(
@@ -370,7 +372,7 @@ package final class AsyncProcess {
     ///   - outputRedirection: How process redirects its output. Default value is .collect.
     ///   - verbose: If true, launch() will print the arguments of the subprocess before launching it.
     ///   - startNewProcessGroup: If true, a new progress group is created for the child making it
-    ///     continue running even if the parent is killed or interrupted. Default value is true.
+    ///     continue running even if the parent is killed or interrupted. Default value is true.    //ignore-unacceptable-language
     ///   - loggingHandler: Handler for logging messages
     package init(
         arguments: [String],
@@ -517,7 +519,8 @@ package final class AsyncProcess {
 
             group.enter()
             stdoutPipe.fileHandleForReading.readabilityHandler = { (fh: FileHandle) in
-                let data = (try? fh.read(upToCount: Int.max)) ?? Data()
+                // 4096 is default pipe buffer size so reading in that size seems most efficient and still get output as it available
+                let data = (try? fh.read(upToCount: 4096)) ?? Data()
                 if data.count == 0 {
                     stdoutPipe.fileHandleForReading.readabilityHandler = nil
                     group.leave()
@@ -532,7 +535,8 @@ package final class AsyncProcess {
 
             group.enter()
             stderrPipe.fileHandleForReading.readabilityHandler = { (fh: FileHandle) in
-                let data = (try? fh.read(upToCount: Int.max)) ?? Data()
+                // 4096 is default pipe buffer size so reading in that size seems most efficient and still get output as it available
+                let data = (try? fh.read(upToCount: 4096)) ?? Data()
                 if data.count == 0 {
                     stderrPipe.fileHandleForReading.readabilityHandler = nil
                     group.leave()
@@ -933,7 +937,7 @@ package final class AsyncProcess {
         }
         #else
         assert(self.launched, "The process is not yet launched.")
-        kill(self.startNewProcessGroup ? -self.processID : self.processID, signal)
+        kill(self.startNewProcessGroup ? -self.processID : self.processID, signal)      //ignore-unacceptable-language
         #endif
     }
 }

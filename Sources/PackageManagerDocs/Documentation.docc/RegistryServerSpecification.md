@@ -153,11 +153,11 @@ Valid `Accept` header field values are described by the following rules:
 ```
 
 A server MUST set the `Content-Type` header field
-with the corresponding content type of the response. 
+with the corresponding content type of the response.
 
 A server MUST set the `Content-Version` header field
-with the API version number of the response, unless 
-explicitly stated otherwise. 
+with the API version number of the response, unless
+explicitly stated otherwise.
 
 ```http
 HTTP/1.1 200 OK
@@ -490,11 +490,11 @@ with a given combination of `name` and `type` values.
 
 ##### 4.2.2. Package release metadata standards
 
- [Appendix B](<doc:#Appendix-B---Package-Release-Metadata-JSON-Schema>) 
+ [Appendix B](<doc:#Appendix-B---Package-Release-Metadata-JSON-Schema>)
  defines the JSON schema for package release metadata that
  gets submitted as part of the ["create a package release"](<doc:#4.6.-Create-a-package-release>)
- request. A server MAY allow and/or populate additional metadata by 
- expanding the schema. The `metadata` key in the 
+ request. A server MAY allow and/or populate additional metadata by
+ expanding the schema. The `metadata` key in the
  ["fetch information about a package release"](<doc:#4.2.-Fetch-information-about-a-package-release>) API response
  will hold the user-provided as well as the server populated metadata.
 
@@ -684,7 +684,7 @@ It is RECOMMENDED for clients and servers to support
 range requests as described by [RFC 7233]
 and caching as described by [RFC 7234].
 
-If a release is signed, a server MUST include 
+If a release is signed, a server MUST include
 `X-Swift-Package-Signature-Format` and `X-Swift-Package-Signature`
 headers in the response.
 
@@ -744,7 +744,7 @@ Digest: sha-256=a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812
 
 A client MUST validate the signature of a signed archive
 according to the signature format and configuration. Signing
-information can alternatively be found in the associated 
+information can alternatively be found in the associated
 `source-archive` resource in the response to `GET /{scope}/{name}/{version}`,
 as described in [4.2.1](<doc:#4.2.1.-Package-release-resources>).
 
@@ -797,7 +797,7 @@ caching as described by [RFC 7234].
 ##### 4.5.1 URL to package identifier mappings
 
 As part of the [package release metadata](<doc:#4.2.2.-Package-release-metadata-standards>) JSON object, the `repositoryURLs` array can be used to specify URLs associated with a package identifier.
-This is one way through which a server can obtain URL to package identifier mappings for this API. 
+This is one way through which a server can obtain URL to package identifier mappings for this API.
 
 A server MAY choose other mechanism(s) for package authors to specify these mappings.
 
@@ -821,19 +821,19 @@ with the following sections:
 | `metadata`                 | `application/json`         | Additional information about the release. | OPTIONAL          |
 | `metadata-signature`       | `application/octet-stream` | The signature of the metadata.            | OPTIONAL          |
 
-A client MUST set a `Content-Type` header with the value 
+A client MUST set a `Content-Type` header with the value
 `multipart/form-data`. `boundary` can be any string.
 
 A client MAY use any valid value (e.g., `binary`) for the
 `Content-Transfer-Encoding` header.
 
-A client SHOULD set the `Content-Length` header with 
+A client SHOULD set the `Content-Length` header with
 the total size of the body in bytes.
 
 A client SHOULD set the `Accept` header with the value
 `application/vnd.swift.registry.v1+json`.
 
-A client MUST set a `X-Swift-Package-Signature-Format` header 
+A client MUST set a `X-Swift-Package-Signature-Format` header
 with the signature format if the source archive is signed.
 
 ```http
@@ -1038,7 +1038,7 @@ Content-Language: en
 {
    "detail": "invalid JSON provided for release metadata"
 }
-``` 
+```
 
 ##### 4.6.3. Synchronous and asynchronous publication
 
@@ -1221,13 +1221,13 @@ See [registry.openapi.yaml](./registry.openapi.yaml).
 
 ### Appendix B - Package Release Metadata JSON Schema
 
-The `metadata` section of the [create package release request](<doc:#4.6.-Create-a-package-release>) 
+The `metadata` section of the [create package release request](<doc:#4.6.-Create-a-package-release>)
 must be a JSON object of type [`PackageRelease`](<doc:#PackageRelease-type>), as defined in the
 JSON schema below.
 
 <details>
 
-<summary>Expand to view <a href="https://json-schema.org/specification.html">JSON schema</a></summary>  
+<summary>Expand to view <a href="https://json-schema.org/specification.html">JSON schema</a></summary>
 
 ```json
 {
@@ -1241,52 +1241,52 @@ JSON schema below.
       "type": "object",
       "properties": {
         "name": {
-          "type": "string",      
+          "type": "string",
           "description": "Name of the author."
-        },  
+        },
         "email": {
           "type": "string",
           "format": "email",
           "description": "Email address of the author."
-        },              
+        },
         "description": {
-          "type": "string",      
+          "type": "string",
           "description": "A description of the author."
         },
         "organization": {
           "type": "object",
           "properties": {
             "name": {
-              "type": "string",      
+              "type": "string",
               "description": "Name of the organization."
-            },  
+            },
             "email": {
               "type": "string",
-              "format": "email",      
+              "format": "email",
               "description": "Email address of the organization."
-            },              
+            },
             "description": {
-              "type": "string",      
+              "type": "string",
               "description": "A description of the organization."
-            },        
+            },
             "url": {
               "type": "string",
-              "format": "uri",      
+              "format": "uri",
               "description": "URL of the organization."
-            },        
+            },
           },
           "required": ["name"]
-        },                
+        },
         "url": {
-          "type": "string", 
-          "format": "uri",     
+          "type": "string",
+          "format": "uri",
           "description": "URL of the author."
-        },        
+        },
       },
       "required": ["name"]
     },
     "description": {
-      "type": "string",      
+      "type": "string",
       "description": "A description of the package release."
     },
     "licenseURL": {
@@ -1301,7 +1301,7 @@ JSON schema below.
     },
     "readmeURL": {
       "type": "string",
-      "format": "uri",      
+      "format": "uri",
       "description": "URL of the README specifically for the package release or broadly for the package."
     },
     "repositoryURLs": {
@@ -1310,7 +1310,7 @@ JSON schema below.
       "items": {
         "type": "string",
         "description": "Code repository URL."
-      }      
+      }
     }
   }
 }
@@ -1386,6 +1386,6 @@ JSON schema below.
 [thundering herd effect]: https://en.wikipedia.org/wiki/Thundering_herd_problem "Thundering herd problem"
 [offline cache]: https://yarnpkg.com/features/offline-cache "Offline Cache | Yarn - Package Manager"
 [XCFramework]: https://developer.apple.com/videos/play/wwdc2019/416/ "WWDC 2019 Session 416: Binary Frameworks in Swift"
-[SE-0272]: https://github.com/swiftlang/swift-evolution/blob/master/proposals/0272-swiftpm-binary-dependencies.md "Package Manager Binary Dependencies"
+[SE-0272]: https://github.com/swiftlang/swift-evolution/blob/main/proposals/0272-swiftpm-binary-dependencies.md "Package Manager Binary Dependencies"
 [Swift tools version]: https://github.com/swiftlang/swift-package-manager/blob/9b9bed7eaf0f38eeccd0d8ca06ae08f6689d1c3f/Documentation/Usage.md#swift-tools-version-specification "Swift Tools Version Specification"
 [ISO 8601]: https://www.iso.org/iso-8601-date-and-time-format.html "ISO 8601 Date and Time Format"

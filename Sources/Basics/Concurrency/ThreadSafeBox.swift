@@ -85,6 +85,14 @@ public final class ThreadSafeBox<Value> {
         }
     }
 
+    public func takeValue<U>() -> Value where U? == Value {
+        self.lock.withLock {
+            guard let value = self.underlying else { return nil }
+            self.underlying = nil
+            return value
+        }
+    }
+
     public subscript<T>(dynamicMember keyPath: KeyPath<Value, T>) -> T? {
         self.lock.withLock {
             self.underlying?[keyPath: keyPath]

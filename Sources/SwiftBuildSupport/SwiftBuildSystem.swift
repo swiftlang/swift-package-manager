@@ -43,7 +43,7 @@ struct SessionFailedError: Error {
     var diagnostics: [SwiftBuild.SwiftBuildMessage.DiagnosticInfo]
 }
 
-func withService<T>(
+package func withService<T>(
     connectionMode: SWBBuildServiceConnectionMode = .default,
     variant: SWBBuildServiceVariant = .default,
     serviceBundleURL: URL? = nil,
@@ -64,14 +64,21 @@ func withService<T>(
 public func createSession(
     service: SWBBuildService,
     name: String,
-    toolchainPath: Basics.AbsolutePath,
+    toolchain: Toolchain,
     packageManagerResourcesDirectory: Basics.AbsolutePath?
 ) async throws-> (SWBBuildServiceSession, [SwiftBuildMessage.DiagnosticInfo]) {
+
+    var buildSessionEnv: [String: String]? = nil
+    if let metalToolchainPath = toolchain.metalToolchainPath {
+        buildSessionEnv = ["EXTERNAL_TOOLCHAINS_DIR": metalToolchainPath.pathString]
+    }
+    let toolchainPath = try toolchain.toolchainDir
+
     // SWIFT_EXEC and SWIFT_EXEC_MANIFEST may need to be overridden in debug scenarios in order to pick up Open Source toolchains
     let sessionResult = if toolchainPath.components.contains(where: { $0.hasSuffix(".app") }) {
-        await service.createSession(name: name, developerPath: nil, resourceSearchPaths: packageManagerResourcesDirectory.map { [$0.pathString] } ?? [], cachePath: nil, inferiorProductsPath: nil, environment: nil)
+        await service.createSession(name: name, developerPath: nil, resourceSearchPaths: packageManagerResourcesDirectory.map { [$0.pathString] } ?? [], cachePath: nil, inferiorProductsPath: nil, environment: buildSessionEnv)
     } else {
-        await service.createSession(name: name, swiftToolchainPath: toolchainPath.pathString, resourceSearchPaths: packageManagerResourcesDirectory.map { [$0.pathString] } ?? [], cachePath: nil, inferiorProductsPath: nil, environment: nil)
+        await service.createSession(name: name, swiftToolchainPath: toolchainPath.pathString, resourceSearchPaths: packageManagerResourcesDirectory.map { [$0.pathString] } ?? [], cachePath: nil, inferiorProductsPath: nil, environment: buildSessionEnv)
     }
     switch sessionResult {
     case (.success(let session), let diagnostics):
@@ -84,14 +91,14 @@ public func createSession(
 func withSession(
     service: SWBBuildService,
     name: String,
-    toolchainPath: Basics.AbsolutePath,
+    toolchain: Toolchain,
     packageManagerResourcesDirectory: Basics.AbsolutePath?,
     body: @escaping (
         _ session: SWBBuildServiceSession,
         _ diagnostics: [SwiftBuild.SwiftBuildMessage.DiagnosticInfo]
     ) async throws -> Void
 ) async throws {
-    let (session, diagnostics) = try await createSession(service: service, name: name, toolchainPath: toolchainPath, packageManagerResourcesDirectory: packageManagerResourcesDirectory)
+    let (session, diagnostics) = try await createSession(service: service, name: name, toolchain: toolchain, packageManagerResourcesDirectory: packageManagerResourcesDirectory)
     do {
         try await body(session, diagnostics)
     } catch let bodyError {
@@ -111,7 +118,9 @@ func withSession(
     }
 }
 
-private final class PlanningOperationDelegate: SWBPlanningOperationDelegate, Sendable {
+package final class SwiftBuildSystemPlanningOperationDelegate: SWBPlanningOperationDelegate, SWBIndexingDelegate, Sendable {
+    package init() {}
+    
     public func provisioningTaskInputs(
         targetGUID: String,
         provisioningSourceData: SWBProvisioningTaskInputsSourceData
@@ -175,7 +184,7 @@ private final class PlanningOperationDelegate: SWBPlanningOperationDelegate, Sen
 }
 
 public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
-    private let buildParameters: BuildParameters
+    package let buildParameters: BuildParameters
     private let packageGraphLoader: () async throws -> ModulesGraph
     private let packageManagerResourcesDirectory: Basics.AbsolutePath?
     private let logLevel: Basics.Diagnostic.Severity
@@ -341,7 +350,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             return result
         }
 
-        try await writePIF(buildParameters: buildParameters)
+        try await writePIF(buildParameters: self.buildParameters)
 
         return try await startSWBuildOperation(
             pifTargetName: subset.pifTargetName,
@@ -544,7 +553,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
             var serializedDiagnosticPathsByTargetName: [String: [Basics.AbsolutePath]] = [:]
             do {
-                try await withSession(service: service, name: self.buildParameters.pifManifest.pathString, toolchainPath: self.buildParameters.toolchain.toolchainDir, packageManagerResourcesDirectory: self.packageManagerResourcesDirectory) { session, _ in
+                try await withSession(service: service, name: self.buildParameters.pifManifest.pathString, toolchain: self.buildParameters.toolchain, packageManagerResourcesDirectory: self.packageManagerResourcesDirectory) { session, _ in
                     self.outputStream.send("Building for \(self.buildParameters.configuration == .debug ? "debugging" : "production")...\n")
 
                     // Load the workspace, and set the system information to the default
@@ -726,7 +735,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
                     let operation = try await session.createBuildOperation(
                         request: request,
-                        delegate: PlanningOperationDelegate(),
+                        delegate: SwiftBuildSystemPlanningOperationDelegate(),
                         retainBuildDescription: true
                     )
 
@@ -860,7 +869,11 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         )
     }
 
-    private func makeBuildParameters(session: SWBBuildServiceSession, symbolGraphOptions: BuildOutput.SymbolGraphOptions?) async throws -> SwiftBuild.SWBBuildParameters {
+    internal func makeBuildParameters(
+        session: SWBBuildServiceSession,
+        symbolGraphOptions: BuildOutput.SymbolGraphOptions?,
+        setToolchainSetting: Bool = true,
+    ) async throws -> SwiftBuild.SWBBuildParameters {
         // Generate the run destination parameters.
         let runDestination = makeRunDestination()
 
@@ -872,17 +885,37 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         // Generate a table of any overriding build settings.
         var settings: [String: String] = [:]
 
-        // If the SwiftPM toolchain corresponds to a toolchain registered with the lower level build system, add it to the toolchain stack.
-        // Otherwise, apply overrides for each component of the SwiftPM toolchain.
-        if let toolchainID = try await session.lookupToolchain(at: buildParameters.toolchain.toolchainDir.pathString) {
-            settings["TOOLCHAINS"] = "\(toolchainID.rawValue) $(inherited)"
-        } else {
-            // FIXME: This list of overrides is incomplete.
-            // An error with determining the override should not be fatal here.
-            settings["CC"] = try? buildParameters.toolchain.getClangCompiler().pathString
-            // Always specify the path of the effective Swift compiler, which was determined in the same way as for the
-            // native build system.
-            settings["SWIFT_EXEC"] = buildParameters.toolchain.swiftCompilerPath.pathString
+        if setToolchainSetting {
+            // If the SwiftPM toolchain corresponds to a toolchain registered with the lower level build system, add it to the toolchain stack.
+            // Otherwise, apply overrides for each component of the SwiftPM toolchain.
+            let toolchainID = try await session.lookupToolchain(at: buildParameters.toolchain.toolchainDir.pathString)
+            if toolchainID == nil {
+                // FIXME: This list of overrides is incomplete.
+                // An error with determining the override should not be fatal here.
+                settings["CC"] = try? buildParameters.toolchain.getClangCompiler().pathString
+                // Always specify the path of the effective Swift compiler, which was determined in the same way as for the
+                // native build system.
+                settings["SWIFT_EXEC"] = buildParameters.toolchain.swiftCompilerPath.pathString
+            }
+            
+            let overrideToolchains = [buildParameters.toolchain.metalToolchainId, toolchainID?.rawValue].compactMap { $0 }
+            if !overrideToolchains.isEmpty {
+                settings["TOOLCHAINS"] = (overrideToolchains + ["$(inherited)"]).joined(separator: " ")
+            }
+        }
+
+        for sanitizer in buildParameters.sanitizers.sanitizers {
+            self.observabilityScope.emit(debug:"Enabling \(sanitizer) sanitizer")
+            switch sanitizer {
+                case .address:
+                    settings["ENABLE_ADDRESS_SANITIZER"] = "YES"
+                case .thread:
+                    settings["ENABLE_THREAD_SANITIZER"] = "YES"
+                case .undefined:
+                    settings["ENABLE_UNDEFINED_BEHAVIOR_SANITIZER"] = "YES"
+                case .fuzzer, .scudo:
+                    throw StringError("\(sanitizer) is not currently supported with this build system.")
+            }
         }
 
         // FIXME: workaround for old Xcode installations such as what is in CI
@@ -983,6 +1016,38 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         // When building with the CLI for macOS, test bundles should generate entrypoints for compatibility with swiftpm-testing-helper.
         if buildParameters.triple.isMacOSX {
             settings["GENERATE_TEST_ENTRYPOINTS_FOR_BUNDLES"] = "YES"
+        }
+
+        // Set the value of the index store
+        struct IndexStoreSettings {
+            let enableVariableName: String
+            let pathVariable: String
+        }
+
+        let indexStoreSettingNames: [IndexStoreSettings] = [
+            IndexStoreSettings(
+                enableVariableName: "CLANG_INDEX_STORE_ENABLE",
+                pathVariable: "CLANG_INDEX_STORE_PATH",
+            ),
+            IndexStoreSettings(
+                enableVariableName: "SWIFT_INDEX_STORE_ENABLE",
+                pathVariable: "SWIFT_INDEX_STORE_PATH",
+            ),
+        ]
+
+        switch self.buildParameters.indexStoreMode {
+        case .on:
+            for setting in indexStoreSettingNames {
+                settings[setting.enableVariableName] = "YES"
+                settings[setting.pathVariable] = self.buildParameters.indexStore.pathString
+            }
+        case .off:
+            for setting in indexStoreSettingNames {
+                settings[setting.enableVariableName] = "NO"
+            }
+        case .auto:
+            // The settings are handles in the PIF builder
+            break
         }
 
         func reportConflict(_ a: String, _ b: String) throws -> String {
@@ -1171,16 +1236,41 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
     }
 
     public func generatePIF(preserveStructure: Bool) async throws -> String {
-        return try await getPIFBuilder().generatePIF(
+        pifBuilder = .init()
+        packageGraph = .init()
+        let pifBuilder = try await getPIFBuilder()
+        let pif = try await pifBuilder.generatePIF(
             preservePIFModelStructure: preserveStructure,
             printPIFManifestGraphviz: buildParameters.printPIFManifestGraphviz,
             buildParameters: buildParameters
         )
+        return pif
     }
 
     public func writePIF(buildParameters: BuildParameters) async throws {
         let pif = try await generatePIF(preserveStructure: false)
         try self.fileSystem.writeIfChanged(path: buildParameters.pifManifest, string: pif)
+    }
+
+    package struct LongLivedBuildServiceSession {
+        package var session: SWBBuildServiceSession
+        package var diagnostics: [SwiftBuildMessage.DiagnosticInfo]
+        package var teardownHandler: () async throws -> Void
+    }
+
+    package func createLongLivedSession(name: String) async throws -> LongLivedBuildServiceSession {
+        let service = try await SWBBuildService(connectionMode: .inProcessStatic(swiftbuildServiceEntryPoint))
+        do {
+            let (session, diagnostics) = try await createSession(service: service, name: name, toolchain: buildParameters.toolchain, packageManagerResourcesDirectory: packageManagerResourcesDirectory)
+            let teardownHandler = {
+                try await session.close()
+                await service.close()
+            }
+            return LongLivedBuildServiceSession(session: session, diagnostics: diagnostics, teardownHandler: teardownHandler)
+        } catch {
+            await service.close()
+            throw error
+        }
     }
 
     public func cancel(deadline: DispatchTime) throws {}
@@ -1223,13 +1313,13 @@ fileprivate extension SwiftBuild.SwiftBuildMessage.DiagnosticInfo.Location {
             case .none:
                 return path
             }
-        
+
         case .buildSettings(let names):
             return names.joined(separator: ", ")
-        
+
         case .buildFiles(let buildFiles, let targetGUID):
             return "\(targetGUID): " + buildFiles.map { String(describing: $0) }.joined(separator: ", ")
-            
+
         case .unknown:
             return nil
         }

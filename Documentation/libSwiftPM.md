@@ -10,7 +10,7 @@ A subset of `libSwiftPM` that includes only the data model (without SwiftPM's
 build system) is available as `libSwiftPMDataModel`.  Any one client should
 depend on one or the other, but not both.
 
-The SwiftPM repository contains an [example](https://github.com/swiftlang/swift-package-manager/tree/master/Examples/package-info) that demonstrates the use of
+The SwiftPM repository contains an [example](https://github.com/swiftlang/swift-package-manager/tree/main/Examples/package-info) that demonstrates the use of
 `libSwiftPM` in a Swift package. Use the following commands to run the example
 package:
 

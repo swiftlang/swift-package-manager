@@ -47,6 +47,12 @@ public protocol Toolchain {
     /// The manifest and library locations used by this toolchain.
     var swiftPMLibrariesLocation: ToolchainConfiguration.SwiftPMLibrariesLocation { get }
 
+    /// Path to the Metal toolchain if available.
+    var metalToolchainPath: AbsolutePath? { get }
+
+    // Metal toolchain ID if available.
+    var metalToolchainId: String? { get }
+
     /// Path of the `clang` compiler.
     func getClangCompiler() throws -> AbsolutePath
 
