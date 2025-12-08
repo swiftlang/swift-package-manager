@@ -227,6 +227,19 @@ extension PackagePIFProjectBuilder {
         case macro
     }
 
+    static func createBinaryModuleFileReference(_ binaryModule: BinaryModule, id: ProjectModel.GUID) -> FileReference {
+        let fileTypeIdentifier: String?
+        switch binaryModule.kind {
+        case .artifactsArchive:
+            fileTypeIdentifier = "wrapper.artifactbundle"
+        case .xcframework:
+            fileTypeIdentifier = "wrapper.xcframework"
+        case .unknown:
+            fileTypeIdentifier = nil
+        }
+        return FileReference(id: id, path: binaryModule.artifactPath.pathString, fileType: fileTypeIdentifier)
+    }
+
     /// Constructs a *PIF target* for building a *module* as a particular type.
     /// An optional target identifier suffix is passed when building variants of a target.
     @discardableResult
@@ -651,7 +664,7 @@ extension PackagePIFProjectBuilder {
                         break
                     }
                     let binaryReference = self.binaryGroup.addFileReference { id in
-                        FileReference(id: id, path: (binaryModule.artifactPath.pathString))
+                        return Self.createBinaryModuleFileReference(binaryModule, id: id)
                     }
                     if shouldLinkProduct {
                         self.project[keyPath: sourceModuleTargetKeyPath].addLibrary { id in

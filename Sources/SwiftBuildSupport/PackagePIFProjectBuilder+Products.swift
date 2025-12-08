@@ -346,7 +346,7 @@ extension PackagePIFProjectBuilder {
                         break
                     }
                     let binaryFileRef = self.binaryGroup.addFileReference { id in
-                        FileReference(id: id, path: binaryModule.artifactPath.pathString)
+                        Self.createBinaryModuleFileReference(binaryModule, id: id)
                     }
                     let toolsVersion = self.package.manifest.toolsVersion
                     self.project[keyPath: mainModuleTargetKeyPath].addLibrary { id in
