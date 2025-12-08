@@ -1,13 +1,14 @@
-/*
- This source file is part of the Swift.org open source project
-
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
-
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
- */
-
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift open source project
+//
+// Copyright (c) 2014 - 2025 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
 import Basics
 import Foundation
 import Testing
@@ -170,7 +171,7 @@ struct PathTests {
                 let actual = AbsolutePath(path).basenameWithoutExt
 
                 #expect(actual == expected, "Actual is not as expected. Path is: \(path)")
-                
+
             }
 
             @Test(
@@ -325,7 +326,7 @@ struct PathTests {
 
         @Test
         func absolutePathValidation() throws {
-            #expect(throws: Never.self) { 
+            #expect(throws: Never.self) {
                 try AbsolutePath(validating: "/a/b/c/d")
             }
 
@@ -640,12 +641,12 @@ struct PathTests {
                 }
             }
         }
-        
+
         @Test(
             .IssueWindowsPathTestsFailures,
         )
         func relativePathValidation() throws {
-            #expect(throws: Never.self) { 
+            #expect(throws: Never.self) {
                 try RelativePath(validating: "a/b/c/d")
             }
 
@@ -773,24 +774,24 @@ struct PathTests {
 
         do {
             let data = try JSONEncoder().encode(Baz(path: ""))
-            #expect(throws: (any Error).self) { 
+            #expect(throws: (any Error).self) {
                 try JSONDecoder().decode(Foo.self, from: data)
             }
-            #expect(throws: Never.self) { 
+            #expect(throws: Never.self) {
                 try JSONDecoder().decode(Bar.self, from: data)
             } // empty string is a valid relative path
         }
 
         do {
             let data = try JSONEncoder().encode(Baz(path: "foo"))
-            #expect(throws: (any Error).self) { 
+            #expect(throws: (any Error).self) {
                 try JSONDecoder().decode(Foo.self, from: data)
             }
         }
 
         do {
             let data = try JSONEncoder().encode(Baz(path: "/foo"))
-            #expect(throws: (any Error).self) { 
+            #expect(throws: (any Error).self) {
                 try JSONDecoder().decode(Bar.self, from: data)
             }
         }

@@ -20,6 +20,8 @@ import SPMBuildCore
 import TSCUtility
 
 public struct MockToolchain: PackageModel.Toolchain {
+    public let metalToolchainId: String?
+    public let metalToolchainPath: Basics.AbsolutePath?
     #if os(Windows)
     public let librarianPath = AbsolutePath("/fake/path/to/link.exe")
     #elseif canImport(Darwin)
@@ -54,6 +56,8 @@ public struct MockToolchain: PackageModel.Toolchain {
 
     public init(swiftResourcesPath: AbsolutePath? = nil) {
         self.swiftResourcesPath = swiftResourcesPath
+        self.metalToolchainPath = nil
+        self.metalToolchainId = nil
     }
 }
 
@@ -92,7 +96,8 @@ public func mockBuildParameters(
     linkTimeOptimizationMode: BuildParameters.LinkTimeOptimizationMode? = nil,
     omitFramePointers: Bool? = nil,
     enableXCFrameworksOnLinux: Bool = false,
-    prepareForIndexing: BuildParameters.PrepareForIndexingMode = .off
+    prepareForIndexing: BuildParameters.PrepareForIndexingMode = .off,
+    sanitizers: [Sanitizer] = [],
 ) -> BuildParameters {
     try! BuildParameters(
         destination: destination,
@@ -104,6 +109,7 @@ public func mockBuildParameters(
         buildSystemKind: buildSystemKind,
         pkgConfigDirectories: [],
         workers: 3,
+        sanitizers: EnabledSanitizers(Set(sanitizers)),
         indexStoreMode: indexStoreMode,
         prepareForIndexing: prepareForIndexing,
         enableXCFrameworksOnLinux: enableXCFrameworksOnLinux,
@@ -120,7 +126,7 @@ public func mockBuildParameters(
             linkTimeOptimizationMode: linkTimeOptimizationMode,
             shouldDisableLocalRpath: shouldDisableLocalRpath,
             shouldLinkStaticSwiftStdlib: shouldLinkStaticSwiftStdlib
-        )
+        ),
     )
 }
 

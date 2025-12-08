@@ -1,3 +1,4 @@
+//===----------------------------------------------------------------------===//
 //
 // This source file is part of the Swift open source project
 //
@@ -11,7 +12,7 @@
 
 /// The level at which a compiler warning should be treated.
 ///
-/// This enum is used with the `SwiftSetting.treatAllWarnings(as:_:)` and 
+/// This enum is used with the `SwiftSetting.treatAllWarnings(as:_:)` and
 /// `SwiftSetting.treatWarning(name:as:_:)` methods to control how warnings
 /// are handled during compilation.
 @available(_PackageDescription, introduced: 6.2)
