@@ -1,10 +1,10 @@
-#  Getting Started with Templates
+#  Creating Package Templates
 
 This guide provides a brief overview of Swift Package Manager templates, describes how a package can make use of templates, and shows how to get started writing your own templates.
 
 ## Overview
 
-User-defined custom _templates_ allow generation of packages whose functionality goes beyond the hard-coded templates provided by Swift Package Manager. Package templates are written in Swift using Swift Argument Parser and the `PackagePlugin` API provided by the Swift Package Manager.
+Custom _templates_ allow generation of packages whose functionality goes beyond the hard-coded templates provided by Swift Package Manager. Package templates are written in Swift using Swift Argument Parser and the `PackagePlugin` API provided by the Swift Package Manager.
 
 A template is represented in the SwiftPM package manifest as a target of the `templateTarget` type and should be available to other packages by declaring a corresponding `template` product. Source code for a template is normally located in a directory under the `Templates` directory in the package, but this can be customized. However, as seen below, authors will also need to write the source code for a plugin.
 
@@ -16,45 +16,7 @@ The command-line plugin allows the template executable to run in a separate proc
 
 The executable allows authors to define user-facing interfaces which gather important consumer input needed by the template to run, using Swift Argument Parser for a rich command-line experience with subcommands, options, and flags.
 
-## Using a Package Template
-
-Templates are invoked using the `swift package init` command:
-
-```shell
-❯ swift package init --type MyTemplate --url https://github.com/author/template-example
-```
-
-Templates can be sourced from package registries, Git repositories, or local paths:
-
-```bash
-# From a package registry
-swift package init --type MyTemplate --package-id author.template-example
-
-# From a Git repository  
-swift package init --type MyTemplate --url https://github.com/author/template-example
-
-# From a local directory
-swift package init --type MyTemplate --path /path/to/template
-```
-
-Any command line arguments that appear after the template type are passed to the template executable — these can be used to skip interactive prompts or specify configuration:
-
-```bash
-swift package init --type ServerTemplate --package-id example.templates -- crud --database postgresql --readme
-```
-
-Templates support the same versioning constraints as regular package dependencies: exact, range, branches, and revisions:
-
-```bash
-swift package init --type MyTemplate --package-id author.template --from 1.0.0
-swift package init --type MyTemplate --url https://github.com/author/template --branch main
-```
-
-The `--validate-package` flag can be used to automatically build the template output:
-
-```bash
-swift package init --type MyTemplate --package-id author.template --build-package
-```
+To learn about using a package template, read <doc:CreatingSwiftPackage#Creating-a-Package-based-on-a-custom-template>.
 
 ## Writing a Template
 
