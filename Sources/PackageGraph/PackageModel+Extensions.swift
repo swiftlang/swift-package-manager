@@ -35,14 +35,14 @@ extension PackageDependency {
 
 extension Manifest {
     /// Constructs constraints of the dependencies in the raw package.
-    public func dependencyConstraints(productFilter: ProductFilter, _ enabledTraits: Set<String> = ["default"]) throws -> [PackageContainerConstraint] {
+    public func dependencyConstraints(productFilter: ProductFilter, _ enabledTraits: EnabledTraits = ["default"]) throws -> [PackageContainerConstraint] {
         return try self.dependenciesRequired(for: productFilter, enabledTraits).map({
             let explicitlyEnabledTraits = $0.traits?.filter {
                 guard let condition = $0.condition else { return true }
-                return condition.isSatisfied(by: enabledTraits)
+                return condition.isSatisfied(by: enabledTraits.names)
             }.map(\.name)
 
-            let enabledTraitsSet = explicitlyEnabledTraits.flatMap({ Set($0) }) ?? ["default"]
+            let enabledTraitsSet = EnabledTraits(explicitlyEnabledTraits ?? [], setBy: .package(.init(identity: self.packageIdentity, name: self.displayName)))
 
             return PackageContainerConstraint(
                 package: $0.packageRef,
@@ -60,7 +60,7 @@ extension PackageContainerConstraint {
     internal func nodes() -> [DependencyResolutionNode] {
         switch products {
         case .everything:
-            return [.root(package: self.package)]
+            return [.root(package: self.package, enabledTraits: self.enabledTraits)]
         case .specific:
             switch products {
             case .everything:
@@ -70,7 +70,7 @@ extension PackageContainerConstraint {
                 if set.isEmpty { // Pointing at the package without a particular product.
                     return [.empty(package: self.package)]
                 } else {
-                    return set.sorted().map { .product($0, package: self.package) }
+                    return set.sorted().map { .product($0, package: self.package, enabledTraits: self.enabledTraits) }
                 }
             }
         }

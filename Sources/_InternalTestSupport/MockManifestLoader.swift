@@ -130,7 +130,7 @@ extension ManifestLoader {
         dependencyMapper: DependencyMapper? = .none,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
-    ) async throws -> Manifest{
+    ) async throws -> Manifest {
         let packageIdentity: PackageIdentity
         let packageLocation: String
         switch packageKind {
