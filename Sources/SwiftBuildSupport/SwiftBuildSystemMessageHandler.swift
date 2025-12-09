@@ -54,7 +54,7 @@ public final class SwiftBuildSystemMessageHandler {
         observabilityScope: ObservabilityScope,
         outputStream: OutputByteStream,
         logLevel: Basics.Diagnostic.Severity,
-        enableBacktraces: Bool,
+        enableBacktraces: Bool = false,
         buildDelegate: SPMBuildCore.BuildSystemDelegate? = nil
     )
     {
@@ -98,7 +98,7 @@ public final class SwiftBuildSystemMessageHandler {
             return
         }
         // Assure we have a data buffer to decode.
-        guard let buffer = buildState.dataBuffer(for: info) else {
+        guard let buffer = buildState.dataBuffer(for: info), !buffer.isEmpty else {
             return
         }
 
@@ -108,7 +108,7 @@ public final class SwiftBuildSystemMessageHandler {
         // Emit message.
         observabilityScope.print(decodedOutput, verbose: self.logLevel.isVerbose)
 
-        // Record that we've emitted the output for a given task signature.
+        // Record that we've emitted the output for a given task.
         self.tasksEmitted.insert(info)
     }
 
@@ -117,20 +117,19 @@ public final class SwiftBuildSystemMessageHandler {
         _ startedInfo: SwiftBuildMessage.TaskStartedInfo,
         _ enableTaskBacktraces: Bool
     ) throws {
-        if info.result != .success {
-            let diagnostics = self.buildState.diagnostics(for: info)
-            if diagnostics.isEmpty {
-                // Handle diagnostic via textual compiler output.
-                emitFailedTaskOutput(info, startedInfo)
-            } else {
-                // Handle diagnostic via diagnostic info struct.
-                diagnostics.forEach({ emitInfoAsDiagnostic(info: $0) })
-            }
-        } else if let data = buildState.dataBuffer(for: startedInfo), !tasksEmitted.contains(startedInfo.taskSignature) {
-            let decodedOutput = String(decoding: data, as: UTF8.self)
-            if !decodedOutput.isEmpty {
-                observabilityScope.emit(info: decodedOutput)
-            }
+        guard info.result == .success else {
+            emitFailedTaskOutput(info, startedInfo)
+            return
+        }
+
+        // Handle diagnostics, if applicable.
+        let diagnostics = self.buildState.diagnostics(for: info)
+        if !diagnostics.isEmpty {
+            // Emit diagnostics using the `DiagnosticInfo` model.
+            diagnostics.forEach({ emitInfoAsDiagnostic(info: $0) })
+        } else {
+            // Emit diagnostics through textual compiler output.
+            emitDiagnosticCompilerOutput(startedInfo)
         }
 
         // Handle task backtraces, if applicable.
@@ -166,7 +165,12 @@ public final class SwiftBuildSystemMessageHandler {
         // this task's signature, emit them.
         // Note that this is a workaround instead of emitting directly from a `DiagnosticInfo`
         // message, as here we receive the formatted code snippet directly from the compiler.
-        emitDiagnosticCompilerOutput(startedInfo)
+        let diagnosticsBuffer = buildState.diagnostics(for: info)
+        if !diagnosticsBuffer.isEmpty {
+            diagnosticsBuffer.forEach({ emitInfoAsDiagnostic(info: $0) })
+        } else {
+            emitDiagnosticCompilerOutput(startedInfo)
+        }
 
         let message = "\(startedInfo.ruleInfo) failed with a nonzero exit code."
         // If we have the command line display string available, then we
@@ -263,7 +267,7 @@ public final class SwiftBuildSystemMessageHandler {
         @unknown default:
             break
         }
-        
+
         return callback
     }
 }

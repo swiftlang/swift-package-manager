@@ -27,8 +27,8 @@ struct SwiftBuildSystemMessageHandlerTests {
     private func createMessageHandler(
         _ logLevel: Basics.Diagnostic.Severity = .warning
     ) -> (handler: SwiftBuildSystemMessageHandler, outputStream: BufferedOutputByteStream, observability: TestingObservability) {
-        let observability = ObservabilitySystem.makeForTesting()
         let outputStream = BufferedOutputByteStream()
+        let observability = ObservabilitySystem.makeForTesting(outputStream: outputStream)
 
         let handler = SwiftBuildSystemMessageHandler(
             observabilityScope: observability.topScope,
@@ -68,7 +68,7 @@ struct SwiftBuildSystemMessageHandlerTests {
         let events: [SwiftBuildMessage] = [
             .taskStartedInfo(taskSignature: "simple-diagnostic"),
             .diagnosticInfo(locationContext2: .init(taskSignature: "simple-diagnostic"), message: "Simple diagnostic", appendToOutputStream: true),
-            .taskCompleteInfo(taskSignature: "simple-diagnostic") // Handler only emits when a task is completed.
+            .taskCompleteInfo(taskSignature: "simple-diagnostic", result: .failed) // Handler only emits when a task is completed.
         ]
 
         for event in events {
@@ -101,21 +101,21 @@ struct SwiftBuildSystemMessageHandlerTests {
                 message: "Warning diagnostic",
                 appendToOutputStream: true
             ),
-            .taskCompleteInfo(taskID: 1, taskSignature: "simple-diagnostic"),
+            .taskCompleteInfo(taskID: 1, taskSignature: "simple-diagnostic", result: .failed),
             .diagnosticInfo(
                 kind: .warning,
                 locationContext2: .init(taskSignature: "warning-diagnostic"),
                 message: "Another warning diagnostic",
                 appendToOutputStream: true
             ),
-            .taskCompleteInfo(taskID: 3, taskSignature: "warning-diagnostic"),
+            .taskCompleteInfo(taskID: 3, taskSignature: "warning-diagnostic", result: .success),
             .diagnosticInfo(
                 kind: .note,
                 locationContext2: .init(taskSignature: "another-diagnostic"),
                 message: "Another diagnostic",
                 appendToOutputStream: true
             ),
-            .taskCompleteInfo(taskID: 2, taskSignature: "another-diagnostic")
+            .taskCompleteInfo(taskID: 2, taskSignature: "another-diagnostic", result: .failed)
         ]
 
         for event in events {
@@ -204,11 +204,30 @@ struct SwiftBuildSystemMessageHandlerTests {
             _ = try messageHandler.emitEvent(event)
         }
 
-        // TODO bp this output stream will not contain the bytes of textual output;
-        // must augment the print use-case within the observability scope to fetch
-        // that data to complete this assertion.
         let outputText = outputStream.bytes.description
         #expect(outputText.contains("error"))
+    }
+
+    @Test
+    func testDiagnosticOutputWhenOnlyWarnings() throws {
+        let (messageHandler, outputStream, observability) = createMessageHandler()
+
+        let events: [SwiftBuildMessage] = [
+            .taskStartedInfo(taskID: 1, taskSignature: "simple-warning-diagnostic"),
+            .diagnosticInfo(
+                kind: .warning,
+                locationContext2: .init(taskSignature: "simple-warning-diagnostic"),
+                message: "Simple warning diagnostic",
+                appendToOutputStream: true
+            ),
+            .taskCompleteInfo(taskID: 1, taskSignature: "simple-diagnostic", result: .success)
+        ]
+
+        for event in events {
+            _ = try messageHandler.emitEvent(event)
+        }
+
+        #expect(observability.hasWarningDiagnostics)
     }
 }
 
