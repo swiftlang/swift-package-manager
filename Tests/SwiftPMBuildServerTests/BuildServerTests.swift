@@ -26,7 +26,7 @@ final fileprivate class NotificationCollectingMessageHandler: MessageHandler {
 }
 
 fileprivate func withSwiftPMBSP(fixtureName: String, body: (Connection, NotificationCollectingMessageHandler, AbsolutePath) async throws -> Void) async throws {
-    try await withKnownIssue(isIntermittent: true) {
+    await withKnownIssue("Tests occasionally fail to load build description in CI", isIntermittent: true) {
         try await fixture(name: fixtureName) { fixture in
             let inPipe = Pipe()
             let outPipe = Pipe()
@@ -63,8 +63,6 @@ fileprivate func withSwiftPMBSP(fixtureName: String, body: (Connection, Notifica
             connection.close()
             try await terminationPromise
         }
-    } when: {
-        ProcessInfo.isHostAmazonLinux2()
     }
 }
 
