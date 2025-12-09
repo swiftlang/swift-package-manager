@@ -246,10 +246,10 @@ extension SwiftPackageCommand {
             // Find version specific manifests
             do {
                 let packageContents = try fileSystem.getDirectoryContents(packagePath)
-                let regexManifestFile = try! RegEx(pattern: #"^Package@swift-(\d+)(?:\.(\d+))?(?:\.(\d+))?.swift$"#)
+                let regexManifestFile = try! Regex(#"^Package@swift-(\d+)(?:\.(\d+))?(?:\.(\d+))?.swift$"#)
 
                 for file in packageContents {
-                    if regexManifestFile.matchGroups(in: file).first != nil {
+                    if try regexManifestFile.firstMatch(in: file) != nil {
                         manifests.append(packagePath.appending(component: file))
                     }
                 }
