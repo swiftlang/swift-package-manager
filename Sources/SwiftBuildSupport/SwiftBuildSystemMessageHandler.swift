@@ -249,16 +249,29 @@ public final class SwiftBuildSystemMessageHandler {
 // MARK: SwiftBuildSystemMessageHandler.BuildState
 
 extension SwiftBuildSystemMessageHandler {
+    /// Manages the state of an active build operation, tracking targets, tasks, buffers, and backtrace frames.
+    /// This struct maintains the complete state model for build operations, coordinating data between
+    /// different phases of the build lifecycle.
     struct BuildState {
+        // Targets
         internal var targetsByID: [Int: SwiftBuild.SwiftBuildMessage.TargetStartedInfo] = [:]
+        private var completedTargets: [Int: SwiftBuild.SwiftBuildMessage.TargetCompleteInfo] = [:]
+
+        // Tasks
         private var activeTasks: [Int: SwiftBuild.SwiftBuildMessage.TaskStartedInfo] = [:]
         private var completedTasks: [Int: SwiftBuild.SwiftBuildMessage.TaskCompleteInfo] = [:]
-        private var completedTargets: [Int: SwiftBuild.SwiftBuildMessage.TargetCompleteInfo] = [:]
+        private var taskIDToSignature: [Int: String] = [:]
+
+        // Per-task buffers
         private var taskDataBuffer: TaskDataBuffer = .init()
         private var diagnosticsBuffer: TaskDiagnosticBuffer = .init()
-        private var taskIDToSignature: [Int: String] = [:]
-        var collectedBacktraceFrames = SWBBuildOperationCollectedBacktraceFrames()
 
+        // Backtrace frames
+        internal var collectedBacktraceFrames = SWBBuildOperationCollectedBacktraceFrames()
+
+        /// Registers the start of a build task, validating that the task hasn't already been started.
+        /// - Parameter task: The task start information containing task ID and signature
+        /// - Throws: Fatal error if the task is already active
         mutating func started(task: SwiftBuild.SwiftBuildMessage.TaskStartedInfo) throws {
             if activeTasks[task.taskID] != nil {
                 throw Diagnostics.fatalError
@@ -267,6 +280,10 @@ extension SwiftBuildSystemMessageHandler {
             taskIDToSignature[task.taskID] = task.taskSignature
         }
 
+        /// Marks a task as completed and removes it from active tracking.
+        /// - Parameter task: The task completion information
+        /// - Returns: The original task start information for the completed task
+        /// - Throws: Fatal error if the task was not started or already completed
         mutating func completed(task: SwiftBuild.SwiftBuildMessage.TaskCompleteInfo) throws -> SwiftBuild.SwiftBuildMessage.TaskStartedInfo {
             guard let startedTaskInfo = activeTasks[task.taskID] else {
                 throw Diagnostics.fatalError
@@ -281,6 +298,9 @@ extension SwiftBuildSystemMessageHandler {
             return startedTaskInfo
         }
 
+        /// Registers the start of a build target, validating that the target hasn't already been started.
+        /// - Parameter target: The target start information containing target ID and name
+        /// - Throws: Fatal error if the target is already active
         mutating func started(target: SwiftBuild.SwiftBuildMessage.TargetStartedInfo) throws {
             if targetsByID[target.targetID] != nil {
                 throw Diagnostics.fatalError
@@ -288,6 +308,10 @@ extension SwiftBuildSystemMessageHandler {
             targetsByID[target.targetID] = target
         }
 
+        /// Marks a target as completed and removes it from active tracking.
+        /// - Parameter target: The target completion information
+        /// - Returns: The original target start information for the completed target
+        /// - Throws: Fatal error if the target was not started
         mutating func completed(target: SwiftBuild.SwiftBuildMessage.TargetCompleteInfo) throws -> SwiftBuild.SwiftBuildMessage.TargetStartedInfo {
             guard let targetStartedInfo = targetsByID[target.targetID] else {
                 throw Diagnostics.fatalError
@@ -298,6 +322,10 @@ extension SwiftBuildSystemMessageHandler {
             return targetStartedInfo
         }
 
+        /// Retrieves the target information associated with a given task.
+        /// - Parameter task: The task start information to look up the target for
+        /// - Returns: The target start information if the task has an associated target, nil otherwise
+        /// - Throws: Fatal error if the target ID exists but no matching target is found
         func target(for task: SwiftBuild.SwiftBuildMessage.TaskStartedInfo) throws -> SwiftBuild.SwiftBuildMessage.TargetStartedInfo? {
             guard let id = task.targetID else {
                 return nil
@@ -308,53 +336,14 @@ extension SwiftBuildSystemMessageHandler {
             return target
         }
 
+        /// Retrieves the task signature for a given task ID.
+        /// - Parameter id: The task ID to look up
+        /// - Returns: The task signature string if found, nil otherwise
         func taskSignature(for id: Int) -> String? {
             if let signature = taskIDToSignature[id] {
                 return signature
             }
             return nil
-        }
-
-        mutating func appendToBuffer(_ info: SwiftBuildMessage.OutputInfo) {
-            // Attempt to key by taskSignature; at times this may not be possible,
-            // in which case we'd need to fall back to using LocationContext.
-            guard let taskSignature = info.locationContext2.taskSignature else {
-                // If we cannot find the task signature from the locationContext2,
-                // use deprecated locationContext instead to find task signature.
-                // If this fails to find an associated task signature, track
-                // relevant IDs from the location context in the task buffer.
-                if let taskID = info.locationContext.taskID,
-                   let taskSignature = self.taskSignature(for: taskID) {
-                    self.taskDataBuffer[taskSignature, default: .init()].append(info.data)
-                }
-
-                self.taskDataBuffer[info.locationContext, default: .init()].append(info.data)
-
-                return
-            }
-
-            self.taskDataBuffer[taskSignature, default: .init()].append(info.data)
-        }
-
-        func dataBuffer(for task: SwiftBuild.SwiftBuildMessage.TaskStartedInfo) -> Data? {
-            guard let data = taskDataBuffer[task.taskSignature] else {
-                // Fallback to checking taskID and targetID.
-                return taskDataBuffer[task]
-            }
-
-            return data
-        }
-
-        mutating func appendDiagnostic(_ info: SwiftBuildMessage.DiagnosticInfo) {
-            guard let taskID = info.locationContext.taskID else {
-                return
-            }
-
-            diagnosticsBuffer[taskID].append(info)
-        }
-
-        func diagnostics(for task: SwiftBuild.SwiftBuildMessage.TaskCompleteInfo) -> [SwiftBuildMessage.DiagnosticInfo] {
-            return diagnosticsBuffer[task.taskID]
         }
     }
 }
@@ -362,21 +351,35 @@ extension SwiftBuildSystemMessageHandler {
 // MARK: - SwiftBuildSystemMessageHandler.BuildState.TaskDataBuffer
 
 extension SwiftBuildSystemMessageHandler.BuildState {
-    /// Rich model to store data buffers for a given `SwiftBuildMessage.LocationContext` or
-    /// a `SwiftBuildMessage.LocationContext2`.
+    /// Manages data buffers for build tasks, supporting multiple indexing strategies.
+    /// This buffer system stores output data from tasks using both task signatures and task IDs,
+    /// providing flexible access patterns for different build message types and legacy support.
     struct TaskDataBuffer {
         private var taskSignatureBuffer: [String: Data] = [:]
         private var taskIDBuffer: [Int: Data] = [:]
 
+        /// Retrieves data for a task signature key.
+        /// - Parameter key: The task signature string
+        /// - Returns: The associated data buffer, or nil if not found
         subscript(key: String) -> Data? {
             self.taskSignatureBuffer[key]
         }
 
+        /// Retrieves or sets data for a task signature key with a default value.
+        /// - Parameters:
+        ///   - key: The task signature string
+        ///   - defaultValue: The default data to return/store if no value exists
+        /// - Returns: The stored data buffer or the default value
         subscript(key: String, default defaultValue: Data) -> Data {
             get { self.taskSignatureBuffer[key] ?? defaultValue }
             set { self.taskSignatureBuffer[key] = newValue }
         }
 
+        /// Retrieves or sets data using a LocationContext for task identification.
+        /// - Parameters:
+        ///   - key: The location context containing task or target ID information
+        ///   - defaultValue: The default data to return/store if no value exists
+        /// - Returns: The stored data buffer or the default value
         subscript(key: SwiftBuildMessage.LocationContext, default defaultValue: Data) -> Data {
             get {
                 // Check each ID kind and try to fetch the associated buffer.
@@ -397,6 +400,9 @@ extension SwiftBuildSystemMessageHandler.BuildState {
             }
         }
 
+        /// Retrieves or sets data using a LocationContext2 for task identification.
+        /// - Parameter key: The location context containing task signature information
+        /// - Returns: The associated data buffer, or nil if not found
         subscript(key: SwiftBuildMessage.LocationContext2) -> Data? {
             get {
                 if let taskSignature = key.taskSignature {
@@ -413,6 +419,9 @@ extension SwiftBuildSystemMessageHandler.BuildState {
             }
         }
 
+        /// Retrieves data for a specific task using TaskStartedInfo.
+        /// - Parameter task: The task start information containing signature and ID
+        /// - Returns: The associated data buffer, or nil if not found
         subscript(task: SwiftBuildMessage.TaskStartedInfo) -> Data? {
             get {
                 guard let result = self.taskSignatureBuffer[task.taskSignature] else {
@@ -429,15 +438,56 @@ extension SwiftBuildSystemMessageHandler.BuildState {
         }
     }
 
+    /// Appends output data to the appropriate task buffer based on location context information.
+    /// - Parameter info: The output info containing data and location context for storage
+    mutating func appendToBuffer(_ info: SwiftBuildMessage.OutputInfo) {
+        // Attempt to key by taskSignature; at times this may not be possible,
+        // in which case we'd need to fall back to using LocationContext.
+        guard let taskSignature = info.locationContext2.taskSignature else {
+            // If we cannot find the task signature from the locationContext2,
+            // use deprecated locationContext instead to find task signature.
+            // If this fails to find an associated task signature, track
+            // relevant IDs from the location context in the task buffer.
+            if let taskID = info.locationContext.taskID,
+               let taskSignature = self.taskSignature(for: taskID) {
+                self.taskDataBuffer[taskSignature, default: .init()].append(info.data)
+            }
+
+            self.taskDataBuffer[info.locationContext, default: .init()].append(info.data)
+
+            return
+        }
+
+        self.taskDataBuffer[taskSignature, default: .init()].append(info.data)
+    }
+
+    /// Retrieves the accumulated data buffer for a specific task.
+    /// - Parameter task: The task start information to look up data for
+    /// - Returns: The accumulated data buffer for the task, or nil if no data exists
+    func dataBuffer(for task: SwiftBuild.SwiftBuildMessage.TaskStartedInfo) -> Data? {
+        guard let data = taskDataBuffer[task.taskSignature] else {
+            // Fallback to checking taskID and targetID.
+            return taskDataBuffer[task]
+        }
+
+        return data
+    }
+
 }
 
-// MARK: - SwiftBuildSystemMessageHandler.BuildState.
+// MARK: - SwiftBuildSystemMessageHandler.BuildState.TaskDiagnosticBuffer
 
 extension SwiftBuildSystemMessageHandler.BuildState {
+    /// Manages diagnostic information buffers for build tasks, organized by task signatures and IDs.
+    /// This buffer system collects diagnostic messages during task execution for later retrieval
+    /// and structured reporting of build errors, warnings, and other diagnostic information.
     struct TaskDiagnosticBuffer {
         private var diagnosticSignatureBuffer: [String: [SwiftBuildMessage.DiagnosticInfo]] = [:]
         private var diagnosticIDBuffer: [Int: [SwiftBuildMessage.DiagnosticInfo]] = [:]
 
+        /// Retrieves diagnostic information using LocationContext2 for task identification.
+        /// - Parameter key: The location context containing task signature information
+        /// - Returns: Array of diagnostic info for the task, or nil if not found
         subscript(key: SwiftBuildMessage.LocationContext2) -> [SwiftBuildMessage.DiagnosticInfo]? {
             guard let taskSignature = key.taskSignature else {
                 return nil
@@ -445,6 +495,11 @@ extension SwiftBuildSystemMessageHandler.BuildState {
             return self.diagnosticSignatureBuffer[taskSignature]
         }
 
+        /// Retrieves or sets diagnostic information using LocationContext2 with a default value.
+        /// - Parameters:
+        ///   - key: The location context containing task signature information
+        ///   - defaultValue: The default diagnostic array to return if no value exists
+        /// - Returns: Array of diagnostic info for the task, or the default value
         subscript(key: SwiftBuildMessage.LocationContext2, default defaultValue: [SwiftBuildMessage.DiagnosticInfo]) -> [SwiftBuildMessage.DiagnosticInfo] {
             get { self[key] ?? defaultValue }
             set {
@@ -452,6 +507,9 @@ extension SwiftBuildSystemMessageHandler.BuildState {
             }
         }
 
+        /// Retrieves diagnostic information using LocationContext for task identification.
+        /// - Parameter key: The location context containing task ID information
+        /// - Returns: Array of diagnostic info for the task, or nil if not found
         subscript(key: SwiftBuildMessage.LocationContext) -> [SwiftBuildMessage.DiagnosticInfo]? {
             guard let taskID = key.taskID else {
                 return nil
@@ -460,26 +518,56 @@ extension SwiftBuildSystemMessageHandler.BuildState {
             return self.diagnosticIDBuffer[taskID]
         }
 
+        /// Retrieves diagnostic information using LocationContext with a default value.
+        /// - Parameters:
+        ///   - key: The location context containing task ID information
+        ///   - defaultValue: The default diagnostic array to return if no value exists
+        /// - Returns: Array of diagnostic info for the task, or the default value
         subscript(key: SwiftBuildMessage.LocationContext, default defaultValue: [SwiftBuildMessage.DiagnosticInfo]) -> [SwiftBuildMessage.DiagnosticInfo] {
             get { self[key] ?? defaultValue }
         }
 
+        /// Retrieves or sets diagnostic information using a task signature string.
+        /// - Parameter key: The task signature string
+        /// - Returns: Array of diagnostic info for the task signature
         subscript(key: String) -> [SwiftBuildMessage.DiagnosticInfo] {
             get { self.diagnosticSignatureBuffer[key] ?? [] }
             set { self.diagnosticSignatureBuffer[key] = newValue }
         }
 
+        /// Retrieves or sets diagnostic information using a task ID.
+        /// - Parameter key: The task ID
+        /// - Returns: Array of diagnostic info for the task ID
         subscript(key: Int) -> [SwiftBuildMessage.DiagnosticInfo] {
             get { self.diagnosticIDBuffer[key] ?? [] }
             set { self.diagnosticIDBuffer[key] = newValue }
         }
+    }
 
+    /// Appends a diagnostic message to the appropriate diagnostic buffer.
+    /// - Parameter info: The diagnostic information to store, containing location context for identification
+    mutating func appendDiagnostic(_ info: SwiftBuildMessage.DiagnosticInfo) {
+        guard let taskID = info.locationContext.taskID else {
+            return
+        }
+
+        diagnosticsBuffer[taskID].append(info)
+    }
+
+    /// Retrieves all diagnostic information for a completed task.
+    /// - Parameter task: The task completion information containing the task ID
+    /// - Returns: Array of diagnostic info associated with the task
+    func diagnostics(for task: SwiftBuild.SwiftBuildMessage.TaskCompleteInfo) -> [SwiftBuildMessage.DiagnosticInfo] {
+        return diagnosticsBuffer[task.taskID]
     }
 }
 
 // MARK: - SwiftBuildSystemMessageHandler.EmittedTasks
 
 extension SwiftBuildSystemMessageHandler {
+    /// A collection that tracks tasks for which output has already been emitted to prevent duplicate output.
+    /// This struct ensures that task output is only displayed once during the build process, improving
+    /// the readability and accuracy of build logs by avoiding redundant messaging.
     struct EmittedTasks: Collection {
         public typealias Index = Set<TaskInfo>.Index
         public typealias Element = Set<TaskInfo>.Element
@@ -494,6 +582,8 @@ extension SwiftBuildSystemMessageHandler {
 
         public init() { }
 
+        /// Inserts a task info into the emitted tasks collection.
+        /// - Parameter task: The task information to mark as emitted
         mutating func insert(_ task: TaskInfo) {
             storage.insert(task)
         }
@@ -506,41 +596,115 @@ extension SwiftBuildSystemMessageHandler {
             return storage.index(after: i)
         }
 
+        /// Checks if a specific task info has been marked as emitted.
+        /// - Parameter task: The task information to check
+        /// - Returns: True if the task has already been emitted, false otherwise
         func contains(_ task: TaskInfo) -> Bool {
             return storage.contains(task)
         }
 
+        /// Checks if a task with the given ID has been marked as emitted.
+        /// - Parameter taskID: The task ID to check
+        /// - Returns: True if a task with this ID has already been emitted, false otherwise
         public func contains(_ taskID: Int) -> Bool {
             return storage.contains(where: { $0.taskID == taskID })
         }
 
+        /// Checks if a task with the given signature has been marked as emitted.
+        /// - Parameter taskSignature: The task signature to check
+        /// - Returns: True if a task with this signature has already been emitted, false otherwise
         public func contains(_ taskSignature: String) -> Bool {
             return storage.contains(where: { $0.taskSignature == taskSignature })
         }
 
+        /// Convenience method to insert a task using TaskStartedInfo.
+        /// - Parameter startedTaskInfo: The task start information to mark as emitted
         public mutating func insert(_ startedTaskInfo: SwiftBuildMessage.TaskStartedInfo) {
             self.storage.insert(.init(startedTaskInfo))
         }
     }
 
+    /// Represents essential identifying information for a build task.
+    /// This struct encapsulates both the numeric task ID and string task signature,
+    /// providing efficient lookup and comparison capabilities for task tracking.
     struct TaskInfo: Hashable {
         let taskID: Int
         let taskSignature: String
 
+        /// Initializes TaskInfo from TaskStartedInfo.
+        /// - Parameter startedTaskInfo: The task start information containing ID and signature
         public init(_ startedTaskInfo: SwiftBuildMessage.TaskStartedInfo) {
             self.taskID = startedTaskInfo.taskID
             self.taskSignature = startedTaskInfo.taskSignature
         }
 
+        /// Compares TaskInfo with a task signature string.
+        /// - Parameters:
+        ///   - lhs: The TaskInfo instance
+        ///   - rhs: The task signature string to compare
+        /// - Returns: True if the TaskInfo's signature matches the string
         public static func ==(lhs: Self, rhs: String) -> Bool {
             return lhs.taskSignature == rhs
         }
 
+        /// Compares TaskInfo with a task ID integer.
+        /// - Parameters:
+        ///   - lhs: The TaskInfo instance
+        ///   - rhs: The task ID integer to compare
+        /// - Returns: True if the TaskInfo's ID matches the integer
         public static func ==(lhs: Self, rhs: Int) -> Bool {
             return lhs.taskID == rhs
         }
     }
 }
+
+/// Convenience extensions to extract taskID and targetID from the LocationContext.
+extension SwiftBuildMessage.LocationContext {
+    /// Extracts the task ID from the location context.
+    /// - Returns: The task ID if the context represents a task or global task, nil otherwise
+    var taskID: Int? {
+        switch self {
+        case .task(let id, _), .globalTask(let id):
+            return id
+        case .target, .global:
+            return nil
+        }
+    }
+
+    /// Extracts the target ID from the location context.
+    /// - Returns: The target ID if the context represents a task or target, nil otherwise
+    var targetID: Int? {
+        switch self {
+        case .task(_, let id), .target(let id):
+            return id
+        case .global, .globalTask:
+            return nil
+        }
+    }
+
+    /// Determines if the location context represents a global scope.
+    /// - Returns: True if the context is global, false otherwise
+    var isGlobal: Bool {
+        switch self {
+        case .global:
+            return true
+        case .task, .target, .globalTask:
+            return false
+        }
+    }
+
+    /// Determines if the location context represents a target scope.
+    /// - Returns: True if the context is target-specific, false otherwise
+    var isTarget: Bool {
+        switch self {
+        case .target:
+            return true
+        case .global, .globalTask, .task:
+            return false
+        }
+    }
+}
+
 
 fileprivate extension SwiftBuild.SwiftBuildMessage.DiagnosticInfo.Location {
     var userDescription: String? {
@@ -579,44 +743,5 @@ fileprivate extension BuildSystemCommand {
                 try? Basics.AbsolutePath(validating: $0.pathString)
             }
         )
-    }
-}
-
-/// Convenience extensions to extract taskID and targetID from the LocationContext.
-extension SwiftBuildMessage.LocationContext {
-    var taskID: Int? {
-        switch self {
-        case .task(let id, _), .globalTask(let id):
-            return id
-        case .target, .global:
-            return nil
-        }
-    }
-
-    var targetID: Int? {
-        switch self {
-        case .task(_, let id), .target(let id):
-            return id
-        case .global, .globalTask:
-            return nil
-        }
-    }
-
-    var isGlobal: Bool {
-        switch self {
-        case .global:
-            return true
-        case .task, .target, .globalTask:
-            return false
-        }
-    }
-
-    var isTarget: Bool {
-        switch self {
-        case .target:
-            return true
-        case .global, .globalTask, .task:
-            return false
-        }
     }
 }
