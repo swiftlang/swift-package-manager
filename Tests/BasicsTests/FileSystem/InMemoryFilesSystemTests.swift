@@ -16,12 +16,6 @@ import struct TSCBasic.FileSystemError
 import Testing
 import _InternalTestSupport
 
-#if os(Linux)
-let isLinux = true
-#else
-let isLinux = false
-#endif
-
 @Suite(
     .tags(
         .TestSize.small,
@@ -29,11 +23,13 @@ let isLinux = false
     ),
 )
 struct InMemoryFileSystemTests {
+    private static let testFileContent = ByteString([0xAA, 0xBB, 0xCC])
+
     @Test(
         arguments: [
             (
                 path: "/",
-                recurvise: true,
+                recursive: true,
                 expectedFiles: [
                     (p: "/", shouldExist: true)
                 ],
@@ -41,7 +37,7 @@ struct InMemoryFileSystemTests {
             ),
             (
                 path: "/tmp",
-                recurvise: true,
+                recursive: true,
                 expectedFiles: [
                     (p: "/", shouldExist: true),
                     (p: "/tmp", shouldExist: true),
@@ -50,7 +46,7 @@ struct InMemoryFileSystemTests {
             ),
             (
                 path: "/tmp/ws",
-                recurvise: true,
+                recursive: true,
                 expectedFiles: [
                     (p: "/", shouldExist: true),
                     (p: "/tmp", shouldExist: true),
@@ -60,7 +56,7 @@ struct InMemoryFileSystemTests {
             ),
             (
                 path: "/tmp/ws",
-                recurvise: false,
+                recursive: false,
                 expectedFiles: [
                     (p: "/", shouldExist: true),
                     (p: "/tmp", shouldExist: true),
@@ -83,21 +79,23 @@ struct InMemoryFileSystemTests {
             return
                 "Path '\(pa) \(exists ? "should exists, but doesn't" : "should not exist, but does.")"
         }
-
-        try withKnownIssue {
-            try fs.createDirectory(pathUnderTest, recursive: recursive)
-
-            for (p, shouldExist) in expectedFiles {
-                let expectedPath = AbsolutePath(p)
-                #expect(
-                    fs.exists(expectedPath) == shouldExist,
-                    "\(errorMessage(expectedPath, shouldExist))")
+        if expectError {
+            #expect(throws: FileSystemError.self) {
+                try fs.createDirectory(pathUnderTest, recursive: recursive)
             }
-        } when: {
-            expectError
+        } else {
+            #expect(throws: Never.self) {
+                try fs.createDirectory(pathUnderTest, recursive: recursive)
+
+                for (p, shouldExist) in expectedFiles {
+                    let expectedPath = AbsolutePath(p)
+                    #expect(
+                        fs.exists(expectedPath) == shouldExist,
+                        "\(errorMessage(expectedPath, shouldExist))")
+                }
+            }
         }
     }
-
 
     @Test(
         arguments: [
@@ -127,16 +125,11 @@ struct InMemoryFileSystemTests {
 
         @Test
         func testWriteFileContentsSuccessful() async throws {
-            // GIVEN we have a filesytstem
             let fs = InMemoryFileSystem()
-            // and a path
             let pathUnderTest = AbsolutePath("/myFile.zip")
-            let expectedContents = ByteString([0xAA, 0xBB, 0xCC])
 
-            // WHEN we write contents to the file
-            try fs.writeFileContents(pathUnderTest, bytes: expectedContents)
+            try fs.writeFileContents(pathUnderTest, bytes: testFileContent)
 
-            // THEN we expect the file to exist
             #expect(
                 fs.exists(pathUnderTest),
                 "Path \(pathUnderTest.pathString) does not exists when it should")
@@ -144,19 +137,13 @@ struct InMemoryFileSystemTests {
 
         @Test
         func testWritingAFileWithANonExistingParentDirectoryFails() async throws {
-            // GIVEN we have a filesytstem
             let fs = InMemoryFileSystem()
-            // and a path
             let pathUnderTest = AbsolutePath("/tmp/myFile.zip")
-            let expectedContents = ByteString([0xAA, 0xBB, 0xCC])
 
-            // WHEN we write contents to the file
-            // THEn we expect an error to occus
-            withKnownIssue {
-                try fs.writeFileContents(pathUnderTest, bytes: expectedContents)
+            #expect(throws: FileSystemError.self) {
+                try fs.writeFileContents(pathUnderTest, bytes: testFileContent)
             }
 
-            // AND we expect the file to not exist
             #expect(
                 !fs.exists(pathUnderTest),
                 "Path \(pathUnderTest.pathString) does exists when it should not")
@@ -164,69 +151,47 @@ struct InMemoryFileSystemTests {
 
         @Test
         func errorOccursWhenWritingToRootDirectory() async throws {
-            // GIVEN we have a filesytstem
             let fs = InMemoryFileSystem()
-            // and a path
             let pathUnderTest = AbsolutePath("/")
-            let expectedContents = ByteString([0xAA, 0xBB, 0xCC])
 
-            // WHEN we write contents to the file
-            // THEN we expect an error to occur
-            withKnownIssue {
-                try fs.writeFileContents(pathUnderTest, bytes: expectedContents)
+            #expect(throws: FileSystemError.self) {
+                try fs.writeFileContents(pathUnderTest, bytes: testFileContent)
             }
-
         }
 
         @Test
         func testErrorOccursIfParentIsNotADirectory() async throws {
-            // GIVEN we have a filesytstem
             let fs = InMemoryFileSystem()
-            // AND an existing file
             let aFile = AbsolutePath("/foo")
             try fs.writeFileContents(aFile, bytes: "")
 
-            // AND a the path under test that has an existing file as a parent
             let pathUnderTest = aFile.appending("myFile")
-            let expectedContents = ByteString([0xAA, 0xBB, 0xCC])
 
-            // WHEN we write contents to the file
-            // THEN we expect an error to occur
-            withKnownIssue {
-                try fs.writeFileContents(pathUnderTest, bytes: expectedContents)
+            #expect(throws: FileSystemError.self) {
+                try fs.writeFileContents(pathUnderTest, bytes: testFileContent)
             }
 
         }
     }
 
-
     struct testReadFileContentsTests {
         @Test
         func readingAFileThatDoesNotExistsRaisesAnError() async throws {
-            // GIVEN we have a filesystem
             let fs = InMemoryFileSystem()
-
-            // WHEN we read a non-existing file
-            // THEN an error occurs
-            withKnownIssue {
-                let _ = try fs.readFileContents("/file/does/not/exists")
+            #expect(throws: FileSystemError.self) {
+                try fs.readFileContents("/file/does/not/exists")
             }
         }
 
         @Test
         func readingExistingFileReturnsExpectedContents() async throws {
-            // GIVEN we have a filesytstem
             let fs = InMemoryFileSystem()
-            // AND a file a path
             let pathUnderTest = AbsolutePath("/myFile.zip")
-            let expectedContents = ByteString([0xAA, 0xBB, 0xCC])
-            try fs.writeFileContents(pathUnderTest, bytes: expectedContents)
+            try fs.writeFileContents(pathUnderTest, bytes: testFileContent)
 
-            // WHEN we read contents if the file
             let actualContents = try fs.readFileContents(pathUnderTest)
 
-            // THEN the actual contents should match the expected to match the
-            #expect(actualContents == expectedContents, "Actual is not as expected")
+            #expect(actualContents == testFileContent, "Actual is not as expected")
         }
 
         @Suite(
@@ -236,50 +201,37 @@ struct InMemoryFileSystemTests {
         )
         struct ChangeCurrentWorkingDirectoryTests {
             func errorOccursWhenChangingDirectoryToAFile() async throws {
-                // GIVEN we have a file
                 let fileUnderTest = AbsolutePath.root.appending(components: "Foo", "Bar", "baz.txt")
 
-                // AND filesytstem
                 let fs = InMemoryFileSystem(
                     emptyFiles: [
                         fileUnderTest.pathString
                     ]
                 )
 
-                // WHEN We change directory to this file
-                // THEN An error occurs
                 #expect(throws: FileSystemError(.notDirectory, fileUnderTest)) {
                     try fs.changeCurrentWorkingDirectory(to: fileUnderTest)
                 }
             }
 
             func errorOccursWhenChangingDirectoryDoesNotExists() async throws {
-
-                // GIVEN we have a filesytstem
-                let fs = InMemoryFileSystem(
-                )
+                let fs = InMemoryFileSystem()
                 let nonExistingDirectory = AbsolutePath.root.appending(components: "does-not-exists")
 
-                // WHEN We change directory to this file
-                // THEN An error occurs
                 #expect(throws: FileSystemError(.noEntry, nonExistingDirectory)) {
                     try fs.changeCurrentWorkingDirectory(to: nonExistingDirectory)
                 }
             }
 
             func changinDirectoryToTheParentOfAnExistingFileIsSuccessful() async throws {
-                // GIVEN we have a file
                 let fileUnderTest = AbsolutePath.root.appending(components: "Foo", "Bar", "baz.txt")
 
-                // AND filesytstem
                 let fs = InMemoryFileSystem(
                     emptyFiles: [
                         fileUnderTest.pathString
                     ]
                 )
 
-                // WHEN We change directory to this file
-                // THEN do not expect any errors
                 #expect(throws: Never.self) {
                     try fs.changeCurrentWorkingDirectory(to: fileUnderTest.parentDirectory)
                 }
@@ -293,39 +245,28 @@ struct InMemoryFileSystemTests {
         )
         struct GetDirectoryContentsTests {
             func returnsExpectedItemsWhenDirectoryHasASingleFile() async throws {
-                // GIVEN we have a file
                 let fileUnderTest = AbsolutePath.root.appending(components: "Foo", "Bar", "baz.txt")
-
-                // AND filesytstem
                 let fs = InMemoryFileSystem(
                     emptyFiles: [
                         fileUnderTest.pathString
                     ]
                 )
 
-                // WHEN We change directory to this file
-                // AND we retrieve the directory contents
                 try fs.changeCurrentWorkingDirectory(to: fileUnderTest.parentDirectory)
                 let contents = try fs.getDirectoryContents(fileUnderTest.parentDirectory)
 
-                // THEN we expect the correct list of items
                 #expect(["baz.txt"] == contents)
             }
         }
 
         @Test
         func readingADirectoryFailsWithAnError() async throws {
-            // GIVEN we have a filesytstem
             let fs = InMemoryFileSystem()
-            // AND a file a path
             let pathUnderTest = AbsolutePath("/myFile.zip")
-            let expectedContents = ByteString([0xAA, 0xBB, 0xCC])
-            try fs.writeFileContents(pathUnderTest, bytes: expectedContents)
+            try fs.writeFileContents(pathUnderTest, bytes: testFileContent)
 
-            // WHEN we read the contents of a directory
-            // THEN we expect a failure to occur
-            withKnownIssue {
-                let _ = try fs.readFileContents(pathUnderTest.parentDirectory)
+            #expect(throws: FileSystemError.self) {
+                try fs.readFileContents(pathUnderTest.parentDirectory)
             }
         }
     }
