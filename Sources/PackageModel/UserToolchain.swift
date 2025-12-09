@@ -359,7 +359,8 @@ public final class UserToolchain: Toolchain {
         useXcrun: Bool,
         environment: Environment,
         searchPaths: [AbsolutePath],
-        fileSystem: any FileSystem
+        fileSystem: any FileSystem,
+        observabilityScope: ObservabilityScope? = nil
     ) throws -> SwiftCompilers {
         func validateCompiler(at path: AbsolutePath?) throws {
             guard let path else { return }
@@ -371,9 +372,36 @@ public final class UserToolchain: Toolchain {
         }
 
         let lookup = { UserToolchain.lookup(variable: $0, searchPaths: searchPaths, environment: environment) }
+
+        // Warn if SWIFT_EXEC or SWIFT_EXEC_MANIFEST is set but points to a non-existent or non-executable path
+        func warnIfInvalid(envVar: String, value: String, resolved: AbsolutePath?) {
+            guard resolved == nil else { return }
+
+            let message: String
+            if let absolutePath = try? AbsolutePath(validating: value) {
+                if fileSystem.exists(absolutePath) {
+                    message = "\(envVar) is set to '\(value)' which exists but is not executable; ignoring"
+                } else {
+                    message = "\(envVar) is set to '\(value)' but the file does not exist; ignoring"
+                }
+            } else {
+                message = "\(envVar) is set to '\(value)' but no executable was found in search paths; ignoring"
+            }
+
+            observabilityScope?.emit(warning: message)
+        }
+
         // Get overrides.
         let SWIFT_EXEC_MANIFEST = lookup("SWIFT_EXEC_MANIFEST")
         let SWIFT_EXEC = lookup("SWIFT_EXEC")
+
+        // Emit warnings if environment variables are set but lookup failed
+        if let swiftExecValue = environment["SWIFT_EXEC"], !swiftExecValue.isEmpty {
+            warnIfInvalid(envVar: "SWIFT_EXEC", value: swiftExecValue, resolved: SWIFT_EXEC)
+        }
+        if let swiftExecManifestValue = environment["SWIFT_EXEC_MANIFEST"], !swiftExecManifestValue.isEmpty {
+            warnIfInvalid(envVar: "SWIFT_EXEC_MANIFEST", value: swiftExecManifestValue, resolved: SWIFT_EXEC_MANIFEST)
+        }
 
         // Validate the overrides.
         try validateCompiler(at: SWIFT_EXEC)
@@ -713,6 +741,7 @@ public final class UserToolchain: Toolchain {
         customTargetInfo: JSON? = nil,
         customLibrariesLocation: ToolchainConfiguration.SwiftPMLibrariesLocation? = nil,
         customInstalledSwiftPMConfiguration: InstalledSwiftPMConfiguration? = nil,
+        observabilityScope: ObservabilityScope? = nil,
         fileSystem: any FileSystem = localFileSystem
     ) throws {
         self.swiftSDK = swiftSDK
@@ -736,7 +765,8 @@ public final class UserToolchain: Toolchain {
             useXcrun: self.useXcrun,
             environment: environment,
             searchPaths: self.envSearchPaths,
-            fileSystem: fileSystem
+            fileSystem: fileSystem,
+            observabilityScope: observabilityScope
         )
         self.swiftCompilerPath = swiftCompilers.compile
         self.architectures = swiftSDK.architectures
@@ -901,6 +931,8 @@ public final class UserToolchain: Toolchain {
             )
         }
 
+        let metalToolchain = try? Self.deriveMetalToolchainPath(fileSystem: fileSystem, triple: triple, environment: environment)
+
         self.configuration = .init(
             librarianPath: librarianPath,
             swiftCompilerPath: swiftCompilers.manifest,
@@ -909,7 +941,9 @@ public final class UserToolchain: Toolchain {
             swiftPMLibrariesLocation: swiftPMLibrariesLocation,
             sdkRootPath: self.swiftSDK.pathsConfiguration.sdkRootPath,
             xctestPath: xctestPath,
-            swiftTestingPath: swiftTestingPath
+            swiftTestingPath: swiftTestingPath,
+            metalToolchainPath: metalToolchain?.path,
+            metalToolchainId: metalToolchain?.identifier
         )
 
         self.fileSystem = fileSystem
@@ -1039,6 +1073,55 @@ public final class UserToolchain: Toolchain {
         }
 
         return (platform, info)
+    }
+
+    private static func deriveMetalToolchainPath(
+        fileSystem: FileSystem,
+        triple: Basics.Triple,
+        environment: Environment
+    ) throws -> (path: AbsolutePath, identifier: String)? {
+        guard triple.isDarwin() else {
+            return nil
+        }
+
+        let xcrunCmd = ["/usr/bin/xcrun", "--find", "metal"]
+        guard let output = try? AsyncProcess.checkNonZeroExit(arguments: xcrunCmd, environment: environment).spm_chomp() else {
+            return nil
+        }
+
+        guard let metalPath = try? AbsolutePath(validating: output) else {
+            return nil
+        }
+
+        guard let toolchainPath: AbsolutePath = {
+            var currentPath = metalPath
+            while currentPath != currentPath.parentDirectory {
+                if currentPath.basename == "Metal.xctoolchain" {
+                    return currentPath
+                }
+                currentPath = currentPath.parentDirectory
+            }
+            return nil
+        }() else {
+            return nil
+        }
+
+        let toolchainInfoPlist = toolchainPath.appending(component: "ToolchainInfo.plist")
+
+        struct MetalToolchainInfo: Decodable {
+            let Identifier: String
+        }
+
+        let toolchainIdentifier: String
+        do {
+            let data: Data = try fileSystem.readFileContents(toolchainInfoPlist)
+            let info = try PropertyListDecoder().decode(MetalToolchainInfo.self, from: data)
+            toolchainIdentifier = info.Identifier
+        } catch {
+            return nil
+        }
+
+        return (path: toolchainPath.parentDirectory, identifier: toolchainIdentifier)
     }
 
     // TODO: We should have some general utility to find tools.
@@ -1222,6 +1305,14 @@ public final class UserToolchain: Toolchain {
 
     public var sdkRootPath: AbsolutePath? {
         configuration.sdkRootPath
+    }
+
+    public var metalToolchainPath: AbsolutePath? {
+        configuration.metalToolchainPath
+    }
+
+    public var metalToolchainId: String? {
+        configuration.metalToolchainId
     }
 
     public var swiftCompilerEnvironment: Environment {

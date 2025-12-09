@@ -18,7 +18,8 @@ add_library(SwiftBuildSupport STATIC
   PIF.swift
   PIFBuilder.swift
   PluginConfiguration.swift
-  SwiftBuildSystem.swift)
+  SwiftBuildSystem.swift
+  SwiftBuildSystemMessageHandler.swift)
 target_link_libraries(SwiftBuildSupport PUBLIC
   Build
   DriverSupport

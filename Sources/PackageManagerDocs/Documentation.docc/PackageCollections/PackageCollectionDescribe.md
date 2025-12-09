@@ -52,7 +52,7 @@ $ swift package-collection describe [--json] https://github.com/jpsim/yams
 Description: A sweet and swifty YAML parser built on LibYAML.
 Available Versions: 4.0.0, 3.0.0, ...
 Stars: 14
-Readme: https://github.com/jpsim/Yams/blob/master/README.md
+Readme: https://github.com/jpsim/Yams/blob/main/README.md
 Authors: @norio-nomura, @jpsim
 --------------------------------------------------------------
 Latest Version: 4.0.0
@@ -220,7 +220,7 @@ specify more than one path.*
 
 - term **--color-diagnostics|no-color-diagnostics**:
 
-*Enables or disables color diagnostics when printing to a TTY. 
+*Enables or disables color diagnostics when printing to a TTY.
 By default, color diagnostics are enabled when connected to a TTY and disabled otherwise.*
 
 

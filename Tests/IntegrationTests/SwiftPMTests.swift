@@ -1,12 +1,14 @@
-/*
- This source file is part of the Swift.org open source project
-
- Copyright (c) 2014 - 2025 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
-
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
- */
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift open source project
+//
+// Copyright (c) 2014 - 2025 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
 
 import Foundation
 import _IntegrationTestSupport
@@ -34,7 +36,7 @@ private struct SwiftPMTests {
                     runOutput.stdout == """
                             SwiftFramework()
                             Library(framework: SwiftFramework.SwiftFramework())
-                            
+
                             """
                 )
             }
@@ -152,7 +154,10 @@ private struct SwiftPMTests {
         }
     }
 
-    @Test(.requireHostOS(.macOS), arguments: [BuildSystemProvider.Kind.native, .swiftbuild])
+    @Test(
+        .requireHostOS(.macOS),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
     func testArchCustomization(buildSystem: BuildSystemProvider.Kind) async throws {
         try await  withTemporaryDirectory { tmpDir in
             let packagePath = tmpDir.appending(component: "foo")
@@ -192,7 +197,7 @@ private struct SwiftPMTests {
                     )
                 case .swiftbuild:
                     fooPath = try AbsolutePath(
-                        validating: ".build/\(arch)-apple-macosx/Products/Debug/foo",
+                        validating: ".build/out/Products/Debug/foo",
                         relativeTo: packagePath
                     )
                 default:
@@ -225,7 +230,7 @@ private struct SwiftPMTests {
                 )
             case .swiftbuild:
                 fooPath = try AbsolutePath(
-                    validating: ".build/\(hostArch)-apple-macosx/Products/Debug/foo",
+                    validating: ".build/out/Products/Debug/foo",
                     relativeTo: packagePath
                 )
             default:
@@ -311,7 +316,7 @@ private struct SwiftPMTests {
             let coveragePath = try AbsolutePath(validating: expectedCoveragePath)
 
             // Check the coverage path exists.
-            try withKnownIssue {
+            try withKnownIssue(isIntermittent: ProcessInfo.hostOperatingSystem == .windows) {
                 // the CoveragePath file does not exists in Linux platform build
                 expectFileExists(at: coveragePath)
 
@@ -364,7 +369,7 @@ private struct SwiftPMTests {
                     #expect(binarySpecificProfrawFiles.count == 3)
                 }
             } when: {
-                ProcessInfo.hostOperatingSystem == .linux && buildSystem == .swiftbuild
+                [.linux, .windows].contains(ProcessInfo.hostOperatingSystem) && buildSystem == .swiftbuild
             }
         }
     }

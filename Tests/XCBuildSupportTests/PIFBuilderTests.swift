@@ -65,7 +65,7 @@ final class PIFBuilderTests: XCTestCase {
                         path: "/A",
                         toolsVersion: .v5_2,
                         dependencies: [
-                            .localSourceControl(path: "/B", requirement: .branch("master")),
+                            .localSourceControl(path: "/B", requirement: .branch("main")),
                         ],
                         products: [
                             .init(name: "alib", type: .library(.static), targets: ["A2"]),
@@ -138,7 +138,7 @@ final class PIFBuilderTests: XCTestCase {
                     defaultLocalization: "fr",
                     toolsVersion: .v5_2,
                     dependencies: [
-                        .localSourceControl(path: "/Bar", requirement: .branch("master")),
+                        .localSourceControl(path: "/Bar", requirement: .branch("main")),
                     ],
                     targets: [
                         .init(name: "foo", dependencies: [.product(name: "BarLib", package: "Bar")]),
@@ -445,7 +445,7 @@ final class PIFBuilderTests: XCTestCase {
                     toolsVersion: .v5_2,
                     swiftLanguageVersions: [.v4_2, .v5],
                     dependencies: [
-                        .localSourceControl(path: "/Bar", requirement: .branch("master")),
+                        .localSourceControl(path: "/Bar", requirement: .branch("main")),
                     ],
                     targets: [
                         .init(name: "foo", dependencies: [
@@ -806,7 +806,7 @@ final class PIFBuilderTests: XCTestCase {
                     toolsVersion: .v5_2,
                     swiftLanguageVersions: [.v4_2, .v5],
                     dependencies: [
-                        .localSourceControl(path: "/Bar", requirement: .branch("master")),
+                        .localSourceControl(path: "/Bar", requirement: .branch("main")),
                     ],
                     targets: [
                         .init(name: "FooTests", dependencies: [
@@ -1125,7 +1125,7 @@ final class PIFBuilderTests: XCTestCase {
                     toolsVersion: .v5_2,
                     swiftLanguageVersions: [.v4_2, .v5],
                     dependencies: [
-                        .localSourceControl(path: "/Bar", requirement: .branch("master")),
+                        .localSourceControl(path: "/Bar", requirement: .branch("main")),
                     ],
                     products: [
                         .init(name: "FooLib1", type: .library(.static), targets: ["FooLib1"]),
@@ -1337,7 +1337,7 @@ final class PIFBuilderTests: XCTestCase {
                     cxxLanguageStandard: "c++14",
                     swiftLanguageVersions: [.v4_2, .v5],
                     dependencies: [
-                        .localSourceControl(path: "/Bar", requirement: .branch("master")),
+                        .localSourceControl(path: "/Bar", requirement: .branch("main")),
                     ],
                     targets: [
                         .init(name: "FooLib1", dependencies: ["SystemLib", "FooLib2"]),

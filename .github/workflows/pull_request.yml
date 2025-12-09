@@ -1,0 +1,73 @@
+name: Pull request
+
+permissions:
+  contents: read
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests-using-native:
+    needs: [soundness]
+    strategy:
+      fail-fast: false
+      matrix:
+        buildSystem: ["native", "swiftbuild"]
+        linuxSwiftVersion: ['["nightly-main", "nightly-6.2"]', '["nightly-main"]']
+        enable_windows_checks: [true]
+        exclude:
+          - buildSystem: "swiftbuild"
+            linuxSwiftVersion: '["nightly-main", "nightly-6.2"]'
+          - buildSystem: "swiftbuild"
+            enable_windows_checks: true
+          - buildSystem: "native"
+            linuxSwiftVersion: '["nightly-main"]'
+    name: Test (${{ matrix.buildSystem }})
+    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@0.0.1
+    with:
+      linux_os_versions: '["amazonlinux2", "bookworm", "noble", "jammy", "rhel-ubi9"]'
+      linux_swift_versions: ${{ matrix.linuxSwiftVersion }}
+      linux_pre_build_command: ./.github/scripts/prebuild.sh
+      linux_build_command: 'swift run swift-build --build-tests --build-system ${{ matrix.buildSystem}}'
+      windows_swift_versions: '["nightly-main"]'
+      windows_pre_build_command: 'Invoke-Program .\.github\scripts\prebuild.ps1'
+      windows_build_command: 'Invoke-Program swift run swift-build --build-tests --build-system ${{ matrix.buildSystem}}'
+      enable_windows_checks: ${{ matrix.enable_windows_checks }}
+      enable_ios_checks: true
+      enable_macos_checks: true
+      macos_exclude_xcode_versions: "[{\"xcode_version\": \"16.3\"}, {\"xcode_version\": \"16.4\"}]"
+      macos_build_command: 'swift run swift-build --build-tests --build-system ${{ matrix.buildSystem}}'
+
+  tests-using-swiftbuild:
+    name: Test (all SwiftBuild)
+    needs: [soundness]
+    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@0.0.1
+    with:
+      linux_os_versions: '["amazonlinux2", "bookworm", "noble", "jammy", "rhel-ubi9"]'
+      linux_swift_versions: '["nightly-main"]'
+      linux_pre_build_command: ./.github/scripts/prebuild.sh
+      linux_build_command: 'swift run --build-system swiftbuild swift-build --build-tests --build-system swiftbuild'
+      enable_windows_checks: false
+      windows_swift_versions: '["nightly-main"]'
+      windows_pre_build_command: 'Invoke-Program .\.github\scripts\prebuild.ps1'
+      windows_build_command: 'Invoke-Program swift run --build-system swiftbuild swift-build --build-tests --build-system swiftbuild'
+      enable_ios_checks: true
+      enable_macos_checks: true
+      macos_exclude_xcode_versions: "[{\"xcode_version\": \"16.3\"}, {\"xcode_version\": \"16.4\"}]"
+      macos_build_command: 'swift run --build-system swiftbuild swift-build --build-tests --build-system swiftbuild'
+
+  soundness:
+    name: Soundness
+    uses: swiftlang/github-workflows/.github/workflows/soundness.yml@0.0.1
+    with:
+      license_header_check_project_name: "Swift"
+      license_header_check_enabled: true
+      unacceptable_language_check_enabled: true
+      api_breakage_check_enabled: false
+      format_check_enabled: false
+      shell_check_enabled: false

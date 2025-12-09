@@ -1,12 +1,15 @@
-/*
- This source file is part of the Swift.org open source project
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift open source project
+//
+// Copyright (c) 2014 - 2025 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
 
- Copyright (c) 2014 - 2025 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
-
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
- */
 
 import Basics
 import _IntegrationTestSupport
@@ -521,9 +524,9 @@ private struct XCBuildTests {
 
             do {
                 let output = try await executeSwiftTest(
-                    fooPath, 
+                    fooPath,
                     extraArgs: ["--parallel"],
-                    buildSystem: .xcode, 
+                    buildSystem: .xcode,
                 )
                 #expect(output.stdout.contains("Testing FooTests"))
                 #expect(output.stdout.contains("Testing CFooTests"))
