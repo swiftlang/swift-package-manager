@@ -317,6 +317,14 @@ extension PackagePIFProjectBuilder {
             // `inputResourceBundleName`.
             shouldGenerateBundleAccessor = true
             shouldGenerateEmbedInCodeAccessor = true
+            if resourceBundleName != nil {
+                let resourceTargetID = pifTargetIdForResourceBundle(sourceModule.name)
+                self.project[keyPath: sourceModuleTargetKeyPath].common.addDependency(
+                    on: resourceTargetID,
+                    platformFilters: [],
+                    linkProduct: false
+                )
+            }
         }
 
         // Find the PIF target for the resource bundle, if any. Otherwise fall back to the module.
