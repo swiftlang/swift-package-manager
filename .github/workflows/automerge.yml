@@ -13,7 +13,7 @@ on:
 jobs:
   create_merge_pr:
     name: Create PR to merge main into release branch
-    uses: swiftlang/github-workflows/.github/workflows/create_automerge_pr.yml@0.0.1
+    uses: swiftlang/github-workflows/.github/workflows/create_automerge_pr.yml@0.0.2
     with:
       head_branch: main
       base_branch: release/6.3
