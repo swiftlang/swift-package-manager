@@ -39,7 +39,7 @@ public struct FileSystemPackageContainer: PackageContainer {
     private let observabilityScope: ObservabilityScope
 
     /// cached version of the manifest
-    private let manifest = AsyncMemoizableThreadSafeBox<Manifest>()
+    private let manifest = AsyncThrowingValueMemoizer<Manifest>()
 
     public init(
         package: PackageReference,

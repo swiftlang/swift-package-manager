@@ -506,95 +506,72 @@ extension ConcurrencyHelpersTest {
         }
     }
 
-    @Suite struct AsyncMemoizableThreadSafeBoxTests {
+    @Suite struct AsyncThrowingValueMemoizerTests {
         // MARK: - Basic Functionality Tests
 
         @Test
-        func initiallyEmpty() {
-            let box = AsyncMemoizableThreadSafeBox<Int>()
-            #expect(box.get() == nil)
-        }
-
-        @Test
-        func memoizeStoresValue() async throws {
-            let box = AsyncMemoizableThreadSafeBox<Int>()
-
-            let result = try await box.memoize {
-                42
-            }
-
-            #expect(result == 42)
-            #expect(box.get() == 42)
-        }
-
-        @Test
         func memoizeComputesOnlyOnce() async throws {
-            let box = AsyncMemoizableThreadSafeBox<Int>()
+            let memoizer = AsyncThrowingValueMemoizer<Int>()
             nonisolated(unsafe) var computeCount = 0
 
-            let result1 = try await box.memoize {
+            let result1 = try await memoizer.memoize {
                 computeCount += 1
                 return 42
             }
             #expect(result1 == 42)
             #expect(computeCount == 1)
 
-            let result2 = try await box.memoize {
+            let result2 = try await memoizer.memoize {
                 computeCount += 1
                 return 99
             }
             #expect(result2 == 42)
             #expect(computeCount == 1)
-            #expect(box.get() == 42)
         }
 
         @Test
         func memoizeWithAsyncWork() async throws {
-            let box = AsyncMemoizableThreadSafeBox<String>()
+            let memoizer = AsyncThrowingValueMemoizer<String>()
 
-            let result = try await box.memoize {
+            let result = try await memoizer.memoize {
                 try await Task.sleep(nanoseconds: 1_000_000)
                 return "computed"
             }
 
             #expect(result == "computed")
-            #expect(box.get() == "computed")
         }
 
         @Test
-        func memoizeThrowsError() async throws {
+        func memoizeCachesError() async throws {
             struct TestError: Error, Equatable {}
-            let box = AsyncMemoizableThreadSafeBox<Int>()
+            let memoizer = AsyncThrowingValueMemoizer<Int>()
 
             await #expect(throws: TestError.self) {
-                try await box.memoize {
+                try await memoizer.memoize {
                     throw TestError()
                 }
             }
 
-            // After error, value should still be nil
-            #expect(box.get() == nil)
-
-            // Should be able to memoize again after error
-            let result = try await box.memoize {
-                100
+            // After error, subsequent calls should return the cached error
+            await #expect(throws: TestError.self) {
+                try await memoizer.memoize {
+                    100
+                }
             }
-            #expect(result == 100)
-            #expect(box.get() == 100)
         }
 
         // MARK: - Concurrency Tests
 
         @Test
         func concurrentMemoizationSharesWork() async throws {
-            let box = AsyncMemoizableThreadSafeBox<Int>()
+            let memoizer = AsyncThrowingValueMemoizer<Int>()
             nonisolated(unsafe) var computeCount = 0
             let lock = NSLock()
 
             try await withThrowingTaskGroup(of: Int.self) { group in
                 for _ in 0..<100 {
                     group.addTask {
-                        try await box.memoize {
+                        try await memoizer.memoize {
                             lock.withLock {
                                 computeCount += 1
                             }
@@ -615,19 +592,18 @@ extension ConcurrencyHelpersTest {
 
             // Should only compute once despite 100 concurrent calls
             #expect(computeCount == 1)
-            #expect(box.get() == 42)
         }
 
         @Test
         func concurrentMemoizationWithQuickCompletion() async throws {
-            let box = AsyncMemoizableThreadSafeBox<String>()
+            let memoizer = AsyncThrowingValueMemoizer<String>()
             nonisolated(unsafe) var computeCount = 0
             let lock = NSLock()
 
             try await withThrowingTaskGroup(of: String.self) { group in
                 for i in 0..<50 {
                     group.addTask {
-                        try await box.memoize {
+                        try await memoizer.memoize {
                             lock.withLock {
                                 computeCount += 1
                             }
@@ -652,7 +628,7 @@ extension ConcurrencyHelpersTest {
         @Test
         func concurrentErrorPropagation() async throws {
             struct TestError: Error {}
-            let box = AsyncMemoizableThreadSafeBox<Int>()
+            let memoizer = AsyncThrowingValueMemoizer<Int>()
             var errorCount = 0
             let lock = NSLock()
 
@@ -660,7 +636,7 @@ extension ConcurrencyHelpersTest {
                 for _ in 0..<20 {
                     group.addTask {
                         do {
-                            _ = try await box.memoize {
+                            _ = try await memoizer.memoize {
                                 try await Task.sleep(nanoseconds: 5_000_000)
                                 throw TestError()
                             }
@@ -678,25 +654,23 @@ extension ConcurrencyHelpersTest {
 
             // All concurrent calls should receive the error
             #expect(errorCount == 20)
-            #expect(box.get() == nil)
         }
 
         @Test
         func sequentialMemoizationAfterSuccess() async throws {
-            let box = AsyncMemoizableThreadSafeBox<Int>()
+            let memoizer = AsyncThrowingValueMemoizer<Int>()
 
-            let first = try await box.memoize {
+            let first = try await memoizer.memoize {
                 try await Task.sleep(nanoseconds: 1_000_000)
                 return 42
             }
             #expect(first == 42)
 
-            let second = try await box.memoize {
+            let second = try await memoizer.memoize {
                 try await Task.sleep(nanoseconds: 1_000_000)
                 return 99
             }
             #expect(second == 42)
-            #expect(box.get() == 42)
         }
 
         @Test
@@ -707,9 +681,9 @@ extension ConcurrencyHelpersTest {
                 let tags: [String]
             }
 
-            let box = AsyncMemoizableThreadSafeBox<ComplexValue>()
+            let memoizer = AsyncThrowingValueMemoizer<ComplexValue>()
 
-            let result = try await box.memoize {
+            let result = try await memoizer.memoize {
                 try await Task.sleep(nanoseconds: 1_000_000)
                 return ComplexValue(id: 1, name: "Test", tags: ["a", "b", "c"])
             }
@@ -717,19 +691,18 @@ extension ConcurrencyHelpersTest {
             #expect(result.id == 1)
             #expect(result.name == "Test")
             #expect(result.tags == ["a", "b", "c"])
-            #expect(box.get() == result)
         }
 
         @Test
         func memoizeWithVariableDelay() async throws {
-            let box = AsyncMemoizableThreadSafeBox<Int>()
+            let memoizer = AsyncThrowingValueMemoizer<Int>()
             nonisolated(unsafe) var firstCallComplete = false
             let lock = NSLock()
 
             try await withThrowingTaskGroup(of: Int.self) { group in
                 // First task with delay
                 group.addTask {
-                    try await box.memoize {
+                    try await memoizer.memoize {
                         try await Task.sleep(nanoseconds: 20_000_000)
                         lock.withLock {
                             firstCallComplete = true
@@ -743,7 +716,7 @@ extension ConcurrencyHelpersTest {
 
                 for _ in 0..<10 {
                     group.addTask {
-                        try await box.memoize {
+                        try await memoizer.memoize {
                             return 999
                         }
                     }
@@ -760,9 +733,436 @@ extension ConcurrencyHelpersTest {
 
             let wasFirstCallComplete = lock.withLock { firstCallComplete }
             #expect(wasFirstCallComplete == true)
-            #expect(box.get() == 100)
         }
     }
 
+    @Suite struct AsyncKeyValueMemoizerTests {
+        // MARK: - Basic Functionality Tests
 
+        @Test
+        func memoizeComputesOncePerKey() async {
+            let memoizer = AsyncKeyValueMemoizer<String, Int>()
+            nonisolated(unsafe) var computeCount = 0
+
+            let result1 = await memoizer.memoize("key1") {
+                computeCount += 1
+                return 42
+            }
+            #expect(result1 == 42)
+            #expect(computeCount == 1)
+
+            let result2 = await memoizer.memoize("key1") {
+                computeCount += 1
+                return 99
+            }
+            #expect(result2 == 42)
+            #expect(computeCount == 1)
+
+            let result3 = await memoizer.memoize("key2") {
+                computeCount += 1
+                return 100
+            }
+            #expect(result3 == 100)
+            #expect(computeCount == 2)
+        }
+
+        @Test
+        func memoizeWithAsyncWork() async {
+            let memoizer = AsyncKeyValueMemoizer<Int, String>()
+
+            let result = await memoizer.memoize(1) {
+                await Task.yield()
+                return "computed"
+            }
+
+            #expect(result == "computed")
+        }
+
+        @Test
+        func memoizeMultipleKeys() async {
+            let memoizer = AsyncKeyValueMemoizer<Int, String>()
+
+            let result1 = await memoizer.memoize(1) { "value1" }
+            let result2 = await memoizer.memoize(2) { "value2" }
+            let result3 = await memoizer.memoize(3) { "value3" }
+
+            #expect(result1 == "value1")
+            #expect(result2 == "value2")
+            #expect(result3 == "value3")
+
+            // Verify cached values
+            let cached1 = await memoizer.memoize(1) { "different" }
+            let cached2 = await memoizer.memoize(2) { "different" }
+            let cached3 = await memoizer.memoize(3) { "different" }
+
+            #expect(cached1 == "value1")
+            #expect(cached2 == "value2")
+            #expect(cached3 == "value3")
+        }
+
+        // MARK: - Concurrency Tests
+
+        @Test
+        func concurrentMemoizationSharesWorkPerKey() async {
+            let memoizer = AsyncKeyValueMemoizer<String, Int>()
+            nonisolated(unsafe) var computeCount = 0
+            let lock = NSLock()
+
+            await withTaskGroup(of: Int.self) { group in
+                for _ in 0..<100 {
+                    group.addTask {
+                        await memoizer.memoize("shared-key") {
+                            lock.withLock {
+                                computeCount += 1
+                            }
+                            try? await Task.sleep(nanoseconds: 10_000_000)
+                            return 42
+                        }
+                    }
+                }
+
+                var results = [Int]()
+                for await result in group {
+                    results.append(result)
+                }
+
+                #expect(results.count == 100)
+                #expect(results.allSatisfy { $0 == 42 })
+            }
+
+            // Should only compute once despite 100 concurrent calls
+            #expect(computeCount == 1)
+        }
+
+        @Test
+        func concurrentMemoizationDifferentKeys() async {
+            let memoizer = AsyncKeyValueMemoizer<Int, String>()
+            nonisolated(unsafe) var computeCount = 0
+            let lock = NSLock()
+
+            await withTaskGroup(of: String.self) { group in
+                for i in 0..<50 {
+                    group.addTask {
+                        await memoizer.memoize(i) {
+                            lock.withLock {
+                                computeCount += 1
+                            }
+                            return "value-\(i)"
+                        }
+                    }
+                }
+
+                var results = [String]()
+                for await result in group {
+                    results.append(result)
+                }
+
+                #expect(results.count == 50)
+                #expect(Set(results).count == 50)
+            }
+
+            #expect(computeCount == 50)
+        }
+
+        @Test
+        func complexKeyAndValueTypes() async {
+            struct Key: Hashable, Sendable {
+                let id: Int
+                let category: String
+            }
+
+            struct Value: Sendable, Equatable {
+                let data: [String]
+            }
+
+            let memoizer = AsyncKeyValueMemoizer<Key, Value>()
+
+            let key = Key(id: 1, category: "test")
+            let result = await memoizer.memoize(key) {
+                try? await Task.sleep(nanoseconds: 1_000_000)
+                return Value(data: ["a", "b", "c"])
+            }
+
+            #expect(result.data == ["a", "b", "c"])
+
+            let cached = await memoizer.memoize(key) {
+                Value(data: ["different"])
+            }
+            #expect(cached.data == ["a", "b", "c"])
+        }
+    }
+
+    @Suite struct ThrowingAsyncKeyValueMemoizerTests {
+        // MARK: - Basic Functionality Tests
+
+        @Test
+        func memoizeComputesOncePerKey() async throws {
+            let memoizer = ThrowingAsyncKeyValueMemoizer<String, Int>()
+            nonisolated(unsafe) var computeCount = 0
+
+            let result1 = try await memoizer.memoize("key1") {
+                computeCount += 1
+                return 42
+            }
+            #expect(result1 == 42)
+            #expect(computeCount == 1)
+
+            let result2 = try await memoizer.memoize("key1") {
+                computeCount += 1
+                return 99
+            }
+            #expect(result2 == 42)
+            #expect(computeCount == 1)
+
+            let result3 = try await memoizer.memoize("key2") {
+                computeCount += 1
+                return 100
+            }
+            #expect(result3 == 100)
+            #expect(computeCount == 2)
+        }
+
+        @Test
+        func memoizeWithAsyncWork() async throws {
+            let memoizer = ThrowingAsyncKeyValueMemoizer<Int, String>()
+
+            let result = try await memoizer.memoize(1) {
+                try await Task.sleep(nanoseconds: 1_000_000)
+                return "computed"
+            }
+
+            #expect(result == "computed")
+        }
+
+        @Test
+        func memoizeCachesErrorPerKey() async throws {
+            struct TestError: Error, Equatable {}
+            let memoizer = ThrowingAsyncKeyValueMemoizer<String, Int>()
+
+            await #expect(throws: TestError.self) {
+                try await memoizer.memoize("error-key") {
+                    throw TestError()
+                }
+            }
+
+            // Subsequent calls to same key should return cached error
+            await #expect(throws: TestError.self) {
+                try await memoizer.memoize("error-key") {
+                    100
+                }
+            }
+
+            // Different key should work fine
+            let result = try await memoizer.memoize("success-key") {
+                42
+            }
+            #expect(result == 42)
+        }
+
+        @Test
+        func memoizeMultipleKeysWithMixedResults() async throws {
+            struct TestError: Error {}
+            let memoizer = ThrowingAsyncKeyValueMemoizer<Int, String>()
+
+            let result1 = try await memoizer.memoize(1) { "value1" }
+            #expect(result1 == "value1")
+
+            await #expect(throws: TestError.self) {
+                try await memoizer.memoize(2) {
+                    throw TestError()
+                }
+            }
+
+            let result3 = try await memoizer.memoize(3) { "value3" }
+            #expect(result3 == "value3")
+
+            // Verify cached values
+            let cached1 = try await memoizer.memoize(1) { "different" }
+            #expect(cached1 == "value1")
+
+            await #expect(throws: TestError.self) {
+                try await memoizer.memoize(2) { "different" }
+            }
+
+            let cached3 = try await memoizer.memoize(3) { "different" }
+            #expect(cached3 == "value3")
+        }
+
+        // MARK: - Concurrency Tests
+
+        @Test
+        func concurrentMemoizationSharesWorkPerKey() async throws {
+            let memoizer = ThrowingAsyncKeyValueMemoizer<String, Int>()
+            nonisolated(unsafe) var computeCount = 0
+            let lock = NSLock()
+
+            try await withThrowingTaskGroup(of: Int.self) { group in
+                for _ in 0..<100 {
+                    group.addTask {
+                        try await memoizer.memoize("shared-key") {
+                            lock.withLock {
+                                computeCount += 1
+                            }
+                            try await Task.sleep(nanoseconds: 10_000_000)
+                            return 42
+                        }
+                    }
+                }
+
+                var results = [Int]()
+                for try await result in group {
+                    results.append(result)
+                }
+
+                #expect(results.count == 100)
+                #expect(results.allSatisfy { $0 == 42 })
+            }
+
+            // Should only compute once despite 100 concurrent calls
+            #expect(computeCount == 1)
+        }
+
+        @Test
+        func concurrentErrorPropagationPerKey() async throws {
+            struct TestError: Error {}
+            let memoizer = ThrowingAsyncKeyValueMemoizer<String, Int>()
+            var errorCount = 0
+            let lock = NSLock()
+
+            await withThrowingTaskGroup(of: Void.self) { group in
+                for _ in 0..<20 {
+                    group.addTask {
+                        do {
+                            _ = try await memoizer.memoize("error-key") {
+                                try await Task.sleep(nanoseconds: 5_000_000)
+                                throw TestError()
+                            }
+                        } catch {
+                            lock.withLock {
+                                errorCount += 1
+                            }
+                        }
+                    }
+                }
+
+                // Consume all results (ignoring errors)
+                while let _ = try? await group.next() {}
+            }
+
+            // All concurrent calls should receive the error
+            #expect(errorCount == 20)
+        }
+
+        @Test
+        func concurrentMemoizationDifferentKeys() async throws {
+            let memoizer = ThrowingAsyncKeyValueMemoizer<Int, String>()
+            nonisolated(unsafe) var computeCount = 0
+            let lock = NSLock()
+
+            try await withThrowingTaskGroup(of: String.self) { group in
+                for i in 0..<50 {
+                    group.addTask {
+                        try await memoizer.memoize(i) {
+                            lock.withLock {
+                                computeCount += 1
+                            }
+                            return "value-\(i)"
+                        }
+                    }
+                }
+
+                var results = [String]()
+                for try await result in group {
+                    results.append(result)
+                }
+
+                #expect(results.count == 50)
+                #expect(Set(results).count == 50)
+            }
+
+            #expect(computeCount == 50)
+        }
+
+        @Test
+        func complexKeyAndValueTypes() async throws {
+            struct Key: Hashable, Sendable {
+                let id: Int
+                let category: String
+            }
+
+            struct Value: Sendable, Equatable {
+                let data: [String]
+            }
+
+            let memoizer = ThrowingAsyncKeyValueMemoizer<Key, Value>()
+
+            let key = Key(id: 1, category: "test")
+            let result = try await memoizer.memoize(key) {
+                try await Task.sleep(nanoseconds: 1_000_000)
+                return Value(data: ["a", "b", "c"])
+            }
+
+            #expect(result.data == ["a", "b", "c"])
+
+            let cached = try await memoizer.memoize(key) {
+                Value(data: ["different"])
+            }
+            #expect(cached.data == ["a", "b", "c"])
+        }
+
+        @Test
+        func memoizeWithVariableDelayMultipleKeys() async throws {
+            let memoizer = ThrowingAsyncKeyValueMemoizer<String, Int>()
+            nonisolated(unsafe) var firstCallComplete = false
+            let lock = NSLock()
+
+            try await withThrowingTaskGroup(of: (String, Int).self) { group in
+                // First task with delay for key1
+                group.addTask {
+                    let result = try await memoizer.memoize("key1") {
+                        try await Task.sleep(nanoseconds: 20_000_000)
+                        lock.withLock {
+                            firstCallComplete = true
+                        }
+                        return 100
+                    }
+                    return ("key1", result)
+                }
+
+                // Wait a bit then add more tasks for both keys
+                try await Task.sleep(nanoseconds: 5_000_000)
+
+                for _ in 0..<10 {
+                    group.addTask {
+                        let result = try await memoizer.memoize("key1") {
+                            return 999
+                        }
+                        return ("key1", result)
+                    }
+                }
+
+                for _ in 0..<10 {
+                    group.addTask {
+                        let result = try await memoizer.memoize("key2") {
+                            return 200
+                        }
+                        return ("key2", result)
+                    }
+                }
+
+                var results: [String: [Int]] = [:]
+                for try await (key, value) in group {
+                    results[key, default: []].append(value)
+                }
+
+                #expect(results["key1"]?.count == 11)
+                #expect(results["key1"]?.allSatisfy { $0 == 100 } == true)
+                #expect(results["key2"]?.count == 10)
+                #expect(results["key2"]?.allSatisfy { $0 == 200 } == true)
+            }
+
+            let wasFirstCallComplete = lock.withLock { firstCallComplete }
+            #expect(wasFirstCallComplete == true)
+        }
+    }
 }
