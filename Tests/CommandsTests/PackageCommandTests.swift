@@ -4194,7 +4194,6 @@ struct PackageCommandTests {
                     packagePath: fixturePath,
                     configuration: buildData.config,
                     buildSystem: buildData.buildSystem,
-
                 )
 
                 #expect(sourcePaths.count == fixedSourcePaths.count)
@@ -4536,7 +4535,8 @@ struct PackageCommandTests {
                 #expect(stdout.contains("Build complete!"))
 
                 // We expect a warning about `library.bar` but not about `library.foo`.
-                #expect(!stderr.contains(RelativePath("Sources/MyLibrary/library.foo").pathString))
+                let libraryFooPath = RelativePath("Sources/MyLibrary/library.foo").pathString
+                #expect(!stderr.components(separatedBy: "\n").contains { $0.contains("warning: ") && $0.contains(libraryFooPath) })
                 if data.buildSystem == .native {
                     #expect(stderr.contains("found 1 file(s) which are unhandled"))
                     #expect(stderr.contains(RelativePath("Sources/MyLibrary/library.bar").pathString))

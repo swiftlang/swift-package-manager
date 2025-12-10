@@ -117,6 +117,11 @@ public final class SwiftBuildSystemMessageHandler {
         _ startedInfo: SwiftBuildMessage.TaskStartedInfo,
         _ enableTaskBacktraces: Bool
     ) throws {
+        // Begin by emitting the text received by the task started event.
+        if let started = self.buildState.startedInfo(for: startedInfo) {
+            observabilityScope.emit(info: started)
+        }
+
         guard info.result == .success else {
             emitFailedTaskOutput(info, startedInfo)
             return
@@ -304,6 +309,14 @@ extension SwiftBuildSystemMessageHandler {
             }
             activeTasks[task.taskID] = task
             taskIDToSignature[task.taskID] = task.taskSignature
+
+            // Track relevant task info to emit to user.
+            let output = if let cmdLineDisplayStr = task.commandLineDisplayString {
+                    cmdLineDisplayStr
+                } else {
+                    task.executionDescription
+                }
+            taskDataBuffer[task] = output
         }
 
         /// Marks a task as completed and removes it from active tracking.
@@ -343,7 +356,6 @@ extension SwiftBuildSystemMessageHandler {
                 throw Diagnostics.fatalError
             }
 
-            targetsByID[target.targetID] = nil
             completedTargets[target.targetID] = target
             return targetStartedInfo
         }
@@ -381,8 +393,12 @@ extension SwiftBuildSystemMessageHandler.BuildState {
     /// This buffer system stores output data from tasks using both task signatures and task IDs,
     /// providing flexible access patterns for different build message types and legacy support.
     struct TaskDataBuffer {
+        // Emit using observabilityScope.print(_:verbose:)
         private var taskSignatureBuffer: [String: Data] = [:]
         private var taskIDBuffer: [Int: Data] = [:]
+
+        // Emit using observabilityScope.emit(info:)
+        private var taskStartedNotifications: [Int: String] = [:]
 
         /// Retrieves data for a task signature key.
         /// - Parameter key: The task signature string
@@ -462,6 +478,19 @@ extension SwiftBuildSystemMessageHandler.BuildState {
                 return result
             }
         }
+
+        subscript(task: SwiftBuildMessage.TaskStartedInfo) -> String? {
+            get {
+                guard let result = taskStartedNotifications[task.taskID] else {
+                    return nil
+                }
+
+                return result
+            }
+            set {
+                self.taskStartedNotifications[task.taskID] = newValue
+            }
+        }
     }
 
     /// Appends output data to the appropriate task buffer based on location context information.
@@ -499,6 +528,9 @@ extension SwiftBuildSystemMessageHandler.BuildState {
         return data
     }
 
+    func startedInfo(for task: SwiftBuild.SwiftBuildMessage.TaskStartedInfo) -> String? {
+        return self.taskDataBuffer[task]
+    }
 }
 
 // MARK: - SwiftBuildSystemMessageHandler.BuildState.TaskDiagnosticBuffer
