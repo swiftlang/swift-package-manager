@@ -27,6 +27,12 @@ public enum Concurrency {
 
 @available(*, noasync, message: "This method blocks the current thread indefinitely. Calling it from the concurrency pool can cause deadlocks")
 public func unsafe_await<T: Sendable>(_ body: @Sendable @escaping () async -> T) -> T {
+    withUnsafeCurrentTask { task in
+        if task != nil {
+            fatalError("This function must not be invoked from the Swift Concurrency thread pool.")
+        }
+    }
+    
     let semaphore = DispatchSemaphore(value: 0)
 
     let box = ThreadSafeBox<T>()
