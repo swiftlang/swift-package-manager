@@ -212,10 +212,15 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
     }
 
     public enum TemplateNetworkPermissionScope: Hashable, Codable, Sendable {
+        /// No network access allowed.
         case none
+        /// Only local network access allowed on the ports you provide.
         case local(ports: [Int])
+        /// All network ports allowed for the ports that you provide.
         case all(ports: [Int])
+        /// Network access allowed to docker.
         case docker
+        /// Network access allowed to Unix domain sockets.
         case unixDomainSocket
 
         public init?(_ scopeString: String, ports: [Int]) {
