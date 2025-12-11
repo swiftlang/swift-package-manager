@@ -1,0 +1,12 @@
+--tab-size=10
+--coverage-watermark=80,20
+--enable-vtable-value-profiling
+--show-branch-summary
+--show-region-summary
+--show-branches=percent
+--show-mcdc-summary
+--show-expansions
+--show-instantiations
+--show-regions
+--show-directory-coverage
+--show-line-counts
