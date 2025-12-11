@@ -211,6 +211,7 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
         case empty
     }
 
+    /// Network permissions that a template may require.
     public enum TemplateNetworkPermissionScope: Hashable, Codable, Sendable {
         /// No network access allowed.
         case none
