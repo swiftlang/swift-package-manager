@@ -268,7 +268,8 @@ def main() -> None:
                     "swift",
                     "build",
                     *global_args,
-                    "--build-tests",
+                    "--configuration",
+                    args.config,
                     *ignore_args,
                     *args.additional_build_args.split(" ")
                 ]
@@ -285,8 +286,9 @@ def main() -> None:
                     *args.additional_run_args.split(" "),
                     "swift-test",
                     *global_args,
-                    "--vv",
                     "--force-resolved-versions",
+                    "--configuration",
+                    args.config,
                     "--parallel",
                     "--scratch-path",
                     ".test",

@@ -508,8 +508,7 @@ package final class AsyncProcess {
 
             group.enter()
             stdoutPipe.fileHandleForReading.readabilityHandler = { (fh: FileHandle) in
-                // 4096 is default pipe buffer size so reading in that size seems most efficient and still get output as it available
-                let data = (try? fh.read(upToCount: 4096)) ?? Data()
+                let data = (try? fh.read(upToCount: Int.max)) ?? Data()
                 if data.count == 0 {
                     stdoutPipe.fileHandleForReading.readabilityHandler = nil
                     group.leave()
@@ -524,8 +523,7 @@ package final class AsyncProcess {
 
             group.enter()
             stderrPipe.fileHandleForReading.readabilityHandler = { (fh: FileHandle) in
-                // 4096 is default pipe buffer size so reading in that size seems most efficient and still get output as it available
-                let data = (try? fh.read(upToCount: 4096)) ?? Data()
+                let data = (try? fh.read(upToCount: Int.max)) ?? Data()
                 if data.count == 0 {
                     stderrPipe.fileHandleForReading.readabilityHandler = nil
                     group.leave()
