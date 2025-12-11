@@ -4537,9 +4537,12 @@ struct PackageCommandTests {
                 // We expect a warning about `library.bar` but not about `library.foo`.
                 let libraryFooPath = RelativePath("Sources/MyLibrary/library.foo").pathString
                 #expect(!stderr.components(separatedBy: "\n").contains { $0.contains("warning: ") && $0.contains(libraryFooPath) })
-                if data.buildSystem == .native {
+                switch data.buildSystem {
+                case .native:
                     #expect(stderr.contains("found 1 file(s) which are unhandled"))
                     #expect(stderr.contains(RelativePath("Sources/MyLibrary/library.bar").pathString))
+                case .swiftbuild, .xcode:
+                    return
                 }
             }
         }

@@ -125,7 +125,7 @@ public final class SwiftBuildSystemMessageHandler {
             if self.logLevel.isVerbose {
                 self.outputStream.send(started.description + "\n")
             } else {
-                observabilityScope.emit(info: started)
+                observabilityScope.print(started, verbose: self.logLevel.isVerbose)
             }
         }
 
