@@ -28,6 +28,7 @@ public struct PackageConditionDescription: Codable, Hashable, Sendable {
 /// build configurations.
 public enum PackageCondition: Hashable, Sendable {
     case platforms(PlatformsCondition)
+    case isHost(HostCondition)
     case configuration(ConfigurationCondition)
     case traits(TraitCondition)
 
@@ -37,6 +38,8 @@ public enum PackageCondition: Hashable, Sendable {
             return configuration.satisfies(environment)
         case .platforms(let platforms):
             return platforms.satisfies(environment)
+        case .isHost(let hostCondition):
+            return hostCondition.satisfies(environment)
         case .traits(let traits):
             return traits.satisfies(environment)
         }
@@ -66,12 +69,24 @@ public enum PackageCondition: Hashable, Sendable {
         return traitCondition
     }
 
+    public var hostCondition: HostCondition? {
+        guard case let .isHost(hostCondition) = self else {
+            return nil
+        }
+
+        return hostCondition
+    }
+
     public init(platforms: [Platform]) {
         self = .platforms(.init(platforms: platforms))
     }
 
     public init(configuration: BuildConfiguration) {
         self = .configuration(.init(configuration: configuration))
+    }
+
+    public init(isHost: Bool) {
+        self = .isHost(.init(isHost: isHost))
     }
 }
 
@@ -107,9 +122,8 @@ public struct ConfigurationCondition: Hashable, Sendable {
     }
 }
 
-
-/// A configuration condition implies that an assignment is valid on
-/// a particular build configuration.
+/// By the time we get to evaluating the condition, the package loader would have filtered out
+/// disabled traits. As such, this should always evaluate to true.
 public struct TraitCondition: Hashable, Sendable {
     public let traits: Set<String>
 
@@ -122,3 +136,16 @@ public struct TraitCondition: Hashable, Sendable {
     }
 }
 
+/// A hidden condition that is true if the target is building for the host platform.
+/// Currently only used for prebuilts.
+public struct HostCondition: Hashable, Sendable {
+    public let isHost: Bool
+
+    public init(isHost: Bool) {
+        self.isHost = isHost
+    }
+
+    public func satisfies(_ environment: BuildEnvironment) -> Bool {
+        environment.isHost == isHost
+    }
+}

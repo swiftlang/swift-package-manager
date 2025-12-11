@@ -48,11 +48,7 @@ extension Build.BuildPlan {
     }
 }
 
-class BuildPlanTestCase: BuildSystemProviderTestCase {
-    override func setUpWithError() throws {
-        try XCTSkipIf(type(of: self) == BuildPlanTestCase.self, "Skipping this test since it will be run in subclasses that will provide different build systems to test.")
-    }
-
+class BuildPlanTestCase: XCTestCase {
     let inputsDir = AbsolutePath(#file).parentDirectory.appending(components: "Inputs")
 
     /// The j argument.
@@ -621,129 +617,6 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         XCTAssertTrue(result.targetMap.values.contains { $0.module.name == "BarLogging" })
     }
 
-    func testPackageNameFlag() async throws {
-        try XCTSkipIfPlatformCI() // test is disabled because it isn't stable, see rdar://118239206
-        try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8547: 'swift test' was stalled.")
-        let isFlagSupportedInDriver = try DriverSupport.checkToolchainDriverFlags(
-            flags: ["package-name"],
-            toolchain: UserToolchain.default,
-            fileSystem: localFileSystem
-        )
-        try await fixtureXCTest(name: "Miscellaneous/PackageNameFlag") { fixturePath in
-            let (stdout, stderr) = try await executeSwiftBuild(
-                fixturePath.appending("appPkg"),
-                extraArgs: ["--vv"],
-                buildSystem: buildSystemProvider
-            )
-
-            let out = if buildSystemProvider == .swiftbuild {
-                stderr
-            } else {
-                stdout
-            }
-
-            XCTAssertMatch(out, .contains("-module-name Foo"))
-            XCTAssertMatch(out, .contains("-module-name Zoo"))
-            XCTAssertMatch(out, .contains("-module-name Bar"))
-            XCTAssertMatch(out, .contains("-module-name Baz"))
-            XCTAssertMatch(out, .contains("-module-name App"))
-            XCTAssertMatch(out, .contains("-module-name exe"))
-            if isFlagSupportedInDriver {
-                XCTAssertMatch(out, .contains("-package-name apppkg"))
-                XCTAssertMatch(out, .contains("-package-name foopkg"))
-                // the flag is not supported if tools-version < 5.9
-                XCTAssertNoMatch(out, .contains("-package-name barpkg"))
-            } else {
-                XCTAssertNoMatch(out, .contains("-package-name"))
-            }
-            XCTAssertMatch(stdout, .contains("Build complete!"))
-        }
-    }
-
-    #if os(macOS)
-    func testPackageNameFlagXCBuild() async throws {
-        let isFlagSupportedInDriver = try DriverSupport.checkToolchainDriverFlags(
-            flags: ["package-name"],
-            toolchain: UserToolchain.default,
-            fileSystem: localFileSystem
-        )
-        try await fixtureXCTest(name: "Miscellaneous/PackageNameFlag") { fixturePath in
-            let (stdout, _) = try await executeSwiftBuild(
-                fixturePath.appending("appPkg"),
-                extraArgs: ["--vv"],
-                buildSystem: .xcode
-            )
-            XCTAssertMatch(stdout, .contains("-module-name Foo"))
-            XCTAssertMatch(stdout, .contains("-module-name Zoo"))
-            XCTAssertMatch(stdout, .contains("-module-name Bar"))
-            XCTAssertMatch(stdout, .contains("-module-name Baz"))
-            XCTAssertMatch(stdout, .contains("-module-name App"))
-            XCTAssertMatch(stdout, .contains("-module-name exe"))
-            if isFlagSupportedInDriver {
-                XCTAssertMatch(stdout, .contains("-package-name apppkg"))
-                XCTAssertMatch(stdout, .contains("-package-name foopkg"))
-                // the flag is not supported if tools-version < 5.9
-                XCTAssertNoMatch(stdout, .contains("-package-name barpkg"))
-            } else {
-                XCTAssertNoMatch(stdout, .contains("-package-name"))
-            }
-            XCTAssertMatch(stdout, .contains("Build succeeded"))
-        }
-    }
-    #endif
-
-    func testTargetsWithPackageAccess() async throws {
-        let isFlagSupportedInDriver = try DriverSupport.checkToolchainDriverFlags(
-            flags: ["package-name"],
-            toolchain: UserToolchain.default,
-            fileSystem: localFileSystem
-        )
-        try await fixtureXCTest(name: "Miscellaneous/TargetPackageAccess") { fixturePath in
-            let (stdout, _) = try await executeSwiftBuild(
-                fixturePath.appending("libPkg"),
-                extraArgs: ["-v"],
-                buildSystem: buildSystemProvider
-            )
-            if isFlagSupportedInDriver {
-                let moduleFlag1 = stdout.range(of: "-module-name DataModel")
-                XCTAssertNotNil(moduleFlag1)
-                let stdoutNext1 = stdout[moduleFlag1!.upperBound...]
-                let packageFlag1 = stdoutNext1.range(of: "-package-name libpkg")
-                XCTAssertNotNil(packageFlag1)
-
-                let moduleFlag2 = stdoutNext1.range(of: "-module-name DataManager")
-                XCTAssertNotNil(moduleFlag2)
-                XCTAssertTrue(packageFlag1!.upperBound < moduleFlag2!.lowerBound)
-                let stdoutNext2 = stdoutNext1[moduleFlag2!.upperBound...]
-                let packageFlag2 = stdoutNext2.range(of: "-package-name libpkg")
-                XCTAssertNotNil(packageFlag2)
-
-                let moduleFlag3 = stdoutNext2.range(of: "-module-name Core")
-                XCTAssertNotNil(moduleFlag3)
-                XCTAssertTrue(packageFlag2!.upperBound < moduleFlag3!.lowerBound)
-                let stdoutNext3 = stdoutNext2[moduleFlag3!.upperBound...]
-                let packageFlag3 = stdoutNext3.range(of: "-package-name libpkg")
-                XCTAssertNotNil(packageFlag3)
-
-                let moduleFlag4 = stdoutNext3.range(of: "-module-name MainLib")
-                XCTAssertNotNil(moduleFlag4)
-                XCTAssertTrue(packageFlag3!.upperBound < moduleFlag4!.lowerBound)
-                let stdoutNext4 = stdoutNext3[moduleFlag4!.upperBound...]
-                let packageFlag4 = stdoutNext4.range(of: "-package-name libpkg")
-                XCTAssertNotNil(packageFlag4)
-
-                let moduleFlag5 = stdoutNext4.range(of: "-module-name ExampleApp")
-                XCTAssertNotNil(moduleFlag5)
-                XCTAssertTrue(packageFlag4!.upperBound < moduleFlag5!.lowerBound)
-                let stdoutNext5 = stdoutNext4[moduleFlag5!.upperBound...]
-                let packageFlag5 = stdoutNext5.range(of: "-package-name")
-                XCTAssertNil(packageFlag5)
-            } else {
-                XCTAssertNoMatch(stdout, .contains("-package-name"))
-            }
-            XCTAssertMatch(stdout, .contains("Build complete!"))
-        }
-    }
 
     func testBasicSwiftPackage() async throws {
         let fs = InMemoryFileSystem(
@@ -957,6 +830,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             let plan = try await mockBuildPlan(
                 environment: BuildEnvironment(
                     platform: .linux,
+                    isHost: false,
                     configuration: .release
                 ),
                 graph: graph,
@@ -999,6 +873,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             let plan = try await mockBuildPlan(
                 environment: BuildEnvironment(
                     platform: .macOS,
+                    isHost: false,
                     configuration: .debug
                 ),
                 graph: graph,
@@ -1507,6 +1382,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             let result = try await BuildPlanResult(plan: mockBuildPlan(
                 environment: BuildEnvironment(
                     platform: .linux,
+                    isHost: false,
                     configuration: .release
                 ),
                 graph: graph,
@@ -1526,6 +1402,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             let result = try await BuildPlanResult(plan: mockBuildPlan(
                 environment: BuildEnvironment(
                     platform: .macOS,
+                    isHost: false,
                     configuration: .debug
                 ),
                 graph: graph,
@@ -2106,6 +1983,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             let plan = try await mockBuildPlan(
                 environment: BuildEnvironment(
                     platform: .linux,
+                    isHost: false,
                     configuration: .release
                 ),
                 graph: graph,
@@ -3527,7 +3405,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         let graphResult = PackageGraphResultXCTest(graph)
 
         do {
-            let linuxDebug = BuildEnvironment(platform: .linux, configuration: .debug)
+            let linuxDebug = BuildEnvironment(platform: .linux, isHost: false, configuration: .debug)
             try graphResult.check(reachableBuildProducts: "aexec", "BLibrary1", "BLibrary2", in: linuxDebug)
             try graphResult.check(reachableBuildTargets: "ATarget", "BTarget1", "BTarget2", in: linuxDebug)
 
@@ -3542,7 +3420,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         }
 
         do {
-            let macosDebug = BuildEnvironment(platform: .macOS, configuration: .debug)
+            let macosDebug = BuildEnvironment(platform: .macOS, isHost: false, configuration: .debug)
             try graphResult.check(reachableBuildProducts: "aexec", "BLibrary2", in: macosDebug)
             try graphResult.check(reachableBuildTargets: "ATarget", "BTarget2", "BTarget3", in: macosDebug)
 
@@ -3557,7 +3435,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         }
 
         do {
-            let androidRelease = BuildEnvironment(platform: .android, configuration: .release)
+            let androidRelease = BuildEnvironment(platform: .android, isHost: false, configuration: .release)
             try graphResult.check(reachableBuildProducts: "aexec", "CLibrary", in: androidRelease)
             try graphResult.check(reachableBuildTargets: "ATarget", "CTarget", in: androidRelease)
 
@@ -4764,7 +4642,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                             type: .test
                         )
                     ]
-                )
+                ),
             ],
             prebuilts: [prebuiltLibrary.identity: prebuiltLibrary.products.reduce(into: [:]) {
                 $0[$1] = prebuiltLibrary
@@ -4864,7 +4742,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         // Test debug configuration
         do {
             let result = try await BuildPlanResult(plan: mockBuildPlan(
-                environment: BuildEnvironment(platform: .macOS, configuration: .debug),
+                environment: BuildEnvironment(platform: .macOS, isHost: false, configuration: .debug),
                 graph: graph,
                 fileSystem: fs,
                 observabilityScope: observability.topScope
@@ -4886,7 +4764,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         // Test release configuration
         do {
             let result = try await BuildPlanResult(plan: mockBuildPlan(
-                environment: BuildEnvironment(platform: .macOS, configuration: .release),
+                environment: BuildEnvironment(platform: .macOS, isHost: false, configuration: .release),
                 graph: graph,
                 fileSystem: fs,
                 observabilityScope: observability.topScope
@@ -4952,7 +4830,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         // Test debug configuration
         do {
             let result = try await BuildPlanResult(plan: mockBuildPlan(
-                environment: BuildEnvironment(platform: .macOS, configuration: .debug),
+                environment: BuildEnvironment(platform: .macOS, isHost: false, configuration: .debug),
                 graph: graph,
                 fileSystem: fs,
                 observabilityScope: observability.topScope
@@ -4970,7 +4848,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         // Test release configuration
         do {
             let result = try await BuildPlanResult(plan: mockBuildPlan(
-                environment: BuildEnvironment(platform: .macOS, configuration: .release),
+                environment: BuildEnvironment(platform: .macOS, isHost: false, configuration: .release),
                 graph: graph,
                 fileSystem: fs,
                 observabilityScope: observability.topScope
@@ -5090,7 +4968,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         // Test debug configuration
         do {
             let result = try await BuildPlanResult(plan: mockBuildPlan(
-                environment: BuildEnvironment(platform: .macOS, configuration: .debug),
+                environment: BuildEnvironment(platform: .macOS, isHost: false, configuration: .debug),
                 graph: graph,
                 fileSystem: fs,
                 observabilityScope: observability.topScope
@@ -5121,7 +4999,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         // Test release configuration
         do {
             let result = try await BuildPlanResult(plan: mockBuildPlan(
-                environment: BuildEnvironment(platform: .macOS, configuration: .release),
+                environment: BuildEnvironment(platform: .macOS, isHost: false, configuration: .release),
                 graph: graph,
                 fileSystem: fs,
                 observabilityScope: observability.topScope
@@ -7308,6 +7186,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         let result = try await BuildPlanResult(plan: mockBuildPlan(
             environment: BuildEnvironment(
                 platform: .linux,
+                isHost: false,
                 configuration: .release
             ),
             graph: graph,
@@ -7869,37 +7748,207 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
     }
 }
 
-class BuildPlanNativeTests: BuildPlanTestCase {
-    override open var buildSystemProvider: BuildSystemProvider.Kind {
-        return .native
-    }
+@Test func testAllTheThingsPrebuilts() async throws {
+    // Test macros, plugin-in tools and target executables depending on swift-syntax
+    // Including a library that is shared by all.
+    // Right now only macros and plug-in tools should get the prebuilts
+    // and executables should build depend on swift-syntax source targets
+    let observability = ObservabilitySystem.makeForTesting()
 
-    override func testDuplicateProductNamesWithNonDefaultLibsThrowError() async throws {
-        try await super.testDuplicateProductNamesWithNonDefaultLibsThrowError()
-    }
+    let prebuiltLibrary = PrebuiltLibrary(
+        identity: .plain("swift-syntax"),
+        libraryName: "MacroSupport",
+        path: "/MyPackage/.build/prebuilts/swift-syntax/600.0.1/6.1-MacroSupport-macos_aarch64",
+        checkoutPath: "/MyPackage/.build/checkouts/swift-syntax",
+        products: [
+            "SwiftBasicFormat",
+            "SwiftCompilerPlugin",
+            "SwiftDiagnostics",
+            "SwiftIDEUtils",
+            "SwiftOperators",
+            "SwiftParser",
+            "SwiftParserDiagnostics",
+            "SwiftRefactor",
+            "SwiftSyntax",
+            "SwiftSyntaxBuilder",
+            "SwiftSyntaxMacros",
+            "SwiftSyntaxMacroExpansion",
+            "SwiftSyntaxMacrosTestSupport",
+            "SwiftSyntaxMacrosGenericTestSupport",
+            "_SwiftCompilerPluginMessageHandling",
+            "_SwiftLibraryPluginProvider"
+        ],
+        includePath: [
+            "Sources/_SwiftSyntaxCShims/include"
+        ]
+    )
 
-}
+    let swiftSyntaxCShimsInclude = try "-I\(#require(prebuiltLibrary.checkoutPath).appending(components: "Sources", "_SwiftSyntaxCShims", "include"))"
+    let swiftSyntaxLib = prebuiltLibrary.path.appending(components: "lib", "libMacroSupport.a").pathString
 
-class BuildPlanSwiftBuildTests: BuildPlanTestCase {
-    override open var buildSystemProvider: BuildSystemProvider.Kind {
-        return .swiftbuild
-    }
+    let fs = InMemoryFileSystem(
+        emptyFiles: [
+            "/MyPackage/Plugins/MyPlugin/MyPlugin.swift",
+            "/MyPackage/Sources/MyLibrary/MyLibrary.swift",
+            "/MyPackage/Sources/MyMacroMacros/MyMacroMacros.swift",
+            "/MyPackage/Sources/MyMacros/MyMacros.swift",
+            "/MyPackage/Sources/MyMacroTests/MyMacroTests.swift",
+            "/MyPackage/Sources/MyGenerator/MyGenerator.swift",
+            "/MyPackage/Sources/MyExecutable/MyExecutable.swift",
+            "/MyPackage/Tests/MyLibraryTests/MyLibraryTests.swift",
+            "/MyPackage/Tests/MyMacroTests/MyMacroTests.swift",
+            "/swift-syntax/Sources/SwiftSyntaxMacrosTestSupport/SwiftSyntaxMacrosTestSupport.swift",
+            "/swift-syntax/Sources/SwiftSyntaxMacros/SwiftSyntaxMacros.swift",
+            "/swift-syntax/Sources/SwiftCompilerPlugin/SwiftCompilerPlugin.swift",
+            "/swift-syntax/Sources/SwiftSyntax/SwiftSyntax.swift",
+        ]
+    )
 
-    override func testDuplicateProductNamesWithNonDefaultLibsThrowError() async throws {
-        try await super.testDuplicateProductNamesWithNonDefaultLibsThrowError()
-    }
+    let graph = try loadModulesGraph(
+        fileSystem: fs,
+        manifests: [
+            Manifest.createLocalSourceControlManifest(
+                displayName: "swift-syntax",
+                path: "/swift-syntax",
+                products: [
+                    .init(
+                        name: "SwiftSyntaxMacrosTestSupport",
+                        type: .library(.automatic),
+                        targets: ["SwiftSyntaxMacrosTestSupport"]
+                    ),
+                    .init(
+                        name: "SwiftSyntaxMacros",
+                        type: .library(.automatic),
+                        targets: ["SwiftSyntaxMacros"]
+                    ),
+                    .init(
+                        name: "SwiftCompilerPlugin",
+                        type: .library(.automatic),
+                        targets: ["SwiftCompilerPlugin"]
+                    ),
+                    .init(
+                        name: "SwiftSyntax",
+                        type: .library(.automatic),
+                        targets: ["SwiftSyntax"]
+                    ),
+                ],
+                targets: [
+                    .init(name: "SwiftSyntaxMacrosTestSupport"),
+                    .init(name: "SwiftSyntaxMacros"),
+                    .init(name: "SwiftCompilerPlugin"),
+                    .init(name: "SwiftSyntax"),
+                ]
+            ),
+            Manifest.createRootManifest(
+                displayName: "MyPackage",
+                path: "/MyPackage",
+                dependencies: [
+                    .localSourceControl(path: "/swift-syntax", requirement: .exact("600.0.1")),
+                ],
+                targets: [
+                    TargetDescription(
+                        name: "MyLibrary",
+                        dependencies: [
+                            .product(name: "SwiftSyntax", package: "swift-syntax"),
+                        ]
+                    ),
+                    TargetDescription(
+                        name: "MyLibraryTests",
+                        dependencies: [
+                            "MyLibrary"
+                        ],
+                        type: .test
+                    ),
+                    TargetDescription(
+                        name: "MyMacroMacros",
+                        dependencies: [
+                            "MyLibrary",
+                            .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
+                            .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
+                        ],
+                        type: .macro,
+                    ),
+                    TargetDescription(
+                        name: "MyMacros",
+                        dependencies: [
+                            "MyMacroMacros",
+                        ]
+                    ),
+                    TargetDescription(
+                        name: "MyMacroTests",
+                        dependencies: [
+                            "MyMacroMacros",
+                            .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax"),
+                        ],
+                        type: .test
+                    ),
+                    TargetDescription(
+                        name: "MyGenerator",
+                        dependencies: [
+                            "MyLibrary",
+                            .product(name: "SwiftSyntax", package: "swift-syntax"),
+                        ],
+                        type: .executable
+                    ),
+                    TargetDescription(
+                        name: "MyPlugin",
+                        dependencies: [
+                            "MyGenerator"
+                        ],
+                        type: .plugin,
+                        pluginCapability: .buildTool
+                    ),
+                    TargetDescription(
+                        name: "MyExecutable",
+                        dependencies: [
+                            "MyMacros",
+                            "MyLibrary",
+                        ],
+                        type: .executable,
+                        pluginUsages: [.plugin(name: "MyPlugin", package: nil)]
+                    )
+                ]
+            )
+        ],
+        prebuilts: [prebuiltLibrary.identity: prebuiltLibrary.products.reduce(into: [:]) {
+            $0[$1] = prebuiltLibrary
+        }],
+        observabilityScope: observability.topScope
+    )
 
-    override func testTargetsWithPackageAccess() async throws {
-        throw XCTSkip("Skip until swift build system can support this case.")
-    }
+    let result = try await BuildPlanResult(
+        plan: mockBuildPlan(
+            triple: .arm64Linux,
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+    )
 
-    override func testTestModule() async throws {
-        throw XCTSkip("Skip until swift build system can support this case.")
-    }
+    let myLibraryHost = try #require(try result.targetMap.values.first(where: {
+        $0.module.name == "MyLibrary" && $0.destination == .host
+    })?.swift())
+    #expect(myLibraryHost.dependencies(using: result.plan).isEmpty)
+    #expect(try myLibraryHost.compileArguments().contains(swiftSyntaxCShimsInclude))
 
-    override func testPackageNameFlag() async throws {
-        try XCTSkipOnWindows(because: "Skip until there is a resolution to the partial linking with Windows that results in a 'subsystem must be defined' error.")
-        try await super.testPackageNameFlag()
-    }
+    let myLibraryTarget = try #require(try result.targetMap.values.first(where: {
+        $0.module.name == "MyLibrary" && $0.destination == .target
+    })?.swift())
+    #expect(myLibraryTarget.dependencies(using: result.plan).contains(where: {
+        guard case let .product(product, _) = $0 else {
+            return false
+        }
+        return product.name == "SwiftSyntax" && product.packageIdentity.description == "swift-syntax"
+    }))
+    #expect(try !myLibraryTarget.compileArguments().contains(swiftSyntaxCShimsInclude))
 
+    let myGeneratorHost = try #require(try result.productMap.values.first(where: {
+        $0.product.name == "MyGenerator" && $0.destination == .host
+    }))
+    #expect(try myGeneratorHost.linkArguments().contains(swiftSyntaxLib))
+
+    let myExecutableTarget = try #require(try result.productMap.values.first(where: {
+        $0.product.name == "MyExecutable" && $0.destination == .target
+    }))
+    #expect(try !myExecutableTarget.linkArguments().contains(swiftSyntaxLib))
 }

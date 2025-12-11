@@ -56,6 +56,7 @@ struct LLBuildManifestBuilderTests {
         var plan = try await mockBuildPlan(
             environment: BuildEnvironment(
                 platform: .macOS,
+                isHost: false,
                 configuration: .release
             ),
             graph: graph,
@@ -86,6 +87,7 @@ struct LLBuildManifestBuilderTests {
         plan = try await mockBuildPlan(
             environment: BuildEnvironment(
                 platform: .macOS,
+                isHost: false,
                 configuration: .debug
             ),
             graph: graph,
@@ -129,6 +131,7 @@ struct LLBuildManifestBuilderTests {
         plan = try await mockBuildPlan(
             environment: BuildEnvironment(
                 platform: .linux,
+                isHost: false,
                 configuration: .release
             ),
             graph: graph,
@@ -155,6 +158,7 @@ struct LLBuildManifestBuilderTests {
         plan = try await mockBuildPlan(
             environment: BuildEnvironment(
                 platform: .linux,
+                isHost: false,
                 configuration: .debug
             ),
             graph: graph,
