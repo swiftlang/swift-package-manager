@@ -120,7 +120,7 @@ struct SwiftBuildSystemMessageHandlerTests {
 
         let events: [SwiftBuildMessage] = [
             .taskStartedInfo(taskSignature: "simple-diagnostic"),
-            .diagnosticInfo(locationContext2: .init(taskSignature: "simple-diagnostic"), message: "Simple diagnostic", appendToOutputStream: true),
+            .diagnostic(locationContext2: .init(taskSignature: "simple-diagnostic"), message: "Simple diagnostic", appendToOutputStream: true),
             .taskCompleteInfo(taskSignature: "simple-diagnostic", result: .failed) // Handler only emits when a task is completed.
         ]
 
@@ -141,14 +141,14 @@ struct SwiftBuildSystemMessageHandlerTests {
 
         let events: [SwiftBuildMessage] = [
             .taskStartedInfo(taskSignature: "diagnostics"),
-            .diagnosticInfo(
+            .diagnostic(
                 locationContext2: .init(
                     taskSignature: "diagnostics"
                 ),
                 message: "First diagnostic",
                 appendToOutputStream: true
             ),
-            .diagnosticInfo(
+            .diagnostic(
                 locationContext2: .init(
                     taskSignature: "diagnostics"
                 ),
@@ -176,28 +176,28 @@ struct SwiftBuildSystemMessageHandlerTests {
 
         let events: [SwiftBuildMessage] = [
             .taskStartedInfo(taskID: 1, taskSignature: "simple-diagnostic"),
-            .diagnosticInfo(
+            .diagnostic(
                 locationContext2: .init(taskSignature: "simple-diagnostic"),
                 message: "Simple diagnostic",
                 appendToOutputStream: true
             ),
             .taskStartedInfo(taskID: 2, taskSignature: "another-diagnostic"),
             .taskStartedInfo(taskID: 3, taskSignature: "warning-diagnostic"),
-            .diagnosticInfo(
+            .diagnostic(
                 kind: .warning,
                 locationContext2: .init(taskSignature: "warning-diagnostic"),
                 message: "Warning diagnostic",
                 appendToOutputStream: true
             ),
             .taskCompleteInfo(taskID: 1, taskSignature: "simple-diagnostic", result: .failed),
-            .diagnosticInfo(
+            .diagnostic(
                 kind: .warning,
                 locationContext2: .init(taskSignature: "warning-diagnostic"),
                 message: "Another warning diagnostic",
                 appendToOutputStream: true
             ),
             .taskCompleteInfo(taskID: 3, taskSignature: "warning-diagnostic", result: .success),
-            .diagnosticInfo(
+            .diagnostic(
                 kind: .note,
                 locationContext2: .init(taskSignature: "another-diagnostic"),
                 message: "Another diagnostic",
@@ -254,14 +254,14 @@ struct SwiftBuildSystemMessageHandlerTests {
 
         let events: [SwiftBuildMessage] = [
             .taskStartedInfo(taskID: 1, taskSignature: "simple-diagnostic"),
-            .diagnosticInfo(
+            .diagnostic(
                 locationContext2: .init(taskSignature: "simple-diagnostic"),
                 message: "Simple diagnostic",
                 appendToOutputStream: true
             ),
             .taskStartedInfo(taskID: 2, taskSignature: "another-diagnostic"),
             .taskStartedInfo(taskID: 3, taskSignature: "warning-diagnostic"),
-            .diagnosticInfo(
+            .diagnostic(
                 kind: .warning,
                 locationContext2: .init(taskSignature: "warning-diagnostic"),
                 message: "Warning diagnostic",
@@ -270,7 +270,7 @@ struct SwiftBuildSystemMessageHandlerTests {
             anotherWarningOutputInfo,
             simpleOutputInfo,
             .taskCompleteInfo(taskID: 1, taskSignature: "simple-diagnostic"),
-            .diagnosticInfo(
+            .diagnostic(
                 kind: .warning,
                 locationContext2: .init(taskSignature: "warning-diagnostic"),
                 message: "Another warning diagnostic",
@@ -278,7 +278,7 @@ struct SwiftBuildSystemMessageHandlerTests {
             ),
             warningOutputInfo,
             .taskCompleteInfo(taskID: 3, taskSignature: "warning-diagnostic"),
-            .diagnosticInfo(
+            .diagnostic(
                 kind: .note,
                 locationContext2: .init(taskSignature: "another-diagnostic"),
                 message: "Another diagnostic",
@@ -302,7 +302,7 @@ struct SwiftBuildSystemMessageHandlerTests {
 
         let events: [SwiftBuildMessage] = [
             .taskStartedInfo(taskID: 1, taskSignature: "simple-warning-diagnostic"),
-            .diagnosticInfo(
+            .diagnostic(
                 kind: .warning,
                 locationContext2: .init(taskSignature: "simple-warning-diagnostic"),
                 message: "Simple warning diagnostic",
@@ -372,7 +372,7 @@ extension SwiftBuildMessage {
     }
 
     /// SwiftBuildMessage.DiagnosticInfo
-    package static func diagnosticInfo(
+    package static func diagnostic(
         kind: DiagnosticInfo.Kind = .error,
         location: DiagnosticInfo.Location = .unknown,
         locationContext: LocationContext = .task(taskID: 1, targetID: 1),
