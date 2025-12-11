@@ -14,7 +14,7 @@ extension String {
     }
 }
 
-// basic structure of a template that uses string interpolation
+// This example is the basic structure of a template that uses string interpolation.
 @main
 struct HelloTemplateTool: ParsableCommand {
     @OptionGroup(visibility: .hidden)
