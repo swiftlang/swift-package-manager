@@ -197,6 +197,7 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
     /// The options for initializing a template.
     public let templateInitializationOptions: TemplateInitializationOptions?
 
+    /// The options available to initialize a template.
     public enum TemplateInitializationOptions: Hashable, Sendable {
         case packageInit(templateType: TemplateType, templatePermissions: [TemplatePermission]?, description: String)
     }
