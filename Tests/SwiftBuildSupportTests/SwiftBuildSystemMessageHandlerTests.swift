@@ -24,25 +24,63 @@ import _InternalTestSupport
 
 @Suite
 struct SwiftBuildSystemMessageHandlerTests {
-    private func createMessageHandler(
-        _ logLevel: Basics.Diagnostic.Severity = .warning
-    ) -> (handler: SwiftBuildSystemMessageHandler, outputStream: BufferedOutputByteStream, observability: TestingObservability) {
-        let outputStream = BufferedOutputByteStream()
-        let observability = ObservabilitySystem.makeForTesting(outputStream: outputStream)
+    struct MockMessageHandlerProvider {
+        private let warningMessageHandler: SwiftBuildSystemMessageHandler
+        private let errorMessageHandler: SwiftBuildSystemMessageHandler
+        private let debugMessageHandler: SwiftBuildSystemMessageHandler
 
-        let handler = SwiftBuildSystemMessageHandler(
-            observabilityScope: observability.topScope,
-            outputStream: outputStream,
-            logLevel: logLevel
+        public init(
+            outputStream: BufferedOutputByteStream,
+            observabilityScope: ObservabilityScope,
+        ) {
+            self.warningMessageHandler = .init(
+                observabilityScope: observabilityScope,
+                outputStream: outputStream,
+                logLevel: .warning
+            )
+            self.errorMessageHandler = .init(
+                observabilityScope: observabilityScope,
+                outputStream: outputStream,
+                logLevel: .error
+            )
+            self.debugMessageHandler = .init(
+                observabilityScope: observabilityScope,
+                outputStream: outputStream,
+                logLevel: .debug
+            )
+        }
+
+        public var warning: SwiftBuildSystemMessageHandler {
+            return warningMessageHandler
+        }
+
+        public var error: SwiftBuildSystemMessageHandler {
+            return errorMessageHandler
+        }
+
+        public var debug: SwiftBuildSystemMessageHandler {
+            return debugMessageHandler
+        }
+    }
+
+    let outputStream: BufferedOutputByteStream
+    let observability: TestingObservability
+    let messageHandler: MockMessageHandlerProvider
+
+    init() {
+        self.outputStream = BufferedOutputByteStream()
+        self.observability = ObservabilitySystem.makeForTesting(
+            outputStream: outputStream
         )
-
-        return (handler, outputStream, observability)
+        self.messageHandler = .init(
+            outputStream: self.outputStream,
+            observabilityScope: self.observability.topScope
+        )
     }
 
     @Test
     func testNoDiagnosticsReported() throws {
-        let (messageHandler, outputStream, observability) = createMessageHandler()
-
+        let messageHandler = self.messageHandler.warning
         let events: [SwiftBuildMessage] = [
             .taskStartedInfo(),
             .taskCompleteInfo(),
@@ -54,16 +92,16 @@ struct SwiftBuildSystemMessageHandlerTests {
         }
 
         // Check output stream
-        let output = outputStream.bytes.description
+        let output = self.outputStream.bytes.description
         #expect(!output.contains("error"))
 
         // Check observability diagnostics
-        expectNoDiagnostics(observability.diagnostics)
+        expectNoDiagnostics(self.observability.diagnostics)
     }
 
     @Test
     func testSimpleDiagnosticReported() throws {
-        let (messageHandler, _, observability) = createMessageHandler()
+        let messageHandler = self.messageHandler.warning
 
         let events: [SwiftBuildMessage] = [
             .taskStartedInfo(taskSignature: "simple-diagnostic"),
@@ -75,7 +113,7 @@ struct SwiftBuildSystemMessageHandlerTests {
             _ = try messageHandler.emitEvent(event)
         }
 
-        #expect(observability.hasErrorDiagnostics)
+        #expect(self.observability.hasErrorDiagnostics)
 
         try expectDiagnostics(observability.diagnostics) { result in
             result.check(diagnostic: "Simple diagnostic", severity: .error)
@@ -84,7 +122,7 @@ struct SwiftBuildSystemMessageHandlerTests {
 
     @Test
     func testManyDiagnosticsReported() throws {
-        let (messageHandler, _, observability) = createMessageHandler()
+        let messageHandler = self.messageHandler.warning
 
         let events: [SwiftBuildMessage] = [
             .taskStartedInfo(taskID: 1, taskSignature: "simple-diagnostic"),
@@ -122,7 +160,7 @@ struct SwiftBuildSystemMessageHandlerTests {
             _ = try messageHandler.emitEvent(event)
         }
 
-        #expect(observability.hasErrorDiagnostics)
+        #expect(self.observability.hasErrorDiagnostics)
 
         try expectDiagnostics(observability.diagnostics) { result in
             result.check(diagnostic: "Simple diagnostic", severity: .error)
@@ -134,7 +172,7 @@ struct SwiftBuildSystemMessageHandlerTests {
 
     @Test
     func testCompilerOutputDiagnosticsWithoutDuplicatedLogging() throws {
-        let (messageHandler, outputStream, observability) = createMessageHandler()
+        let messageHandler = self.messageHandler.warning
 
         let simpleDiagnosticString: String = "[error]: Simple diagnostic\n"
         let simpleOutputInfo: SwiftBuildMessage = .outputInfo(
@@ -204,13 +242,13 @@ struct SwiftBuildSystemMessageHandlerTests {
             _ = try messageHandler.emitEvent(event)
         }
 
-        let outputText = outputStream.bytes.description
+        let outputText = self.outputStream.bytes.description
         #expect(outputText.contains("error"))
     }
 
     @Test
     func testDiagnosticOutputWhenOnlyWarnings() throws {
-        let (messageHandler, outputStream, observability) = createMessageHandler()
+        let messageHandler = self.messageHandler.warning
 
         let events: [SwiftBuildMessage] = [
             .taskStartedInfo(taskID: 1, taskSignature: "simple-warning-diagnostic"),
@@ -227,7 +265,7 @@ struct SwiftBuildSystemMessageHandlerTests {
             _ = try messageHandler.emitEvent(event)
         }
 
-        #expect(observability.hasWarningDiagnostics)
+        #expect(self.observability.hasWarningDiagnostics)
     }
 }
 
