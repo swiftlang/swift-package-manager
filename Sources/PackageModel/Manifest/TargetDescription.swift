@@ -194,6 +194,7 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
         case plugin(name: String, package: String?)
     }
 
+    /// The options for initializing a template.
     public let templateInitializationOptions: TemplateInitializationOptions?
 
     public enum TemplateInitializationOptions: Hashable, Sendable {
