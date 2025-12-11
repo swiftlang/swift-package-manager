@@ -79,6 +79,21 @@ struct SwiftBuildSystemMessageHandlerTests {
     }
 
     @Test
+    func testExceptionThrownWhenTaskCompleteEventReceivedWithoutTaskStart() throws {
+        let messageHandler = self.messageHandler.warning
+
+        let events: [SwiftBuildMessage] = [
+            .taskCompleteInfo(result: .success)
+        ]
+
+        #expect(throws: (any Error).self) {
+            for event in events {
+                _ = try messageHandler.emitEvent(event)
+            }
+        }
+    }
+
+    @Test
     func testNoDiagnosticsReported() throws {
         let messageHandler = self.messageHandler.warning
         let events: [SwiftBuildMessage] = [
@@ -117,6 +132,41 @@ struct SwiftBuildSystemMessageHandlerTests {
 
         try expectDiagnostics(observability.diagnostics) { result in
             result.check(diagnostic: "Simple diagnostic", severity: .error)
+        }
+    }
+
+    @Test
+    func testTwoDifferentDiagnosticsReported() throws {
+        let messageHandler = self.messageHandler.warning
+
+        let events: [SwiftBuildMessage] = [
+            .taskStartedInfo(taskSignature: "diagnostics"),
+            .diagnosticInfo(
+                locationContext2: .init(
+                    taskSignature: "diagnostics"
+                ),
+                message: "First diagnostic",
+                appendToOutputStream: true
+            ),
+            .diagnosticInfo(
+                locationContext2: .init(
+                    taskSignature: "diagnostics"
+                ),
+                message: "Second diagnostic",
+                appendToOutputStream: true
+            ),
+            .taskCompleteInfo(taskSignature: "diagnostics", result: .failed) // Handler only emits when a task is completed.
+        ]
+
+        for event in events {
+            _ = try messageHandler.emitEvent(event)
+        }
+
+        #expect(self.observability.hasErrorDiagnostics)
+
+        try expectDiagnostics(observability.diagnostics) { result in
+            result.check(diagnostic: "First diagnostic", severity: .error)
+            result.check(diagnostic: "Second diagnostic", severity: .error)
         }
     }
 
