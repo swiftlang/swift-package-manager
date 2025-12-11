@@ -24,6 +24,7 @@ import protocol TSCBasic.OutputByteStream
 /// Handler for SwiftBuildMessage events sent by the SWBBuildOperation.
 public final class SwiftBuildSystemMessageHandler {
     private let observabilityScope: ObservabilityScope
+    private let outputStream: OutputByteStream
     private let logLevel: Basics.Diagnostic.Severity
     private var buildState: BuildState = .init()
     private let enableBacktraces: Bool
@@ -59,6 +60,7 @@ public final class SwiftBuildSystemMessageHandler {
     )
     {
         self.observabilityScope = observabilityScope
+        self.outputStream = outputStream
         self.logLevel = logLevel
         self.progressAnimation = ProgressAnimation.ninja(
             stream: outputStream,
@@ -119,7 +121,12 @@ public final class SwiftBuildSystemMessageHandler {
     ) throws {
         // Begin by emitting the text received by the task started event.
         if let started = self.buildState.startedInfo(for: startedInfo) {
-            observabilityScope.emit(info: started)
+            // Determine where to emit depending on the verbosity level.
+            if self.logLevel.isVerbose {
+                self.outputStream.send(started.description + "\n")
+            } else {
+                observabilityScope.emit(info: started)
+            }
         }
 
         guard info.result == .success else {
@@ -312,10 +319,10 @@ extension SwiftBuildSystemMessageHandler {
 
             // Track relevant task info to emit to user.
             let output = if let cmdLineDisplayStr = task.commandLineDisplayString {
-                    cmdLineDisplayStr
-                } else {
-                    task.executionDescription
-                }
+                "\(task.executionDescription)\n\(cmdLineDisplayStr)"
+            } else {
+                task.executionDescription
+            }
             taskDataBuffer[task] = output
         }
 

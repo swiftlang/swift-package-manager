@@ -5768,6 +5768,7 @@ struct PackageCommandTests {
                     let filteredStderr = stderr.components(separatedBy: "\n")
                         .filter { !$0.contains("Unable to locate libSwiftScan") }
                         .filter { !($0.contains("warning: ") && $0.contains("unable to find libclang")) }
+                        .filter { !$0.contains("Build description")}
                         .joined(separator: "\n")
                     #expect(filteredStderr == isEmpty)
                 }
@@ -5786,6 +5787,7 @@ struct PackageCommandTests {
                     let filteredStderr = stderr.components(separatedBy: "\n")
                         .filter { !$0.contains("Unable to locate libSwiftScan") }
                         .filter { !($0.contains("warning: ") && $0.contains("unable to find libclang")) }
+                        .filter { !$0.contains("Build description")}
                         .joined(separator: "\n")
                     #expect(filteredStderr == isEmpty)
                 }
