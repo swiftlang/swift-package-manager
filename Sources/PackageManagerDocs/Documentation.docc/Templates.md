@@ -443,7 +443,7 @@ SwiftPM provides a built-in command for testing templates comprehensively:
 
 This command will:
 1. Build the template executable
-2. Prompt for all required inputs
+2. Prompt for all required inputs.
 3. Generate each possible decision path through subcommands
 4. Validate that each variant builds successfully
 5. Report results in a summary format
