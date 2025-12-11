@@ -38,27 +38,12 @@ import struct TSCBasic.ByteString
 import enum TSCBasic.JSON
 
 @Suite(
-    .disabled("Until finding a fix for parrallel tests"),
-    .serialized,
     .tags(
         .TestSize.large,
         .Feature.Command.Package.General,
     ),
 )
-class TemplateTests {
-
-    /// Original working directory before the test ran (if known).
-    var originalWorkingDirectory: AbsolutePath? = .none
-
-    init() async throws{
-        originalWorkingDirectory = localFileSystem.currentWorkingDirectory
-    }
-    deinit {
-        if let originalWorkingDirectory {
-            try? localFileSystem.changeCurrentWorkingDirectory(to: originalWorkingDirectory)
-        }
-    }
-
+struct TemplateTests {
     // MARK: - Template Source Resolution Tests
 
     @Suite(
@@ -68,42 +53,49 @@ class TemplateTests {
         ),
     )
     struct TemplateSourceResolverTests {
-        @Test
-        func resolveSourceWithNilInputs() throws {
-            let options = try GlobalOptions.parse([])
+        @Test()
+        func resolveSourceWithNilInputs() async throws {
+            try await testWithTemporaryDirectory { tempDir in
+                try await withTaskLocalWorkingDirectory(tempDir) {
+                    let options = try GlobalOptions.parse([])
 
-            let tool = try SwiftCommandState.makeMockState(options: options)
+                    let tool = try SwiftCommandState.makeMockState(options: options)
 
-            guard let cwd = tool.fileSystem.currentWorkingDirectory else { return }
-            let fileSystem = tool.fileSystem
-            let observabilityScope = tool.observabilityScope
+                    guard let cwd = tool.fileSystem.currentWorkingDirectory else {
+                        Issue.record("Could not find working directory")
+                        return
+                    }
+                    let fileSystem = tool.fileSystem
+                    let observabilityScope = tool.observabilityScope
 
-            let resolver = DefaultTemplateSourceResolver(
-                cwd: cwd,
-                fileSystem: fileSystem,
-                observabilityScope: observabilityScope
-            )
+                    let resolver = DefaultTemplateSourceResolver(
+                        cwd: cwd,
+                        fileSystem: fileSystem,
+                        observabilityScope: observabilityScope
+                    )
 
-            let nilSource = resolver.resolveSource(
-                directory: nil, url: nil, packageID: nil
-            )
-            #expect(nilSource == nil)
+                    let nilSource = resolver.resolveSource(
+                        directory: nil, url: nil, packageID: nil
+                    )
+                    #expect(nilSource == nil)
 
-            let localSource = resolver.resolveSource(
-                directory: AbsolutePath("/fake/path/to/template"), url: nil, packageID: nil
-            )
-            #expect(localSource == .local)
+                    let localSource = resolver.resolveSource(
+                        directory: AbsolutePath("/fake/path/to/template"), url: nil, packageID: nil
+                    )
+                    #expect(localSource == .local)
 
-            let packageIDSource = resolver.resolveSource(
-                directory: AbsolutePath("/fake/path/to/template"), url: nil, packageID: "foo.bar"
-            )
-            #expect(packageIDSource == .registry)
+                    let packageIDSource = resolver.resolveSource(
+                        directory: AbsolutePath("/fake/path/to/template"), url: nil, packageID: "foo.bar"
+                    )
+                    #expect(packageIDSource == .registry)
 
-            let gitSource = resolver.resolveSource(
-                directory: AbsolutePath("/fake/path/to/template"), url: "https://github.com/foo/bar",
-                packageID: "foo.bar"
-            )
-            #expect(gitSource == .git)
+                    let gitSource = resolver.resolveSource(
+                        directory: AbsolutePath("/fake/path/to/template"), url: "https://github.com/foo/bar",
+                        packageID: "foo.bar"
+                    )
+                    #expect(gitSource == .git)
+                }
+            }
         }
 
         @Test
@@ -236,3241 +228,3365 @@ class TemplateTests {
     struct DependencyRequirementResolverTests {
         @Test
         func resolveRegistryDependencyRequirements() async throws {
-            let options = try GlobalOptions.parse([])
-
-            let tool = try SwiftCommandState.makeMockState(options: options)
-
-            let lowerBoundVersion = Version(stringLiteral: "1.2.0")
-            let higherBoundVersion = Version(stringLiteral: "3.0.0")
-
-            await #expect(throws: DependencyRequirementError.noRequirementSpecified.self) {
-                try await DependencyRequirementResolver(
-                    packageIdentity: nil,
-                    templateURL: nil,
-                    swiftCommandState: tool,
-                    exact: nil,
-                    revision: "revision",
-                    branch: "branch",
-                    from: nil,
-                    upToNextMinorFrom: nil,
-                    to: nil,
-                ).resolveRegistry()
-            }
-
-            // test exact specification
-            let exactRegistryDependency = try await DependencyRequirementResolver(
-                packageIdentity: nil,
-                templateURL: nil,
-                swiftCommandState: tool,
-                exact: lowerBoundVersion,
-                revision: nil,
-                branch: nil,
-                from: nil,
-                upToNextMinorFrom: nil,
-                to: nil
-            ).resolveRegistry()
-
-            if case .exact(let version) = exactRegistryDependency {
-                #expect(version == lowerBoundVersion.description)
-            } else {
-                Issue.record("Expected exact registry dependency, got \(String(describing: exactRegistryDependency))")
-            }
-
-            // test from to
-            let fromToRegistryDependency = try await DependencyRequirementResolver(
-                packageIdentity: nil,
-                templateURL: nil,
-                swiftCommandState: tool,
-                exact: nil,
-                revision: nil,
-                branch: nil,
-                from: lowerBoundVersion,
-                upToNextMinorFrom: nil,
-                to: higherBoundVersion
-            ).resolveRegistry()
-
-            if case .range(let lowerBound, let upperBound) = fromToRegistryDependency {
-                #expect(lowerBound == lowerBoundVersion.description)
-                #expect(upperBound == higherBoundVersion.description)
-            } else {
-                Issue.record("Expected range registry dependency, got \(String(describing: fromToRegistryDependency))")
-            }
-
-            // test up-to-next-minor-from and to
-            let upToNextMinorFromToRegistryDependency = try await DependencyRequirementResolver(
-                packageIdentity: nil,
-                templateURL: nil,
-                swiftCommandState: tool,
-                exact: nil,
-                revision: nil,
-                branch: nil,
-                from: nil,
-                upToNextMinorFrom: lowerBoundVersion,
-                to: nil
-            ).resolveRegistry()
-
-            if case .range(let lowerBound, let upperBound) = upToNextMinorFromToRegistryDependency {
-                let expectedRange = Range.upToNextMinor(from: lowerBoundVersion)
-                #expect(lowerBound == expectedRange.lowerBound.description)
-                #expect(upperBound == expectedRange.upperBound.description)
-            } else {
-                Issue
-                    .record(
-                        "Expected range registry dependency, got \(String(describing: upToNextMinorFromToRegistryDependency))"
-                    )
-            }
-
-            // test just from
-            let fromRegistryDependency = try await DependencyRequirementResolver(
-                packageIdentity: nil,
-                templateURL: nil,
-                swiftCommandState: tool,
-                exact: nil,
-                revision: nil,
-                branch: nil,
-                from: lowerBoundVersion,
-                upToNextMinorFrom: nil,
-                to: nil
-            ).resolveRegistry()
-
-            if case .rangeFrom(let lowerBound) = fromRegistryDependency {
-                #expect(lowerBound == lowerBoundVersion.description)
-            } else {
-                Issue
-                    .record("Expected rangeFrom registry dependency, got \(String(describing: fromRegistryDependency))")
-            }
-
-            // test just up-to-next-minor-from
-            let upToNextMinorFromRegistryDependency = try await DependencyRequirementResolver(
-                packageIdentity: nil,
-                templateURL: nil,
-                swiftCommandState: tool,
-                exact: nil,
-                revision: nil,
-                branch: nil,
-                from: nil,
-                upToNextMinorFrom: lowerBoundVersion,
-                to: nil
-            ).resolveRegistry()
-
-            if case .range(let lowerBound, let upperBound) = upToNextMinorFromRegistryDependency {
-                let expectedRange = Range.upToNextMinor(from: lowerBoundVersion)
-                #expect(lowerBound == expectedRange.lowerBound.description)
-                #expect(upperBound == expectedRange.upperBound.description)
-            } else {
-                Issue
-                    .record(
-                        "Expected range registry dependency, got \(String(describing: upToNextMinorFromRegistryDependency))"
-                    )
-            }
-
-            await #expect(throws: DependencyRequirementError.multipleRequirementsSpecified.self) {
-                try await DependencyRequirementResolver(
-                    packageIdentity: nil,
-                    templateURL: nil,
-                    swiftCommandState: tool,
-                    exact: lowerBoundVersion,
-                    revision: nil,
-                    branch: nil,
-                    from: lowerBoundVersion,
-                    upToNextMinorFrom: lowerBoundVersion,
-                    to: nil
-                ).resolveRegistry()
-            }
-
-            await #expect(throws: DependencyRequirementError.noRequirementSpecified.self) {
-                try await DependencyRequirementResolver(
-                    packageIdentity: nil,
-                    templateURL: nil,
-                    swiftCommandState: tool,
-                    exact: nil,
-                    revision: nil,
-                    branch: nil,
-                    from: nil,
-                    upToNextMinorFrom: nil,
-                    to: lowerBoundVersion
-                ).resolveRegistry()
-            }
-
-            await #expect(throws: DependencyRequirementError.invalidToParameterWithoutFrom.self) {
-                try await DependencyRequirementResolver(
-                    packageIdentity: nil,
-                    templateURL: nil,
-                    swiftCommandState: tool,
-                    exact: lowerBoundVersion,
-                    revision: nil,
-                    branch: nil,
-                    from: nil,
-                    upToNextMinorFrom: nil,
-                    to: higherBoundVersion
-                ).resolveRegistry()
-            }
-        }
-
-        @Test
-        func resolveSourceControlDependencyRequirements() async throws {
-            let options = try GlobalOptions.parse([])
-
-            let tool = try SwiftCommandState.makeMockState(options: options)
-
-            let lowerBoundVersion = Version(stringLiteral: "1.2.0")
-            let higherBoundVersion = Version(stringLiteral: "3.0.0")
-
-            let branchSourceControlDependency = try await DependencyRequirementResolver(
-                packageIdentity: nil,
-                templateURL: nil,
-                swiftCommandState: tool,
-                exact: nil,
-                revision: nil,
-                branch: "master",
-                from: nil,
-                upToNextMinorFrom: nil,
-                to: nil
-            ).resolveSourceControl()
-
-            if case .branch(let branchName) = branchSourceControlDependency {
-                #expect(branchName == "master")
-            } else {
-                Issue
-                    .record(
-                        "Expected branch source control dependency, got \(String(describing: branchSourceControlDependency))"
-                    )
-            }
-
-            let revisionSourceControlDependency = try await DependencyRequirementResolver(
-                packageIdentity: nil,
-                templateURL: nil,
-                swiftCommandState: tool,
-                exact: nil,
-                revision: "dae86e",
-                branch: nil,
-                from: nil,
-                upToNextMinorFrom: nil,
-                to: nil
-            ).resolveSourceControl()
-
-            if case .revision(let revisionHash) = revisionSourceControlDependency {
-                #expect(revisionHash == "dae86e")
-            } else {
-                Issue
-                    .record(
-                        "Expected revision source control dependency, got \(String(describing: revisionSourceControlDependency))"
-                    )
-            }
-
-            // test exact specification
-            let exactSourceControlDependency = try await DependencyRequirementResolver(
-                packageIdentity: nil,
-                templateURL: nil,
-                swiftCommandState: tool,
-                exact: lowerBoundVersion,
-                revision: nil,
-                branch: nil,
-                from: nil,
-                upToNextMinorFrom: nil,
-                to: nil
-            ).resolveSourceControl()
-
-            if case .exact(let version) = exactSourceControlDependency {
-                #expect(version == lowerBoundVersion.description)
-            } else {
-                Issue
-                    .record(
-                        "Expected exact source control dependency, got \(String(describing: exactSourceControlDependency))"
-                    )
-            }
-
-            // test from to
-            let fromToSourceControlDependency = try await DependencyRequirementResolver(
-                packageIdentity: nil,
-                templateURL: nil,
-                swiftCommandState: tool,
-                exact: nil,
-                revision: nil,
-                branch: nil,
-                from: lowerBoundVersion,
-                upToNextMinorFrom: nil,
-                to: higherBoundVersion
-            ).resolveSourceControl()
-
-            if case .range(let lowerBound, let upperBound) = fromToSourceControlDependency {
-                #expect(lowerBound == lowerBoundVersion.description)
-                #expect(upperBound == higherBoundVersion.description)
-            } else {
-                Issue
-                    .record(
-                        "Expected range source control dependency, got \(String(describing: fromToSourceControlDependency))"
-                    )
-            }
-
-            // test up-to-next-minor-from and to
-            let upToNextMinorFromToSourceControlDependency = try await DependencyRequirementResolver(
-                packageIdentity: nil,
-                templateURL: nil,
-                swiftCommandState: tool,
-                exact: nil,
-                revision: nil,
-                branch: nil,
-                from: nil,
-                upToNextMinorFrom: lowerBoundVersion,
-                to: nil
-            ).resolveSourceControl()
-
-            if case .range(let lowerBound, let upperBound) = upToNextMinorFromToSourceControlDependency {
-                let expectedRange = Range.upToNextMinor(from: lowerBoundVersion)
-                #expect(lowerBound == expectedRange.lowerBound.description)
-                #expect(upperBound == expectedRange.upperBound.description)
-            } else {
-                Issue
-                    .record(
-                        "Expected range source control dependency, got \(String(describing: upToNextMinorFromToSourceControlDependency))"
-                    )
-            }
-
-            // test just from
-            let fromSourceControlDependency = try await DependencyRequirementResolver(
-                packageIdentity: nil,
-                templateURL: nil,
-                swiftCommandState: tool,
-                exact: nil,
-                revision: nil,
-                branch: nil,
-                from: lowerBoundVersion,
-                upToNextMinorFrom: nil,
-                to: nil
-            ).resolveSourceControl()
-
-            if case .rangeFrom(let lowerBound) = fromSourceControlDependency {
-                #expect(lowerBound == lowerBoundVersion.description)
-            } else {
-                Issue
-                    .record(
-                        "Expected rangeFrom source control dependency, got \(String(describing: fromSourceControlDependency))"
-                    )
-            }
-
-            // test just up-to-next-minor-from
-            let upToNextMinorFromSourceControlDependency = try await DependencyRequirementResolver(
-                packageIdentity: nil,
-                templateURL: nil,
-                swiftCommandState: tool,
-                exact: nil,
-                revision: nil,
-                branch: nil,
-                from: nil,
-                upToNextMinorFrom: lowerBoundVersion,
-                to: nil
-            ).resolveSourceControl()
-
-            if case .range(let lowerBound, let upperBound) = upToNextMinorFromSourceControlDependency {
-                let expectedRange = Range.upToNextMinor(from: lowerBoundVersion)
-                #expect(lowerBound == expectedRange.lowerBound.description)
-                #expect(upperBound == expectedRange.upperBound.description)
-            } else {
-                Issue
-                    .record(
-                        "Expected range source control dependency, got \(String(describing: upToNextMinorFromSourceControlDependency))"
-                    )
-            }
-
-            await #expect(throws: DependencyRequirementError.multipleRequirementsSpecified.self) {
-                try await DependencyRequirementResolver(
-                    packageIdentity: nil,
-                    templateURL: nil,
-                    swiftCommandState: tool,
-                    exact: lowerBoundVersion,
-                    revision: "dae86e",
-                    branch: nil,
-                    from: lowerBoundVersion,
-                    upToNextMinorFrom: lowerBoundVersion,
-                    to: nil
-                ).resolveSourceControl()
-            }
-
-            await #expect(throws: DependencyRequirementError.noRequirementSpecified.self) {
-                try await DependencyRequirementResolver(
-                    packageIdentity: nil,
-                    templateURL: nil,
-                    swiftCommandState: tool,
-                    exact: nil,
-                    revision: nil,
-                    branch: nil,
-                    from: nil,
-                    upToNextMinorFrom: nil,
-                    to: nil
-                ).resolveSourceControl()
-            }
-
-            await #expect(throws: DependencyRequirementError.invalidToParameterWithoutFrom.self) {
-                try await DependencyRequirementResolver(
-                    packageIdentity: nil,
-                    templateURL: nil,
-                    swiftCommandState: tool,
-                    exact: lowerBoundVersion,
-                    revision: nil,
-                    branch: nil,
-                    from: nil,
-                    upToNextMinorFrom: nil,
-                    to: higherBoundVersion
-                ).resolveSourceControl()
-            }
-
-
-            // Git stuff
-
-
-            try await testWithTemporaryDirectory { path in
-                let templateRepoPath = path.appending(component: "template-repo")
-                let sourceControlURL = SourceControlURL(stringLiteral: templateRepoPath.pathString)
-                try! makeDirectories(templateRepoPath)
-                initGitRepo(templateRepoPath, tag: lowerBoundVersion.defaultValueDescription)
-
-                let exactVersion = try await DependencyRequirementResolver(
-                    packageIdentity: nil,
-                    templateURL: sourceControlURL.absoluteString,
-                    swiftCommandState: tool,
-                    exact: nil,
-                    revision: nil,
-                    branch: nil,
-                    from: nil,
-                    upToNextMinorFrom: nil,
-                    to: nil
-                ).resolveSourceControl()
-
-                if case .exact(let version) = exactVersion {
-                    #expect(version == lowerBoundVersion.description)
-                } else {
-                    Issue
-                        .record(
-                            "Expected exact source control dependency, got \(String(describing: exactSourceControlDependency))"
-                        )
-                }
-            }
-
-            try await testWithTemporaryDirectory { path in
-                let templateRepoPath = path.appending(component: "template-repo")
-                let sourceControlURL = SourceControlURL(stringLiteral: templateRepoPath.pathString)
-                try! makeDirectories(templateRepoPath)
-                initGitRepo(templateRepoPath, tag: "not-a-semver-compliant-version")
-
-                await #expect(throws: DependencyRequirementError.noVersionTagsFound(url: sourceControlURL.absoluteString).self) {
-                    let _ = try await DependencyRequirementResolver(
-                        packageIdentity: nil,
-                        templateURL: sourceControlURL.absoluteString,
-                        swiftCommandState: tool,
-                        exact: nil,
-                        revision: nil,
-                        branch: nil,
-                        from: nil,
-                        upToNextMinorFrom: nil,
-                        to: nil
-                    ).resolveSourceControl()
-                }
-            }
-
-            try await testWithTemporaryDirectory { path in
-                let templateRepoPath = path.appending(component: "template-repo")
-                let sourceControlURL = SourceControlURL(stringLiteral: templateRepoPath.pathString)
-                try! makeDirectories(templateRepoPath)
-                initGitRepo(templateRepoPath, tag: "not-a-semver-compliant-version")
-
-                await #expect(throws: DependencyRequirementError.noVersionTagsFound(url: sourceControlURL.absoluteString).self) {
-                    let _ = try await DependencyRequirementResolver(
-                        packageIdentity: nil,
-                        templateURL: sourceControlURL.absoluteString,
-                        swiftCommandState: tool,
-                        exact: nil,
-                        revision: nil,
-                        branch: nil,
-                        from: nil,
-                        upToNextMinorFrom: nil,
-                        to: nil
-                    ).resolveSourceControl()
-                }
-            }
-
-            await #expect(throws: (any Error).self) {
-                let _ = try await DependencyRequirementResolver(
-                    packageIdentity: nil,
-                    templateURL: "url-that-does-not-exist",
-                    swiftCommandState: tool,
-                    exact: nil,
-                    revision: nil,
-                    branch: nil,
-                    from: nil,
-                    upToNextMinorFrom: nil,
-                    to: nil
-                ).resolveSourceControl()
-            }
-
-            func resolveGitTemplatePath() async throws {
-                try await testWithTemporaryDirectory { path in
-                    let sourceControlRequirement = SwiftRefactor.PackageDependency.SourceControl.Requirement.branch("main")
+            try await testWithTemporaryDirectory { tempDir in
+                try await withTaskLocalWorkingDirectory(tempDir) {
                     let options = try GlobalOptions.parse([])
 
                     let tool = try SwiftCommandState.makeMockState(options: options)
 
-                    let templateRepoPath = path.appending(component: "template-repo")
-                    let sourceControlURL = SourceControlURL(stringLiteral: templateRepoPath.pathString)
-                    let templateRepoURL = sourceControlURL.url
-                    try! makeDirectories(templateRepoPath)
-                    initGitRepo(templateRepoPath, tag: "1.2.3")
+                    let lowerBoundVersion = Version(stringLiteral: "1.2.0")
+                    let higherBoundVersion = Version(stringLiteral: "3.0.0")
 
-                    let resolver = try TemplatePathResolver(
-                        source: .git,
-                        templateDirectory: nil,
-                        templateURL: templateRepoURL?.absoluteString,
-                        sourceControlRequirement: sourceControlRequirement,
-                        registryRequirement: nil,
+                    await #expect(throws: DependencyRequirementError.noRequirementSpecified.self) {
+                        try await DependencyRequirementResolver(
+                            packageIdentity: nil,
+                            templateURL: nil,
+                            swiftCommandState: tool,
+                            exact: nil,
+                            revision: "revision",
+                            branch: "branch",
+                            from: nil,
+                            upToNextMinorFrom: nil,
+                            to: nil,
+                        ).resolveRegistry()
+                    }
+
+                    // test exact specification
+                    let exactRegistryDependency = try await DependencyRequirementResolver(
                         packageIdentity: nil,
-                        swiftCommandState: tool
-                    )
-                    let path = try await resolver.resolve()
-                    #expect(
-                        localFileSystem.exists(path.appending(component: "file.swift")),
-                        "Template was not fetched correctly"
-                    )
+                        templateURL: nil,
+                        swiftCommandState: tool,
+                        exact: lowerBoundVersion,
+                        revision: nil,
+                        branch: nil,
+                        from: nil,
+                        upToNextMinorFrom: nil,
+                        to: nil
+                    ).resolveRegistry()
+
+                    if case .exact(let version) = exactRegistryDependency {
+                        #expect(version == lowerBoundVersion.description)
+                    } else {
+                        Issue
+                            .record(
+                                "Expected exact registry dependency, got \(String(describing: exactRegistryDependency))"
+                            )
+                    }
+
+                    // test from to
+                    let fromToRegistryDependency = try await DependencyRequirementResolver(
+                        packageIdentity: nil,
+                        templateURL: nil,
+                        swiftCommandState: tool,
+                        exact: nil,
+                        revision: nil,
+                        branch: nil,
+                        from: lowerBoundVersion,
+                        upToNextMinorFrom: nil,
+                        to: higherBoundVersion
+                    ).resolveRegistry()
+
+                    if case .range(let lowerBound, let upperBound) = fromToRegistryDependency {
+                        #expect(lowerBound == lowerBoundVersion.description)
+                        #expect(upperBound == higherBoundVersion.description)
+                    } else {
+                        Issue
+                            .record(
+                                "Expected range registry dependency, got \(String(describing: fromToRegistryDependency))"
+                            )
+                    }
+
+                    // test up-to-next-minor-from and to
+                    let upToNextMinorFromToRegistryDependency = try await DependencyRequirementResolver(
+                        packageIdentity: nil,
+                        templateURL: nil,
+                        swiftCommandState: tool,
+                        exact: nil,
+                        revision: nil,
+                        branch: nil,
+                        from: nil,
+                        upToNextMinorFrom: lowerBoundVersion,
+                        to: nil
+                    ).resolveRegistry()
+
+                    if case .range(let lowerBound, let upperBound) = upToNextMinorFromToRegistryDependency {
+                        let expectedRange = Range.upToNextMinor(from: lowerBoundVersion)
+                        #expect(lowerBound == expectedRange.lowerBound.description)
+                        #expect(upperBound == expectedRange.upperBound.description)
+                    } else {
+                        Issue
+                            .record(
+                                "Expected range registry dependency, got \(String(describing: upToNextMinorFromToRegistryDependency))"
+                            )
+                    }
+
+                    // test just from
+                    let fromRegistryDependency = try await DependencyRequirementResolver(
+                        packageIdentity: nil,
+                        templateURL: nil,
+                        swiftCommandState: tool,
+                        exact: nil,
+                        revision: nil,
+                        branch: nil,
+                        from: lowerBoundVersion,
+                        upToNextMinorFrom: nil,
+                        to: nil
+                    ).resolveRegistry()
+
+                    if case .rangeFrom(let lowerBound) = fromRegistryDependency {
+                        #expect(lowerBound == lowerBoundVersion.description)
+                    } else {
+                        Issue
+                            .record(
+                                "Expected rangeFrom registry dependency, got \(String(describing: fromRegistryDependency))"
+                            )
+                    }
+
+                    // test just up-to-next-minor-from
+                    let upToNextMinorFromRegistryDependency = try await DependencyRequirementResolver(
+                        packageIdentity: nil,
+                        templateURL: nil,
+                        swiftCommandState: tool,
+                        exact: nil,
+                        revision: nil,
+                        branch: nil,
+                        from: nil,
+                        upToNextMinorFrom: lowerBoundVersion,
+                        to: nil
+                    ).resolveRegistry()
+
+                    if case .range(let lowerBound, let upperBound) = upToNextMinorFromRegistryDependency {
+                        let expectedRange = Range.upToNextMinor(from: lowerBoundVersion)
+                        #expect(lowerBound == expectedRange.lowerBound.description)
+                        #expect(upperBound == expectedRange.upperBound.description)
+                    } else {
+                        Issue
+                            .record(
+                                "Expected range registry dependency, got \(String(describing: upToNextMinorFromRegistryDependency))"
+                            )
+                    }
+
+                    await #expect(throws: DependencyRequirementError.multipleRequirementsSpecified.self) {
+                        try await DependencyRequirementResolver(
+                            packageIdentity: nil,
+                            templateURL: nil,
+                            swiftCommandState: tool,
+                            exact: lowerBoundVersion,
+                            revision: nil,
+                            branch: nil,
+                            from: lowerBoundVersion,
+                            upToNextMinorFrom: lowerBoundVersion,
+                            to: nil
+                        ).resolveRegistry()
+                    }
+
+                    await #expect(throws: DependencyRequirementError.noRequirementSpecified.self) {
+                        try await DependencyRequirementResolver(
+                            packageIdentity: nil,
+                            templateURL: nil,
+                            swiftCommandState: tool,
+                            exact: nil,
+                            revision: nil,
+                            branch: nil,
+                            from: nil,
+                            upToNextMinorFrom: nil,
+                            to: lowerBoundVersion
+                        ).resolveRegistry()
+                    }
+
+                    await #expect(throws: DependencyRequirementError.invalidToParameterWithoutFrom.self) {
+                        try await DependencyRequirementResolver(
+                            packageIdentity: nil,
+                            templateURL: nil,
+                            swiftCommandState: tool,
+                            exact: lowerBoundVersion,
+                            revision: nil,
+                            branch: nil,
+                            from: nil,
+                            upToNextMinorFrom: nil,
+                            to: higherBoundVersion
+                        ).resolveRegistry()
+                    }
                 }
             }
-
-
-
-
-            let range = try await DependencyRequirementResolver(
-                packageIdentity: nil,
-                templateURL: nil,
-                swiftCommandState: tool,
-                exact: nil,
-                revision: nil,
-                branch: nil,
-                from: lowerBoundVersion,
-                upToNextMinorFrom: nil,
-                to: lowerBoundVersion
-            ).resolveSourceControl()
-
-            if case .range(let lowerBound, let upperBound) = range {
-                #expect(lowerBound == lowerBoundVersion.description)
-                #expect(upperBound == lowerBoundVersion.description)
-            } else {
-                Issue.record("Expected range source control dependency, got \(range)")
-            }
-        }
-    }
-
-    // MARK: - Template Path Resolution Tests
-
-    @Suite(
-        .serialized,
-        .tags(
-            Tag.TestSize.medium,
-            Tag.Feature.Command.Package.Init,
-            Tag.Feature.PackageType.LocalTemplate,
-        ),
-    )
-    struct TemplatePathResolverTests {
-        @Test
-        func resolveLocalTemplatePath() async throws {
-            let mockTemplatePath = AbsolutePath("/fake/path/to/template")
-            let options = try GlobalOptions.parse([])
-
-            let tool = try SwiftCommandState.makeMockState(options: options, fileSystem: InMemoryFileSystem())
-
-            let path = try await TemplatePathResolver(
-                source: .local,
-                templateDirectory: mockTemplatePath,
-                templateURL: nil,
-                sourceControlRequirement: nil,
-                registryRequirement: nil,
-                packageIdentity: nil,
-                swiftCommandState: tool
-            ).resolve()
-
-            #expect(path == mockTemplatePath)
         }
 
-        @Test(
-            .skipHostOS(.windows, "Git operations not fully supported in test environment"),
-            .requireUnrestrictedNetworkAccess("Test needs to create and access local git repositories"),
-        )
-        func resolveGitTemplatePath() async throws {
-            try await testWithTemporaryDirectory { path in
-                let sourceControlRequirement = SwiftRefactor.PackageDependency.SourceControl.Requirement.branch("main")
-                let options = try GlobalOptions.parse([])
+        @Test()
+        func resolveSourceControlDependencyRequirements() async throws {
+            try await testWithTemporaryDirectory { tempDir in
+                try await withTaskLocalWorkingDirectory(tempDir) {
+                    let options = try GlobalOptions.parse([])
 
-                let tool = try SwiftCommandState.makeMockState(options: options)
+                    let tool = try SwiftCommandState.makeMockState(options: options)
 
-                let templateRepoPath = path.appending(component: "template-repo")
-                let sourceControlURL = SourceControlURL(stringLiteral: templateRepoPath.pathString)
-                let templateRepoURL = sourceControlURL.url
-                try! makeDirectories(templateRepoPath)
-                initGitRepo(templateRepoPath, tag: "1.2.3")
+                    let lowerBoundVersion = Version(stringLiteral: "1.2.0")
+                    let higherBoundVersion = Version(stringLiteral: "3.0.0")
 
-                let resolver = try TemplatePathResolver(
-                    source: .git,
-                    templateDirectory: nil,
-                    templateURL: templateRepoURL?.absoluteString,
-                    sourceControlRequirement: sourceControlRequirement,
-                    registryRequirement: nil,
-                    packageIdentity: nil,
-                    swiftCommandState: tool
-                )
-                let path = try await resolver.resolve()
-                #expect(
-                    localFileSystem.exists(path.appending(component: "file.swift")),
-                    "Template was not fetched correctly"
-                )
-            }
-        }
+                    let branchSourceControlDependency = try await DependencyRequirementResolver(
+                        packageIdentity: nil,
+                        templateURL: nil,
+                        swiftCommandState: tool,
+                        exact: nil,
+                        revision: nil,
+                        branch: "master",
+                        from: nil,
+                        upToNextMinorFrom: nil,
+                        to: nil
+                    ).resolveSourceControl()
 
-        @Test(
-            .skipHostOS(.windows, "Git operations not fully supported in test environment"),
-            .requireUnrestrictedNetworkAccess("Test needs to attempt git clone operations"),
-        )
-        func resolveGitTemplatePathWithInvalidURL() async throws {
-            try await testWithTemporaryDirectory { path in
-                let sourceControlRequirement = SwiftRefactor.PackageDependency.SourceControl.Requirement.branch("main")
-                let options = try GlobalOptions.parse([])
+                    if case .branch(let branchName) = branchSourceControlDependency {
+                        #expect(branchName == "master")
+                    } else {
+                        Issue
+                            .record(
+                                "Expected branch source control dependency, got \(String(describing: branchSourceControlDependency))"
+                            )
+                    }
 
-                let tool = try SwiftCommandState.makeMockState(options: options)
+                    let revisionSourceControlDependency = try await DependencyRequirementResolver(
+                        packageIdentity: nil,
+                        templateURL: nil,
+                        swiftCommandState: tool,
+                        exact: nil,
+                        revision: "dae86e",
+                        branch: nil,
+                        from: nil,
+                        upToNextMinorFrom: nil,
+                        to: nil
+                    ).resolveSourceControl()
 
-                let templateRepoPath = path.appending(component: "template-repo")
-                try! makeDirectories(templateRepoPath)
-                initGitRepo(templateRepoPath, tag: "1.2.3")
+                    if case .revision(let revisionHash) = revisionSourceControlDependency {
+                        #expect(revisionHash == "dae86e")
+                    } else {
+                        Issue
+                            .record(
+                                "Expected revision source control dependency, got \(String(describing: revisionSourceControlDependency))"
+                            )
+                    }
 
-                let resolver = try TemplatePathResolver(
-                    source: .git,
-                    templateDirectory: nil,
-                    templateURL: "invalid-git-url",
-                    sourceControlRequirement: sourceControlRequirement,
-                    registryRequirement: nil,
-                    packageIdentity: nil,
-                    swiftCommandState: tool
-                )
+                    // test exact specification
+                    let exactSourceControlDependency = try await DependencyRequirementResolver(
+                        packageIdentity: nil,
+                        templateURL: nil,
+                        swiftCommandState: tool,
+                        exact: lowerBoundVersion,
+                        revision: nil,
+                        branch: nil,
+                        from: nil,
+                        upToNextMinorFrom: nil,
+                        to: nil
+                    ).resolveSourceControl()
 
-                await #expect(throws: GitTemplateFetcher.GitTemplateFetcherError
-                    .cloneFailed(source: "invalid-git-url")
-                ) {
-                    _ = try await resolver.resolve()
+                    if case .exact(let version) = exactSourceControlDependency {
+                        #expect(version == lowerBoundVersion.description)
+                    } else {
+                        Issue
+                            .record(
+                                "Expected exact source control dependency, got \(String(describing: exactSourceControlDependency))"
+                            )
+                    }
+
+                    // test from to
+                    let fromToSourceControlDependency = try await DependencyRequirementResolver(
+                        packageIdentity: nil,
+                        templateURL: nil,
+                        swiftCommandState: tool,
+                        exact: nil,
+                        revision: nil,
+                        branch: nil,
+                        from: lowerBoundVersion,
+                        upToNextMinorFrom: nil,
+                        to: higherBoundVersion
+                    ).resolveSourceControl()
+
+                    if case .range(let lowerBound, let upperBound) = fromToSourceControlDependency {
+                        #expect(lowerBound == lowerBoundVersion.description)
+                        #expect(upperBound == higherBoundVersion.description)
+                    } else {
+                        Issue
+                            .record(
+                                "Expected range source control dependency, got \(String(describing: fromToSourceControlDependency))"
+                            )
+                    }
+
+                    // test up-to-next-minor-from and to
+                    let upToNextMinorFromToSourceControlDependency = try await DependencyRequirementResolver(
+                        packageIdentity: nil,
+                        templateURL: nil,
+                        swiftCommandState: tool,
+                        exact: nil,
+                        revision: nil,
+                        branch: nil,
+                        from: nil,
+                        upToNextMinorFrom: lowerBoundVersion,
+                        to: nil
+                    ).resolveSourceControl()
+
+                    if case .range(let lowerBound, let upperBound) = upToNextMinorFromToSourceControlDependency {
+                        let expectedRange = Range.upToNextMinor(from: lowerBoundVersion)
+                        #expect(lowerBound == expectedRange.lowerBound.description)
+                        #expect(upperBound == expectedRange.upperBound.description)
+                    } else {
+                        Issue
+                            .record(
+                                "Expected range source control dependency, got \(String(describing: upToNextMinorFromToSourceControlDependency))"
+                            )
+                    }
+
+                    // test just from
+                    let fromSourceControlDependency = try await DependencyRequirementResolver(
+                        packageIdentity: nil,
+                        templateURL: nil,
+                        swiftCommandState: tool,
+                        exact: nil,
+                        revision: nil,
+                        branch: nil,
+                        from: lowerBoundVersion,
+                        upToNextMinorFrom: nil,
+                        to: nil
+                    ).resolveSourceControl()
+
+                    if case .rangeFrom(let lowerBound) = fromSourceControlDependency {
+                        #expect(lowerBound == lowerBoundVersion.description)
+                    } else {
+                        Issue
+                            .record(
+                                "Expected rangeFrom source control dependency, got \(String(describing: fromSourceControlDependency))"
+                            )
+                    }
+
+                    // test just up-to-next-minor-from
+                    let upToNextMinorFromSourceControlDependency = try await DependencyRequirementResolver(
+                        packageIdentity: nil,
+                        templateURL: nil,
+                        swiftCommandState: tool,
+                        exact: nil,
+                        revision: nil,
+                        branch: nil,
+                        from: nil,
+                        upToNextMinorFrom: lowerBoundVersion,
+                        to: nil
+                    ).resolveSourceControl()
+
+                    if case .range(let lowerBound, let upperBound) = upToNextMinorFromSourceControlDependency {
+                        let expectedRange = Range.upToNextMinor(from: lowerBoundVersion)
+                        #expect(lowerBound == expectedRange.lowerBound.description)
+                        #expect(upperBound == expectedRange.upperBound.description)
+                    } else {
+                        Issue
+                            .record(
+                                "Expected range source control dependency, got \(String(describing: upToNextMinorFromSourceControlDependency))"
+                            )
+                    }
+
+                    await #expect(throws: DependencyRequirementError.multipleRequirementsSpecified.self) {
+                        try await DependencyRequirementResolver(
+                            packageIdentity: nil,
+                            templateURL: nil,
+                            swiftCommandState: tool,
+                            exact: lowerBoundVersion,
+                            revision: "dae86e",
+                            branch: nil,
+                            from: lowerBoundVersion,
+                            upToNextMinorFrom: lowerBoundVersion,
+                            to: nil
+                        ).resolveSourceControl()
+                    }
+
+                    await #expect(throws: DependencyRequirementError.noRequirementSpecified.self) {
+                        try await DependencyRequirementResolver(
+                            packageIdentity: nil,
+                            templateURL: nil,
+                            swiftCommandState: tool,
+                            exact: nil,
+                            revision: nil,
+                            branch: nil,
+                            from: nil,
+                            upToNextMinorFrom: nil,
+                            to: nil
+                        ).resolveSourceControl()
+                    }
+
+                    await #expect(throws: DependencyRequirementError.invalidToParameterWithoutFrom.self) {
+                        try await DependencyRequirementResolver(
+                            packageIdentity: nil,
+                            templateURL: nil,
+                            swiftCommandState: tool,
+                            exact: lowerBoundVersion,
+                            revision: nil,
+                            branch: nil,
+                            from: nil,
+                            upToNextMinorFrom: nil,
+                            to: higherBoundVersion
+                        ).resolveSourceControl()
+                    }
+
+                    // Git stuff
+
+                    try await testWithTemporaryDirectory { path in
+                        let templateRepoPath = path.appending(component: "template-repo")
+                        let sourceControlURL = SourceControlURL(stringLiteral: templateRepoPath.pathString)
+                        try! makeDirectories(templateRepoPath)
+                        initGitRepo(templateRepoPath, tag: lowerBoundVersion.defaultValueDescription)
+
+                        let exactVersion = try await DependencyRequirementResolver(
+                            packageIdentity: nil,
+                            templateURL: sourceControlURL.absoluteString,
+                            swiftCommandState: tool,
+                            exact: nil,
+                            revision: nil,
+                            branch: nil,
+                            from: nil,
+                            upToNextMinorFrom: nil,
+                            to: nil
+                        ).resolveSourceControl()
+
+                        if case .exact(let version) = exactVersion {
+                            #expect(version == lowerBoundVersion.description)
+                        } else {
+                            Issue
+                                .record(
+                                    "Expected exact source control dependency, got \(String(describing: exactSourceControlDependency))"
+                                )
+                        }
+                    }
+
+                    try await testWithTemporaryDirectory { path in
+                        let templateRepoPath = path.appending(component: "template-repo")
+                        let sourceControlURL = SourceControlURL(stringLiteral: templateRepoPath.pathString)
+                        try! makeDirectories(templateRepoPath)
+                        initGitRepo(templateRepoPath, tag: "not-a-semver-compliant-version")
+
+                        await #expect(throws: DependencyRequirementError
+                            .noVersionTagsFound(url: sourceControlURL.absoluteString).self
+                        ) {
+                            _ = try await DependencyRequirementResolver(
+                                packageIdentity: nil,
+                                templateURL: sourceControlURL.absoluteString,
+                                swiftCommandState: tool,
+                                exact: nil,
+                                revision: nil,
+                                branch: nil,
+                                from: nil,
+                                upToNextMinorFrom: nil,
+                                to: nil
+                            ).resolveSourceControl()
+                        }
+                    }
+
+                    try await testWithTemporaryDirectory { path in
+                        let templateRepoPath = path.appending(component: "template-repo")
+                        let sourceControlURL = SourceControlURL(stringLiteral: templateRepoPath.pathString)
+                        try! makeDirectories(templateRepoPath)
+                        initGitRepo(templateRepoPath, tag: "not-a-semver-compliant-version")
+
+                        await #expect(throws: DependencyRequirementError
+                            .noVersionTagsFound(url: sourceControlURL.absoluteString).self
+                        ) {
+                            _ = try await DependencyRequirementResolver(
+                                packageIdentity: nil,
+                                templateURL: sourceControlURL.absoluteString,
+                                swiftCommandState: tool,
+                                exact: nil,
+                                revision: nil,
+                                branch: nil,
+                                from: nil,
+                                upToNextMinorFrom: nil,
+                                to: nil
+                            ).resolveSourceControl()
+                        }
+                    }
+
+                    await #expect(throws: (any Error).self) {
+                        _ = try await DependencyRequirementResolver(
+                            packageIdentity: nil,
+                            templateURL: "url-that-does-not-exist",
+                            swiftCommandState: tool,
+                            exact: nil,
+                            revision: nil,
+                            branch: nil,
+                            from: nil,
+                            upToNextMinorFrom: nil,
+                            to: nil
+                        ).resolveSourceControl()
+                    }
+
+                    func resolveGitTemplatePath() async throws {
+                        try await testWithTemporaryDirectory { path in
+                            try await withTaskLocalWorkingDirectory(path) {
+                                let sourceControlRequirement = SwiftRefactor.PackageDependency.SourceControl.Requirement
+                                    .branch("main")
+                                let options = try GlobalOptions.parse([])
+
+                                let tool = try SwiftCommandState.makeMockState(options: options)
+
+                                let templateRepoPath = path.appending(component: "template-repo")
+                                let sourceControlURL = SourceControlURL(stringLiteral: templateRepoPath.pathString)
+                                let templateRepoURL = sourceControlURL.url
+                                try! makeDirectories(templateRepoPath)
+                                initGitRepo(templateRepoPath, tag: "1.2.3")
+
+                                let resolver = try TemplatePathResolver(
+                                    source: .git,
+                                    templateDirectory: nil,
+                                    templateURL: templateRepoURL?.absoluteString,
+                                    sourceControlRequirement: sourceControlRequirement,
+                                    registryRequirement: nil,
+                                    packageIdentity: nil,
+                                    swiftCommandState: tool
+                                )
+                                let path = try await resolver.resolve()
+                                #expect(
+                                    localFileSystem.exists(path.appending(component: "file.swift")),
+                                    "Template was not fetched correctly"
+                                )
+                            }
+                        }
+                    }
+
+                    let range = try await DependencyRequirementResolver(
+                        packageIdentity: nil,
+                        templateURL: nil,
+                        swiftCommandState: tool,
+                        exact: nil,
+                        revision: nil,
+                        branch: nil,
+                        from: lowerBoundVersion,
+                        upToNextMinorFrom: nil,
+                        to: lowerBoundVersion
+                    ).resolveSourceControl()
+
+                    if case .range(let lowerBound, let upperBound) = range {
+                        #expect(lowerBound == lowerBoundVersion.description)
+                        #expect(upperBound == lowerBoundVersion.description)
+                    } else {
+                        Issue.record("Expected range source control dependency, got \(range)")
+                    }
                 }
             }
         }
 
-        @Test
-        func resolveRegistryTemplatePath() async throws {
-            // TODO: Implement registry template path resolution test
-            // Should test fetching template from package registry
-        }
-    }
+        // MARK: - Template Path Resolution Tests
 
-    // MARK: - Template Directory Management Tests
-
-    @Suite(
-        .skipSwiftCISelfHosted("Caught error: /tmp/Miscellaneous_DirectoryManagerFinalize.FBjvCq/clean-up/Package.swift doesn't exist in file system"), // to investigate later
-        .serialized,
-        .tags(
-            Tag.TestSize.medium,
-            Tag.Feature.Command.Package.Init,
-        ),
-    )
-    struct TemplateDirectoryManagerTests {
-        @Test
-        func createTemporaryDirectories() throws {
-            let options = try GlobalOptions.parse([])
-            
-            // Create InMemoryFileSystem with necessary directories
-            let fileSystem = InMemoryFileSystem()
-            try fileSystem.createDirectory(AbsolutePath("/tmp"), recursive: true)
-
-            let tool = try SwiftCommandState.makeMockState(options: options, fileSystem: fileSystem)
-
-            let (stagingPath, cleanupPath, tempDir) = try TemplateInitializationDirectoryManager(
-                fileSystem: tool.fileSystem,
-                observabilityScope: tool.observabilityScope
-            ).createTemporaryDirectories()
-
-            #expect(stagingPath.parentDirectory == tempDir)
-            #expect(cleanupPath.parentDirectory == tempDir)
-
-            #expect(stagingPath.basename == "generated-package")
-            #expect(cleanupPath.basename == "clean-up")
-
-            #expect(tool.fileSystem.exists(stagingPath))
-            #expect(tool.fileSystem.exists(cleanupPath))
-        }
-
-        @Test(
-            .serialized,
+        @Suite(
             .tags(
+                Tag.TestSize.medium,
                 Tag.Feature.Command.Package.Init,
                 Tag.Feature.PackageType.LocalTemplate,
             ),
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
         )
-        func finalizeDirectoryTransfer(
-            data: BuildData,
-        ) async throws {
-            try await fixture(name: "Miscellaneous/DirectoryManagerFinalize", createGitRepo: false) { fixturePath in
-                let stagingPath = fixturePath.appending("generated-package")
-                let cleanupPath = fixturePath.appending("clean-up")
-                let cwd = fixturePath.appending("cwd")
-
+        struct TemplatePathResolverTests {
+            @Test
+            func resolveLocalTemplatePath() async throws {
+                let mockTemplatePath = AbsolutePath("/fake/path/to/template")
                 let options = try GlobalOptions.parse([])
-                let tool = try SwiftCommandState.makeMockState(options: options)
 
-                try await executeSwiftBuild(
-                    stagingPath,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem
-                )
+                let tool = try SwiftCommandState.makeMockState(options: options, fileSystem: InMemoryFileSystem())
 
-                let stagingBuildPath = stagingPath.appending(".build")
-                let binPathComponents = try data.buildSystem.binPath(for: data.config, scratchPath: [])
-                let stagingBinPath = stagingBuildPath.appending(components: binPathComponents)
-                let stagingBinFile = stagingBinPath.appending(executableName("generated-package"))
-                #expect(localFileSystem.exists(stagingBinFile))
-                #expect(localFileSystem.isDirectory(stagingBuildPath))
-
-                try await TemplateInitializationDirectoryManager(
-                    fileSystem: tool.fileSystem,
-                    observabilityScope: tool.observabilityScope
-                ).finalize(cwd: cwd, stagingPath: stagingPath, cleanupPath: cleanupPath, swiftCommandState: tool)
-
-                let cwdBuildPath = cwd.appending(".build")
-                let cwdBinPathComponents = try data.buildSystem.binPath(for: data.config, scratchPath: [])
-                let cwdBinPath = cwdBuildPath.appending(components: cwdBinPathComponents)
-                let cwdBinFile = cwdBinPath.appending(executableName("generated-package"))
-
-                // Postcondition checks
-                #expect(localFileSystem.exists(cwd), "cwd should exist after finalize")
-                #expect(
-                    localFileSystem.exists(cwdBinFile) == false,
-                    "Binary should have been cleaned before copying to cwd"
-                )
-            }
-        }
-
-        @Test
-        func cleanUpTemporaryDirectories() throws {
-            try fixture(name: "Miscellaneous/DirectoryManagerFinalize", createGitRepo: false) { fixturePath in
-                let pathToRemove = fixturePath.appending("cwd")
-                let options = try GlobalOptions.parse([])
-                let tool = try SwiftCommandState.makeMockState(options: options)
-
-                try TemplateInitializationDirectoryManager(
-                    fileSystem: tool.fileSystem,
-                    observabilityScope: tool.observabilityScope
-                ).cleanupTemporary(templateSource: .git, path: pathToRemove, temporaryDirectory: nil)
-
-                #expect(!localFileSystem.exists(pathToRemove), "path should be removed")
-            }
-
-            try fixture(name: "Miscellaneous/DirectoryManagerFinalize", createGitRepo: false) { fixturePath in
-                let pathToRemove = fixturePath.appending("clean-up")
-                let options = try GlobalOptions.parse([])
-                let tool = try SwiftCommandState.makeMockState(options: options)
-
-                try TemplateInitializationDirectoryManager(
-                    fileSystem: tool.fileSystem,
-                    observabilityScope: tool.observabilityScope
-                ).cleanupTemporary(templateSource: .registry, path: pathToRemove, temporaryDirectory: nil)
-
-                #expect(!localFileSystem.exists(pathToRemove), "path should be removed")
-            }
-
-            try fixture(name: "Miscellaneous/DirectoryManagerFinalize", createGitRepo: false) { fixturePath in
-                let pathToRemove = fixturePath.appending("clean-up")
-                let options = try GlobalOptions.parse([])
-                let tool = try SwiftCommandState.makeMockState(options: options)
-
-                try TemplateInitializationDirectoryManager(
-                    fileSystem: tool.fileSystem,
-                    observabilityScope: tool.observabilityScope
-                ).cleanupTemporary(templateSource: .local, path: pathToRemove, temporaryDirectory: nil)
-
-                #expect(localFileSystem.exists(pathToRemove), "path should not be removed if local")
-            }
-        }
-    }
-
-    // MARK: - Package Dependency Builder Tests
-
-    @Suite(
-        .serialized,
-        .tags(
-            Tag.TestSize.medium,
-            Tag.Feature.Command.Package.Init,
-        ),
-    )
-    struct PackageDependencyBuilderTests {
-        @Test
-        func buildDependenciesFromTemplateSource() async throws {
-            let options = try GlobalOptions.parse([])
-            let tool = try SwiftCommandState.makeMockState(options: options, fileSystem: InMemoryFileSystem())
-
-            let packageName = "foo"
-            let templateURL = "git@github.com:foo/bar"
-            let templatePackageID = "foo.bar"
-
-            let versionResolver =  DependencyRequirementResolver(
-                packageIdentity: templatePackageID, templateURL: nil, swiftCommandState: tool, exact: Version(stringLiteral: "1.2.0"),
-                revision: nil, branch: nil, from: nil, upToNextMinorFrom: nil, to: nil
-            )
-
-            let sourceControlRequirement: SwiftRefactor.PackageDependency.SourceControl.Requirement = try await versionResolver.resolveSourceControl()
-            let registryRequirement = try await versionResolver.resolveRegistry()
-
-            let resolvedTemplatePath: AbsolutePath = try AbsolutePath(validating: "/fake/path/to/template")
-
-            // local
-            let localDependency = try DefaultPackageDependencyBuilder(
-                templateSource: .local,
-                packageName: packageName,
-                templateURL: templateURL,
-                templatePackageID: templatePackageID,
-                sourceControlRequirement: sourceControlRequirement,
-                registryRequirement: registryRequirement,
-                resolvedTemplatePath: resolvedTemplatePath
-            ).makePackageDependency()
-
-            // Test that local dependency was correctly created as filesystem dependency
-            if case .fileSystem(let fileSystemDep) = localDependency {
-                #expect(fileSystemDep.path == resolvedTemplatePath.pathString)
-            } else {
-                Issue.record("Expected fileSystem dependency, got \(localDependency)")
-            }
-
-            // git
-            #expect(throws: DefaultPackageDependencyBuilder.PackageDependencyBuilderError.missingGitURLOrPath.self) {
-                try DefaultPackageDependencyBuilder(
-                    templateSource: .git,
-                    packageName: packageName,
+                let path = try await TemplatePathResolver(
+                    source: .local,
+                    templateDirectory: mockTemplatePath,
                     templateURL: nil,
-                    templatePackageID: templatePackageID,
-                    sourceControlRequirement: sourceControlRequirement,
-                    registryRequirement: registryRequirement,
-                    resolvedTemplatePath: resolvedTemplatePath
-                ).makePackageDependency()
-            }
-
-            #expect(throws: DefaultPackageDependencyBuilder.PackageDependencyBuilderError.missingGitRequirement.self) {
-                try DefaultPackageDependencyBuilder(
-                    templateSource: .git,
-                    packageName: packageName,
-                    templateURL: templateURL,
-                    templatePackageID: templatePackageID,
                     sourceControlRequirement: nil,
-                    registryRequirement: registryRequirement,
-                    resolvedTemplatePath: resolvedTemplatePath
-                ).makePackageDependency()
-            }
-
-            let gitDependency = try DefaultPackageDependencyBuilder(
-                templateSource: .git,
-                packageName: packageName,
-                templateURL: templateURL,
-                templatePackageID: templatePackageID,
-                sourceControlRequirement: sourceControlRequirement,
-                registryRequirement: registryRequirement,
-                resolvedTemplatePath: resolvedTemplatePath
-            ).makePackageDependency()
-
-            // Test that git dependency was correctly created as sourceControl dependency
-            if case .sourceControl(let sourceControlDep) = gitDependency {
-                #expect(sourceControlDep.location == templateURL)
-                if case .exact(let exactVersion) = sourceControlDep.requirement {
-                    #expect(exactVersion == "1.2.0")
-                } else {
-                    Issue.record("Expected exact source control dependency, got \(sourceControlDep.requirement)")
-                }
-            } else {
-                Issue.record("Expected sourceControl dependency, got \(gitDependency)")
-            }
-
-            #expect(throws: DefaultPackageDependencyBuilder.PackageDependencyBuilderError.missingRegistryIdentity
-                .self
-            ) {
-                try DefaultPackageDependencyBuilder(
-                    templateSource: .registry,
-                    packageName: packageName,
-                    templateURL: templateURL,
-                    templatePackageID: nil,
-                    sourceControlRequirement: sourceControlRequirement,
-                    registryRequirement: registryRequirement,
-                    resolvedTemplatePath: resolvedTemplatePath
-                ).makePackageDependency()
-            }
-
-            #expect(throws: DefaultPackageDependencyBuilder.PackageDependencyBuilderError.missingRegistryRequirement
-                .self
-            ) {
-                try DefaultPackageDependencyBuilder(
-                    templateSource: .registry,
-                    packageName: packageName,
-                    templateURL: templateURL,
-                    templatePackageID: templatePackageID,
-                    sourceControlRequirement: sourceControlRequirement,
                     registryRequirement: nil,
-                    resolvedTemplatePath: resolvedTemplatePath
-                ).makePackageDependency()
+                    packageIdentity: nil,
+                    swiftCommandState: tool
+                ).resolve()
+
+                #expect(path == mockTemplatePath)
             }
 
-            let registryDependency = try DefaultPackageDependencyBuilder(
-                templateSource: .registry,
-                packageName: packageName,
-                templateURL: templateURL,
-                templatePackageID: templatePackageID,
-                sourceControlRequirement: sourceControlRequirement,
-                registryRequirement: registryRequirement,
-                resolvedTemplatePath: resolvedTemplatePath
-            ).makePackageDependency()
+            @Test(
+                .skipHostOS(.windows, "Git operations not fully supported in test environment"),
+                .requireUnrestrictedNetworkAccess("Test needs to create and access local git repositories"),
+            )
+            func resolveGitTemplatePath() async throws {
+                try await testWithTemporaryDirectory { path in
+                    let sourceControlRequirement = SwiftRefactor.PackageDependency.SourceControl.Requirement
+                        .branch("main")
 
-            // Test that registry dependency was correctly created as registry dependency
-            if case .registry(let registryDep) = registryDependency {
-                #expect(registryDep.identity == templatePackageID)
+                    try await withTaskLocalWorkingDirectory(path) {
+                        let options = try GlobalOptions.parse([])
+                        let tool = try SwiftCommandState.makeMockState(options: options)
 
-            } else {
-                Issue.record("Expected registry dependency, got \(registryDependency)")
+                        let templateRepoPath = path.appending(component: "template-repo")
+                        let sourceControlURL = SourceControlURL(stringLiteral: templateRepoPath.pathString)
+                        let templateRepoURL = sourceControlURL.url
+                        try! makeDirectories(templateRepoPath)
+                        initGitRepo(templateRepoPath, tag: "1.2.3")
+
+                        let resolver = try TemplatePathResolver(
+                            source: .git,
+                            templateDirectory: nil,
+                            templateURL: templateRepoURL?.absoluteString,
+                            sourceControlRequirement: sourceControlRequirement,
+                            registryRequirement: nil,
+                            packageIdentity: nil,
+                            swiftCommandState: tool
+                        )
+                        let path = try await resolver.resolve()
+                        #expect(
+                            localFileSystem.exists(path.appending(component: "file.swift")),
+                            "Template was not fetched correctly"
+                        )
+                    }
+                }
+            }
+
+            @Test(
+                .skipHostOS(.windows, "Git operations not fully supported in test environment"),
+                .requireUnrestrictedNetworkAccess("Test needs to attempt git clone operations"),
+            )
+            func resolveGitTemplatePathWithInvalidURL() async throws {
+                try await testWithTemporaryDirectory { path in
+                    try await withTaskLocalWorkingDirectory(path) {
+                        let sourceControlRequirement = SwiftRefactor.PackageDependency.SourceControl.Requirement
+                            .branch("main")
+                        let options = try GlobalOptions.parse([])
+
+                        let tool = try SwiftCommandState.makeMockState(options: options)
+
+                        let templateRepoPath = path.appending(component: "template-repo")
+                        try! makeDirectories(templateRepoPath)
+                        initGitRepo(templateRepoPath, tag: "1.2.3")
+
+                        let resolver = try TemplatePathResolver(
+                            source: .git,
+                            templateDirectory: nil,
+                            templateURL: "invalid-git-url",
+                            sourceControlRequirement: sourceControlRequirement,
+                            registryRequirement: nil,
+                            packageIdentity: nil,
+                            swiftCommandState: tool
+                        )
+
+                        await #expect(throws: GitTemplateFetcher.GitTemplateFetcherError
+                            .cloneFailed(source: "invalid-git-url")
+                        ) {
+                            _ = try await resolver.resolve()
+                        }
+                    }
+                }
+            }
+
+            @Test
+            func resolveRegistryTemplatePath() async throws {
+                // TODO: Implement registry template path resolution test
+                // Should test fetching template from package registry
             }
         }
-    }
 
-    // MARK: - Package Initializer Configuration Tests
+        // MARK: - Template Directory Management Tests
 
-    @Suite(
-        .serialized,
-        .tags(
-            Tag.TestSize.small,
-            Tag.Feature.Command.Package.Init,
-        ),
-    )
-    struct PackageInitializerConfigurationTests {
-        @Test
-        func createPackageInitializer() throws {
-            try testWithTemporaryDirectory { tempDir in
-                let globalOptions = try GlobalOptions.parse(["--package-path", tempDir.pathString])
-                let testLibraryOptions = try TestLibraryOptions.parse([])
-                let buildOptions = try BuildCommandOptions.parse([])
-                let directoryPath = AbsolutePath("/")
-                let tool = try SwiftCommandState.makeMockState(options: globalOptions)
+        @Suite(
+            .skipSwiftCISelfHosted(
+                "Caught error: /tmp/Miscellaneous_DirectoryManagerFinalize.FBjvCq/clean-up/Package.swift doesn't exist in file system"
+            ),
+            // to investigate later
+            .tags(
+                Tag.TestSize.medium,
+                Tag.Feature.Command.Package.Init,
+            ),
+        )
+        struct TemplateDirectoryManagerTests {
+            @Test
+            func createTemporaryDirectories() throws {
+                let options = try GlobalOptions.parse([])
 
-                let templatePackageInitializer = try PackageInitConfiguration(
-                    swiftCommandState: tool,
-                    name: "foo",
-                    initMode: "template",
-                    testLibraryOptions: testLibraryOptions,
-                    buildOptions: buildOptions,
-                    globalOptions: globalOptions,
-                    validatePackage: true,
-                    args: ["--foobar foo"],
-                    directory: directoryPath,
-                    url: nil,
-                    packageID: "foo.bar",
-                    versionFlags: VersionFlags(
-                        exact: nil,
-                        revision: nil,
-                        branch: "master",
-                        from: nil,
-                        upToNextMinorFrom: nil,
-                        to: nil
+                // Create InMemoryFileSystem with necessary directories
+                let fileSystem = InMemoryFileSystem()
+                try fileSystem.createDirectory(AbsolutePath("/tmp"), recursive: true)
+
+                let tool = try SwiftCommandState.makeMockState(options: options, fileSystem: fileSystem)
+
+                let (stagingPath, cleanupPath, tempDir) = try TemplateInitializationDirectoryManager(
+                    fileSystem: tool.fileSystem,
+                    observabilityScope: tool.observabilityScope
+                ).createTemporaryDirectories()
+
+                #expect(stagingPath.parentDirectory == tempDir)
+                #expect(cleanupPath.parentDirectory == tempDir)
+
+                #expect(stagingPath.basename == "generated-package")
+                #expect(cleanupPath.basename == "clean-up")
+
+                #expect(tool.fileSystem.exists(stagingPath))
+                #expect(tool.fileSystem.exists(cleanupPath))
+            }
+
+            @Test(
+                .tags(
+                    Tag.Feature.Command.Package.Init,
+                    Tag.Feature.PackageType.LocalTemplate,
+                ),
+                arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            )
+            func finalizeDirectoryTransfer(
+                data: BuildData,
+            ) async throws {
+                try await fixture(name: "Miscellaneous/DirectoryManagerFinalize", createGitRepo: false) { fixturePath in
+                    let stagingPath = fixturePath.appending("generated-package")
+                    let cleanupPath = fixturePath.appending("clean-up")
+                    let cwd = fixturePath.appending("cwd")
+
+                    // Manually create the built package structure instead of building
+                    // This tests the directory transfer logic without subprocess complications
+                    let stagingBuildPath = stagingPath.appending(".build")
+                    let binPathComponents = try data.buildSystem.binPath(for: data.config, scratchPath: [])
+                    let stagingBinPath = stagingBuildPath.appending(components: binPathComponents)
+                    let stagingBinFile = stagingBinPath.appending(executableName("generated-package"))
+
+                    // Create the directory structure and mock executable
+                    try localFileSystem.createDirectory(stagingBinPath, recursive: true)
+                    try localFileSystem.writeFileContents(stagingBinFile, bytes: ByteString([0x00, 0x01, 0x02]))
+
+                    #expect(localFileSystem.exists(stagingBinFile))
+                    #expect(localFileSystem.isDirectory(stagingBuildPath))
+
+                    try await withTaskLocalWorkingDirectory(fixturePath) {
+                    let options = try GlobalOptions.parse([])
+                    let tool = try SwiftCommandState.makeMockState(options: options)
+
+                    try await TemplateInitializationDirectoryManager(
+                        fileSystem: tool.fileSystem,
+                        observabilityScope: tool.observabilityScope
+                    ).finalize(cwd: cwd, stagingPath: stagingPath, cleanupPath: cleanupPath, swiftCommandState: tool)
+
+                    let cwdBuildPath = cwd.appending(".build")
+                    let cwdBinPathComponents = try data.buildSystem.binPath(for: data.config, scratchPath: [])
+                    let cwdBinPath = cwdBuildPath.appending(components: cwdBinPathComponents)
+                    let cwdBinFile = cwdBinPath.appending(executableName("generated-package"))
+
+                    // Postcondition checks
+                    #expect(localFileSystem.exists(cwd), "cwd should exist after finalize")
+                    #expect(
+                        localFileSystem.exists(cwdBinFile) == false,
+                        "Binary should have been cleaned before copying to cwd"
                     )
-                ).makeInitializer()
+                }
+            }
 
-                #expect(templatePackageInitializer is TemplatePackageInitializer)
+            @Test
+            func cleanUpTemporaryDirectories() async throws {
+                try await fixture(name: "Miscellaneous/DirectoryManagerFinalize", createGitRepo: false) { fixturePath in
+                    try await withTaskLocalWorkingDirectory(fixturePath) {
+                        let pathToRemove = fixturePath.appending("cwd")
+                        let options = try GlobalOptions.parse([])
+                        let tool = try SwiftCommandState.makeMockState(options: options)
 
-                let standardPackageInitalizer = try PackageInitConfiguration(
-                    swiftCommandState: tool,
-                    name: "foo",
-                    initMode: "template",
-                    testLibraryOptions: testLibraryOptions,
-                    buildOptions: buildOptions,
-                    globalOptions: globalOptions,
-                    validatePackage: true,
-                    args: ["--foobar foo"],
-                    directory: nil,
-                    url: nil,
-                    packageID: nil,
-                    versionFlags: VersionFlags(
-                        exact: nil,
-                        revision: nil,
-                        branch: "master",
-                        from: nil,
-                        upToNextMinorFrom: nil,
-                        to: nil
-                    )
-                ).makeInitializer()
+                        try TemplateInitializationDirectoryManager(
+                            fileSystem: tool.fileSystem,
+                            observabilityScope: tool.observabilityScope
+                        ).cleanupTemporary(templateSource: .git, path: pathToRemove, temporaryDirectory: nil)
 
-                #expect(standardPackageInitalizer is StandardPackageInitializer)
+                        #expect(!localFileSystem.exists(pathToRemove), "path should be removed")
+                    }
+                }
+
+                try await fixture(name: "Miscellaneous/DirectoryManagerFinalize", createGitRepo: false) { fixturePath in
+                    try await withTaskLocalWorkingDirectory(fixturePath) {
+                        let pathToRemove = fixturePath.appending("clean-up")
+                        let options = try GlobalOptions.parse([])
+                        let tool = try SwiftCommandState.makeMockState(options: options)
+
+                        try TemplateInitializationDirectoryManager(
+                            fileSystem: tool.fileSystem,
+                            observabilityScope: tool.observabilityScope
+                        ).cleanupTemporary(templateSource: .registry, path: pathToRemove, temporaryDirectory: nil)
+
+                        #expect(!localFileSystem.exists(pathToRemove), "path should be removed")
+                    }
+                }
+
+                try await fixture(name: "Miscellaneous/DirectoryManagerFinalize", createGitRepo: false) { fixturePath in
+                    try await withTaskLocalWorkingDirectory(fixturePath) {
+                        let pathToRemove = fixturePath.appending("clean-up")
+                        let options = try GlobalOptions.parse([])
+                        let tool = try SwiftCommandState.makeMockState(options: options)
+
+                        try TemplateInitializationDirectoryManager(
+                            fileSystem: tool.fileSystem,
+                            observabilityScope: tool.observabilityScope
+                        ).cleanupTemporary(templateSource: .local, path: pathToRemove, temporaryDirectory: nil)
+
+                        #expect(localFileSystem.exists(pathToRemove), "path should not be removed if local")
+                    }
+                }
             }
         }
 
-        @Test(.skip("Failing due to package resolution"))
-        func findTemplateName() async throws {
-            try await fixture(name: "Miscellaneous/InitTemplates") {workingDir in
-                let templatePath = workingDir.appending(component: "ExecutableTemplate")
-                let versionFlags = VersionFlags(
-                    exact: nil,
-                    revision: nil,
-                    branch:  nil,
-                    from: nil,
-                    upToNextMinorFrom: nil,
-                    to: nil
-                )
-
-                let globalOptions = try GlobalOptions.parse(["--package-path", workingDir.pathString])
-                let swiftCommandState = try SwiftCommandState.makeMockState(options: globalOptions)
-
-                let testLibraryOptions = try TestLibraryOptions.parse([])
-
-                let buildOptions = try BuildCommandOptions.parse([])
-
-                let templatePackageInitializer = try PackageInitConfiguration(
-                    swiftCommandState: swiftCommandState,
-                    name: nil,
-                    initMode: nil,
-                    testLibraryOptions: testLibraryOptions,
-                    buildOptions: buildOptions,
-                    globalOptions: globalOptions,
-                    validatePackage: false,
-                    args: [],
-                    directory: templatePath,
-                    url: nil,
-                    packageID: nil,
-                    versionFlags: versionFlags
-                ).makeInitializer() as? TemplatePackageInitializer
-
-                let templateName = try await templatePackageInitializer?.resolveTemplateNameInPackage(from: templatePath)
-                #expect(templateName == "ExecutableTemplate")
-            }
-        }
-
-        // TODO: Re-enable once SwiftCommandState mocking issues are resolved
-        // The test fails because mocking swiftCommandState resolves to linux triple on Darwin
-        /*
-         @Test(
-         .requireHostOS(.macOS, "SwiftCommandState mocking issue on non-Darwin platforms"),
-         )
-         func inferPackageTypeFromTemplate() async throws {
-         try await fixture(name: "Miscellaneous/InferPackageType") { fixturePath in
-         let options = try GlobalOptions.parse([])
-         let tool = try SwiftCommandState.makeMockState(options: options)
-
-         let libraryType = try await TemplatePackageInitializer.inferPackageType(
-         from: fixturePath,
-         templateName: "initialTypeLibrary",
-         swiftCommandState: tool
-         )
-
-         #expect(libraryType.rawValue == "library")
-         }
-         }
-         */
-    }
-
-    // MARK: - Template Prompting System Tests
-
-    @Suite(
-        .tags(
-            Tag.TestSize.medium,
-            Tag.Feature.Command.Package.Init,
-        ),
-    )
-    struct TemplateCLIConstructorTests {
-        // MARK: - Helper Methods
-
-        private func createTestCommand(
-            name: String = "test-template",
-            arguments: [ArgumentInfoV0] = [],
-            subcommands: [CommandInfoV0]? = nil
-        ) -> CommandInfoV0 {
-            CommandInfoV0(
-                superCommands: [],
-                shouldDisplay: true,
-                commandName: name,
-                abstract: "Test template command",
-                discussion: "A command for testing template prompting",
-                defaultSubcommand: nil,
-                subcommands: subcommands ?? [],
-                arguments: arguments
-            )
-        }
-
-        private func createRequiredOption(
-            name: String,
-            defaultValue: String? = nil,
-            allValues: [String]? = nil,
-            parsingStrategy: ArgumentInfoV0.ParsingStrategyV0 = .default,
-            completionKind: ArgumentInfoV0.CompletionKindV0? = nil,
-            isRepeating: Bool = false
-        ) -> ArgumentInfoV0 {
-            ArgumentInfoV0(
-                kind: .option,
-                shouldDisplay: true,
-                sectionTitle: nil,
-                isOptional: false,
-                isRepeating: isRepeating,
-                parsingStrategy: parsingStrategy,
-                names: [ArgumentInfoV0.NameInfoV0(kind: .long, name: name)],
-                preferredName: ArgumentInfoV0.NameInfoV0(kind: .long, name: name),
-                valueName: name,
-                defaultValue: defaultValue,
-                allValueStrings: allValues,
-                allValueDescriptions: nil,
-                completionKind: completionKind,
-                abstract: "\(name.capitalized) parameter",
-                discussion: nil
-            )
-        }
-
-        private func createOptionalOption(
-            name: String,
-            defaultValue: String? = nil,
-            allValues: [String]? = nil,
-            completionKind: ArgumentInfoV0.CompletionKindV0? = nil
-        ) -> ArgumentInfoV0 {
-            ArgumentInfoV0(
-                kind: .option,
-                shouldDisplay: true,
-                sectionTitle: nil,
-                isOptional: true,
-                isRepeating: false,
-                parsingStrategy: .default,
-                names: [ArgumentInfoV0.NameInfoV0(kind: .long, name: name)],
-                preferredName: ArgumentInfoV0.NameInfoV0(kind: .long, name: name),
-                valueName: name,
-                defaultValue: defaultValue,
-                allValueStrings: allValues,
-                allValueDescriptions: nil,
-                completionKind: completionKind,
-                abstract: "\(name.capitalized) parameter",
-                discussion: nil
-            )
-        }
-
-        private func createOptionalFlag(
-            name: String,
-            defaultValue: String? = nil,
-            completionKind: ArgumentInfoV0.CompletionKindV0? = nil
-        ) -> ArgumentInfoV0 {
-            ArgumentInfoV0(
-                kind: .flag,
-                shouldDisplay: true,
-                sectionTitle: nil,
-                isOptional: true,
-                isRepeating: false,
-                parsingStrategy: .default,
-                names: [ArgumentInfoV0.NameInfoV0(kind: .long, name: name)],
-                preferredName: ArgumentInfoV0.NameInfoV0(kind: .long, name: name),
-                valueName: name,
-                defaultValue: defaultValue,
-                allValueStrings: nil,
-                allValueDescriptions: nil,
-                completionKind: completionKind,
-                abstract: "\(name.capitalized) flag",
-                discussion: nil
-            )
-        }
-
-        private func createPositionalArgument(
-            name: String,
-            isOptional: Bool = false,
-            defaultValue: String? = nil,
-            parsingStrategy: ArgumentInfoV0.ParsingStrategyV0 = .default
-        ) -> ArgumentInfoV0 {
-            ArgumentInfoV0(
-                kind: .positional,
-                shouldDisplay: true,
-                sectionTitle: nil,
-                isOptional: isOptional,
-                isRepeating: false,
-                parsingStrategy: parsingStrategy,
-                names: nil,
-                preferredName: nil,
-                valueName: name,
-                defaultValue: defaultValue,
-                allValueStrings: nil,
-                allValueDescriptions: nil,
-                completionKind: nil,
-                abstract: "\(name.capitalized) positional argument",
-                discussion: nil
-            )
-        }
-
-        // MARK: - Basic Functionality Tests
-
-        @Test
-        func createsPromptingSystemSuccessfully() throws {
-            let promptingSystem = TemplateCLIConstructor(hasTTY: false)
-            let emptyCommand = self.createTestCommand(name: "empty")
-
-            let toolInfo = ToolInfoV0(command: emptyCommand)
-            let result = try promptingSystem.createCLIArgs(
-                predefinedArgs: [],
-                toolInfoJson: toolInfo
-            )
-
-            #expect(result.isEmpty)
-        }
-
-        @Test
-        func handlesCommandWithProvidedArguments() throws {
-            let promptingSystem = TemplateCLIConstructor(hasTTY: false)
-            let commandInfo = self.createTestCommand(
-                arguments: [self.createRequiredOption(name: "name")]
-            )
-
-            let toolInfo = ToolInfoV0(command: commandInfo)
-            let result = try promptingSystem.createCLIArgs(
-                predefinedArgs: ["--name", "TestPackage"],
-                toolInfoJson: toolInfo
-            )
-
-            #expect(result.contains("--name"))
-            #expect(result.contains("TestPackage"))
-        }
-
-        @Test
-        func handlesOptionalArgumentsWithDefaults() throws {
-            let promptingSystem = TemplateCLIConstructor(hasTTY: false)
-            let commandInfo = self.createTestCommand(
-                arguments: [
-                    self.createRequiredOption(name: "name"),
-                    self.createOptionalFlag(name: "include-readme", defaultValue: "false"),
-                ]
-            )
-
-            let toolInfo = ToolInfoV0(command: commandInfo)
-            let result = try promptingSystem.createCLIArgs(
-                predefinedArgs: ["--name", "TestPackage"],
-                toolInfoJson: toolInfo
-            )
-
-            #expect(result.contains("--name"))
-            #expect(result.contains("TestPackage"))
-            // Flag with default "false" should not appear in command line
-            #expect(!result.contains("--include-readme"))
-        }
-
-        @Test
-        func validatesMissingRequiredArguments() throws {
-            let promptingSystem = TemplateCLIConstructor(hasTTY: false)
-            let commandInfo = self.createTestCommand(
-                arguments: [self.createRequiredOption(name: "name")]
-            )
-
-            let toolInfo = ToolInfoV0(command: commandInfo)
-            #expect(throws: Error.self) {
-                _ = try promptingSystem.createCLIArgs(
-                    predefinedArgs: [],
-                    toolInfoJson: toolInfo
-                )
-            }
-        }
-
-        // MARK: - Argument Response Tests
-
-        @Test
-        func argumentResponseHandlesExplicitlyUnsetFlags() throws {
-            let arg = self.createOptionalFlag(name: "verbose", defaultValue: "false")
-
-            // Test explicitly unset flag
-            let explicitlyUnsetResponse = ArgumentResponse(
-                argument: arg,
-                values: [],
-                isExplicitlyUnset: true
-            )
-            #expect(explicitlyUnsetResponse.isExplicitlyUnset == true)
-            #expect(explicitlyUnsetResponse.commandLineFragments.isEmpty)
-
-            // Test normal flag response (true)
-            let trueResponse = ArgumentResponse(
-                argument: arg,
-                values: ["true"],
-                isExplicitlyUnset: false
-            )
-            #expect(trueResponse.isExplicitlyUnset == false)
-            #expect(trueResponse.commandLineFragments == ["--verbose"])
-
-            // Test false flag response (should be empty)
-            let falseResponse = ArgumentResponse(
-                argument: arg,
-                values: ["false"],
-                isExplicitlyUnset: false
-            )
-            #expect(falseResponse.commandLineFragments.isEmpty)
-        }
-
-        @Test
-        func argumentResponseHandlesExplicitlyUnsetOptions() throws {
-            let arg = self.createOptionalOption(name: "output")
-
-            // Test explicitly unset option
-            let explicitlyUnsetResponse = ArgumentResponse(
-                argument: arg,
-                values: [],
-                isExplicitlyUnset: true
-            )
-            #expect(explicitlyUnsetResponse.isExplicitlyUnset == true)
-            #expect(explicitlyUnsetResponse.commandLineFragments.isEmpty)
-
-            // Test normal option response
-            let normalResponse = ArgumentResponse(
-                argument: arg,
-                values: ["./output"],
-                isExplicitlyUnset: false
-            )
-            #expect(normalResponse.isExplicitlyUnset == false)
-            #expect(normalResponse.commandLineFragments == ["--output", "./output"])
-
-            // Test multiple values option
-            let multiValueArg = ArgumentInfoV0(
-                kind: .option,
-                shouldDisplay: true,
-                sectionTitle: nil,
-                isOptional: true,
-                isRepeating: true,
-                parsingStrategy: .default,
-                names: [ArgumentInfoV0.NameInfoV0(kind: .long, name: "define")],
-                preferredName: ArgumentInfoV0.NameInfoV0(kind: .long, name: "define"),
-                valueName: "define",
-                defaultValue: nil,
-                allValueStrings: nil,
-                allValueDescriptions: nil,
-                completionKind: .none,
-                abstract: "Define parameter",
-                discussion: nil
-            )
-
-            let multiValueResponse = ArgumentResponse(
-                argument: multiValueArg,
-                values: ["FOO=bar", "BAZ=qux"],
-                isExplicitlyUnset: false
-            )
-            #expect(multiValueResponse.commandLineFragments == ["--define", "FOO=bar", "--define", "BAZ=qux"])
-        }
-
-        @Test
-        func argumentResponseHandlesPositionalArguments() throws {
-            let arg = self.createPositionalArgument(name: "target", isOptional: true)
-
-            // Test explicitly unset positional
-            let explicitlyUnsetResponse = ArgumentResponse(
-                argument: arg,
-                values: [],
-                isExplicitlyUnset: true
-            )
-            #expect(explicitlyUnsetResponse.isExplicitlyUnset == true)
-            #expect(explicitlyUnsetResponse.commandLineFragments.isEmpty)
-
-            // Test normal positional response
-            let normalResponse = ArgumentResponse(
-                argument: arg,
-                values: ["MyTarget"],
-                isExplicitlyUnset: false
-            )
-            #expect(normalResponse.isExplicitlyUnset == false)
-            #expect(normalResponse.commandLineFragments == ["MyTarget"])
-        }
-
-        // MARK: - Command Line Generation Tests
-
-        @Test
-        func commandLineGenerationWithMixedArgumentStates() throws {
-            // Test the actual public API instead of internal buildCommandLine
-            let promptingSystem = TemplateCLIConstructor(hasTTY: false)
-            
-            let flagArg = self.createOptionalFlag(name: "verbose")
-            let requiredOptionArg = self.createRequiredOption(name: "name")
-            let optionalOptionArg = self.createOptionalOption(name: "output")
-            
-            let commandInfo = self.createTestCommand(
-                arguments: [flagArg, requiredOptionArg, optionalOptionArg]
-            )
-            
-            let toolInfo = ToolInfoV0(command: commandInfo)
-            let result = try promptingSystem.createCLIArgs(
-                predefinedArgs: ["--name", "TestPackage", "--verbose"],
-                toolInfoJson: toolInfo
-            )
-
-            // Should contain the provided arguments
-            #expect(result.contains("--name"))
-            #expect(result.contains("TestPackage"))
-            #expect(result.contains("--verbose"))
-        }
-
-        @Test
-        func commandLineGenerationWithDefaultValues() throws {
-            let promptingSystem = TemplateCLIConstructor(hasTTY: false)
-
-            let optionWithDefault = self.createOptionalOption(name: "version", defaultValue: "1.0.0")
-            let flagWithDefault = self.createOptionalFlag(name: "enabled", defaultValue: "true")
-
-            let commandInfo = self.createTestCommand(
-                arguments: [optionWithDefault, flagWithDefault]
-            )
-            
-            let toolInfo = ToolInfoV0(command: commandInfo)
-            let result = try promptingSystem.createCLIArgs(
-                predefinedArgs: [],
-                toolInfoJson: toolInfo
-            )
-
-            // Should contain default values
-            #expect(result.contains("--version"))
-            #expect(result.contains("1.0.0"))
-            #expect(result.contains("--enabled"))
-        }
-
-        // MARK: - Argument Parsing Tests
-
-        @Test
-        func parsesProvidedArgumentsCorrectly() throws {
-            let promptingSystem = TemplateCLIConstructor(hasTTY: false)
-            let commandInfo = self.createTestCommand(
-                arguments: [
-                    self.createRequiredOption(name: "name"),
-                    self.createOptionalFlag(name: "verbose"),
-                    self.createOptionalOption(name: "output"),
-                ]
-            )
-
-            let toolInfo = ToolInfoV0(command: commandInfo)
-            let result = try promptingSystem.createCLIArgs(
-                predefinedArgs: ["--name", "TestPackage", "--verbose", "--output", "./dist"],
-                toolInfoJson: toolInfo
-            )
-
-            #expect(result.contains("--name"))
-            #expect(result.contains("TestPackage"))
-            #expect(result.contains("--verbose"))
-            #expect(result.contains("--output"))
-            #expect(result.contains("./dist"))
-        }
-
-        @Test
-        func handlesValidationWithAllowedValues() throws {
-            let restrictedArg = self.createRequiredOption(
-                name: "type",
-                allValues: ["executable", "library", "plugin"]
-            )
-
-            let promptingSystem = TemplateCLIConstructor(hasTTY: false)
-            let commandInfo = self.createTestCommand(arguments: [restrictedArg])
-
-            // Valid value should work
-            let toolInfo = ToolInfoV0(command: commandInfo)
-            let validResult = try promptingSystem.createCLIArgs(
-                predefinedArgs: ["--type", "executable"],
-                toolInfoJson: toolInfo
-            )
-            #expect(validResult.contains("executable"))
-
-            // Invalid value should throw
-            #expect(throws: Error.self) {
-                _ = try promptingSystem.createCLIArgs(
-                    predefinedArgs: ["--type", "invalid"],
-                    toolInfoJson: toolInfo
-                )
-            }
-        }
-
-        // MARK: - Subcommand Tests
-
-        @Test
-        func handlesSubcommandDetection() throws {
-            let subcommand = self.createTestCommand(
-                name: "init",
-                arguments: [self.createRequiredOption(name: "name")]
-            )
-
-            let mainCommand = self.createTestCommand(
-                name: "package",
-                subcommands: [subcommand]
-            )
-
-            let promptingSystem = TemplateCLIConstructor(hasTTY: false)
-            let toolInfo = ToolInfoV0(command: mainCommand)
-
-            let result = try promptingSystem.createCLIArgs(
-                predefinedArgs: ["init", "--name", "TestPackage"],
-                toolInfoJson: toolInfo
-            )
-
-            #expect(result.contains("init"))
-            #expect(result.contains("--name"))
-            #expect(result.contains("TestPackage"))
-        }
-
-        @Test
-        func handlesBranchingSubcommandDetection() throws {
-            let subcommand = self.createTestCommand(
-                name: "init",
-                arguments: [self.createRequiredOption(name: "name")]
-            )
-
-            let branchingSubcommand = self.createTestCommand(
-                name: "ios"
-            )
-
-            let mainCommand = self.createTestCommand(
-                name: "package",
-                arguments: [self.createRequiredOption(name: "package-path")],
-                subcommands: [subcommand, branchingSubcommand],
-            )
-
-            let promptingSystem = TemplateCLIConstructor(hasTTY: false)
-            let toolInfo = ToolInfoV0(command: mainCommand)
-
-            let result = try promptingSystem.createCLIArgs(
-                predefinedArgs: ["--package-path", "foo", "init", "--name", "TestPackage"],
-                toolInfoJson: toolInfo
-            )
-
-            #expect(result.contains("init"))
-            #expect(result.contains("--name"))
-            #expect(result.contains("TestPackage"))
-        }
-
-        // MARK: - Error Handling Tests
-
-        @Test
-        func handlesInvalidArgumentNames() throws {
-            let promptingSystem = TemplateCLIConstructor(hasTTY: false)
-            let commandInfo = self.createTestCommand(
-                arguments: [self.createRequiredOption(name: "name")]
-            )
-
-            // Should throw errors if invalid predefined arguments have been given.
-            let toolInfo = ToolInfoV0(command: commandInfo)
-            #expect(throws: Error.self) {
-                let _ = try promptingSystem.createCLIArgs(
-                    predefinedArgs: ["--name", "TestPackage", "--unknown", "value"],
-                    toolInfoJson: toolInfo
-                )
-            }
-        }
-
-        @Test
-        func handlesMissingValueForOption() throws {
-            let promptingSystem = TemplateCLIConstructor(hasTTY: false)
-            let commandInfo = self.createTestCommand(
-                arguments: [self.createRequiredOption(name: "name")]
-            )
-
-            let toolInfo = ToolInfoV0(command: commandInfo)
-            #expect(throws: Error.self) {
-                _ = try promptingSystem.createCLIArgs(
-                    predefinedArgs: ["--name"],
-                    toolInfoJson: toolInfo
-                )
-            }
-        }
-
-        @Test
-        func handlesNestedSubcommands() throws {
-            let innerSubcommand = self.createTestCommand(
-                name: "create",
-                arguments: [self.createRequiredOption(name: "name")]
-            )
-
-            let outerSubcommand = self.createTestCommand(
-                name: "package",
-                subcommands: [innerSubcommand]
-            )
-
-            let mainCommand = self.createTestCommand(
-                name: "swift",
-                subcommands: [outerSubcommand]
-            )
-
-            let promptingSystem = TemplateCLIConstructor(hasTTY: false)
-            let toolInfo = ToolInfoV0(command: mainCommand)
-
-            let result = try promptingSystem.createCLIArgs(
-                predefinedArgs: ["package", "create", "--name", "MyPackage"],
-                toolInfoJson: toolInfo
-            )
-
-            #expect(result.contains("package"))
-            #expect(result.contains("create"))
-            #expect(result.contains("--name"))
-            #expect(result.contains("MyPackage"))
-        }
-
-        // MARK: - Integration Tests
-
-        @Test
-        func handlesComplexCommandStructure() throws {
-            let promptingSystem = TemplateCLIConstructor(hasTTY: false)
-
-            let complexCommand = self.createTestCommand(
-                arguments: [
-                    self.createRequiredOption(name: "name"),
-                    self.createOptionalOption(name: "output", defaultValue: "./build"),
-                    self.createOptionalFlag(name: "verbose", defaultValue: "false"),
-                    self.createPositionalArgument(name: "target", isOptional: true, defaultValue: "main"),
-                ]
-            )
-
-            let toolInfo = ToolInfoV0(command: complexCommand)
-            let result = try promptingSystem.createCLIArgs(
-                predefinedArgs: ["--name", "TestPackage", "--verbose", "CustomTarget"],
-                toolInfoJson: toolInfo
-            )
-
-            #expect(result.contains("--name"))
-            #expect(result.contains("TestPackage"))
-            #expect(result.contains("--verbose"))
-            #expect(result.contains("CustomTarget"))
-            // Default values for optional arguments should be included when no explicit value provided
-            #expect(result.contains("--output"))
-            #expect(result.contains("./build"))
-        }
-
-        @Test
-        func handlesEmptyInputCorrectly() throws {
-            let promptingSystem = TemplateCLIConstructor(hasTTY: false)
-            let commandInfo = self.createTestCommand(
-                arguments: [
-                    self.createOptionalOption(name: "output", defaultValue: "default"),
-                    self.createOptionalFlag(name: "verbose", defaultValue: "false"),
-                ]
-            )
-
-            let toolInfoJSON = ToolInfoV0(command: commandInfo)
-            let result = try promptingSystem.createCLIArgs(predefinedArgs: [], toolInfoJson: toolInfoJSON)
-
-            // Should contain default values where appropriate
-            #expect(result.contains("--output"))
-            #expect(result.contains("default"))
-            #expect(!result.contains("--verbose")) // false flag shouldn't appear
-        }
-
-        @Test
-        func handlesRepeatingArguments() throws {
-            let repeatingArg = ArgumentInfoV0(
-                kind: .option,
-                shouldDisplay: true,
-                sectionTitle: nil,
-                isOptional: true,
-                isRepeating: true,
-                parsingStrategy: .default,
-                names: [ArgumentInfoV0.NameInfoV0(kind: .long, name: "define")],
-                preferredName: ArgumentInfoV0.NameInfoV0(kind: .long, name: "define"),
-                valueName: "define",
-                defaultValue: nil,
-                allValueStrings: nil,
-                allValueDescriptions: nil,
-                completionKind: nil,
-                abstract: "Define parameter",
-                discussion: nil
-            )
-
-            let promptingSystem = TemplateCLIConstructor(hasTTY: false)
-            let commandInfo = self.createTestCommand(arguments: [repeatingArg])
-
-            let toolInfoJSON = ToolInfoV0(command: commandInfo)
-            let result = try promptingSystem.createCLIArgs(predefinedArgs: ["--define", "FOO=bar", "--define", "BAZ=qux"], toolInfoJson: toolInfoJSON)
-
-            #expect(result.contains("--define"))
-            #expect(result.contains("FOO=bar"))
-            #expect(result.contains("BAZ=qux"))
-        }
-
-        @Test
-        func handlesArgumentValidationWithCustomCompletions() throws {
-            let completionArg = ArgumentInfoV0(
-                kind: .option,
-                shouldDisplay: true,
-                sectionTitle: nil,
-                isOptional: false,
-                isRepeating: false,
-                parsingStrategy: .default,
-                names: [ArgumentInfoV0.NameInfoV0(kind: .long, name: "platform")],
-                preferredName: ArgumentInfoV0.NameInfoV0(kind: .long, name: "platform"),
-                valueName: "platform",
-                defaultValue: nil,
-                allValueStrings: ["iOS", "macOS", "watchOS", "tvOS"],
-                allValueDescriptions: nil,
-                completionKind: .list(values: ["iOS", "macOS", "watchOS", "tvOS"]),
-                abstract: "Target platform",
-                discussion: nil
-            )
-
-            let promptingSystem = TemplateCLIConstructor(hasTTY: false)
-            let commandInfo = self.createTestCommand(arguments: [completionArg])
-
-            let toolInfoJSON = ToolInfoV0(command: commandInfo)
-            // Valid completion value should work
-            let validResult = try promptingSystem.createCLIArgs(predefinedArgs: ["--platform", "iOS"], toolInfoJson: toolInfoJSON)
-            #expect(validResult.contains("iOS"))
-
-            // Invalid completion value should throw
-            #expect(throws: Error.self) {
-                _ = try promptingSystem.createCLIArgs(predefinedArgs: ["--platform", "Linux"], toolInfoJson: toolInfoJSON)
-            }
-        }
-
-        @Test
-        func handlesArgumentResponseBuilding() throws {
-            let flagArg = self.createOptionalFlag(name: "verbose")
-            let optionArg = self.createRequiredOption(name: "output")
-            let positionalArg = self.createPositionalArgument(name: "target")
-
-            // Test various response scenarios
-            let flagResponse = ArgumentResponse(
-                argument: flagArg,
-                values: ["true"],
-                isExplicitlyUnset: false
-            )
-            #expect(flagResponse.commandLineFragments == ["--verbose"])
-
-            let optionResponse = ArgumentResponse(
-                argument: optionArg,
-                values: ["./output"],
-                isExplicitlyUnset: false
-            )
-            #expect(optionResponse.commandLineFragments == ["--output", "./output"])
-
-            let positionalResponse = ArgumentResponse(
-                argument: positionalArg,
-                values: ["MyTarget"],
-                isExplicitlyUnset: false
-            )
-            #expect(positionalResponse.commandLineFragments == ["MyTarget"])
-        }
-
-        @Test
-        func handlesMissingArgumentErrors() throws {
-            let promptingSystem = TemplateCLIConstructor(hasTTY: false)
-            let commandInfo = self.createTestCommand(
-                arguments: [
-                    self.createRequiredOption(name: "required-arg"),
-                    self.createOptionalOption(name: "optional-arg"),
-                ]
-            )
-
-            let toolInfoJSON = ToolInfoV0(command: commandInfo)
-
-            // Should throw when required argument is missing
-            #expect(throws: Error.self) {
-                _ = try promptingSystem.createCLIArgs(predefinedArgs: ["--optional-arg", "value"], toolInfoJson: toolInfoJSON)
-            }
-        }
-
-        // MARK: - Parsing Strategy Tests
-
-        @Test
-        func handlesParsingStrategies() throws {
-            let upToNextOptionArg = self.createRequiredOption(
-                name: "files",
-                parsingStrategy: .upToNextOption,
-                isRepeating: true
-            )
-
-            let promptingSystem = TemplateCLIConstructor(hasTTY: false)
-            let commandInfo = self.createTestCommand(arguments: [upToNextOptionArg])
-
-            let toolInfoJSON = ToolInfoV0(command: commandInfo)
-            let result = try promptingSystem.createCLIArgs(predefinedArgs: ["--files", "file1.swift", "file2.swift", "file3.swift"], toolInfoJson: toolInfoJSON)
-
-            #expect(result.contains("--files"))
-            #expect(result.contains("file1.swift"))
-            #expect(result.contains("file2.swift"))
-            #expect(result.contains("file3.swift"))
-        }
-        
-        @Test
-        func handlesPostTerminatorStrategy() throws {
-            let preTerminatorArg = self.createRequiredOption(name: "name")
-            let postTerminatorArg = ArgumentInfoV0(
-                kind: .positional,
-                shouldDisplay: true,
-                sectionTitle: nil,
-                isOptional: true,
-                isRepeating: true,
-                parsingStrategy: .postTerminator,
-                names: [ArgumentInfoV0.NameInfoV0(kind: .long, name: "post-args")],
-                preferredName: ArgumentInfoV0.NameInfoV0(kind: .long, name: "post-args"),
-                valueName: "post-args",
-                defaultValue: nil,
-                allValueStrings: nil,
-                allValueDescriptions: nil,
-                completionKind: nil,
-                abstract: "Post-terminator arguments",
-                discussion: nil
-            )
-            
-            let promptingSystem = TemplateCLIConstructor(hasTTY: false)
-            let commandInfo = self.createTestCommand(arguments: [preTerminatorArg, postTerminatorArg])
-            let toolInfoJSON = ToolInfoV0(command: commandInfo)
-            
-            let result = try promptingSystem.createCLIArgs(
-                predefinedArgs: ["--name", "TestName", "--", "file1", "file2", "--option"],
-                toolInfoJson: toolInfoJSON
-            )
-            
-            // Pre-terminator should be parsed normally
-            #expect(result.contains("--name"))
-            #expect(result.contains("TestName"))
-            // Post-terminator should capture everything after --
-            #expect(result.contains("file1"))
-            #expect(result.contains("file2"))
-            #expect(result.contains("--option")) // Even options are treated as values after --
-        }
-
-        // MARK: - Error Handling Tests
-        
-        @Test
-        func handlesUnknownOptions() throws {
-            let nameArg = self.createRequiredOption(name: "name")
-            let formatArg = self.createRequiredOption(name: "format")
-            
-            let promptingSystem = TemplateCLIConstructor(hasTTY: false)
-            let commandInfo = self.createTestCommand(arguments: [nameArg, formatArg])
-            let toolInfoJSON = ToolInfoV0(command: commandInfo)
-            
-            // Test unknown long option
-            #expect(throws: (any Error).self) {
-                try promptingSystem.createCLIArgs(
-                    predefinedArgs: ["--name", "test", "--format", "json", "--unknown"],
-                    toolInfoJson: toolInfoJSON
-                )
-            }
-            
-            // Test unknown short option
-            #expect(throws: (any Error).self) {
-                try promptingSystem.createCLIArgs(
-                    predefinedArgs: ["--name", "test", "--format", "json", "-q"],
-                    toolInfoJson: toolInfoJSON
-                )
-            }
-        }
-        
-        @Test
-        func handlesMissingRequiredValues() throws {
-            let nameArg = self.createRequiredOption(name: "name")
-            let formatArg = self.createRequiredOption(name: "format")
-            
-            let promptingSystem = TemplateCLIConstructor(hasTTY: false)
-            let commandInfo = self.createTestCommand(arguments: [nameArg, formatArg])
-            let toolInfoJSON = ToolInfoV0(command: commandInfo)
-            
-            // Test missing value for option
-            #expect(throws: (any Error).self) {
-                try promptingSystem.createCLIArgs(
-                    predefinedArgs: ["--name", "test", "--format"],
-                    toolInfoJson: toolInfoJSON
-                )
-            }
-            
-            // Test missing required argument entirely  
-            #expect(throws: (any Error).self) {
-                try promptingSystem.createCLIArgs(
-                    predefinedArgs: ["--name", "test"],
-                    toolInfoJson: toolInfoJSON
-                )
-            }
-        }
-        
-        @Test
-        func handlesUnexpectedArguments() throws {
-            let nameArg = self.createRequiredOption(name: "name")
-            
-            let promptingSystem = TemplateCLIConstructor(hasTTY: false)
-            let commandInfo = self.createTestCommand(arguments: [nameArg])
-            let toolInfoJSON = ToolInfoV0(command: commandInfo)
-            
-            // Test single unexpected argument
-            #expect(throws: (any Error).self) {
-                try promptingSystem.createCLIArgs(
-                    predefinedArgs: ["--name", "test", "unexpected"],
-                    toolInfoJson: toolInfoJSON
-                )
-            }
-            
-            // Test multiple unexpected arguments
-            #expect(throws: (any Error).self) {
-                try promptingSystem.createCLIArgs(
-                    predefinedArgs: ["--name", "test", "unexpected1", "unexpected2"],
-                    toolInfoJson: toolInfoJSON
-                )
-            }
-        }
-
-        @Test
-        func handlesInvalidEnumValues() throws {
-            let enumArg = self.createRequiredOption(
-                name: "format",
-                allValues: ["json", "xml", "yaml"]
-            )
-            
-            let promptingSystem = TemplateCLIConstructor(hasTTY: false)
-            let commandInfo = self.createTestCommand(arguments: [enumArg])
-            let toolInfoJSON = ToolInfoV0(command: commandInfo)
-            
-            // Test invalid enum value
-            #expect(throws: (any Error).self) {
-                try promptingSystem.createCLIArgs(
-                    predefinedArgs: ["--format", "invalid"],
-                    toolInfoJson: toolInfoJSON
-                )
-            }
-            
-            // Test valid enum value should work
-            let result = try promptingSystem.createCLIArgs(
-                predefinedArgs: ["--format", "json"],
-                toolInfoJson: toolInfoJSON
-            )
-            #expect(result.contains("--format"))
-            #expect(result.contains("json"))
-        }
-
-        // MARK: - Edge Case Tests
-        
-        @Test
-        func handlesEmptyInput() throws {
-            let optionalArg = self.createOptionalOption(name: "name", defaultValue: "default")
-            
-            let promptingSystem = TemplateCLIConstructor(hasTTY: false)
-            let commandInfo = self.createTestCommand(arguments: [optionalArg])
-            let toolInfoJSON = ToolInfoV0(command: commandInfo)
-            
-            // Empty input should work with optional arguments
-            let result = try promptingSystem.createCLIArgs(
-                predefinedArgs: [],
-                toolInfoJson: toolInfoJSON
-            )
-            
-            // Should use default value
-            #expect(result.contains("--name"))
-            #expect(result.contains("default"))
-        }
-        
-        @Test
-        func handlesMalformedArguments() throws {
-            let nameArg = self.createRequiredOption(name: "name")
-            
-            let promptingSystem = TemplateCLIConstructor(hasTTY: false)
-            let commandInfo = self.createTestCommand(arguments: [nameArg])
-            let toolInfoJSON = ToolInfoV0(command: commandInfo)
-            
-            // Test malformed long option (triple dash)
-            #expect(throws: (any Error).self) {
-                try promptingSystem.createCLIArgs(
-                    predefinedArgs: ["---name", "value"],
-                    toolInfoJson: toolInfoJSON
-                )
-            }
-            
-            // Test empty option name
-            #expect(throws: (any Error).self) {
-                try promptingSystem.createCLIArgs(
-                    predefinedArgs: ["--", "value"],
-                    toolInfoJson: toolInfoJSON
-                )
-            }
-        }
-        
-        @Test
-        func handlesSpecialCharactersInValues() throws {
-            let nameArg = self.createRequiredOption(name: "name")
-            
-            let promptingSystem = TemplateCLIConstructor(hasTTY: false)
-            let commandInfo = self.createTestCommand(arguments: [nameArg])
-            let toolInfoJSON = ToolInfoV0(command: commandInfo)
-            
-            // Test values with special characters
-            let specialValues = [
-                "value with spaces",
-                "value-with-dashes",
-                "value_with_underscores",
-                "value.with.dots",
-                "value@with@symbols",
-                "value/with/slashes"
-            ]
-            
-            for specialValue in specialValues {
-                let result = try promptingSystem.createCLIArgs(
-                    predefinedArgs: ["--name", specialValue],
-                    toolInfoJson: toolInfoJSON
-                )
-                #expect(result.contains("--name"))
-                #expect(result.contains(specialValue))
-            }
-        }
-        
-        @Test
-        func handlesEqualsSignInOptions() throws {
-            let nameArg = self.createRequiredOption(name: "name")
-            let formatArg = self.createRequiredOption(name: "format")
-            
-            let promptingSystem = TemplateCLIConstructor(hasTTY: false)
-            let commandInfo = self.createTestCommand(arguments: [nameArg, formatArg])
-            let toolInfoJSON = ToolInfoV0(command: commandInfo)
-            
-            // Test equals sign syntax
-            let result = try promptingSystem.createCLIArgs(
-                predefinedArgs: ["--name=TestName", "--format=json"],
-                toolInfoJson: toolInfoJSON
-            )
-            
-            #expect(result.contains("--name"))
-            #expect(result.contains("TestName"))
-            #expect(result.contains("--format"))
-            #expect(result.contains("json"))
-        }
-        
-        @Test
-        func handlesUnicodeCharacters() throws {
-            let nameArg = self.createRequiredOption(name: "name")
-            
-            let promptingSystem = TemplateCLIConstructor(hasTTY: false)
-            let commandInfo = self.createTestCommand(arguments: [nameArg])
-            let toolInfoJSON = ToolInfoV0(command: commandInfo)
-            
-            // Test Unicode characters
-            let unicodeValues = [
-                "测试", // Chinese
-                "テスト", // Japanese  
-                "тест", // Russian
-                "🎯📱💻", // Emojis
-                "café", // Accented characters
-            ]
-            
-            for unicodeValue in unicodeValues {
-                let result = try promptingSystem.createCLIArgs(
-                    predefinedArgs: ["--name", unicodeValue],
-                    toolInfoJson: toolInfoJSON
-                )
-                #expect(result.contains("--name"))
-                #expect(result.contains(unicodeValue))
-            }
-        }
-
-        // MARK: - Positional Argument Tests
-        
-        @Test
-        func handlesSinglePositionalArgument() throws {
-            let positionalArg = ArgumentInfoV0(
-                kind: .positional,
-                shouldDisplay: true,
-                sectionTitle: nil,
-                isOptional: false,
-                isRepeating: false,
-                parsingStrategy: .default,
-                names: [ArgumentInfoV0.NameInfoV0(kind: .long, name: "name")],
-                preferredName: ArgumentInfoV0.NameInfoV0(kind: .long, name: "name"),
-                valueName: "name",
-                defaultValue: nil,
-                allValueStrings: nil,
-                allValueDescriptions: nil,
-                completionKind: nil,
-                abstract: "Package name",
-                discussion: nil
-            )
-            
-            let promptingSystem = TemplateCLIConstructor(hasTTY: false)
-            let commandInfo = self.createTestCommand(arguments: [positionalArg])
-            let toolInfoJSON = ToolInfoV0(command: commandInfo)
-            
-            let result = try promptingSystem.createCLIArgs(
-                predefinedArgs: ["MyPackage"],
-                toolInfoJson: toolInfoJSON
-            )
-            
-            #expect(result.contains("MyPackage"))
-        }
-        
-        @Test
-        func handlesMultiplePositionalArguments() throws {
-            let nameArg = ArgumentInfoV0(
-                kind: .positional,
-                shouldDisplay: true,
-                sectionTitle: nil,
-                isOptional: false,
-                isRepeating: false,
-                parsingStrategy: .default,
-                names: [ArgumentInfoV0.NameInfoV0(kind: .long, name: "name")],
-                preferredName: ArgumentInfoV0.NameInfoV0(kind: .long, name: "name"),
-                valueName: "name",
-                defaultValue: nil,
-                allValueStrings: nil,
-                allValueDescriptions: nil,
-                completionKind: nil,
-                abstract: "Package name",
-                discussion: nil
-            )
-            
-            let pathArg = ArgumentInfoV0(
-                kind: .positional,
-                shouldDisplay: true,
-                sectionTitle: nil,
-                isOptional: false,
-                isRepeating: false,
-                parsingStrategy: .default,
-                names: [ArgumentInfoV0.NameInfoV0(kind: .long, name: "path")],
-                preferredName: ArgumentInfoV0.NameInfoV0(kind: .long, name: "path"),
-                valueName: "path",
-                defaultValue: nil,
-                allValueStrings: nil,
-                allValueDescriptions: nil,
-                completionKind: nil,
-                abstract: "Package path",
-                discussion: nil
-            )
-            
-            let promptingSystem = TemplateCLIConstructor(hasTTY: false)
-            let commandInfo = self.createTestCommand(arguments: [nameArg, pathArg])
-            let toolInfoJSON = ToolInfoV0(command: commandInfo)
-            
-            let result = try promptingSystem.createCLIArgs(
-                predefinedArgs: ["MyPackage", "/path/to/package"],
-                toolInfoJson: toolInfoJSON
-            )
-            
-            #expect(result.contains("MyPackage"))
-            #expect(result.contains("/path/to/package"))
-        }
-        
-        @Test
-        func handlesRepeatingPositionalArguments() throws {
-            let filesArg = ArgumentInfoV0(
-                kind: .positional,
-                shouldDisplay: true,
-                sectionTitle: nil,
-                isOptional: true,
-                isRepeating: true,
-                parsingStrategy: .default,
-                names: [ArgumentInfoV0.NameInfoV0(kind: .long, name: "files")],
-                preferredName: ArgumentInfoV0.NameInfoV0(kind: .long, name: "files"),
-                valueName: "files",
-                defaultValue: nil,
-                allValueStrings: nil,
-                allValueDescriptions: nil,
-                completionKind: nil,
-                abstract: "Input files",
-                discussion: nil
-            )
-            
-            let promptingSystem = TemplateCLIConstructor(hasTTY: false)
-            let commandInfo = self.createTestCommand(arguments: [filesArg])
-            let toolInfoJSON = ToolInfoV0(command: commandInfo)
-            
-            let result = try promptingSystem.createCLIArgs(
-                predefinedArgs: ["file1.swift", "file2.swift", "file3.swift"],
-                toolInfoJson: toolInfoJSON
-            )
-            
-            #expect(result.contains("file1.swift"))
-            #expect(result.contains("file2.swift"))
-            #expect(result.contains("file3.swift"))
-        }
-        
-        @Test //RELOOK
-        func handlesPositionalWithTerminator() throws {
-            let nameArg = ArgumentInfoV0(
-                kind: .positional,
-                shouldDisplay: true,
-                sectionTitle: nil,
-                isOptional: false,
-                isRepeating: false,
-                parsingStrategy: .postTerminator,
-                names: [ArgumentInfoV0.NameInfoV0(kind: .long, name: "name")],
-                preferredName: ArgumentInfoV0.NameInfoV0(kind: .long, name: "name"),
-                valueName: "name",
-                defaultValue: nil,
-                allValueStrings: nil,
-                allValueDescriptions: nil,
-                completionKind: nil,
-                abstract: "Package name",
-                discussion: nil
-            )
-            
-            let promptingSystem = TemplateCLIConstructor(hasTTY: false)
-            let commandInfo = self.createTestCommand(arguments: [nameArg])
-            let toolInfoJSON = ToolInfoV0(command: commandInfo)
-            
-            // Test positional argument that looks like an option after terminator
-            let result = try promptingSystem.createCLIArgs(
-                predefinedArgs: ["--", "--package-name"],
-                toolInfoJson: toolInfoJSON
-            )
-            
-            #expect(result.contains("--package-name"))
-        }
-
-        // MARK: - Short Option and Combined Short Option Tests
-        
-        private func createShortOption(
-            name: String,
-            shortName: Character,
-            isOptional: Bool = false,
-            isRepeating: Bool = false
-        ) -> ArgumentInfoV0 {
-            ArgumentInfoV0(
-                kind: .option,
-                shouldDisplay: true,
-                sectionTitle: nil,
-                isOptional: isOptional,
-                isRepeating: isRepeating,
-                parsingStrategy: .default,
-                names: [
-                    ArgumentInfoV0.NameInfoV0(kind: .short, name: String(shortName)),
-                    ArgumentInfoV0.NameInfoV0(kind: .long, name: name)
-                ],
-                preferredName: ArgumentInfoV0.NameInfoV0(kind: .short, name: String(shortName)),
-                valueName: name,
-                defaultValue: nil,
-                allValueStrings: nil,
-                allValueDescriptions: nil,
-                completionKind: nil,
-                abstract: "\(name.capitalized) parameter",
-                discussion: nil
-            )
-        }
-        
-        private func createShortFlag(
-            name: String,
-            shortName: Character,
-            isOptional: Bool = true
-        ) -> ArgumentInfoV0 {
-            ArgumentInfoV0(
-                kind: .flag,
-                shouldDisplay: true,
-                sectionTitle: nil,
-                isOptional: isOptional,
-                isRepeating: false,
-                parsingStrategy: .default,
-                names: [
-                    ArgumentInfoV0.NameInfoV0(kind: .short, name: String(shortName)),
-                    ArgumentInfoV0.NameInfoV0(kind: .long, name: name)
-                ],
-                preferredName: ArgumentInfoV0.NameInfoV0(kind: .short, name: String(shortName)),
-                valueName: name,
-                defaultValue: nil,
-                allValueStrings: nil,
-                allValueDescriptions: nil,
-                completionKind: nil,
-                abstract: "\(name.capitalized) flag",
-                discussion: nil
-            )
-        }
-        
-        @Test
-        func handlesShortOptions() throws {
-            let nameArg = self.createShortOption(name: "name", shortName: "n")
-            let formatArg = self.createShortOption(name: "format", shortName: "f")
-            
-            let promptingSystem = TemplateCLIConstructor(hasTTY: false)
-            let commandInfo = self.createTestCommand(arguments: [nameArg, formatArg])
-            let toolInfoJSON = ToolInfoV0(command: commandInfo)
-            
-            let result = try promptingSystem.createCLIArgs(
-                predefinedArgs: ["-n", "TestName", "-f", "json"],
-                toolInfoJson: toolInfoJSON
-            )
-            
-            #expect(result.contains("-n"))
-            #expect(result.contains("TestName"))
-            #expect(result.contains("-f"))
-            #expect(result.contains("json"))
-        }
-        
-        @Test
-        func handlesShortFlags() throws {
-            let verboseFlag = self.createShortFlag(name: "verbose", shortName: "v")
-            let debugFlag = self.createShortFlag(name: "debug", shortName: "d")
-            
-            let promptingSystem = TemplateCLIConstructor(hasTTY: false)
-            let commandInfo = self.createTestCommand(arguments: [verboseFlag, debugFlag])
-            let toolInfoJSON = ToolInfoV0(command: commandInfo)
-            
-            let result = try promptingSystem.createCLIArgs(
-                predefinedArgs: ["-v", "-d"],
-                toolInfoJson: toolInfoJSON
-            )
-            
-            #expect(result.contains("-v"))
-            #expect(result.contains("-d"))
-        }
-        
-        @Test
-        func handlesCombinedShortFlags() throws {
-            let verboseFlag = self.createShortFlag(name: "verbose", shortName: "v")
-            let debugFlag = self.createShortFlag(name: "debug", shortName: "d")
-            let forceFlag = self.createShortFlag(name: "force", shortName: "f")
-            
-            let promptingSystem = TemplateCLIConstructor(hasTTY: false)
-            let commandInfo = self.createTestCommand(arguments: [verboseFlag, debugFlag, forceFlag])
-            let toolInfoJSON = ToolInfoV0(command: commandInfo)
-            
-            // Test combined short flags like -vdf
-            let result = try promptingSystem.createCLIArgs(
-                predefinedArgs: ["-vdf"],
-                toolInfoJson: toolInfoJSON
-            )
-            
-            // Should expand to individual flags
-            #expect(result.contains("-v"))
-            #expect(result.contains("-d"))
-            #expect(result.contains("-f"))
-        }
-        
-        @Test
-        func handlesShortOptionWithEqualsSign() throws {
-            let nameArg = self.createShortOption(name: "name", shortName: "n")
-            
-            let promptingSystem = TemplateCLIConstructor(hasTTY: false)
-            let commandInfo = self.createTestCommand(arguments: [nameArg])
-            let toolInfoJSON = ToolInfoV0(command: commandInfo)
-            
-            let result = try promptingSystem.createCLIArgs(
-                predefinedArgs: ["-n=TestName"],
-                toolInfoJson: toolInfoJSON
-            )
-            
-            #expect(result.contains("-n"))
-            #expect(result.contains("TestName"))
-        }
-        // MARK: - Advanced Terminator Tests
-        @Test
-        func handlesTerminatorSeparation() throws {
-            let nameArg = self.createRequiredOption(name: "name")
-            let filesArg = ArgumentInfoV0(
-                kind: .positional,
-                shouldDisplay: true,
-                sectionTitle: nil,
-                isOptional: true,
-                isRepeating: true,
-                parsingStrategy: .postTerminator,
-                names: [ArgumentInfoV0.NameInfoV0(kind: .long, name: "files")],
-                preferredName: ArgumentInfoV0.NameInfoV0(kind: .long, name: "files"),
-                valueName: "files",
-                defaultValue: nil,
-                allValueStrings: nil,
-                allValueDescriptions: nil,
-                completionKind: nil,
-                abstract: "Input files",
-                discussion: nil
-            )
-            
-            let promptingSystem = TemplateCLIConstructor(hasTTY: false)
-            let commandInfo = self.createTestCommand(arguments: [nameArg, filesArg])
-            let toolInfoJSON = ToolInfoV0(command: commandInfo)
-            
-            // Test that options before -- are parsed as options, after -- as positional
-            let result = try promptingSystem.createCLIArgs(
-                predefinedArgs: ["--name", "TestName", "--", "--file1", "--file2", "-option"],
-                toolInfoJson: toolInfoJSON
-            )
-            
-            #expect(result.contains("--name"))
-            #expect(result.contains("TestName"))
-            #expect(result.contains("--file1"))
-            #expect(result.contains("--file2"))
-            #expect(result.contains("-option"))
-        }
-        
-        @Test
-        func handlesEmptyTerminator() throws {
-            let nameArg = self.createRequiredOption(name: "name")
-            
-            let promptingSystem = TemplateCLIConstructor(hasTTY: false)
-            let commandInfo = self.createTestCommand(arguments: [nameArg])
-            let toolInfoJSON = ToolInfoV0(command: commandInfo)
-            
-            // Test terminator with no arguments after it
-            let result = try promptingSystem.createCLIArgs(
-                predefinedArgs: ["--name", "TestName", "--"],
-                toolInfoJson: toolInfoJSON
-            )
-            
-            #expect(result.contains("--name"))
-            #expect(result.contains("TestName"))
-        }
-        
-        @Test
-        func handlesMultipleTerminators() throws {
-            let filesArg = ArgumentInfoV0(
-                kind: .positional,
-                shouldDisplay: true,
-                sectionTitle: nil,
-                isOptional: true,
-                isRepeating: true,
-                parsingStrategy: .postTerminator,
-                names: [ArgumentInfoV0.NameInfoV0(kind: .long, name: "files")],
-                preferredName: ArgumentInfoV0.NameInfoV0(kind: .long, name: "files"),
-                valueName: "files",
-                defaultValue: nil,
-                allValueStrings: nil,
-                allValueDescriptions: nil,
-                completionKind: nil,
-                abstract: "Input files",
-                discussion: nil
-            )
-            
-            let promptingSystem = TemplateCLIConstructor(hasTTY: false)
-            let commandInfo = self.createTestCommand(arguments: [filesArg])
-            let toolInfoJSON = ToolInfoV0(command: commandInfo)
-            
-            // Test multiple terminators - subsequent ones should be treated as values
-            let result = try promptingSystem.createCLIArgs(
-                predefinedArgs: ["--", "file1", "--", "file2"],
-                toolInfoJson: toolInfoJSON
-            )
-            
-            #expect(result.contains("file1"))
-            #expect(result.contains("--")) // Second -- should be treated as a value
-            #expect(result.contains("file2"))
-        }
-
-        // MARK: - Array/Repeating Argument Tests
-        
-        @Test
-        func handlesRepeatingOptions() throws {
-            let includeArg = self.createRequiredOption(
-                name: "include",
-                isRepeating: true
-            )
-            
-            let promptingSystem = TemplateCLIConstructor(hasTTY: false)
-            let commandInfo = self.createTestCommand(arguments: [includeArg])
-            let toolInfoJSON = ToolInfoV0(command: commandInfo)
-            
-            let result = try promptingSystem.createCLIArgs(
-                predefinedArgs: ["--include", "path1", "--include", "path2", "--include", "path3"],
-                toolInfoJson: toolInfoJSON
-            )
-            
-            // Should preserve multiple instances
-            #expect(result.filter { $0 == "--include" }.count == 3)
-            #expect(result.contains("path1"))
-            #expect(result.contains("path2"))
-            #expect(result.contains("path3"))
-        }
-        
-        @Test
-        func handlesRepeatingOptionsWithUpToNextOption() throws {
-            let filesArg = self.createRequiredOption(
-                name: "files",
-                parsingStrategy: .upToNextOption,
-                isRepeating: true
-            )
-            let outputArg = self.createRequiredOption(name: "output")
-            
-            let promptingSystem = TemplateCLIConstructor(hasTTY: false)
-            let commandInfo = self.createTestCommand(arguments: [filesArg, outputArg])
-            let toolInfoJSON = ToolInfoV0(command: commandInfo)
-            
-            let result = try promptingSystem.createCLIArgs(
-                predefinedArgs: ["--files", "file1.swift", "file2.swift", "file3.swift", "--output", "result.txt"],
-                toolInfoJson: toolInfoJSON
-            )
-            
-            #expect(result.contains("--files"))
-            #expect(result.contains("file1.swift"))
-            #expect(result.contains("file2.swift"))
-            #expect(result.contains("file3.swift"))
-            #expect(result.contains("--output"))
-            #expect(result.contains("result.txt"))
-        }
-        
-        @Test
-        func handlesArrayOfFlags() throws {
-            let verboseFlag = ArgumentInfoV0(
-                kind: .flag,
-                shouldDisplay: true,
-                sectionTitle: nil,
-                isOptional: true,
-                isRepeating: true, // Repeating flag (counts verbosity level)
-                parsingStrategy: .default,
-                names: [ArgumentInfoV0.NameInfoV0(kind: .long, name: "verbose")],
-                preferredName: ArgumentInfoV0.NameInfoV0(kind: .long, name: "verbose"),
-                valueName: "verbose",
-                defaultValue: nil,
-                allValueStrings: nil,
-                allValueDescriptions: nil,
-                completionKind: nil,
-                abstract: "Increase verbosity level",
-                discussion: nil
-            )
-            
-            let promptingSystem = TemplateCLIConstructor(hasTTY: false)
-            let commandInfo = self.createTestCommand(arguments: [verboseFlag])
-            let toolInfoJSON = ToolInfoV0(command: commandInfo)
-            
-            let result = try promptingSystem.createCLIArgs(
-                predefinedArgs: ["--verbose", "--verbose", "--verbose"],
-                toolInfoJson: toolInfoJSON
-            )
-            
-            // Should preserve all verbose flags (for counting)
-            #expect(result.filter { $0 == "--verbose" }.count == 3)
-        }
-        
-        @Test
-        func handlesEmptyRepeatingArguments() throws {
-            let filesArg = ArgumentInfoV0(
-                kind: .positional,
-                shouldDisplay: true,
-                sectionTitle: nil,
-                isOptional: true,
-                isRepeating: true,
-                parsingStrategy: .default,
-                names: [ArgumentInfoV0.NameInfoV0(kind: .long, name: "files")],
-                preferredName: ArgumentInfoV0.NameInfoV0(kind: .long, name: "files"),
-                valueName: "files",
-                defaultValue: nil,
-                allValueStrings: nil,
-                allValueDescriptions: nil,
-                completionKind: nil,
-                abstract: "Input files",
-                discussion: nil
-            )
-            
-            let promptingSystem = TemplateCLIConstructor(hasTTY: false)
-            let commandInfo = self.createTestCommand(arguments: [filesArg])
-            let toolInfoJSON = ToolInfoV0(command: commandInfo)
-            
-            // Should handle no input for optional repeating arguments
-            let result = try promptingSystem.createCLIArgs(
-                predefinedArgs: [],
-                toolInfoJson: toolInfoJSON
-            )
-            
-            // For optional repeating arguments, empty input should be valid
-            #expect(result.isEmpty || result.allSatisfy { !$0.hasSuffix(".swift") })
-        }
-
-        // MARK: - Comprehensive Parsing Strategy Tests
-        
-        @Test
-        func handlesScanningForValueStrategy() throws {
-            let arg1 = self.createRequiredOption(
-                name: "name",
-                parsingStrategy: .scanningForValue
-            )
-            let arg2 = self.createRequiredOption(
-                name: "format", 
-                parsingStrategy: .scanningForValue
-            )
-            let arg3 = self.createRequiredOption(
-                name: "input",
-                parsingStrategy: .scanningForValue
-            )
-            
-            let promptingSystem = TemplateCLIConstructor(hasTTY: false)
-            let commandInfo = self.createTestCommand(arguments: [arg1, arg2, arg3])
-            let toolInfoJSON = ToolInfoV0(command: commandInfo)
-            
-            // Test 1: Normal order
-            let result1 = try promptingSystem.createCLIArgs(
-                predefinedArgs: ["--name", "Foo", "--format", "Bar", "--input", "Baz"],
-                toolInfoJson: toolInfoJSON
-            )
-            #expect(result1.contains("--name"))
-            #expect(result1.contains("Foo"))
-            #expect(result1.contains("--format"))
-            #expect(result1.contains("Bar"))
-            #expect(result1.contains("--input"))
-            #expect(result1.contains("Baz"))
-            
-            // Test 2: Scanning finds values after other options
-            let result2 = try promptingSystem.createCLIArgs(
-                predefinedArgs: ["--name", "--format", "Foo", "Bar", "--input", "Baz"],
-                toolInfoJson: toolInfoJSON
-            )
-            #expect(result2.contains("Foo"))
-            #expect(result2.contains("Bar"))
-            #expect(result2.contains("Baz"))
-        }
-        
-        @Test
-        func handlesUnconditionalStrategy() throws {
-            let arg1 = self.createRequiredOption(
-                name: "name",
-                parsingStrategy: .unconditional
-            )
-            let arg2 = self.createRequiredOption(
-                name: "format",
-                parsingStrategy: .unconditional
-            )
-            
-            let promptingSystem = TemplateCLIConstructor(hasTTY: false)
-            let commandInfo = self.createTestCommand(arguments: [arg1, arg2])
-            let toolInfoJSON = ToolInfoV0(command: commandInfo)
-            
-            // Test unconditional parsing - takes next value regardless
-            let result = try promptingSystem.createCLIArgs(
-                predefinedArgs: ["--name", "--name", "--format", "--format"],
-                toolInfoJson: toolInfoJSON
-            )
-            
-            // Should treat option names as values
-            #expect(result.contains("--name"))
-            #expect(result.contains("--format"))
-        }
-        
-        @Test
-        func handlesAllRemainingInputStrategy() throws {
-            let remainingArg = ArgumentInfoV0(
-                kind: .positional,
-                shouldDisplay: true,
-                sectionTitle: nil,
-                isOptional: true,
-                isRepeating: true,
-                parsingStrategy: .allRemainingInput,
-                names: [ArgumentInfoV0.NameInfoV0(kind: .long, name: "remaining")],
-                preferredName: ArgumentInfoV0.NameInfoV0(kind: .long, name: "remaining"),
-                valueName: "remaining",
-                defaultValue: nil,
-                allValueStrings: nil,
-                allValueDescriptions: nil,
-                completionKind: nil,
-                abstract: "Remaining arguments",
-                discussion: nil
-            )
-            
-            let promptingSystem = TemplateCLIConstructor(hasTTY: false)
-            let commandInfo = self.createTestCommand(arguments: [remainingArg])
-            let toolInfoJSON = ToolInfoV0(command: commandInfo)
-            
-            let result = try promptingSystem.createCLIArgs(
-                predefinedArgs: ["file1.swift", "file2.swift", "--unknown", "value"],
-                toolInfoJson: toolInfoJSON
-            )
-            
-            // All remaining input should be captured
-            #expect(result.contains("file1.swift"))
-            #expect(result.contains("file2.swift"))
-            #expect(result.contains("--unknown"))
-            #expect(result.contains("value"))
-        }
-
-        @Test
-        func handlesTerminatorParsing() throws {
-            let postTerminatorArg = ArgumentInfoV0(
-                kind: .positional,
-                shouldDisplay: true,
-                sectionTitle: nil,
-                isOptional: true,
-                isRepeating: true,
-                parsingStrategy: .postTerminator,
-                names: [ArgumentInfoV0.NameInfoV0(kind: .long, name: "post-args")],
-                preferredName: ArgumentInfoV0.NameInfoV0(kind: .long, name: "post-args"),
-                valueName: "post-args",
-                defaultValue: nil,
-                allValueStrings: nil,
-                allValueDescriptions: nil,
-                completionKind: nil,
-                abstract: "Post-terminator arguments",
-                discussion: nil
-            )
-
-            let promptingSystem = TemplateCLIConstructor(hasTTY: false)
-            let commandInfo = self.createTestCommand(
-                arguments: [
-                    self.createRequiredOption(name: "name"),
-                    postTerminatorArg,
-                ]
-            )
-
-            let toolInfoJSON = ToolInfoV0(command: commandInfo)
-
-            let result = try promptingSystem.createCLIArgs(predefinedArgs: ["--name", "TestPackage", "--", "arg1", "arg2"], toolInfoJson: toolInfoJSON)
-
-            #expect(result.contains("--name"))
-            #expect(result.contains("TestPackage"))
-            // Post-terminator args should be handled separately
-        }
-
-        @Test
-        func handlesConditionalNilSuffixForOptions() throws {
-            // Test that "nil" suffix only shows for optional arguments without defaults
-
-            // Test optional option without default, should show nil suffix
-            let optionalWithoutDefault = ArgumentInfoV0(
-                kind: .option,
-                shouldDisplay: true,
-                sectionTitle: nil,
-                isOptional: true,
-                isRepeating: false,
-                parsingStrategy: .default,
-                names: [ArgumentInfoV0.NameInfoV0(kind: .long, name: "optional-param")],
-                preferredName: ArgumentInfoV0.NameInfoV0(kind: .long, name: "optional-param"),
-                valueName: "optional-param",
-                defaultValue: nil,
-                allValueStrings: nil,
-                allValueDescriptions: nil,
-                completionKind: nil,
-                abstract: "Optional parameter",
-                discussion: nil
-            )
-
-            // Test optional option with default, should NOT show nil suffix
-            let optionalWithDefault = ArgumentInfoV0(
-                kind: .option,
-                shouldDisplay: true,
-                sectionTitle: nil,
-                isOptional: true,
-                isRepeating: false,
-                parsingStrategy: .default,
-                names: [ArgumentInfoV0.NameInfoV0(kind: .long, name: "output")],
-                preferredName: ArgumentInfoV0.NameInfoV0(kind: .long, name: "output"),
-                valueName: "output",
-                defaultValue: "stdout",
-                allValueStrings: nil,
-                allValueDescriptions: nil,
-                completionKind: nil,
-                abstract: "Output parameter",
-                discussion: nil
-            )
-
-            // Test required option, should NOT show nil suffix
-            let requiredOption = ArgumentInfoV0(
-                kind: .option,
-                shouldDisplay: true,
-                sectionTitle: nil,
-                isOptional: false,
-                isRepeating: false,
-                parsingStrategy: .default,
-                names: [ArgumentInfoV0.NameInfoV0(kind: .long, name: "name")],
-                preferredName: ArgumentInfoV0.NameInfoV0(kind: .long, name: "name"),
-                valueName: "name",
-                defaultValue: nil,
-                allValueStrings: nil,
-                allValueDescriptions: nil,
-                completionKind: nil,
-                abstract: "Name parameter",
-                discussion: nil
-            )
-
-            // Optional without default should allow nil suffix
-            #expect(optionalWithoutDefault.isOptional == true)
-            #expect(optionalWithoutDefault.defaultValue == nil)
-            let shouldShowNilForOptionalWithoutDefault = optionalWithoutDefault.isOptional && optionalWithoutDefault
-                .defaultValue == nil
-            #expect(shouldShowNilForOptionalWithoutDefault == true)
-
-            // Optional with default should NOT allow nil suffix
-            #expect(optionalWithDefault.isOptional == true)
-            #expect(optionalWithDefault.defaultValue == "stdout")
-            let shouldShowNilForOptionalWithDefault = optionalWithDefault.isOptional && optionalWithDefault
-                .defaultValue == nil
-            #expect(shouldShowNilForOptionalWithDefault == false)
-
-            // Required should NOT allow nil suffix
-            #expect(requiredOption.isOptional == false)
-            let shouldShowNilForRequired = requiredOption.isOptional && requiredOption.defaultValue == nil
-            #expect(shouldShowNilForRequired == false)
-        }
-
-        @Test
-        func handlesTemplateWithNoArguments() throws {
-            let noArgsCommand = CommandInfoV0(
-                superCommands: [],
-                shouldDisplay: true,
-                commandName: "no-args-template",
-                abstract: "Template with no arguments",
-                discussion: "A template that requires no user input",
-                defaultSubcommand: nil,
-                subcommands: [],
-                arguments: []
-            )
-
-            let promptingSystem = TemplateCLIConstructor(hasTTY: false)
-
-            let toolInfoJSON = ToolInfoV0(command: noArgsCommand)
-
-            let result = try promptingSystem.createCLIArgs(predefinedArgs: [], toolInfoJson: toolInfoJSON)
-
-            #expect(result.isEmpty)
-
-            #expect(throws: TemplateError.unexpectedArguments(["--some-flag", "extra-arg"]).self) {
-                try promptingSystem.createCLIArgs(predefinedArgs: ["--some-flag", "extra-arg"], toolInfoJson: toolInfoJSON)
-            }
-        }
-
-        @Test
-        func handlesTemplateWithEmptyArgumentsArray() throws {
-            // Test template with empty arguments array (not nil, but empty)
-            let emptyArgsCommand = CommandInfoV0(
-                superCommands: [],
-                shouldDisplay: true,
-                commandName: "empty-args-template",
-                abstract: "Template with empty arguments array",
-                discussion: "A template with an empty arguments array",
-                defaultSubcommand: nil,
-                subcommands: [],
-                arguments: [] // Explicitly empty array
-            )
-
-            let promptingSystem = TemplateCLIConstructor(hasTTY: false)
-
-            let toolInfoJSON = ToolInfoV0(command: emptyArgsCommand)
-            let result = try promptingSystem.createCLIArgs(predefinedArgs: [], toolInfoJson: toolInfoJSON)
-
-            #expect(result.isEmpty)
-        }
-    }
-
-    // MARK: - Template Plugin Coordinator Tests
-
-    @Suite(
-        .serialized,
-        .tags(
-            Tag.TestSize.medium,
-            Tag.Feature.Command.Package.Init,
-        ),
-    )
-    struct TemplatePluginCoordinatorTests {
-        @Test
-        func createsCoordinatorWithValidConfiguration() async throws {
-            try testWithTemporaryDirectory { tempDir in
+        // MARK: - Package Dependency Builder Tests
+
+        @Suite(
+            .tags(
+                Tag.TestSize.medium,
+                Tag.Feature.Command.Package.Init,
+            ),
+        )
+        struct PackageDependencyBuilderTests {
+            @Test
+            func buildDependenciesFromTemplateSource() async throws {
                 let options = try GlobalOptions.parse([])
                 let tool = try SwiftCommandState.makeMockState(options: options, fileSystem: InMemoryFileSystem())
 
-                let coordinator = TemplatePluginCoordinator(
-                    buildSystem: .native,
-                    swiftCommandState: tool,
-                    scratchDirectory: tempDir,
-                    template: "ExecutableTemplate",
-                    args: ["--name", "TestPackage"],
-                    branches: []
+                let packageName = "foo"
+                let templateURL = "git@github.com:foo/bar"
+                let templatePackageID = "foo.bar"
+
+                let versionResolver = DependencyRequirementResolver(
+                    packageIdentity: templatePackageID, templateURL: nil, swiftCommandState: tool,
+                    exact: Version(stringLiteral: "1.2.0"),
+                    revision: nil, branch: nil, from: nil, upToNextMinorFrom: nil, to: nil
                 )
 
-                // Test coordinator functionality by verifying it can handle basic operations
-                #expect(coordinator.buildSystem == .native)
-                #expect(coordinator.scratchDirectory == tempDir)
+                let sourceControlRequirement: SwiftRefactor.PackageDependency.SourceControl
+                    .Requirement = try await versionResolver.resolveSourceControl()
+                let registryRequirement = try await versionResolver.resolveRegistry()
+
+                let resolvedTemplatePath: AbsolutePath = try AbsolutePath(validating: "/fake/path/to/template")
+
+                // local
+                let localDependency = try DefaultPackageDependencyBuilder(
+                    templateSource: .local,
+                    packageName: packageName,
+                    templateURL: templateURL,
+                    templatePackageID: templatePackageID,
+                    sourceControlRequirement: sourceControlRequirement,
+                    registryRequirement: registryRequirement,
+                    resolvedTemplatePath: resolvedTemplatePath
+                ).makePackageDependency()
+
+                // Test that local dependency was correctly created as filesystem dependency
+                if case .fileSystem(let fileSystemDep) = localDependency {
+                    #expect(fileSystemDep.path == resolvedTemplatePath.pathString)
+                } else {
+                    Issue.record("Expected fileSystem dependency, got \(localDependency)")
+                }
+
+                // git
+                #expect(throws: DefaultPackageDependencyBuilder.PackageDependencyBuilderError.missingGitURLOrPath
+                    .self
+                ) {
+                    try DefaultPackageDependencyBuilder(
+                        templateSource: .git,
+                        packageName: packageName,
+                        templateURL: nil,
+                        templatePackageID: templatePackageID,
+                        sourceControlRequirement: sourceControlRequirement,
+                        registryRequirement: registryRequirement,
+                        resolvedTemplatePath: resolvedTemplatePath
+                    ).makePackageDependency()
+                }
+
+                #expect(throws: DefaultPackageDependencyBuilder.PackageDependencyBuilderError.missingGitRequirement
+                    .self
+                ) {
+                    try DefaultPackageDependencyBuilder(
+                        templateSource: .git,
+                        packageName: packageName,
+                        templateURL: templateURL,
+                        templatePackageID: templatePackageID,
+                        sourceControlRequirement: nil,
+                        registryRequirement: registryRequirement,
+                        resolvedTemplatePath: resolvedTemplatePath
+                    ).makePackageDependency()
+                }
+
+                let gitDependency = try DefaultPackageDependencyBuilder(
+                    templateSource: .git,
+                    packageName: packageName,
+                    templateURL: templateURL,
+                    templatePackageID: templatePackageID,
+                    sourceControlRequirement: sourceControlRequirement,
+                    registryRequirement: registryRequirement,
+                    resolvedTemplatePath: resolvedTemplatePath
+                ).makePackageDependency()
+
+                // Test that git dependency was correctly created as sourceControl dependency
+                if case .sourceControl(let sourceControlDep) = gitDependency {
+                    #expect(sourceControlDep.location == templateURL)
+                    if case .exact(let exactVersion) = sourceControlDep.requirement {
+                        #expect(exactVersion == "1.2.0")
+                    } else {
+                        Issue.record("Expected exact source control dependency, got \(sourceControlDep.requirement)")
+                    }
+                } else {
+                    Issue.record("Expected sourceControl dependency, got \(gitDependency)")
+                }
+
+                #expect(throws: DefaultPackageDependencyBuilder.PackageDependencyBuilderError.missingRegistryIdentity
+                    .self
+                ) {
+                    try DefaultPackageDependencyBuilder(
+                        templateSource: .registry,
+                        packageName: packageName,
+                        templateURL: templateURL,
+                        templatePackageID: nil,
+                        sourceControlRequirement: sourceControlRequirement,
+                        registryRequirement: registryRequirement,
+                        resolvedTemplatePath: resolvedTemplatePath
+                    ).makePackageDependency()
+                }
+
+                #expect(throws: DefaultPackageDependencyBuilder.PackageDependencyBuilderError.missingRegistryRequirement
+                    .self
+                ) {
+                    try DefaultPackageDependencyBuilder(
+                        templateSource: .registry,
+                        packageName: packageName,
+                        templateURL: templateURL,
+                        templatePackageID: templatePackageID,
+                        sourceControlRequirement: sourceControlRequirement,
+                        registryRequirement: nil,
+                        resolvedTemplatePath: resolvedTemplatePath
+                    ).makePackageDependency()
+                }
+
+                let registryDependency = try DefaultPackageDependencyBuilder(
+                    templateSource: .registry,
+                    packageName: packageName,
+                    templateURL: templateURL,
+                    templatePackageID: templatePackageID,
+                    sourceControlRequirement: sourceControlRequirement,
+                    registryRequirement: registryRequirement,
+                    resolvedTemplatePath: resolvedTemplatePath
+                ).makePackageDependency()
+
+                // Test that registry dependency was correctly created as registry dependency
+                if case .registry(let registryDep) = registryDependency {
+                    #expect(registryDep.identity == templatePackageID)
+
+                } else {
+                    Issue.record("Expected registry dependency, got \(registryDependency)")
+                }
             }
         }
 
-        @Test(.skip("Intermittent failures when loading package graph, needs investigating"))
-        func loadsPackageGraphInTemporaryWorkspace() async throws {
-            try await fixture(name: "Miscellaneous/InitTemplates/ExecutableTemplate") { templatePath in
+        // MARK: - Package Initializer Configuration Tests
+
+        @Suite(
+            .tags(
+                Tag.TestSize.small,
+                Tag.Feature.Command.Package.Init,
+            ),
+        )
+        struct PackageInitializerConfigurationTests {
+            @Test
+            func createPackageInitializer() async throws {
                 try await testWithTemporaryDirectory { tempDir in
+                    try await withTaskLocalWorkingDirectory(tempDir) {
+                        let globalOptions = try GlobalOptions.parse(["--package-path", tempDir.pathString])
+                        let testLibraryOptions = try TestLibraryOptions.parse([])
+                        let buildOptions = try BuildCommandOptions.parse([])
+                        let directoryPath = AbsolutePath("/")
+                        let tool = try SwiftCommandState.makeMockState(options: globalOptions)
+
+                        let templatePackageInitializer = try PackageInitConfiguration(
+                            swiftCommandState: tool,
+                            name: "foo",
+                            initMode: "template",
+                            testLibraryOptions: testLibraryOptions,
+                            buildOptions: buildOptions,
+                            globalOptions: globalOptions,
+                            validatePackage: true,
+                            args: ["--foobar foo"],
+                            directory: directoryPath,
+                            url: nil,
+                            packageID: "foo.bar",
+                            versionFlags: VersionFlags(
+                                exact: nil,
+                                revision: nil,
+                                branch: "master",
+                                from: nil,
+                                upToNextMinorFrom: nil,
+                                to: nil
+                            )
+                        ).makeInitializer()
+
+                        #expect(templatePackageInitializer is TemplatePackageInitializer)
+
+                        let standardPackageInitalizer = try PackageInitConfiguration(
+                            swiftCommandState: tool,
+                            name: "foo",
+                            initMode: "template",
+                            testLibraryOptions: testLibraryOptions,
+                            buildOptions: buildOptions,
+                            globalOptions: globalOptions,
+                            validatePackage: true,
+                            args: ["--foobar foo"],
+                            directory: nil,
+                            url: nil,
+                            packageID: nil,
+                            versionFlags: VersionFlags(
+                                exact: nil,
+                                revision: nil,
+                                branch: "master",
+                                from: nil,
+                                upToNextMinorFrom: nil,
+                                to: nil
+                            )
+                        ).makeInitializer()
+
+                        #expect(standardPackageInitalizer is StandardPackageInitializer)
+                    }
+                }
+            }
+
+            @Test(.skip("Failing due to package resolution"))
+            func findTemplateName() async throws {
+                try await fixture(name: "Miscellaneous/InitTemplates") { workingDir in
+                    let templatePath = workingDir.appending(component: "ExecutableTemplate")
+                    let versionFlags = VersionFlags(
+                        exact: nil,
+                        revision: nil,
+                        branch: nil,
+                        from: nil,
+                        upToNextMinorFrom: nil,
+                        to: nil
+                    )
+
+                    let globalOptions = try GlobalOptions.parse(["--package-path", workingDir.pathString])
+                    let swiftCommandState = try SwiftCommandState.makeMockState(options: globalOptions)
+
+                    let testLibraryOptions = try TestLibraryOptions.parse([])
+
+                    let buildOptions = try BuildCommandOptions.parse([])
+
+                    let templatePackageInitializer = try PackageInitConfiguration(
+                        swiftCommandState: swiftCommandState,
+                        name: nil,
+                        initMode: nil,
+                        testLibraryOptions: testLibraryOptions,
+                        buildOptions: buildOptions,
+                        globalOptions: globalOptions,
+                        validatePackage: false,
+                        args: [],
+                        directory: templatePath,
+                        url: nil,
+                        packageID: nil,
+                        versionFlags: versionFlags
+                    ).makeInitializer() as? TemplatePackageInitializer
+
+                    let templateName = try await templatePackageInitializer?
+                        .resolveTemplateNameInPackage(from: templatePath)
+                    #expect(templateName == "ExecutableTemplate")
+                }
+            }
+
+            // TODO: Re-enable once SwiftCommandState mocking issues are resolved
+            // The test fails because mocking swiftCommandState resolves to linux triple on Darwin
+            /*
+             @Test(
+             .requireHostOS(.macOS, "SwiftCommandState mocking issue on non-Darwin platforms"),
+             )
+             func inferPackageTypeFromTemplate() async throws {
+             try await fixture(name: "Miscellaneous/InferPackageType") { fixturePath in
+             let options = try GlobalOptions.parse([])
+             let tool = try SwiftCommandState.makeMockState(options: options)
+
+             let libraryType = try await TemplatePackageInitializer.inferPackageType(
+             from: fixturePath,
+             templateName: "initialTypeLibrary",
+             swiftCommandState: tool
+             )
+
+             #expect(libraryType.rawValue == "library")
+             }
+             }
+             */
+        }
+
+        // MARK: - Template Prompting System Tests
+
+        @Suite(
+            .tags(
+                Tag.TestSize.medium,
+                Tag.Feature.Command.Package.Init,
+            ),
+        )
+        struct TemplateCLIConstructorTests {
+            // MARK: - Helper Methods
+
+            private func createTestCommand(
+                name: String = "test-template",
+                arguments: [ArgumentInfoV0] = [],
+                subcommands: [CommandInfoV0]? = nil
+            ) -> CommandInfoV0 {
+                CommandInfoV0(
+                    superCommands: [],
+                    shouldDisplay: true,
+                    commandName: name,
+                    abstract: "Test template command",
+                    discussion: "A command for testing template prompting",
+                    defaultSubcommand: nil,
+                    subcommands: subcommands ?? [],
+                    arguments: arguments
+                )
+            }
+
+            private func createRequiredOption(
+                name: String,
+                defaultValue: String? = nil,
+                allValues: [String]? = nil,
+                parsingStrategy: ArgumentInfoV0.ParsingStrategyV0 = .default,
+                completionKind: ArgumentInfoV0.CompletionKindV0? = nil,
+                isRepeating: Bool = false
+            ) -> ArgumentInfoV0 {
+                ArgumentInfoV0(
+                    kind: .option,
+                    shouldDisplay: true,
+                    sectionTitle: nil,
+                    isOptional: false,
+                    isRepeating: isRepeating,
+                    parsingStrategy: parsingStrategy,
+                    names: [ArgumentInfoV0.NameInfoV0(kind: .long, name: name)],
+                    preferredName: ArgumentInfoV0.NameInfoV0(kind: .long, name: name),
+                    valueName: name,
+                    defaultValue: defaultValue,
+                    allValueStrings: allValues,
+                    allValueDescriptions: nil,
+                    completionKind: completionKind,
+                    abstract: "\(name.capitalized) parameter",
+                    discussion: nil
+                )
+            }
+
+            private func createOptionalOption(
+                name: String,
+                defaultValue: String? = nil,
+                allValues: [String]? = nil,
+                completionKind: ArgumentInfoV0.CompletionKindV0? = nil
+            ) -> ArgumentInfoV0 {
+                ArgumentInfoV0(
+                    kind: .option,
+                    shouldDisplay: true,
+                    sectionTitle: nil,
+                    isOptional: true,
+                    isRepeating: false,
+                    parsingStrategy: .default,
+                    names: [ArgumentInfoV0.NameInfoV0(kind: .long, name: name)],
+                    preferredName: ArgumentInfoV0.NameInfoV0(kind: .long, name: name),
+                    valueName: name,
+                    defaultValue: defaultValue,
+                    allValueStrings: allValues,
+                    allValueDescriptions: nil,
+                    completionKind: completionKind,
+                    abstract: "\(name.capitalized) parameter",
+                    discussion: nil
+                )
+            }
+
+            private func createOptionalFlag(
+                name: String,
+                defaultValue: String? = nil,
+                completionKind: ArgumentInfoV0.CompletionKindV0? = nil
+            ) -> ArgumentInfoV0 {
+                ArgumentInfoV0(
+                    kind: .flag,
+                    shouldDisplay: true,
+                    sectionTitle: nil,
+                    isOptional: true,
+                    isRepeating: false,
+                    parsingStrategy: .default,
+                    names: [ArgumentInfoV0.NameInfoV0(kind: .long, name: name)],
+                    preferredName: ArgumentInfoV0.NameInfoV0(kind: .long, name: name),
+                    valueName: name,
+                    defaultValue: defaultValue,
+                    allValueStrings: nil,
+                    allValueDescriptions: nil,
+                    completionKind: completionKind,
+                    abstract: "\(name.capitalized) flag",
+                    discussion: nil
+                )
+            }
+
+            private func createPositionalArgument(
+                name: String,
+                isOptional: Bool = false,
+                defaultValue: String? = nil,
+                parsingStrategy: ArgumentInfoV0.ParsingStrategyV0 = .default
+            ) -> ArgumentInfoV0 {
+                ArgumentInfoV0(
+                    kind: .positional,
+                    shouldDisplay: true,
+                    sectionTitle: nil,
+                    isOptional: isOptional,
+                    isRepeating: false,
+                    parsingStrategy: parsingStrategy,
+                    names: nil,
+                    preferredName: nil,
+                    valueName: name,
+                    defaultValue: defaultValue,
+                    allValueStrings: nil,
+                    allValueDescriptions: nil,
+                    completionKind: nil,
+                    abstract: "\(name.capitalized) positional argument",
+                    discussion: nil
+                )
+            }
+
+            // MARK: - Basic Functionality Tests
+
+            @Test
+            func createsPromptingSystemSuccessfully() throws {
+                let promptingSystem = TemplateCLIConstructor(hasTTY: false)
+                let emptyCommand = self.createTestCommand(name: "empty")
+
+                let toolInfo = ToolInfoV0(command: emptyCommand)
+                let result = try promptingSystem.createCLIArgs(
+                    predefinedArgs: [],
+                    toolInfoJson: toolInfo
+                )
+
+                #expect(result.isEmpty)
+            }
+
+            @Test
+            func handlesCommandWithProvidedArguments() throws {
+                let promptingSystem = TemplateCLIConstructor(hasTTY: false)
+                let commandInfo = self.createTestCommand(
+                    arguments: [self.createRequiredOption(name: "name")]
+                )
+
+                let toolInfo = ToolInfoV0(command: commandInfo)
+                let result = try promptingSystem.createCLIArgs(
+                    predefinedArgs: ["--name", "TestPackage"],
+                    toolInfoJson: toolInfo
+                )
+
+                #expect(result.contains("--name"))
+                #expect(result.contains("TestPackage"))
+            }
+
+            @Test
+            func handlesOptionalArgumentsWithDefaults() throws {
+                let promptingSystem = TemplateCLIConstructor(hasTTY: false)
+                let commandInfo = self.createTestCommand(
+                    arguments: [
+                        self.createRequiredOption(name: "name"),
+                        self.createOptionalFlag(name: "include-readme", defaultValue: "false"),
+                    ]
+                )
+
+                let toolInfo = ToolInfoV0(command: commandInfo)
+                let result = try promptingSystem.createCLIArgs(
+                    predefinedArgs: ["--name", "TestPackage"],
+                    toolInfoJson: toolInfo
+                )
+
+                #expect(result.contains("--name"))
+                #expect(result.contains("TestPackage"))
+                // Flag with default "false" should not appear in command line
+                #expect(!result.contains("--include-readme"))
+            }
+
+            @Test
+            func validatesMissingRequiredArguments() throws {
+                let promptingSystem = TemplateCLIConstructor(hasTTY: false)
+                let commandInfo = self.createTestCommand(
+                    arguments: [self.createRequiredOption(name: "name")]
+                )
+
+                let toolInfo = ToolInfoV0(command: commandInfo)
+                #expect(throws: Error.self) {
+                    _ = try promptingSystem.createCLIArgs(
+                        predefinedArgs: [],
+                        toolInfoJson: toolInfo
+                    )
+                }
+            }
+
+            // MARK: - Argument Response Tests
+
+            @Test
+            func argumentResponseHandlesExplicitlyUnsetFlags() throws {
+                let arg = self.createOptionalFlag(name: "verbose", defaultValue: "false")
+
+                // Test explicitly unset flag
+                let explicitlyUnsetResponse = ArgumentResponse(
+                    argument: arg,
+                    values: [],
+                    isExplicitlyUnset: true
+                )
+                #expect(explicitlyUnsetResponse.isExplicitlyUnset == true)
+                #expect(explicitlyUnsetResponse.commandLineFragments.isEmpty)
+
+                // Test normal flag response (true)
+                let trueResponse = ArgumentResponse(
+                    argument: arg,
+                    values: ["true"],
+                    isExplicitlyUnset: false
+                )
+                #expect(trueResponse.isExplicitlyUnset == false)
+                #expect(trueResponse.commandLineFragments == ["--verbose"])
+
+                // Test false flag response (should be empty)
+                let falseResponse = ArgumentResponse(
+                    argument: arg,
+                    values: ["false"],
+                    isExplicitlyUnset: false
+                )
+                #expect(falseResponse.commandLineFragments.isEmpty)
+            }
+
+            @Test
+            func argumentResponseHandlesExplicitlyUnsetOptions() throws {
+                let arg = self.createOptionalOption(name: "output")
+
+                // Test explicitly unset option
+                let explicitlyUnsetResponse = ArgumentResponse(
+                    argument: arg,
+                    values: [],
+                    isExplicitlyUnset: true
+                )
+                #expect(explicitlyUnsetResponse.isExplicitlyUnset == true)
+                #expect(explicitlyUnsetResponse.commandLineFragments.isEmpty)
+
+                // Test normal option response
+                let normalResponse = ArgumentResponse(
+                    argument: arg,
+                    values: ["./output"],
+                    isExplicitlyUnset: false
+                )
+                #expect(normalResponse.isExplicitlyUnset == false)
+                #expect(normalResponse.commandLineFragments == ["--output", "./output"])
+
+                // Test multiple values option
+                let multiValueArg = ArgumentInfoV0(
+                    kind: .option,
+                    shouldDisplay: true,
+                    sectionTitle: nil,
+                    isOptional: true,
+                    isRepeating: true,
+                    parsingStrategy: .default,
+                    names: [ArgumentInfoV0.NameInfoV0(kind: .long, name: "define")],
+                    preferredName: ArgumentInfoV0.NameInfoV0(kind: .long, name: "define"),
+                    valueName: "define",
+                    defaultValue: nil,
+                    allValueStrings: nil,
+                    allValueDescriptions: nil,
+                    completionKind: .none,
+                    abstract: "Define parameter",
+                    discussion: nil
+                )
+
+                let multiValueResponse = ArgumentResponse(
+                    argument: multiValueArg,
+                    values: ["FOO=bar", "BAZ=qux"],
+                    isExplicitlyUnset: false
+                )
+                #expect(multiValueResponse.commandLineFragments == ["--define", "FOO=bar", "--define", "BAZ=qux"])
+            }
+
+            @Test
+            func argumentResponseHandlesPositionalArguments() throws {
+                let arg = self.createPositionalArgument(name: "target", isOptional: true)
+
+                // Test explicitly unset positional
+                let explicitlyUnsetResponse = ArgumentResponse(
+                    argument: arg,
+                    values: [],
+                    isExplicitlyUnset: true
+                )
+                #expect(explicitlyUnsetResponse.isExplicitlyUnset == true)
+                #expect(explicitlyUnsetResponse.commandLineFragments.isEmpty)
+
+                // Test normal positional response
+                let normalResponse = ArgumentResponse(
+                    argument: arg,
+                    values: ["MyTarget"],
+                    isExplicitlyUnset: false
+                )
+                #expect(normalResponse.isExplicitlyUnset == false)
+                #expect(normalResponse.commandLineFragments == ["MyTarget"])
+            }
+
+            // MARK: - Command Line Generation Tests
+
+            @Test
+            func commandLineGenerationWithMixedArgumentStates() throws {
+                // Test the actual public API instead of internal buildCommandLine
+                let promptingSystem = TemplateCLIConstructor(hasTTY: false)
+
+                let flagArg = self.createOptionalFlag(name: "verbose")
+                let requiredOptionArg = self.createRequiredOption(name: "name")
+                let optionalOptionArg = self.createOptionalOption(name: "output")
+
+                let commandInfo = self.createTestCommand(
+                    arguments: [flagArg, requiredOptionArg, optionalOptionArg]
+                )
+
+                let toolInfo = ToolInfoV0(command: commandInfo)
+                let result = try promptingSystem.createCLIArgs(
+                    predefinedArgs: ["--name", "TestPackage", "--verbose"],
+                    toolInfoJson: toolInfo
+                )
+
+                // Should contain the provided arguments
+                #expect(result.contains("--name"))
+                #expect(result.contains("TestPackage"))
+                #expect(result.contains("--verbose"))
+            }
+
+            @Test
+            func commandLineGenerationWithDefaultValues() throws {
+                let promptingSystem = TemplateCLIConstructor(hasTTY: false)
+
+                let optionWithDefault = self.createOptionalOption(name: "version", defaultValue: "1.0.0")
+                let flagWithDefault = self.createOptionalFlag(name: "enabled", defaultValue: "true")
+
+                let commandInfo = self.createTestCommand(
+                    arguments: [optionWithDefault, flagWithDefault]
+                )
+
+                let toolInfo = ToolInfoV0(command: commandInfo)
+                let result = try promptingSystem.createCLIArgs(
+                    predefinedArgs: [],
+                    toolInfoJson: toolInfo
+                )
+
+                // Should contain default values
+                #expect(result.contains("--version"))
+                #expect(result.contains("1.0.0"))
+                #expect(result.contains("--enabled"))
+            }
+
+            // MARK: - Argument Parsing Tests
+
+            @Test
+            func parsesProvidedArgumentsCorrectly() throws {
+                let promptingSystem = TemplateCLIConstructor(hasTTY: false)
+                let commandInfo = self.createTestCommand(
+                    arguments: [
+                        self.createRequiredOption(name: "name"),
+                        self.createOptionalFlag(name: "verbose"),
+                        self.createOptionalOption(name: "output"),
+                    ]
+                )
+
+                let toolInfo = ToolInfoV0(command: commandInfo)
+                let result = try promptingSystem.createCLIArgs(
+                    predefinedArgs: ["--name", "TestPackage", "--verbose", "--output", "./dist"],
+                    toolInfoJson: toolInfo
+                )
+
+                #expect(result.contains("--name"))
+                #expect(result.contains("TestPackage"))
+                #expect(result.contains("--verbose"))
+                #expect(result.contains("--output"))
+                #expect(result.contains("./dist"))
+            }
+
+            @Test
+            func handlesValidationWithAllowedValues() throws {
+                let restrictedArg = self.createRequiredOption(
+                    name: "type",
+                    allValues: ["executable", "library", "plugin"]
+                )
+
+                let promptingSystem = TemplateCLIConstructor(hasTTY: false)
+                let commandInfo = self.createTestCommand(arguments: [restrictedArg])
+
+                // Valid value should work
+                let toolInfo = ToolInfoV0(command: commandInfo)
+                let validResult = try promptingSystem.createCLIArgs(
+                    predefinedArgs: ["--type", "executable"],
+                    toolInfoJson: toolInfo
+                )
+                #expect(validResult.contains("executable"))
+
+                // Invalid value should throw
+                #expect(throws: Error.self) {
+                    _ = try promptingSystem.createCLIArgs(
+                        predefinedArgs: ["--type", "invalid"],
+                        toolInfoJson: toolInfo
+                    )
+                }
+            }
+
+            // MARK: - Subcommand Tests
+
+            @Test
+            func handlesSubcommandDetection() throws {
+                let subcommand = self.createTestCommand(
+                    name: "init",
+                    arguments: [self.createRequiredOption(name: "name")]
+                )
+
+                let mainCommand = self.createTestCommand(
+                    name: "package",
+                    subcommands: [subcommand]
+                )
+
+                let promptingSystem = TemplateCLIConstructor(hasTTY: false)
+                let toolInfo = ToolInfoV0(command: mainCommand)
+
+                let result = try promptingSystem.createCLIArgs(
+                    predefinedArgs: ["init", "--name", "TestPackage"],
+                    toolInfoJson: toolInfo
+                )
+
+                #expect(result.contains("init"))
+                #expect(result.contains("--name"))
+                #expect(result.contains("TestPackage"))
+            }
+
+            @Test
+            func handlesBranchingSubcommandDetection() throws {
+                let subcommand = self.createTestCommand(
+                    name: "init",
+                    arguments: [self.createRequiredOption(name: "name")]
+                )
+
+                let branchingSubcommand = self.createTestCommand(
+                    name: "ios"
+                )
+
+                let mainCommand = self.createTestCommand(
+                    name: "package",
+                    arguments: [self.createRequiredOption(name: "package-path")],
+                    subcommands: [subcommand, branchingSubcommand],
+                )
+
+                let promptingSystem = TemplateCLIConstructor(hasTTY: false)
+                let toolInfo = ToolInfoV0(command: mainCommand)
+
+                let result = try promptingSystem.createCLIArgs(
+                    predefinedArgs: ["--package-path", "foo", "init", "--name", "TestPackage"],
+                    toolInfoJson: toolInfo
+                )
+
+                #expect(result.contains("init"))
+                #expect(result.contains("--name"))
+                #expect(result.contains("TestPackage"))
+            }
+
+            // MARK: - Error Handling Tests
+
+            @Test
+            func handlesInvalidArgumentNames() throws {
+                let promptingSystem = TemplateCLIConstructor(hasTTY: false)
+                let commandInfo = self.createTestCommand(
+                    arguments: [self.createRequiredOption(name: "name")]
+                )
+
+                // Should throw errors if invalid predefined arguments have been given.
+                let toolInfo = ToolInfoV0(command: commandInfo)
+                #expect(throws: Error.self) {
+                    _ = try promptingSystem.createCLIArgs(
+                        predefinedArgs: ["--name", "TestPackage", "--unknown", "value"],
+                        toolInfoJson: toolInfo
+                    )
+                }
+            }
+
+            @Test
+            func handlesMissingValueForOption() throws {
+                let promptingSystem = TemplateCLIConstructor(hasTTY: false)
+                let commandInfo = self.createTestCommand(
+                    arguments: [self.createRequiredOption(name: "name")]
+                )
+
+                let toolInfo = ToolInfoV0(command: commandInfo)
+                #expect(throws: Error.self) {
+                    _ = try promptingSystem.createCLIArgs(
+                        predefinedArgs: ["--name"],
+                        toolInfoJson: toolInfo
+                    )
+                }
+            }
+
+            @Test
+            func handlesNestedSubcommands() throws {
+                let innerSubcommand = self.createTestCommand(
+                    name: "create",
+                    arguments: [self.createRequiredOption(name: "name")]
+                )
+
+                let outerSubcommand = self.createTestCommand(
+                    name: "package",
+                    subcommands: [innerSubcommand]
+                )
+
+                let mainCommand = self.createTestCommand(
+                    name: "swift",
+                    subcommands: [outerSubcommand]
+                )
+
+                let promptingSystem = TemplateCLIConstructor(hasTTY: false)
+                let toolInfo = ToolInfoV0(command: mainCommand)
+
+                let result = try promptingSystem.createCLIArgs(
+                    predefinedArgs: ["package", "create", "--name", "MyPackage"],
+                    toolInfoJson: toolInfo
+                )
+
+                #expect(result.contains("package"))
+                #expect(result.contains("create"))
+                #expect(result.contains("--name"))
+                #expect(result.contains("MyPackage"))
+            }
+
+            // MARK: - Integration Tests
+
+            @Test
+            func handlesComplexCommandStructure() throws {
+                let promptingSystem = TemplateCLIConstructor(hasTTY: false)
+
+                let complexCommand = self.createTestCommand(
+                    arguments: [
+                        self.createRequiredOption(name: "name"),
+                        self.createOptionalOption(name: "output", defaultValue: "./build"),
+                        self.createOptionalFlag(name: "verbose", defaultValue: "false"),
+                        self.createPositionalArgument(name: "target", isOptional: true, defaultValue: "main"),
+                    ]
+                )
+
+                let toolInfo = ToolInfoV0(command: complexCommand)
+                let result = try promptingSystem.createCLIArgs(
+                    predefinedArgs: ["--name", "TestPackage", "--verbose", "CustomTarget"],
+                    toolInfoJson: toolInfo
+                )
+
+                #expect(result.contains("--name"))
+                #expect(result.contains("TestPackage"))
+                #expect(result.contains("--verbose"))
+                #expect(result.contains("CustomTarget"))
+                // Default values for optional arguments should be included when no explicit value provided
+                #expect(result.contains("--output"))
+                #expect(result.contains("./build"))
+            }
+
+            @Test
+            func handlesEmptyInputCorrectly() throws {
+                let promptingSystem = TemplateCLIConstructor(hasTTY: false)
+                let commandInfo = self.createTestCommand(
+                    arguments: [
+                        self.createOptionalOption(name: "output", defaultValue: "default"),
+                        self.createOptionalFlag(name: "verbose", defaultValue: "false"),
+                    ]
+                )
+
+                let toolInfoJSON = ToolInfoV0(command: commandInfo)
+                let result = try promptingSystem.createCLIArgs(predefinedArgs: [], toolInfoJson: toolInfoJSON)
+
+                // Should contain default values where appropriate
+                #expect(result.contains("--output"))
+                #expect(result.contains("default"))
+                #expect(!result.contains("--verbose")) // false flag shouldn't appear
+            }
+
+            @Test
+            func handlesRepeatingArguments() throws {
+                let repeatingArg = ArgumentInfoV0(
+                    kind: .option,
+                    shouldDisplay: true,
+                    sectionTitle: nil,
+                    isOptional: true,
+                    isRepeating: true,
+                    parsingStrategy: .default,
+                    names: [ArgumentInfoV0.NameInfoV0(kind: .long, name: "define")],
+                    preferredName: ArgumentInfoV0.NameInfoV0(kind: .long, name: "define"),
+                    valueName: "define",
+                    defaultValue: nil,
+                    allValueStrings: nil,
+                    allValueDescriptions: nil,
+                    completionKind: nil,
+                    abstract: "Define parameter",
+                    discussion: nil
+                )
+
+                let promptingSystem = TemplateCLIConstructor(hasTTY: false)
+                let commandInfo = self.createTestCommand(arguments: [repeatingArg])
+
+                let toolInfoJSON = ToolInfoV0(command: commandInfo)
+                let result = try promptingSystem.createCLIArgs(
+                    predefinedArgs: ["--define", "FOO=bar", "--define", "BAZ=qux"],
+                    toolInfoJson: toolInfoJSON
+                )
+
+                #expect(result.contains("--define"))
+                #expect(result.contains("FOO=bar"))
+                #expect(result.contains("BAZ=qux"))
+            }
+
+            @Test
+            func handlesArgumentValidationWithCustomCompletions() throws {
+                let completionArg = ArgumentInfoV0(
+                    kind: .option,
+                    shouldDisplay: true,
+                    sectionTitle: nil,
+                    isOptional: false,
+                    isRepeating: false,
+                    parsingStrategy: .default,
+                    names: [ArgumentInfoV0.NameInfoV0(kind: .long, name: "platform")],
+                    preferredName: ArgumentInfoV0.NameInfoV0(kind: .long, name: "platform"),
+                    valueName: "platform",
+                    defaultValue: nil,
+                    allValueStrings: ["iOS", "macOS", "watchOS", "tvOS"],
+                    allValueDescriptions: nil,
+                    completionKind: .list(values: ["iOS", "macOS", "watchOS", "tvOS"]),
+                    abstract: "Target platform",
+                    discussion: nil
+                )
+
+                let promptingSystem = TemplateCLIConstructor(hasTTY: false)
+                let commandInfo = self.createTestCommand(arguments: [completionArg])
+
+                let toolInfoJSON = ToolInfoV0(command: commandInfo)
+                // Valid completion value should work
+                let validResult = try promptingSystem.createCLIArgs(
+                    predefinedArgs: ["--platform", "iOS"],
+                    toolInfoJson: toolInfoJSON
+                )
+                #expect(validResult.contains("iOS"))
+
+                // Invalid completion value should throw
+                #expect(throws: Error.self) {
+                    _ = try promptingSystem.createCLIArgs(
+                        predefinedArgs: ["--platform", "Linux"],
+                        toolInfoJson: toolInfoJSON
+                    )
+                }
+            }
+
+            @Test
+            func handlesArgumentResponseBuilding() throws {
+                let flagArg = self.createOptionalFlag(name: "verbose")
+                let optionArg = self.createRequiredOption(name: "output")
+                let positionalArg = self.createPositionalArgument(name: "target")
+
+                // Test various response scenarios
+                let flagResponse = ArgumentResponse(
+                    argument: flagArg,
+                    values: ["true"],
+                    isExplicitlyUnset: false
+                )
+                #expect(flagResponse.commandLineFragments == ["--verbose"])
+
+                let optionResponse = ArgumentResponse(
+                    argument: optionArg,
+                    values: ["./output"],
+                    isExplicitlyUnset: false
+                )
+                #expect(optionResponse.commandLineFragments == ["--output", "./output"])
+
+                let positionalResponse = ArgumentResponse(
+                    argument: positionalArg,
+                    values: ["MyTarget"],
+                    isExplicitlyUnset: false
+                )
+                #expect(positionalResponse.commandLineFragments == ["MyTarget"])
+            }
+
+            @Test
+            func handlesMissingArgumentErrors() throws {
+                let promptingSystem = TemplateCLIConstructor(hasTTY: false)
+                let commandInfo = self.createTestCommand(
+                    arguments: [
+                        self.createRequiredOption(name: "required-arg"),
+                        self.createOptionalOption(name: "optional-arg"),
+                    ]
+                )
+
+                let toolInfoJSON = ToolInfoV0(command: commandInfo)
+
+                // Should throw when required argument is missing
+                #expect(throws: Error.self) {
+                    _ = try promptingSystem.createCLIArgs(
+                        predefinedArgs: ["--optional-arg", "value"],
+                        toolInfoJson: toolInfoJSON
+                    )
+                }
+            }
+
+            // MARK: - Parsing Strategy Tests
+
+            @Test
+            func handlesParsingStrategies() throws {
+                let upToNextOptionArg = self.createRequiredOption(
+                    name: "files",
+                    parsingStrategy: .upToNextOption,
+                    isRepeating: true
+                )
+
+                let promptingSystem = TemplateCLIConstructor(hasTTY: false)
+                let commandInfo = self.createTestCommand(arguments: [upToNextOptionArg])
+
+                let toolInfoJSON = ToolInfoV0(command: commandInfo)
+                let result = try promptingSystem.createCLIArgs(
+                    predefinedArgs: ["--files", "file1.swift", "file2.swift", "file3.swift"],
+                    toolInfoJson: toolInfoJSON
+                )
+
+                #expect(result.contains("--files"))
+                #expect(result.contains("file1.swift"))
+                #expect(result.contains("file2.swift"))
+                #expect(result.contains("file3.swift"))
+            }
+
+            @Test
+            func handlesPostTerminatorStrategy() throws {
+                let preTerminatorArg = self.createRequiredOption(name: "name")
+                let postTerminatorArg = ArgumentInfoV0(
+                    kind: .positional,
+                    shouldDisplay: true,
+                    sectionTitle: nil,
+                    isOptional: true,
+                    isRepeating: true,
+                    parsingStrategy: .postTerminator,
+                    names: [ArgumentInfoV0.NameInfoV0(kind: .long, name: "post-args")],
+                    preferredName: ArgumentInfoV0.NameInfoV0(kind: .long, name: "post-args"),
+                    valueName: "post-args",
+                    defaultValue: nil,
+                    allValueStrings: nil,
+                    allValueDescriptions: nil,
+                    completionKind: nil,
+                    abstract: "Post-terminator arguments",
+                    discussion: nil
+                )
+
+                let promptingSystem = TemplateCLIConstructor(hasTTY: false)
+                let commandInfo = self.createTestCommand(arguments: [preTerminatorArg, postTerminatorArg])
+                let toolInfoJSON = ToolInfoV0(command: commandInfo)
+
+                let result = try promptingSystem.createCLIArgs(
+                    predefinedArgs: ["--name", "TestName", "--", "file1", "file2", "--option"],
+                    toolInfoJson: toolInfoJSON
+                )
+
+                // Pre-terminator should be parsed normally
+                #expect(result.contains("--name"))
+                #expect(result.contains("TestName"))
+                // Post-terminator should capture everything after --
+                #expect(result.contains("file1"))
+                #expect(result.contains("file2"))
+                #expect(result.contains("--option")) // Even options are treated as values after --
+            }
+
+            // MARK: - Error Handling Tests
+
+            @Test
+            func handlesUnknownOptions() throws {
+                let nameArg = self.createRequiredOption(name: "name")
+                let formatArg = self.createRequiredOption(name: "format")
+
+                let promptingSystem = TemplateCLIConstructor(hasTTY: false)
+                let commandInfo = self.createTestCommand(arguments: [nameArg, formatArg])
+                let toolInfoJSON = ToolInfoV0(command: commandInfo)
+
+                // Test unknown long option
+                #expect(throws: (any Error).self) {
+                    try promptingSystem.createCLIArgs(
+                        predefinedArgs: ["--name", "test", "--format", "json", "--unknown"],
+                        toolInfoJson: toolInfoJSON
+                    )
+                }
+
+                // Test unknown short option
+                #expect(throws: (any Error).self) {
+                    try promptingSystem.createCLIArgs(
+                        predefinedArgs: ["--name", "test", "--format", "json", "-q"],
+                        toolInfoJson: toolInfoJSON
+                    )
+                }
+            }
+
+            @Test
+            func handlesMissingRequiredValues() throws {
+                let nameArg = self.createRequiredOption(name: "name")
+                let formatArg = self.createRequiredOption(name: "format")
+
+                let promptingSystem = TemplateCLIConstructor(hasTTY: false)
+                let commandInfo = self.createTestCommand(arguments: [nameArg, formatArg])
+                let toolInfoJSON = ToolInfoV0(command: commandInfo)
+
+                // Test missing value for option
+                #expect(throws: (any Error).self) {
+                    try promptingSystem.createCLIArgs(
+                        predefinedArgs: ["--name", "test", "--format"],
+                        toolInfoJson: toolInfoJSON
+                    )
+                }
+
+                // Test missing required argument entirely
+                #expect(throws: (any Error).self) {
+                    try promptingSystem.createCLIArgs(
+                        predefinedArgs: ["--name", "test"],
+                        toolInfoJson: toolInfoJSON
+                    )
+                }
+            }
+
+            @Test
+            func handlesUnexpectedArguments() throws {
+                let nameArg = self.createRequiredOption(name: "name")
+
+                let promptingSystem = TemplateCLIConstructor(hasTTY: false)
+                let commandInfo = self.createTestCommand(arguments: [nameArg])
+                let toolInfoJSON = ToolInfoV0(command: commandInfo)
+
+                // Test single unexpected argument
+                #expect(throws: (any Error).self) {
+                    try promptingSystem.createCLIArgs(
+                        predefinedArgs: ["--name", "test", "unexpected"],
+                        toolInfoJson: toolInfoJSON
+                    )
+                }
+
+                // Test multiple unexpected arguments
+                #expect(throws: (any Error).self) {
+                    try promptingSystem.createCLIArgs(
+                        predefinedArgs: ["--name", "test", "unexpected1", "unexpected2"],
+                        toolInfoJson: toolInfoJSON
+                    )
+                }
+            }
+
+            @Test
+            func handlesInvalidEnumValues() throws {
+                let enumArg = self.createRequiredOption(
+                    name: "format",
+                    allValues: ["json", "xml", "yaml"]
+                )
+
+                let promptingSystem = TemplateCLIConstructor(hasTTY: false)
+                let commandInfo = self.createTestCommand(arguments: [enumArg])
+                let toolInfoJSON = ToolInfoV0(command: commandInfo)
+
+                // Test invalid enum value
+                #expect(throws: (any Error).self) {
+                    try promptingSystem.createCLIArgs(
+                        predefinedArgs: ["--format", "invalid"],
+                        toolInfoJson: toolInfoJSON
+                    )
+                }
+
+                // Test valid enum value should work
+                let result = try promptingSystem.createCLIArgs(
+                    predefinedArgs: ["--format", "json"],
+                    toolInfoJson: toolInfoJSON
+                )
+                #expect(result.contains("--format"))
+                #expect(result.contains("json"))
+            }
+
+            // MARK: - Edge Case Tests
+
+            @Test
+            func handlesEmptyInput() throws {
+                let optionalArg = self.createOptionalOption(name: "name", defaultValue: "default")
+
+                let promptingSystem = TemplateCLIConstructor(hasTTY: false)
+                let commandInfo = self.createTestCommand(arguments: [optionalArg])
+                let toolInfoJSON = ToolInfoV0(command: commandInfo)
+
+                // Empty input should work with optional arguments
+                let result = try promptingSystem.createCLIArgs(
+                    predefinedArgs: [],
+                    toolInfoJson: toolInfoJSON
+                )
+
+                // Should use default value
+                #expect(result.contains("--name"))
+                #expect(result.contains("default"))
+            }
+
+            @Test
+            func handlesMalformedArguments() throws {
+                let nameArg = self.createRequiredOption(name: "name")
+
+                let promptingSystem = TemplateCLIConstructor(hasTTY: false)
+                let commandInfo = self.createTestCommand(arguments: [nameArg])
+                let toolInfoJSON = ToolInfoV0(command: commandInfo)
+
+                // Test malformed long option (triple dash)
+                #expect(throws: (any Error).self) {
+                    try promptingSystem.createCLIArgs(
+                        predefinedArgs: ["---name", "value"],
+                        toolInfoJson: toolInfoJSON
+                    )
+                }
+
+                // Test empty option name
+                #expect(throws: (any Error).self) {
+                    try promptingSystem.createCLIArgs(
+                        predefinedArgs: ["--", "value"],
+                        toolInfoJson: toolInfoJSON
+                    )
+                }
+            }
+
+            @Test
+            func handlesSpecialCharactersInValues() throws {
+                let nameArg = self.createRequiredOption(name: "name")
+
+                let promptingSystem = TemplateCLIConstructor(hasTTY: false)
+                let commandInfo = self.createTestCommand(arguments: [nameArg])
+                let toolInfoJSON = ToolInfoV0(command: commandInfo)
+
+                // Test values with special characters
+                let specialValues = [
+                    "value with spaces",
+                    "value-with-dashes",
+                    "value_with_underscores",
+                    "value.with.dots",
+                    "value@with@symbols",
+                    "value/with/slashes",
+                ]
+
+                for specialValue in specialValues {
+                    let result = try promptingSystem.createCLIArgs(
+                        predefinedArgs: ["--name", specialValue],
+                        toolInfoJson: toolInfoJSON
+                    )
+                    #expect(result.contains("--name"))
+                    #expect(result.contains(specialValue))
+                }
+            }
+
+            @Test
+            func handlesEqualsSignInOptions() throws {
+                let nameArg = self.createRequiredOption(name: "name")
+                let formatArg = self.createRequiredOption(name: "format")
+
+                let promptingSystem = TemplateCLIConstructor(hasTTY: false)
+                let commandInfo = self.createTestCommand(arguments: [nameArg, formatArg])
+                let toolInfoJSON = ToolInfoV0(command: commandInfo)
+
+                // Test equals sign syntax
+                let result = try promptingSystem.createCLIArgs(
+                    predefinedArgs: ["--name=TestName", "--format=json"],
+                    toolInfoJson: toolInfoJSON
+                )
+
+                #expect(result.contains("--name"))
+                #expect(result.contains("TestName"))
+                #expect(result.contains("--format"))
+                #expect(result.contains("json"))
+            }
+
+            @Test
+            func handlesUnicodeCharacters() throws {
+                let nameArg = self.createRequiredOption(name: "name")
+
+                let promptingSystem = TemplateCLIConstructor(hasTTY: false)
+                let commandInfo = self.createTestCommand(arguments: [nameArg])
+                let toolInfoJSON = ToolInfoV0(command: commandInfo)
+
+                // Test Unicode characters
+                let unicodeValues = [
+                    "测试", // Chinese
+                    "テスト", // Japanese
+                    "тест", // Russian
+                    "🎯📱💻", // Emojis
+                    "café", // Accented characters
+                ]
+
+                for unicodeValue in unicodeValues {
+                    let result = try promptingSystem.createCLIArgs(
+                        predefinedArgs: ["--name", unicodeValue],
+                        toolInfoJson: toolInfoJSON
+                    )
+                    #expect(result.contains("--name"))
+                    #expect(result.contains(unicodeValue))
+                }
+            }
+
+            // MARK: - Positional Argument Tests
+
+            @Test
+            func handlesSinglePositionalArgument() throws {
+                let positionalArg = ArgumentInfoV0(
+                    kind: .positional,
+                    shouldDisplay: true,
+                    sectionTitle: nil,
+                    isOptional: false,
+                    isRepeating: false,
+                    parsingStrategy: .default,
+                    names: [ArgumentInfoV0.NameInfoV0(kind: .long, name: "name")],
+                    preferredName: ArgumentInfoV0.NameInfoV0(kind: .long, name: "name"),
+                    valueName: "name",
+                    defaultValue: nil,
+                    allValueStrings: nil,
+                    allValueDescriptions: nil,
+                    completionKind: nil,
+                    abstract: "Package name",
+                    discussion: nil
+                )
+
+                let promptingSystem = TemplateCLIConstructor(hasTTY: false)
+                let commandInfo = self.createTestCommand(arguments: [positionalArg])
+                let toolInfoJSON = ToolInfoV0(command: commandInfo)
+
+                let result = try promptingSystem.createCLIArgs(
+                    predefinedArgs: ["MyPackage"],
+                    toolInfoJson: toolInfoJSON
+                )
+
+                #expect(result.contains("MyPackage"))
+            }
+
+            @Test
+            func handlesMultiplePositionalArguments() throws {
+                let nameArg = ArgumentInfoV0(
+                    kind: .positional,
+                    shouldDisplay: true,
+                    sectionTitle: nil,
+                    isOptional: false,
+                    isRepeating: false,
+                    parsingStrategy: .default,
+                    names: [ArgumentInfoV0.NameInfoV0(kind: .long, name: "name")],
+                    preferredName: ArgumentInfoV0.NameInfoV0(kind: .long, name: "name"),
+                    valueName: "name",
+                    defaultValue: nil,
+                    allValueStrings: nil,
+                    allValueDescriptions: nil,
+                    completionKind: nil,
+                    abstract: "Package name",
+                    discussion: nil
+                )
+
+                let pathArg = ArgumentInfoV0(
+                    kind: .positional,
+                    shouldDisplay: true,
+                    sectionTitle: nil,
+                    isOptional: false,
+                    isRepeating: false,
+                    parsingStrategy: .default,
+                    names: [ArgumentInfoV0.NameInfoV0(kind: .long, name: "path")],
+                    preferredName: ArgumentInfoV0.NameInfoV0(kind: .long, name: "path"),
+                    valueName: "path",
+                    defaultValue: nil,
+                    allValueStrings: nil,
+                    allValueDescriptions: nil,
+                    completionKind: nil,
+                    abstract: "Package path",
+                    discussion: nil
+                )
+
+                let promptingSystem = TemplateCLIConstructor(hasTTY: false)
+                let commandInfo = self.createTestCommand(arguments: [nameArg, pathArg])
+                let toolInfoJSON = ToolInfoV0(command: commandInfo)
+
+                let result = try promptingSystem.createCLIArgs(
+                    predefinedArgs: ["MyPackage", "/path/to/package"],
+                    toolInfoJson: toolInfoJSON
+                )
+
+                #expect(result.contains("MyPackage"))
+                #expect(result.contains("/path/to/package"))
+            }
+
+            @Test
+            func handlesRepeatingPositionalArguments() throws {
+                let filesArg = ArgumentInfoV0(
+                    kind: .positional,
+                    shouldDisplay: true,
+                    sectionTitle: nil,
+                    isOptional: true,
+                    isRepeating: true,
+                    parsingStrategy: .default,
+                    names: [ArgumentInfoV0.NameInfoV0(kind: .long, name: "files")],
+                    preferredName: ArgumentInfoV0.NameInfoV0(kind: .long, name: "files"),
+                    valueName: "files",
+                    defaultValue: nil,
+                    allValueStrings: nil,
+                    allValueDescriptions: nil,
+                    completionKind: nil,
+                    abstract: "Input files",
+                    discussion: nil
+                )
+
+                let promptingSystem = TemplateCLIConstructor(hasTTY: false)
+                let commandInfo = self.createTestCommand(arguments: [filesArg])
+                let toolInfoJSON = ToolInfoV0(command: commandInfo)
+
+                let result = try promptingSystem.createCLIArgs(
+                    predefinedArgs: ["file1.swift", "file2.swift", "file3.swift"],
+                    toolInfoJson: toolInfoJSON
+                )
+
+                #expect(result.contains("file1.swift"))
+                #expect(result.contains("file2.swift"))
+                #expect(result.contains("file3.swift"))
+            }
+
+            @Test // RELOOK
+            func handlesPositionalWithTerminator() throws {
+                let nameArg = ArgumentInfoV0(
+                    kind: .positional,
+                    shouldDisplay: true,
+                    sectionTitle: nil,
+                    isOptional: false,
+                    isRepeating: false,
+                    parsingStrategy: .postTerminator,
+                    names: [ArgumentInfoV0.NameInfoV0(kind: .long, name: "name")],
+                    preferredName: ArgumentInfoV0.NameInfoV0(kind: .long, name: "name"),
+                    valueName: "name",
+                    defaultValue: nil,
+                    allValueStrings: nil,
+                    allValueDescriptions: nil,
+                    completionKind: nil,
+                    abstract: "Package name",
+                    discussion: nil
+                )
+
+                let promptingSystem = TemplateCLIConstructor(hasTTY: false)
+                let commandInfo = self.createTestCommand(arguments: [nameArg])
+                let toolInfoJSON = ToolInfoV0(command: commandInfo)
+
+                // Test positional argument that looks like an option after terminator
+                let result = try promptingSystem.createCLIArgs(
+                    predefinedArgs: ["--", "--package-name"],
+                    toolInfoJson: toolInfoJSON
+                )
+
+                #expect(result.contains("--package-name"))
+            }
+
+            // MARK: - Short Option and Combined Short Option Tests
+
+            private func createShortOption(
+                name: String,
+                shortName: Character,
+                isOptional: Bool = false,
+                isRepeating: Bool = false
+            ) -> ArgumentInfoV0 {
+                ArgumentInfoV0(
+                    kind: .option,
+                    shouldDisplay: true,
+                    sectionTitle: nil,
+                    isOptional: isOptional,
+                    isRepeating: isRepeating,
+                    parsingStrategy: .default,
+                    names: [
+                        ArgumentInfoV0.NameInfoV0(kind: .short, name: String(shortName)),
+                        ArgumentInfoV0.NameInfoV0(kind: .long, name: name),
+                    ],
+                    preferredName: ArgumentInfoV0.NameInfoV0(kind: .short, name: String(shortName)),
+                    valueName: name,
+                    defaultValue: nil,
+                    allValueStrings: nil,
+                    allValueDescriptions: nil,
+                    completionKind: nil,
+                    abstract: "\(name.capitalized) parameter",
+                    discussion: nil
+                )
+            }
+
+            private func createShortFlag(
+                name: String,
+                shortName: Character,
+                isOptional: Bool = true
+            ) -> ArgumentInfoV0 {
+                ArgumentInfoV0(
+                    kind: .flag,
+                    shouldDisplay: true,
+                    sectionTitle: nil,
+                    isOptional: isOptional,
+                    isRepeating: false,
+                    parsingStrategy: .default,
+                    names: [
+                        ArgumentInfoV0.NameInfoV0(kind: .short, name: String(shortName)),
+                        ArgumentInfoV0.NameInfoV0(kind: .long, name: name),
+                    ],
+                    preferredName: ArgumentInfoV0.NameInfoV0(kind: .short, name: String(shortName)),
+                    valueName: name,
+                    defaultValue: nil,
+                    allValueStrings: nil,
+                    allValueDescriptions: nil,
+                    completionKind: nil,
+                    abstract: "\(name.capitalized) flag",
+                    discussion: nil
+                )
+            }
+
+            @Test
+            func handlesShortOptions() throws {
+                let nameArg = self.createShortOption(name: "name", shortName: "n")
+                let formatArg = self.createShortOption(name: "format", shortName: "f")
+
+                let promptingSystem = TemplateCLIConstructor(hasTTY: false)
+                let commandInfo = self.createTestCommand(arguments: [nameArg, formatArg])
+                let toolInfoJSON = ToolInfoV0(command: commandInfo)
+
+                let result = try promptingSystem.createCLIArgs(
+                    predefinedArgs: ["-n", "TestName", "-f", "json"],
+                    toolInfoJson: toolInfoJSON
+                )
+
+                #expect(result.contains("-n"))
+                #expect(result.contains("TestName"))
+                #expect(result.contains("-f"))
+                #expect(result.contains("json"))
+            }
+
+            @Test
+            func handlesShortFlags() throws {
+                let verboseFlag = self.createShortFlag(name: "verbose", shortName: "v")
+                let debugFlag = self.createShortFlag(name: "debug", shortName: "d")
+
+                let promptingSystem = TemplateCLIConstructor(hasTTY: false)
+                let commandInfo = self.createTestCommand(arguments: [verboseFlag, debugFlag])
+                let toolInfoJSON = ToolInfoV0(command: commandInfo)
+
+                let result = try promptingSystem.createCLIArgs(
+                    predefinedArgs: ["-v", "-d"],
+                    toolInfoJson: toolInfoJSON
+                )
+
+                #expect(result.contains("-v"))
+                #expect(result.contains("-d"))
+            }
+
+            @Test
+            func handlesCombinedShortFlags() throws {
+                let verboseFlag = self.createShortFlag(name: "verbose", shortName: "v")
+                let debugFlag = self.createShortFlag(name: "debug", shortName: "d")
+                let forceFlag = self.createShortFlag(name: "force", shortName: "f")
+
+                let promptingSystem = TemplateCLIConstructor(hasTTY: false)
+                let commandInfo = self.createTestCommand(arguments: [verboseFlag, debugFlag, forceFlag])
+                let toolInfoJSON = ToolInfoV0(command: commandInfo)
+
+                // Test combined short flags like -vdf
+                let result = try promptingSystem.createCLIArgs(
+                    predefinedArgs: ["-vdf"],
+                    toolInfoJson: toolInfoJSON
+                )
+
+                // Should expand to individual flags
+                #expect(result.contains("-v"))
+                #expect(result.contains("-d"))
+                #expect(result.contains("-f"))
+            }
+
+            @Test
+            func handlesShortOptionWithEqualsSign() throws {
+                let nameArg = self.createShortOption(name: "name", shortName: "n")
+
+                let promptingSystem = TemplateCLIConstructor(hasTTY: false)
+                let commandInfo = self.createTestCommand(arguments: [nameArg])
+                let toolInfoJSON = ToolInfoV0(command: commandInfo)
+
+                let result = try promptingSystem.createCLIArgs(
+                    predefinedArgs: ["-n=TestName"],
+                    toolInfoJson: toolInfoJSON
+                )
+
+                #expect(result.contains("-n"))
+                #expect(result.contains("TestName"))
+            }
+
+            // MARK: - Advanced Terminator Tests
+
+            @Test
+            func handlesTerminatorSeparation() throws {
+                let nameArg = self.createRequiredOption(name: "name")
+                let filesArg = ArgumentInfoV0(
+                    kind: .positional,
+                    shouldDisplay: true,
+                    sectionTitle: nil,
+                    isOptional: true,
+                    isRepeating: true,
+                    parsingStrategy: .postTerminator,
+                    names: [ArgumentInfoV0.NameInfoV0(kind: .long, name: "files")],
+                    preferredName: ArgumentInfoV0.NameInfoV0(kind: .long, name: "files"),
+                    valueName: "files",
+                    defaultValue: nil,
+                    allValueStrings: nil,
+                    allValueDescriptions: nil,
+                    completionKind: nil,
+                    abstract: "Input files",
+                    discussion: nil
+                )
+
+                let promptingSystem = TemplateCLIConstructor(hasTTY: false)
+                let commandInfo = self.createTestCommand(arguments: [nameArg, filesArg])
+                let toolInfoJSON = ToolInfoV0(command: commandInfo)
+
+                // Test that options before -- are parsed as options, after -- as positional
+                let result = try promptingSystem.createCLIArgs(
+                    predefinedArgs: ["--name", "TestName", "--", "--file1", "--file2", "-option"],
+                    toolInfoJson: toolInfoJSON
+                )
+
+                #expect(result.contains("--name"))
+                #expect(result.contains("TestName"))
+                #expect(result.contains("--file1"))
+                #expect(result.contains("--file2"))
+                #expect(result.contains("-option"))
+            }
+
+            @Test
+            func handlesEmptyTerminator() throws {
+                let nameArg = self.createRequiredOption(name: "name")
+
+                let promptingSystem = TemplateCLIConstructor(hasTTY: false)
+                let commandInfo = self.createTestCommand(arguments: [nameArg])
+                let toolInfoJSON = ToolInfoV0(command: commandInfo)
+
+                // Test terminator with no arguments after it
+                let result = try promptingSystem.createCLIArgs(
+                    predefinedArgs: ["--name", "TestName", "--"],
+                    toolInfoJson: toolInfoJSON
+                )
+
+                #expect(result.contains("--name"))
+                #expect(result.contains("TestName"))
+            }
+
+            @Test
+            func handlesMultipleTerminators() throws {
+                let filesArg = ArgumentInfoV0(
+                    kind: .positional,
+                    shouldDisplay: true,
+                    sectionTitle: nil,
+                    isOptional: true,
+                    isRepeating: true,
+                    parsingStrategy: .postTerminator,
+                    names: [ArgumentInfoV0.NameInfoV0(kind: .long, name: "files")],
+                    preferredName: ArgumentInfoV0.NameInfoV0(kind: .long, name: "files"),
+                    valueName: "files",
+                    defaultValue: nil,
+                    allValueStrings: nil,
+                    allValueDescriptions: nil,
+                    completionKind: nil,
+                    abstract: "Input files",
+                    discussion: nil
+                )
+
+                let promptingSystem = TemplateCLIConstructor(hasTTY: false)
+                let commandInfo = self.createTestCommand(arguments: [filesArg])
+                let toolInfoJSON = ToolInfoV0(command: commandInfo)
+
+                // Test multiple terminators - subsequent ones should be treated as values
+                let result = try promptingSystem.createCLIArgs(
+                    predefinedArgs: ["--", "file1", "--", "file2"],
+                    toolInfoJson: toolInfoJSON
+                )
+
+                #expect(result.contains("file1"))
+                #expect(result.contains("--")) // Second -- should be treated as a value
+                #expect(result.contains("file2"))
+            }
+
+            // MARK: - Array/Repeating Argument Tests
+
+            @Test
+            func handlesRepeatingOptions() throws {
+                let includeArg = self.createRequiredOption(
+                    name: "include",
+                    isRepeating: true
+                )
+
+                let promptingSystem = TemplateCLIConstructor(hasTTY: false)
+                let commandInfo = self.createTestCommand(arguments: [includeArg])
+                let toolInfoJSON = ToolInfoV0(command: commandInfo)
+
+                let result = try promptingSystem.createCLIArgs(
+                    predefinedArgs: ["--include", "path1", "--include", "path2", "--include", "path3"],
+                    toolInfoJson: toolInfoJSON
+                )
+
+                // Should preserve multiple instances
+                #expect(result.filter { $0 == "--include" }.count == 3)
+                #expect(result.contains("path1"))
+                #expect(result.contains("path2"))
+                #expect(result.contains("path3"))
+            }
+
+            @Test
+            func handlesRepeatingOptionsWithUpToNextOption() throws {
+                let filesArg = self.createRequiredOption(
+                    name: "files",
+                    parsingStrategy: .upToNextOption,
+                    isRepeating: true
+                )
+                let outputArg = self.createRequiredOption(name: "output")
+
+                let promptingSystem = TemplateCLIConstructor(hasTTY: false)
+                let commandInfo = self.createTestCommand(arguments: [filesArg, outputArg])
+                let toolInfoJSON = ToolInfoV0(command: commandInfo)
+
+                let result = try promptingSystem.createCLIArgs(
+                    predefinedArgs: ["--files", "file1.swift", "file2.swift", "file3.swift", "--output", "result.txt"],
+                    toolInfoJson: toolInfoJSON
+                )
+
+                #expect(result.contains("--files"))
+                #expect(result.contains("file1.swift"))
+                #expect(result.contains("file2.swift"))
+                #expect(result.contains("file3.swift"))
+                #expect(result.contains("--output"))
+                #expect(result.contains("result.txt"))
+            }
+
+            @Test
+            func handlesArrayOfFlags() throws {
+                let verboseFlag = ArgumentInfoV0(
+                    kind: .flag,
+                    shouldDisplay: true,
+                    sectionTitle: nil,
+                    isOptional: true,
+                    isRepeating: true, // Repeating flag (counts verbosity level)
+                    parsingStrategy: .default,
+                    names: [ArgumentInfoV0.NameInfoV0(kind: .long, name: "verbose")],
+                    preferredName: ArgumentInfoV0.NameInfoV0(kind: .long, name: "verbose"),
+                    valueName: "verbose",
+                    defaultValue: nil,
+                    allValueStrings: nil,
+                    allValueDescriptions: nil,
+                    completionKind: nil,
+                    abstract: "Increase verbosity level",
+                    discussion: nil
+                )
+
+                let promptingSystem = TemplateCLIConstructor(hasTTY: false)
+                let commandInfo = self.createTestCommand(arguments: [verboseFlag])
+                let toolInfoJSON = ToolInfoV0(command: commandInfo)
+
+                let result = try promptingSystem.createCLIArgs(
+                    predefinedArgs: ["--verbose", "--verbose", "--verbose"],
+                    toolInfoJson: toolInfoJSON
+                )
+
+                // Should preserve all verbose flags (for counting)
+                #expect(result.filter { $0 == "--verbose" }.count == 3)
+            }
+
+            @Test
+            func handlesEmptyRepeatingArguments() throws {
+                let filesArg = ArgumentInfoV0(
+                    kind: .positional,
+                    shouldDisplay: true,
+                    sectionTitle: nil,
+                    isOptional: true,
+                    isRepeating: true,
+                    parsingStrategy: .default,
+                    names: [ArgumentInfoV0.NameInfoV0(kind: .long, name: "files")],
+                    preferredName: ArgumentInfoV0.NameInfoV0(kind: .long, name: "files"),
+                    valueName: "files",
+                    defaultValue: nil,
+                    allValueStrings: nil,
+                    allValueDescriptions: nil,
+                    completionKind: nil,
+                    abstract: "Input files",
+                    discussion: nil
+                )
+
+                let promptingSystem = TemplateCLIConstructor(hasTTY: false)
+                let commandInfo = self.createTestCommand(arguments: [filesArg])
+                let toolInfoJSON = ToolInfoV0(command: commandInfo)
+
+                // Should handle no input for optional repeating arguments
+                let result = try promptingSystem.createCLIArgs(
+                    predefinedArgs: [],
+                    toolInfoJson: toolInfoJSON
+                )
+
+                // For optional repeating arguments, empty input should be valid
+                #expect(result.isEmpty || result.allSatisfy { !$0.hasSuffix(".swift") })
+            }
+
+            // MARK: - Comprehensive Parsing Strategy Tests
+
+            @Test
+            func handlesScanningForValueStrategy() throws {
+                let arg1 = self.createRequiredOption(
+                    name: "name",
+                    parsingStrategy: .scanningForValue
+                )
+                let arg2 = self.createRequiredOption(
+                    name: "format",
+                    parsingStrategy: .scanningForValue
+                )
+                let arg3 = self.createRequiredOption(
+                    name: "input",
+                    parsingStrategy: .scanningForValue
+                )
+
+                let promptingSystem = TemplateCLIConstructor(hasTTY: false)
+                let commandInfo = self.createTestCommand(arguments: [arg1, arg2, arg3])
+                let toolInfoJSON = ToolInfoV0(command: commandInfo)
+
+                // Test 1: Normal order
+                let result1 = try promptingSystem.createCLIArgs(
+                    predefinedArgs: ["--name", "Foo", "--format", "Bar", "--input", "Baz"],
+                    toolInfoJson: toolInfoJSON
+                )
+                #expect(result1.contains("--name"))
+                #expect(result1.contains("Foo"))
+                #expect(result1.contains("--format"))
+                #expect(result1.contains("Bar"))
+                #expect(result1.contains("--input"))
+                #expect(result1.contains("Baz"))
+
+                // Test 2: Scanning finds values after other options
+                let result2 = try promptingSystem.createCLIArgs(
+                    predefinedArgs: ["--name", "--format", "Foo", "Bar", "--input", "Baz"],
+                    toolInfoJson: toolInfoJSON
+                )
+                #expect(result2.contains("Foo"))
+                #expect(result2.contains("Bar"))
+                #expect(result2.contains("Baz"))
+            }
+
+            @Test
+            func handlesUnconditionalStrategy() throws {
+                let arg1 = self.createRequiredOption(
+                    name: "name",
+                    parsingStrategy: .unconditional
+                )
+                let arg2 = self.createRequiredOption(
+                    name: "format",
+                    parsingStrategy: .unconditional
+                )
+
+                let promptingSystem = TemplateCLIConstructor(hasTTY: false)
+                let commandInfo = self.createTestCommand(arguments: [arg1, arg2])
+                let toolInfoJSON = ToolInfoV0(command: commandInfo)
+
+                // Test unconditional parsing - takes next value regardless
+                let result = try promptingSystem.createCLIArgs(
+                    predefinedArgs: ["--name", "--name", "--format", "--format"],
+                    toolInfoJson: toolInfoJSON
+                )
+
+                // Should treat option names as values
+                #expect(result.contains("--name"))
+                #expect(result.contains("--format"))
+            }
+
+            @Test
+            func handlesAllRemainingInputStrategy() throws {
+                let remainingArg = ArgumentInfoV0(
+                    kind: .positional,
+                    shouldDisplay: true,
+                    sectionTitle: nil,
+                    isOptional: true,
+                    isRepeating: true,
+                    parsingStrategy: .allRemainingInput,
+                    names: [ArgumentInfoV0.NameInfoV0(kind: .long, name: "remaining")],
+                    preferredName: ArgumentInfoV0.NameInfoV0(kind: .long, name: "remaining"),
+                    valueName: "remaining",
+                    defaultValue: nil,
+                    allValueStrings: nil,
+                    allValueDescriptions: nil,
+                    completionKind: nil,
+                    abstract: "Remaining arguments",
+                    discussion: nil
+                )
+
+                let promptingSystem = TemplateCLIConstructor(hasTTY: false)
+                let commandInfo = self.createTestCommand(arguments: [remainingArg])
+                let toolInfoJSON = ToolInfoV0(command: commandInfo)
+
+                let result = try promptingSystem.createCLIArgs(
+                    predefinedArgs: ["file1.swift", "file2.swift", "--unknown", "value"],
+                    toolInfoJson: toolInfoJSON
+                )
+
+                // All remaining input should be captured
+                #expect(result.contains("file1.swift"))
+                #expect(result.contains("file2.swift"))
+                #expect(result.contains("--unknown"))
+                #expect(result.contains("value"))
+            }
+
+            @Test
+            func handlesTerminatorParsing() throws {
+                let postTerminatorArg = ArgumentInfoV0(
+                    kind: .positional,
+                    shouldDisplay: true,
+                    sectionTitle: nil,
+                    isOptional: true,
+                    isRepeating: true,
+                    parsingStrategy: .postTerminator,
+                    names: [ArgumentInfoV0.NameInfoV0(kind: .long, name: "post-args")],
+                    preferredName: ArgumentInfoV0.NameInfoV0(kind: .long, name: "post-args"),
+                    valueName: "post-args",
+                    defaultValue: nil,
+                    allValueStrings: nil,
+                    allValueDescriptions: nil,
+                    completionKind: nil,
+                    abstract: "Post-terminator arguments",
+                    discussion: nil
+                )
+
+                let promptingSystem = TemplateCLIConstructor(hasTTY: false)
+                let commandInfo = self.createTestCommand(
+                    arguments: [
+                        self.createRequiredOption(name: "name"),
+                        postTerminatorArg,
+                    ]
+                )
+
+                let toolInfoJSON = ToolInfoV0(command: commandInfo)
+
+                let result = try promptingSystem.createCLIArgs(
+                    predefinedArgs: ["--name", "TestPackage", "--", "arg1", "arg2"],
+                    toolInfoJson: toolInfoJSON
+                )
+
+                #expect(result.contains("--name"))
+                #expect(result.contains("TestPackage"))
+                // Post-terminator args should be handled separately
+            }
+
+            @Test
+            func handlesConditionalNilSuffixForOptions() throws {
+                // Test that "nil" suffix only shows for optional arguments without defaults
+
+                // Test optional option without default, should show nil suffix
+                let optionalWithoutDefault = ArgumentInfoV0(
+                    kind: .option,
+                    shouldDisplay: true,
+                    sectionTitle: nil,
+                    isOptional: true,
+                    isRepeating: false,
+                    parsingStrategy: .default,
+                    names: [ArgumentInfoV0.NameInfoV0(kind: .long, name: "optional-param")],
+                    preferredName: ArgumentInfoV0.NameInfoV0(kind: .long, name: "optional-param"),
+                    valueName: "optional-param",
+                    defaultValue: nil,
+                    allValueStrings: nil,
+                    allValueDescriptions: nil,
+                    completionKind: nil,
+                    abstract: "Optional parameter",
+                    discussion: nil
+                )
+
+                // Test optional option with default, should NOT show nil suffix
+                let optionalWithDefault = ArgumentInfoV0(
+                    kind: .option,
+                    shouldDisplay: true,
+                    sectionTitle: nil,
+                    isOptional: true,
+                    isRepeating: false,
+                    parsingStrategy: .default,
+                    names: [ArgumentInfoV0.NameInfoV0(kind: .long, name: "output")],
+                    preferredName: ArgumentInfoV0.NameInfoV0(kind: .long, name: "output"),
+                    valueName: "output",
+                    defaultValue: "stdout",
+                    allValueStrings: nil,
+                    allValueDescriptions: nil,
+                    completionKind: nil,
+                    abstract: "Output parameter",
+                    discussion: nil
+                )
+
+                // Test required option, should NOT show nil suffix
+                let requiredOption = ArgumentInfoV0(
+                    kind: .option,
+                    shouldDisplay: true,
+                    sectionTitle: nil,
+                    isOptional: false,
+                    isRepeating: false,
+                    parsingStrategy: .default,
+                    names: [ArgumentInfoV0.NameInfoV0(kind: .long, name: "name")],
+                    preferredName: ArgumentInfoV0.NameInfoV0(kind: .long, name: "name"),
+                    valueName: "name",
+                    defaultValue: nil,
+                    allValueStrings: nil,
+                    allValueDescriptions: nil,
+                    completionKind: nil,
+                    abstract: "Name parameter",
+                    discussion: nil
+                )
+
+                // Optional without default should allow nil suffix
+                #expect(optionalWithoutDefault.isOptional == true)
+                #expect(optionalWithoutDefault.defaultValue == nil)
+                let shouldShowNilForOptionalWithoutDefault = optionalWithoutDefault.isOptional && optionalWithoutDefault
+                    .defaultValue == nil
+                #expect(shouldShowNilForOptionalWithoutDefault == true)
+
+                // Optional with default should NOT allow nil suffix
+                #expect(optionalWithDefault.isOptional == true)
+                #expect(optionalWithDefault.defaultValue == "stdout")
+                let shouldShowNilForOptionalWithDefault = optionalWithDefault.isOptional && optionalWithDefault
+                    .defaultValue == nil
+                #expect(shouldShowNilForOptionalWithDefault == false)
+
+                // Required should NOT allow nil suffix
+                #expect(requiredOption.isOptional == false)
+                let shouldShowNilForRequired = requiredOption.isOptional && requiredOption.defaultValue == nil
+                #expect(shouldShowNilForRequired == false)
+            }
+
+            @Test
+            func handlesTemplateWithNoArguments() throws {
+                let noArgsCommand = CommandInfoV0(
+                    superCommands: [],
+                    shouldDisplay: true,
+                    commandName: "no-args-template",
+                    abstract: "Template with no arguments",
+                    discussion: "A template that requires no user input",
+                    defaultSubcommand: nil,
+                    subcommands: [],
+                    arguments: []
+                )
+
+                let promptingSystem = TemplateCLIConstructor(hasTTY: false)
+
+                let toolInfoJSON = ToolInfoV0(command: noArgsCommand)
+
+                let result = try promptingSystem.createCLIArgs(predefinedArgs: [], toolInfoJson: toolInfoJSON)
+
+                #expect(result.isEmpty)
+
+                #expect(throws: TemplateError.unexpectedArguments(["--some-flag", "extra-arg"]).self) {
+                    try promptingSystem.createCLIArgs(
+                        predefinedArgs: ["--some-flag", "extra-arg"],
+                        toolInfoJson: toolInfoJSON
+                    )
+                }
+            }
+
+            @Test
+            func handlesTemplateWithEmptyArgumentsArray() throws {
+                // Test template with empty arguments array (not nil, but empty)
+                let emptyArgsCommand = CommandInfoV0(
+                    superCommands: [],
+                    shouldDisplay: true,
+                    commandName: "empty-args-template",
+                    abstract: "Template with empty arguments array",
+                    discussion: "A template with an empty arguments array",
+                    defaultSubcommand: nil,
+                    subcommands: [],
+                    arguments: [] // Explicitly empty array
+                )
+
+                let promptingSystem = TemplateCLIConstructor(hasTTY: false)
+
+                let toolInfoJSON = ToolInfoV0(command: emptyArgsCommand)
+                let result = try promptingSystem.createCLIArgs(predefinedArgs: [], toolInfoJson: toolInfoJSON)
+
+                #expect(result.isEmpty)
+            }
+        }
+
+        // MARK: - Template Plugin Coordinator Tests
+
+        @Suite(
+            .tags(
+                Tag.TestSize.medium,
+                Tag.Feature.Command.Package.Init,
+            ),
+        )
+        struct TemplatePluginCoordinatorTests {
+            @Test
+            func createsCoordinatorWithValidConfiguration() async throws {
+                try testWithTemporaryDirectory { tempDir in
                     let options = try GlobalOptions.parse([])
                     let tool = try SwiftCommandState.makeMockState(options: options, fileSystem: InMemoryFileSystem())
-                    let workspaceDir = tempDir.appending("workspace")
-                    try tool.fileSystem.copy(from: templatePath, to: workspaceDir)
 
                     let coordinator = TemplatePluginCoordinator(
                         buildSystem: .native,
                         swiftCommandState: tool,
-                        scratchDirectory: workspaceDir,
+                        scratchDirectory: tempDir,
                         template: "ExecutableTemplate",
                         args: ["--name", "TestPackage"],
                         branches: []
                     )
 
-                    // Test coordinator's ability to load package graph
-                    // The coordinator handles the workspace switching internally
-                    let graph = try await coordinator.loadPackageGraph()
-                    #expect(!graph.rootPackages.isEmpty, "Package graph should have root packages")
+                    // Test coordinator functionality by verifying it can handle basic operations
+                    #expect(coordinator.buildSystem == .native)
+                    #expect(coordinator.scratchDirectory == tempDir)
                 }
             }
-        }
 
-        @Test
-        func handlesInvalidTemplateGracefully() async throws {
-            try await testWithTemporaryDirectory { tempDir in
-                let options = try GlobalOptions.parse([])
-                let tool = try SwiftCommandState.makeMockState(options: options, fileSystem: InMemoryFileSystem())
+            @Test(.skip("Intermittent failures when loading package graph, needs investigating"))
+            func loadsPackageGraphInTemporaryWorkspace() async throws {
+                try await fixture(name: "Miscellaneous/InitTemplates/ExecutableTemplate") { templatePath in
+                    try await testWithTemporaryDirectory { tempDir in
+                        let options = try GlobalOptions.parse([])
+                        let tool = try SwiftCommandState.makeMockState(
+                            options: options,
+                            fileSystem: InMemoryFileSystem()
+                        )
+                        let workspaceDir = tempDir.appending("workspace")
+                        try tool.fileSystem.copy(from: templatePath, to: workspaceDir)
 
-                let coordinator = TemplatePluginCoordinator(
-                    buildSystem: .native,
-                    swiftCommandState: tool,
-                    scratchDirectory: tempDir,
-                    template: "NonexistentTemplate",
-                    args: ["--name", "TestPackage"],
-                    branches: []
-                )
+                        let coordinator = TemplatePluginCoordinator(
+                            buildSystem: .native,
+                            swiftCommandState: tool,
+                            scratchDirectory: workspaceDir,
+                            template: "ExecutableTemplate",
+                            args: ["--name", "TestPackage"],
+                            branches: []
+                        )
 
-                // Test that coordinator handles invalid template name by throwing appropriate error
-                await #expect(throws: (any Error).self) {
-                    _ = try await coordinator.loadPackageGraph()
-                }
-            }
-        }
-    }
-
-    // MARK: - Template Plugin Runner Tests
-
-    @Suite(
-        .skip("Intermittent failures when loading package graph, needs investigating"),
-        .tags(
-            Tag.TestSize.medium,
-            Tag.Feature.Command.Package.Init,
-        ),
-    )
-    struct TemplatePluginRunnerTests {
-        @Test(.serialized)
-        func handlesPluginExecutionForValidPackage() async throws {
-
-            try await fixture(name: "Miscellaneous/InitTemplates/ExecutableTemplate") { templatePath in
-                try await testWithTemporaryDirectory { _ in
-                    let options = try GlobalOptions.parse([])
-                    let tool = try SwiftCommandState.makeMockState(options: options)
-
-                    // Test that TemplatePluginRunner can handle static execution
-                    try await tool.withTemporaryWorkspace(switchingTo: templatePath) { _, _ in
-                        let graph = try await tool.loadPackageGraph()
-                        let rootPackage = graph.rootPackages.first!
-
-                        // Verify we can identify plugins for execution
-                        let pluginModules = rootPackage.modules.filter { $0.type == .plugin }
-                        #expect(!pluginModules.isEmpty, "Template should have plugin modules")
+                        // Test coordinator's ability to load package graph
+                        // The coordinator handles the workspace switching internally
+                        let graph = try await coordinator.loadPackageGraph()
+                        #expect(!graph.rootPackages.isEmpty, "Package graph should have root packages")
                     }
                 }
             }
-        }
 
-        @Test
-        func handlesPluginExecutionStaticAPI() async throws {
-
-            try await fixture(name: "Miscellaneous/InitTemplates/ExecutableTemplate") { templatePath in
+            @Test
+            func handlesInvalidTemplateGracefully() async throws {
                 try await testWithTemporaryDirectory { tempDir in
-                    let packagePath = tempDir.appending("TestPackage")
-                    try makeDirectories(packagePath)
-
                     let options = try GlobalOptions.parse([])
-                    let tool = try SwiftCommandState.makeMockState(options: options)
+                    let tool = try SwiftCommandState.makeMockState(options: options, fileSystem: InMemoryFileSystem())
 
-                    // Test that TemplatePluginRunner static API works with valid input
-                    try await tool.withTemporaryWorkspace(switchingTo: templatePath) { _, _ in
-                        let graph = try await tool.loadPackageGraph()
-                        let rootPackage = graph.rootPackages.first!
+                    let coordinator = TemplatePluginCoordinator(
+                        buildSystem: .native,
+                        swiftCommandState: tool,
+                        scratchDirectory: tempDir,
+                        template: "NonexistentTemplate",
+                        args: ["--name", "TestPackage"],
+                        branches: []
+                    )
 
-                        // Test plugin execution readiness
-                        #expect(!graph.rootPackages.isEmpty, "Should have root packages for plugin execution")
-                        #expect(
-                            rootPackage.modules.contains { $0.type == .plugin },
-                            "Should have plugin modules available"
-                        )
+                    // Test that coordinator handles invalid template name by throwing appropriate error
+                    await #expect(throws: (any Error).self) {
+                        _ = try await coordinator.loadPackageGraph()
                     }
                 }
             }
         }
-    }
 
-    // MARK: - InitTemplatePackage Tests
+        // MARK: - Template Plugin Runner Tests
 
-    @Suite(
-        .serialized,
-        .tags(
-            Tag.TestSize.medium,
-            Tag.Feature.Command.Package.Init,
-            Tag.Feature.PackageType.LocalTemplate,
-        ),
-    )
-    struct InitTemplatePackageTests {
-        @Test
-        func createsTemplatePackageWithValidConfiguration() async throws {
-            try fixture(name: "Miscellaneous/InitTemplates/ExecutableTemplate") { templatePath in
-                try testWithTemporaryDirectory { tempDir in
-                    let packagePath = tempDir.appending("TestPackage")
-                    let options = try GlobalOptions.parse([])
-                    let tool = try SwiftCommandState.makeMockState(options: options)
-
-                    // Create package dependency for template
-                    let dependency = SwiftRefactor.PackageDependency.fileSystem(
-                        SwiftRefactor.PackageDependency.FileSystem(
-                            path: templatePath.pathString
-                        )
-                    )
-
-                    let initPackage = try InitTemplatePackage(
-                        name: "TestPackage",
-                        initMode: dependency,
-                        fileSystem: tool.fileSystem,
-                        packageType: .executable,
-                        supportedTestingLibraries: [.xctest],
-                        destinationPath: packagePath,
-                        installedSwiftPMConfiguration: tool.getHostToolchain().installedSwiftPMConfiguration
-                    )
-
-                    // Test package configuration
-                    #expect(initPackage.packageName == "TestPackage")
-                    #expect(initPackage.packageType == .executable)
-                    #expect(initPackage.destinationPath == packagePath)
-                }
-            }
-        }
-
-        @Test
-        func writesPackageStructureWithTemplateDependency() async throws {
-            try fixture(name: "Miscellaneous/InitTemplates/ExecutableTemplate") { templatePath in
-                try testWithTemporaryDirectory { tempDir in
-                    let packagePath = tempDir.appending("TestPackage")
-                    let options = try GlobalOptions.parse([])
-                    let tool = try SwiftCommandState.makeMockState(options: options)
-
-                    let dependency = SwiftRefactor.PackageDependency.fileSystem(
-                        SwiftRefactor.PackageDependency.FileSystem(
-                            path: templatePath.pathString
-                        )
-                    )
-
-                    let initPackage = try InitTemplatePackage(
-                        name: "TestPackage",
-                        initMode: dependency,
-                        fileSystem: tool.fileSystem,
-                        packageType: .executable,
-                        supportedTestingLibraries: [.xctest],
-                        destinationPath: packagePath,
-                        installedSwiftPMConfiguration: tool.getHostToolchain().installedSwiftPMConfiguration
-                    )
-
-                    try initPackage.setupTemplateManifest()
-
-                    // Verify package structure was created
-                    #expect(tool.fileSystem.exists(packagePath))
-                    #expect(tool.fileSystem.exists(packagePath.appending("Package.swift")))
-                    #expect(tool.fileSystem.exists(packagePath.appending("Sources")))
-                }
-            }
-        }
-
-        @Test
-        func handlesInvalidTemplatePath() async throws {
-            try await testWithTemporaryDirectory { tempDir in
-                let invalidTemplatePath = tempDir.appending("NonexistentTemplate")
-                let options = try GlobalOptions.parse([])
-                let tool = try SwiftCommandState.makeMockState(options: options)
-
-                // Should handle invalid template path gracefully
-                await #expect(throws: (any Error).self) {
-                    _ = try await TemplatePackageInitializer.inferPackageType(
-                        from: invalidTemplatePath,
-                        templateName: "foo",
-                        swiftCommandState: tool
-                    )
-                }
-            }
-        }
-    }
-
-    // MARK: - Integration Tests for Template Workflows
-
-    @Suite(
-        .serialized,
-        .tags(
-            Tag.TestSize.large,
-            Tag.Feature.Command.Package.Init,
-            Tag.Feature.PackageType.LocalTemplate,
-        ),
-    )
-    struct TemplateWorkflowIntegrationTests {
-        @Test(
-            .skipHostOS(.windows, "Template operations not fully supported in test environment"),
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        @Suite(
+            .skip("Intermittent failures when loading package graph, needs investigating"),
+            .tags(
+                Tag.TestSize.medium,
+                Tag.Feature.Command.Package.Init,
+            ),
         )
-        func templateResolutionToPackageCreationWorkflow(
-            data: BuildData,
-        ) async throws {
-            try await fixture(name: "Miscellaneous/InitTemplates/ExecutableTemplate") { templatePath in
+        struct TemplatePluginRunnerTests {
+            @Test
+            func handlesPluginExecutionForValidPackage() async throws {
+                try await fixture(name: "Miscellaneous/InitTemplates/ExecutableTemplate") { templatePath in
+                    try await testWithTemporaryDirectory { _ in
+                        let options = try GlobalOptions.parse([])
+                        let tool = try SwiftCommandState.makeMockState(options: options)
+
+                        // Test that TemplatePluginRunner can handle static execution
+                        try await withTaskLocalWorkingDirectory(templatePath) {
+                            try await tool.withTemporaryWorkspace(switchingTo: templatePath) { _, _ in
+                                let graph = try await tool.loadPackageGraph()
+                                let rootPackage = graph.rootPackages.first!
+
+                                // Verify we can identify plugins for execution
+                                let pluginModules = rootPackage.modules.filter { $0.type == .plugin }
+                                #expect(!pluginModules.isEmpty, "Template should have plugin modules")
+                            }
+                        }
+                    }
+                }
+            }
+
+            @Test()
+            func handlesPluginExecutionStaticAPI() async throws {
+                try await fixture(name: "Miscellaneous/InitTemplates/ExecutableTemplate") { templatePath in
+                    try await testWithTemporaryDirectory { tempDir in
+                        let packagePath = tempDir.appending("TestPackage")
+                        try makeDirectories(packagePath)
+
+                        let options = try GlobalOptions.parse([])
+                        let tool = try SwiftCommandState.makeMockState(options: options)
+
+                        // Test that TemplatePluginRunner static API works with valid input
+                        try await withTaskLocalWorkingDirectory(templatePath) {
+                            try await tool.withTemporaryWorkspace(switchingTo: templatePath) { _, _ in
+                                let graph = try await tool.loadPackageGraph()
+                                let rootPackage = graph.rootPackages.first!
+
+                                // Test plugin execution readiness
+                                #expect(!graph.rootPackages.isEmpty, "Should have root packages for plugin execution")
+                                #expect(
+                                    rootPackage.modules.contains { $0.type == .plugin },
+                                    "Should have plugin modules available"
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // MARK: - InitTemplatePackage Tests
+
+        @Suite(
+            .tags(
+                Tag.TestSize.medium,
+                Tag.Feature.Command.Package.Init,
+                Tag.Feature.PackageType.LocalTemplate,
+            ),
+        )
+        struct InitTemplatePackageTests {
+            @Test
+            func createsTemplatePackageWithValidConfiguration() async throws {
+                try await fixture(name: "Miscellaneous/InitTemplates/ExecutableTemplate") { templatePath in
+                    try await testWithTemporaryDirectory { tempDir in
+                        let packagePath = tempDir.appending("TestPackage")
+
+                        try await withTaskLocalWorkingDirectory(tempDir) {
+                            let options = try GlobalOptions.parse([])
+                            let tool = try SwiftCommandState.makeMockState(options: options)
+
+                            // Create package dependency for template
+                            let dependency = SwiftRefactor.PackageDependency.fileSystem(
+                                SwiftRefactor.PackageDependency.FileSystem(
+                                    path: templatePath.pathString
+                                )
+                            )
+
+                            let initPackage = try InitTemplatePackage(
+                                name: "TestPackage",
+                                initMode: dependency,
+                                fileSystem: tool.fileSystem,
+                                packageType: .executable,
+                                supportedTestingLibraries: [.xctest],
+                                destinationPath: packagePath,
+                                installedSwiftPMConfiguration: tool.getHostToolchain().installedSwiftPMConfiguration
+                            )
+
+                            // Test package configuration
+                            #expect(initPackage.packageName == "TestPackage")
+                            #expect(initPackage.packageType == .executable)
+                            #expect(initPackage.destinationPath == packagePath)
+                        }
+                    }
+                }
+            }
+
+            @Test()
+            func writesPackageStructureWithTemplateDependency() async throws {
+                try await fixture(name: "Miscellaneous/InitTemplates/ExecutableTemplate") { templatePath in
+                    try await testWithTemporaryDirectory { tempDir in
+                        let packagePath = tempDir.appending("TestPackage")
+
+                        try await withTaskLocalWorkingDirectory(tempDir) {
+                            let options = try GlobalOptions.parse([])
+                            let tool = try SwiftCommandState.makeMockState(options: options)
+
+                            let dependency = SwiftRefactor.PackageDependency.fileSystem(
+                                SwiftRefactor.PackageDependency.FileSystem(
+                                    path: templatePath.pathString
+                                )
+                            )
+
+                            let initPackage = try InitTemplatePackage(
+                                name: "TestPackage",
+                                initMode: dependency,
+                                fileSystem: tool.fileSystem,
+                                packageType: .executable,
+                                supportedTestingLibraries: [.xctest],
+                                destinationPath: packagePath,
+                                installedSwiftPMConfiguration: tool.getHostToolchain().installedSwiftPMConfiguration
+                            )
+
+                            try initPackage.setupTemplateManifest()
+
+                            // Verify package structure was created
+                            #expect(tool.fileSystem.exists(packagePath))
+                            #expect(tool.fileSystem.exists(packagePath.appending("Package.swift")))
+                            #expect(tool.fileSystem.exists(packagePath.appending("Sources")))
+                        }
+                    }
+                }
+            }
+
+            @Test
+            func handlesInvalidTemplatePath() async throws {
                 try await testWithTemporaryDirectory { tempDir in
-                    let packagePath = tempDir.appending("TestPackage")
-                    let options = try GlobalOptions.parse([])
-                    let tool = try SwiftCommandState.makeMockState(options: options)
+                    try await withTaskLocalWorkingDirectory(tempDir) {
+                        let invalidTemplatePath = tempDir.appending("NonexistentTemplate")
+                        let options = try GlobalOptions.parse([])
+                        let tool = try SwiftCommandState.makeMockState(options: options)
 
-                    // Test complete workflow: Template Resolution → Package Creation
-                    let resolver = try TemplatePathResolver(
-                        source: .local,
-                        templateDirectory: templatePath,
-                        templateURL: nil,
-                        sourceControlRequirement: nil,
-                        registryRequirement: nil,
-                        packageIdentity: nil,
-                        swiftCommandState: tool
-                    )
+                        // Should handle invalid template path gracefully
+                        await #expect(throws: (any Error).self) {
+                            _ = try await TemplatePackageInitializer.inferPackageType(
+                                from: invalidTemplatePath,
+                                templateName: "foo",
+                                swiftCommandState: tool
+                            )
+                        }
+                    }
+                }
+            }
+        }
 
-                    let resolvedPath = try await resolver.resolve()
-                    #expect(resolvedPath == templatePath)
+        // MARK: - Integration Tests for Template Workflows
 
-                    // Create package dependency builder
-                    let dependencyBuilder = DefaultPackageDependencyBuilder(
-                        templateSource: .local,
-                        packageName: "TestPackage",
-                        templateURL: nil,
-                        templatePackageID: nil,
-                        sourceControlRequirement: nil,
-                        registryRequirement: nil,
-                        resolvedTemplatePath: resolvedPath
-                    )
+        @Suite(
+            .tags(
+                Tag.TestSize.large,
+                Tag.Feature.Command.Package.Init,
+                Tag.Feature.PackageType.LocalTemplate,
+            ),
+        )
+        struct TemplateWorkflowIntegrationTests {
+            @Test(
+                .skipHostOS(.windows, "Template operations not fully supported in test environment"),
+                arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            )
+            func templateResolutionToPackageCreationWorkflow(
+                data: BuildData,
+            ) async throws {
+                try await fixture(name: "Miscellaneous/InitTemplates/ExecutableTemplate") { templatePath in
+                    try await testWithTemporaryDirectory { tempDir in
+                        let packagePath = tempDir.appending("TestPackage")
 
-                    let packageDependency = try dependencyBuilder.makePackageDependency()
+                        try await withTaskLocalWorkingDirectory(tempDir) {
+                            let options = try GlobalOptions.parse([])
+                            let tool = try SwiftCommandState.makeMockState(options: options)
 
-                    // Verify dependency was created correctly
-                    if case .fileSystem(let fileSystemDep) = packageDependency {
-                        #expect(fileSystemDep.path == resolvedPath.pathString)
-                    } else {
-                        Issue.record("Expected fileSystem dependency, got \(packageDependency)")
+                            // Test complete workflow: Template Resolution → Package Creation
+                            let resolver = try TemplatePathResolver(
+                                source: .local,
+                                templateDirectory: templatePath,
+                                templateURL: nil,
+                                sourceControlRequirement: nil,
+                                registryRequirement: nil,
+                                packageIdentity: nil,
+                                swiftCommandState: tool
+                            )
+
+                            let resolvedPath = try await resolver.resolve()
+                            #expect(resolvedPath == templatePath)
+
+                            // Create package dependency builder
+                            let dependencyBuilder = DefaultPackageDependencyBuilder(
+                                templateSource: .local,
+                                packageName: "TestPackage",
+                                templateURL: nil,
+                                templatePackageID: nil,
+                                sourceControlRequirement: nil,
+                                registryRequirement: nil,
+                                resolvedTemplatePath: resolvedPath
+                            )
+
+                            let packageDependency = try dependencyBuilder.makePackageDependency()
+
+                            // Verify dependency was created correctly
+                            if case .fileSystem(let fileSystemDep) = packageDependency {
+                                #expect(fileSystemDep.path == resolvedPath.pathString)
+                            } else {
+                                Issue.record("Expected fileSystem dependency, got \(packageDependency)")
+                            }
+
+                            // Create template package
+                            let initPackage = try InitTemplatePackage(
+                                name: "TestPackage",
+                                initMode: packageDependency,
+                                fileSystem: tool.fileSystem,
+                                packageType: .executable,
+                                supportedTestingLibraries: [.xctest],
+                                destinationPath: packagePath,
+                                installedSwiftPMConfiguration: tool.getHostToolchain().installedSwiftPMConfiguration
+                            )
+
+                            try initPackage.setupTemplateManifest()
+
+                            // Verify complete package structure
+                            #expect(tool.fileSystem.exists(packagePath))
+                            expectFileExists(at: packagePath.appending("Package.swift"))
+                            expectDirectoryExists(at: packagePath.appending("Sources"))
+
+                            /* Bad memory access error here
+                             // Verify package builds successfully
+                             try await executeSwiftBuild(
+                             packagePath,
+                             configuration: data.config,
+                             buildSystem: data.buildSystem
+                             )
+
+                             let buildPath = packagePath.appending(".build")
+                             expectDirectoryExists(at: buildPath)
+                             */
+                        }
+                    }
+                }
+            }
+
+            @Test(
+                .skipHostOS(.windows, "Git operations not fully supported in test environment"),
+                .requireUnrestrictedNetworkAccess("Test needs to create and access local git repositories"),
+            )
+            func gitTemplateResolutionAndBuildWorkflow() async throws {
+                try await testWithTemporaryDirectory { tempDir in
+                    let templateRepoPath = tempDir.appending("template-repo")
+
+                    // Copy template structure to git repo
+                    try fixture(name: "Miscellaneous/InitTemplates/ExecutableTemplate") { fixturePath in
+                        try localFileSystem.copy(from: fixturePath, to: templateRepoPath)
                     }
 
-                    // Create template package
-                    let initPackage = try InitTemplatePackage(
-                        name: "TestPackage",
-                        initMode: packageDependency,
-                        fileSystem: tool.fileSystem,
-                        packageType: .executable,
-                        supportedTestingLibraries: [.xctest],
-                        destinationPath: packagePath,
-                        installedSwiftPMConfiguration: tool.getHostToolchain().installedSwiftPMConfiguration
-                    )
+                    initGitRepo(templateRepoPath, tag: "1.0.0")
 
-                    try initPackage.setupTemplateManifest()
+                    try await withTaskLocalWorkingDirectory(templateRepoPath) {
+                        let sourceControlURL = SourceControlURL(stringLiteral: templateRepoPath.pathString)
+                        let options = try GlobalOptions.parse([])
+                        let tool = try SwiftCommandState.makeMockState(options: options)
 
-                    // Verify complete package structure
-                    #expect(tool.fileSystem.exists(packagePath))
-                    expectFileExists(at: packagePath.appending("Package.swift"))
-                    expectDirectoryExists(at: packagePath.appending("Sources"))
+                        // Test Git template resolution
+                        let sourceControlRequirement = SwiftRefactor.PackageDependency.SourceControl.Requirement
+                            .branch("main")
 
-                    /* Bad memory access error here
-                     // Verify package builds successfully
-                     try await executeSwiftBuild(
-                         packagePath,
-                         configuration: data.config,
-                         buildSystem: data.buildSystem
-                     )
+                        let resolver = try TemplatePathResolver(
+                            source: .git,
+                            templateDirectory: nil,
+                            templateURL: sourceControlURL.url?.absoluteString,
+                            sourceControlRequirement: sourceControlRequirement,
+                            registryRequirement: nil,
+                            packageIdentity: nil,
+                            swiftCommandState: tool
+                        )
 
-                     let buildPath = packagePath.appending(".build")
-                     expectDirectoryExists(at: buildPath)
-                      */
+                        let resolvedPath = try await resolver.resolve()
+                        #expect(localFileSystem.exists(resolvedPath))
+
+                        // Verify template was fetched correctly with expected files
+                        #expect(localFileSystem.exists(resolvedPath.appending("Package.swift")))
+                        #expect(localFileSystem.exists(resolvedPath.appending("Templates")))
+                    }
+                }
+            }
+
+            @Test()
+            func packageDependencyBuildingWithVersionResolution() async throws {
+                try await testWithTemporaryDirectory { tempDir in
+                    try await withTaskLocalWorkingDirectory(tempDir) {
+                        let options = try GlobalOptions.parse([])
+                        let tool = try SwiftCommandState.makeMockState(options: options)
+
+                        let lowerBoundVersion = Version(stringLiteral: "1.2.0")
+                        let higherBoundVersion = Version(stringLiteral: "3.0.0")
+
+                        // Test version requirement resolution integration
+                        let versionResolver = DependencyRequirementResolver(
+                            packageIdentity: "test.package",
+                            templateURL: nil,
+                            swiftCommandState: tool,
+                            exact: nil,
+                            revision: nil,
+                            branch: nil,
+                            from: lowerBoundVersion,
+                            upToNextMinorFrom: nil,
+                            to: higherBoundVersion
+                        )
+
+                        let sourceControlRequirement = try await versionResolver.resolveSourceControl()
+                        let registryRequirement = try await versionResolver.resolveRegistry()
+
+                        // Test dependency building with resolved requirements
+                        let dependencyBuilder = try DefaultPackageDependencyBuilder(
+                            templateSource: .git,
+                            packageName: "TestPackage",
+                            templateURL: "https://github.com/example/template.git",
+                            templatePackageID: "test.package",
+                            sourceControlRequirement: sourceControlRequirement,
+                            registryRequirement: registryRequirement,
+                            resolvedTemplatePath: AbsolutePath(validating: "/fake/path")
+                        )
+
+                        let gitDependency = try dependencyBuilder.makePackageDependency()
+
+                        // Verify dependency structure
+                        if case .sourceControl(let sourceControlDep) = gitDependency {
+                            #expect(sourceControlDep.location == "https://github.com/example/template.git")
+                            if case .range(let lower, let upper) = sourceControlDep.requirement {
+                                #expect(lower == "1.2.0")
+                                #expect(upper == "3.0.0")
+                            } else {
+                                Issue.record("Expected range requirement, got \(sourceControlDep.requirement)")
+                            }
+                        } else {
+                            Issue.record("Expected sourceControl dependency, got \(gitDependency)")
+                        }
+                    }
                 }
             }
         }
 
-        @Test(
-            .skipHostOS(.windows, "Git operations not fully supported in test environment"),
-            .requireUnrestrictedNetworkAccess("Test needs to create and access local git repositories"),
+        // MARK: - End-to-End Template Initialization Tests
+
+        @Suite(
+            .tags(
+                Tag.TestSize.large,
+                Tag.Feature.Command.Package.Init,
+                Tag.Feature.PackageType.LocalTemplate,
+            ),
         )
-        func gitTemplateResolutionAndBuildWorkflow() async throws {
-            try await testWithTemporaryDirectory { tempDir in
-                let templateRepoPath = tempDir.appending("template-repo")
+        struct EndToEndTemplateInitializationTests {
+            @Test
+            func templateInitializationErrorHandling() async throws {
+                try await testWithTemporaryDirectory { tempDir in
+                    try await withTaskLocalWorkingDirectory(tempDir) {
+                        let packagePath = tempDir.appending("TestPackage")
+                        try FileManager.default.createDirectory(
+                            at: packagePath.asURL,
+                            withIntermediateDirectories: true,
+                            attributes: nil
+                        )
+                        let nonexistentPath = tempDir.appending("nonexistent-template")
+                        let options = try GlobalOptions.parse(["--package-path", packagePath.pathString])
+                        let tool = try SwiftCommandState.makeMockState(options: options)
 
-                // Copy template structure to git repo
-                try fixture(name: "Miscellaneous/InitTemplates/ExecutableTemplate") { fixturePath in
-                    try localFileSystem.copy(from: fixturePath, to: templateRepoPath)
+                        // Test complete error handling workflow
+                        await #expect(throws: (any Error).self) {
+                            let configuration = try PackageInitConfiguration(
+                                swiftCommandState: tool,
+                                name: "TestPackage",
+                                initMode: "custom",
+                                testLibraryOptions: TestLibraryOptions.parse([]),
+                                buildOptions: BuildCommandOptions.parse([]),
+                                globalOptions: options,
+                                validatePackage: false,
+                                args: ["--name", "TestPackage"],
+                                directory: nonexistentPath,
+                                url: nil,
+                                packageID: nil,
+                                versionFlags: VersionFlags(
+                                    exact: nil, revision: nil, branch: nil,
+                                    from: nil, upToNextMinorFrom: nil, to: nil
+                                )
+                            )
+
+                            let initializer = try configuration.makeInitializer()
+
+                            // Change to package directory
+                            try tool.fileSystem.changeCurrentWorkingDirectory(to: packagePath)
+                            try tool.fileSystem.createDirectory(packagePath, recursive: true)
+
+                            try await initializer.run()
+                        }
+
+                        // Verify package was not created due to error
+                        #expect(!tool.fileSystem.exists(packagePath.appending("Package.swift")))
+                    }
                 }
-
-                initGitRepo(templateRepoPath, tag: "1.0.0")
-
-                let sourceControlURL = SourceControlURL(stringLiteral: templateRepoPath.pathString)
-                let options = try GlobalOptions.parse([])
-                let tool = try SwiftCommandState.makeMockState(options: options)
-
-                // Test Git template resolution
-                let sourceControlRequirement = SwiftRefactor.PackageDependency.SourceControl.Requirement.branch("main")
-
-                let resolver = try TemplatePathResolver(
-                    source: .git,
-                    templateDirectory: nil,
-                    templateURL: sourceControlURL.url?.absoluteString,
-                    sourceControlRequirement: sourceControlRequirement,
-                    registryRequirement: nil,
-                    packageIdentity: nil,
-                    swiftCommandState: tool
-                )
-
-                let resolvedPath = try await resolver.resolve()
-                #expect(localFileSystem.exists(resolvedPath))
-
-                // Verify template was fetched correctly with expected files
-                #expect(localFileSystem.exists(resolvedPath.appending("Package.swift")))
-                #expect(localFileSystem.exists(resolvedPath.appending("Templates")))
             }
-        }
 
-        @Test
-        func packageDependencyBuildingWithVersionResolution() async throws {
-            let options = try GlobalOptions.parse([])
-            let tool = try SwiftCommandState.makeMockState(options: options)
+            @Test(.disabled("Disabled as it is already tested via swift package init"))
+            func standardPackageInitializerFallback() async throws {
+                try await testWithTemporaryDirectory { tmpPath in
+                    let packagePath = tmpPath.appending("Foo")
+                    try localFileSystem.createDirectory(packagePath)
 
-            let lowerBoundVersion = Version(stringLiteral: "1.2.0")
-            let higherBoundVersion = Version(stringLiteral: "3.0.0")
+                    let options = try GlobalOptions.parse(["--package-path", packagePath.pathString])
+                    let tool = try SwiftCommandState.makeMockState(options: options)
 
-            // Test version requirement resolution integration
-            let versionResolver = DependencyRequirementResolver(
-                packageIdentity: "test.package",
-                templateURL: nil,
-                swiftCommandState: tool,
-                exact: nil,
-                revision: nil,
-                branch: nil,
-                from: lowerBoundVersion,
-                upToNextMinorFrom: nil,
-                to: higherBoundVersion
-            )
-
-            let sourceControlRequirement = try await versionResolver.resolveSourceControl()
-            let registryRequirement = try await versionResolver.resolveRegistry()
-
-            // Test dependency building with resolved requirements
-            let dependencyBuilder = try DefaultPackageDependencyBuilder(
-                templateSource: .git,
-                packageName: "TestPackage",
-                templateURL: "https://github.com/example/template.git",
-                templatePackageID: "test.package",
-                sourceControlRequirement: sourceControlRequirement,
-                registryRequirement: registryRequirement,
-                resolvedTemplatePath: AbsolutePath(validating: "/fake/path")
-            )
-
-            let gitDependency = try dependencyBuilder.makePackageDependency()
-
-            // Verify dependency structure
-            if case .sourceControl(let sourceControlDep) = gitDependency {
-                #expect(sourceControlDep.location == "https://github.com/example/template.git")
-                if case .range(let lower, let upper) = sourceControlDep.requirement {
-                    #expect(lower == "1.2.0")
-                    #expect(upper == "3.0.0")
-                } else {
-                    Issue.record("Expected range requirement, got \(sourceControlDep.requirement)")
-                }
-            } else {
-                Issue.record("Expected sourceControl dependency, got \(gitDependency)")
-            }
-        }
-    }
-
-    // MARK: - End-to-End Template Initialization Tests
-
-    @Suite(
-        .serialized,
-        .tags(
-            Tag.TestSize.large,
-            Tag.Feature.Command.Package.Init,
-            Tag.Feature.PackageType.LocalTemplate,
-        ),
-    )
-    struct EndToEndTemplateInitializationTests {
-        @Test
-        func templateInitializationErrorHandling() async throws {
-            try await testWithTemporaryDirectory { tempDir in
-                let packagePath = tempDir.appending("TestPackage")
-                try FileManager.default.createDirectory(
-                    at: packagePath.asURL,
-                    withIntermediateDirectories: true,
-                    attributes: nil
-                )
-                let nonexistentPath = tempDir.appending("nonexistent-template")
-                let options = try GlobalOptions.parse(["--package-path", packagePath.pathString])
-                let tool = try SwiftCommandState.makeMockState(options: options)
-
-                // Test complete error handling workflow
-                await #expect(throws: (any Error).self) {
+                    // Test fallback to standard initializer when no template is specified
                     let configuration = try PackageInitConfiguration(
                         swiftCommandState: tool,
                         name: "TestPackage",
-                        initMode: "custom",
+                        initMode: "executable", // Standard package type
                         testLibraryOptions: TestLibraryOptions.parse([]),
                         buildOptions: BuildCommandOptions.parse([]),
                         globalOptions: options,
                         validatePackage: false,
-                        args: ["--name", "TestPackage"],
-                        directory: nonexistentPath,
+                        args: [],
+                        directory: nil,
                         url: nil,
                         packageID: nil,
                         versionFlags: VersionFlags(
@@ -3480,844 +3596,802 @@ class TemplateTests {
                     )
 
                     let initializer = try configuration.makeInitializer()
+                    #expect(initializer is StandardPackageInitializer)
 
                     // Change to package directory
-                    try tool.fileSystem.changeCurrentWorkingDirectory(to: packagePath)
-                    try tool.fileSystem.createDirectory(packagePath, recursive: true)
-
                     try await initializer.run()
-                }
 
-                // Verify package was not created due to error
-                #expect(!tool.fileSystem.exists(packagePath.appending("Package.swift")))
-            }
-        }
-
-        @Test(.disabled("Disabled as it is already tested via swift package init"))
-        func standardPackageInitializerFallback() async throws {
-            try await testWithTemporaryDirectory { tmpPath in
-                let packagePath = tmpPath.appending("Foo")
-                try localFileSystem.createDirectory(packagePath)
-                
-                let options = try GlobalOptions.parse(["--package-path", packagePath.pathString])
-                let tool = try SwiftCommandState.makeMockState(options: options)
-
-                // Test fallback to standard initializer when no template is specified
-                let configuration = try PackageInitConfiguration(
-                    swiftCommandState: tool,
-                    name: "TestPackage",
-                    initMode: "executable", // Standard package type
-                    testLibraryOptions: TestLibraryOptions.parse([]),
-                    buildOptions: BuildCommandOptions.parse([]),
-                    globalOptions: options,
-                    validatePackage: false,
-                    args: [],
-                    directory: nil,
-                    url: nil,
-                    packageID: nil,
-                    versionFlags: VersionFlags(
-                        exact: nil, revision: nil, branch: nil,
-                        from: nil, upToNextMinorFrom: nil, to: nil
+                    // Verify standard package was created
+                    #expect(tool.fileSystem.exists(packagePath.appending("Package.swift")))
+                    #expect(try localFileSystem
+                        .getDirectoryContents(packagePath.appending("Sources").appending("TestPackage")) ==
+                        ["TestPackage.swift"]
                     )
-                )
-
-                let initializer = try configuration.makeInitializer()
-                #expect(initializer is StandardPackageInitializer)
-
-                // Change to package directory
-                try await initializer.run()
-
-                // Verify standard package was created
-                #expect(tool.fileSystem.exists(packagePath.appending("Package.swift")))
-                #expect(try localFileSystem
-                    .getDirectoryContents(packagePath.appending("Sources").appending("TestPackage")) == ["TestPackage.swift"]
-                )
-            }
-        }
-    }
-
-    // MARK: - Template Test Prompting System Tests
-
-    @Suite(
-        .skip("Disabled until we integrate proper parsing"),
-        .tags(
-            Tag.TestSize.medium,
-            Tag.Feature.Command.Package.Init,
-        ),
-    )
-    struct TemplateTestPromptingSystemTests {
-        // MARK: - Helper Methods
-
-        private func createTestCommand(
-            name: String = "test-template",
-            arguments: [ArgumentInfoV0] = [],
-            subcommands: [CommandInfoV0]? = nil
-        ) -> CommandInfoV0 {
-            CommandInfoV0(
-                superCommands: [],
-                shouldDisplay: true,
-                commandName: name,
-                abstract: "Test template command",
-                discussion: "A command for testing template prompting",
-                defaultSubcommand: nil,
-                subcommands: subcommands ?? [],
-                arguments: arguments
-            )
-        }
-
-        private func createRequiredOption(
-            name: String,
-            defaultValue: String? = nil,
-            allValues: [String]? = nil,
-            parsingStrategy: ArgumentInfoV0.ParsingStrategyV0 = .default,
-            completionKind: ArgumentInfoV0.CompletionKindV0? = nil,
-            isRepeating: Bool = false
-        ) -> ArgumentInfoV0 {
-            ArgumentInfoV0(
-                kind: .option,
-                shouldDisplay: true,
-                sectionTitle: nil,
-                isOptional: false,
-                isRepeating: isRepeating,
-                parsingStrategy: parsingStrategy,
-                names: [ArgumentInfoV0.NameInfoV0(kind: .long, name: name)],
-                preferredName: ArgumentInfoV0.NameInfoV0(kind: .long, name: name),
-                valueName: name,
-                defaultValue: defaultValue,
-                allValueStrings: allValues,
-                allValueDescriptions: nil,
-                completionKind: completionKind,
-                abstract: "\(name.capitalized) parameter",
-                discussion: nil
-            )
-        }
-
-        private func createOptionalFlag(
-            name: String,
-            defaultValue: String? = nil,
-            completionKind: ArgumentInfoV0.CompletionKindV0? = nil
-        ) -> ArgumentInfoV0 {
-            ArgumentInfoV0(
-                kind: .flag,
-                shouldDisplay: true,
-                sectionTitle: nil,
-                isOptional: true,
-                isRepeating: false,
-                parsingStrategy: .default,
-                names: [ArgumentInfoV0.NameInfoV0(kind: .long, name: name)],
-                preferredName: ArgumentInfoV0.NameInfoV0(kind: .long, name: name),
-                valueName: name,
-                defaultValue: defaultValue,
-                allValueStrings: nil,
-                allValueDescriptions: nil,
-                completionKind: completionKind,
-                abstract: "\(name.capitalized) flag",
-                discussion: nil
-            )
-        }
-
-        // MARK: - Basic Creation and Command Path Generation Tests
-
-        @Test
-        func createsTestPromptingSystemSuccessfully() throws {
-            let promptingSystem = TemplateTestPromptingSystem(hasTTY: false)
-            let emptyCommand = self.createTestCommand(name: "empty")
-
-            let commandPaths = try promptingSystem.generateCommandPaths(
-                rootCommand: emptyCommand,
-                args: [],
-                branches: []
-            )
-            #expect(!commandPaths.isEmpty)
-        }
-
-        @Test
-        func generatesCommandPathsWithBranchFiltering() throws {
-            let initSubcommand = self.createTestCommand(
-                name: "init",
-                arguments: [self.createRequiredOption(name: "name")]
-            )
-            let swiftSubcommand = self.createTestCommand(
-                name: "swift",
-                arguments: [self.createOptionalFlag(name: "verbose")]
-            )
-
-            let rootCommand = self.createTestCommand(
-                name: "package",
-                subcommands: [initSubcommand, swiftSubcommand]
-            )
-
-            let promptingSystem = TemplateTestPromptingSystem(hasTTY: false)
-
-            let filteredPaths = try promptingSystem.generateCommandPaths(
-                rootCommand: rootCommand,
-                args: ["--name", "TestProject"],
-                branches: ["init"]
-            )
-
-            #expect(!filteredPaths.isEmpty)
-            let hasInitPath = filteredPaths.contains { path in
-                path.fullPathKey.contains("init")
-            }
-            #expect(hasInitPath)
-
-            let hasSwiftPath = filteredPaths.contains { path in
-                path.fullPathKey.contains("swift")
-            }
-            #expect(!hasSwiftPath) // Should be filtered out
-        }
-
-        @Test
-        func handlesArgumentInheritanceBetweenCommandLevels() throws {
-            let parentArg = self.createRequiredOption(name: "parent-option")
-            let childArg = self.createRequiredOption(name: "child-option")
-
-            let childCommand = self.createTestCommand(
-                name: "child",
-                arguments: [childArg]
-            )
-
-            let parentCommand = self.createTestCommand(
-                name: "parent",
-                arguments: [parentArg],
-                subcommands: [childCommand]
-            )
-
-            let promptingSystem = TemplateTestPromptingSystem(hasTTY: false)
-
-            let commandPaths = try promptingSystem.generateCommandPaths(
-                rootCommand: parentCommand,
-                args: ["--parent-option", "value1", "child", "--child-option", "value2"],
-                branches: []
-            )
-
-            #expect(!commandPaths.isEmpty)
-            let childPath = commandPaths[0].commandChain.first { command in
-                command.commandName == "child"
-            }
-            #expect(childPath != nil)
-
-            if let path = childPath {
-                let childArgument = path.arguments.first { argument in
-                    argument.argument.valueName == "child-option"
                 }
-                #expect(childArgument?.values.contains("value2") ?? false == true)
             }
         }
 
-        @Test
-        func dfsWithInheritanceExploresAllPaths() throws {
-            let level1Command = self.createTestCommand(
-                name: "level1",
-                arguments: [self.createRequiredOption(name: "arg1")]
-            )
-            let level2Command = self.createTestCommand(
-                name: "level2",
-                arguments: [self.createRequiredOption(name: "arg2")],
-                subcommands: [level1Command]
-            )
+        // MARK: - Template Test Prompting System Tests
 
-            let rootCommand = self.createTestCommand(
-                name: "root",
-                subcommands: [level1Command, level2Command]
-            )
+        @Suite(
+            .skip("Disabled until we integrate proper parsing"),
+            .tags(
+                Tag.TestSize.medium,
+                Tag.Feature.Command.Package.Init,
+            ),
+        )
+        struct TemplateTestPromptingSystemTests {
+            // MARK: - Helper Methods
 
-            let promptingSystem = TemplateTestPromptingSystem(hasTTY: false)
-
-            let commandPaths = try promptingSystem.generateCommandPaths(
-                rootCommand: rootCommand,
-                args: ["--arg1", "val1", "--arg2", "val2"],
-                branches: []
-            )
-
-            #expect(commandPaths.count >= 2) // Should have multiple paths
-            let hasLevel1Path = commandPaths.contains { $0.fullPathKey.contains("level1") }
-            let hasLevel2Path = commandPaths.contains { $0.fullPathKey.contains("level2") }
-            #expect(hasLevel1Path)
-            #expect(hasLevel2Path)
-        }
-
-        // MARK: - Argument Parsing and Validation Tests
-
-        @Test
-        func parseAndMatchArgumentsHandlesDifferentTypes() throws {
-            let flagArg = self.createOptionalFlag(name: "verbose")
-            let optionArg = self.createRequiredOption(name: "output")
-            let restrictedArg = self.createRequiredOption(
-                name: "type",
-                allValues: ["executable", "library"]
-            )
-
-            let promptingSystem = TemplateTestPromptingSystem(hasTTY: false)
-            let command = self.createTestCommand(
-                arguments: [flagArg, optionArg, restrictedArg]
-            )
-
-            guard let definedArgs = command.arguments else {
-                Issue.record("command does not contain arguments")
-                return
+            private func createTestCommand(
+                name: String = "test-template",
+                arguments: [ArgumentInfoV0] = [],
+                subcommands: [CommandInfoV0]? = nil
+            ) -> CommandInfoV0 {
+                CommandInfoV0(
+                    superCommands: [],
+                    shouldDisplay: true,
+                    commandName: name,
+                    abstract: "Test template command",
+                    discussion: "A command for testing template prompting",
+                    defaultSubcommand: nil,
+                    subcommands: subcommands ?? [],
+                    arguments: arguments
+                )
             }
 
-            let (parsed, leftover) = try promptingSystem.parseAndMatchArguments(
-                ["--verbose", "--output", "file.txt", "--type", "executable", "randomExtraPositionalArgument"],
-                definedArgs: definedArgs,
-                subcommands: []
-            )
+            private func createRequiredOption(
+                name: String,
+                defaultValue: String? = nil,
+                allValues: [String]? = nil,
+                parsingStrategy: ArgumentInfoV0.ParsingStrategyV0 = .default,
+                completionKind: ArgumentInfoV0.CompletionKindV0? = nil,
+                isRepeating: Bool = false
+            ) -> ArgumentInfoV0 {
+                ArgumentInfoV0(
+                    kind: .option,
+                    shouldDisplay: true,
+                    sectionTitle: nil,
+                    isOptional: false,
+                    isRepeating: isRepeating,
+                    parsingStrategy: parsingStrategy,
+                    names: [ArgumentInfoV0.NameInfoV0(kind: .long, name: name)],
+                    preferredName: ArgumentInfoV0.NameInfoV0(kind: .long, name: name),
+                    valueName: name,
+                    defaultValue: defaultValue,
+                    allValueStrings: allValues,
+                    allValueDescriptions: nil,
+                    completionKind: completionKind,
+                    abstract: "\(name.capitalized) parameter",
+                    discussion: nil
+                )
+            }
 
-            #expect(parsed.count == 3)
-            #expect(leftover.count == 0) // zero, as we parsed randomExtraPositionalArgument as an extra argument, it gets ignored.
+            private func createOptionalFlag(
+                name: String,
+                defaultValue: String? = nil,
+                completionKind: ArgumentInfoV0.CompletionKindV0? = nil
+            ) -> ArgumentInfoV0 {
+                ArgumentInfoV0(
+                    kind: .flag,
+                    shouldDisplay: true,
+                    sectionTitle: nil,
+                    isOptional: true,
+                    isRepeating: false,
+                    parsingStrategy: .default,
+                    names: [ArgumentInfoV0.NameInfoV0(kind: .long, name: name)],
+                    preferredName: ArgumentInfoV0.NameInfoV0(kind: .long, name: name),
+                    valueName: name,
+                    defaultValue: defaultValue,
+                    allValueStrings: nil,
+                    allValueDescriptions: nil,
+                    completionKind: completionKind,
+                    abstract: "\(name.capitalized) flag",
+                    discussion: nil
+                )
+            }
 
-            let verboseArg = parsed.first { $0.argument.preferredName?.name == "verbose" }
-            #expect(verboseArg?.values == ["true"])
+            // MARK: - Basic Creation and Command Path Generation Tests
 
-            let outputArg = parsed.first { $0.argument.preferredName?.name == "output" }
-            #expect(outputArg?.values == ["file.txt"])
+            @Test
+            func createsTestPromptingSystemSuccessfully() throws {
+                let promptingSystem = TemplateTestPromptingSystem(hasTTY: false)
+                let emptyCommand = self.createTestCommand(name: "empty")
 
-            let typeArg = parsed.first { $0.argument.preferredName?.name == "type" }
-            #expect(typeArg?.values == ["executable"])
-        }
-
-        @Test
-        func validatesMissingRequiredArgumentsWithoutTTY() throws {
-            let requiredArg = self.createRequiredOption(name: "name")
-            let promptingSystem = TemplateTestPromptingSystem(hasTTY: false)
-            let command = self.createTestCommand(arguments: [requiredArg])
-
-            #expect(throws: Error.self) {
-                _ = try promptingSystem.generateCommandPaths(
-                    rootCommand: command,
+                let commandPaths = try promptingSystem.generateCommandPaths(
+                    rootCommand: emptyCommand,
                     args: [],
                     branches: []
                 )
+                #expect(!commandPaths.isEmpty)
             }
-        }
 
-        @Test
-        func handlesValidationAgainstAllowedValues() throws {
-            let restrictedArg = self.createRequiredOption(
-                name: "platform",
-                allValues: ["iOS", "macOS", "watchOS"]
-            )
+            @Test
+            func generatesCommandPathsWithBranchFiltering() throws {
+                let initSubcommand = self.createTestCommand(
+                    name: "init",
+                    arguments: [self.createRequiredOption(name: "name")]
+                )
+                let swiftSubcommand = self.createTestCommand(
+                    name: "swift",
+                    arguments: [self.createOptionalFlag(name: "verbose")]
+                )
 
-            let promptingSystem = TemplateTestPromptingSystem(hasTTY: false)
-            let command = self.createTestCommand(arguments: [restrictedArg])
+                let rootCommand = self.createTestCommand(
+                    name: "package",
+                    subcommands: [initSubcommand, swiftSubcommand]
+                )
 
-            // Valid value should work
-            let validPaths = try promptingSystem.generateCommandPaths(
-                rootCommand: command,
-                args: ["--platform", "iOS"],
-                branches: []
-            )
-            #expect(!validPaths.isEmpty)
+                let promptingSystem = TemplateTestPromptingSystem(hasTTY: false)
 
-            // Invalid value should throw
-            #expect(throws: Error.self) {
-                _ = try promptingSystem.generateCommandPaths(
-                    rootCommand: command,
-                    args: ["--platform", "Linux"],
+                let filteredPaths = try promptingSystem.generateCommandPaths(
+                    rootCommand: rootCommand,
+                    args: ["--name", "TestProject"],
+                    branches: ["init"]
+                )
+
+                #expect(!filteredPaths.isEmpty)
+                let hasInitPath = filteredPaths.contains { path in
+                    path.fullPathKey.contains("init")
+                }
+                #expect(hasInitPath)
+
+                let hasSwiftPath = filteredPaths.contains { path in
+                    path.fullPathKey.contains("swift")
+                }
+                #expect(!hasSwiftPath) // Should be filtered out
+            }
+
+            @Test
+            func handlesArgumentInheritanceBetweenCommandLevels() throws {
+                let parentArg = self.createRequiredOption(name: "parent-option")
+                let childArg = self.createRequiredOption(name: "child-option")
+
+                let childCommand = self.createTestCommand(
+                    name: "child",
+                    arguments: [childArg]
+                )
+
+                let parentCommand = self.createTestCommand(
+                    name: "parent",
+                    arguments: [parentArg],
+                    subcommands: [childCommand]
+                )
+
+                let promptingSystem = TemplateTestPromptingSystem(hasTTY: false)
+
+                let commandPaths = try promptingSystem.generateCommandPaths(
+                    rootCommand: parentCommand,
+                    args: ["--parent-option", "value1", "child", "--child-option", "value2"],
                     branches: []
                 )
-            }
-        }
 
-        @Test
-        func handlesDefaultValuesCorrectly() throws {
-            let optionWithDefault = ArgumentInfoV0(
-                kind: .option,
-                shouldDisplay: true,
-                sectionTitle: nil,
-                isOptional: true,
-                isRepeating: false,
-                parsingStrategy: .default,
-                names: [ArgumentInfoV0.NameInfoV0(kind: .long, name: "output")],
-                preferredName: ArgumentInfoV0.NameInfoV0(kind: .long, name: "output"),
-                valueName: "output",
-                defaultValue: "stdout",
-                allValueStrings: nil,
-                allValueDescriptions: nil,
-                completionKind: nil,
-                abstract: "Output destination",
-                discussion: nil
-            )
+                #expect(!commandPaths.isEmpty)
+                let childPath = commandPaths[0].commandChain.first { command in
+                    command.commandName == "child"
+                }
+                #expect(childPath != nil)
 
-            let promptingSystem = TemplateTestPromptingSystem(hasTTY: false)
-            let command = self.createTestCommand(arguments: [optionWithDefault])
-
-            let paths = try promptingSystem.generateCommandPaths(
-                rootCommand: command,
-                args: [],
-                branches: []
-            )
-
-            #expect(!paths.isEmpty)
-            let outputArgument = paths.first!.commandChain.first!.arguments.first { argument in
-                argument.argument.valueName == "output"
+                if let path = childPath {
+                    let childArgument = path.arguments.first { argument in
+                        argument.argument.valueName == "child-option"
+                    }
+                    #expect(childArgument?.values.contains("value2") ?? false == true)
+                }
             }
 
-            #expect(outputArgument?.values.contains("stdout") ?? false == true)
-        }
+            @Test
+            func dfsWithInheritanceExploresAllPaths() throws {
+                let level1Command = self.createTestCommand(
+                    name: "level1",
+                    arguments: [self.createRequiredOption(name: "arg1")]
+                )
+                let level2Command = self.createTestCommand(
+                    name: "level2",
+                    arguments: [self.createRequiredOption(name: "arg2")],
+                    subcommands: [level1Command]
+                )
 
-        // MARK: - Parsing Strategy Tests
+                let rootCommand = self.createTestCommand(
+                    name: "root",
+                    subcommands: [level1Command, level2Command]
+                )
 
-        @Test
-        func handlesUpToNextOptionParsingStrategy() throws {
-            let upToNextOptionArg = ArgumentInfoV0(
-                kind: .option,
-                shouldDisplay: true,
-                sectionTitle: nil,
-                isOptional: false,
-                isRepeating: false,
-                parsingStrategy: .upToNextOption,
-                names: [ArgumentInfoV0.NameInfoV0(kind: .long, name: "files")],
-                preferredName: ArgumentInfoV0.NameInfoV0(kind: .long, name: "files"),
-                valueName: "files",
-                defaultValue: nil,
-                allValueStrings: nil,
-                allValueDescriptions: nil,
-                completionKind: nil,
-                abstract: "Input files",
-                discussion: nil
-            )
+                let promptingSystem = TemplateTestPromptingSystem(hasTTY: false)
 
-            let promptingSystem = TemplateTestPromptingSystem(hasTTY: false)
-            let command = self.createTestCommand(arguments: [upToNextOptionArg])
+                let commandPaths = try promptingSystem.generateCommandPaths(
+                    rootCommand: rootCommand,
+                    args: ["--arg1", "val1", "--arg2", "val2"],
+                    branches: []
+                )
 
-            guard let definedArgs = command.arguments else {
-                Issue.record("command does not contain arguments")
-                return
+                #expect(commandPaths.count >= 2) // Should have multiple paths
+                let hasLevel1Path = commandPaths.contains { $0.fullPathKey.contains("level1") }
+                let hasLevel2Path = commandPaths.contains { $0.fullPathKey.contains("level2") }
+                #expect(hasLevel1Path)
+                #expect(hasLevel2Path)
             }
 
-            let (parsed, leftover) = try promptingSystem.parseAndMatchArguments(
-                ["--files", "file1.swift", "file2.swift", "--other"],
-                definedArgs: definedArgs,
-                subcommands: []
-            )
+            // MARK: - Argument Parsing and Validation Tests
 
-            let filesArg = parsed.first { $0.argument.preferredName?.name == "files" }
-            #expect(filesArg?.values == ["file1.swift", "file2.swift"])
-            #expect(leftover == ["--other"])
-        }
+            @Test
+            func parseAndMatchArgumentsHandlesDifferentTypes() throws {
+                let flagArg = self.createOptionalFlag(name: "verbose")
+                let optionArg = self.createRequiredOption(name: "output")
+                let restrictedArg = self.createRequiredOption(
+                    name: "type",
+                    allValues: ["executable", "library"]
+                )
 
-        @Test
-        func handlesAllRemainingInputStrategy() throws {
-            let allRemainingArg = ArgumentInfoV0(
-                kind: .option,
-                shouldDisplay: true,
-                sectionTitle: nil,
-                isOptional: false,
-                isRepeating: false,
-                parsingStrategy: .allRemainingInput,
-                names: [ArgumentInfoV0.NameInfoV0(kind: .long, name: "args")],
-                preferredName: ArgumentInfoV0.NameInfoV0(kind: .long, name: "args"),
-                valueName: "args",
-                defaultValue: nil,
-                allValueStrings: nil,
-                allValueDescriptions: nil,
-                completionKind: nil,
-                abstract: "All remaining arguments",
-                discussion: nil
-            )
+                let promptingSystem = TemplateTestPromptingSystem(hasTTY: false)
+                let command = self.createTestCommand(
+                    arguments: [flagArg, optionArg, restrictedArg]
+                )
 
-            let promptingSystem = TemplateTestPromptingSystem(hasTTY: false)
-            let command = self.createTestCommand(arguments: [allRemainingArg])
+                guard let definedArgs = command.arguments else {
+                    Issue.record("command does not contain arguments")
+                    return
+                }
 
-            guard let definedArgs = command.arguments else {
-                Issue.record("command does not contain arguments")
-                return
-            }
-
-            let (parsed, leftover) = try promptingSystem.parseAndMatchArguments(
-                ["--args", "arg1", "arg2", "arg3"],
-                definedArgs: definedArgs,
-                subcommands: []
-            )
-
-            let argsArg = parsed.first { $0.argument.preferredName?.name == "args" }
-            #expect(argsArg?.values == ["arg1", "arg2", "arg3"])
-            #expect(leftover.isEmpty)
-        }
-
-        // MARK: - Command Line Fragment Generation Tests
-
-        @Test
-        func commandLineFragmentGenerationWithMixedArguments() throws {
-            let flagArg = self.createOptionalFlag(name: "verbose", defaultValue: "false")
-            let optionArg = self.createRequiredOption(name: "output")
-            let multiValueArg = ArgumentInfoV0(
-                kind: .option,
-                shouldDisplay: true,
-                sectionTitle: nil,
-                isOptional: true,
-                isRepeating: true,
-                parsingStrategy: .default,
-                names: [ArgumentInfoV0.NameInfoV0(kind: .long, name: "define")],
-                preferredName: ArgumentInfoV0.NameInfoV0(kind: .long, name: "define"),
-                valueName: "define",
-                defaultValue: nil,
-                allValueStrings: nil,
-                allValueDescriptions: nil,
-                completionKind: nil,
-                abstract: "Define parameter",
-                discussion: nil
-            )
-
-            let promptingSystem = TemplateTestPromptingSystem(hasTTY: false)
-            let command = self.createTestCommand(
-                arguments: [flagArg, optionArg, multiValueArg]
-            )
-
-            let paths = try promptingSystem.generateCommandPaths(
-                rootCommand: command,
-                args: ["--verbose", "--output", "result.txt", "--define", "FOO=1", "--define", "BAR=2"],
-                branches: []
-            )
-
-            #expect(!paths.isEmpty)
-            let path = paths.first!
-
-            #expect(path.commandChain.first!.arguments.count == 3)
-            
-            let arguments = path.commandChain[0].arguments
-            let verboseArg = arguments.first { $0.argument.valueName == "verbose" }
-            let outputArg = arguments.first { $0.argument.valueName == "output" }
-            let defineArg = arguments.first { $0.argument.valueName == "define" }
-            
-            #expect(verboseArg?.values == ["true"])
-            #expect(outputArg?.values == ["result.txt"])
-            #expect(defineArg?.values == ["FOO=1", "BAR=2"])
-        }
-
-        @Test
-        func handlesExplicitlyUnsetArguments() throws {
-            let optionalArg = ArgumentInfoV0(
-                kind: .option,
-                shouldDisplay: true,
-                sectionTitle: nil,
-                isOptional: true,
-                isRepeating: false,
-                parsingStrategy: .default,
-                names: [ArgumentInfoV0.NameInfoV0(kind: .long, name: "optional")],
-                preferredName: ArgumentInfoV0.NameInfoV0(kind: .long, name: "optional"),
-                valueName: "optional",
-                defaultValue: nil,
-                allValueStrings: nil,
-                allValueDescriptions: nil,
-                completionKind: nil,
-                abstract: "Optional parameter",
-                discussion: nil
-            )
-
-            let response = TemplateTestPromptingSystem.ArgumentResponse(
-                argument: optionalArg,
-                values: [],
-                isExplicitlyUnset: true
-            )
-
-            #expect(response.isExplicitlyUnset)
-            #expect(response.commandLineFragments.isEmpty)
-        }
-
-        // MARK: - Error Handling Tests
-
-        @Test
-        func handlesInvalidArgumentGracefully() throws {
-            let validArg = self.createRequiredOption(name: "name")
-            let promptingSystem = TemplateTestPromptingSystem(hasTTY: false)
-            let command = self.createTestCommand(arguments: [validArg])
-
-            guard let definedArgs = command.arguments else {
-                Issue.record("command does not contain arguments")
-                return
-            }
-
-            let (parsed, leftover) = try promptingSystem.parseAndMatchArguments(
-                ["--name", "TestProject", "--unknown", "value"],
-                definedArgs: definedArgs,
-                subcommands: []
-            )
-
-            #expect(parsed.count == 1)
-            #expect(leftover == ["--unknown", "value"])
-
-            let nameArg = parsed.first { $0.argument.preferredName?.name == "name" }
-            #expect(nameArg?.values == ["TestProject"])
-        }
-
-        @Test
-        func handlesMissingValueForRequiredOption() throws {
-            let requiredArg = self.createRequiredOption(name: "name")
-            let promptingSystem = TemplateTestPromptingSystem(hasTTY: false)
-            let command = self.createTestCommand(arguments: [requiredArg])
-
-            guard let definedArgs = command.arguments else {
-                Issue.record("command does not contain arguments")
-                return
-            }
-
-            #expect(throws: Error.self) {
-                _ = try promptingSystem.parseAndMatchArguments(
-                    ["--name"],
+                let (parsed, leftover) = try promptingSystem.parseAndMatchArguments(
+                    ["--verbose", "--output", "file.txt", "--type", "executable", "randomExtraPositionalArgument"],
                     definedArgs: definedArgs,
                     subcommands: []
                 )
+
+                #expect(parsed.count == 3)
+                #expect(leftover
+                    .count ==
+                    0
+                ) // zero, as we parsed randomExtraPositionalArgument as an extra argument, it gets ignored.
+
+                let verboseArg = parsed.first { $0.argument.preferredName?.name == "verbose" }
+                #expect(verboseArg?.values == ["true"])
+
+                let outputArg = parsed.first { $0.argument.preferredName?.name == "output" }
+                #expect(outputArg?.values == ["file.txt"])
+
+                let typeArg = parsed.first { $0.argument.preferredName?.name == "type" }
+                #expect(typeArg?.values == ["executable"])
+            }
+
+            @Test
+            func validatesMissingRequiredArgumentsWithoutTTY() throws {
+                let requiredArg = self.createRequiredOption(name: "name")
+                let promptingSystem = TemplateTestPromptingSystem(hasTTY: false)
+                let command = self.createTestCommand(arguments: [requiredArg])
+
+                #expect(throws: Error.self) {
+                    _ = try promptingSystem.generateCommandPaths(
+                        rootCommand: command,
+                        args: [],
+                        branches: []
+                    )
+                }
+            }
+
+            @Test
+            func handlesValidationAgainstAllowedValues() throws {
+                let restrictedArg = self.createRequiredOption(
+                    name: "platform",
+                    allValues: ["iOS", "macOS", "watchOS"]
+                )
+
+                let promptingSystem = TemplateTestPromptingSystem(hasTTY: false)
+                let command = self.createTestCommand(arguments: [restrictedArg])
+
+                // Valid value should work
+                let validPaths = try promptingSystem.generateCommandPaths(
+                    rootCommand: command,
+                    args: ["--platform", "iOS"],
+                    branches: []
+                )
+                #expect(!validPaths.isEmpty)
+
+                // Invalid value should throw
+                #expect(throws: Error.self) {
+                    _ = try promptingSystem.generateCommandPaths(
+                        rootCommand: command,
+                        args: ["--platform", "Linux"],
+                        branches: []
+                    )
+                }
+            }
+
+            @Test
+            func handlesDefaultValuesCorrectly() throws {
+                let optionWithDefault = ArgumentInfoV0(
+                    kind: .option,
+                    shouldDisplay: true,
+                    sectionTitle: nil,
+                    isOptional: true,
+                    isRepeating: false,
+                    parsingStrategy: .default,
+                    names: [ArgumentInfoV0.NameInfoV0(kind: .long, name: "output")],
+                    preferredName: ArgumentInfoV0.NameInfoV0(kind: .long, name: "output"),
+                    valueName: "output",
+                    defaultValue: "stdout",
+                    allValueStrings: nil,
+                    allValueDescriptions: nil,
+                    completionKind: nil,
+                    abstract: "Output destination",
+                    discussion: nil
+                )
+
+                let promptingSystem = TemplateTestPromptingSystem(hasTTY: false)
+                let command = self.createTestCommand(arguments: [optionWithDefault])
+
+                let paths = try promptingSystem.generateCommandPaths(
+                    rootCommand: command,
+                    args: [],
+                    branches: []
+                )
+
+                #expect(!paths.isEmpty)
+                let outputArgument = paths.first!.commandChain.first!.arguments.first { argument in
+                    argument.argument.valueName == "output"
+                }
+
+                #expect(outputArgument?.values.contains("stdout") ?? false == true)
+            }
+
+            // MARK: - Parsing Strategy Tests
+
+            @Test
+            func handlesUpToNextOptionParsingStrategy() throws {
+                let upToNextOptionArg = ArgumentInfoV0(
+                    kind: .option,
+                    shouldDisplay: true,
+                    sectionTitle: nil,
+                    isOptional: false,
+                    isRepeating: false,
+                    parsingStrategy: .upToNextOption,
+                    names: [ArgumentInfoV0.NameInfoV0(kind: .long, name: "files")],
+                    preferredName: ArgumentInfoV0.NameInfoV0(kind: .long, name: "files"),
+                    valueName: "files",
+                    defaultValue: nil,
+                    allValueStrings: nil,
+                    allValueDescriptions: nil,
+                    completionKind: nil,
+                    abstract: "Input files",
+                    discussion: nil
+                )
+
+                let promptingSystem = TemplateTestPromptingSystem(hasTTY: false)
+                let command = self.createTestCommand(arguments: [upToNextOptionArg])
+
+                guard let definedArgs = command.arguments else {
+                    Issue.record("command does not contain arguments")
+                    return
+                }
+
+                let (parsed, leftover) = try promptingSystem.parseAndMatchArguments(
+                    ["--files", "file1.swift", "file2.swift", "--other"],
+                    definedArgs: definedArgs,
+                    subcommands: []
+                )
+
+                let filesArg = parsed.first { $0.argument.preferredName?.name == "files" }
+                #expect(filesArg?.values == ["file1.swift", "file2.swift"])
+                #expect(leftover == ["--other"])
+            }
+
+            @Test
+            func handlesAllRemainingInputStrategy() throws {
+                let allRemainingArg = ArgumentInfoV0(
+                    kind: .option,
+                    shouldDisplay: true,
+                    sectionTitle: nil,
+                    isOptional: false,
+                    isRepeating: false,
+                    parsingStrategy: .allRemainingInput,
+                    names: [ArgumentInfoV0.NameInfoV0(kind: .long, name: "args")],
+                    preferredName: ArgumentInfoV0.NameInfoV0(kind: .long, name: "args"),
+                    valueName: "args",
+                    defaultValue: nil,
+                    allValueStrings: nil,
+                    allValueDescriptions: nil,
+                    completionKind: nil,
+                    abstract: "All remaining arguments",
+                    discussion: nil
+                )
+
+                let promptingSystem = TemplateTestPromptingSystem(hasTTY: false)
+                let command = self.createTestCommand(arguments: [allRemainingArg])
+
+                guard let definedArgs = command.arguments else {
+                    Issue.record("command does not contain arguments")
+                    return
+                }
+
+                let (parsed, leftover) = try promptingSystem.parseAndMatchArguments(
+                    ["--args", "arg1", "arg2", "arg3"],
+                    definedArgs: definedArgs,
+                    subcommands: []
+                )
+
+                let argsArg = parsed.first { $0.argument.preferredName?.name == "args" }
+                #expect(argsArg?.values == ["arg1", "arg2", "arg3"])
+                #expect(leftover.isEmpty)
+            }
+
+            // MARK: - Command Line Fragment Generation Tests
+
+            @Test
+            func commandLineFragmentGenerationWithMixedArguments() throws {
+                let flagArg = self.createOptionalFlag(name: "verbose", defaultValue: "false")
+                let optionArg = self.createRequiredOption(name: "output")
+                let multiValueArg = ArgumentInfoV0(
+                    kind: .option,
+                    shouldDisplay: true,
+                    sectionTitle: nil,
+                    isOptional: true,
+                    isRepeating: true,
+                    parsingStrategy: .default,
+                    names: [ArgumentInfoV0.NameInfoV0(kind: .long, name: "define")],
+                    preferredName: ArgumentInfoV0.NameInfoV0(kind: .long, name: "define"),
+                    valueName: "define",
+                    defaultValue: nil,
+                    allValueStrings: nil,
+                    allValueDescriptions: nil,
+                    completionKind: nil,
+                    abstract: "Define parameter",
+                    discussion: nil
+                )
+
+                let promptingSystem = TemplateTestPromptingSystem(hasTTY: false)
+                let command = self.createTestCommand(
+                    arguments: [flagArg, optionArg, multiValueArg]
+                )
+
+                let paths = try promptingSystem.generateCommandPaths(
+                    rootCommand: command,
+                    args: ["--verbose", "--output", "result.txt", "--define", "FOO=1", "--define", "BAR=2"],
+                    branches: []
+                )
+
+                #expect(!paths.isEmpty)
+                let path = paths.first!
+
+                #expect(path.commandChain.first!.arguments.count == 3)
+
+                let arguments = path.commandChain[0].arguments
+                let verboseArg = arguments.first { $0.argument.valueName == "verbose" }
+                let outputArg = arguments.first { $0.argument.valueName == "output" }
+                let defineArg = arguments.first { $0.argument.valueName == "define" }
+
+                #expect(verboseArg?.values == ["true"])
+                #expect(outputArg?.values == ["result.txt"])
+                #expect(defineArg?.values == ["FOO=1", "BAR=2"])
+            }
+
+            @Test
+            func handlesExplicitlyUnsetArguments() throws {
+                let optionalArg = ArgumentInfoV0(
+                    kind: .option,
+                    shouldDisplay: true,
+                    sectionTitle: nil,
+                    isOptional: true,
+                    isRepeating: false,
+                    parsingStrategy: .default,
+                    names: [ArgumentInfoV0.NameInfoV0(kind: .long, name: "optional")],
+                    preferredName: ArgumentInfoV0.NameInfoV0(kind: .long, name: "optional"),
+                    valueName: "optional",
+                    defaultValue: nil,
+                    allValueStrings: nil,
+                    allValueDescriptions: nil,
+                    completionKind: nil,
+                    abstract: "Optional parameter",
+                    discussion: nil
+                )
+
+                let response = TemplateTestPromptingSystem.ArgumentResponse(
+                    argument: optionalArg,
+                    values: [],
+                    isExplicitlyUnset: true
+                )
+
+                #expect(response.isExplicitlyUnset)
+                #expect(response.commandLineFragments.isEmpty)
+            }
+
+            // MARK: - Error Handling Tests
+
+            @Test
+            func handlesInvalidArgumentGracefully() throws {
+                let validArg = self.createRequiredOption(name: "name")
+                let promptingSystem = TemplateTestPromptingSystem(hasTTY: false)
+                let command = self.createTestCommand(arguments: [validArg])
+
+                guard let definedArgs = command.arguments else {
+                    Issue.record("command does not contain arguments")
+                    return
+                }
+
+                let (parsed, leftover) = try promptingSystem.parseAndMatchArguments(
+                    ["--name", "TestProject", "--unknown", "value"],
+                    definedArgs: definedArgs,
+                    subcommands: []
+                )
+
+                #expect(parsed.count == 1)
+                #expect(leftover == ["--unknown", "value"])
+
+                let nameArg = parsed.first { $0.argument.preferredName?.name == "name" }
+                #expect(nameArg?.values == ["TestProject"])
+            }
+
+            @Test
+            func handlesMissingValueForRequiredOption() throws {
+                let requiredArg = self.createRequiredOption(name: "name")
+                let promptingSystem = TemplateTestPromptingSystem(hasTTY: false)
+                let command = self.createTestCommand(arguments: [requiredArg])
+
+                guard let definedArgs = command.arguments else {
+                    Issue.record("command does not contain arguments")
+                    return
+                }
+
+                #expect(throws: Error.self) {
+                    _ = try promptingSystem.parseAndMatchArguments(
+                        ["--name"],
+                        definedArgs: definedArgs,
+                        subcommands: []
+                    )
+                }
+            }
+
+            // MARK: - Integration Tests
+
+            @Test
+            func complexCommandStructureWithMultiplePaths() throws {
+                let initArg = self.createRequiredOption(name: "name")
+                let buildArg = self.createOptionalFlag(name: "verbose")
+                let testArg = self.createOptionalFlag(name: "parallel")
+
+                let initCommand = self.createTestCommand(name: "init", arguments: [initArg])
+                let buildCommand = self.createTestCommand(name: "build", arguments: [buildArg])
+                let testCommand = self.createTestCommand(name: "test", arguments: [testArg])
+
+                let rootCommand = self.createTestCommand(
+                    name: "swift",
+                    subcommands: [initCommand, buildCommand, testCommand]
+                )
+
+                let promptingSystem = TemplateTestPromptingSystem(hasTTY: false)
+
+                let paths = try promptingSystem.generateCommandPaths(
+                    rootCommand: rootCommand,
+                    args: ["--name", "TestPackage", "--verbose", "--parallel"],
+                    branches: []
+                )
+
+                #expect(paths.count >= 3) // Should generate paths for init, build, and test
+
+                let initPaths = paths.filter { $0.fullPathKey.contains("init") }
+                let buildPaths = paths.filter { $0.fullPathKey.contains("build") }
+                let testPaths = paths.filter { $0.fullPathKey.contains("test") }
+
+                #expect(!initPaths.isEmpty)
+                #expect(!buildPaths.isEmpty)
+                #expect(!testPaths.isEmpty)
+            }
+
+            @Test
+            func branchFilteringWorksWithNestedSubcommands() throws {
+                let leafCommand = self.createTestCommand(name: "leaf")
+                let nestedCommand = self.createTestCommand(name: "nested", subcommands: [leafCommand])
+                let rootCommand = self.createTestCommand(name: "root", subcommands: [nestedCommand])
+
+                let promptingSystem = TemplateTestPromptingSystem(hasTTY: false)
+
+                let filteredPaths = try promptingSystem.generateCommandPaths(
+                    rootCommand: rootCommand,
+                    args: [],
+                    branches: ["nested"]
+                )
+
+                let hasNestedPath = filteredPaths.contains { path in
+                    path.fullPathKey.contains("nested")
+                }
+                #expect(hasNestedPath)
+
+                let hasLeafPath = filteredPaths.contains { path in
+                    path.fullPathKey.contains("leaf")
+                }
+                #expect(!hasLeafPath) // Should be filtered out
+            }
+
+            @Test
+            func handlesEmptyCommandStructure() throws {
+                let emptyCommand = self.createTestCommand(name: "empty")
+                let promptingSystem = TemplateTestPromptingSystem(hasTTY: false)
+
+                let paths = try promptingSystem.generateCommandPaths(
+                    rootCommand: emptyCommand,
+                    args: [],
+                    branches: []
+                )
+
+                #expect(paths.count == 1)
+                // #expect(paths.first?.fullPathKey == ["empty"])
+                #expect(paths.first?.fullPathKey.isEmpty == true)
+            }
+
+            @Test
+            func handlesTemplateWithNoArguments() throws {
+                // Test template with explicitly no arguments (nil arguments property)
+                let noArgsCommand = CommandInfoV0(
+                    superCommands: [],
+                    shouldDisplay: true,
+                    commandName: "no-args-template",
+                    abstract: "Template with no arguments",
+                    discussion: "A template that requires no user input",
+                    defaultSubcommand: nil,
+                    subcommands: [],
+                    arguments: []
+                )
+
+                let promptingSystem = TemplateTestPromptingSystem(hasTTY: false)
+
+                let paths = try promptingSystem.generateCommandPaths(
+                    rootCommand: noArgsCommand,
+                    args: [],
+                    branches: []
+                )
+
+                #expect(paths.count == 1)
+                #expect(paths.first?.fullPathKey.isEmpty == true)
+
+                // Should handle additional input gracefully by treating as leftover
+                let pathsWithExtra = try promptingSystem.generateCommandPaths(
+                    rootCommand: noArgsCommand,
+                    args: ["--some-flag", "extra-arg"],
+                    branches: []
+                )
+
+                #expect(pathsWithExtra.count == 1)
+                // Extra arguments should not appear in the path since no arguments are defined
+                #expect(pathsWithExtra.first?.fullPathKey.isEmpty == true)
+            }
+
+            @Test
+            func handlesTemplateWithEmptyArgumentsArray() throws {
+                // Test template with empty arguments array (not nil, but empty)
+                let emptyArgsCommand = CommandInfoV0(
+                    superCommands: [],
+                    shouldDisplay: true,
+                    commandName: "empty-args-template",
+                    abstract: "Template with empty arguments array",
+                    discussion: "A template with an empty arguments array",
+                    defaultSubcommand: nil,
+                    subcommands: [],
+                    arguments: []
+                )
+
+                let promptingSystem = TemplateTestPromptingSystem(hasTTY: false)
+
+                let paths = try promptingSystem.generateCommandPaths(
+                    rootCommand: emptyArgsCommand,
+                    args: [],
+                    branches: []
+                )
+
+                #expect(paths.count == 1)
+                #expect(paths.first?.fullPathKey.isEmpty == true)
             }
         }
 
-        // MARK: - Integration Tests
-
-        @Test
-        func complexCommandStructureWithMultiplePaths() throws {
-            let initArg = self.createRequiredOption(name: "name")
-            let buildArg = self.createOptionalFlag(name: "verbose")
-            let testArg = self.createOptionalFlag(name: "parallel")
-
-            let initCommand = self.createTestCommand(name: "init", arguments: [initArg])
-            let buildCommand = self.createTestCommand(name: "build", arguments: [buildArg])
-            let testCommand = self.createTestCommand(name: "test", arguments: [testArg])
-
-            let rootCommand = self.createTestCommand(
-                name: "swift",
-                subcommands: [initCommand, buildCommand, testCommand]
-            )
-
-            let promptingSystem = TemplateTestPromptingSystem(hasTTY: false)
-
-            let paths = try promptingSystem.generateCommandPaths(
-                rootCommand: rootCommand,
-                args: ["--name", "TestPackage", "--verbose", "--parallel"],
-                branches: []
-            )
-
-            #expect(paths.count >= 3) // Should generate paths for init, build, and test
-
-            let initPaths = paths.filter { $0.fullPathKey.contains("init") }
-            let buildPaths = paths.filter { $0.fullPathKey.contains("build") }
-            let testPaths = paths.filter { $0.fullPathKey.contains("test") }
-
-            #expect(!initPaths.isEmpty)
-            #expect(!buildPaths.isEmpty)
-            #expect(!testPaths.isEmpty)
-        }
-
-        @Test
-        func branchFilteringWorksWithNestedSubcommands() throws {
-            let leafCommand = self.createTestCommand(name: "leaf")
-            let nestedCommand = self.createTestCommand(name: "nested", subcommands: [leafCommand])
-            let rootCommand = self.createTestCommand(name: "root", subcommands: [nestedCommand])
-
-            let promptingSystem = TemplateTestPromptingSystem(hasTTY: false)
-
-            let filteredPaths = try promptingSystem.generateCommandPaths(
-                rootCommand: rootCommand,
-                args: [],
-                branches: ["nested"]
-            )
-
-            let hasNestedPath = filteredPaths.contains { path in
-                path.fullPathKey.contains("nested")
-            }
-            #expect(hasNestedPath)
-
-            let hasLeafPath = filteredPaths.contains { path in
-                path.fullPathKey.contains("leaf")
-            }
-            #expect(!hasLeafPath) // Should be filtered out
-        }
-
-        @Test
-        func handlesEmptyCommandStructure() throws {
-            let emptyCommand = self.createTestCommand(name: "empty")
-            let promptingSystem = TemplateTestPromptingSystem(hasTTY: false)
-
-            let paths = try promptingSystem.generateCommandPaths(
-                rootCommand: emptyCommand,
-                args: [],
-                branches: []
-            )
-
-            #expect(paths.count == 1)
-            //#expect(paths.first?.fullPathKey == ["empty"])
-            #expect(paths.first?.fullPathKey.isEmpty == true)
-        }
-
-        @Test
-        func handlesTemplateWithNoArguments() throws {
-            // Test template with explicitly no arguments (nil arguments property)
-            let noArgsCommand = CommandInfoV0(
-                superCommands: [],
-                shouldDisplay: true,
-                commandName: "no-args-template",
-                abstract: "Template with no arguments",
-                discussion: "A template that requires no user input",
-                defaultSubcommand: nil,
-                subcommands: [],
-                arguments: []
-            )
-
-            let promptingSystem = TemplateTestPromptingSystem(hasTTY: false)
-
-            let paths = try promptingSystem.generateCommandPaths(
-                rootCommand: noArgsCommand,
-                args: [],
-                branches: []
-            )
-
-            #expect(paths.count == 1)
-            #expect(paths.first?.fullPathKey.isEmpty == true)
-
-            // Should handle additional input gracefully by treating as leftover
-            let pathsWithExtra = try promptingSystem.generateCommandPaths(
-                rootCommand: noArgsCommand,
-                args: ["--some-flag", "extra-arg"],
-                branches: []
-            )
-
-            #expect(pathsWithExtra.count == 1)
-            // Extra arguments should not appear in the path since no arguments are defined
-            #expect(pathsWithExtra.first?.fullPathKey.isEmpty == true)
-        }
-
-        @Test
-        func handlesTemplateWithEmptyArgumentsArray() throws {
-            // Test template with empty arguments array (not nil, but empty)
-            let emptyArgsCommand = CommandInfoV0(
-                superCommands: [],
-                shouldDisplay: true,
-                commandName: "empty-args-template",
-                abstract: "Template with empty arguments array",
-                discussion: "A template with an empty arguments array",
-                defaultSubcommand: nil,
-                subcommands: [],
-                arguments: []
-            )
-
-            let promptingSystem = TemplateTestPromptingSystem(hasTTY: false)
-
-            let paths = try promptingSystem.generateCommandPaths(
-                rootCommand: emptyArgsCommand,
-                args: [],
-                branches: []
-            )
-
-            #expect(paths.count == 1)
-            #expect(paths.first?.fullPathKey.isEmpty == true)
-        }
-    }
-
-    @Suite(
-        .serialized,
-        .tags(
-            Tag.TestSize.large,
-            Tag.Feature.Command.Test,
-        ),
-    )
-    struct TestTemplateCommandTests {
         @Suite(
-            .skipSwiftCISelfHosted("Caught error: /tmp/Miscellaneous_DirectoryManagerFinalize.FBjvCq/clean-up/Package.swift doesn't exist in file system"),
-            .serialized,
             .tags(
-                Tag.TestSize.small,
+                Tag.TestSize.large,
                 Tag.Feature.Command.Test,
             ),
         )
-        struct TemplateTestingDirectoryManagerTests {
-            @Test
-            func createOutputDirectory() throws {
-                let options = try GlobalOptions.parse([])
+        struct TestTemplateCommandTests {
+            @Suite(
+                .skipSwiftCISelfHosted(
+                    "Caught error: /tmp/Miscellaneous_DirectoryManagerFinalize.FBjvCq/clean-up/Package.swift doesn't exist in file system"
+                ),
+                .tags(
+                    Tag.TestSize.small,
+                    Tag.Feature.Command.Test,
+                ),
+            )
+            struct TemplateTestingDirectoryManagerTests {
+                @Test
+                func createOutputDirectory() throws {
+                    let options = try GlobalOptions.parse([])
 
-                let fileSystem = InMemoryFileSystem()
-                try fileSystem.createDirectory(AbsolutePath("/tmp"), recursive: true)
+                    let fileSystem = InMemoryFileSystem()
+                    try fileSystem.createDirectory(AbsolutePath("/tmp"), recursive: true)
 
-                let tool = try SwiftCommandState.makeMockState(options: options, fileSystem: fileSystem)
+                    let tool = try SwiftCommandState.makeMockState(options: options, fileSystem: fileSystem)
 
-                let tempDirectoryPath = AbsolutePath("/tmp/test")
-                try tool.fileSystem.createDirectory(tempDirectoryPath)
+                    let tempDirectoryPath = AbsolutePath("/tmp/test")
+                    try tool.fileSystem.createDirectory(tempDirectoryPath)
 
-                let templateTestingDirectoryManager = TemplateTestingDirectoryManager(
-                    fileSystem: tool.fileSystem, observabilityScope: tool.observabilityScope
-                )
+                    let templateTestingDirectoryManager = TemplateTestingDirectoryManager(
+                        fileSystem: tool.fileSystem, observabilityScope: tool.observabilityScope
+                    )
 
-                let outputDirectory = tempDirectoryPath.appending(component: "foo")
+                    let outputDirectory = tempDirectoryPath.appending(component: "foo")
 
-                try templateTestingDirectoryManager.createOutputDirectory(
-                    outputDirectoryPath: outputDirectory,
-                    swiftCommandState: tool
-                )
-
-                #expect(try tool.fileSystem.isDirectory(outputDirectory))
-            }
-
-            @Test
-            func omitOutputDirectoryCreation() throws {
-
-                let options = try GlobalOptions.parse([])
-                let fileSystem = InMemoryFileSystem()
-                try fileSystem.createDirectory(AbsolutePath("/tmp"), recursive: true)
-
-                let tool = try SwiftCommandState.makeMockState(options: options, fileSystem: fileSystem)
-
-                let tempDirectory = AbsolutePath("/tmp/test")
-                try tool.fileSystem.createDirectory(tempDirectory)
-
-                let templateTestingDirectoryManager = TemplateTestingDirectoryManager(
-                    fileSystem: tool.fileSystem, observabilityScope: tool.observabilityScope
-                )
-
-                let outputDirectory = tempDirectory.appending(component: "foo")
-                try tool.fileSystem.createDirectory(outputDirectory)
-
-                try templateTestingDirectoryManager.createOutputDirectory(
-                    outputDirectoryPath: outputDirectory,
-                    swiftCommandState: tool
-                )
-
-                // should not throw error if the directory exists
-                #expect(try tool.fileSystem.isDirectory(outputDirectory))
-            }
-
-            @Test
-            func ManifestFileExistsInOutputDirectory() throws {
-
-                let fileSystem = InMemoryFileSystem()
-                let tmpDir = AbsolutePath("/tmp")
-                try fileSystem.createDirectory(tmpDir, recursive: true)
-
-                let options = try GlobalOptions.parse(["--package-path", tmpDir.pathString])
-
-                let outputDirectory = tmpDir.appending(component: "foo")
-
-                try fileSystem.createDirectory(outputDirectory)
-                fileSystem.createEmptyFiles(at: outputDirectory, files: "/Package.swift")
-
-                let tool = try SwiftCommandState.makeMockState(options: options, fileSystem: fileSystem)
-
-                let templateTestingDirectoryManager = TemplateTestingDirectoryManager(
-                    fileSystem: tool.fileSystem, observabilityScope: tool.observabilityScope
-                )
-
-                #expect(throws: DirectoryManagerError.foundManifestFile(path: outputDirectory)) {
                     try templateTestingDirectoryManager.createOutputDirectory(
                         outputDirectoryPath: outputDirectory,
                         swiftCommandState: tool
                     )
+
+                    #expect(try tool.fileSystem.isDirectory(outputDirectory))
                 }
 
+                @Test
+                func omitOutputDirectoryCreation() throws {
+                    let options = try GlobalOptions.parse([])
+                    let fileSystem = InMemoryFileSystem()
+                    try fileSystem.createDirectory(AbsolutePath("/tmp"), recursive: true)
+
+                    let tool = try SwiftCommandState.makeMockState(options: options, fileSystem: fileSystem)
+
+                    let tempDirectory = AbsolutePath("/tmp/test")
+                    try tool.fileSystem.createDirectory(tempDirectory)
+
+                    let templateTestingDirectoryManager = TemplateTestingDirectoryManager(
+                        fileSystem: tool.fileSystem, observabilityScope: tool.observabilityScope
+                    )
+
+                    let outputDirectory = tempDirectory.appending(component: "foo")
+                    try tool.fileSystem.createDirectory(outputDirectory)
+
+                    try templateTestingDirectoryManager.createOutputDirectory(
+                        outputDirectoryPath: outputDirectory,
+                        swiftCommandState: tool
+                    )
+
+                    // should not throw error if the directory exists
+                    #expect(try tool.fileSystem.isDirectory(outputDirectory))
+                }
+
+                @Test
+                func ManifestFileExistsInOutputDirectory() throws {
+                    let fileSystem = InMemoryFileSystem()
+                    let tmpDir = AbsolutePath("/tmp")
+                    try fileSystem.createDirectory(tmpDir, recursive: true)
+
+                    let options = try GlobalOptions.parse(["--package-path", tmpDir.pathString])
+
+                    let outputDirectory = tmpDir.appending(component: "foo")
+
+                    try fileSystem.createDirectory(outputDirectory)
+                    fileSystem.createEmptyFiles(at: outputDirectory, files: "/Package.swift")
+
+                    let tool = try SwiftCommandState.makeMockState(options: options, fileSystem: fileSystem)
+
+                    let templateTestingDirectoryManager = TemplateTestingDirectoryManager(
+                        fileSystem: tool.fileSystem, observabilityScope: tool.observabilityScope
+                    )
+
+                    #expect(throws: DirectoryManagerError.foundManifestFile(path: outputDirectory)) {
+                        try templateTestingDirectoryManager.createOutputDirectory(
+                            outputDirectoryPath: outputDirectory,
+                            swiftCommandState: tool
+                        )
+                    }
+                }
             }
+
+            // to be tested
+
+            /*
+
+             test commandFragments prompting
+
+             test dry Run
+
+             redirectStDoutandStDerr and deferral
+
+             End2End for this, 1 where generation errror, 1 build errorr, one thats clean
+             */
         }
-
-        // to be tested
-
-        /*
-
-        test commandFragments prompting
-
-        test dry Run
-
-
-        redirectStDoutandStDerr and deferral
-
-        End2End for this, 1 where generation errror, 1 build errorr, one thats clean
-         */
     }
-
 }

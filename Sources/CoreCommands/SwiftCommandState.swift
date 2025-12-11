@@ -358,8 +358,10 @@ public final class SwiftCommandState {
 
         let cancellator = Cancellator(observabilityScope: self.observabilityScope)
 
-        // Capture the original working directory ASAP.
-        guard let cwd = self.fileSystem.currentWorkingDirectory else {
+        // In test contexts with @TaskLocal, use the task-local directory, otherwise capture the original working directory ASAP
+        let cwd = TestContext.currentWorkingDirectory ?? self.fileSystem.currentWorkingDirectory
+
+        guard let cwd else {
             self.observabilityScope.emit(error: "couldn't determine the current working directory")
             throw ExitCode.failure
         }
@@ -1375,6 +1377,14 @@ extension Basics.Diagnostic {
 }
 
 extension SwiftCommandState {
+
+    /// Test helper utility for managing task-local currentWorkingDirectory in parallel tests.
+    /// This allows tests to use @TaskLocal to virtualize the current working directory without polluting the process-level working directory that would afffect other parallel tests.
+    @_spi(SwiftPMCoreCommandsTestSupport)
+    public enum TestContext {
+        @TaskLocal
+        public static var currentWorkingDirectory: AbsolutePath?
+    }
     /// Temporarily switches to a different package directory and executes the provided closure.
     ///
     /// This method temporarily changes the current working directory and workspace context
@@ -1398,8 +1408,11 @@ extension SwiftCommandState {
         let originalLock = self.workspaceLock
         let originalLockState = self.workspaceLockState
 
-        // Switch to temp directory
-        try Self.chdirIfNeeded(packageDirectory: packagePath, createPackagePath: createPackagePath)
+        let isTestContext = TestContext.currentWorkingDirectory != nil
+
+        if !isTestContext {
+            try Self.chdirIfNeeded(packageDirectory: packagePath, createPackagePath: createPackagePath)
+        }
 
         // Reset for new context
         self._workspace = nil
@@ -1416,8 +1429,7 @@ extension SwiftCommandState {
             self.workspaceLock = originalLock
             self.workspaceLockState = originalLockState
 
-            // Restore other context
-            if let cwd = originalWorkingDirectory {
+            if !isTestContext, let cwd = originalWorkingDirectory {
                 try? Self.chdirIfNeeded(packageDirectory: cwd, createPackagePath: false)
                 do {
                     self.scratchDirectory = try BuildSystemUtilities.getEnvBuildPath(workingDir: cwd)
@@ -1434,7 +1446,10 @@ extension SwiftCommandState {
         // Set up new context
         self.packageRoot = findPackageRoot(fileSystem: self.fileSystem)
 
-        if let cwd = self.fileSystem.currentWorkingDirectory {
+        // If testing, use task-local directory, otherwise use actual filesystem cwd
+        let effectiveCwd = TestContext.currentWorkingDirectory ?? self.fileSystem.currentWorkingDirectory
+
+        if let cwd = effectiveCwd {
             self.scratchDirectory = try BuildSystemUtilities
                 .getEnvBuildPath(workingDir: cwd) ?? (self.packageRoot ?? cwd).appending(".build")
         }

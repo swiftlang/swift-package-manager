@@ -819,6 +819,7 @@ let package = Package(
                 "PackageRegistry",
                 "PackageSigning",
                 "SourceControl",
+                "CoreCommands",
                 .product(name: "OrderedCollections", package: "swift-collections"),
                 "Workspace",
             ] + swiftTSCTestSupportDeps,
