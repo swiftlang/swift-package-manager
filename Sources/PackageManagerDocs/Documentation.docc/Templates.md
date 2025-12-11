@@ -6,7 +6,7 @@ This guide provides a brief overview of Swift Package Manager templates, describ
 
 Custom _templates_ allow Swift Package Manager to generate of packages whose functionality goes beyond the hard-coded templates. Package templates are written in Swift using Swift Argument Parser to provide arguments for generating a Swift package.
 
-A template is represented in the SwiftPM package manifest as a target of the `templateTarget` type and should be available to other packages by declaring a corresponding `template` product. Source code for a template is normally located in a directory under the `Templates` directory in the package, but this can be customized. However, as seen below, authors will also need to write the source code for a plugin.
+Swift Package Manager represents a template in the package manifest as a target of the `templateTarget` type and you make it available to other packages by declaring a corresponding `template` product. Source code for a template is normally located in a directory under the `Templates` directory in the package, but this you can customize that location. Template authors also need to write the source code for a plugin.
 
 Templates are an abstraction of two types of modules:
 - a template _executable_ that performs the file generation and project setup
