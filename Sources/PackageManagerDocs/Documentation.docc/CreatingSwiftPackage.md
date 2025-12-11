@@ -141,7 +141,7 @@ $ swift package init --type MyTemplate --url https://github.com/author/template 
 $ swift package init --type MyTemplate --url https://github.com/author/template --revision abc123
 ```
 
-You can provide template arguments directly to skip interactive prompts:
+You may provide template arguments proactively in order to skip the interactive prompts:
 
 ```bash
 $ swift package init --type ServerTemplate --package-id example.server-templates crud --database postgresql --readme true
