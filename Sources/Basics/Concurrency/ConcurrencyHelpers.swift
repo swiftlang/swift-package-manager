@@ -14,6 +14,7 @@ import _Concurrency
 import Dispatch
 import class Foundation.NSLock
 import class Foundation.ProcessInfo
+import class Foundation.Thread
 import struct Foundation.URL
 import struct Foundation.UUID
 import func TSCBasic.tsc_await
@@ -39,6 +40,19 @@ public func unsafe_await<T: Sendable>(_ body: @Sendable @escaping () async -> T)
     return box.get()!
 }
 
+extension Task where Failure == Never {
+    /// Runs `block` in a new thread and suspends until it finishes execution.
+    ///
+    /// - note: This function should be used sparingly, such as for long-running operations that may block and therefore should not be run on the Swift Concurrency thread pool. Do not use this for operations for which there may be many concurrent invocations as it could lead to thread explosion. It is meant to be a bridge to pre-existing blocking code which can't easily be converted to use Swift concurrency features.
+    public static func detachNewThread(name: String? = nil, _ block: @Sendable @escaping () -> Success) async -> Success {
+        return await withCheckedContinuation { continuation in
+            Thread.detachNewThread {
+                Thread.current.name = name
+                return continuation.resume(returning: block())
+            }
+        }
+    }
+}
 
 extension DispatchQueue {
     // a shared concurrent queue for running concurrent asynchronous operations
