@@ -90,7 +90,7 @@ private func executeAddURLDependencyAndAssert(
 }
 
 @Suite(
-    .serializedIfOnWindows,
+    .serialized,
     .tags(
         .TestSize.large,
         .Feature.Command.Package.General,
