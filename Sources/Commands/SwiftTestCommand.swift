@@ -1047,6 +1047,7 @@ final class TestRunner {
             defer { self.cancellator.deregister(terminationKey) }
             try process.launch()
             let result = try process.waitUntilExit()
+            testObservabilityScope.emit(debug: "\(result.arguments[0]) exited with result: \(result.exitStatus)")
             switch result.exitStatus {
             case .terminated(code: 0):
                 return .success
