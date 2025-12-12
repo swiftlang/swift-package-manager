@@ -812,7 +812,7 @@ struct PluginTests {
                     let success = try await withCheckedThrowingContinuation { continuation in
                       plugin.invoke(
                         action: .performCommand(package: package, arguments: arguments),
-                        buildEnvironment: BuildEnvironment(platform: .macOS, configuration: .debug),
+                        buildEnvironment: BuildEnvironment(platform: .macOS, isHost: true, configuration: .debug),
                         scriptRunner: scriptRunner,
                         workingDirectory: package.path,
                         outputDirectory: pluginDir.appending("output"),
@@ -1111,7 +1111,7 @@ struct PluginTests {
                 try await withTaskCancellationHandler {
                     _ = try await plugin.invoke(
                         action: .performCommand(package: package, arguments: []),
-                        buildEnvironment: BuildEnvironment(platform: .macOS, configuration: .debug),
+                        buildEnvironment: BuildEnvironment(platform: .macOS, isHost: true, configuration: .debug),
                         scriptRunner: scriptRunner,
                         workingDirectory: package.path,
                         outputDirectory: pluginDir.appending("output"),

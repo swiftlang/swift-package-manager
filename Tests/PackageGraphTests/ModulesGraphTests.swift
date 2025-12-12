@@ -2369,20 +2369,20 @@ struct ModulesGraphTests {
             try result.checkTarget("Foo") { result in
                 result.check(dependencies: "Bar", "Baz", "Biz")
                 try result.checkDependency("Bar") { result in
-                    result.checkConditions(satisfy: .init(platform: .linux, configuration: .debug))
-                    result.checkConditions(satisfy: .init(platform: .linux, configuration: .release))
-                    result.checkConditions(dontSatisfy: .init(platform: .macOS, configuration: .release))
+                    result.checkConditions(satisfy: .init(platform: .linux, isHost: false, configuration: .debug))
+                    result.checkConditions(satisfy: .init(platform: .linux, isHost: false, configuration: .release))
+                    result.checkConditions(dontSatisfy: .init(platform: .macOS, isHost: false, configuration: .release))
                 }
                 try result.checkDependency("Baz") { result in
-                    result.checkConditions(satisfy: .init(platform: .watchOS, configuration: .debug))
-                    result.checkConditions(satisfy: .init(platform: .tvOS, configuration: .debug))
-                    result.checkConditions(dontSatisfy: .init(platform: .tvOS, configuration: .release))
+                    result.checkConditions(satisfy: .init(platform: .watchOS, isHost: false, configuration: .debug))
+                    result.checkConditions(satisfy: .init(platform: .tvOS, isHost: false, configuration: .debug))
+                    result.checkConditions(dontSatisfy: .init(platform: .tvOS, isHost: false, configuration: .release))
                 }
                 try result.checkDependency("Biz") { result in
-                    result.checkConditions(satisfy: .init(platform: .watchOS, configuration: .release))
-                    result.checkConditions(satisfy: .init(platform: .iOS, configuration: .release))
-                    result.checkConditions(dontSatisfy: .init(platform: .iOS, configuration: .debug))
-                    result.checkConditions(dontSatisfy: .init(platform: .macOS, configuration: .release))
+                    result.checkConditions(satisfy: .init(platform: .watchOS, isHost: false, configuration: .release))
+                    result.checkConditions(satisfy: .init(platform: .iOS, isHost: false, configuration: .release))
+                    result.checkConditions(dontSatisfy: .init(platform: .iOS, isHost: false, configuration: .debug))
+                    result.checkConditions(dontSatisfy: .init(platform: .macOS, isHost: false, configuration: .release))
                 }
             }
         }

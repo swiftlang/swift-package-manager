@@ -2635,7 +2635,7 @@ struct PackageBuilderTests {
             try package.checkModule("cbar") { package in
                 let scope = BuildSettings.Scope(
                     package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                    environment: BuildEnvironment(platform: .macOS, isHost: false, configuration: .debug)
                 )
                 #expect(scope.evaluate(.GCC_PREPROCESSOR_DEFINITIONS) == ["CCC=2", "CXX"])
                 #expect(scope.evaluate(.HEADER_SEARCH_PATHS) == ["Sources/headers", "Sources/cppheaders"])
@@ -2644,7 +2644,7 @@ struct PackageBuilderTests {
 
                 let releaseScope = BuildSettings.Scope(
                     package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .release)
+                    environment: BuildEnvironment(platform: .macOS, isHost: false, configuration: .release)
                 )
                 #expect(releaseScope.evaluate(.GCC_PREPROCESSOR_DEFINITIONS) == ["CCC=2", "CXX", "RCXX"])
             }
@@ -2652,20 +2652,20 @@ struct PackageBuilderTests {
             try package.checkModule("bar") { package in
                 let scope = BuildSettings.Scope(
                     package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .linux, configuration: .debug)
+                    environment: BuildEnvironment(platform: .linux, isHost: false, configuration: .debug)
                 )
                 #expect(scope.evaluate(.SWIFT_ACTIVE_COMPILATION_CONDITIONS) == ["SOMETHING", "LINUX"])
                 #expect(scope.evaluate(.OTHER_SWIFT_FLAGS) == ["-Isfoo", "-L", "sbar"])
 
                 let rscope = BuildSettings.Scope(
                     package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .linux, configuration: .release)
+                    environment: BuildEnvironment(platform: .linux, isHost: false, configuration: .release)
                 )
                 #expect(rscope.evaluate(.SWIFT_ACTIVE_COMPILATION_CONDITIONS) == ["SOMETHING", "LINUX", "RLINUX"])
 
                 let mscope = BuildSettings.Scope(
                     package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                    environment: BuildEnvironment(platform: .macOS, isHost: false, configuration: .debug)
                 )
                 #expect(mscope.evaluate(.SWIFT_ACTIVE_COMPILATION_CONDITIONS) == ["SOMETHING", "DMACOS"])
             }
@@ -2673,7 +2673,7 @@ struct PackageBuilderTests {
             try package.checkModule("exe") { package in
                 let scope = BuildSettings.Scope(
                     package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .linux, configuration: .debug)
+                    environment: BuildEnvironment(platform: .linux, isHost: false, configuration: .debug)
                 )
                 #expect(scope.evaluate(.LINK_LIBRARIES) == ["sqlite3"])
                 #expect(scope.evaluate(.OTHER_LDFLAGS) == ["-Ilfoo", "-L", "lbar"])
@@ -2684,7 +2684,7 @@ struct PackageBuilderTests {
 
                 let mscope = BuildSettings.Scope(
                     package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .iOS, configuration: .debug)
+                    environment: BuildEnvironment(platform: .iOS, isHost: false, configuration: .debug)
                 )
                 #expect(mscope.evaluate(.LINK_LIBRARIES) == ["sqlite3"])
                 #expect(mscope.evaluate(.LINK_FRAMEWORKS) == ["CoreData"])
@@ -2732,7 +2732,7 @@ struct PackageBuilderTests {
             try package.checkModule("foo") { package in
                 let macosDebugScope = BuildSettings.Scope(
                     package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                    environment: BuildEnvironment(platform: .macOS, isHost: false, configuration: .debug)
                 )
                 #expect(macosDebugScope.evaluate(.OTHER_CFLAGS) == [])
                 #expect(macosDebugScope.evaluate(.OTHER_CPLUSPLUSFLAGS) == [])
@@ -2740,7 +2740,7 @@ struct PackageBuilderTests {
 
                 let macosReleaseScope = BuildSettings.Scope(
                     package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .release)
+                    environment: BuildEnvironment(platform: .macOS, isHost: false, configuration: .release)
                 )
                 #expect(macosReleaseScope.evaluate(.OTHER_CFLAGS) == [])
                 #expect(macosReleaseScope.evaluate(.OTHER_CPLUSPLUSFLAGS) == [])
@@ -2750,21 +2750,21 @@ struct PackageBuilderTests {
             try package.checkModule("bar") { package in
                 let linuxDebugScope = BuildSettings.Scope(
                     package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .linux, configuration: .debug)
+                    environment: BuildEnvironment(platform: .linux, isHost: false, configuration: .debug)
                 )
                 #expect(linuxDebugScope.evaluate(.OTHER_SWIFT_FLAGS) == [])
                 #expect(linuxDebugScope.evaluate(.OTHER_LDFLAGS) == [])
 
                 let linuxReleaseScope = BuildSettings.Scope(
                     package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .linux, configuration: .release)
+                    environment: BuildEnvironment(platform: .linux, isHost: false, configuration: .release)
                 )
                 #expect(linuxReleaseScope.evaluate(.OTHER_SWIFT_FLAGS) == [])
                 #expect(linuxReleaseScope.evaluate(.OTHER_LDFLAGS) == [])
 
                 let macosDebugScope = BuildSettings.Scope(
                     package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                    environment: BuildEnvironment(platform: .macOS, isHost: false, configuration: .debug)
                 )
                 #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS) == [])
                 #expect(macosDebugScope.evaluate(.OTHER_LDFLAGS) == [])
@@ -2932,22 +2932,22 @@ struct PackageBuilderTests {
                 target.check(dependencies: ["Bar", "Baz", "Biz"])
 
                 target.checkDependency("Bar") { result in
-                    result.checkConditions(satisfy: .init(platform: .macOS, configuration: .debug))
-                    result.checkConditions(satisfy: .init(platform: .macOS, configuration: .release))
-                    result.checkConditions(dontSatisfy: .init(platform: .watchOS, configuration: .release))
+                    result.checkConditions(satisfy: .init(platform: .macOS, isHost: false, configuration: .debug))
+                    result.checkConditions(satisfy: .init(platform: .macOS, isHost: false, configuration: .release))
+                    result.checkConditions(dontSatisfy: .init(platform: .watchOS, isHost: false, configuration: .release))
                 }
 
                 target.checkDependency("Baz") { result in
-                    result.checkConditions(satisfy: .init(platform: .macOS, configuration: .debug))
-                    result.checkConditions(satisfy: .init(platform: .linux, configuration: .debug))
-                    result.checkConditions(dontSatisfy: .init(platform: .linux, configuration: .release))
+                    result.checkConditions(satisfy: .init(platform: .macOS, isHost: false, configuration: .debug))
+                    result.checkConditions(satisfy: .init(platform: .linux, isHost: false, configuration: .debug))
+                    result.checkConditions(dontSatisfy: .init(platform: .linux, isHost: false, configuration: .release))
                 }
 
                 target.checkDependency("Biz") { result in
-                    result.checkConditions(satisfy: .init(platform: .watchOS, configuration: .release))
-                    result.checkConditions(satisfy: .init(platform: .iOS, configuration: .release))
-                    result.checkConditions(dontSatisfy: .init(platform: .linux, configuration: .release))
-                    result.checkConditions(dontSatisfy: .init(platform: .iOS, configuration: .debug))
+                    result.checkConditions(satisfy: .init(platform: .watchOS, isHost: false, configuration: .release))
+                    result.checkConditions(satisfy: .init(platform: .iOS, isHost: false, configuration: .release))
+                    result.checkConditions(dontSatisfy: .init(platform: .linux, isHost: false, configuration: .release))
+                    result.checkConditions(dontSatisfy: .init(platform: .iOS, isHost: false, configuration: .debug))
                 }
             }
         }
@@ -3238,13 +3238,13 @@ struct PackageBuilderTests {
             try package.checkModule("foo") { package in
                 let macosDebugScope = BuildSettings.Scope(
                     package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                    environment: BuildEnvironment(platform: .macOS, isHost: false, configuration: .debug)
                 )
                 #expect(macosDebugScope.evaluate(.SWIFT_VERSION) == ["5"])
 
                 let macosReleaseScope = BuildSettings.Scope(
                     package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .release)
+                    environment: BuildEnvironment(platform: .macOS, isHost: false, configuration: .release)
                 )
                 #expect(macosReleaseScope.evaluate(.SWIFT_VERSION) == ["5"])
             }
@@ -3252,19 +3252,19 @@ struct PackageBuilderTests {
             try package.checkModule("bar") { package in
                 let linuxDebugScope = BuildSettings.Scope(
                     package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .linux, configuration: .debug)
+                    environment: BuildEnvironment(platform: .linux, isHost: false, configuration: .debug)
                 )
                 #expect(linuxDebugScope.evaluate(.SWIFT_VERSION) == ["3"])
 
                 let macosDebugScope = BuildSettings.Scope(
                     package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                    environment: BuildEnvironment(platform: .macOS, isHost: false, configuration: .debug)
                 )
                 #expect(macosDebugScope.evaluate(.SWIFT_VERSION) == ["4"])
 
                 let macosReleaseScope = BuildSettings.Scope(
                     package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .release)
+                    environment: BuildEnvironment(platform: .macOS, isHost: false, configuration: .release)
                 )
                 #expect(macosReleaseScope.evaluate(.SWIFT_VERSION) == ["5"])
             }
@@ -3297,7 +3297,7 @@ struct PackageBuilderTests {
             try package.checkModule("foo") { package in
                 let macosDebugScope = BuildSettings.Scope(
                     package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                    environment: BuildEnvironment(platform: .macOS, isHost: false, configuration: .debug)
                 )
                 #expect(
                     macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS) ==
@@ -3306,7 +3306,7 @@ struct PackageBuilderTests {
 
                 let macosReleaseScope = BuildSettings.Scope(
                     package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .release)
+                    environment: BuildEnvironment(platform: .macOS, isHost: false, configuration: .release)
                 )
                 #expect(
                     macosReleaseScope.evaluate(.OTHER_SWIFT_FLAGS) ==
@@ -3343,7 +3343,7 @@ struct PackageBuilderTests {
             try package.checkModule("cfoo") { package in
                 let macosDebugScope = BuildSettings.Scope(
                     package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                    environment: BuildEnvironment(platform: .macOS, isHost: false, configuration: .debug)
                 )
                 #expect(
                     macosDebugScope.evaluate(.OTHER_CFLAGS) ==
@@ -3352,7 +3352,7 @@ struct PackageBuilderTests {
 
                 let macosReleaseScope = BuildSettings.Scope(
                     package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .release)
+                    environment: BuildEnvironment(platform: .macOS, isHost: false, configuration: .release)
                 )
                 #expect(
                     macosReleaseScope.evaluate(.OTHER_CFLAGS) ==
@@ -3389,7 +3389,7 @@ struct PackageBuilderTests {
             try package.checkModule("cxxfoo") { package in
                 let macosDebugScope = BuildSettings.Scope(
                     package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                    environment: BuildEnvironment(platform: .macOS, isHost: false, configuration: .debug)
                 )
                 #expect(
                     macosDebugScope.evaluate(.OTHER_CPLUSPLUSFLAGS) ==
@@ -3398,7 +3398,7 @@ struct PackageBuilderTests {
 
                 let macosReleaseScope = BuildSettings.Scope(
                     package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .release)
+                    environment: BuildEnvironment(platform: .macOS, isHost: false, configuration: .release)
                 )
                 #expect(
                     macosReleaseScope.evaluate(.OTHER_CPLUSPLUSFLAGS) ==
@@ -3433,7 +3433,7 @@ struct PackageBuilderTests {
             try package.checkModule("cfoo") { package in
                 let macosDebugScope = BuildSettings.Scope(
                     package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                    environment: BuildEnvironment(platform: .macOS, isHost: false, configuration: .debug)
                 )
                 #expect(
                     macosDebugScope.evaluate(.OTHER_CFLAGS) ==
@@ -3442,7 +3442,7 @@ struct PackageBuilderTests {
 
                 let macosReleaseScope = BuildSettings.Scope(
                     package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .release)
+                    environment: BuildEnvironment(platform: .macOS, isHost: false, configuration: .release)
                 )
                 #expect(
                     macosReleaseScope.evaluate(.OTHER_CFLAGS) ==
@@ -3477,7 +3477,7 @@ struct PackageBuilderTests {
             try package.checkModule("cxxfoo") { package in
                 let macosDebugScope = BuildSettings.Scope(
                     package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                    environment: BuildEnvironment(platform: .macOS, isHost: false, configuration: .debug)
                 )
                 #expect(
                     macosDebugScope.evaluate(.OTHER_CPLUSPLUSFLAGS) ==
@@ -3486,7 +3486,7 @@ struct PackageBuilderTests {
 
                 let macosReleaseScope = BuildSettings.Scope(
                     package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .release)
+                    environment: BuildEnvironment(platform: .macOS, isHost: false, configuration: .release)
                 )
                 #expect(
                     macosReleaseScope.evaluate(.OTHER_CPLUSPLUSFLAGS) ==
@@ -3527,14 +3527,14 @@ struct PackageBuilderTests {
             try package.checkModule("A") { package in
                 let macosDebugScope = BuildSettings.Scope(
                     package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                    environment: BuildEnvironment(platform: .macOS, isHost: false, configuration: .debug)
                 )
                 #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("-default-isolation"))
                 #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("MainActor"))
 
                 let macosReleaseScope = BuildSettings.Scope(
                     package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .release)
+                    environment: BuildEnvironment(platform: .macOS, isHost: false, configuration: .release)
                 )
                 #expect(macosReleaseScope.evaluate(.OTHER_SWIFT_FLAGS).contains("-default-isolation"))
                 #expect(macosReleaseScope.evaluate(.OTHER_SWIFT_FLAGS).contains("MainActor"))
@@ -3544,21 +3544,21 @@ struct PackageBuilderTests {
             try package.checkModule("B") { package in
                 let linuxDebugScope = BuildSettings.Scope(
                     package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .linux, configuration: .debug)
+                    environment: BuildEnvironment(platform: .linux, isHost: false, configuration: .debug)
                 )
                 #expect(linuxDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("-default-isolation"))
                 #expect(linuxDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("nonisolated"))
 
                 let macosDebugScope = BuildSettings.Scope(
                     package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                    environment: BuildEnvironment(platform: .macOS, isHost: false, configuration: .debug)
                 )
                 #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("-default-isolation"))
                 #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("MainActor"))
 
                 let macosReleaseScope = BuildSettings.Scope(
                     package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .release)
+                    environment: BuildEnvironment(platform: .macOS, isHost: false, configuration: .release)
                 )
                 #expect(!macosReleaseScope.evaluate(.OTHER_SWIFT_FLAGS).contains("-default-isolation") ||
                         !macosReleaseScope.evaluate(.OTHER_SWIFT_FLAGS).contains("MainActor"))
