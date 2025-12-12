@@ -375,11 +375,12 @@ package final class AsyncProcess {
         environment: Environment = .current,
         outputRedirection: OutputRedirection = .collect,
         startNewProcessGroup: Bool = true,
-        loggingHandler: LoggingHandler? = .none
+        loggingHandler: LoggingHandler? = .none,
+        workingDirectory: AbsolutePath? = nil
     ) {
         self.arguments = arguments
         self.environment = environment
-        self.workingDirectory = nil
+        self.workingDirectory = workingDirectory
         self.outputRedirection = outputRedirection
         self.startNewProcessGroup = startNewProcessGroup
         self.loggingHandler = loggingHandler ?? AsyncProcess.loggingHandler
@@ -1126,13 +1127,15 @@ extension AsyncProcess {
     package static func popen(
         arguments: [String],
         environment: Environment = .current,
-        loggingHandler: LoggingHandler? = .none
+        loggingHandler: LoggingHandler? = .none,
+        workingDirectory: AbsolutePath? = nil
     ) throws -> AsyncProcessResult {
         let process = AsyncProcess(
             arguments: arguments,
             environment: environment,
             outputRedirection: .collect,
-            loggingHandler: loggingHandler
+            loggingHandler: loggingHandler,
+            workingDirectory: workingDirectory
         )
         try process.launch()
         return try process.waitUntilExit()

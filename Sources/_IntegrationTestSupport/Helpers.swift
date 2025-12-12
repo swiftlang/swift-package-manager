@@ -74,9 +74,10 @@ public let xcodebuild: AbsolutePath = {
 package func sh(
     _ arguments: CustomStringConvertible...,
     env: [String: String] = [:],
+    workingDirectory: AbsolutePath? = nil,
     sourceLocation: SourceLocation = #_sourceLocation,
 ) throws -> ShReturnType {
-    let result = try _sh(arguments, env: env)
+    let result = try _sh(arguments, env: env, workingDirectory: workingDirectory)
     let stdout = try result.utf8Output()
     let stderr = try result.utf8stderrOutput()
 
@@ -97,6 +98,7 @@ package func sh(
 package func _sh(
     _ arguments: [CustomStringConvertible],
     env: [String: String] = [:],
+    workingDirectory: AbsolutePath? = nil
 ) throws -> AsyncProcessResult {
     var environment = Environment()
 
@@ -109,7 +111,7 @@ package func _sh(
     }
 
     let result = try AsyncProcess.popen(
-        arguments: arguments.map(\.description), environment: environment
+        arguments: arguments.map(\.description), environment: environment, workingDirectory: workingDirectory
     )
     return result
 }
