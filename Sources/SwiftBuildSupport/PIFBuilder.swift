@@ -202,6 +202,8 @@ public final class PIFBuilder {
         return accessibleToolsPerPlugin
     }
 
+    /// Constructs all `PackagePIFBuilder` objects used by the `constructPIF` function.
+    /// In particular, this is useful for unit testing the complex `PIFBuilder`class.
     package func makePIFBuilders(
         buildParameters: BuildParameters
     ) async throws -> [(ResolvedPackage, PackagePIFBuilder, any PackagePIFBuilder.BuildDelegate)] {
