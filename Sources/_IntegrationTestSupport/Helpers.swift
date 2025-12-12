@@ -111,7 +111,7 @@ package func _sh(
     }
 
     let result = try AsyncProcess.popen(
-        arguments: arguments.map(\.description), environment: environment
+        arguments: arguments.map(\.description), environment: environment, workingDirectory: workingDirectory
     )
     return result
 }
