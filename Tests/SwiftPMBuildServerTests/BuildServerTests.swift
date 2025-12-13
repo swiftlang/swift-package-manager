@@ -41,8 +41,7 @@ fileprivate func withSwiftPMBSP(fixtureName: String, body: (Connection, Notifica
             bspProcess.standardInput = outPipe
             let execPath = SwiftPM.xctestBinaryPath(for: "swift-package").pathString
             bspProcess.executableURL = URL(filePath: execPath)
-            bspProcess.arguments = ["experimental-build-server", "--build-system", "swiftbuild"]
-            bspProcess.currentDirectoryURL = URL(filePath: fixture.pathString)
+            bspProcess.arguments = ["--package-path", fixture.pathString, "experimental-build-server", "--build-system", "swiftbuild"]
             async let terminationPromise: Void = try await bspProcess.run()
             let notificationCollector = NotificationCollectingMessageHandler()
             connection.start(receiveHandler: notificationCollector)
