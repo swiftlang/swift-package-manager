@@ -99,6 +99,8 @@ public func testWithTemporaryDirectory<Result>(
         .replacing(":", with: "_")
     return try await withTemporaryDirectory(prefix: "spm-tests-\(cleanedFunction)") { tmpDirPath in
         defer {
+            let cwd = FileManager.default.currentDirectoryPath
+            print("FMCWD: \(cwd)")
             // Unblock and remove the tmp dir on deinit.
             try? localFileSystem.chmod(.userWritable, path: tmpDirPath, options: [.recursive])
             try? localFileSystem.removeFileTree(tmpDirPath)
