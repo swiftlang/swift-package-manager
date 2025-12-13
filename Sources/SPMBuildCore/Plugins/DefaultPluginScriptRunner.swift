@@ -490,7 +490,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
 #endif
         process.environment = .init(env)
 
-        process.currentDirectoryURL = workingDirectory.asURL
+        //process.currentDirectoryURL = workingDirectory.asURL
 
         // Set up a pipe for sending structured messages to the plugin on its stdin.
         let stdinPipe = Pipe()

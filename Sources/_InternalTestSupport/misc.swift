@@ -99,6 +99,8 @@ public func testWithTemporaryDirectory<Result>(
         .replacing(":", with: "_")
     return try await withTemporaryDirectory(prefix: "spm-tests-\(cleanedFunction)") { tmpDirPath in
         defer {
+            let cwd = FileManager.default.currentDirectoryPath
+            print("TWT-FMCWD: \(cwd) - \(cleanedFunction)")
             // Unblock and remove the tmp dir on deinit.
             try? localFileSystem.chmod(.userWritable, path: tmpDirPath, options: [.recursive])
             try? localFileSystem.removeFileTree(tmpDirPath)
@@ -131,6 +133,8 @@ public func testWithTemporaryDirectory<Result>(
 
             defer {
                 // Unblock and remove the tmp dir on deinit.
+                let cwd = FileManager.default.currentDirectoryPath
+                print("FXT-FMCWD: \(cwd) - \(copyName)")
                 try? localFileSystem.chmod(.userWritable, path: tmpDirPath, options: [.recursive])
                 try? localFileSystem.removeFileTree(tmpDirPath)
             }
@@ -212,7 +216,7 @@ public enum TestError: Error {
     do {
         // Make a suitable test directory name from the fixture subpath.
         let fixtureSubpath = try RelativePath(validating: name)
-        let copyName = fixtureSubpath.components.joined(separator: "_")
+        let copyName = fixtureSubpath.components.last!
 
         // Create a temporary directory for the duration of the block.
         return try await withTemporaryDirectory(prefix: copyName) { tmpDirPath in
@@ -252,7 +256,7 @@ public enum TestError: Error {
     do {
         // Make a suitable test directory name from the fixture subpath.
         let fixtureSubpath = try RelativePath(validating: name)
-        let copyName = fixtureSubpath.components.joined(separator: "_")
+        let copyName = fixtureSubpath.components.last!
 
         // Create a temporary directory for the duration of the block.
         return try await withTemporaryDirectory(
@@ -263,6 +267,8 @@ public enum TestError: Error {
             defer {
                 if removeFixturePathOnDeinit {
                     // Unblock and remove the tmp dir on deinit.
+                    let cwd = FileManager.default.currentDirectoryPath
+                    print("FIX-FMCWD: \(cwd) - \(name)")
                     try? localFileSystem.chmod(.userWritable, path: tmpDirPath, options: [.recursive])
                     try? localFileSystem.removeFileTree(tmpDirPath)
                 }

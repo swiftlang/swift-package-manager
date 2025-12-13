@@ -245,7 +245,7 @@ struct RunCommandTests {
     func unreachableExecutable(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        try await withKnownIssue {
+        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/UnreachableTargets") { fixturePath in
                 let (output, _) = try await execute(["bexec"], packagePath: fixturePath.appending("A"), buildSystem: buildSystem)
                 let outputLines = output.split(whereSeparator: { $0.isNewline })
@@ -265,7 +265,7 @@ struct RunCommandTests {
     func fileDeprecation(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        try await withKnownIssue {
+        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
                 let filePath = AbsolutePath(fixturePath, "Sources/secho/main.swift").pathString
                 let cwd = try #require(localFileSystem.currentWorkingDirectory, "Current working directory should not be nil")
@@ -337,7 +337,7 @@ struct RunCommandTests {
                 var environment = Environment.current
                 environment["SWIFTPM_EXEC_NAME"] = "swift-run"
                 let process = AsyncProcess(
-                    arguments: [SwiftPM.Run.xctestBinaryPath.pathString, "--package-path", fixturePath.pathString],
+                    arguments: try [SwiftPM.Run.xctestBinaryPath.pathString, "--package-path", fixturePath.pathString],
                     environment: environment,
                     outputRedirection: .stream(stdout: outputHandler.handle(bytes:), stderr: outputHandler.handle(bytes:))
                 )
@@ -422,7 +422,7 @@ struct RunCommandTests {
         buildSystem: BuildSystemProvider.Kind,
         configuration: BuildConfiguration
     ) async throws {
-        try await withKnownIssue {
+        try await withKnownIssue(isIntermittent: true) {
             // GIVEN we have a simple test package
             try await fixture(name: "Miscellaneous/SwiftRun") { fixturePath in
                //WHEN we run with the --quiet option

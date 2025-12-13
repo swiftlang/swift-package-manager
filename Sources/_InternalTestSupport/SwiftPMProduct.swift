@@ -56,14 +56,16 @@ extension SwiftPM {
     }
 
     public var xctestBinaryPath: AbsolutePath {
-        Self.xctestBinaryPath(for: RelativePath("swift-package-manager"))
+        get throws {
+            try Self.xctestBinaryPath(for: RelativePath("swift-package-manager"))
+        }
     }
 
-    public static func xctestBinaryPath(for executableName: RelativePath) -> AbsolutePath {
+    public static func xctestBinaryPath(for executableName: RelativePath) throws -> AbsolutePath {
         do {
             return try resolveBinDir().appending(executableName)
         } catch {
-            fatalError("Unable to determine xctestBinaryPath")
+            throw StringError("Unable to determine xctestBinaryPath")
         }
     }
 }
@@ -134,7 +136,7 @@ extension SwiftPM {
 #endif
         // FIXME: We use this private environment variable hack to be able to
         // create special conditions in swift-build for swiftpm tests.
-        environment["SWIFTPM_TESTS_MODULECACHE"] = self.xctestBinaryPath.parentDirectory.pathString
+        environment["SWIFTPM_TESTS_MODULECACHE"] = try self.xctestBinaryPath.parentDirectory.pathString
 
         // Unset the internal env variable that allows skipping certain tests.
         environment["_SWIFTPM_SKIP_TESTS_LIST"] = nil
@@ -143,7 +145,7 @@ extension SwiftPM {
             environment[key] = value
         }
 
-        var completeArgs = [Self.xctestBinaryPath(for: RelativePath(self.executableName)).pathString]
+        var completeArgs = try [Self.xctestBinaryPath(for: RelativePath(self.executableName)).pathString]
         if let packagePath = packagePath {
             completeArgs += ["--package-path", packagePath.pathString]
         }
