@@ -32,10 +32,6 @@ final class SwiftCommandStateTests: XCTestCase {
     /// Original working directory before the test ran (if known).
     private var originalWorkingDirectory: AbsolutePath? = .none
 
-    override func setUpWithError() throws {
-        throw XCTSkip("Skip these tests until we can avoid having to chdir in SwiftCommand when passed a --package-path")
-    }
-
     override func setUp() {
         originalWorkingDirectory = localFileSystem.currentWorkingDirectory
     }
