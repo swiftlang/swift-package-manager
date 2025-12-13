@@ -157,7 +157,7 @@ final class IncrementalBuildTests: XCTestCase {
         try XCTSkipIf(!UserToolchain.default.supportsSDKDependentTests(), "skipping because test environment doesn't support this test")
 
         try await fixtureXCTest(name: "ValidLayouts/SingleModule/Library") { fixturePath in
-            let dummySwiftcPath = SwiftPM.xctestBinaryPath(for: "dummy-swiftc")
+            let dummySwiftcPath = try SwiftPM.xctestBinaryPath(for: "dummy-swiftc")
             let swiftCompilerPath = try UserToolchain.default.swiftCompilerPath
             let environment: Environment = [
                 "SWIFT_EXEC": dummySwiftcPath.pathString,

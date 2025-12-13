@@ -337,7 +337,7 @@ struct RunCommandTests {
                 var environment = Environment.current
                 environment["SWIFTPM_EXEC_NAME"] = "swift-run"
                 let process = AsyncProcess(
-                    arguments: [SwiftPM.Run.xctestBinaryPath.pathString, "--package-path", fixturePath.pathString],
+                    arguments: try [SwiftPM.Run.xctestBinaryPath.pathString, "--package-path", fixturePath.pathString],
                     environment: environment,
                     outputRedirection: .stream(stdout: outputHandler.handle(bytes:), stderr: outputHandler.handle(bytes:))
                 )

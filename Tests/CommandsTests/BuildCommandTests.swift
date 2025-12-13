@@ -1200,7 +1200,7 @@ struct BuildCommandTestCases {
                 let filename = try #require(files.first { $0.hasPrefix("swift-version") })
                 return buildArenaPath.appending(component: filename)
             }
-            let dummySwiftcPath = SwiftPM.xctestBinaryPath(for: "dummy-swiftc")
+            let dummySwiftcPath = try SwiftPM.xctestBinaryPath(for: "dummy-swiftc")
             let swiftCompilerPath = try UserToolchain.default.swiftCompilerPath
 
             var environment: Environment = [

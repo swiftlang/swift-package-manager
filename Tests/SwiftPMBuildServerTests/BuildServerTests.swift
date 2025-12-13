@@ -39,7 +39,7 @@ fileprivate func withSwiftPMBSP(fixtureName: String, body: (Connection, Notifica
             let bspProcess = Process()
             bspProcess.standardOutputPipe = inPipe
             bspProcess.standardInput = outPipe
-            let execPath = SwiftPM.xctestBinaryPath(for: "swift-package").pathString
+            let execPath = try SwiftPM.xctestBinaryPath(for: "swift-package").pathString
             bspProcess.executableURL = URL(filePath: execPath)
             bspProcess.arguments = ["experimental-build-server", "--build-system", "swiftbuild"]
             bspProcess.currentDirectoryURL = URL(filePath: fixture.pathString)
