@@ -163,7 +163,7 @@ public final class ObservabilityScope: DiagnosticsEmitterProtocol, Sendable, Cus
         }
 
         var errorsReported: Bool {
-            self._errorsReported.get() ?? false
+            self._errorsReported.get()
         }
     }
 }

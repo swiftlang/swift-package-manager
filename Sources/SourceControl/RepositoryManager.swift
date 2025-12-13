@@ -343,12 +343,12 @@ public class RepositoryManager: Cancellable {
                 // If we are offline and have a valid cached repository, use the cache anyway.
                 if try isOffline(error) && self.provider.isValidDirectory(cachedRepositoryPath, for: handle.repository) {
                     // For the first offline use in the lifetime of this repository manager, emit a warning.
-                    var warningState = self.emitNoConnectivityWarning.get(default: [:])
-                    if !(warningState[handle.repository.url] ?? false) {
-                        warningState[handle.repository.url] = true
-                        self.emitNoConnectivityWarning.put(warningState)
-                        observabilityScope.emit(warning: "no connectivity to \(handle.repository.url), using previously cached repository state")
-                    }
+                    self.emitNoConnectivityWarning.mutate(body: {
+                        if !$0[handle.repository.url, default: false] {
+                            $0[handle.repository.url] = true
+                            observabilityScope.emit(warning: "no connectivity to \(handle.repository.url), using previously cached repository state")
+                        }
+                    })
                     observabilityScope.emit(info: "using previously cached repository state for \(package)")
 
                     cacheUsed = true

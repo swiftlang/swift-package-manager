@@ -96,7 +96,7 @@ public final class BuildExecutionContext {
 
     // MARK: - Private
 
-    private var indexStoreAPICache = ThreadSafeBox<Result<IndexStoreAPI, Error>>()
+    private var indexStoreAPICache = ThreadSafeBox<Result<IndexStoreAPI, Error>?>()
 
     /// Reference to the index store API.
     var indexStoreAPI: Result<IndexStoreAPI, Error> {
