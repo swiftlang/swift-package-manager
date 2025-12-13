@@ -100,7 +100,7 @@ public func testWithTemporaryDirectory<Result>(
     return try await withTemporaryDirectory(prefix: "spm-tests-\(cleanedFunction)") { tmpDirPath in
         defer {
             let cwd = FileManager.default.currentDirectoryPath
-            print("FMCWD: \(cwd)")
+            print("TWT-FMCWD: \(cwd)")
             // Unblock and remove the tmp dir on deinit.
             try? localFileSystem.chmod(.userWritable, path: tmpDirPath, options: [.recursive])
             try? localFileSystem.removeFileTree(tmpDirPath)
@@ -133,6 +133,8 @@ public func testWithTemporaryDirectory<Result>(
 
             defer {
                 // Unblock and remove the tmp dir on deinit.
+                let cwd = FileManager.default.currentDirectoryPath
+                print("FXT-FMCWD: \(cwd)")
                 try? localFileSystem.chmod(.userWritable, path: tmpDirPath, options: [.recursive])
                 try? localFileSystem.removeFileTree(tmpDirPath)
             }
@@ -265,6 +267,8 @@ public enum TestError: Error {
             defer {
                 if removeFixturePathOnDeinit {
                     // Unblock and remove the tmp dir on deinit.
+                    let cwd = FileManager.default.currentDirectoryPath
+                    print("FIX-FMCWD: \(cwd)")
                     try? localFileSystem.chmod(.userWritable, path: tmpDirPath, options: [.recursive])
                     try? localFileSystem.removeFileTree(tmpDirPath)
                 }
