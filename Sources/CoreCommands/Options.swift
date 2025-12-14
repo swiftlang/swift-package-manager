@@ -644,6 +644,8 @@ public struct LinkerOptions: ParsableArguments {
     public var shouldDisableLocalRpath: Bool = false
 }
 
+extension TestingLibrary: ExpressibleByArgument {}
+
 /// Which testing libraries to use (and any related options.)
 @_spi(SwiftPMInternal)
 public struct TestLibraryOptions: ParsableArguments {
@@ -675,24 +677,36 @@ public struct TestLibraryOptions: ParsableArguments {
           help: .private)
     public var explicitlyEnableExperimentalSwiftTestingLibrarySupport: Bool?
 
+    /// Experimental listing of arbitrary testing libraries by name (rather than
+    /// just toggling between XCTest and Swift Testing).
+    @Option(name: .customLong("experimental-testing-library"),
+            help: .private)
+    public var explicitlyEnabledLibraries: [TestingLibrary] = []
+
     /// The common implementation for `isEnabled()` and `isExplicitlyEnabled()`.
     ///
     /// It is intentional that `isEnabled()` is not simply this function with a
     /// default value for the `default` argument. There's no "true" default
     /// value to use; it depends on the semantics the caller is interested in.
     private func isEnabled(_ library: TestingLibrary, `default`: Bool, swiftCommandState: SwiftCommandState) -> Bool {
-        switch library {
-        case .xctest:
-            if let explicitlyEnableXCTestSupport {
-                return explicitlyEnableXCTestSupport
-            }
-            if let toolchain = try? swiftCommandState.getHostToolchain(),
-               toolchain.swiftSDK.xctestSupport == .supported {
+        if explicitlyEnabledLibraries.isEmpty {
+            switch library {
+            case .xctest:
+                if let explicitlyEnableXCTestSupport {
+                    return explicitlyEnableXCTestSupport
+                }
+                if let toolchain = try? swiftCommandState.getHostToolchain(),
+                   toolchain.swiftSDK.xctestSupport == .supported {
+                    return `default`
+                }
+                return false
+            case .swiftTesting:
+                return explicitlyEnableSwiftTestingLibrarySupport ?? explicitlyEnableExperimentalSwiftTestingLibrarySupport ?? `default`
+            case .other:
                 return `default`
             }
-            return false
-        case .swiftTesting:
-            return explicitlyEnableSwiftTestingLibrarySupport ?? explicitlyEnableExperimentalSwiftTestingLibrarySupport ?? `default`
+        } else {
+            return explicitlyEnabledLibraries.contains(library)
         }
     }
 
@@ -704,6 +718,35 @@ public struct TestLibraryOptions: ParsableArguments {
     /// Test whether or not a given library was explicitly enabled by the developer.
     public func isExplicitlyEnabled(_ library: TestingLibrary, swiftCommandState: SwiftCommandState) -> Bool {
         isEnabled(library, default: false, swiftCommandState: swiftCommandState)
+    }
+
+    /// The set of enabled testing libraries derived from all arguments to the
+    /// `swift test` command.
+    ///
+    /// This function behaves similarly to ``isEnabled(_:swiftCommandState:)``
+    /// rather than ``isExplicitlyEnabled(_:swiftCommandState:)``. We don't
+    /// (currently) need a projection of the latter.
+    public func enabledTestingLibraries(swiftCommandState: SwiftCommandState) -> [TestingLibrary] {
+        var result = [TestingLibrary]()
+
+        if isEnabled(.xctest, swiftCommandState: swiftCommandState) {
+            result.append(.xctest)
+        }
+        if isEnabled(.swiftTesting, swiftCommandState: swiftCommandState) {
+            result.append(.swiftTesting)
+        }
+
+        // Include all explicitly enabled libraries (other than XCTest and Swift
+        // Testing which we have special-cased.) Since this is an opt-in list
+        // rather than a toggle, there's no need to repeatedly call isEnabled().
+        // `foundLibraries` is just used to dedup inputs.
+        var foundLibraries: Set<TestingLibrary> = [.xctest, .swiftTesting]
+        for library in explicitlyEnabledLibraries where !foundLibraries.contains(library) {
+            foundLibraries.insert(library)
+            result.append(library)
+        }
+
+        return result
     }
 }
 
