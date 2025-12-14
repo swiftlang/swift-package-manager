@@ -96,7 +96,7 @@ struct TestDiscoveryTests {
                 #expect(stdout.contains("Executed 1 test"))
             }
         } when: {
-            buildSystem == .swiftbuild && [.windows, .macOS].contains(ProcessInfo.hostOperatingSystem)
+            buildSystem == .swiftbuild && [.windows].contains(ProcessInfo.hostOperatingSystem)
         }
     }
 
