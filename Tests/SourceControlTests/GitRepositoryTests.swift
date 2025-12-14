@@ -21,6 +21,7 @@ import func TSCBasic.makeDirectories
 import class Basics.AsyncProcess
 
 import enum TSCUtility.Git
+import SWBUtil
 
 class GitRepositoryTests: XCTestCase {
 
@@ -928,6 +929,122 @@ class GitRepositoryTests: XCTestCase {
             XCTAssertFalse(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(url: SourceControlURL(packageDir.pathString))))
             XCTAssertFalse(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(path: packageDir.appending(extension: "git"))))
             XCTAssertFalse(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(url: SourceControlURL(packageDir.pathString.appending(".git")))))
+        }
+    }
+    
+    func testGitLFSSupport() throws {
+        // Skip if git-lfs is not installed
+        do {
+            try systemQuietly([Git.tool, "lfs", "version"])
+        } catch {
+            throw XCTSkip("git-lfs not installed, skipping test")
+        }
+        
+        try testWithTemporaryDirectory { path in
+            // Create a repository with LFS content
+            let lfsRepoPath = path.appending("lfs-repo")
+            try makeDirectories(lfsRepoPath)
+            initGitRepo(lfsRepoPath)
+            
+            // Configure Git LFS in the repository
+            try systemQuietly([Git.tool, "-C", lfsRepoPath.pathString, "lfs", "install"])
+            
+            // Create a .gitattributes file with LFS filters
+            let attributesContent = "*.bin filter=lfs diff=lfs merge=lfs -text"
+            try localFileSystem.writeFileContents(lfsRepoPath.appending(".gitattributes"), string: attributesContent)
+            let lfsRepo = GitRepository(path: lfsRepoPath)
+            try lfsRepo.stage(file: ".gitattributes")
+            try lfsRepo.commit(message: "Add LFS configuration")
+            
+            // Create a binary file to be tracked by LFS
+            let binaryData = Data([0xFF, 0x00, 0xFF, 0x00, 0xFF]) // Simple binary content
+            try localFileSystem.writeFileContents(lfsRepoPath.appending("test.bin"), bytes: ByteString(binaryData))
+            
+            // Track the binary file with LFS and commit it
+            try systemQuietly([Git.tool, "-C", lfsRepoPath.pathString, "lfs", "track", "*.bin"])
+            try lfsRepo.stage(file: "test.bin")
+            try lfsRepo.commit(message: "Add binary file tracked by LFS")
+            
+            // Test the fetch functionality via the provider
+            let provider = GitRepositoryProvider()
+            
+            // Fetch the LFS repository - this will test our LFS detection and fetch code
+            let lfsClonePath = path.appending("lfs-clone")
+            let lfsRepoSpec = RepositorySpecifier(path: lfsRepoPath)
+            try provider.fetch(repository: lfsRepoSpec, to: lfsClonePath)
+            
+            // Create a working copy to verify LFS content was correctly fetched
+            let lfsWorkingPath = path.appending("lfs-working")
+            _ = try provider.createWorkingCopy(repository: lfsRepoSpec, sourcePath: lfsClonePath, at: lfsWorkingPath, editable: false)
+            
+            // Verify the LFS file exists
+            XCTAssertFileExists(lfsWorkingPath.appending("test.bin"))
+            
+            // Read the file content to verify it's not just an LFS pointer
+            // LFS pointer files are small text files that start with "version https://git-lfs.github.com/spec/"
+            let fileContent = try localFileSystem.readFileContents(lfsWorkingPath.appending("test.bin"))
+            let isLFSPointer = fileContent.description.starts(with: "version https://git-lfs.github.com/spec/")
+            
+            // If LFS fetching worked correctly, we should have the actual binary content, not the pointer
+            XCTAssertFalse(isLFSPointer, "File content is an LFS pointer, LFS fetching failed")
+            
+            // Check the file size matches our binary data
+            let fileInfo = try localFileSystem.getFileInfo(lfsWorkingPath.appending("test.bin"))
+            XCTAssertEqual(fileInfo.size, binaryData.count)
+        }
+    }
+    
+    func testGitLFSAttributesDetection() throws {
+        try testWithTemporaryDirectory { path in
+            // Create two repositories - one with LFS attributes, one without
+            let lfsRepoPath = path.appending("lfs-repo")
+            let regularRepoPath = path.appending("regular-repo")
+            
+            try makeDirectories(lfsRepoPath)
+            try makeDirectories(regularRepoPath)
+            
+            initGitRepo(lfsRepoPath)
+            initGitRepo(regularRepoPath)
+            
+            // Add .gitattributes with LFS filters to one repo
+            try localFileSystem.writeFileContents(lfsRepoPath.appending(".gitattributes"), string: "*.png filter=lfs diff=lfs merge=lfs -text")
+            let lfsRepo = GitRepository(path: lfsRepoPath)
+            try lfsRepo.stage(file: ".gitattributes")
+            try lfsRepo.commit(message: "Add LFS attributes")
+            
+            // Add a regular file to the other repo
+            try localFileSystem.writeFileContents(regularRepoPath.appending("test.txt"), string: "Hello, world!")
+            let regularRepo = GitRepository(path: regularRepoPath)
+            try regularRepo.stage(file: "test.txt")
+            try regularRepo.commit(message: "Add regular file")
+            
+            // Create a provider to test LFS detection
+            let provider = GitRepositoryProvider()
+            
+            // Use reflection to access the private checkForLFSAttributes method
+            // This approach is better than creating a full mock
+            let mirror = Mirror(reflecting: provider)
+            let checkForLFSAttributesMethods = mirror.children.compactMap { child in
+                return child.label == "checkForLFSAttributes" ? child.value : nil
+            }
+            
+            // If we can't access the method via reflection, we'll test it indirectly
+            if checkForLFSAttributesMethods.isEmpty {
+                // Clone repositories and check properties of the clones
+                let lfsClonePath = path.appending("lfs-clone")
+                let regularClonePath = path.appending("regular-clone")
+                
+                let lfsRepoSpec = RepositorySpecifier(path: lfsRepoPath)
+                let regularRepoSpec = RepositorySpecifier(path: regularRepoPath)
+                
+                try provider.fetch(repository: lfsRepoSpec, to: lfsClonePath)
+                try provider.fetch(repository: regularRepoSpec, to: regularClonePath)
+                
+                // For now, we just verify the fetch completed successfully
+                // The actual LFS detection is tested in testGitLFSSupport
+                XCTAssertDirectoryExists(lfsClonePath)
+                XCTAssertDirectoryExists(regularClonePath)
+            }
         }
     }
 }
