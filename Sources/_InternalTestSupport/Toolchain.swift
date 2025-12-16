@@ -37,10 +37,7 @@ package func resolveBinDir() throws -> AbsolutePath {
 #if os(macOS)
     return try macOSBundleRoot()
 #else
-    guard let cwd = localFileSystem.currentWorkingDirectory else {
-        fatalError("Current working directory unavailable!")
-    }
-    return try AbsolutePath(validating: CommandLine.arguments[0], relativeTo: cwd).parentDirectory
+    return try AbsolutePath(validating: CommandLine.arguments[0], relativeTo: localFileSystem.currentWorkingDirectory!).parentDirectory
 #endif
 }
 

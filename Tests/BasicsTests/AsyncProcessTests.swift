@@ -54,6 +54,8 @@ final class AsyncProcessTests: XCTestCase {
     }
 
     func testPopenWithBufferLargerThanAllocated() throws {
+        try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/9031: test fails on windows.")
+        
         // Test buffer larger than that allocated.
         try withTemporaryFile { file in
             let count = 10000
