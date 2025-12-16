@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 
-// a possible look into how to test templates
+// An example of how to test templates.
 @Suite
 final class TemplateCLITests {
     // Struct to collect output from a process
@@ -15,7 +15,7 @@ final class TemplateCLITests {
         }
     }
 
-    // function for running a process given arguments, executable, and a directory
+    // Function for running a process given arguments, executable, and a directory
     func run(executableURL: URL, args: [String], directory: URL? = nil) throws -> processOutput {
         let process = Process()
         process.executableURL = executableURL
@@ -37,7 +37,8 @@ final class TemplateCLITests {
         return processOutput(terminationStatus: process.terminationStatus, output: output)
     }
 
-    // test case for your template
+    // An example test case for your template.
+    // Note: The following test will only pass when ran from Swift Package Manager.
     @Test
     func template1_generatesExpectedFilesAndCompiles() throws {
         // Setup temp directory for generating template

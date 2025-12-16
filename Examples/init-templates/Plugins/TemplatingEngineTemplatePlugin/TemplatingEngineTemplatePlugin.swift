@@ -1,28 +1,15 @@
-//
-//  Template2Plugin.swift
-//  TemplateWorkflow
-//
-//  Created by John Bute on 2025-04-23.
-//
-
-//
-//  plugin.swift
-//  TemplateWorkflow
-//
-//  Created by John Bute on 2025-04-14.
-//
 import Foundation
 
 import PackagePlugin
 
-/// A plugin that kickstarts the Template2 executable.
+/// A plugin that kickstarts the TemplatingEngineTemplate executable.
 @main
 struct DeclarativeTemplatePlugin: CommandPlugin {
     func performCommand(
         context: PluginContext,
         arguments: [String]
     ) async throws {
-        let tool = try context.tool(named: "Template2")
+        let tool = try context.tool(named: "TemplatingEngineTemplate")
         let process = Process()
 
         process.executableURL = URL(filePath: tool.url.path())

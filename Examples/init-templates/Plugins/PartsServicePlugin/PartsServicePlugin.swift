@@ -2,7 +2,7 @@ import Foundation
 
 import PackagePlugin
 
-/// A plugin that kickstarts the Parts Service executable.
+/// A plugin that kickstarts the PartsService executable.
 @main
 struct PartsServiceTemplatePlugin: CommandPlugin {
     func performCommand(

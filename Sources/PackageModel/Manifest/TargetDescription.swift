@@ -202,6 +202,7 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
         case packageInit(templateType: TemplateType, templatePermissions: [TemplatePermission]?, description: String)
     }
 
+    /// The base package structure SwiftPM will set up before invoking a template's executable.
     public enum TemplateType: String, Hashable, Codable, Sendable {
         case library
         case executable
@@ -225,6 +226,7 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
         /// Network access allowed to Unix domain sockets.
         case unixDomainSocket
 
+        /// Initialize a template's command-line plugin's network permission with the corresponding scope and ports.
         public init?(_ scopeString: String, ports: [Int]) {
             switch scopeString {
             case "none": self = .none
@@ -237,7 +239,9 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
         }
     }
 
+    /// The permissions available for a template plugin.
     public enum TemplatePermission: Hashable, Codable, Sendable {
+        /// Network permission that use the scope and present the reason that you provide.
         case allowNetworkConnections(scope: TemplateNetworkPermissionScope, reason: String)
     }
 

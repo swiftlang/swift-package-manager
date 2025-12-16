@@ -14,7 +14,7 @@ final class PartsServiceTemplateTests {
         }
     }
 
-    // function for running a process given arguments, executable, and a directory
+    // Function for running a process given arguments, executable, and a directory
     func run(executableURL: URL, args: [String], directory: URL? = nil) throws -> processOutput {
         let process = Process()
         process.executableURL = executableURL
@@ -36,7 +36,7 @@ final class PartsServiceTemplateTests {
         return processOutput(terminationStatus: process.terminationStatus, output: output)
     }
 
-    // test case for your template
+    // Test case for your template
     @Test
     func template1_generatesExpectedFilesAndCompiles() throws {
         // Setup temp directory for generating template

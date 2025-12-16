@@ -14,20 +14,20 @@ extension String {
     }
 }
 
-// basic structure of a template that uses string interpolation
+// This example is the basic structure of a template that uses string interpolation.
 @main
 struct HelloTemplateTool: ParsableCommand {
     @OptionGroup(visibility: .hidden)
     var packageOptions: PkgDir
 
-    // swift argument parser needed to expose arguments to template generator
-    @Option(help: "The name of your app")
+    // The template system uses the Swift argument parser needed to expose arguments to template generator.
+    @Option(help: "The name of your package")
     var name: String
 
     @Flag(help: "Include a README?")
     var includeReadme: Bool = false
 
-    // entrypoint of the template executable, that generates just a main.swift and a readme.md
+    // The entry point of the template executable that generates a main.swift and a README.md
     func run() throws {
         guard let pkgDir = packageOptions.pkgDir else {
             throw ValidationError("No --pkg-dir was provided.")
@@ -42,7 +42,7 @@ struct HelloTemplateTool: ParsableCommand {
         try fs.createDirectory(atPath: mainFile.removingLastComponent().string, withIntermediateDirectories: true)
 
         try """
-        // This is the entry point to your command-line app
+        // This is the entry point to your command-line app.
         print("Hello, \(self.name)!")
 
         """.write(toFile: mainFile)

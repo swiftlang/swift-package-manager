@@ -767,6 +767,7 @@ public final class GitRepository: Repository, WorkingCheckout {
         }
     }
 
+    /// Checks out the branch you provides for the git repository.
     public func checkout(branch: String) throws {
         guard self.isWorkingRepo else {
             throw InternalError("This operation is only valid in a working repository")

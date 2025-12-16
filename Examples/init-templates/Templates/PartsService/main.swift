@@ -256,7 +256,7 @@ func appServer(db: Database, migration: Bool) -> String {
             try await app.runService()
         }
     }
-            """
+    """
 }
 
 func partModel(db: Database) -> String {

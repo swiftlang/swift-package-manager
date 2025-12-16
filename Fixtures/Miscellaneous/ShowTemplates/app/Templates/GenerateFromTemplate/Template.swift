@@ -14,29 +14,35 @@ extension String {
     }
 }
 
-// basic structure of a template that uses string interpolation
+// This example is the basic structure of a template that uses string interpolation.
 @main
 struct HelloTemplateTool: ParsableCommand {
-    // swift argument parser needed to expose arguments to template generator
-    @Option(help: "The name of your app")
+    @OptionGroup(visibility: .hidden)
+    var packageOptions: PkgDir
+
+    // The template system uses the Swift argument parser needed to expose arguments to template generator.
+    @Option(help: "The name of your package")
     var name: String
 
     @Flag(help: "Include a README?")
     var includeReadme: Bool = false
 
-    // entrypoint of the template executable, that generates just a main.swift and a readme.md
+    // The entry point of the template executable that generates a main.swift and a README.md.
     func run() throws {
-        print("we got here")
+        guard let pkgDir = packageOptions.pkgDir else {
+            throw ValidationError("No --pkg-dir was provided.")
+        }
+
         let fs = FileManager.default
 
-        let rootDir = FilePath(fs.currentDirectoryPath)
+        let packageDir = FilePath(pkgDir)
 
-        let mainFile = rootDir / "Generated" / self.name / "main.swift"
+        let mainFile = packageDir / "Sources" / self.name / "main.swift"
 
         try fs.createDirectory(atPath: mainFile.removingLastComponent().string, withIntermediateDirectories: true)
 
         try """
-        // This is the entry point to your command-line app
+        // This is the entry point to your command-line app.
         print("Hello, \(self.name)!")
 
         """.write(toFile: mainFile)
@@ -45,9 +51,16 @@ struct HelloTemplateTool: ParsableCommand {
             try """
             # \(self.name)
             This is a new Swift app!
-            """.write(toFile: rootDir / "README.md")
+            """.write(toFile: packageDir / "README.md")
         }
 
-        print("Project generated at \(rootDir)")
+        print("Project generated at \(packageDir)")
     }
+}
+
+// MARK: - Shared option commands that are used to show inheritances of arguments and flags
+
+struct PkgDir: ParsableArguments {
+    @Option(help: .hidden)
+    var pkgDir: String?
 }

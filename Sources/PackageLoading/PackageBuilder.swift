@@ -331,7 +331,7 @@ public final class PackageBuilder {
     public static let predefinedTestDirectories = ["Tests", "Sources", "Source", "src", "srcs"]
     /// Predefined plugin directories, in order of preference.
     public static let predefinedPluginDirectories = ["Plugins"]
-    /// Predefinded template directories, in order of preference
+    /// Predefined template directories, in order of preference
     public static let predefinedTemplateDirectories = ["Templates", "Template"]
     /// The identity for the package being constructed.
     private let identity: PackageIdentity

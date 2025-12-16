@@ -2,7 +2,7 @@ import Foundation
 
 import PackagePlugin
 
-/// A plugin that kickstarts the Server Template executable.
+/// A plugin that kickstarts the ServerTemplate executable.
 @main
 struct ServerTemplatePlugin: CommandPlugin {
     func performCommand(

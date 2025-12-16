@@ -1,21 +1,15 @@
-//
-//  plugin.swift
-//  TemplateWorkflow
-//
-//  Created by John Bute on 2025-04-14.
-//
 import Foundation
 
 import PackagePlugin
 
-/// A plugin that kickstarts the Template1 executable.
+/// A plugin that kickstarts the HelloTemplate executable.
 @main
 struct TemplatePlugin: CommandPlugin {
     func performCommand(
         context: PluginContext,
         arguments: [String]
     ) async throws {
-        let tool = try context.tool(named: "Template1")
+        let tool = try context.tool(named: "HelloTemplate")
         let packageDirectory = context.package.directoryURL.path
         let process = Process()
         let stderrPipe = Pipe()

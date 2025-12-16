@@ -522,7 +522,7 @@ func genRioTemplatePkl(serverType: ServerType) -> String {
         enabled = true
       }
     }
-      """
+    """
 }
 
 func genDockerFile(serverType: ServerType) -> String {

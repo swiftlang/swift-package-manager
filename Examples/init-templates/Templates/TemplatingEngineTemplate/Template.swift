@@ -1,14 +1,9 @@
-// TEMPLATE: TemplateCLI
-
 import ArgumentParser
 import Foundation
 import PathKit
 import Stencil
 
-// basic structure of a template that uses string interpolation
-
-import ArgumentParser
-
+//This is an example of a template that uses the Stencil library templates to generate files.
 @main
 struct TemplateDeclarative: ParsableCommand {
     enum Template: String, ExpressibleByArgument, CaseIterable {
@@ -39,7 +34,7 @@ struct TemplateDeclarative: ParsableCommand {
         }
     }
 
-    // swift argument parser needed to expose arguments to template generator
+    // The template uses the Swift argument parser to expose arguments to template generator.
     @Option(
         name: [.customLong("template")],
         help: "Choose one template: \(Template.allCases.map(\.rawValue).joined(separator: ", "))"

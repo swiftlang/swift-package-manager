@@ -12,8 +12,8 @@ let package = Package(
     name: "SimpleTemplateExample",
     products:
     .template(name: "PartsService") +
-        .template(name: "Template1") +
-        .template(name: "Template2") +
+        .template(name: "HelloTemplate") +
+        .template(name: "TemplatingEngineTemplate") +
         .template(name: "ServerTemplate"),
     dependencies: [
         .package(url: "https://github.com/apple/swift-argument-parser", branch: "main"),
@@ -31,7 +31,7 @@ let package = Package(
         description: "This template generates a simple parts management service using Hummingbird, and Fluent!"
 
     ) + .template(
-        name: "Template1",
+        name: "HelloTemplate",
         dependencies: [
             .product(name: "ArgumentParser", package: "swift-argument-parser"),
             .product(name: "SystemPackage", package: "swift-system"),
@@ -44,7 +44,7 @@ let package = Package(
         description: "This is a simple template that uses Swift string interpolation."
 
     ) + .template(
-        name: "Template2",
+        name: "TemplatingEngineTemplate",
         dependencies: [
             .product(name: "ArgumentParser", package: "swift-argument-parser"),
             .product(name: "SystemPackage", package: "swift-system"),
@@ -55,7 +55,7 @@ let package = Package(
             .process("StencilTemplates"),
         ],
         initialPackageType: .executable,
-        description: "This is a template that uses Stencil templating."
+        description: "This is a template that uses Stencil templating engine ."
 
     ) + .template(
         name: "ServerTemplate",

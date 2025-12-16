@@ -1,3 +1,15 @@
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift open source project
+//
+// Copyright (c) 2025 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
+
 import ArgumentParserToolInfo
 import Foundation
 
@@ -27,7 +39,7 @@ public class TemplatePrompter {
                 throw TemplateError.missingRequiredArgument(argName)
             }
 
-            var value: [String] = if let defaultValue = arg.defaultValue, !hasTTY {
+            let value: [String] = if let defaultValue = arg.defaultValue, !hasTTY {
                 // use default value if in a non-TTY environment
                 [defaultValue]
             } else if arg.isOptional, !self.hasTTY {
@@ -122,7 +134,6 @@ public class TemplatePrompter {
     ) throws -> [String] {
         let argName = argument.valueName ?? "argument"
         let isRequired = !argument.isOptional
-        let hasDefault = argument.defaultValue != nil
 
         // Build context-aware prompt message
         var promptHeader = "Argument \(position)/\(totalPositionals): \(argument.abstract ?? argName)"
@@ -345,7 +356,7 @@ public class TemplatePrompter {
         promptMessage:
         String
     ) throws -> [String] {
-        var prefix = promptMessage
+        let prefix = promptMessage
         var suffix = ""
 
         if argument.defaultValue == nil && argument.isOptional {

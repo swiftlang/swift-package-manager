@@ -2,7 +2,7 @@ import Foundation
 
 import PackagePlugin
 
-/// plugin that will kickstart the template executable
+/// The plugin that kickstarts the template executable.
 @main
 struct FooPlugin: CommandPlugin {
     func performCommand(

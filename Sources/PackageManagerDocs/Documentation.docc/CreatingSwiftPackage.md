@@ -84,8 +84,9 @@ For further documentation, see macros in [The Swift Programming Language](https:
 
 ### Creating a Package based on a custom template
 
-Swift Package Manager can create packages based on custom templates taht authors distribute as Swift packages.
-These templates can be obtained from local directories, Git repositories, or package registries, and provide interactive configuration through command-line arguments.
+Swift Package Manager can create packages based on custom templates that authors distribute as Swift packages.
+Obtain these templates from local directories, Git repositories, or package registries. 
+Templates may provide interactive configuration using command-line arguments.
 To create a package from a custom template, use the `swift package init` command with the `--type` option along with a template source:
 
 ```bash
@@ -99,7 +100,7 @@ $ swift package init --type MyTemplate --url https://github.com/author/template-
 $ swift package init --type MyTemplate --path /path/to/template
 ```
 
-The template prompts you for configuration options during initialization:
+If there are options, the template prompts you for the package configuration during initialization:
 
 ```bash
 $ swift package init --type ServerTemplate --package-id example.server-templates
@@ -125,7 +126,7 @@ Building for debugging...
 Build of product 'ServerTemplate' complete! (1.1s)
 ```
 
-Templates support the same versioning options as regular Swift package dependencies:
+Templates support the same versioning options as other Swift package dependencies:
 
 ```bash
 # Specific version
@@ -141,7 +142,7 @@ $ swift package init --type MyTemplate --url https://github.com/author/template 
 $ swift package init --type MyTemplate --url https://github.com/author/template --revision abc123
 ```
 
-You may provide template arguments proactively in order to skip the interactive prompts:
+You may provide template arguments proactively in order to skip the interactive prompts when you use a template:
 
 ```bash
 $ swift package init --type ServerTemplate --package-id example.server-templates crud --database postgresql --readme true

@@ -229,8 +229,10 @@ public final class Target {
         case plugin(name: String, package: String?)
     }
 
+    /// Options for how a template generates a Swift project.
     public var templateInitializationOptions: TemplateInitializationOptions?
 
+    /// The base package structure SwiftPM will set up before invoking a template's executable.
     public enum TemplateType: String {
         case executable
         case `macro`
@@ -241,6 +243,7 @@ public final class Target {
         case empty
     }
 
+    /// Options for how a template generates a Swift project.
     @available(_PackageDescription, introduced: 5.9)
     public enum TemplateInitializationOptions {
         case packageInit(templateType: TemplateType, templatePermissions: [TemplatePermissions]? = nil, description: String)
@@ -1679,15 +1682,15 @@ extension Target.PluginUsage: ExpressibleByStringLiteral {
     }
 }
 
-/// The type of permission a plug-in requires.
+/// The types of permission that a Swift Package Manager template plug-in may require.
 ///
 /// Supported types are ``allowNetworkConnections(scope:reason:)`` and ``writeToPackageDirectory(reason:)``.
 @available(_PackageDescription, introduced: 6.3.0)
 public enum TemplatePermissions {
-    /// Create a permission to make network connections.
+    /// The permission to make network connections.
     ///
-    /// The command plug-in requires permission to make network connections. The `reason` string is shown
-    /// to the user at the time of request for approval, explaining why the plug-in is requesting access.
+    /// The plug-in requires permission to make network connections. Swift Package Manager shows the `reason` string
+    /// to the user at the time of request for their approval, explaining why the plug-in is requesting access.
     ///   - Parameter scope: The scope of the permission.
     ///   - Parameter reason: A reason why the permission is needed. This is shown to the user when permission is sought.
     @available(_PackageDescription, introduced: 6.3.0)
@@ -1695,9 +1698,7 @@ public enum TemplatePermissions {
 
 }
 
-/// The scope of a network permission.
-///
-/// The scope can be none, local connections only, or all connections.
+/// Network permissions that a template may require.
 @available(_PackageDescription, introduced: 6.3.0)
 public enum TemplateNetworkPermissionScope {
     /// Do not allow network access.

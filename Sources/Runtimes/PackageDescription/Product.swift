@@ -196,6 +196,7 @@ public class Product {
 }
 
 public extension [Product] {
+    /// Defines a template that the package provides to generate new Swift projects.
     @available(_PackageDescription, introduced: 6.3.0)
     static func template(
         name: String,

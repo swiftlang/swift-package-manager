@@ -1385,18 +1385,18 @@ extension SwiftCommandState {
         @TaskLocal
         public static var currentWorkingDirectory: AbsolutePath?
     }
-    /// Temporarily switches to a different package directory and executes the provided closure.
+    /// Temporarily switch to a different package directory and execute the provided closure you provide.
     ///
     /// This method temporarily changes the current working directory and workspace context
     /// to operate on a different package. It handles all the necessary state management
     /// including workspace initialization, file system changes, and cleanup.
     ///
     /// - Parameters:
-    ///   - packagePath: The absolute path to switch to
-    ///   - createPackagePath: Whether to create the directory if it doesn't exist
-    ///   - perform: The closure to execute in the temporary workspace context
-    /// - Returns: The result of the performed closure
-    /// - Throws: Any error thrown by the closure or during workspace setup
+    ///   - packagePath: The absolute path to switch to.
+    ///   - createPackagePath: A Boolean value that indicates whether to create the directory if it doesn't exist.
+    ///   - perform: The closure to execute in the temporary workspace context.
+    /// - Returns: The result of the performed closure.
+    /// - Throws: Any error thrown by the closure or during workspace setup.
     public func withTemporaryWorkspace<R>(
         switchingTo packagePath: AbsolutePath,
         createPackagePath: Bool = true,

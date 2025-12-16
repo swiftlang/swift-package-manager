@@ -1,17 +1,10 @@
-//
-//  plugin.swift
-//  app
-//
-//  Created by John Bute on 2025-06-03.
-//
-
 import Foundation
 
 import PackagePlugin
 
-/// plugin that will kickstart the template executable=≠≠
-@main
+/// The plugin that kickstarts the template executable.
 
+@main
 struct TemplatePlugin: CommandPlugin {
     func performCommand(
         context: PluginContext,
