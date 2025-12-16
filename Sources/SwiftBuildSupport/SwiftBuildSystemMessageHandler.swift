@@ -64,7 +64,8 @@ public final class SwiftBuildSystemMessageHandler {
         self.logLevel = logLevel
         self.progressAnimation = ProgressAnimation.ninja(
             stream: outputStream,
-            verbose: self.logLevel.isVerbose
+            verbose: self.logLevel.isVerbose,
+            normalizeStep: false
         )
         self.enableBacktraces = enableBacktraces
         self.buildDelegate = buildDelegate
@@ -216,13 +217,13 @@ public final class SwiftBuildSystemMessageHandler {
                 }
             }
         case .didUpdateProgress(let progressInfo):
-            var step = Int(progressInfo.percentComplete)
-            if step < 0 { step = 0 }
+            let step = Int(progressInfo.percentComplete)
             let message = if let targetName = progressInfo.targetName {
                 "\(targetName) \(progressInfo.message)"
             } else {
                 "\(progressInfo.message)"
             }
+            // TODO bp: some message suffixes seems to have its own stepping fraction.
             progressAnimation.update(step: step, total: 100, text: message)
             callback = { [weak self] buildSystem in
                 self?.buildDelegate?.buildSystem(buildSystem, didUpdateTaskProgress: message)
@@ -769,7 +770,6 @@ extension SwiftBuildMessage.LocationContext {
         }
     }
 }
-
 
 fileprivate extension SwiftBuild.SwiftBuildMessage.DiagnosticInfo.Location {
     var userDescription: String? {

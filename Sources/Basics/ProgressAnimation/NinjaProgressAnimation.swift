@@ -18,14 +18,15 @@ extension ProgressAnimation {
     @_spi(SwiftPMInternal)
     public static func ninja(
         stream: WritableByteStream,
-        verbose: Bool
+        verbose: Bool,
+        normalizeStep: Bool = true
     ) -> any ProgressAnimationProtocol {
         Self.dynamic(
             stream: stream,
             verbose: verbose,
-            ttyTerminalAnimationFactory: { RedrawingNinjaProgressAnimation(terminal: $0) },
+            ttyTerminalAnimationFactory: { RedrawingNinjaProgressAnimation(terminal: $0, normalizeStep: normalizeStep) },
             dumbTerminalAnimationFactory: { SingleLinePercentProgressAnimation(stream: stream, header: nil) },
-            defaultAnimationFactory: { MultiLineNinjaProgressAnimation(stream: stream) }
+            defaultAnimationFactory: { MultiLineNinjaProgressAnimation(stream: stream, normalizeStep: normalizeStep) }
         )
     }
 }
@@ -34,17 +35,24 @@ extension ProgressAnimation {
 final class RedrawingNinjaProgressAnimation: ProgressAnimationProtocol {
     private let terminal: TerminalController
     private var hasDisplayedProgress = false
+    private let normalizeStep: Bool
 
-    init(terminal: TerminalController) {
+    init(terminal: TerminalController, normalizeStep: Bool) {
         self.terminal = terminal
+        self.normalizeStep = normalizeStep
     }
 
     func update(step: Int, total: Int, text: String) {
         assert(step <= total)
 
         terminal.clearLine()
-
-        let progressText = "[\(step)/\(total)] \(text)"
+        var progressText = ""
+        if step < 0 && normalizeStep {
+            let normalizedStep = max(0, step)
+            progressText = "[\(normalizedStep)/\(total)] \(text)"
+        } else {
+            progressText = "\(text)"
+        }
         let width = terminal.width
         if progressText.utf8.count > width {
             let suffix = "…"
@@ -78,9 +86,11 @@ final class MultiLineNinjaProgressAnimation: ProgressAnimationProtocol {
 
     private let stream: WritableByteStream
     private var lastDisplayedText: String? = nil
+    private let normalizeStep: Bool
 
-    init(stream: WritableByteStream) {
+    init(stream: WritableByteStream, normalizeStep: Bool) {
         self.stream = stream
+        self.normalizeStep = normalizeStep
     }
 
     func update(step: Int, total: Int, text: String) {
@@ -88,7 +98,12 @@ final class MultiLineNinjaProgressAnimation: ProgressAnimationProtocol {
 
         guard text != lastDisplayedText else { return }
 
-        stream.send("[\(step)/\(total)] ").send(text)
+        if step < 0 && normalizeStep {
+            let normalizedStep = max(0, step)
+            stream.send("[\(normalizedStep)/\(total)] ")
+        }
+
+        stream.send(text)
         stream.send("\n")
         stream.flush()
         lastDisplayedText = text
