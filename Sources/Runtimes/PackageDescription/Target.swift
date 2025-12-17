@@ -244,7 +244,7 @@ public final class Target {
     }
 
     /// Options for how a template generates a Swift project.
-    @available(_PackageDescription, introduced: 5.9)
+    @available(_PackageDescription, introduced: 6.3)
     public enum TemplateInitializationOptions {
         case packageInit(templateType: TemplateType, templatePermissions: [TemplatePermissions]? = nil, description: String)
     }
@@ -1274,6 +1274,7 @@ public final class Target {
 }
 
 public extension [Target] {
+    /// The declaration of a Swift package template target.
     @available(_PackageDescription, introduced: 6.3.0)
     static func template(
         name: String,

@@ -1,6 +1,6 @@
 #  Creating Package Templates
 
-This guide provides a brief overview of Swift Package Manager templates, describes how a package can make use of templates, and shows how to get started writing your own templates.
+Create a template plugin for Swift Package Manager to generate custom Swift packages based on the custom inputs that you define.
 
 ## Overview
 
@@ -9,25 +9,29 @@ Custom _templates_ allow Swift Package Manager to generate of packages whose fun
 Swift Package Manager represents a template in the package manifest as a target of the `templateTarget` type and you make it available to other packages by declaring a corresponding `template` product. Source code for a template is normally located in a directory under the `Templates` directory in the package, but this you can customize that location. Template authors also need to write the source code for a plugin.
 
 Templates are an abstraction of two types of modules:
-- a template _executable_ that performs the file generation and project setup
-- a command-line _plugin_ that safely invokes the executable
+- a template _executable_ that performs the file generation and project setup.
+- a command-line _plugin_ that safely invokes the executable.
 
-The command-line plugin allows the template executable to run in a separate process, and (on platforms that support sandboxing) it is wrapped in a sandbox that prevents network access as well as attempts to write to arbitrary locations in the file system. Template plugins have access to the representation of the package model, which can be used by the template whenever the context of a package is needed; for example, to infer sensible defaults or validate user inputs against existing package structure.
+The command-line plugin allows the template executable to run in a separate process.
+
+On platforms that support sandboxing, it is wrapped in a sandbox that prevents network access as well as attempts to write to arbitrary locations in the file system.
+
+Template plugins have access to the representation of the package model, which the template plugin can use whenever the context of a package is needed; for example, to infer sensible defaults or validate user inputs against an existing package structure.
 
 The executable allows authors to define user-facing interfaces which gather important consumer input needed by the template to run, using Swift Argument Parser for a rich command-line experience with subcommands, options, and flags.
 
-To learn about using a package template, read <doc:CreatingSwiftPackage#Creating-a-Package-based-on-a-custom-template>.
+To learn how to use a package template, read <doc:CreatingSwiftPackage#Creating-a-Package-based-on-a-custom-template>.
 
 ## Writing a Template
 
-The first step when writing a package template is to decide what kind of template you need and what base package structure it should start with. Templates can build off of any kind of Swift package: executables, libraries, plugins, or even empty packages that will be further customized.
+The first step when you write a package template is to decide what kind of template you need and the base package structure it should start with. Templates can build for of any kind of Swift package: executables, libraries, plugins, or even empty packages for further customization.
 
 ### Declaring a template in the package manifest
 
-Like all package components, templates are declared in the package manifest. This is done using a `templateTarget` entry in the `targets` section of the package. Templates must be visible to other packages in order to be ran. Thus, there needs to be a corresponding `template` entry in the `products` section as well:
+Like all package components, declare templates in the package manifest. Use the `templateTarget` entry in the `targets` section of the package. Templates must be visible to other packages in order to run. Thus, there needs to be a corresponding `template` entry in the `products` section as well:
 
 ```swift
-// swift-tools-version: 6.1
+// swift-tools-version: 6.3
 import PackageDescription
 
 let package = Package(
@@ -37,7 +41,7 @@ let package = Package(
         .template(name: "ExecutableTemplate"),
     ],
     dependencies: [
-        .package(url: "https://github.com/apple/swift-argument-parser", from: "1.3.0"),
+        .package(url: "https://github.com/apple/swift-argument-parser", from: "1.6.0"),
     ],
     targets: [
         .template(
@@ -63,19 +67,36 @@ let package = Package(
 )
 ```
 
-The `templateTarget` declares the name and capability of the template, along with its dependencies. The `initialPackageType` specifies the base package structure that SwiftPM will set up before invoking the template — this can be `.library`, `.executable`, `.tool`, `.buildToolPlugin`, `.commandPlugin`, `.macro`, or `.empty`.
+The `templateTarget` declares the name and capability of the template, along with its dependencies. The `initialPackageType` specifies the base package structure that SwiftPM sets up before invoking the template — this can be `.library`, `.executable`, `.tool`, `.buildToolPlugin`, `.commandPlugin`, `.macro`, or `.empty`.
 
-The Swift script files that implement the logic of the template are expected to be in a directory named the same as the template, located under the `Templates` subdirectory of the package. The template also expects Swift script files in a directory with the same name as the template, alongside a `Plugin` suffix, located under the `Plugins` subdirectory of the package.
+The Swift Package Manager expects the Swift script files that implement the logic of the template to be in a directory with the same as the template, located within a `Templates` subdirectory of the package. The Package Manager also expects Swift script files in a directory with the same name as the template, alongside a `Plugin` suffix, located under the `Plugins` subdirectory of the package.
 
-The `template` product is what makes the template visible to other packages. The name of the template product must match the name of the target.
+```shell
+.
+├── Package.swift
+│
+├── Templates
+│   ├── LibraryTemplate
+│   │   └── LibraryTemplate.swift
+|   └── ExecutableTemplate
+│       └── ExecutableTemplate.swift
+│
+└── Plugins
+    ├── LibraryTemplatePlugin
+    │   └── LibraryTemplatePlugin.swift
+    └── ExecutableTemplatePlugin
+        └── ExecutableTemplatePlugin.swift
+```
+
+Declare the `template` product to make the template visible to other packages. The name of the template product must match the name of the target.
 
 #### Template target dependencies
 
-The dependencies specify the packages that will be available for use by the template executable. Each dependency can be any package product. Commonly this includes Swift Argument Parser for command-line interface handling, but can also include utilities for file generation, string processing, or network requests if needed.
+The dependencies specify the packages that available for use by the template executable. Each dependency can be any package product. A common example is the Swift Argument Parser, which provides arguments, options, and flags for command-line interface handling, but can also include utilities for file generation, string processing, or network requests.
 
 #### Template permissions  
 
-Templates specify what permissions they need through the `templatePermissions` parameter. Common permissions include:
+Templates specify the permissions they require through the `templatePermissions` parameter. The following example displays permissions that don't require network access and generate a Swift project:
 
 ```swift
 templatePermissions: [
@@ -86,7 +107,11 @@ templatePermissions: [
 
 ### Implementing the template command plugin script
 
-The command plugin for a template acts as a bridge between SwiftPM and the template executable. By default, Swift Package Manager looks for plugin implementations in subdirectories of the `Plugins` directory named with the template name followed by "Plugin".
+The command plugin for a template acts as a bridge between Swift Package Manager and the template executable.
+
+By default, Swift Package Manager looks for plugin implementations in subdirectories of the `Plugins` directory, and looks for an executable name based on the template name followed by `Plugin`.
+
+The following example code illustrates the plugin for a template named `LibraryTemplate`:
 
 ```swift
 import Foundation
@@ -141,11 +166,15 @@ struct LibraryTemplatePlugin: CommandPlugin {
 }
 ```
 
-The plugin receives a `context` parameter that provides access to the consumer's package model and tool paths, similar to other SwiftPM plugins. The plugin is responsible for invoking the template executable with the appropriate arguments.
+The package manager provides the plugin with a `context` parameter that you use to access the package model and tool paths, similar to other Package Manager plugins. The plugin is responsible for invoking the template executable with the appropriate arguments.
 
 ### Implementing the template executable
 
-Template executables are Swift command-line programs that use Swift Argument Parser. The executable can define user-facing options, flags, arguments, subcommands, and hidden arguments that can be filled by the template plugin's `context`:
+Template executables are Swift command-line programs that use Swift Argument Parser.
+
+The executable can define user-facing options, flags, arguments, subcommands, and hidden arguments that to provide configuration options for generating a Swift package.
+
+The following example illustrates the template executable for `LibraryTemplate` that provides an option, argument, and flag:
 
 ```swift
 import ArgumentParser
@@ -282,9 +311,11 @@ enum TemplateError: Error {
 }
 ```
 
-### Using package context for package defaults
+### Using the package context for template defaults
 
-Template plugins have access to the package context, which can be used by template authors to fill certain arguments to make package generation easier. Here's an example of how a template can use context information:
+Template plugins have access to the package context, which you can use to provide defaults for arguments, flags, and so on to make package generation easier.
+
+The following example shows a simple template that uses the context to extract and use both the packages directory path and its display name:
 
 ```swift
 import PackagePlugin
@@ -435,18 +466,18 @@ Subcommands can access shared logic and state from their parent command using th
 
 ## Testing Templates
 
-SwiftPM provides a built-in command for testing templates comprehensively:
+Swift Package Manager provides a built-in command for testing templates:
 
 ```shell
 ❯ swift test template --template-name MyTemplate --output-path ./test-output
 ```
 
 This command will:
-1. Build the template executable
+1. Build the template executable.
 2. Prompt for all required inputs.
-3. Generate each possible decision path through subcommands
-4. Validate that each variant builds successfully
-5. Report results in a summary format
+3. Generate each possible decision path through subcommands.
+4. Validate that each variant builds successfully.
+5. Report results in a summary format.
 
 For templates with many variants, you can provide predetermined arguments to test specific paths:
 
@@ -454,5 +485,5 @@ For templates with many variants, you can provide predetermined arguments to tes
 ❯ swift test template --template-name MultiVariantTemplate --output-path ./test-output webapp --framework vapor --auth
 ```
 
-Templates can also include unit tests for their logic by factoring out file generation and validation code into testable functions.
+Templates may also include unit tests for their logic by factoring out file generation and validation code into testable functions.
 

@@ -85,7 +85,7 @@ For further documentation, see macros in [The Swift Programming Language](https:
 ### Creating a Package based on a custom template
 
 Swift Package Manager can create packages based on custom templates that authors distribute as Swift packages.
-Obtain these templates from local directories, Git repositories, or package registries. 
+Obtain templates from local directories, Git repositories, or package registries.
 Templates may provide interactive configuration using command-line arguments.
 To create a package from a custom template, use the `swift package init` command with the `--type` option along with a template source:
 
