@@ -50,6 +50,7 @@ extension Tag.Feature {
     @Tag public static var CodeCoverage: Tag
     @Tag public static var CTargets: Tag
     @Tag public static var DependencyResolution: Tag
+    @Tag public static var Encoding: Tag
     @Tag public static var ModuleAliasing: Tag
     @Tag public static var Mirror: Tag
     @Tag public static var NetRc: Tag
