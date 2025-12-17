@@ -202,8 +202,9 @@ class ManifestTests: XCTestCase {
                 pruneDependencies: true // Since all dependencies are used, this shouldn't affect the outcome.
             )
 
+            let enabledTraits = EnabledTraits(traits.map(\.name), setBy: .traitConfiguration)
             for trait in traits.sorted(by: { $0.name < $1.name }) {
-                XCTAssertThrowsError(try manifest.isTraitEnabled(trait, Set(traits.map(\.name)))) { error in
+                XCTAssertThrowsError(try manifest.isTraitEnabled(trait, enabledTraits)) { error in
                     XCTAssertEqual("\(error)", """
                     Trait '\(
                         trait
@@ -320,7 +321,7 @@ class ManifestTests: XCTestCase {
             // When passed .disableAllTraits configuration
             XCTAssertThrowsError(try manifest.enabledTraits(using: .disableAllTraits)) { error in
                 XCTAssertEqual("\(error)", """
-                    Disabled default traits on package 'foo' (Foo) that declares no traits. This is prohibited to allow packages to adopt traits initially without causing an API break.
+                    Disabled default traits by command-line trait configuration on package 'foo' (Foo) that declares no traits. This is prohibited to allow packages to adopt traits initially without causing an API break.
                     """)
             }
 
@@ -337,14 +338,14 @@ class ManifestTests: XCTestCase {
             // Enabled Traits when passed explicitly enabled traits list:
 
             // If given a parent package, and the enabled traits being passed don't exist:
-            XCTAssertThrowsError(try manifest.enabledTraits(using: ["Trait1"], .init(identity: "qux"))) { error in
+            XCTAssertThrowsError(try manifest.enabledTraits(using: [EnabledTrait(name: "Trait1", setBy: .package(.init(identity: "qux")))])) { error in
                 XCTAssertEqual("\(error)", """
                     Package 'qux' enables traits [Trait1] on package 'foo' (Foo) that declares no traits.
                     """)
             }
 
             // If given a parent package, and the default traits are disabled:
-            XCTAssertThrowsError(try manifest.enabledTraits(using: [], .init(identity: "qux"))) { error in
+            XCTAssertThrowsError(try manifest.enabledTraits(using: .init([], setBy: .package("qux")))) { error in
                 XCTAssertEqual("\(error)", """
                     Disabled default traits by package 'qux' on package 'foo' (Foo) that declares no traits. This is prohibited to allow packages to adopt traits initially without causing an API break.
                     """)
@@ -458,8 +459,13 @@ class ManifestTests: XCTestCase {
                 traits: traits
             )
 
+            // Like the above configuration, Trait1 is on by default. When calling `isTraitEnabled`,
+            // it should calculate transitively enabled traits from here which would eventualy uncover
+            // that each trait is enabled.
+            let enabledTraits = EnabledTraits(["Trait1"], setBy: .trait("default"))
+
             for trait in traits.sorted(by: { $0.name < $1.name }) {
-                XCTAssertTrue(try manifest.isTraitEnabled(trait, Set(traits.map(\.name))))
+                XCTAssertTrue(try manifest.isTraitEnabled(trait, enabledTraits))
             }
         }
     }
