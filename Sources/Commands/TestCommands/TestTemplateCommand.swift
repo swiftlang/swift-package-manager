@@ -263,34 +263,11 @@ extension SwiftTestCommand {
             swiftCommandState: SwiftCommandState,
             from templatePath: Basics.AbsolutePath
         ) async throws -> InitPackage.PackageType {
-            let workspace = try swiftCommandState.getActiveWorkspace()
-            let root = try swiftCommandState.getWorkspaceRoot()
-
-            let rootManifests = try await workspace.loadRootManifests(
-                packages: root.packages,
-                observabilityScope: swiftCommandState.observabilityScope
+            try await TemplatePackageInitializer.inferPackageType(
+                from: templatePath,
+                templateName: self.templateName,
+                swiftCommandState: swiftCommandState
             )
-
-            guard let manifest = rootManifests.values.first else {
-                throw TestTemplateCommandError.invalidManifestInTemplate
-            }
-
-            var targetName = self.templateName
-
-            if targetName == nil {
-                targetName = try self.findTemplateName(from: manifest)
-            }
-
-            for target in manifest.targets {
-                if target.name == targetName,
-                   let options = target.templateInitializationOptions,
-                   case .packageInit(let type, _, _) = options
-                {
-                    return try .init(from: type)
-                }
-            }
-
-            throw TestTemplateCommandError.templateNotFound(targetName ?? "<unspecified>")
         }
 
         private func findTemplateName(from manifest: Manifest) throws -> String {
