@@ -3047,22 +3047,25 @@ struct TemplateTests {
     struct TemplatePluginCoordinatorTests {
         @Test
         func createsCoordinatorWithValidConfiguration() async throws {
-            try testWithTemporaryDirectory { tempDir in
-                let options = try GlobalOptions.parse([])
-                let tool = try SwiftCommandState.makeMockState(options: options, fileSystem: InMemoryFileSystem())
+            try await testWithTemporaryDirectory { tempDir in
+                try await withTaskLocalWorkingDirectory(tempDir) {
+                    let options = try GlobalOptions.parse([])
+                    let tool = try SwiftCommandState.makeMockState(options: options, fileSystem: InMemoryFileSystem())
 
-                let coordinator = TemplatePluginCoordinator(
-                    buildSystem: .native,
-                    swiftCommandState: tool,
-                    scratchDirectory: tempDir,
-                    template: "ExecutableTemplate",
-                    args: ["--name", "TestPackage"],
-                    branches: []
-                )
+                    let coordinator = TemplatePluginCoordinator(
+                        buildSystem: .native,
+                        swiftCommandState: tool,
+                        scratchDirectory: tempDir,
+                        template: "ExecutableTemplate",
+                        args: ["--name", "TestPackage"],
+                        branches: []
+                    )
 
-                // Test coordinator functionality by verifying it can handle basic operations
-                #expect(coordinator.buildSystem == .native)
-                #expect(coordinator.scratchDirectory == tempDir)
+                    // Test coordinator functionality by verifying it can handle basic operations
+                    #expect(coordinator.buildSystem == .native)
+                    #expect(coordinator.scratchDirectory == tempDir)
+
+                }
             }
         }
 
@@ -3098,21 +3101,23 @@ struct TemplateTests {
         @Test
         func handlesInvalidTemplateGracefully() async throws {
             try await testWithTemporaryDirectory { tempDir in
-                let options = try GlobalOptions.parse([])
-                let tool = try SwiftCommandState.makeMockState(options: options, fileSystem: InMemoryFileSystem())
+                try await withTaskLocalWorkingDirectory(tempDir) {
+                    let options = try GlobalOptions.parse([])
+                    let tool = try SwiftCommandState.makeMockState(options: options)
 
-                let coordinator = TemplatePluginCoordinator(
-                    buildSystem: .native,
-                    swiftCommandState: tool,
-                    scratchDirectory: tempDir,
-                    template: "NonexistentTemplate",
-                    args: ["--name", "TestPackage"],
-                    branches: []
-                )
+                    let coordinator = TemplatePluginCoordinator(
+                        buildSystem: .native,
+                        swiftCommandState: tool,
+                        scratchDirectory: tempDir,
+                        template: "NonexistentTemplate",
+                        args: ["--name", "TestPackage"],
+                        branches: []
+                    )
 
-                // Test that coordinator handles invalid template name by throwing appropriate error
-                await #expect(throws: (any Error).self) {
-                    _ = try await coordinator.loadPackageGraph()
+                    // Test that coordinator handles invalid template name by throwing appropriate error
+                    await #expect(throws: (any Error).self) {
+                        _ = try await coordinator.loadPackageGraph()
+                    }
                 }
             }
         }
