@@ -1021,7 +1021,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         var settings: [String: String] = [:]
         // TODO: debugInfoFormat: https://github.com/swiftlang/swift-build/issues/560
         if parameters.shouldEnableDebuggingEntitlement {
-            settings["ENTITLEMENTS_DONT_REMOVE_GET_TASK_ALLOW"] = "YES"
+            settings["DEPLOYMENT_POSTPROCESSING"] = "NO"
         }
         // TODO: omitFramePointer: https://github.com/swiftlang/swift-build/issues/561
         return settings
