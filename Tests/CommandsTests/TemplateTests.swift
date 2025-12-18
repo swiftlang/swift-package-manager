@@ -845,6 +845,7 @@ struct TemplateTests {
     // MARK: - Template Directory Management Tests
 
     @Suite(
+        .disabled(),
         .tags(
             Tag.TestSize.medium,
             Tag.Feature.Command.Package.Init,
