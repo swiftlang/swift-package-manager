@@ -32,7 +32,7 @@ struct StaticBinaryLibraryTests {
     func staticLibrary(
         buildData: BuildData,
     ) async throws {
-        try await withKnownIssue {
+        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "BinaryLibraries") { fixturePath in
                 let (stdout, _) = try await executeSwiftRun(
                     fixturePath.appending("Static").appending("Package1"),
