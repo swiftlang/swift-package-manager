@@ -65,8 +65,15 @@ public struct TemplateInitializationDirectoryManager {
         do {
             switch templateSource {
             case .git, .registry:
-                if FileManager.default.fileExists(atPath: path.pathString) {
+                do {
                     try FileManager.default.removeItem(at: path.asURL)
+                } catch {
+                    // Fallback: remove contents individually if folder deletion fails
+                    let contents = try FileManager.default.contentsOfDirectory(atPath: path.pathString)
+                    for item in contents {
+                        let itemURL = path.appending(item).asURL
+                        try FileManager.default.removeItem(at: itemURL)
+                    }
                 }
             case .local:
                 break
@@ -75,7 +82,6 @@ public struct TemplateInitializationDirectoryManager {
             if let tempDir = temporaryDirectory {
                 try self.helper.removeDirectoryIfExists(tempDir)
             }
-
         } catch {
             throw DirectoryManagerError.cleanupFailed(path: temporaryDirectory)
         }

@@ -14,14 +14,30 @@ import ArgumentParserToolInfo
 import class Basics.ObservabilityScope
 import Foundation
 
+/// A parser for template commands and their arguments.
 public struct TemplateCommandParser {
+    /// The root command from which parsing starts.
     let rootCommand: CommandInfoV0
+
+    /// The command currently being parsed.
     var currentCommand: CommandInfoV0
+    /// Parsed components representing commands and their arguments.
     var parsedCommands: [CommandComponent] = []
+
+    /// Stack of commands representing the current path through the command tree.
     var commandStack: [CommandInfoV0] = []
+
+    /// Accumulated parsing errors during the process.
     private var parsingErrors: [ParsingError] = []
+
+    /// Optional observability scope for debug and warning messages.
     private let observabilityScope: ObservabilityScope?
 
+    /// Creates a new parser starting from the specified root command.
+    ///
+    /// - Parameters:
+    ///   - rootCommand: The root command to begin parsing.
+    ///   - observabilityScope: Optional scope for logging debug/warning messages.
     init(_ rootCommand: CommandInfoV0, observabilityScope: ObservabilityScope? = nil) {
         self.rootCommand = rootCommand
         self.currentCommand = rootCommand
@@ -29,6 +45,16 @@ public struct TemplateCommandParser {
         self.observabilityScope = observabilityScope
     }
 
+    // MARK: Parsing
+
+    /// Parses an array of command-line arguments, optionally prompting for missing arguments if TTY is available.
+    ///
+    /// - Parameters:
+    ///   - arguments: The raw array of command-line argument strings.
+    ///   - hasTTY: A Boolean indicating whether interactive prompting is possible.
+    /// - Throws: `TemplateError.unexpectedArguments` if unexpected arguments remain,
+    ///           or `ParsingError.multipleParsingErrors` if multiple parsing errors occurred.
+    /// - Returns: A `TemplateCommandPath` representing the fully parsed command chain and arguments.
     mutating func parseWithPrompting(_ arguments: [String], hasTTY: Bool) throws -> TemplateCommandPath {
         self.observabilityScope?
             .emit(debug: "Parsing template arguments: [\(arguments.joined(separator: ", "))] with TTY: \(hasTTY)")
@@ -121,9 +147,8 @@ public struct TemplateCommandParser {
         )
     }
 
-    private mutating func parseAvailableArguments(_ split: inout SplitArguments)
-        throws -> ParsingResult
-    {
+    /// Parses all available arguments for the current command, including post-terminator values.
+    private mutating func parseAvailableArguments(_ split: inout SplitArguments) throws -> ParsingResult {
         guard let arguments = currentCommand.arguments else {
             self.observabilityScope?
                 .emit(debug: "No arguments defined for command '\(self.currentCommand.commandName)'")
@@ -182,6 +207,7 @@ public struct TemplateCommandParser {
         )
     }
 
+    /// Parses both named options and positional arguments for the current command.
     private mutating func parseNamedAndPositionalArguments(
         _ split: inout SplitArguments,
         _ arguments: [ArgumentInfoV0],
@@ -301,7 +327,7 @@ public struct TemplateCommandParser {
                         self.getNextPositionalArgument(arguments, parsedArgNames)
                     ) != nil
                     if !hasMatchingPositional && !self.isPotentialSubcommand(value) {
-                        break argumentLoop// Stop parsing for passthrough
+                        break argumentLoop // Stop parsing for passthrough
                     }
                 }
 
@@ -357,83 +383,36 @@ public struct TemplateCommandParser {
         }
     }
 
-    private mutating func validateAllResponses(_ responses: [ArgumentResponse])
-        throws -> [ArgumentResponse]
-    {
-        self.observabilityScope?.emit(debug: "Validating \(responses.count) argument responses")
-        var validatedResponses: [ArgumentResponse] = []
-        var validationErrors: [ParsingError] = []
+    /// Parses arguments after a terminator (`--`) for commands that support `postTerminator` strategy.
+    private func parsePostTerminatorArguments(
+        _ arguments: [ArgumentInfoV0],
+        _ split: inout SplitArguments
+    ) throws -> [ArgumentResponse] {
+        var responses: [ArgumentResponse] = []
 
-        for response in responses {
-            do {
-                try self.validateParsedArgument(response)
-                validatedResponses.append(response)
-            } catch {
-                // Collect validation errors but continue
-                if let parsingError = error as? ParsingError {
-                    self.observabilityScope?
-                        .emit(warning: "Validation failed for argument: \(parsingError.localizedDescription)")
-                    validationErrors.append(parsingError)
-                    self.parsingErrors.append(parsingError)
-                }
-                // Include response anyway for partial parsing
-                validatedResponses.append(response)
-            }
+        let postTerminatorArgs = arguments.filter {
+            $0.kind == .positional && $0.parsingStrategy == .postTerminator
         }
 
-        if !validationErrors.isEmpty {
-            self.observabilityScope?
-                .emit(
-                    debug: "Validation completed with \(validationErrors.count) errors, \(validatedResponses.count) responses processed"
-                )
-        } else {
-            self.observabilityScope?
-                .emit(debug: "All \(validatedResponses.count) argument responses validated successfully")
-        }
+        guard !postTerminatorArgs.isEmpty else { return responses }
 
-        return validatedResponses
-    }
+        // Use enhanced method that properly removes consumed elements
+        let postTerminatorValues = split.removeElementsAfterTerminator()
 
-    private func validateParsedArgument(_ response: ArgumentResponse) throws {
-        let arg = response.argument
-        let argName = try getArgumentName(arg)
-
-        // Validate value count
-        if !arg.isRepeating && response.values.count > 1 {
-            throw ParsingError.tooManyValues(argName, 1, response.values.count)
-        }
-
-        // Validate against allowed values
-        if let allowedValues = arg.allValues, !allowedValues.isEmpty {
-            let invalidValues = response.values.filter {
-                !allowedValues.contains($0)
-            }
-            if !invalidValues.isEmpty {
-                throw ParsingError.invalidValue(
-                    argName,
-                    invalidValues,
-                    allowedValues
-                )
-            }
-        }
-
-        // Validate completion constraints
-        if let completionKind = arg.completionKind,
-           case .list(let allowedValues) = completionKind
+        if let firstPostTerminatorArg = postTerminatorArgs.first,
+           !postTerminatorValues.isEmpty
         {
-            let invalidValues = response.values.filter {
-                !allowedValues.contains($0)
-            }
-            if !invalidValues.isEmpty {
-                throw ParsingError.invalidValue(
-                    argName,
-                    invalidValues,
-                    allowedValues
-                )
-            }
+            responses.append(ArgumentResponse(
+                argument: firstPostTerminatorArg,
+                values: postTerminatorValues,
+                isExplicitlyUnset: false
+            ))
         }
+
+        return responses
     }
 
+    /// Parses an option argument and applies validation according to its parsing strategy.
     private func parseOptionWithValidation(
         _ arg: ArgumentInfoV0,
         _ parsed: ParsedTemplateArgument,
@@ -552,85 +531,37 @@ public struct TemplateCommandParser {
         }
     }
 
-    private func parsePostTerminatorArguments(
-        _ arguments: [ArgumentInfoV0],
+    /// Parses a positional argument with `allRemainingInput` strategy.
+    /// Consumes all remaining elements from the argument list, including options as values.
+    private func parseAllRemainingInputPositional(
+        _ arg: ArgumentInfoV0,
+        _ value: String,
         _ split: inout SplitArguments
-    ) throws -> [ArgumentResponse] {
-        var responses: [ArgumentResponse] = []
+    ) throws -> ArgumentResponse {
+        var values = [value]
 
-        let postTerminatorArgs = arguments.filter {
-            $0.kind == .positional && $0.parsingStrategy == .postTerminator
-        }
+        // Consume the current value first
+        _ = split.consumeNext()
 
-        guard !postTerminatorArgs.isEmpty else { return responses }
-
-        // Use enhanced method that properly removes consumed elements
-        let postTerminatorValues = split.removeElementsAfterTerminator()
-
-        if let firstPostTerminatorArg = postTerminatorArgs.first,
-           !postTerminatorValues.isEmpty
-        {
-            responses.append(ArgumentResponse(
-                argument: firstPostTerminatorArg,
-                values: postTerminatorValues,
-                isExplicitlyUnset: false
-            ))
-        }
-
-        return responses
-    }
-
-    private func isHelpArgument(_ arg: ArgumentInfoV0) -> Bool {
-        let argName = (try? self.getArgumentName(arg)) ?? ""
-        return argName.lowercased() == "help" ||
-            arg.names?.contains { $0.name.lowercased() == "help" } == true
-    }
-
-    private func requiresPrompting(for arg: ArgumentInfoV0) -> Bool {
-        // Determine if this argument should be prompted for rather than using default
-        // This could be based on argument metadata, current context, etc.
-        !arg.isOptional && arg.defaultValue == nil
-    }
-
-    private func isSubcommand(_ value: String) -> Bool {
-        self.currentCommand.subcommands?.contains { $0.commandName == value } ??
-            false
-    }
-
-    private func findMatchingArgument(
-        _ parsed: ParsedTemplateArgument,
-        in arguments: [ArgumentInfoV0]
-    ) -> ArgumentInfoV0? {
-        arguments.first { arg in
-            guard let names = arg.names else { return false }
-            return names.contains { nameInfo in
-                if parsed.isShort {
-                    nameInfo.kind == .short && nameInfo.name ==
-                        parsed.name
-                } else {
-                    nameInfo.kind == .long && nameInfo.name == parsed.name
+        // Then consume EVERYTHING remaining (including options as values)
+        while let element = split.consumeNext() {
+            switch element.value {
+            case .value(let str):
+                values.append(str)
+            case .option(let opt):
+                values.append("--\(opt.name)")
+                if let optValue = opt.value {
+                    values.append(optValue)
                 }
+            case .terminator:
+                values.append("--")
             }
         }
+
+        return ArgumentResponse(argument: arg, values: values, isExplicitlyUnset: false)
     }
 
-    private func getArgumentName(_ argument: ArgumentInfoV0) throws -> String {
-        guard let name = argument.valueName ?? argument.preferredName?.name else {
-            throw ParsingStringError("NO NAME BAD")
-        }
-        return name
-    }
-
-    private func getNextPositionalArgument(
-        _ arguments: [ArgumentInfoV0],
-        _ parsedArgNames: Set<String>
-    ) throws -> ArgumentInfoV0? {
-        try arguments.first { arg in
-            try arg.kind == .positional &&
-                !parsedArgNames.contains(self.getArgumentName(arg))
-        }
-    }
-
+    /// Parses a positional argument and consumes it from the split argument list.
     private func parseRegularPositional(
         _ arg: ArgumentInfoV0,
         _ value: String,
@@ -665,47 +596,125 @@ public struct TemplateCommandParser {
         )
     }
 
-    private func parseAllRemainingInputPositional(
-        _ arg: ArgumentInfoV0,
-        _ value: String,
-        _ split: inout SplitArguments
-    ) throws -> ArgumentResponse {
-        var values = [value]
+    // MARK: - Validation Helpers
 
-        // Consume the current value first
-        _ = split.consumeNext()
+    /// Validates a list of argument responses, collecting any errors but returning all responses for partial parsing.
+    private mutating func validateAllResponses(_ responses: [ArgumentResponse]) throws -> [ArgumentResponse] {
+        self.observabilityScope?.emit(debug: "Validating \(responses.count) argument responses")
+        var validatedResponses: [ArgumentResponse] = []
+        var validationErrors: [ParsingError] = []
 
-        // Then consume EVERYTHING remaining (including options as values)
-        while let element = split.consumeNext() {
-            switch element.value {
-            case .value(let str):
-                values.append(str)
-            case .option(let opt):
-                values.append("--\(opt.name)")
-                if let optValue = opt.value {
-                    values.append(optValue)
+        for response in responses {
+            do {
+                try self.validateParsedArgument(response)
+                validatedResponses.append(response)
+            } catch {
+                // Collect validation errors but continue
+                if let parsingError = error as? ParsingError {
+                    self.observabilityScope?
+                        .emit(warning: "Validation failed for argument: \(parsingError.localizedDescription)")
+                    validationErrors.append(parsingError)
+                    self.parsingErrors.append(parsingError)
                 }
-            case .terminator:
-                values.append("--")
+                // Include response anyway for partial parsing
+                validatedResponses.append(response)
             }
         }
 
-        return ArgumentResponse(argument: arg, values: values, isExplicitlyUnset: false)
-    }
-
-    private func getSubCommand(from command: CommandInfoV0) -> [CommandInfoV0]? {
-        guard let subcommands = command.subcommands else { return nil }
-        let filteredSubcommands = subcommands.filter {
-            $0.commandName.lowercased() != "help"
+        if !validationErrors.isEmpty {
+            self.observabilityScope?
+                .emit(
+                    debug: "Validation completed with \(validationErrors.count) errors, \(validatedResponses.count) responses processed"
+                )
+        } else {
+            self.observabilityScope?
+                .emit(debug: "All \(validatedResponses.count) argument responses validated successfully")
         }
-        guard !filteredSubcommands.isEmpty else { return nil }
-        return filteredSubcommands
+
+        return validatedResponses
     }
 
+    /// Validates an individual argument response against allowed values, repetition, and completion constraints.
+    private func validateParsedArgument(_ response: ArgumentResponse) throws {
+        let arg = response.argument
+        let argName = try getArgumentName(arg)
+
+        // Validate value count
+        if !arg.isRepeating && response.values.count > 1 {
+            throw ParsingError.tooManyValues(argName, 1, response.values.count)
+        }
+
+        // Validate against allowed values
+        if let allowedValues = arg.allValues, !allowedValues.isEmpty {
+            let invalidValues = response.values.filter {
+                !allowedValues.contains($0)
+            }
+            if !invalidValues.isEmpty {
+                throw ParsingError.invalidValue(
+                    argName,
+                    invalidValues,
+                    allowedValues
+                )
+            }
+        }
+
+        // Validate completion constraints
+        if let completionKind = arg.completionKind,
+           case .list(let allowedValues) = completionKind
+        {
+            let invalidValues = response.values.filter {
+                !allowedValues.contains($0)
+            }
+            if !invalidValues.isEmpty {
+                throw ParsingError.invalidValue(
+                    argName,
+                    invalidValues,
+                    allowedValues
+                )
+            }
+        }
+    }
+
+    // MARK: - Subcommand Detection and Selection
+
+    /// Determines whether an argument requires prompting (i.e., no default and not optional).
+    private func requiresPrompting(for arg: ArgumentInfoV0) -> Bool {
+        // Determine if this argument should be prompted for rather than using default
+        // This could be based on argument metadata, current context, etc.
+        !arg.isOptional && arg.defaultValue == nil
+    }
+
+    private func findMatchingArgument(
+        _ parsed: ParsedTemplateArgument,
+        in arguments: [ArgumentInfoV0]
+    ) -> ArgumentInfoV0? {
+        arguments.first { arg in
+            guard let names = arg.names else { return false }
+            return names.contains { nameInfo in
+                if parsed.isShort {
+                    nameInfo.kind == .short && nameInfo.name ==
+                        parsed.name
+                } else {
+                    nameInfo.kind == .long && nameInfo.name == parsed.name
+                }
+            }
+        }
+    }
+
+    // MARK: - Subcommand Detection and Selection
+
+    /// Checks whether a value corresponds to a defined subcommand of the current command.
+    private func isSubcommand(_ value: String) -> Bool {
+        self.currentCommand.subcommands?.contains { $0.commandName == value } ??
+            false
+    }
+
+    /// Determines whether a value could be part of a subcommand chain.
     private func isPotentialSubcommand(_ value: String) -> Bool {
         self.findSubcommandPath(value, from: self.currentCommand) != nil
     }
 
+    /// Determines whether an option name belongs to a subcommand in any branch of the hierarchy.
     private func isPotentialSubcommandOption(_ optionName: String) -> Bool {
         guard let subcommands = currentCommand.subcommands else { return false }
 
@@ -713,6 +722,7 @@ public struct TemplateCommandParser {
         return self.hasOptionInSubcommands(optionName, subcommands: subcommands)
     }
 
+    /// Recursively checks whether a subcommand or any nested subcommand contains the given option.
     private func hasOptionInSubcommands(_ optionName: String, subcommands: [CommandInfoV0]) -> Bool {
         for subcommand in subcommands {
             // Check if this subcommand has the option
@@ -741,6 +751,7 @@ public struct TemplateCommandParser {
         return false
     }
 
+    /// Finds a subcommand path to a target command starting from the given command.
     private func findSubcommandPath(_ targetCommand: String, from command: CommandInfoV0) -> [String]? {
         guard let subcommands = command.subcommands else { return nil }
 
@@ -763,19 +774,19 @@ public struct TemplateCommandParser {
         return nil
     }
 
+    /// Consumes and returns the next subcommand from the split arguments, handling ambiguity and TTY prompting.
     private mutating func consumeNextSubcommand(_ split: inout SplitArguments, hasTTY: Bool) throws -> CommandInfoV0? {
         // No direct subcommand found - check if we need intelligent branch
-        guard let subCommands = getSubCommand(from: currentCommand) else {
+        guard let subCommands = TemplateCommandParser.getSubCommand(from: currentCommand) else {
             self.observabilityScope?.emit(debug: "No Subcommands found")
             return nil // No subcommands available
         }
 
-        // Intelligent branch selection with validation
+        // Branch selection with validation
         if let nextValue = split.peekNext()?.value,
            case .value(let potentialCommand) = nextValue,
            let _ = findSubcommandPath(potentialCommand, from: currentCommand)
         {
-
             let compatibleBranches = subCommands.filter { branch in
                 // First check if this branch IS the command we're looking for
                 if branch.commandName == potentialCommand {
@@ -789,7 +800,10 @@ public struct TemplateCommandParser {
 
             if compatibleBranches.count == 1 {
                 // Unambiguous - auto-select with notification
-                self.observabilityScope?.emit(debug: "Auto-selecting '\(compatibleBranches.first!.commandName)' for command '\(potentialCommand)'")
+                self.observabilityScope?
+                    .emit(
+                        debug: "Auto-selecting '\(compatibleBranches.first!.commandName)' for command '\(potentialCommand)'"
+                    )
 
                 // Consume the subcommand token
                 let element = split.consumeNext()!
@@ -828,5 +842,42 @@ public struct TemplateCommandParser {
         let chosenBranch = try prompter.promptForSubcommandSelection(subCommands)
         return chosenBranch
     }
-}
 
+    // MARK: - Utility Helpers
+
+    /// Returns the canonical argument name for an `ArgumentInfoV0`.
+    private func getArgumentName(_ argument: ArgumentInfoV0) throws -> String {
+        guard let name = argument.valueName ?? argument.preferredName?.name else {
+            throw ParsingStringError("NO NAME BAD")
+        }
+        return name
+    }
+
+    /// Finds an argument that matches a parsed template argument from the defined command arguments.
+    private func getNextPositionalArgument(
+        _ arguments: [ArgumentInfoV0],
+        _ parsedArgNames: Set<String>
+    ) throws -> ArgumentInfoV0? {
+        try arguments.first { arg in
+            try arg.kind == .positional &&
+                !parsedArgNames.contains(self.getArgumentName(arg))
+        }
+    }
+
+    /// Returns all subcommands excluding "help".
+    public static func getSubCommand(from command: CommandInfoV0) -> [CommandInfoV0]? {
+        guard let subcommands = command.subcommands else { return nil }
+        let filteredSubcommands = subcommands.filter {
+            $0.commandName.lowercased() != "help"
+        }
+        guard !filteredSubcommands.isEmpty else { return nil }
+        return filteredSubcommands
+    }
+
+    /// Determines if the argument is a help argument (either named or preferred).
+    private func isHelpArgument(_ arg: ArgumentInfoV0) -> Bool {
+        let argName = (try? self.getArgumentName(arg)) ?? ""
+        return argName.lowercased() == "help" ||
+            arg.names?.contains { $0.name.lowercased() == "help" } == true
+    }
+}

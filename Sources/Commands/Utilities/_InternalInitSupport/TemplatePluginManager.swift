@@ -21,6 +21,7 @@ import SPMBuildCore
 import Workspace
 
 public protocol TemplatePluginManager {
+    func run() async throws
     func loadTemplatePlugin() throws -> ResolvedModule
 }
 
@@ -81,7 +82,6 @@ struct TemplateInitializationPluginManager: TemplatePluginManager {
             swiftCommandState: swiftCommandState,
             scratchDirectory: scratchDirectory,
             template: template,
-            args: args,
             branches: []
         )
 
@@ -124,8 +124,10 @@ struct TemplateInitializationPluginManager: TemplatePluginManager {
     /// - Returns: A 2D array of arguments provided by the user for template generation
     /// - Throws: Any errors during user prompting
     private func promptUserForTemplateArguments(using toolInfo: ToolInfoV0) throws -> [String] {
-        return try TemplateCLIConstructor(
-            hasTTY: self.swiftCommandState.outputStream.isTTY, observabilityScope: self.swiftCommandState.observabilityScope).createCLIArgs(predefinedArgs: self.args, toolInfoJson: toolInfo)
+        try TemplateCLIConstructor(
+            hasTTY: self.swiftCommandState.outputStream.isTTY,
+            observabilityScope: self.swiftCommandState.observabilityScope
+        ).createCLIArgs(predefinedArgs: self.args, toolInfoJson: toolInfo)
     }
 
     /// Runs the plugin of a template given a set of arguments.

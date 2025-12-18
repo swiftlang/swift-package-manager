@@ -13,13 +13,29 @@
 import ArgumentParserToolInfo
 import Foundation
 
+///  Responsible for interactively prompting user for command-line arguments during template command parsing. The
+/// prompter requires a TTY (interactive terminal) to provide user input. Otherwise, it will use default values, nil
+/// values or throw errors for required arguments.
 public class TemplatePrompter {
+    /// Indicates whether interactive prompting is available
     private let hasTTY: Bool
 
+    /// Creates a new `TemplatePrompter` instance.
+    /// - Parameter hasTTY: Set to true if the environment supports interactive input.
     public init(hasTTY: Bool) {
         self.hasTTY = hasTTY
     }
 
+    /// Prompts the user for missing arguments that were not already parsed.
+    ///
+    /// Skips "help" arguments and only prompts for arguments marked as `shouldDisplay`.
+    /// Required arguments in non-TTY environments will cause an error unless they have defaults.
+    ///
+    /// - Parameters:
+    ///   - arguments: The list of all arguments to consider.
+    ///   - parsed: A set of argument names that have already been parsed.
+    /// - Returns: An array of `ArgumentResponse` with the user's inputs.
+    /// - Throws: `TemplateError.missingRequiredArgument` if a required argument cannot be prompted.
     public func promptForMissingArguments(
         _ arguments: [ArgumentInfoV0],
         parsed:
@@ -69,6 +85,12 @@ public class TemplatePrompter {
         return responses
     }
 
+    /// Prompts the user for a single argument based on its kind (flag, option, positional)
+    /// and returns the collected values.
+    ///
+    /// - Parameter argument: The argument to prompt for.
+    /// - Returns: An array of input values from the user.
+    /// - Throws: `TemplateError` for missing or invalid inputs.
     public func promptUserForArgument(_ argument: ArgumentInfoV0) throws -> [String] {
         let argName = try getArgumentName(argument)
         let promptMessage = "\(argument.abstract ?? argName)"
@@ -84,7 +106,13 @@ public class TemplatePrompter {
         }
     }
 
-    /// Prompts for multiple positional arguments in sequence, respecting position order
+    /// Prompts for all positional arguments sequentially, respecting order and optionality.
+    ///
+    /// Stops prompting if optional arguments are skipped but required arguments remain afterward.
+    ///
+    /// - Parameter arguments: The list of arguments to prompt.
+    /// - Returns: A 2D array of strings containing input values for each positional argument.
+    /// - Throws: `TemplateError.missingRequiredArgument` if a required positional argument cannot be provided.
     public func promptUserForPositionalArguments(_ arguments: [ArgumentInfoV0]) throws -> [[String]] {
         let positionalArgs = arguments.filter { $0.kind == .positional }
         var results: [[String]] = []
@@ -119,13 +147,6 @@ public class TemplatePrompter {
         return results
     }
 
-    private func promptForPostionalArgument(
-        _: ArgumentInfoV0,
-        promptMessage: String
-    ) throws -> String {
-        ""
-    }
-
     /// Interactive prompting for positional arguments with strategy-aware behavior
     private func promptForPositional(
         _ argument: ArgumentInfoV0,
@@ -145,7 +166,7 @@ public class TemplatePrompter {
         // Handle different parsing strategies with appropriate prompting
         switch argument.parsingStrategy {
         case .allRemainingInput:
-            return try self.promptForPassthroughPositional(argument, header: promptHeader)
+            return try self.promtpForPassThroughPositional(argument, header: promptHeader)
 
         case .postTerminator:
             return try self.promptForPostTerminatorPositional(argument, header: promptHeader)
@@ -159,7 +180,7 @@ public class TemplatePrompter {
         }
     }
 
-    /// Prompts for standard positional arguments (most common case)
+    /// Prompts for standard (single or repeating) positional arguments.
     private func promptForStandardPositional(_ argument: ArgumentInfoV0, header: String) throws -> [String] {
         let isRequired = !argument.isOptional
         let hasDefault = argument.defaultValue != nil
@@ -262,8 +283,8 @@ public class TemplatePrompter {
         }
     }
 
-    /// Prompts for .allRemainingInput (passthrough) arguments
-    private func promptForPassthroughPositional(
+    /// Prompts for positional arguments with `.allRemainingInput` parsing strategy.
+    private func promtpForPassThroughPositional(
         _ argument: ArgumentInfoV0,
         header: String
     ) throws -> [String] {
@@ -292,7 +313,7 @@ public class TemplatePrompter {
         return self.splitCommandLineString(input)
     }
 
-    /// Prompts for .postTerminator arguments
+    /// Prompts for positional arguments with `.postTerminator` parsing strategy.
     private func promptForPostTerminatorPositional(
         _: ArgumentInfoV0,
         header: String
@@ -312,45 +333,7 @@ public class TemplatePrompter {
         return self.splitCommandLineString(input)
     }
 
-    /// Utility to split a command line string into individual arguments
-    /// Handles basic quoting (simplified version)
-    private func splitCommandLineString(_ input: String) -> [String] {
-        var arguments: [String] = []
-        var currentArg = ""
-        var inQuotes = false
-        var quoteChar: Character? = nil
-
-        for char in input {
-            switch char {
-            case "\"", "'":
-                if !inQuotes {
-                    inQuotes = true
-                    quoteChar = char
-                } else if char == quoteChar {
-                    inQuotes = false
-                    quoteChar = nil
-                } else {
-                    currentArg.append(char)
-                }
-            case " ", "\t":
-                if inQuotes {
-                    currentArg.append(char)
-                } else if !currentArg.isEmpty {
-                    arguments.append(currentArg)
-                    currentArg = ""
-                }
-            default:
-                currentArg.append(char)
-            }
-        }
-
-        if !currentArg.isEmpty {
-            arguments.append(currentArg)
-        }
-
-        return arguments
-    }
-
+    /// Prompts the user for a single option argument (may be repeating, have defaults, or allowed values)
     private func promptForOption(
         _ argument: ArgumentInfoV0,
         promptMessage:
@@ -411,7 +394,7 @@ public class TemplatePrompter {
         } else {
             // For single arguments
             let completeMessage = prefix + suffix
-            print(completeMessage, terminator: " ")
+            print(completeMessage, terminator: ": ")
 
             guard let input = readLine() else {
                 if let defaultValue = argument.defaultValue {
@@ -441,6 +424,7 @@ public class TemplatePrompter {
         }
     }
 
+    /// Prompts for a boolean flag argument (y/n) and handles defaults and optional unset behavior.
     private func promptForFlag(_ argument: ArgumentInfoV0, promptMessage: String) throws -> Bool? {
         let defaultBehaviour: Bool? = if let defaultValue = argument.defaultValue {
             defaultValue.lowercased() == "true"
@@ -500,6 +484,50 @@ public class TemplatePrompter {
         }
     }
 
+    /// Splits a command-line string into individual arguments respecting quotes.
+    private func splitCommandLineString(_ input: String) -> [String] {
+        var arguments: [String] = []
+        var currentArg = ""
+        var inQuotes = false
+        var quoteChar: Character? = nil
+
+        for char in input {
+            switch char {
+            case "\"", "'":
+                if !inQuotes {
+                    inQuotes = true
+                    quoteChar = char
+                } else if char == quoteChar {
+                    inQuotes = false
+                    quoteChar = nil
+                } else {
+                    currentArg.append(char)
+                }
+            case " ", "\t":
+                if inQuotes {
+                    currentArg.append(char)
+                } else if !currentArg.isEmpty {
+                    arguments.append(currentArg)
+                    currentArg = ""
+                }
+            default:
+                currentArg.append(char)
+            }
+        }
+
+        if !currentArg.isEmpty {
+            arguments.append(currentArg)
+        }
+
+        return arguments
+    }
+
+    /// Prompts the user to select a subcommand from a given list.
+    ///
+    /// - Parameter subcommands: Array of available subcommands.
+    /// - Returns: The selected `CommandInfoV0` subcommand.
+    /// - Throws: `TemplateError.noTTYForSubcommandSelection` if TTY is not available.
+    ///           `TemplateError.invalidSubcommandSelection` for invalid selection.
     public func promptForSubcommandSelection(_ subcommands: [CommandInfoV0]) throws -> CommandInfoV0 {
         guard self.hasTTY else {
             throw TemplateError.noTTYForSubcommandSelection
@@ -541,6 +569,14 @@ public class TemplatePrompter {
         throw TemplateError.invalidSubcommandSelection(validOptions: validOptions)
     }
 
+    /// Prompts the user to resolve an ambiguous subcommand choice.
+    ///
+    /// - Parameters:
+    ///   - command: The ambiguous command name.
+    ///   - branches: The candidate subcommand branches.
+    /// - Returns: The selected `CommandInfoV0` branch.
+    /// - Throws: `TemplateError.ambiguousSubcommand` if TTY is unavailable or
+    /// `TemplateError.invalidSubcommandSelection`.
     public func promptForAmbiguousSubcommand(_ command: String, _ branches: [CommandInfoV0]) throws -> CommandInfoV0 {
         guard self.hasTTY else {
             throw TemplateError.ambiguousSubcommand(command: command, branches: branches.map(\.commandName))
@@ -563,6 +599,7 @@ public class TemplatePrompter {
         return branches[choice - 1]
     }
 
+    /// Retrieves the canonical name of an argument for display and lookup.
     private func getArgumentName(_ argument: ArgumentInfoV0) throws -> String {
         guard let name = argument.valueName ?? argument.preferredName?.name else {
             throw ParsingStringError("Argument has no name")

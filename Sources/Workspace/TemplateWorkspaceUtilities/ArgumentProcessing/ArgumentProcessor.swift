@@ -11,18 +11,40 @@
 //===----------------------------------------------------------------------===//
 
 import ArgumentParserToolInfo
-import Foundation
 import Basics
+import Foundation
 
+/// `TemplateCLIConstructor` attempts to parse a set of predefined arguments for a CLI tool
+/// described by `ToolInfoV0`. If parsing fails and a TTY (interactive terminal) is available,
+/// it falls back to interactive prompting to gather the required arguments from the user.
 public class TemplateCLIConstructor {
+    /// Indicates whether a TTY (interactive terminal) is available.
     private let hasTTY: Bool
+    /// Optional scope for emitting debug and warning messages during parsing.
     private let observabilityScope: ObservabilityScope?
 
+    /// Creates a new `TemplateCLIConstructor`.
+    ///
+    /// - Parameters:
+    ///   - hasTTY: A boolean indicating if a TTY is available for interactive prompting.
+    ///   - observabilityScope: An optional observability scope for emitting logs and debug messages.
     public init(hasTTY: Bool, observabilityScope: ObservabilityScope? = nil) {
         self.hasTTY = hasTTY
         self.observabilityScope = observabilityScope
     }
 
+    /// Attempts to create a finalized command-line from predefined arguments.
+    ///
+    /// This method first tries to parse the provided `predefinedArgs` using a template parser.
+    /// If parsing fails and a TTY is available, it will fall back to interactively prompting
+    /// the user for all required arguments.
+    ///
+    /// - Parameters:
+    ///   - predefinedArgs: An array of predefined command-line arguments to parse.
+    ///   - toolInfoJson: Argument tree of the CLI tool in `ToolInfoV0` format.
+    /// - Returns: An array of command-line arguments constructed either from `predefinedArgs`
+    ///            or from interactive user input.
+    /// - Throws: Rethrows any parsing errors if parsing fails and a TTY is unavailable.
     public func createCLIArgs(predefinedArgs: [String], toolInfoJson: ToolInfoV0)
         throws -> [String]
     {
@@ -50,6 +72,16 @@ public class TemplateCLIConstructor {
         }
     }
 
+    /// Handles parsing errors and falls back to interactive prompting if a TTY is available.
+    ///
+    /// If no TTY is available, this method rethrows the original parsing error.
+    ///
+    /// - Parameters:
+    ///   - error: The original error thrown during parsing.
+    ///   - toolInfoJson: Metadata about the CLI tool.
+    ///   - predefinedArgs: The arguments that were initially provided.
+    /// - Returns: A list of arguments collected interactively from the user.
+    /// - Throws: Rethrows the original parsing error if no TTY is available or if interactive parsing fails.
     private func handleParsingError(
         _ error: Error,
         toolInfoJson: ToolInfoV0,
@@ -65,23 +97,25 @@ public class TemplateCLIConstructor {
 
         self.observabilityScope?.emit(debug: "TTY available, falling back to interactive prompting")
 
-        // Print the parsing error to inform the user what went wrong
-        print("Parsing failed with predefined arguments:  \(predefinedArgs.joined(separator: " "))")
-        print("Error: \(self.formatErrorMessage(error))")
-        print("\nFalling back to interactive prompting for all arguments...\n")
+        self.observabilityScope?
+            .emit(info: "Parsing failed with predefined arguments:  \(predefinedArgs.joined(separator: " "))")
+        self.observabilityScope?.emit(info: "Error: \(self.formatErrorMessage(error))")
+        self.observabilityScope?.emit(info: " Prompting for all arguments")
 
         // Cancel all predefined inputs and prompt for everything from scratch
         self.observabilityScope?.emit(debug: "Creating fresh parser for interactive prompting")
         var freshParser = TemplateCommandParser(toolInfoJson.command, observabilityScope: self.observabilityScope)
         let commandPath = try freshParser.parseWithPrompting([], hasTTY: self.hasTTY)
-        // Empty predefined args
-
         let result = self.buildCommandLine(from: commandPath)
         self.observabilityScope?
             .emit(debug: "Interactive parsing completed successfully, result: [\(result.joined(separator: ", "))]")
         return result
     }
 
+    /// Formats an error into a human-readable string.
+    ///
+    /// - Parameter error: The error to format.
+    /// - Returns: A descriptive string explaining the error.
     private func formatErrorMessage(_ error: Error) -> String {
         switch error {
         case let templateError as TemplateError:
@@ -93,6 +127,10 @@ public class TemplateCLIConstructor {
         }
     }
 
+    /// Formats a `TemplateError` into a human-readable message.
+    ///
+    /// - Parameter error: The template error to format.
+    /// - Returns: A descriptive string for the template error.
     private func formatTemplateError(_ error: TemplateError) -> String {
         switch error {
         case .unexpectedArguments(let args):
@@ -112,6 +150,10 @@ public class TemplateCLIConstructor {
         }
     }
 
+    /// Formats a `ParsingError` into a human-readable message.
+    ///
+    /// - Parameter error: The parsing error to format.
+    /// - Returns: A descriptive string for the parsing error.
     private func formatParsingError(_ error: ParsingError) -> String {
         switch error {
         case .missingValueForOption(let option):
@@ -131,6 +173,10 @@ public class TemplateCLIConstructor {
         }
     }
 
+    /// Builds the final command-line argument list from a parsed `TemplateCommandPath`.
+    ///
+    /// - Parameter commandPath: The parsed command chain containing commands and their arguments.
+    /// - Returns: An array of strings representing the full CLI invocation.
     private func buildCommandLine(from commandPath: TemplateCommandPath) ->
         [String]
     {
@@ -151,4 +197,3 @@ public class TemplateCLIConstructor {
         return result
     }
 }
-

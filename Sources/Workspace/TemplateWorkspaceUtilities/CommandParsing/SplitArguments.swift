@@ -10,46 +10,73 @@
 //
 //===----------------------------------------------------------------------===//
 
+/// A structure representing a parsed and consumable list of command-line arguments.
+///
+/// `SplitArguments` parses raw CLI arguments into discrete elements (`Element`) representing
+/// options, values, and terminators (`--`). It provides methods to inspect, consume, and
+/// track usage of arguments, supporting both positional and named options.
 struct SplitArguments {
+    /// Represents a single element in the parsed argument list.
     struct Element {
+        /// The type of element: option, value, or terminator.
         enum Value: Equatable {
             case option(ParsedTemplateArgument)
             case value(String)
             case terminator // "--"
         }
 
+        /// The underlying element value.
         var value: Value
+
+        /// The original index of the argument in the input array.
         var index: Int
 
+        /// Returns true if this element is a standalone value.
         var isValue: Bool {
             if case .value = self.value { return true }
             return false
         }
 
+        /// Returns true if this element is the terminator `--`.
         var isTerminator: Bool {
             if case .terminator = self.value { return true }
             return false
         }
     }
 
+    // MARK: - Properties
+
+    /// The parsed elements in order.
     private var elements: [Element]
+    /// The index of the first unconsumed element.
     private var firstUnused: Int = 0
+    /// The original input array of argument strings.
     let originalInput: [String]
+    /// Tracks indices of elements that have been consumed.
     private var consumedIndices: Set<Int> = []
+
+    /// Records consumption events for debugging.
     var consumptionLog: [ConsumptionRecord] = []
 
+    /// Returns a slice of elements that have not yet been consumed.
     var remainingElements: ArraySlice<Element> {
         self.elements[self.firstUnused...]
     }
 
+    /// Returns true if there are no remaining unconsumed elements.
     var isEmpty: Bool {
         self.remainingElements.isEmpty
     }
 
+    /// Returns the number of remaining unconsumed elements.
     var count: Int {
         self.remainingElements.count
     }
 
+    /// Initializes a `SplitArguments` instance by parsing raw CLI argument strings.
+    ///
+    /// - Parameter arguments: The array of argument strings.
+    /// - Throws: A `ParsingStringError` if an invalid argument format is encountered.
     init(arguments: [String]) throws {
         self.originalInput = arguments
         self.elements = []
@@ -73,6 +100,7 @@ struct SplitArguments {
 
     // MARK: Consumption helpers
 
+    /// Returns the next unconsumed element without marking it as consumed.
     func peekNext() -> Element? {
         // Find the first unconsumed element from firstUnused onwards
         for element in self.remainingElements {
@@ -83,6 +111,7 @@ struct SplitArguments {
         return nil
     }
 
+    /// Consumes and returns the next unconsumed element.
     mutating func consumeNext() -> Element? {
         // Find and consume the first unconsumed element
         while !self.isEmpty {
@@ -98,6 +127,10 @@ struct SplitArguments {
         return nil
     }
 
+    /// Consumes the next unconsumed value element.
+    ///
+    /// - Parameter argumentName: Optional name of the argument for tracking purposes.
+    /// - Returns: The next value string, or nil if the next element is not a value.
     mutating func consumeNextValue(for argumentName: String? = nil) -> String? {
         guard let next = peekNext(), next.isValue else { return nil }
         if case .value(let str) = consumeNext()?.value {
@@ -114,6 +147,7 @@ struct SplitArguments {
         return nil
     }
 
+    /// Scans forward for the next unconsumed value element, skipping options.
     mutating func scanForNextValue(for argumentName: String? = nil) -> String? {
         var scanIndex = self.firstUnused
 
@@ -150,6 +184,7 @@ struct SplitArguments {
         return nil
     }
 
+    /// Consumes an option with a specific name if it is next in the argument list.
     mutating func consumeOption(named name: String) -> ParsedTemplateArgument? {
         guard let next = peekNext(),
               case .option(let parsed) = next.value,
@@ -165,8 +200,6 @@ struct SplitArguments {
         )
         return parsed
     }
-
-    // MARK: - Template-Specific Methods
 
     /// Returns all remaining values (for positional arguments)
     var remainingValues: [String] {
@@ -188,8 +221,9 @@ struct SplitArguments {
         }
     }
 
-    // MARK: - Private Parsing
+    // MARK: - Parsing
 
+    /// Parses a single argument string into one or more elements.
     private static func parseArgument(_ arg: String, at index: Int) throws ->
         [Element]
     {
@@ -247,27 +281,31 @@ struct SplitArguments {
     }
 }
 
+// MARK: - Consumption Tracking
+
 extension SplitArguments {
+    /// Marks an element as consumed
     mutating func markAsConsumed(
         _ index: Int,
         for purpose: ConsumptionPurpose,
         argumentName: String? = nil
     ) {
-        consumedIndices.insert(index)
-        consumptionLog.append(ConsumptionRecord(
+        self.consumedIndices.insert(index)
+        self.consumptionLog.append(ConsumptionRecord(
             elementIndex: index,
             purpose: purpose,
             argumentName: argumentName
         ))
     }
 
+    /// Returns all values that appear after the terminator `--`.
     mutating func removeElementsAfterTerminator() -> [String] {
         guard let terminatorIndex = elements.firstIndex(where: { $0.isTerminator
         }) else {
             return []
         }
 
-        let postTerminatorValues = elements[(terminatorIndex + 1)...].compactMap { element -> String?
+        let postTerminatorValues = self.elements[(terminatorIndex + 1)...].compactMap { element -> String?
             in
             if case .value(let str) = element.value {
                 self.markAsConsumed(element.index, for: .postTerminator)
@@ -279,8 +317,8 @@ extension SplitArguments {
         return postTerminatorValues
     }
 
+    /// Returns all elements that have not yet been consumed.
     var unconsumedElements: ArraySlice<Element> {
-        elements.filter { !consumedIndices.contains($0.index) }[...]
+        self.elements.filter { !self.consumedIndices.contains($0.index) }[...]
     }
 }
-
