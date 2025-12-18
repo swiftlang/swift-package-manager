@@ -47,7 +47,7 @@ public struct RepositorySpecifier: Hashable, Sendable {
         if basename.hasSuffix(".git") {
             basename = String(basename.dropLast(4))
         }
-        if basename == "/" {
+        if basename == "/" || basename == "\\" {
             return ""
         }
         return basename

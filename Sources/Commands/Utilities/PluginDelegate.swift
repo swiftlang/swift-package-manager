@@ -190,11 +190,11 @@ final class PluginDelegate: PluginInvocationDelegate {
         let result = await buildSystem.buildIgnoringError(subset: buildSubset, buildOutputs: [.builtArtifacts])
         let success = result != nil
 
-        let packageGraph = try await buildSystem.getPackageGraph()
+        _ = try await buildSystem.getPackageGraph()
 
-        var builtArtifacts: [PluginInvocationBuildResult.BuiltArtifact] = (result?.builtArtifacts ?? []).filter { (name, _) in
+        let builtArtifacts: [PluginInvocationBuildResult.BuiltArtifact] = (result?.builtArtifacts ?? []).filter { (name, _) in
             switch subset {
-            case .all(let includingTests):
+            case .all:
                 return true
             case .product(let productName):
                 return name == productName

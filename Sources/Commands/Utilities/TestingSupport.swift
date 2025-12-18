@@ -242,10 +242,10 @@ enum TestingSupport {
         // Since XCTestHelper targets macOS, we need the macOS platform paths here.
         if let sdkPlatformPaths = try? SwiftSDK.sdkPlatformPaths(for: .macOS) {
             // appending since we prefer the user setting (if set) to the one we inject
-            for frameworkPath in sdkPlatformPaths.frameworks {
+            for frameworkPath in sdkPlatformPaths.runtimeFrameworkSearchPaths {
                 env.appendPath(key: "DYLD_FRAMEWORK_PATH", value: frameworkPath.pathString)
             }
-            for libraryPath in sdkPlatformPaths.libraries {
+            for libraryPath in sdkPlatformPaths.runtimeLibrarySearchPaths {
                 env.appendPath(key: "DYLD_LIBRARY_PATH", value: libraryPath.pathString)
             }
         }

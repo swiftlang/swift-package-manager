@@ -16,6 +16,7 @@ import func XCTest.XCTAssertEqual
 import func XCTest.XCTFail
 
 import struct TSCBasic.StringError
+import class TSCBasic.BufferedOutputByteStream
 
 import TSCTestSupport
 import Testing
@@ -23,6 +24,12 @@ import Testing
 extension ObservabilitySystem {
     public static func makeForTesting(verbose: Bool = true) -> TestingObservability {
         let collector = TestingObservability.Collector(verbose: verbose)
+        let observabilitySystem = ObservabilitySystem(collector)
+        return TestingObservability(collector: collector, topScope: observabilitySystem.topScope)
+    }
+
+    public static func makeForTesting(verbose: Bool = true, outputStream: BufferedOutputByteStream) -> TestingObservability {
+        let collector = TestingObservability.Collector(verbose: verbose, outputStream: outputStream)
         let observabilitySystem = ObservabilitySystem(collector)
         return TestingObservability(collector: collector, topScope: observabilitySystem.topScope)
     }
@@ -62,17 +69,33 @@ public struct TestingObservability {
 
         private let verbose: Bool
         let diagnostics = ThreadSafeArrayStore<Basics.Diagnostic>()
+        private let outputStream: BufferedOutputByteStream?
 
-        init(verbose: Bool) {
+        init(verbose: Bool, outputStream: BufferedOutputByteStream? = nil) {
             self.verbose = verbose
+            self.outputStream = outputStream
         }
 
         // TODO: do something useful with scope
         func handleDiagnostic(scope: ObservabilityScope, diagnostic: Basics.Diagnostic) {
             if self.verbose {
-                print(diagnostic.description)
+                if let outputStream {
+                    outputStream.write(diagnostic.description)
+                } else {
+                    Swift.print(diagnostic.description)
+                }
             }
             self.diagnostics.append(diagnostic)
+        }
+
+        func print(_ output: String, verbose: Bool) {
+            if verbose {
+                if let outputStream {
+                    outputStream.write(output)
+                } else {
+                    Swift.print(output)
+                }
+            }
         }
 
         var hasErrors: Bool {

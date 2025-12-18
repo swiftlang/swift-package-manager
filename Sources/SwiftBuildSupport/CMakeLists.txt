@@ -8,6 +8,7 @@
 
 add_library(SwiftBuildSupport STATIC
   BuildSystem.swift
+  Diagnostics+Extensions.swift
   DotPIFSerializer.swift
   PackagePIFBuilder.swift
   PackagePIFBuilder+Helpers.swift
@@ -18,7 +19,8 @@ add_library(SwiftBuildSupport STATIC
   PIF.swift
   PIFBuilder.swift
   PluginConfiguration.swift
-  SwiftBuildSystem.swift)
+  SwiftBuildSystem.swift
+  SwiftBuildSystemMessageHandler.swift)
 target_link_libraries(SwiftBuildSupport PUBLIC
   Build
   DriverSupport

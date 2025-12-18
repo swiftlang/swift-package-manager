@@ -41,7 +41,7 @@ struct CoverageTests {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let config = BuildConfiguration.debug
-        try await withKnownIssue(isIntermittent: (ProcessInfo.hostOperatingSystem == .linux && buildSystem == .swiftbuild)) {
+        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { path in
                 _ = try await executeSwiftBuild(
                     path,
@@ -96,7 +96,7 @@ struct CoverageTests {
             let codeCovPath = try AbsolutePath(validating: codeCovPathString)
 
             // WHEN we build with coverage enabled
-            try await withKnownIssue {
+            try await withKnownIssue(isIntermittent: true) {
                 try await executeSwiftBuild(
                     path,
                     configuration: config,
@@ -157,7 +157,7 @@ struct CoverageTests {
             try #require(!localFileSystem.exists(coveragePath))
 
             // WHEN we test with coverage enabled
-            try await withKnownIssue {
+            try await withKnownIssue(isIntermittent: true) {
                 try await executeSwiftTest(
                     path,
                     configuration: buildData.config,

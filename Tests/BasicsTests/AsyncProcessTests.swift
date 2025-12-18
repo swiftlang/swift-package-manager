@@ -1,13 +1,14 @@
-/*
- This source file is part of the Swift.org open source project
-
- Copyright (c) 2014 - 2020 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
-
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
- */
-
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift open source project
+//
+// Copyright (c) 2014 - 2020 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
 import _InternalTestSupport
 import _Concurrency
 import Basics
@@ -53,16 +54,14 @@ final class AsyncProcessTests: XCTestCase {
     }
 
     func testPopenWithBufferLargerThanAllocated() throws {
-        try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/9031: test fails on windows.")
-
         // Test buffer larger than that allocated.
         try withTemporaryFile { file in
             let count = 10000
             let stream = BufferedOutputByteStream()
             stream.send(Format.asRepeating(string: "a", count: count))
-            try localFileSystem.writeFileContents(file.path, bytes: stream.bytes)
+            file.fileHandle.write(Data(stream.bytes.contents))
             let actualStreamCount = stream.bytes.count
-            XCTAssertTrue(actualStreamCount == count, "Actual stream count (\(actualStreamCount)) is not as exxpected (\(count))")
+            XCTAssertTrue(actualStreamCount == count, "Actual stream count (\(actualStreamCount)) is not as expected (\(count))")
             let outputCount = try AsyncProcess.popen(arguments: catExecutableArgs + [file.path.pathString]).utf8Output().count
             XCTAssert(outputCount == count, "Actual count (\(outputCount)) is not as expected (\(count))")
         }
@@ -76,15 +75,15 @@ final class AsyncProcessTests: XCTestCase {
         let args = ["whoami"]
         let answer = NSUserName()
         #endif
-        var popenResult: Result<AsyncProcessResult, Error>?
+        let popenResult = ThreadSafeBox<Result<AsyncProcessResult, Error>>()
         let group = DispatchGroup()
         group.enter()
         AsyncProcess.popen(arguments: args) { result in
-            popenResult = result
+            popenResult.put(result)
             group.leave()
         }
         group.wait()
-        switch popenResult {
+        switch popenResult.get() {
         case .success(let processResult):
             let output = try processResult.utf8Output()
             XCTAssertTrue(output.hasPrefix(answer))
@@ -242,9 +241,11 @@ final class AsyncProcessTests: XCTestCase {
     }
 
     func testStdin() throws {
-        var stdout = [UInt8]()
+        let stdout = ThreadSafeBox<[UInt8]>([])
         let process = AsyncProcess(scriptName: "in-to-out\(ProcessInfo.batSuffix)", outputRedirection: .stream(stdout: { stdoutBytes in
-            stdout += stdoutBytes
+            stdout.mutate {
+                $0?.append(contentsOf: stdoutBytes)
+            }
         }, stderr: { _ in }))
         let stdinStream = try process.launch()
 
@@ -255,7 +256,7 @@ final class AsyncProcessTests: XCTestCase {
 
         try process.waitUntilExit()
 
-        XCTAssertEqual(String(decoding: stdout, as: UTF8.self), "hello\(ProcessInfo.EOL)")
+        XCTAssertEqual(String(decoding: stdout.get(default: []), as: UTF8.self), "hello\(ProcessInfo.EOL)")
     }
 
     func testStdoutStdErr() throws {
@@ -352,28 +353,37 @@ final class AsyncProcessTests: XCTestCase {
     }
 
     func testStdoutStdErrStreaming() throws {
-        var stdout = [UInt8]()
-        var stderr = [UInt8]()
+        let stdout = ThreadSafeBox<[UInt8]>([])
+        let stderr = ThreadSafeBox<[UInt8]>([])
         let process = AsyncProcess(scriptName: "long-stdout-stderr\(ProcessInfo.batSuffix)", outputRedirection: .stream(stdout: { stdoutBytes in
-            stdout += stdoutBytes
+            stdout.mutate {
+                $0?.append(contentsOf: stdoutBytes)
+            }
         }, stderr: { stderrBytes in
-            stderr += stderrBytes
+            stderr.mutate {
+                $0?.append(contentsOf: stderrBytes)
+            }
         }))
         try process.launch()
         try process.waitUntilExit()
 
         let count = 16 * 1024
-        XCTAssertEqual(String(bytes: stdout, encoding: .utf8), String(repeating: "1", count: count))
-        XCTAssertEqual(String(bytes: stderr, encoding: .utf8), String(repeating: "2", count: count))
+        XCTAssertEqual(String(bytes: stdout.get(default: []), encoding: .utf8), String(repeating: "1", count: count))
+        XCTAssertEqual(String(bytes: stderr.get(default: []), encoding: .utf8), String(repeating: "2", count: count))
     }
 
     func testStdoutStdErrStreamingRedirected() throws {
-        var stdout = [UInt8]()
-        var stderr = [UInt8]()
+        let stdout = ThreadSafeBox<[UInt8]>([])
+        let stderr = ThreadSafeBox<[UInt8]>([])
+
         let process = AsyncProcess(scriptName: "long-stdout-stderr\(ProcessInfo.batSuffix)", outputRedirection: .stream(stdout: { stdoutBytes in
-            stdout += stdoutBytes
+            stdout.mutate {
+                $0?.append(contentsOf: stdoutBytes)
+            }
         }, stderr: { stderrBytes in
-            stderr += stderrBytes
+            stderr.mutate {
+                $0?.append(contentsOf: stderrBytes)
+            }
         }, redirectStderr: true))
         try process.launch()
         try process.waitUntilExit()
@@ -386,8 +396,8 @@ final class AsyncProcessTests: XCTestCase {
         let expectedStdout = String(repeating: "12", count: count)
         let expectedStderr = ""
         #endif
-        XCTAssertEqual(String(bytes: stdout, encoding: .utf8), expectedStdout)
-        XCTAssertEqual(String(bytes: stderr, encoding: .utf8), expectedStderr)
+        XCTAssertEqual(String(bytes: stdout.get(default: []), encoding: .utf8), expectedStdout)
+        XCTAssertEqual(String(bytes: stderr.get(default: []), encoding: .utf8), expectedStderr)
     }
 
     func testWorkingDirectory() throws {
@@ -425,7 +435,7 @@ final class AsyncProcessTests: XCTestCase {
     func testAsyncStream() async throws {
         // rdar://133548796
         try XCTSkipIfPlatformCI()
-        try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8547: 'swift test' was hanging.")
+        try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8547: 'swift test' was stalled.")
 
         let (stdoutStream, stdoutContinuation) = AsyncProcess.ReadableStream.makeStream()
         let (stderrStream, stderrContinuation) = AsyncProcess.ReadableStream.makeStream()
@@ -483,7 +493,7 @@ final class AsyncProcessTests: XCTestCase {
     func testAsyncStreamHighLevelAPI() async throws {
         // rdar://133548796
         try XCTSkipIfPlatformCI()
-        try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8547: 'swift test' was hanging.")
+        try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8547: 'swift test' was stalled.")
 
         let result = try await AsyncProcess.popen(
             scriptName: "echo\(ProcessInfo.batSuffix)", // maps to 'processInputs/echo' script

@@ -791,7 +791,7 @@ public final class SwiftModuleBuildDescription {
     }
 
     func writeOutputFileMap(to path: AbsolutePath) throws {
-        let masterDepsPath = self.tempsPath.appending("master.swiftdeps")
+        let primateDepsPath = self.tempsPath.appending("primary.swiftdeps")
 
         var content =
             #"""
@@ -822,7 +822,7 @@ public final class SwiftModuleBuildDescription {
         }
         content +=
             #"""
-                "swift-dependencies": "\#(masterDepsPath._nativePathString(escaped: true))"
+                "swift-dependencies": "\#(primateDepsPath._nativePathString(escaped: true))"
               },
 
             """#
@@ -1043,7 +1043,7 @@ public final class SwiftModuleBuildDescription {
 
         let toolchainFlags = self.buildParameters.toolchain.extraFlags.swiftCompilerFlags
         if toolchainFlags.contains(queryFlags) { return true }
-        
+
         let generalFlags = self.buildParameters.flags.swiftCompilerFlags
         if generalFlags.contains(queryFlags) { return true }
 

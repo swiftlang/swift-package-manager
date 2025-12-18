@@ -15,6 +15,7 @@ add_library(Commands
   PackageCommands/APIDiff.swift
   PackageCommands/ArchiveSource.swift
   PackageCommands/AuditBinaryArtifact.swift
+  PackageCommands/BuildServer.swift
   PackageCommands/CompletionCommand.swift
   PackageCommands/ComputeChecksum.swift
   PackageCommands/Config.swift
@@ -73,6 +74,7 @@ add_library(Commands
 target_link_libraries(Commands PUBLIC
   SwiftCollections::OrderedCollections
   SwiftSyntax::SwiftRefactor
+  SwiftSystem::SystemPackage
   ArgumentParser
   Basics
   BinarySymbols
@@ -82,6 +84,7 @@ target_link_libraries(Commands PUBLIC
   PackageGraph
   SourceControl
   SwiftFixIt
+  SwiftPMBuildServer
   TSCBasic
   TSCUtility
   Workspace

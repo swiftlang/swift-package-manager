@@ -227,6 +227,19 @@ extension PackagePIFProjectBuilder {
         case macro
     }
 
+    static func createBinaryModuleFileReference(_ binaryModule: BinaryModule, id: ProjectModel.GUID) -> FileReference {
+        let fileTypeIdentifier: String?
+        switch binaryModule.kind {
+        case .artifactsArchive:
+            fileTypeIdentifier = "wrapper.artifactbundle"
+        case .xcframework:
+            fileTypeIdentifier = "wrapper.xcframework"
+        case .unknown:
+            fileTypeIdentifier = nil
+        }
+        return FileReference(id: id, path: binaryModule.artifactPath.pathString, fileType: fileTypeIdentifier)
+    }
+
     /// Constructs a *PIF target* for building a *module* as a particular type.
     /// An optional target identifier suffix is passed when building variants of a target.
     @discardableResult
@@ -317,6 +330,14 @@ extension PackagePIFProjectBuilder {
             // `inputResourceBundleName`.
             shouldGenerateBundleAccessor = true
             shouldGenerateEmbedInCodeAccessor = true
+            if resourceBundleName != nil {
+                let resourceTargetID = pifTargetIdForResourceBundle(sourceModule.name)
+                self.project[keyPath: sourceModuleTargetKeyPath].common.addDependency(
+                    on: resourceTargetID,
+                    platformFilters: [],
+                    linkProduct: false
+                )
+            }
         }
 
         // Find the PIF target for the resource bundle, if any. Otherwise fall back to the module.
@@ -439,6 +460,9 @@ extension PackagePIFProjectBuilder {
 
                 // Redirect the built executable into a separate directory so it won't conflict with the real one.
                 settings[.TARGET_BUILD_DIR] = "$(TARGET_BUILD_DIR)/ExecutableModules"
+
+                // on windows modules are libraries, so we need to add a search path so the linker finds them
+                impartedSettings[.LIBRARY_SEARCH_PATHS, .windows] = ["$(inherited)", "$(TARGET_BUILD_DIR)/ExecutableModules"]
 
                 // Don't install the Swift module of the testable side-built artifact, lest it conflict with the regular
                 // one.
@@ -648,7 +672,7 @@ extension PackagePIFProjectBuilder {
                         break
                     }
                     let binaryReference = self.binaryGroup.addFileReference { id in
-                        FileReference(id: id, path: (binaryModule.artifactPath.pathString))
+                        return Self.createBinaryModuleFileReference(binaryModule, id: id)
                     }
                     if shouldLinkProduct {
                         self.project[keyPath: sourceModuleTargetKeyPath].addLibrary { id in
@@ -750,12 +774,21 @@ extension PackagePIFProjectBuilder {
         //
         // An imparted build setting on C will propagate back to both B and A.
         // FIXME: -rpath should not be given if -static is
-        impartedSettings[.LD_RUNPATH_SEARCH_PATHS] =
-            ["$(RPATH_ORIGIN)"] +
-            (impartedSettings[.LD_RUNPATH_SEARCH_PATHS] ?? ["$(inherited)"])
+        var rpaths: [String] = []
+        if let existingRpaths = impartedSettings[.LD_RUNPATH_SEARCH_PATHS] {
+            rpaths.append(contentsOf: existingRpaths)
+        }
+        if pifBuilder.addLocalRpaths {
+            rpaths.append("$(RPATH_ORIGIN)")
+            impartedSettings[.LD_RUNPATH_SEARCH_PATHS] = rpaths + ["$(inherited)"]
+        }
 
         var impartedDebugSettings = impartedSettings
-        impartedDebugSettings[.LD_RUNPATH_SEARCH_PATHS]! += ["$(BUILT_PRODUCTS_DIR)/PackageFrameworks"]
+        if pifBuilder.addLocalRpaths {
+            // FIXME: Why is this rpath only added to the debug config? We should investigate reworking this.
+            rpaths.append("$(BUILT_PRODUCTS_DIR)/PackageFrameworks")
+            impartedDebugSettings[.LD_RUNPATH_SEARCH_PATHS] = rpaths + ["$(inherited)"]
+        }
 
         self.project[keyPath: sourceModuleTargetKeyPath].common.addBuildConfig { id in
             BuildConfig(
