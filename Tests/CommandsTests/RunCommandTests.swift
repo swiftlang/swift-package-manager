@@ -53,7 +53,7 @@ struct RunCommandTests {
         buildSystem: BuildSystemProvider.Kind
     ) async throws {
         let stdout = try await execute(["-help"], buildSystem: buildSystem).stdout
-        
+
         #expect(stdout.contains("USAGE: swift run <options>") || stdout.contains("USAGE: swift run [<options>]"), "got stdout:\n \(stdout)")
     }
 
@@ -106,7 +106,6 @@ struct RunCommandTests {
     func toolsetDebugger(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        try await withKnownIssue {
         try await fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
             #if os(Windows)
                 let win32 = ".win32"
@@ -135,10 +134,6 @@ struct RunCommandTests {
                 buildSystem == .swiftbuild
             }
         }
-        } when: {
-            (.swiftbuild == buildSystem && ProcessInfo.hostOperatingSystem == .windows)
-            || (.native == buildSystem && ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline)
-        }
     }
 
     @Test(
@@ -152,34 +147,29 @@ struct RunCommandTests {
     func productArgumentPassing(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        try await withKnownIssue {
-            try await fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
-                let (stdout, stderr) = try await execute(
-                    ["secho", "1", "--hello", "world"],
-                    packagePath: fixturePath,
-                    buildSystem: buildSystem,
-                )
+        try await fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
+            let (stdout, stderr) = try await execute(
+                ["secho", "1", "--hello", "world"],
+                packagePath: fixturePath,
+                buildSystem: buildSystem,
+            )
 
-                // We only expect tool's output on the stdout stream.
-                #expect(stdout.contains("""
-                    "1" "--hello" "world"
-                    """))
+            // We only expect tool's output on the stdout stream.
+            #expect(stdout.contains("""
+                "1" "--hello" "world"
+                """))
 
-                // swift-build-tool output should go to stderr.
-                withKnownIssue {
-                    #expect(stderr.contains("Compiling"))
-                } when: {
-                    buildSystem == .swiftbuild
-                }
-                withKnownIssue {
-                    #expect(stderr.contains("Linking"))
-                } when: {
-                    buildSystem == .swiftbuild
-                }
+            // swift-build-tool output should go to stderr.
+            withKnownIssue {
+                #expect(stderr.contains("Compiling"))
+            } when: {
+                buildSystem == .swiftbuild
             }
-        } when: {
-            (.windows == ProcessInfo.hostOperatingSystem && buildSystem == .swiftbuild)
-            || (.windows == ProcessInfo.hostOperatingSystem && buildSystem == .native && CiEnvironment.runningInSmokeTestPipeline)
+            withKnownIssue {
+                #expect(stderr.contains("Linking"))
+            } when: {
+                buildSystem == .swiftbuild
+            }
         }
     }
 
@@ -220,7 +210,6 @@ struct RunCommandTests {
     func multipleExecutableAndExplicitExecutable(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        try await withKnownIssue {
         try await fixture(name: "Miscellaneous/MultipleExecutables") { fixturePath in
 
             let error = await #expect(throws: SwiftPMError.self ) {
@@ -241,10 +230,6 @@ struct RunCommandTests {
 
             (runOutput, _) = try await execute(["exec2"], packagePath: fixturePath, buildSystem: buildSystem)
             #expect(runOutput.contains("2"))
-        }
-        } when: {
-            ([.windows].contains(ProcessInfo.hostOperatingSystem) && buildSystem == .swiftbuild && CiEnvironment.runningInSelfHostedPipeline)
-            || (.windows == ProcessInfo.hostOperatingSystem && [.native, .swiftbuild].contains(buildSystem) && CiEnvironment.runningInSmokeTestPipeline)
         }
     }
 
@@ -385,7 +370,7 @@ struct RunCommandTests {
                     self.sync = sync
                 }
 
-                func handle(bytes: [UInt8]) {
+                @Sendable func handle(bytes: [UInt8]) {
                     guard let output = String(bytes: bytes, encoding: .utf8) else {
                         return
                     }

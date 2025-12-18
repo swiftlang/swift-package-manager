@@ -1,12 +1,14 @@
-/*
- This source file is part of the Swift.org open source project
-
- Copyright (c) 2025 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
-
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
- */
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift open source project
+//
+// Copyright (c) 2025 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
 
 import Testing
 
@@ -14,6 +16,7 @@ extension Tag {
     public enum TestSize {}
     public enum Feature {}
     public enum Platform {}
+    public enum FunctionalArea {}
     @Tag public static var UserWorkflow: Tag
 }
 
@@ -25,6 +28,12 @@ extension Tag.TestSize {
 
 extension Tag.Platform {
     @Tag public static var FileSystem: Tag
+}
+
+extension Tag.FunctionalArea {
+    @Tag public static var PIF: Tag
+    @Tag public static var IndexMode: Tag
+    @Tag public static var Sanitizer: Tag
 }
 
 extension Tag.Feature {

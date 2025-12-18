@@ -83,7 +83,6 @@ import Foundation
 
 @main
 struct MyCommandPlugin: CommandPlugin {
-123456789012345678901234567890123456789012345678901234567890
   func performCommand(
     context: PluginContext,
     arguments: [String]

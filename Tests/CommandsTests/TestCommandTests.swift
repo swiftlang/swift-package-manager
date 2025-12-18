@@ -318,6 +318,31 @@ struct TestCommandTests {
     }
 
     @Test(
+        .IssueWindowsLongPath,
+        .tags(
+            .Feature.TargetType.Executable,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+    )
+    func testableExecutableWithDifferentlyNamedExecutableProduct(
+        buildSystem: BuildSystemProvider.Kind,
+        configuration: BuildConfiguration,
+    ) async throws {
+        try await withKnownIssue(isIntermittent: true) {
+            try await fixture(name: "Miscellaneous/TestableExeWithDifferentProductName") { fixturePath in
+                let result = try await execute(
+                    ["--vv"],
+                    packagePath: fixturePath,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                )
+            }
+        } when: {
+            .windows == ProcessInfo.hostOperatingSystem
+        }
+    }
+
+    @Test(
         .tags(
             .Feature.TargetType.Executable,
         ),
@@ -1250,5 +1275,30 @@ struct TestCommandTests {
             ProcessInfo.hostOperatingSystem == .windows
         }
     }
+
+    @Test(
+            .IssueWindowsLongPath,
+            .tags(
+                .Feature.TargetType.Executable,
+            ),
+            arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        )
+        func testableExecutableWithEmbeddedResources(
+            buildSystem: BuildSystemProvider.Kind,
+            configuration: BuildConfiguration,
+        ) async throws {
+            try await withKnownIssue(isIntermittent: true) {
+                try await fixture(name: "Miscellaneous/TestableExeWithResources") { fixturePath in
+                    let result = try await execute(
+                        ["--vv"],
+                        packagePath: fixturePath,
+                        configuration: configuration,
+                        buildSystem: buildSystem,
+                    )
+                }
+            } when: {
+                .windows == ProcessInfo.hostOperatingSystem
+            }
+         }
 
 }
