@@ -36,6 +36,7 @@ add_library(Workspace
   TemplateWorkspaceUtilities/Models/ErrorModels.swift
   TemplateWorkspaceUtilities/Models/ParsingModels.swift
   TemplateWorkspaceUtilities/Models/ProcessingModels.swift
+  TemplateWorkspaceUtilities/Models/TestTemplateResultModels.swift
   TemplateWorkspaceUtilities/UserInteraction/InteractivePrompter.swift
   ToolsVersionSpecificationRewriter.swift
   Workspace.swift

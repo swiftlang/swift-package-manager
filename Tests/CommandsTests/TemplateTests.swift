@@ -38,7 +38,6 @@ import struct TSCBasic.ByteString
 import enum TSCBasic.JSON
 
 @Suite(
-    .serialized,
     .tags(
         .TestSize.large,
         .Feature.Command.Package.General,
