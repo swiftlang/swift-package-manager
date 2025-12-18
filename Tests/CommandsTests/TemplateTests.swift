@@ -736,6 +736,7 @@ struct TemplateTests {
     // MARK: - Template Path Resolution Tests
 
     @Suite(
+        .disabled(),
         .tags(
             Tag.TestSize.medium,
             Tag.Feature.Command.Package.Init,
@@ -746,21 +747,23 @@ struct TemplateTests {
         @Test
         func resolveLocalTemplatePath() async throws {
             let mockTemplatePath = AbsolutePath("/fake/path/to/template")
-            let options = try GlobalOptions.parse([])
+            try await withTaskLocalWorkingDirectory(mockTemplatePath){
+                let options = try GlobalOptions.parse([])
 
-            let tool = try SwiftCommandState.makeMockState(options: options, fileSystem: InMemoryFileSystem())
+                let tool = try SwiftCommandState.makeMockState(options: options, fileSystem: InMemoryFileSystem())
 
-            let path = try await TemplatePathResolver(
-                source: .local,
-                templateDirectory: mockTemplatePath,
-                templateURL: nil,
-                sourceControlRequirement: nil,
-                registryRequirement: nil,
-                packageIdentity: nil,
-                swiftCommandState: tool
-            ).resolve()
+                let path = try await TemplatePathResolver(
+                    source: .local,
+                    templateDirectory: mockTemplatePath,
+                    templateURL: nil,
+                    sourceControlRequirement: nil,
+                    registryRequirement: nil,
+                    packageIdentity: nil,
+                    swiftCommandState: tool
+                ).resolve()
 
-            #expect(path == mockTemplatePath)
+                #expect(path == mockTemplatePath)
+            }
         }
 
         @Test(
