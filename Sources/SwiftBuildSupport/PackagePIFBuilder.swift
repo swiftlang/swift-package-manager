@@ -403,7 +403,7 @@ public final class PackagePIFBuilder {
             case .packageProduct: .packageProduct
             case .hostBuildTool: fatalError("Unexpected hostBuildTool type")
             @unknown default:
-                fatalError()
+                fatalError("Unknown product type: \(pifProductType)")
             }
         }
     }

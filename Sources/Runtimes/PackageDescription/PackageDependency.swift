@@ -165,7 +165,7 @@ extension Package {
                 traits: traits
             )
         }
-        
+
         convenience init(
             name: String?,
             location: String,
@@ -181,7 +181,7 @@ extension Package {
                 traits: traits
             )
         }
-        
+
         convenience init(
             id: String,
             requirement: RegistryRequirement,
@@ -1067,7 +1067,7 @@ extension Package.Dependency {
     /// ```swift
     /// .package(id: "scope.name", "1.2.3"..."1.2.6"),
     /// ```
-    /// 
+    ///
     /// If the package you depend on defines traits, the package manager uses the dependency with its default set of traits.
     ///
     /// - Parameters:
@@ -1140,11 +1140,11 @@ extension Package.Dependency {
 extension Package.Dependency {
     @available(*, unavailable, message: "use package(url:exact:) instead")
     public static func package(url: String, version: Version) -> Package.Dependency {
-        fatalError()
+        fatalError("\(#file):\(#line) - Illegal call of deprecated function \(#function)")
     }
 
     @available(*, unavailable, message: "use package(url:_:) instead")
     public static func package(url: String, range: Range<Version>) -> Package.Dependency {
-        fatalError()
+        fatalError("\(#file):\(#line) - Illegal call of deprecated function \(#function)")
     }
 }
