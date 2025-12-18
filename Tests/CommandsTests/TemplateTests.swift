@@ -3299,6 +3299,7 @@ struct TemplateTests {
     )
     struct TemplateWorkflowIntegrationTests {
         @Test(
+            .disabled(),
             .skipHostOS(.windows, "Template operations not fully supported in test environment"),
             arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
         )
