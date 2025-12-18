@@ -736,7 +736,6 @@ struct TemplateTests {
     // MARK: - Template Path Resolution Tests
 
     @Suite(
-        .disabled(),
         .tags(
             Tag.TestSize.medium,
             Tag.Feature.Command.Package.Init,
@@ -848,7 +847,7 @@ struct TemplateTests {
     // MARK: - Template Directory Management Tests
 
     @Suite(
-        .disabled(),
+        .disabled("Fails due to: Could not find Package.swift in this directory or any of its parent directories."),
         .tags(
             Tag.TestSize.medium,
             Tag.Feature.Command.Package.Init,
@@ -3299,7 +3298,6 @@ struct TemplateTests {
     )
     struct TemplateWorkflowIntegrationTests {
         @Test(
-            .disabled(),
             .skipHostOS(.windows, "Template operations not fully supported in test environment"),
             arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
         )
