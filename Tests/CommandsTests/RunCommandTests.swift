@@ -53,7 +53,7 @@ struct RunCommandTests {
         buildSystem: BuildSystemProvider.Kind
     ) async throws {
         let stdout = try await execute(["-help"], buildSystem: buildSystem).stdout
-        
+
         #expect(stdout.contains("USAGE: swift run <options>") || stdout.contains("USAGE: swift run [<options>]"), "got stdout:\n \(stdout)")
     }
 
@@ -99,7 +99,6 @@ struct RunCommandTests {
     func toolsetDebugger(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        try await withKnownIssue {
         try await fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
             #if os(Windows)
                 let win32 = ".win32"
@@ -127,9 +126,6 @@ struct RunCommandTests {
             } when: {
                 buildSystem == .swiftbuild
             }
-        }
-        } when: {
-            .swiftbuild == buildSystem && ProcessInfo.hostOperatingSystem == .windows
         }
     }
 
@@ -167,8 +163,7 @@ struct RunCommandTests {
                 }
             }
         } when: {
-            (.windows == ProcessInfo.hostOperatingSystem && buildSystem == .swiftbuild)
-            || (.linux == ProcessInfo.hostOperatingSystem && buildSystem == .swiftbuild && CiEnvironment.runningInSelfHostedPipeline)
+            (.linux == ProcessInfo.hostOperatingSystem && buildSystem == .swiftbuild && CiEnvironment.runningInSelfHostedPipeline)
         }
     }
 
@@ -229,7 +224,7 @@ struct RunCommandTests {
             #expect(runOutput.contains("2"))
         }
         } when: {
-            [.windows, .linux].contains(ProcessInfo.hostOperatingSystem) && buildSystem == .swiftbuild && CiEnvironment.runningInSelfHostedPipeline
+            [.linux].contains(ProcessInfo.hostOperatingSystem) && buildSystem == .swiftbuild && CiEnvironment.runningInSelfHostedPipeline
         }
     }
 

@@ -125,7 +125,7 @@ public func testWithTemporaryDirectory<Result>(
         let copyName = fixtureSubpath.components.joined(separator: "_")
 
         // Create a temporary directory for the duration of the block.
-        return try withTemporaryDirectory(prefix: copyName) { tmpDirPath in
+        return try withTemporaryDirectory(prefix: "") { tmpDirPath in
 
             defer {
                 // Unblock and remove the tmp dir on deinit.
@@ -167,7 +167,7 @@ public enum TestError: Error {
         let copyName = fixtureSubpath.components.joined(separator: "_")
 
         // Create a temporary directory for the duration of the block.
-        return try await withTemporaryDirectory(prefix: copyName) { tmpDirPath in
+        return try await withTemporaryDirectory(prefix: "") { tmpDirPath in
 
             defer {
                 // Unblock and remove the tmp dir on deinit.
@@ -217,7 +217,7 @@ fileprivate func setup(
         #else
         try systemQuietly("cp", "-R", "-H", srcDir.pathString, dstDir.pathString)
         #endif
-        
+
         // Ensure we get a clean test fixture.
         try localFileSystem.removeFileTree(dstDir.appending(component: ".build"))
         try localFileSystem.removeFileTree(dstDir.appending(component: ".swiftpm"))
@@ -436,7 +436,7 @@ private func swiftArgs(
     return args
 }
 
-@available(*, 
+@available(*,
     deprecated,
     renamed: "loadModulesGraph",
     message: "Rename for consistency: the type of this functions return value is named `ModulesGraph`."
@@ -580,7 +580,7 @@ public func getNumberOfMatches(of match: String, in value: String) -> Int {
 }
 
 public extension String {
-    var withSwiftLineEnding: String {   
+    var withSwiftLineEnding: String {
         return replacingOccurrences(of: "\r\n", with: "\n")
     }
 }
