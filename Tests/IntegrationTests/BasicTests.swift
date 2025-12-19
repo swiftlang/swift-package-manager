@@ -1,12 +1,14 @@
-/*
- This source file is part of the Swift.org open source project
-
- Copyright (c) 2014 - 2025 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
-
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
- */
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift open source project
+//
+// Copyright (c) 2014 - 2025 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
 
 import Foundation
 import _IntegrationTestSupport
@@ -67,8 +69,7 @@ private struct BasicTests {
             #expect(dealerOutput.filter(\.isPlayingCardSuit).count == 10)
 
             // Verify that the 'git status' is clean after a build.
-            try localFileSystem.changeCurrentWorkingDirectory(to: packagePath)
-            let gitOutput = try sh("git\(ProcessInfo.exeSuffix)", "status").stdout
+            let gitOutput = try sh("git\(ProcessInfo.exeSuffix)", "-C", packagePath, "status").stdout
             #expect(gitOutput.contains("nothing to commit, working tree clean"))
 
             // Verify that another 'swift build' does nothing.

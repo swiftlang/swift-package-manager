@@ -597,10 +597,10 @@ public struct SwiftSDK: Equatable {
         #if os(macOS)
         do {
             let sdkPaths = try SwiftSDK.sdkPlatformPaths(for: darwinPlatform, environment: environment)
-            extraCCFlags.append(contentsOf: sdkPaths.frameworks.flatMap { ["-F", $0.pathString] })
-            extraSwiftCFlags.append(contentsOf: sdkPaths.frameworks.flatMap { ["-F", $0.pathString] })
-            extraSwiftCFlags.append(contentsOf: sdkPaths.libraries.flatMap { ["-I", $0.pathString] })
-            extraSwiftCFlags.append(contentsOf: sdkPaths.libraries.flatMap { ["-L", $0.pathString] })
+            extraCCFlags.append(contentsOf: sdkPaths.buildTimeFrameworkSearchPaths.flatMap { ["-F", $0.pathString] })
+            extraSwiftCFlags.append(contentsOf: sdkPaths.buildTimeFrameworkSearchPaths.flatMap { ["-F", $0.pathString] })
+            extraSwiftCFlags.append(contentsOf: sdkPaths.buildTimeLibrarySearchPaths.flatMap { ["-I", $0.pathString] })
+            extraSwiftCFlags.append(contentsOf: sdkPaths.buildTimeLibrarySearchPaths.flatMap { ["-L", $0.pathString] })
             xctestSupport = .supported
         } catch {
             xctestSupport = .unsupported(reason: String(describing: error))
@@ -632,11 +632,21 @@ public struct SwiftSDK: Equatable {
     ///
     /// - SeeAlso: ``sdkPlatformPaths(for:environment:)``
     public struct PlatformPaths {
-        /// Paths of directories containing auxiliary platform frameworks.
-        public var frameworks: [Basics.AbsolutePath]
+        /// Paths of directories containing auxiliary platform frameworks which
+        /// should be included as framework search paths at build time.
+        public var buildTimeFrameworkSearchPaths: [Basics.AbsolutePath]
 
-        /// Paths of directories containing auxiliary platform libraries.
-        public var libraries: [Basics.AbsolutePath]
+        /// Paths of directories containing auxiliary platform libraries which
+        /// should be included as library search paths at build time.
+        public var buildTimeLibrarySearchPaths: [Basics.AbsolutePath]
+
+        /// Paths of directories containing auxiliary platform frameworks which
+        /// should be included as framework search paths at runtime.
+        public var runtimeFrameworkSearchPaths: [Basics.AbsolutePath]
+
+        /// Paths of directories containing auxiliary platform libraries which
+        /// should be included as library search paths at runtime.
+        public var runtimeLibrarySearchPaths: [Basics.AbsolutePath]
     }
 
     /// Returns `macosx` sdk platform framework path.
@@ -645,10 +655,10 @@ public struct SwiftSDK: Equatable {
         environment: Environment = .current
     ) throws -> (fwk: Basics.AbsolutePath, lib: Basics.AbsolutePath) {
         let paths = try sdkPlatformPaths(for: .macOS, environment: environment)
-        guard let frameworkPath = paths.frameworks.first else {
+        guard let frameworkPath = paths.buildTimeFrameworkSearchPaths.first else {
             throw StringError("could not determine SDK platform framework path")
         }
-        guard let libraryPath = paths.libraries.first else {
+        guard let libraryPath = paths.buildTimeLibrarySearchPaths.first else {
             throw StringError("could not determine SDK platform library path")
         }
         return (fwk: frameworkPath, lib: libraryPath)
@@ -686,7 +696,12 @@ public struct SwiftSDK: Equatable {
             components: "Developer", "usr", "lib"
         )
 
-        let sdkPlatformFrameworkPath = PlatformPaths(frameworks: [frameworksPath, privateFrameworksPath], libraries: [librariesPath])
+        let sdkPlatformFrameworkPath = PlatformPaths(
+            buildTimeFrameworkSearchPaths: [frameworksPath /* omit privateFrameworksPath */],
+            buildTimeLibrarySearchPaths: [librariesPath],
+            runtimeFrameworkSearchPaths: [frameworksPath, privateFrameworksPath],
+            runtimeLibrarySearchPaths: [librariesPath]
+        )
         _sdkPlatformFrameworkPath[darwinPlatform] = sdkPlatformFrameworkPath
         return sdkPlatformFrameworkPath
     }

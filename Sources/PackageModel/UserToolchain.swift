@@ -931,6 +931,8 @@ public final class UserToolchain: Toolchain {
             )
         }
 
+        let metalToolchain = try? Self.deriveMetalToolchainPath(fileSystem: fileSystem, triple: triple, environment: environment)
+
         self.configuration = .init(
             librarianPath: librarianPath,
             swiftCompilerPath: swiftCompilers.manifest,
@@ -939,7 +941,9 @@ public final class UserToolchain: Toolchain {
             swiftPMLibrariesLocation: swiftPMLibrariesLocation,
             sdkRootPath: self.swiftSDK.pathsConfiguration.sdkRootPath,
             xctestPath: xctestPath,
-            swiftTestingPath: swiftTestingPath
+            swiftTestingPath: swiftTestingPath,
+            metalToolchainPath: metalToolchain?.path,
+            metalToolchainId: metalToolchain?.identifier
         )
 
         self.fileSystem = fileSystem
@@ -1069,6 +1073,55 @@ public final class UserToolchain: Toolchain {
         }
 
         return (platform, info)
+    }
+
+    private static func deriveMetalToolchainPath(
+        fileSystem: FileSystem,
+        triple: Basics.Triple,
+        environment: Environment
+    ) throws -> (path: AbsolutePath, identifier: String)? {
+        guard triple.isDarwin() else {
+            return nil
+        }
+
+        let xcrunCmd = ["/usr/bin/xcrun", "--find", "metal"]
+        guard let output = try? AsyncProcess.checkNonZeroExit(arguments: xcrunCmd, environment: environment).spm_chomp() else {
+            return nil
+        }
+
+        guard let metalPath = try? AbsolutePath(validating: output) else {
+            return nil
+        }
+
+        guard let toolchainPath: AbsolutePath = {
+            var currentPath = metalPath
+            while currentPath != currentPath.parentDirectory {
+                if currentPath.basename == "Metal.xctoolchain" {
+                    return currentPath
+                }
+                currentPath = currentPath.parentDirectory
+            }
+            return nil
+        }() else {
+            return nil
+        }
+
+        let toolchainInfoPlist = toolchainPath.appending(component: "ToolchainInfo.plist")
+
+        struct MetalToolchainInfo: Decodable {
+            let Identifier: String
+        }
+
+        let toolchainIdentifier: String
+        do {
+            let data: Data = try fileSystem.readFileContents(toolchainInfoPlist)
+            let info = try PropertyListDecoder().decode(MetalToolchainInfo.self, from: data)
+            toolchainIdentifier = info.Identifier
+        } catch {
+            return nil
+        }
+
+        return (path: toolchainPath.parentDirectory, identifier: toolchainIdentifier)
     }
 
     // TODO: We should have some general utility to find tools.
@@ -1252,6 +1305,14 @@ public final class UserToolchain: Toolchain {
 
     public var sdkRootPath: AbsolutePath? {
         configuration.sdkRootPath
+    }
+
+    public var metalToolchainPath: AbsolutePath? {
+        configuration.metalToolchainPath
+    }
+
+    public var metalToolchainId: String? {
+        configuration.metalToolchainId
     }
 
     public var swiftCompilerEnvironment: Environment {

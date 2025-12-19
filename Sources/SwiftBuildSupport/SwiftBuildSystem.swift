@@ -43,7 +43,7 @@ struct SessionFailedError: Error {
     var diagnostics: [SwiftBuild.SwiftBuildMessage.DiagnosticInfo]
 }
 
-func withService<T>(
+package func withService<T>(
     connectionMode: SWBBuildServiceConnectionMode = .default,
     variant: SWBBuildServiceVariant = .default,
     serviceBundleURL: URL? = nil,
@@ -64,14 +64,21 @@ func withService<T>(
 public func createSession(
     service: SWBBuildService,
     name: String,
-    toolchainPath: Basics.AbsolutePath,
+    toolchain: Toolchain,
     packageManagerResourcesDirectory: Basics.AbsolutePath?
 ) async throws-> (SWBBuildServiceSession, [SwiftBuildMessage.DiagnosticInfo]) {
+
+    var buildSessionEnv: [String: String]? = nil
+    if let metalToolchainPath = toolchain.metalToolchainPath {
+        buildSessionEnv = ["EXTERNAL_TOOLCHAINS_DIR": metalToolchainPath.pathString]
+    }
+    let toolchainPath = try toolchain.toolchainDir
+
     // SWIFT_EXEC and SWIFT_EXEC_MANIFEST may need to be overridden in debug scenarios in order to pick up Open Source toolchains
     let sessionResult = if toolchainPath.components.contains(where: { $0.hasSuffix(".app") }) {
-        await service.createSession(name: name, developerPath: nil, resourceSearchPaths: packageManagerResourcesDirectory.map { [$0.pathString] } ?? [], cachePath: nil, inferiorProductsPath: nil, environment: nil)
+        await service.createSession(name: name, developerPath: nil, resourceSearchPaths: packageManagerResourcesDirectory.map { [$0.pathString] } ?? [], cachePath: nil, inferiorProductsPath: nil, environment: buildSessionEnv)
     } else {
-        await service.createSession(name: name, swiftToolchainPath: toolchainPath.pathString, resourceSearchPaths: packageManagerResourcesDirectory.map { [$0.pathString] } ?? [], cachePath: nil, inferiorProductsPath: nil, environment: nil)
+        await service.createSession(name: name, swiftToolchainPath: toolchainPath.pathString, resourceSearchPaths: packageManagerResourcesDirectory.map { [$0.pathString] } ?? [], cachePath: nil, inferiorProductsPath: nil, environment: buildSessionEnv)
     }
     switch sessionResult {
     case (.success(let session), let diagnostics):
@@ -84,14 +91,14 @@ public func createSession(
 func withSession(
     service: SWBBuildService,
     name: String,
-    toolchainPath: Basics.AbsolutePath,
+    toolchain: Toolchain,
     packageManagerResourcesDirectory: Basics.AbsolutePath?,
     body: @escaping (
         _ session: SWBBuildServiceSession,
         _ diagnostics: [SwiftBuild.SwiftBuildMessage.DiagnosticInfo]
     ) async throws -> Void
 ) async throws {
-    let (session, diagnostics) = try await createSession(service: service, name: name, toolchainPath: toolchainPath, packageManagerResourcesDirectory: packageManagerResourcesDirectory)
+    let (session, diagnostics) = try await createSession(service: service, name: name, toolchain: toolchain, packageManagerResourcesDirectory: packageManagerResourcesDirectory)
     do {
         try await body(session, diagnostics)
     } catch let bodyError {
@@ -111,7 +118,9 @@ func withSession(
     }
 }
 
-private final class PlanningOperationDelegate: SWBPlanningOperationDelegate, Sendable {
+package final class SwiftBuildSystemPlanningOperationDelegate: SWBPlanningOperationDelegate, SWBIndexingDelegate, Sendable {
+    package init() {}
+
     public func provisioningTaskInputs(
         targetGUID: String,
         provisioningSourceData: SWBProvisioningTaskInputsSourceData
@@ -175,7 +184,7 @@ private final class PlanningOperationDelegate: SWBPlanningOperationDelegate, Sen
 }
 
 public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
-    private let buildParameters: BuildParameters
+    package let buildParameters: BuildParameters
     private let packageGraphLoader: () async throws -> ModulesGraph
     private let packageManagerResourcesDirectory: Basics.AbsolutePath?
     private let logLevel: Basics.Diagnostic.Severity
@@ -232,6 +241,10 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
     }
 
     public var hasIntegratedAPIDigesterSupport: Bool { true }
+
+    public var enableTaskBacktraces: Bool {
+        self.buildParameters.outputParameters.enableTaskBacktraces
+    }
 
     public init(
         buildParameters: BuildParameters,
@@ -341,7 +354,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             return result
         }
 
-        try await writePIF(buildParameters: buildParameters)
+        try await writePIF(buildParameters: self.buildParameters)
 
         return try await startSWBuildOperation(
             pifTargetName: subset.pifTargetName,
@@ -537,14 +550,16 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         return try await withService(connectionMode: .inProcessStatic(swiftbuildServiceEntryPoint)) { service in
             let derivedDataPath = self.buildParameters.dataPath
 
-            let progressAnimation = ProgressAnimation.ninja(
-                stream: self.outputStream,
-                verbose: self.logLevel.isVerbose
+            let buildMessageHandler = SwiftBuildSystemMessageHandler(
+                observabilityScope: self.observabilityScope,
+                outputStream: self.outputStream,
+                logLevel: self.logLevel,
+                enableBacktraces: self.enableTaskBacktraces,
+                buildDelegate: self.delegate
             )
 
-            var serializedDiagnosticPathsByTargetName: [String: [Basics.AbsolutePath]] = [:]
             do {
-                try await withSession(service: service, name: self.buildParameters.pifManifest.pathString, toolchainPath: self.buildParameters.toolchain.toolchainDir, packageManagerResourcesDirectory: self.packageManagerResourcesDirectory) { session, _ in
+                try await withSession(service: service, name: self.buildParameters.pifManifest.pathString, toolchain: self.buildParameters.toolchain, packageManagerResourcesDirectory: self.packageManagerResourcesDirectory) { session, _ in
                     self.outputStream.send("Building for \(self.buildParameters.configuration == .debug ? "debugging" : "production")...\n")
 
                     // Load the workspace, and set the system information to the default
@@ -582,156 +597,13 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
                     let request = try await self.makeBuildRequest(session: session, configuredTargets: configuredTargets, derivedDataPath: derivedDataPath, symbolGraphOptions: symbolGraphOptions)
 
-                    struct BuildState {
-                        private var targetsByID: [Int: SwiftBuild.SwiftBuildMessage.TargetStartedInfo] = [:]
-                        private var activeTasks: [Int: SwiftBuild.SwiftBuildMessage.TaskStartedInfo] = [:]
-                        var collectedBacktraceFrames = SWBBuildOperationCollectedBacktraceFrames()
-
-                        mutating func started(task: SwiftBuild.SwiftBuildMessage.TaskStartedInfo) throws {
-                            if activeTasks[task.taskID] != nil {
-                                throw Diagnostics.fatalError
-                            }
-                            activeTasks[task.taskID] = task
-                        }
-
-                        mutating func completed(task: SwiftBuild.SwiftBuildMessage.TaskCompleteInfo) throws -> SwiftBuild.SwiftBuildMessage.TaskStartedInfo {
-                            guard let task = activeTasks[task.taskID] else {
-                                throw Diagnostics.fatalError
-                            }
-                            return task
-                        }
-
-                        mutating func started(target: SwiftBuild.SwiftBuildMessage.TargetStartedInfo) throws {
-                            if targetsByID[target.targetID] != nil {
-                                throw Diagnostics.fatalError
-                            }
-                            targetsByID[target.targetID] = target
-                        }
-
-                        mutating func target(for task: SwiftBuild.SwiftBuildMessage.TaskStartedInfo) throws -> SwiftBuild.SwiftBuildMessage.TargetStartedInfo? {
-                            guard let id = task.targetID else {
-                                return nil
-                            }
-                            guard let target = targetsByID[id] else {
-                                throw Diagnostics.fatalError
-                            }
-                            return target
-                        }
-                    }
-
-                    func emitEvent(_ message: SwiftBuild.SwiftBuildMessage, buildState: inout BuildState) throws {
-                        guard !self.logLevel.isQuiet else { return }
-                        switch message {
-                        case .buildCompleted(let info):
-                            progressAnimation.complete(success: info.result == .ok)
-                            if info.result == .cancelled {
-                                self.delegate?.buildSystemDidCancel(self)
-                            } else {
-                                self.delegate?.buildSystem(self, didFinishWithResult: info.result == .ok)
-                            }
-                        case .didUpdateProgress(let progressInfo):
-                            var step = Int(progressInfo.percentComplete)
-                            if step < 0 { step = 0 }
-                            let message = if let targetName = progressInfo.targetName {
-                                "\(targetName) \(progressInfo.message)"
-                            } else {
-                                "\(progressInfo.message)"
-                            }
-                            progressAnimation.update(step: step, total: 100, text: message)
-                            self.delegate?.buildSystem(self, didUpdateTaskProgress: message)
-                        case .diagnostic(let info):
-                            func emitInfoAsDiagnostic(info: SwiftBuildMessage.DiagnosticInfo) {
-                                let fixItsDescription = if info.fixIts.hasContent {
-                                    ": " + info.fixIts.map { String(describing: $0) }.joined(separator: ", ")
-                                } else {
-                                    ""
-                                }
-                                let message = if let locationDescription = info.location.userDescription {
-                                    "\(locationDescription) \(info.message)\(fixItsDescription)"
-                                } else {
-                                    "\(info.message)\(fixItsDescription)"
-                                }
-                                let severity: Diagnostic.Severity = switch info.kind {
-                                case .error: .error
-                                case .warning: .warning
-                                case .note: .info
-                                case .remark: .debug
-                                }
-                                self.observabilityScope.emit(severity: severity, message: "\(message)\n")
-
-                                for childDiagnostic in info.childDiagnostics {
-                                    emitInfoAsDiagnostic(info: childDiagnostic)
-                                }
-                            }
-
-                            emitInfoAsDiagnostic(info: info)
-                        case .output(let info):
-                            self.observabilityScope.emit(info: "\(String(decoding: info.data, as: UTF8.self))")
-                        case .taskStarted(let info):
-                            try buildState.started(task: info)
-
-                            if let commandLineDisplay = info.commandLineDisplayString {
-                                self.observabilityScope.emit(info: "\(info.executionDescription)\n\(commandLineDisplay)")
-                            } else {
-                                self.observabilityScope.emit(info: "\(info.executionDescription)")
-                            }
-
-                            if self.logLevel.isVerbose {
-                                if let commandLineDisplay = info.commandLineDisplayString {
-                                    self.outputStream.send("\(info.executionDescription)\n\(commandLineDisplay)")
-                                } else {
-                                    self.outputStream.send("\(info.executionDescription)")
-                                }
-                            }
-                            let targetInfo = try buildState.target(for: info)
-                            self.delegate?.buildSystem(self, willStartCommand: BuildSystemCommand(info, targetInfo: targetInfo))
-                            self.delegate?.buildSystem(self, didStartCommand: BuildSystemCommand(info, targetInfo: targetInfo))
-                        case .taskComplete(let info):
-                            let startedInfo = try buildState.completed(task: info)
-                            if info.result != .success {
-                                self.observabilityScope.emit(severity: .error, message: "\(startedInfo.ruleInfo) failed with a nonzero exit code. Command line: \(startedInfo.commandLineDisplayString ?? "<no command line>")")
-                            }
-                            let targetInfo = try buildState.target(for: startedInfo)
-                            self.delegate?.buildSystem(self, didFinishCommand: BuildSystemCommand(startedInfo, targetInfo: targetInfo))
-                            if let targetName = targetInfo?.targetName {
-                                serializedDiagnosticPathsByTargetName[targetName, default: []].append(contentsOf: startedInfo.serializedDiagnosticsPaths.compactMap {
-                                    try? Basics.AbsolutePath(validating: $0.pathString)
-                                })
-                            }
-                            if self.buildParameters.outputParameters.enableTaskBacktraces {
-                                if let id = SWBBuildOperationBacktraceFrame.Identifier(taskSignatureData: Data(startedInfo.taskSignature.utf8)),
-                                   let backtrace = SWBTaskBacktrace(from: id, collectedFrames: buildState.collectedBacktraceFrames) {
-                                    let formattedBacktrace = backtrace.renderTextualRepresentation()
-                                    if !formattedBacktrace.isEmpty {
-                                        self.observabilityScope.emit(info: "Task backtrace:\n\(formattedBacktrace)")
-                                    }
-                                }
-                            }
-                        case .targetStarted(let info):
-                            try buildState.started(target: info)
-                        case .backtraceFrame(let info):
-                            if self.buildParameters.outputParameters.enableTaskBacktraces {
-                                buildState.collectedBacktraceFrames.add(frame: info)
-                            }
-                        case .planningOperationStarted, .planningOperationCompleted, .reportBuildDescription, .reportPathMap, .preparedForIndex, .buildStarted, .preparationComplete, .targetUpToDate, .targetComplete, .taskUpToDate:
-                            break
-                        case .buildDiagnostic, .targetDiagnostic, .taskDiagnostic:
-                            break // deprecated
-                        case .buildOutput, .targetOutput, .taskOutput:
-                            break // deprecated
-                        @unknown default:
-                            break
-                        }
-                    }
-
                     let operation = try await session.createBuildOperation(
                         request: request,
-                        delegate: PlanningOperationDelegate(),
+                        delegate: SwiftBuildSystemPlanningOperationDelegate(),
                         retainBuildDescription: true
                     )
 
                     var buildDescriptionID: SWBBuildDescriptionID? = nil
-                    var buildState = BuildState()
                     for try await event in try await operation.start() {
                         if case .reportBuildDescription(let info) = event {
                             if buildDescriptionID != nil {
@@ -739,7 +611,9 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                             }
                             buildDescriptionID = SWBBuildDescriptionID(info.buildDescriptionID)
                         }
-                        try emitEvent(event, buildState: &buildState)
+                        if let delegateCallback = try buildMessageHandler.emitEvent(event) {
+                            delegateCallback(self)
+                        }
                     }
 
                     await operation.waitForCompletion()
@@ -747,8 +621,8 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                     switch operation.state {
                     case .succeeded:
                         guard !self.logLevel.isQuiet else { return }
-                        progressAnimation.update(step: 100, total: 100, text: "")
-                        progressAnimation.complete(success: true)
+                        buildMessageHandler.progressAnimation.update(step: 100, total: 100, text: "")
+                        buildMessageHandler.progressAnimation.complete(success: true)
                         let duration = ContinuousClock.Instant.now - buildStartTime
                         let formattedDuration = duration.formatted(.units(allowed: [.seconds], fractionalPart: .show(length: 2, rounded: .up)))
                         self.outputStream.send("Build complete! (\(formattedDuration))\n")
@@ -815,7 +689,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             }
 
             return BuildResult(
-                serializedDiagnosticPathsByTargetName: .success(serializedDiagnosticPathsByTargetName),
+                serializedDiagnosticPathsByTargetName: .success(buildMessageHandler.serializedDiagnosticPathsByTargetName),
                 symbolGraph: SymbolGraphResult(
                     outputLocationForTarget: { target, buildParameters in
                         return ["\(buildParameters.triple.archName)", "\(target).symbolgraphs"]
@@ -874,7 +748,11 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         }
     }
 
-    private func makeBuildParameters(session: SWBBuildServiceSession, symbolGraphOptions: BuildOutput.SymbolGraphOptions?) async throws -> SwiftBuild.SWBBuildParameters {
+    internal func makeBuildParameters(
+        session: SWBBuildServiceSession,
+        symbolGraphOptions: BuildOutput.SymbolGraphOptions?,
+        setToolchainSetting: Bool = true,
+    ) async throws -> SwiftBuild.SWBBuildParameters {
         // Generate the run destination parameters.
         let runDestination = makeRunDestination()
 
@@ -886,17 +764,37 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         // Generate a table of any overriding build settings.
         var settings: [String: String] = [:]
 
-        // If the SwiftPM toolchain corresponds to a toolchain registered with the lower level build system, add it to the toolchain stack.
-        // Otherwise, apply overrides for each component of the SwiftPM toolchain.
-        if let toolchainID = try await session.lookupToolchain(at: "/Users/cmcgee/Library/Developer/Toolchains/swift-6.2.1-RELEASE.xctoolchain") {
-            settings["TOOLCHAINS"] = "\(toolchainID.rawValue) $(inherited)"
-        } else {
-            // FIXME: This list of overrides is incomplete.
-            // An error with determining the override should not be fatal here.
-            settings["CC"] = try? buildParameters.toolchain.getClangCompiler().pathString
-            // Always specify the path of the effective Swift compiler, which was determined in the same way as for the
-            // native build system.
-            settings["SWIFT_EXEC"] = buildParameters.toolchain.swiftCompilerPath.pathString
+        if setToolchainSetting {
+            // If the SwiftPM toolchain corresponds to a toolchain registered with the lower level build system, add it to the toolchain stack.
+            // Otherwise, apply overrides for each component of the SwiftPM toolchain.
+            let toolchainID = try await session.lookupToolchain(at: buildParameters.toolchain.toolchainDir.pathString)
+            if toolchainID == nil {
+                // FIXME: This list of overrides is incomplete.
+                // An error with determining the override should not be fatal here.
+                settings["CC"] = try? buildParameters.toolchain.getClangCompiler().pathString
+                // Always specify the path of the effective Swift compiler, which was determined in the same way as for the
+                // native build system.
+                settings["SWIFT_EXEC"] = buildParameters.toolchain.swiftCompilerPath.pathString
+            }
+
+            let overrideToolchains = [buildParameters.toolchain.metalToolchainId, toolchainID?.rawValue].compactMap { $0 }
+            if !overrideToolchains.isEmpty {
+                settings["TOOLCHAINS"] = (overrideToolchains + ["$(inherited)"]).joined(separator: " ")
+            }
+        }
+
+        for sanitizer in buildParameters.sanitizers.sanitizers {
+            self.observabilityScope.emit(debug:"Enabling \(sanitizer) sanitizer")
+            switch sanitizer {
+                case .address:
+                    settings["ENABLE_ADDRESS_SANITIZER"] = "YES"
+                case .thread:
+                    settings["ENABLE_THREAD_SANITIZER"] = "YES"
+                case .undefined:
+                    settings["ENABLE_UNDEFINED_BEHAVIOR_SANITIZER"] = "YES"
+                case .fuzzer, .scudo:
+                    throw StringError("\(sanitizer) is not currently supported with this build system.")
+            }
         }
 
         // FIXME: workaround for old Xcode installations such as what is in CI
@@ -1006,12 +904,44 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             settings["GENERATE_TEST_ENTRYPOINTS_FOR_BUNDLES"] = "YES"
         }
 
+        // Set the value of the index store
+        struct IndexStoreSettings {
+            let enableVariableName: String
+            let pathVariable: String
+        }
+
+        let indexStoreSettingNames: [IndexStoreSettings] = [
+            IndexStoreSettings(
+                enableVariableName: "CLANG_INDEX_STORE_ENABLE",
+                pathVariable: "CLANG_INDEX_STORE_PATH",
+            ),
+            IndexStoreSettings(
+                enableVariableName: "SWIFT_INDEX_STORE_ENABLE",
+                pathVariable: "SWIFT_INDEX_STORE_PATH",
+            ),
+        ]
+
+        switch self.buildParameters.indexStoreMode {
+        case .on:
+            for setting in indexStoreSettingNames {
+                settings[setting.enableVariableName] = "YES"
+                settings[setting.pathVariable] = self.buildParameters.indexStore.pathString
+            }
+        case .off:
+            for setting in indexStoreSettingNames {
+                settings[setting.enableVariableName] = "NO"
+            }
+        case .auto:
+            // The settings are handles in the PIF builder
+            break
+        }
+
         func reportConflict(_ a: String, _ b: String) throws -> String {
             throw StringError("Build parameters constructed conflicting settings overrides '\(a)' and '\(b)'")
         }
         try settings.merge(Self.constructDebuggingSettingsOverrides(from: buildParameters.debuggingParameters), uniquingKeysWith: reportConflict)
         try settings.merge(Self.constructDriverSettingsOverrides(from: buildParameters.driverParameters), uniquingKeysWith: reportConflict)
-        try settings.merge(Self.constructLinkerSettingsOverrides(from: buildParameters.linkingParameters), uniquingKeysWith: reportConflict)
+        try settings.merge(self.constructLinkerSettingsOverrides(from: buildParameters.linkingParameters, triple: buildParameters.triple), uniquingKeysWith: reportConflict)
         try settings.merge(Self.constructTestingSettingsOverrides(from: buildParameters.testingParameters), uniquingKeysWith: reportConflict)
         try settings.merge(Self.constructAPIDigesterSettingsOverrides(from: buildParameters.apiDigesterMode), uniquingKeysWith: reportConflict)
 
@@ -1028,9 +958,19 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         return params
     }
 
-    public func makeBuildRequest(session: SWBBuildServiceSession, configuredTargets: [SWBTargetGUID], derivedDataPath: Basics.AbsolutePath, symbolGraphOptions: BuildOutput.SymbolGraphOptions?) async throws -> SWBBuildRequest {
+    public func makeBuildRequest(
+        session: SWBBuildServiceSession,
+        configuredTargets: [SWBTargetGUID],
+        derivedDataPath: Basics.AbsolutePath,
+        symbolGraphOptions: BuildOutput.SymbolGraphOptions?,
+        setToolchainSetting: Bool = true,
+        ) async throws -> SWBBuildRequest {
         var request = SWBBuildRequest()
-        request.parameters = try await makeBuildParameters(session: session, symbolGraphOptions: symbolGraphOptions)
+        request.parameters = try await makeBuildParameters(
+            session: session,
+            symbolGraphOptions: symbolGraphOptions,
+            setToolchainSetting: setToolchainSetting,
+        )
         request.configuredTargets = configuredTargets.map { SWBConfiguredTarget(guid: $0.rawValue, parameters: request.parameters) }
         request.useParallelTargets = true
         request.useImplicitDependencies = false
@@ -1038,6 +978,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         request.hideShellScriptEnvironment = true
         request.showNonLoggedProgress = true
         request.recordBuildBacktraces = buildParameters.outputParameters.enableTaskBacktraces
+        request.schedulerLaneWidthOverride = buildParameters.workers
 
         // Override the arena. We need to apply the arena info to both the request-global build
         // parameters as well as the target-specific build parameters, since they may have been
@@ -1098,7 +1039,10 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         return settings
     }
 
-    private static func constructLinkerSettingsOverrides(from parameters: BuildParameters.Linking) -> [String: String] {
+    private func constructLinkerSettingsOverrides(
+        from parameters: BuildParameters.Linking,
+        triple: Triple,
+    ) -> [String: String] {
         var settings: [String: String] = [:]
 
         if parameters.linkerDeadStrip {
@@ -1116,7 +1060,19 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             break
         }
 
-        // TODO: shouldLinkStaticSwiftStdlib
+        if triple.isDarwin() && parameters.shouldLinkStaticSwiftStdlib {
+            self.observabilityScope.emit(Basics.Diagnostic.swiftBackDeployWarning)
+        } else {
+            if parameters.shouldLinkStaticSwiftStdlib {
+                settings["SWIFT_FORCE_STATIC_LINK_STDLIB"] = "YES"
+            } else {
+                settings["SWIFT_FORCE_STATIC_LINK_STDLIB"] = "NO"
+            }
+        }
+
+        if let resourcesPath = self.buildParameters.toolchain.swiftResourcesPath(isStatic: parameters.shouldLinkStaticSwiftStdlib) {
+            settings["SWIFT_RESOURCE_DIR"] = resourcesPath.pathString
+        }
 
         return settings
     }
@@ -1192,16 +1148,41 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
     }
 
     public func generatePIF(preserveStructure: Bool) async throws -> String {
-        return try await getPIFBuilder().generatePIF(
+        pifBuilder = .init()
+        packageGraph = .init()
+        let pifBuilder = try await getPIFBuilder()
+        let pif = try await pifBuilder.generatePIF(
             preservePIFModelStructure: preserveStructure,
             printPIFManifestGraphviz: buildParameters.printPIFManifestGraphviz,
             buildParameters: buildParameters
         )
+        return pif
     }
 
     public func writePIF(buildParameters: BuildParameters) async throws {
         let pif = try await generatePIF(preserveStructure: false)
         try self.fileSystem.writeIfChanged(path: buildParameters.pifManifest, string: pif)
+    }
+
+    package struct LongLivedBuildServiceSession {
+        package var session: SWBBuildServiceSession
+        package var diagnostics: [SwiftBuildMessage.DiagnosticInfo]
+        package var teardownHandler: () async throws -> Void
+    }
+
+    package func createLongLivedSession(name: String) async throws -> LongLivedBuildServiceSession {
+        let service = try await SWBBuildService(connectionMode: .inProcessStatic(swiftbuildServiceEntryPoint))
+        do {
+            let (session, diagnostics) = try await createSession(service: service, name: name, toolchain: buildParameters.toolchain, packageManagerResourcesDirectory: packageManagerResourcesDirectory)
+            let teardownHandler = {
+                try await session.close()
+                await service.close()
+            }
+            return LongLivedBuildServiceSession(session: session, diagnostics: diagnostics, teardownHandler: teardownHandler)
+        } catch {
+            await service.close()
+            throw error
+        }
     }
 
     public func cancel(deadline: DispatchTime) throws {}
@@ -1227,46 +1208,6 @@ extension String {
         #else
         return self.spm_shellEscaped()
         #endif
-    }
-}
-
-fileprivate extension SwiftBuild.SwiftBuildMessage.DiagnosticInfo.Location {
-    var userDescription: String? {
-        switch self {
-        case .path(let path, let fileLocation):
-            switch fileLocation {
-            case .textual(let line, let column):
-                var description = "\(path):\(line)"
-                if let column { description += ":\(column)" }
-                return description
-            case .object(let identifier):
-                return "\(path):\(identifier)"
-            case .none:
-                return path
-            }
-        
-        case .buildSettings(let names):
-            return names.joined(separator: ", ")
-        
-        case .buildFiles(let buildFiles, let targetGUID):
-            return "\(targetGUID): " + buildFiles.map { String(describing: $0) }.joined(separator: ", ")
-            
-        case .unknown:
-            return nil
-        }
-    }
-}
-
-fileprivate extension BuildSystemCommand {
-    init(_ taskStartedInfo: SwiftBuildMessage.TaskStartedInfo, targetInfo: SwiftBuildMessage.TargetStartedInfo?) {
-        self = .init(
-            name: taskStartedInfo.executionDescription,
-            targetName: targetInfo?.targetName,
-            description: taskStartedInfo.commandLineDisplayString ?? "",
-            serializedDiagnosticPaths: taskStartedInfo.serializedDiagnosticsPaths.compactMap {
-                try? Basics.AbsolutePath(validating: $0.pathString)
-            }
-        )
     }
 }
 

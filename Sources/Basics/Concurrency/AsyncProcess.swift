@@ -1,12 +1,14 @@
-/*
- This source file is part of the Swift.org open source project
-
- Copyright (c) 2014 - 2020 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
-
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
- */
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift open source project
+//
+// Copyright (c) 2014-2020 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
 
 import _Concurrency
 import Dispatch
@@ -257,29 +259,26 @@ package final class AsyncProcess {
     #endif
 
     /// Typealias for stdout/stderr output closure.
-    package typealias OutputClosure = ([UInt8]) -> Void
+    package typealias OutputClosure = @Sendable ([UInt8]) -> Void
 
-    /// Typealias for logging handling closure
-    package typealias LoggingHandler = (String) -> Void
+    /// Typealias for logging handling closure.
+    package typealias LoggingHandler = @Sendable (String) -> Void
 
-    private static var _loggingHandler: LoggingHandler?
-    private static let loggingHandlerLock = NSLock()
+    /// Global logging handler storage.
+    private static let _loggingHandler = ThreadSafeBox<LoggingHandler?>()
 
     /// Global logging handler. Use with care! preferably use instance level instead of setting one globally.
-    @available(
-        *,
-        deprecated,
-        message: "use instance level `loggingHandler` passed via `init` instead of setting one globally."
-    )
     package static var loggingHandler: LoggingHandler? {
         get {
-            Self.loggingHandlerLock.withLock {
-                self._loggingHandler
-            }
-        } set {
-            Self.loggingHandlerLock.withLock {
-                self._loggingHandler = newValue
-            }
+            return _loggingHandler.get() ?? nil
+        }
+        @available(
+            *,
+            deprecated,
+            message: "use instance level `loggingHandler` passed via `init` instead of setting one globally."
+        )
+        set {
+            _loggingHandler.put(newValue)
         }
     }
 
@@ -330,8 +329,7 @@ package final class AsyncProcess {
     ///
     /// Key: Executable name or path.
     /// Value: Path to the executable, if found.
-    private static var validatedExecutablesMap = [String: AbsolutePath?]()
-    private static let validatedExecutablesMapLock = NSLock()
+    private static let validatedExecutablesMap = ThreadSafeKeyValueStore<String, AbsolutePath?>()
 
     /// Create a new process instance.
     ///
@@ -342,7 +340,7 @@ package final class AsyncProcess {
     ///   - workingDirectory: The path to the directory under which to run the process.
     ///   - outputRedirection: How process redirects its output. Default value is .collect.
     ///   - startNewProcessGroup: If true, a new progress group is created for the child making it
-    ///     continue running even if the parent is killed or interrupted. Default value is true.
+    ///     continue running even if the parent is killed or interrupted. Default value is true.    //ignore-unacceptable-language
     ///   - loggingHandler: Handler for logging messages
     ///
     package init(
@@ -370,18 +368,19 @@ package final class AsyncProcess {
     ///   - outputRedirection: How process redirects its output. Default value is .collect.
     ///   - verbose: If true, launch() will print the arguments of the subprocess before launching it.
     ///   - startNewProcessGroup: If true, a new progress group is created for the child making it
-    ///     continue running even if the parent is killed or interrupted. Default value is true.
+    ///     continue running even if the parent is killed or interrupted. Default value is true.    //ignore-unacceptable-language
     ///   - loggingHandler: Handler for logging messages
     package init(
         arguments: [String],
         environment: Environment = .current,
         outputRedirection: OutputRedirection = .collect,
         startNewProcessGroup: Bool = true,
-        loggingHandler: LoggingHandler? = .none
+        loggingHandler: LoggingHandler? = .none,
+        workingDirectory: AbsolutePath? = nil
     ) {
         self.arguments = arguments
         self.environment = environment
-        self.workingDirectory = nil
+        self.workingDirectory = workingDirectory
         self.outputRedirection = outputRedirection
         self.startNewProcessGroup = startNewProcessGroup
         self.loggingHandler = loggingHandler ?? AsyncProcess.loggingHandler
@@ -451,14 +450,7 @@ package final class AsyncProcess {
         }
         // This should cover the most common cases, i.e. when the cache is most helpful.
         if workingDirectory == localFileSystem.currentWorkingDirectory {
-            return AsyncProcess.validatedExecutablesMapLock.withLock {
-                if let value = AsyncProcess.validatedExecutablesMap[program] {
-                    return value
-                }
-                let value = lookup()
-                AsyncProcess.validatedExecutablesMap[program] = value
-                return value
-            }
+            return AsyncProcess.validatedExecutablesMap.memoize(program, body: lookup)
         } else {
             return lookup()
         }
@@ -517,7 +509,8 @@ package final class AsyncProcess {
 
             group.enter()
             stdoutPipe.fileHandleForReading.readabilityHandler = { (fh: FileHandle) in
-                let data = (try? fh.read(upToCount: Int.max)) ?? Data()
+                // 4096 is default pipe buffer size so reading in that size seems most efficient and still get output as it available
+                let data = (try? fh.read(upToCount: 4096)) ?? Data()
                 if data.count == 0 {
                     stdoutPipe.fileHandleForReading.readabilityHandler = nil
                     group.leave()
@@ -532,7 +525,8 @@ package final class AsyncProcess {
 
             group.enter()
             stderrPipe.fileHandleForReading.readabilityHandler = { (fh: FileHandle) in
-                let data = (try? fh.read(upToCount: Int.max)) ?? Data()
+                // 4096 is default pipe buffer size so reading in that size seems most efficient and still get output as it available
+                let data = (try? fh.read(upToCount: 4096)) ?? Data()
                 if data.count == 0 {
                     stderrPipe.fileHandleForReading.readabilityHandler = nil
                     group.leave()
@@ -812,17 +806,17 @@ package final class AsyncProcess {
     package func waitUntilExit() throws -> AsyncProcessResult {
         let group = DispatchGroup()
         group.enter()
-        var processResult: Result<AsyncProcessResult, Swift.Error>?
+        let resultBox = ThreadSafeBox<Result<AsyncProcessResult, Swift.Error>>()
         self.waitUntilExit { result in
-            processResult = result
+            resultBox.put(result)
             group.leave()
         }
         group.wait()
-        return try processResult.unsafelyUnwrapped.get()
+        return try resultBox.get().unsafelyUnwrapped.get()
     }
 
     /// Executes the process I/O state machine, calling completion block when finished.
-    private func waitUntilExit(_ completion: @escaping (Result<AsyncProcessResult, Swift.Error>) -> Void) {
+    private func waitUntilExit(_ completion: @Sendable @escaping (Result<AsyncProcessResult, Swift.Error>) -> Void) {
         self.stateLock.lock()
         switch self.state {
         case .idle:
@@ -933,7 +927,7 @@ package final class AsyncProcess {
         }
         #else
         assert(self.launched, "The process is not yet launched.")
-        kill(self.startNewProcessGroup ? -self.processID : self.processID, signal)
+        kill(self.startNewProcessGroup ? -self.processID : self.processID, signal)      //ignore-unacceptable-language
         #endif
     }
 }
@@ -1099,7 +1093,7 @@ extension AsyncProcess {
         environment: Environment = .current,
         loggingHandler: LoggingHandler? = .none,
         queue: DispatchQueue? = nil,
-        completion: @escaping (Result<AsyncProcessResult, Swift.Error>) -> Void
+        completion: @Sendable @escaping (Result<AsyncProcessResult, Swift.Error>) -> Void
     ) {
         let completionQueue = queue ?? Self.sharedCompletionQueue
 
@@ -1133,13 +1127,15 @@ extension AsyncProcess {
     package static func popen(
         arguments: [String],
         environment: Environment = .current,
-        loggingHandler: LoggingHandler? = .none
+        loggingHandler: LoggingHandler? = .none,
+        workingDirectory: AbsolutePath? = nil
     ) throws -> AsyncProcessResult {
         let process = AsyncProcess(
             arguments: arguments,
             environment: environment,
             outputRedirection: .collect,
-            loggingHandler: loggingHandler
+            loggingHandler: loggingHandler,
+            workingDirectory: workingDirectory
         )
         try process.launch()
         return try process.waitUntilExit()
