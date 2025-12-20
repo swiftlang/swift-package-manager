@@ -633,6 +633,7 @@ public final class PackagePIFBuilder {
         releaseSettings[.DEBUG_INFORMATION_FORMAT] = "dwarf-with-dsym"
         releaseSettings[.GCC_OPTIMIZATION_LEVEL] = "s"
         releaseSettings[.SWIFT_OPTIMIZATION_LEVEL] = "-Owholemodule"
+        releaseSettings[.DEPLOYMENT_POSTPROCESSING] = "YES"
         builder.project.addBuildConfig { id in BuildConfig(id: id, name: "Release", settings: releaseSettings) }
     }
 
