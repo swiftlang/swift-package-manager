@@ -1286,6 +1286,7 @@ struct TestCommandTests {
                 }
             } when: {
                 .windows == ProcessInfo.hostOperatingSystem
+                || ProcessInfo.processInfo.environment["SWIFTCI_EXHIBITS_GH_9524"] != nil
             }
          }
 
