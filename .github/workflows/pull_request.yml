@@ -71,3 +71,11 @@ jobs:
       api_breakage_check_enabled: false
       format_check_enabled: false
       shell_check_enabled: false
+
+  required:
+    name: Required
+    runs-on: ubuntu-latest
+    needs: [tests-using-swiftbuild, tests-using-native, soundness]
+    steps:
+      - name: Success
+        run: echo "All required jobs succeeded."
