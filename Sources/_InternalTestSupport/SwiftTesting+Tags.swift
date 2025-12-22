@@ -34,6 +34,7 @@ extension Tag.FunctionalArea {
     @Tag public static var PIF: Tag
     @Tag public static var IndexMode: Tag
     @Tag public static var Sanitizer: Tag
+    @Tag public static var LinkSwiftStaticStdlib: Tag
 }
 
 extension Tag.Feature {

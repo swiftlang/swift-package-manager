@@ -100,12 +100,13 @@ private struct Expression: CachingQuery {
 }
 
 struct QueryEngineTests {
-    @Test(
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8541"),
-        .disabled(if: ProcessInfo.hostOperatingSystem == .windows),
-    )
+    @Test
     func filePathHashing() throws {
+#if os(Windows)
+        let path = "C:\\root"
+#else
         let path = "/root"
+#endif
 
         let hashEncoder1 = HashEncoder<SHA256>()
         try hashEncoder1.encode(FilePath(path))
