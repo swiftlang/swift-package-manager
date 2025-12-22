@@ -223,7 +223,14 @@ public final class SwiftBuildSystemMessageHandler {
             } else {
                 "\(progressInfo.message)"
             }
-            // TODO bp: some message suffixes seems to have its own stepping fraction.
+
+            if step >= 0 {
+                print("progress: \(step) with \(message)")
+                print("progress info: \(progressInfo)")
+            } else {
+                print("weird progress: \(progressInfo)")
+            }
+
             progressAnimation.update(step: step, total: 100, text: message)
             callback = { [weak self] buildSystem in
                 self?.buildDelegate?.buildSystem(buildSystem, didUpdateTaskProgress: message)
