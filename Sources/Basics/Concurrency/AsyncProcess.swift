@@ -806,7 +806,7 @@ package final class AsyncProcess {
     package func waitUntilExit() throws -> AsyncProcessResult {
         let group = DispatchGroup()
         group.enter()
-        let resultBox = ThreadSafeBox<Result<AsyncProcessResult, Swift.Error>>()
+        let resultBox = ThreadSafeBox<Result<AsyncProcessResult, Swift.Error>?>()
         self.waitUntilExit { result in
             resultBox.put(result)
             group.leave()

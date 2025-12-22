@@ -39,7 +39,7 @@ public struct FileSystemPackageContainer: PackageContainer {
     private let observabilityScope: ObservabilityScope
 
     /// cached version of the manifest
-    private let manifest = ThreadSafeBox<Manifest>()
+    private let manifest = AsyncThrowingValueMemoizer<Manifest>()
 
     public init(
         package: PackageReference,
@@ -68,7 +68,7 @@ public struct FileSystemPackageContainer: PackageContainer {
     }
 
     private func loadManifest() async throws -> Manifest {
-        try await manifest.memoize() {
+        try await manifest.memoize {
             let packagePath: AbsolutePath
             switch self.package.kind {
             case .root(let path), .fileSystem(let path):

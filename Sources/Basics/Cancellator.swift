@@ -99,7 +99,7 @@ public final class Cancellator: Cancellable, Sendable {
 
     @discardableResult
     public func register(name: String, handler: @escaping CancellationHandler) -> RegistrationKey? {
-        if self.cancelling.get(default: false) {
+        if self.cancelling.get() {
             self.observabilityScope?.emit(debug: "not registering '\(name)' with terminator, termination in progress")
             return .none
         }
