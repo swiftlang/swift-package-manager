@@ -12,10 +12,12 @@
 
 import class PackageModel.Manifest
 import struct PackageModel.PackageIdentity
+import struct PackageModel.PackageReference
 import enum PackageModel.ProductFilter
 import enum PackageModel.PackageDependency
 import struct PackageModel.EnabledTrait
 import struct PackageModel.EnabledTraits
+import class Basics.ObservabilityScope
 
 extension Workspace {
     /// Given a loaded `Manifest`, determine the traits that are enabled for it and
@@ -24,7 +26,7 @@ extension Workspace {
     ///
     /// If the package defines a dependency with an explicit set of enabled traits, it will also
     /// add them to the enabled traits map.
-    public func updateEnabledTraits(for manifest: Manifest) throws {
+    public func updateEnabledTraits(for manifest: Manifest, observabilityScope: ObservabilityScope) async throws {
         // If the `Manifest` is a root, then we should default to using
         // the trait configuration set in the `Workspace`. Otherwise,
         // check the enabled traits map to see if there are traits
@@ -89,6 +91,21 @@ extension Workspace {
                 setBy: .package(.init(parent))
             )
             self.enabledTraitsMap[dependency.identity] = defaultTraits
+        }
+    }
+}
+
+extension Workspace {
+    internal func updateTraits(
+        manifests: DependencyManifests,
+        addedOrUpdatedPackages: [PackageReference],
+        observabilityScope: ObservabilityScope
+    ) async throws {
+        // TODO bp complete implementation
+        for manifest in addedOrUpdatedPackages {
+            // do validation check on the traits here.
+            // take in the enabled traits map; use validation methods
+            // available on the manifest, referenced from the DependencyManifests.
         }
     }
 }

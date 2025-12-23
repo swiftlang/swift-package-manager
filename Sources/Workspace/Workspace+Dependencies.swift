@@ -196,6 +196,13 @@ extension Workspace {
             observabilityScope: observabilityScope
         )
 
+        // Update traits; validation check.
+        try await self.updateTraits(
+            manifests: updatedDependencyManifests,
+            addedOrUpdatedPackages: addedOrUpdatedPackages,
+            observabilityScope: observabilityScope
+        )
+
         return packageStateChanges
     }
 
@@ -479,6 +486,13 @@ extension Workspace {
             observabilityScope: observabilityScope
         )
 
+        // Update traits; validation check
+        try await self.updateTraits(
+            manifests: currentManifests,
+            addedOrUpdatedPackages: [],
+            observabilityScope: observabilityScope
+        )
+
         let precomputationResult = try await self.precomputeResolution(
             root: graphRoot,
             dependencyManifests: currentManifests,
@@ -586,6 +600,12 @@ extension Workspace {
                     observabilityScope: observabilityScope
                 )
 
+                try await self.updateTraits(
+                    manifests: currentManifests,
+                    addedOrUpdatedPackages: [],
+                    observabilityScope: observabilityScope
+                )
+
                 return currentManifests
             case .required(let reason):
                 delegate?.willResolveDependencies(reason: reason)
@@ -608,12 +628,17 @@ extension Workspace {
             observabilityScope: observabilityScope
         )
 
+        // TODO bp; some possible trait validation here.
+
         // Reset the active resolver.
         self.activeResolver = nil
 
         guard !observabilityScope.errorsReported else {
             return currentManifests
         }
+
+        // TODO bp: during an update to dependencies checkout, must
+        // also update/validate the traits here if previous versions of dependencies have been changed.
 
         // Update the checkouts with dependency resolution result.
         let packageStateChanges = await self.updateDependenciesCheckouts(
@@ -656,6 +681,13 @@ extension Workspace {
         )
 
         try await self.updatePrebuilts(
+            manifests: updatedDependencyManifests,
+            addedOrUpdatedPackages: addedOrUpdatedPackages,
+            observabilityScope: observabilityScope
+        )
+
+        // Update traits; validation check.
+        try await self.updateTraits(
             manifests: updatedDependencyManifests,
             addedOrUpdatedPackages: addedOrUpdatedPackages,
             observabilityScope: observabilityScope
@@ -907,7 +939,9 @@ extension Workspace {
         }
 
         guard let requiredDependencies = observabilityScope
-            .trap({ try dependencyManifests.requiredPackages.filter(\.kind.isResolvable) })
+            .trap({ try
+                // TODO bp; don't do preemptive trait validation at this step; could be loading from cache re: old trait version
+                dependencyManifests.requiredPackages.filter(\.kind.isResolvable) })
         else {
             return nil
         }

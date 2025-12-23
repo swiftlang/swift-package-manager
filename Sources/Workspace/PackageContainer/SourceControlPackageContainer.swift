@@ -366,6 +366,27 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         return self.package.withName(manifest.displayName)
     }
 
+    public func loadPackageTraits(at boundVersion: BoundVersion) async throws -> Set<TraitDescription> {
+        let revision: Revision
+        var version: Version?
+        switch boundVersion {
+        case .version(let v):
+            guard let tag = try self.knownVersions()[v] else {
+                throw StringError("unknown tag \(v)")
+            }
+            version = v
+            revision = try repository.resolveRevision(tag: tag)
+        case .revision(let identifier, _):
+            revision = try repository.resolveRevision(identifier: identifier)
+        case .unversioned, .excluded:
+            assertionFailure("Unexpected type requirement \(boundVersion)")
+            return []
+        }
+
+        let manifest = try await self.loadManifest(at: revision, version: version)
+        return manifest.traits
+    }
+
     /// Returns true if the tools version is valid and can be used by this
     /// version of the package manager.
     private func isValidToolsVersion(_ toolsVersion: ToolsVersion) -> Bool {

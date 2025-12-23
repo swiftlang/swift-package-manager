@@ -618,6 +618,7 @@ extension Workspace {
         >] = { node in
             // optimization: preload manifest we know about in parallel
             // avoid loading dependencies that are trait-guarded here since this is redundant.
+            // todo bp note that traits could have changed here if the package dependency is slated for an update and the user references the new trait but we still have an old checkout. avoid validating traits as a result, and wait until we have updated manifests after resolution.
             let dependenciesRequired = try node.item.manifest.dependenciesRequired(
                 for: node.item.productFilter,
                 node.item.enabledTraits
@@ -681,7 +682,7 @@ extension Workspace {
         // before the dependency manifest is loaded and its default traits are known.
         let allManifests = allNodes.mapValues(\.manifest)
         for (_, manifest) in allManifests {
-            try updateEnabledTraits(for: manifest)
+            try await updateEnabledTraits(for: manifest, observabilityScope: observabilityScope)
         }
 
         let dependencyManifests = allNodes.filter { !$0.value.manifest.packageKind.isRoot }
@@ -891,7 +892,7 @@ extension Workspace {
         }
 
         // Upon loading a new manifest, update enabled traits.
-        try self.updateEnabledTraits(for: manifest)
+        try await self.updateEnabledTraits(for: manifest, observabilityScope: observabilityScope)
 
         self.delegate?.didLoadManifest(
             packageIdentity: packageIdentity,
