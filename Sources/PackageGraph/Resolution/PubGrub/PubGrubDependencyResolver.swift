@@ -240,12 +240,11 @@ public struct PubGrubDependencyResolver {
         try await self.run(state: state)
 
         let decisions = state.solution.assignments.filter(\.isDecision)
-        var flattenedAssignments: [PackageReference: (binding: BoundVersion, products: ProductFilter)] = [:]
+        var flattenedAssignments: [PackageReference: (binding: BoundVersion, products: ProductFilter, traits: Set<String>)] = [:]
         for assignment in decisions {
             if assignment.term.node == state.root {
                 continue
             }
-
             let boundVersion: BoundVersion
             switch assignment.term.requirement {
             case .exact(let version):
@@ -264,6 +263,7 @@ public struct PubGrubDependencyResolver {
                 )
             }
             let updatePackage = try await container.underlying.loadPackageReference(at: boundVersion)
+            let updatedTraits = try await container.underlying.loadPackageTraits(at: boundVersion).map(\.name)
 
             if var existing = flattenedAssignments[updatePackage] {
                 guard existing.binding == boundVersion else {
@@ -272,13 +272,22 @@ public struct PubGrubDependencyResolver {
                 existing.products.formUnion(products)
                 flattenedAssignments[updatePackage] = existing
             } else {
-                flattenedAssignments[updatePackage] = (binding: boundVersion, products: products)
+                flattenedAssignments[updatePackage] = (
+                    binding: boundVersion,
+                    products: products,
+                    traits: Set(updatedTraits)
+                )
             }
         }
         var finalAssignments: [DependencyResolverBinding]
             = flattenedAssignments.keys.sorted(by: { $0.deprecatedName < $1.deprecatedName }).map { package in
                 let details = flattenedAssignments[package]!
-                return .init(package: package, boundVersion: details.binding, products: details.products)
+                return .init(
+                    package: package,
+                    boundVersion: details.binding,
+                    products: details.products,
+                    traits: details.traits
+                )
             }
 
         // Add overridden packages to the result.
@@ -289,10 +298,12 @@ public struct PubGrubDependencyResolver {
                 })
             }
             let updatePackage = try await container.underlying.loadPackageReference(at: override.version)
+            let updatedTraits = try await container.underlying.loadPackageTraits(at: override.version).map(\.name)
             finalAssignments.append(.init(
                     package: updatePackage,
                     boundVersion: override.version,
-                    products: override.products
+                    products: override.products,
+                    traits: Set(updatedTraits)
             ))
         }
 
