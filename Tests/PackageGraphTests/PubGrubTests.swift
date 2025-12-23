@@ -3198,6 +3198,11 @@ public class MockContainer: PackageContainer {
         return self.package
     }
 
+    public func loadPackageTraits(at boundVersion: BoundVersion) async throws -> Set<TraitDescription> {
+        // TODO bp complete implementation
+        return []
+    }
+
     func appendVersion(_ version: BoundVersion) {
         self._versions.append(version)
         self._versions = self._versions
