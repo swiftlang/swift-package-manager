@@ -494,7 +494,8 @@ final class URLSessionHTTPClientTest: XCTestCase {
             let completionExpectation = XCTestExpectation(description: "completion")
 
             let url = URL("https://downloader-tests.com/testServerError.zip")
-            var request = LegacyHTTPClient.Request.download(url: url, fileSystem: localFileSystem, destination: temporaryDirectory.appending("download"))
+            let destination = temporaryDirectory.appending("download")
+            var request = LegacyHTTPClient.Request.download(url: url, fileSystem: localFileSystem, destination: destination)
             request.options.validResponseCodes = [200]
 
             httpClient.execute(
@@ -508,6 +509,8 @@ final class URLSessionHTTPClientTest: XCTestCase {
                         XCTFail("unexpected success")
                     case .failure(let error):
                         XCTAssertEqual(error as? HTTPClientError, HTTPClientError.badResponseStatusCode(500))
+                        // Verify that no file was created at the destination for bad response codes
+                        XCTAssertFalse(localFileSystem.exists(destination), "Destination file should not exist for bad response codes")
                     }
                     completionExpectation.fulfill()
                 }
@@ -998,13 +1001,14 @@ final class URLSessionHTTPClientTest: XCTestCase {
 
         try await testWithTemporaryDirectory { temporaryDirectory in
             let url = URL("https://async-downloader-tests.com/testServerError.zip")
+            let destination = temporaryDirectory.appending("download")
             var options = HTTPClientRequest.Options()
             options.validResponseCodes = [200]
             let request = HTTPClient.Request.download(
                 url: url,
                 options: options,
                 fileSystem: localFileSystem,
-                destination: temporaryDirectory.appending("download")
+                destination: destination
             )
 
             MockURLProtocol.onRequest(request) { request in
@@ -1022,6 +1026,68 @@ final class URLSessionHTTPClientTest: XCTestCase {
                 XCTFail("unexpected success")
             } catch {
                 XCTAssertEqual(error as? HTTPClientError, HTTPClientError.badResponseStatusCode(500))
+                // Verify that no file was created at the destination for bad response codes
+                XCTAssertFalse(localFileSystem.exists(destination), "Destination file should not exist for bad response codes")
+            }
+        }
+    }
+
+    func testAsyncDownloadServerErrorAndResponseBody() async throws {
+        #if !os(macOS)
+        // URLSession Download tests can only run on macOS
+        // as re-libs-foundation's URLSessionTask implementation which expects the temporaryFileURL property to be on the request.
+        // and there is no way to set it in a mock
+        // https://github.com/apple/swift-corelibs-foundation/pull/2593 tries to address the latter part
+        try XCTSkipIf(true, "test is only supported on macOS")
+        #endif
+        let configuration = URLSessionConfiguration.default
+        configuration.protocolClasses = [MockURLProtocol.self]
+        let urlSession = URLSessionHTTPClient(configuration: configuration)
+        let httpClient = HTTPClient(implementation: urlSession.execute)
+
+        try await testWithTemporaryDirectory { temporaryDirectory in
+            let url = URL("https://async-downloader-tests.com/testServerErrorWithBody.zip")
+            let destination = temporaryDirectory.appending("download")
+            var options = HTTPClientRequest.Options()
+            options.validResponseCodes = [200]
+            let request = HTTPClient.Request.download(
+                url: url,
+                options: options,
+                fileSystem: localFileSystem,
+                destination: destination
+            )
+
+            // Create an error response body (e.g., JSON error message)
+            let errorJson = Data("""
+            {
+              "errors" : [ {
+                "status" : 500,
+                "message" : "Internal Server Error"
+              } ]
+            }
+            """.utf8)
+
+            MockURLProtocol.onRequest(request) { request in
+                MockURLProtocol.sendResponse(statusCode: 500, headers: ["Content-Type": "application/json", "Content-Length": "\(errorJson.count)"], for: request)
+                // Send error response body - this should be downloaded to temp file but then deleted
+                MockURLProtocol.sendData(errorJson, for: request)
+                MockURLProtocol.sendCompletion(for: request)
+            }
+
+            do {
+                _ = try await httpClient.execute(
+                    request,
+                    progress: { _, _ in
+                        // Progress may be called as data is downloaded, even for error responses
+                        // This is expected behavior
+                    }
+                )
+                XCTFail("unexpected success")
+            } catch {
+                XCTAssertEqual(error as? HTTPClientError, HTTPClientError.badResponseStatusCode(500))
+                // Verify that no file was created at the destination for bad response codes
+                // even though a response body was sent
+                XCTAssertFalse(localFileSystem.exists(destination), "Destination file should not exist for bad response codes, even when response body is present")
             }
         }
     }
