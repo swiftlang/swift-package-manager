@@ -37,6 +37,17 @@ public func expectFileExists(
     )
 }
 
+public func requireFileExists(
+    at path: AbsolutePath,
+    sourceLocation: SourceLocation = #_sourceLocation,
+) throws {
+    try #require(
+        localFileSystem.exists(path),
+        "File '\(path)' does not exist.",
+        sourceLocation: sourceLocation,
+    )
+}
+
 public func expectFileDoesNotExists(
     at path: AbsolutePath,
     _ comment: Comment? = nil,
