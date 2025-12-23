@@ -301,7 +301,7 @@ def main() -> None:
                     *args.additional_run_args.split(" "),
                     "swift-test",
                     *global_args,
-                    "--vv",
+                    # "--vv",
                     "--force-resolved-versions",
                     "--parallel",
                     "--scratch-path",
