@@ -515,6 +515,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                 sourceFiles: plugin.sources.paths,
                 pluginName: plugin.moduleName,
                 toolsVersion: plugin.toolsVersion,
+                workers: self.buildParameters.workers,
                 observabilityScope: observabilityScope,
                 callbackQueue: DispatchQueue.sharedConcurrent,
                 delegate: delegate

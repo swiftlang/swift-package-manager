@@ -66,6 +66,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         writableDirectories: [Basics.AbsolutePath],
         readOnlyDirectories: [Basics.AbsolutePath],
         allowNetworkConnections: [SandboxNetworkPermission],
+        workers: UInt32,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
@@ -77,6 +78,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
             sourceFiles: sourceFiles,
             pluginName: pluginName,
             toolsVersion: toolsVersion,
+            workers: workers,
             observabilityScope: observabilityScope,
             callbackQueue: DispatchQueue.sharedConcurrent,
             delegate: delegate,
@@ -119,6 +121,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         sourceFiles: [Basics.AbsolutePath],
         pluginName: String,
         toolsVersion: ToolsVersion,
+        workers: UInt32,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
         delegate: PluginScriptCompilerDelegate,
@@ -220,6 +223,9 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
 
         // Parse the plugin as a library so that `@main` is supported even though there might be only a single source file.
         commandLine += ["-parse-as-library"]
+
+        // Enable concurrent compilation.
+        commandLine += ["-j\(workers)"]
 
         // Ask the compiler to create a diagnostics file (we'll put it next to the executable).
         commandLine += ["-Xfrontend", "-serialize-diagnostics-path", "-Xfrontend", diagFilePath.pathString]
