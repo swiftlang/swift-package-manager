@@ -140,6 +140,7 @@ final class PluginInvocationTests: XCTestCase {
                 sourceFiles: [AbsolutePath],
                 pluginName: String,
                 toolsVersion: ToolsVersion,
+                workers: UInt32,
                 observabilityScope: ObservabilityScope,
                 callbackQueue: DispatchQueue,
                 delegate: PluginScriptCompilerDelegate,
@@ -159,6 +160,7 @@ final class PluginInvocationTests: XCTestCase {
                 writableDirectories: [AbsolutePath],
                 readOnlyDirectories: [AbsolutePath],
                 allowNetworkConnections: [SandboxNetworkPermission],
+                workers: UInt32,
                 fileSystem: FileSystem,
                 observabilityScope: ObservabilityScope,
                 callbackQueue: DispatchQueue,
@@ -384,6 +386,7 @@ final class PluginInvocationTests: XCTestCase {
                     sourceFiles: buildToolPlugin.sources.paths,
                     pluginName: buildToolPlugin.name,
                     toolsVersion: buildToolPlugin.apiVersion,
+                    workers: 1,
                     observabilityScope: observability.topScope,
                     callbackQueue: DispatchQueue.sharedConcurrent,
                     delegate: delegate
@@ -393,6 +396,7 @@ final class PluginInvocationTests: XCTestCase {
                 XCTAssert(result.succeeded == false)
                 XCTAssert(result.cached == false)
                 XCTAssert(result.commandLine.contains(result.executableFile.pathString), "\(result.commandLine)")
+                XCTAssert(result.commandLine.contains("-j1"), "expected workers flag in \(result.commandLine)")
                 XCTAssert(result.executableFile.components.contains("plugin-cache"), "\(result.executableFile.pathString)")
                 XCTAssert(result.compilerOutput.contains("error: missing return"), "\(result.compilerOutput)")
                 XCTAssert(result.diagnosticsFile.suffix == ".dia", "\(result.diagnosticsFile.pathString)")
@@ -436,6 +440,7 @@ final class PluginInvocationTests: XCTestCase {
                     sourceFiles: buildToolPlugin.sources.paths,
                     pluginName: buildToolPlugin.name,
                     toolsVersion: buildToolPlugin.apiVersion,
+                    workers: 1,
                     observabilityScope: observability.topScope,
                     callbackQueue: DispatchQueue.sharedConcurrent,
                     delegate: delegate
@@ -486,6 +491,7 @@ final class PluginInvocationTests: XCTestCase {
                     sourceFiles: buildToolPlugin.sources.paths,
                     pluginName: buildToolPlugin.name,
                     toolsVersion: buildToolPlugin.apiVersion,
+                    workers: 1,
                     observabilityScope: observability.topScope,
                     callbackQueue: DispatchQueue.sharedConcurrent,
                     delegate: delegate
@@ -548,6 +554,7 @@ final class PluginInvocationTests: XCTestCase {
                     sourceFiles: buildToolPlugin.sources.paths,
                     pluginName: buildToolPlugin.name,
                     toolsVersion: buildToolPlugin.apiVersion,
+                    workers: 1,
                     observabilityScope: observability.topScope,
                     callbackQueue: DispatchQueue.sharedConcurrent,
                     delegate: delegate
@@ -601,6 +608,7 @@ final class PluginInvocationTests: XCTestCase {
                     sourceFiles: buildToolPlugin.sources.paths,
                     pluginName: buildToolPlugin.name,
                     toolsVersion: buildToolPlugin.apiVersion,
+                    workers: 1,
                     observabilityScope: observability.topScope,
                     callbackQueue: DispatchQueue.sharedConcurrent,
                     delegate: delegate
