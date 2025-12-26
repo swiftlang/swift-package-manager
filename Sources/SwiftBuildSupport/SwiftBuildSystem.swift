@@ -710,8 +710,15 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             sdkName = platformName
         } else if self.buildParameters.triple.isWasm {
             // Swift Build uses webassembly instead of wasi as the platform name
+            let swiftSDKSelector = {
+                let defaultSDKSelector = "webassembly"
+                guard let userToolchain = self.buildParameters.toolchain as? UserToolchain else {
+                    return defaultSDKSelector
+                }
+                return userToolchain.swiftSDKSelector ?? defaultSDKSelector
+            }()
             platformName = "webassembly"
-            sdkName = platformName
+            sdkName = swiftSDKSelector
         } else {
             platformName = self.buildParameters.triple.darwinPlatform?.platformName ?? self.buildParameters.triple.osNameUnversioned
             sdkName = platformName
