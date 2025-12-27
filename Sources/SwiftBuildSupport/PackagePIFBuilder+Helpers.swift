@@ -48,6 +48,7 @@ import class PackageModel.SwiftModule
 import class PackageModel.SystemLibraryModule
 import struct PackageModel.ToolsVersion
 import struct PackageModel.TraitCondition
+import struct PackageModel.HostCondition
 
 import struct PackageGraph.ResolvedModule
 import struct PackageGraph.ResolvedPackage
@@ -245,42 +246,6 @@ extension Sequence<PackageModel.PackageCondition> {
             return pifPlatformsForCondition
         }
         return Set(pifPlatforms.flatMap { $0.toPlatformFilter() })
-    }
-
-    var splitIntoConcreteConditions: (
-        [PackageModel.Platform?],
-        [PackageModel.BuildConfiguration],
-        [PackageModel.TraitCondition]
-    ) {
-        var platformConditions: [PackageModel.PlatformsCondition] = []
-        var configurationConditions: [PackageModel.ConfigurationCondition] = []
-        var traitConditions: [PackageModel.TraitCondition] = []
-
-        for packageCondition in self {
-            switch packageCondition {
-            case .platforms(let condition): platformConditions.append(condition)
-            case .configuration(let condition): configurationConditions.append(condition)
-            case .traits(let condition): traitConditions.append(condition)
-            }
-        }
-
-        // Determine the *platform* conditions, if any.
-        // An empty set means that there are no platform restrictions.
-        let platforms: [PackageModel.Platform?] = if platformConditions.isEmpty {
-            [nil]
-        } else {
-            platformConditions.flatMap(\.platforms)
-        }
-
-        // Determine the *configuration* conditions, if any.
-        // If there are none, we apply the setting to both debug and release builds (ie, `allCases`).
-        let configurations: [BuildConfiguration] = if configurationConditions.isEmpty {
-            BuildConfiguration.allCases
-        } else {
-            configurationConditions.map(\.configuration)
-        }
-
-        return (platforms, configurations, traitConditions)
     }
 }
 
@@ -646,8 +611,38 @@ extension PackageGraph.ResolvedModule {
                     values = settingAssignment.values
                 }
 
-                // TODO: We are currently ignoring package traits (see rdar://138149810).
-                let (platforms, configurations, _) = settingAssignment.conditions.splitIntoConcreteConditions
+                var platformConditions: [PackageModel.PlatformsCondition] = []
+                var configurationConditions: [PackageModel.ConfigurationCondition] = []
+
+                // Traits always evaluate to true at this point.
+                // TODO: Platforms aren't currently sufficient to describe building for host
+                // especially Linux. We could have different Linux for host versus target.
+                // Native build has host versus target explicitly modeled with
+                // BuildParameters.Destination.
+                for packageCondition in settingAssignment.conditions {
+                    switch packageCondition {
+                    case .platforms(let condition): platformConditions.append(condition)
+                    case .configuration(let condition): configurationConditions.append(condition)
+                    case .traits(_): break
+                    case .isHost(_): break
+                    }
+                }
+
+                // Determine the *platform* conditions, if any.
+                // An empty set means that there are no platform restrictions.
+                let platforms: [PackageModel.Platform?] = if platformConditions.isEmpty {
+                    [nil]
+                } else {
+                    platformConditions.flatMap(\.platforms)
+                }
+
+                // Determine the *configuration* conditions, if any.
+                // If there are none, we apply the setting to both debug and release builds (ie, `allCases`).
+                let configurations: [BuildConfiguration] = if configurationConditions.isEmpty {
+                    BuildConfiguration.allCases
+                } else {
+                    configurationConditions.map(\.configuration)
+                }
 
                 for platform in platforms {
                     let pifPlatform: ProjectModel.BuildSettings.Platform?
