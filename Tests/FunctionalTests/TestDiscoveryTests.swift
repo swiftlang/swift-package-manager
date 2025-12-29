@@ -323,7 +323,10 @@ struct TestDiscoveryTests {
 func testWithSanitizeAndFilterFailsWithPlatformPolicyViolation(
     _ buildSystem: BuildSystemProvider.Kind
 ) async throws {
-    #if os(macOS)
+#if os(macOS)
+try await withKnownIssue(
+    "Fails due to swiftpm-xctest-helper (Xcode tool) violating platform sanitizer policy"
+) {
     try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
         let (_, stderr) = try await executeSwiftTest(
             fixturePath,
@@ -333,9 +336,9 @@ func testWithSanitizeAndFilterFailsWithPlatformPolicyViolation(
 
         #expect(stderr.contains("Sanitizer load violates platform policy"))
     }
-    #else
-    throw SkipTest("Sanitizer + filter behavior is macOS-specific")
-    #endif
 }
+#else
+throw SkipTest("Sanitizer + filter behavior is macOS-specific")
+#endif
 
 }
