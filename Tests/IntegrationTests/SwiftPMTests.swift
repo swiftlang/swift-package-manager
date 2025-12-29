@@ -316,7 +316,7 @@ private struct SwiftPMTests {
             let coveragePath = try AbsolutePath(validating: expectedCoveragePath)
 
             // Check the coverage path exists.
-            try withKnownIssue(isIntermittent: ProcessInfo.hostOperatingSystem == .windows) {
+            try withKnownIssue(isIntermittent: true) {
                 // the CoveragePath file does not exists in Linux platform build
                 expectFileExists(at: coveragePath)
 

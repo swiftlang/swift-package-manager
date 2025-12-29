@@ -19,7 +19,7 @@ import class TSCBasic.Process
 import struct TSCBasic.ProcessResult
 
 public enum DriverSupport {
-    private static var flagsMap = ThreadSafeBox<[String: Set<String>]>()
+    private static var flagsMap = ThreadSafeBox<[String: Set<String>]>([:])
 
     /// This checks _frontend_ supported flags, which are not necessarily supported in the driver.
     public static func checkSupportedFrontendFlags(
@@ -29,8 +29,9 @@ public enum DriverSupport {
     ) -> Bool {
         let trimmedFlagSet = Set(flags.map { $0.trimmingCharacters(in: ["-"]) })
         let swiftcPathString = toolchain.swiftCompilerPath.pathString
+        let entry = flagsMap.get()
 
-        if let entry = flagsMap.get(), let cachedSupportedFlagSet = entry[swiftcPathString + "-frontend"] {
+        if let cachedSupportedFlagSet = entry[swiftcPathString + "-frontend"] {
             return cachedSupportedFlagSet.intersection(trimmedFlagSet) == trimmedFlagSet
         }
         do {
@@ -63,8 +64,9 @@ public enum DriverSupport {
     ) -> Bool {
         let trimmedFlagSet = Set(flags.map { $0.trimmingCharacters(in: ["-"]) })
         let swiftcPathString = toolchain.swiftCompilerPath.pathString
+        let entry = flagsMap.get()
 
-        if let entry = flagsMap.get(), let cachedSupportedFlagSet = entry[swiftcPathString + "-driver"] {
+        if let cachedSupportedFlagSet = entry[swiftcPathString + "-driver"] {
             return cachedSupportedFlagSet.intersection(trimmedFlagSet) == trimmedFlagSet
         }
         do {

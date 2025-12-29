@@ -197,6 +197,87 @@ struct SwiftBuildSystemTests {
         }
     }
 
+    @Suite(
+        .tags(
+            .FunctionalArea.LinkSwiftStaticStdlib,
+        ),
+    )
+    struct SwiftStaticStdlibSettingTests {
+        @Test
+        func makingBuildParametersRaisesAWarningWhenRunOnDarwin() async throws {
+            // GIVEN we have a Darwin triple
+            let triple = try Triple("x86_64-apple-macosx")
+            // AND we want to statically link Swift sdtlib
+            let shouldLinkStaticSwiftStdlib = true
+            try await withInstantiatedSwiftBuildSystem(
+                fromFixture: "PIFBuilder/Simple",
+                buildParameters: mockBuildParameters(
+                    destination: .host,
+                    shouldLinkStaticSwiftStdlib: shouldLinkStaticSwiftStdlib,
+                    triple: triple,
+                ),
+            ) { swiftBuild, session, observabilityScope, buildParameters in
+                // WHEN we make the build parameter
+                let _: SWBBuildParameters = try await swiftBuild.makeBuildParameters(
+                    session: session,
+                    symbolGraphOptions: nil,
+                    setToolchainSetting: false, // Set this to false as SwiftBuild checks the toolchain path
+                )
+
+                // THEN we expect a warning to be emitted
+                let warnings = observabilityScope.diagnostics.filter {
+                    $0.severity == .warning
+                }
+                #expect(warnings.count == 1)
+
+                let diagnostic = try #require(warnings.first)
+                // AND we expect the diagnostic message, severity and description to be as expected
+                #expect(diagnostic.message == Basics.Diagnostic.swiftBackDeployWarning.message)
+                #expect(diagnostic.severity == Basics.Diagnostic.swiftBackDeployWarning.severity)
+                #expect(diagnostic.description == Basics.Diagnostic.swiftBackDeployWarning.description)
+            }
+        }
+
+        @Test(
+            arguments: [
+                (shouldLinkStaticSwiftStdlib: true, expectedValue: "YES"),
+                (shouldLinkStaticSwiftStdlib: false, expectedValue: "NO"),
+            ]
+        )
+        func swiftStaticStdLibSettingIsSetCorrectly(
+            shouldLinkStaticSwiftStdlib: Bool,
+            expectedValue: String
+        ) async throws {
+            // GIVEN we have a non-darwin triple AND we want statically link Swift sdtlib or not
+            let nonDarwinTriple = try Triple("i686-pc-windows-cygnus")
+            try await withInstantiatedSwiftBuildSystem(
+                fromFixture: "PIFBuilder/Simple",
+                buildParameters: mockBuildParameters(
+                    destination: .host,
+                    shouldLinkStaticSwiftStdlib: shouldLinkStaticSwiftStdlib,
+                    triple: nonDarwinTriple,
+                ),
+            ) { swiftBuild, session, observabilityScope, buildParameters in
+                // WHEN we make the build parameter
+                let buildSettings = try await swiftBuild.makeBuildParameters(
+                    session: session,
+                    symbolGraphOptions: nil,
+                    setToolchainSetting: false, // Set this to false as SwiftBuild checks the toolchain path
+                )
+
+                // THEN we don't expect any warnings to be emitted
+                let warnings = observabilityScope.diagnostics.filter {
+                    $0.severity == .warning
+                }
+                #expect(warnings.isEmpty)
+
+                // AND we expect the build setting to be set correctly
+                let synthesizedArgs = try #require(buildSettings.overrides.synthesized)
+                #expect(synthesizedArgs.table["SWIFT_FORCE_STATIC_LINK_STDLIB"] == expectedValue)
+            }
+        }
+    }
+
     @Test(
         arguments: BuildParameters.IndexStoreMode.allCases,
         // arguments: [BuildParameters.IndexStoreMode.on],
@@ -268,5 +349,38 @@ struct SwiftBuildSystemTests {
                 "dead strip: \(linkerDeadStripUT) >>> Actual: '\(actual)' expected: '\(String(describing: expectedValue))'",
             )
        }
+    }
+
+    @Test(
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/9321", relationship: .verifies),
+        arguments: [
+            0,
+            1,
+            2,
+            10,
+        ],
+    )
+    func numberOfWorkersBuildParameterSetsTheExpectedSwiftBuildRequest(
+        expectedNumberOfWorkers: UInt32,
+    ) async throws {
+        try await withTemporaryDirectory { tempDir in
+            try await withInstantiatedSwiftBuildSystem(
+                fromFixture: "PIFBuilder/Simple",
+                buildParameters: mockBuildParameters(
+                    destination: .host,
+                    numberOfWorkers: expectedNumberOfWorkers,
+                ),
+            ) { swiftBuild, session, observabilityScope, buildParameters in
+                let buildRequest = try await swiftBuild.makeBuildRequest(
+                    session: session,
+                    configuredTargets: [],
+                    derivedDataPath: tempDir,
+                    symbolGraphOptions: nil,
+                    setToolchainSetting: false
+                )
+
+                #expect(buildRequest.schedulerLaneWidthOverride == expectedNumberOfWorkers)
+            }
+        }
     }
 }

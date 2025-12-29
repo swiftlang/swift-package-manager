@@ -28,20 +28,6 @@ import struct TSCBasic.ByteString
 import struct TSCUtility.Version
 
 final class WorkspaceTests: XCTestCase {
-    // override func setUpWithError() throws {
-    //     let windowsPassingTests = [
-    //         #selector(self.testBinaryArtifactsInvalidPath),
-    //         #selector(self.testManifestLoaderDiagnostics),
-    //         #selector(self.testInterpreterFlags),
-    //         #selector(self.testManifestParseError),
-    //         #selector(self.testSimpleAPI)
-    //     ]
-    //     let matches = windowsPassingTests.filter { $0 == self.invocation?.selector}
-    //     if matches.count == 0 {
-    //         try XCTSkipOnWindows()
-    //     }
-    // }
-
     func testBasics() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
@@ -8313,7 +8299,7 @@ final class WorkspaceTests: XCTestCase {
             guard case .download(let fileSystem, let destination) = request.kind else {
                 throw StringError("invalid request \(request.kind)")
             }
-            acceptHeaders.mutate { $0?.append(request.headers.get("accept").first!) }
+            acceptHeaders.mutate { $0.append(request.headers.get("accept").first!) }
 
             let contents: [UInt8]
             switch request.url.lastPathComponent {
@@ -8873,7 +8859,7 @@ final class WorkspaceTests: XCTestCase {
             }
 
             concurrentRequests.increment()
-            if concurrentRequests.get()! > maxConcurrentRequests {
+            if concurrentRequests.get() > maxConcurrentRequests {
                 XCTFail("too many concurrent requests \(concurrentRequests), expected \(maxConcurrentRequests)")
             }
 
