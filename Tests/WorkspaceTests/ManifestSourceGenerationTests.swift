@@ -289,10 +289,6 @@ final class ManifestSourceGenerationTests: XCTestCase {
     }
 
     func testPackageDependencyVariations() async throws {
-        try XCTSkipOnWindows(
-            because:"Intermittently fails",
-            skipPlatformCi: true,
-        )
         let manifestContents = """
             // swift-tools-version:5.4
             import PackageDescription
@@ -875,8 +871,6 @@ final class ManifestSourceGenerationTests: XCTestCase {
     }
 
     func testManifestGenerationWithWarningControlFlags() async throws {
-        try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8543: there are compilation errors")
-
         let manifest = Manifest.createRootManifest(
             displayName: "pkg",
             path: "/pkg",
@@ -920,8 +914,6 @@ final class ManifestSourceGenerationTests: XCTestCase {
     }
 
     func testDefaultIsolation() async throws {
-        try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8543: there are compilation errors")
-
         let manifest = Manifest.createRootManifest(
             displayName: "pkg",
             path: "/pkg",
