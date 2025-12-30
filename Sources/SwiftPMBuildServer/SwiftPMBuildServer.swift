@@ -165,6 +165,9 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
         case is OnBuildLogMessageNotification:
             // If we receive a build log message notification, forward it on to the client
             connectionToClient.send(notification)
+        case is OnBuildTargetDidChangeNotification:
+            // If the underlying server notifies us of target updates, forward the notification to the client
+            connectionToClient.send(notification)
         default:
             logToClient(.warning, "SwiftPM build server received unknown notification type: \(notification)")
         }

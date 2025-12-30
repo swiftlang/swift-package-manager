@@ -114,6 +114,7 @@ struct ModulesGraphTests {
 
     @Test(
         .IssueWindowsPathTestsFailures,
+        .disabled("Requires swift-testing bug fix https://github.com/swiftlang/swift-testing/pull/1441"),
     )
     func basic() throws {
         try withKnownIssue {

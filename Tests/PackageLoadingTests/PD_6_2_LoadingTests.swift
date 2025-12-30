@@ -72,21 +72,25 @@ struct PackageDescription6_2LoadingTests {
             """
 
         let observability = ObservabilitySystem.makeForTesting()
-        let (_, validationDiagnostics) = try await PackageDescriptionLoadingTests
-            .loadAndValidateManifest(
-                content,
-                toolsVersion: .v6_2,
-                packageKind: .fileSystem(.root),
-                manifestLoader: ManifestLoader(
-                    toolchain: try! UserToolchain.default
-                ),
-                observabilityScope: observability.topScope
-            )
-        try expectDiagnostics(validationDiagnostics) { results in
-            results.checkIsEmpty()
-        }
-        try expectDiagnostics(observability.diagnostics) { results in
-            results.checkIsEmpty()
+        try await withKnownIssue("https://github.com/swiftlang/swift-package-manager/issues/8543: there are compilation errors on Windows", isIntermittent: true) {
+            let (_, validationDiagnostics) = try await PackageDescriptionLoadingTests
+                .loadAndValidateManifest(
+                    content,
+                    toolsVersion: .v6_2,
+                    packageKind: .fileSystem(.root),
+                    manifestLoader: ManifestLoader(
+                        toolchain: try! UserToolchain.default
+                    ),
+                    observabilityScope: observability.topScope
+                )
+            try expectDiagnostics(validationDiagnostics) { results in
+                results.checkIsEmpty()
+            }
+            try expectDiagnostics(observability.diagnostics) { results in
+                results.checkIsEmpty()
+            }
+        } when: {
+            isWindows && !CiEnvironment.runningInSmokeTestPipeline
         }
     }
 }

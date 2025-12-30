@@ -568,7 +568,10 @@ let package = Package(
                 "SourceKitLSPAPI",
                 "SwiftBuildSupport",
                 "Workspace"
-            ] + swiftTSCBasicsDeps + swiftToolsProtocolsDeps
+            ] + swiftTSCBasicsDeps + swiftToolsProtocolsDeps,
+            exclude: [
+                "CMakeLists.txt",
+            ],
         ),
 
         // MARK: Commands

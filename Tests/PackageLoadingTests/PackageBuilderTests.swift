@@ -584,9 +584,6 @@ struct PackageBuilderTests {
     }
 
     @Test(
-        .IssueWindowsLongPath,
-        .IssueWindowsPathLastComponent,
-        .IssueWindowsRelativePathAssert,
         .tags(
             Tag.Feature.PackageType.Executable,
             Tag.Feature.PackageType.Library,
@@ -594,36 +591,36 @@ struct PackageBuilderTests {
     )
     func testTestManifestSearch() throws {
         try withKnownIssue(isIntermittent: true) {
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/pkg/foo.swift",
-            "/pkg/footests.swift"
-        )
+            let fs = InMemoryFileSystem(emptyFiles:
+                "/pkg/foo.swift",
+                "/pkg/footests.swift"
+            )
 
-        let manifest = Manifest.createRootManifest(
-            displayName: "pkg",
-            targets: [
-                try TargetDescription(
-                    name: "exe",
-                    path: "./",
-                    sources: ["foo.swift"]
-                ),
-                try TargetDescription(
-                    name: "tests",
-                    path: "./",
-                    sources: ["footests.swift"],
-                    type: .test
-                ),
-            ]
-        )
-        try PackageBuilderTester(manifest, path: "/pkg", in: fs) { package, _ in
-            try package.checkModule("exe") { _ in }
-            try package.checkModule("tests") { _ in }
+            let manifest = Manifest.createRootManifest(
+                displayName: "pkg",
+                targets: [
+                    try TargetDescription(
+                        name: "exe",
+                        path: "./",
+                        sources: ["foo.swift"]
+                    ),
+                    try TargetDescription(
+                        name: "tests",
+                        path: "./",
+                        sources: ["footests.swift"],
+                        type: .test
+                    ),
+                ]
+            )
+            try PackageBuilderTester(manifest, path: "/pkg", in: fs) { package, _ in
+                try package.checkModule("exe") { _ in }
+                try package.checkModule("tests") { _ in }
 
-            package.checkProduct("pkgPackageTests") { product in
-                product.check(type: .test, targets: ["tests"])
-                product.check(testEntryPointPath: nil)
+                package.checkProduct("pkgPackageTests") { product in
+                    product.check(type: .test, targets: ["tests"])
+                    product.check(testEntryPointPath: nil)
+                }
             }
-        }
         } when: {
             ProcessInfo.hostOperatingSystem == .windows
         }
