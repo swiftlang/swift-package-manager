@@ -14,24 +14,33 @@ import _InternalTestSupport
 import Testing
 import Basics
 import Foundation
+import struct SPMBuildCore.BuildSystemProvider
+import enum PackageModel.BuildConfiguration
 #if os(macOS)
 import Metal
 #endif
 
-@Suite
+@Suite(
+    .tags(
+        .FunctionalArea.Metal,
+    )
+)
 struct BuildMetalTests {
 
-#if os(macOS)
     @Test(
         .disabled("Require downloadable Metal toolchain"),
-        .tags(.TestSize.large),
+        .tags(
+            .TestSize.large,
+        ),
         .requireHostOS(.macOS),
-        arguments: getBuildData(for: [.swiftbuild])
+        arguments: BuildConfiguration.allCases,
     )
-    func simpleLibrary(data: BuildData) async throws {
-        let buildSystem = data.buildSystem
-        let configuration = data.config
-        
+    func simpleLibrary(
+        config: BuildConfiguration,
+    ) async throws {
+        let buildSystem = BuildSystemProvider.Kind.swiftbuild
+        let configuration = config
+
         try await fixture(name: "Metal/SimpleLibrary") { fixturePath in
 
             // Build the package
@@ -41,7 +50,7 @@ struct BuildMetalTests {
                 buildSystem: buildSystem,
                 throwIfCommandFails: true
             )
-            
+
             // Get the bin path
             let (binPathOutput, _) = try await executeSwiftBuild(
                 fixturePath,
@@ -50,9 +59,9 @@ struct BuildMetalTests {
                 buildSystem: buildSystem,
                 throwIfCommandFails: true
             )
-            
+
             let binPath = try AbsolutePath(validating: binPathOutput.trimmingCharacters(in: .whitespacesAndNewlines))
-            
+
             // Check that default.metallib exists
             let metallibPath = binPath.appending(components:["MyRenderer_MyRenderer.bundle", "Contents", "Resources", "default.metallib"])
             #expect(
@@ -60,12 +69,13 @@ struct BuildMetalTests {
                 "Expected default.metallib to exist at \(metallibPath)"
             )
 
+#if os(macOS)
             // Verify we can load the metal library
             let device = try #require(MTLCreateSystemDefaultDevice())
             let library = try device.makeLibrary(URL: URL(fileURLWithPath: metallibPath.pathString))
 
             #expect(library.functionNames.contains("simpleVertexShader"))
+#endif
         }
     }
-#endif
 }
