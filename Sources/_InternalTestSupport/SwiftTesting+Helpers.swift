@@ -13,11 +13,10 @@
 import Basics
 import Testing
 
-public func expectFileExists(
-    at path: AbsolutePath,
-    _ comment: Comment? = nil,
-    sourceLocation: SourceLocation = #_sourceLocation,
-) {
+private func fileExistsErrorMessage(
+    for path: AbsolutePath,
+    comment: Comment?
+) -> Comment {
     let commentPrefix =
         if let comment {
             "\(comment): "
@@ -30,9 +29,29 @@ public func expectFileExists(
     } catch {
         msgSuffix = ""
     }
+    return Comment("\(commentPrefix)File '\(path)' does not exist. \(msgSuffix)")
+}
+
+public func expectFileExists(
+    at path: AbsolutePath,
+    _ comment: Comment? = nil,
+    sourceLocation: SourceLocation = #_sourceLocation,
+) {
     #expect(
         localFileSystem.exists(path),
-        "\(commentPrefix)File '\(path)' does not exist. \(msgSuffix)",
+        fileExistsErrorMessage(for: path, comment: comment),
+        sourceLocation: sourceLocation,
+    )
+}
+
+public func requireFileExists(
+    at path: AbsolutePath,
+    _ comment: Comment? = nil,
+    sourceLocation: SourceLocation = #_sourceLocation,
+) throws {
+    try #require(
+        localFileSystem.exists(path),
+        fileExistsErrorMessage(for: path, comment: comment),
         sourceLocation: sourceLocation,
     )
 }
