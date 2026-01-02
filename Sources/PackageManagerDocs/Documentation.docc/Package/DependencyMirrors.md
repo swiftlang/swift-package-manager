@@ -1,34 +1,31 @@
 # Dependency Mirrors
 
-Dependency mirrors allow Swift Package Manager to fetch a dependency from an alternate location without modifying the package manifest. This can be useful in environments where dependencies need to be fetched from internal mirrors, cached repositories, or alternate hosting locations.
+Dependency mirrors let Swift Package Manager fetch dependencies from alternate locations without modifying the package manifest.
 
-Dependency mirrors are configured locally and affect only the top-level package being built.
+## Overview
+Dependency mirrors allow Swift Package Manager to fetch a package dependency from an alternate location without modifying the package manifest. This is useful in environments where dependencies must be fetched from internal mirrors, cached repositories, or alternate hosting locations. For more information about declaring dependencies, see <doc:AddingDependencies>.
 
-## When to use dependency mirrors
+Dependency mirrors are commonly used when working in corporate or restricted network environments, when redirecting dependencies to internal mirrors, or when controlling where dependencies are sourced from without modifying existing package manifests.
 
-Dependency mirrors are commonly used in the following scenarios:
+Dependency mirrors are configured locally and apply only to the top-level package being built. Mirror configuration is stored outside the package manifest and is not shared when a package is published or checked into version control. Dependency mirrors apply to all versions of a dependency identity and can’t be scoped to individual versions.
 
-- Accessing dependencies from internal or corporate-hosted mirrors
-- Working in environments with restricted network access
-- Redirecting dependency URLs without modifying existing package manifests
+During dependency resolution, Swift Package Manager transparently rewrites dependency source locations based on the configured mirrors, without modifying the package manifest. When a mirror is configured for a dependency, it is treated as authoritative and Swift Package Manager does not fall back to the original source location. Swift Package Manager resolves dependency versions according to the rules described in <doc:ResolvingPackageVersions>.
 
-## Configuring dependency mirrors
 
-Dependency mirrors are configured using Swift Package Manager commands. These commands allow setting, querying, and removing mirror configurations for package dependencies:
+### Configuring dependency mirrors
+Dependency mirrors are configured using Swift Package Manager’s local configuration commands. These commands allow you to map a package dependency identity or source location to an alternate location without modifying the package manifest. Commands such as <doc:SwiftBuild>, <doc:SwiftRun>, and <doc:PackageUpdate> trigger dependency resolution.
 
-- ``swift package config set-mirror``
-- ``swift package config get-mirror``
-- ``swift package config unset-mirror``
+
+To configure a mirror, you register a mapping between the original dependency source and the mirror location. Once configured, Swift Package Manager automatically applies this mapping during dependency resolution.
+
+For example, if a package depends on a repository hosted at a public Git URL, you can configure Swift Package Manager to fetch that dependency from an internal mirror instead. After setting the mirror, subsequent dependency resolution operations will use the mirrored location transparently, without requiring changes to the package’s dependency declarations.
+
+Mirror configuration affects only the top-level package being built. Once a mirror is set, Swift Package Manager treats it as authoritative and does not fall back to the original source location.
+
+```bash
+$ swift package config set-mirror <original-url> <mirror-url>
+$ swift package config get-mirror
+$ swift package config unset-mirror <original-url>
+```
 
 Mirror configuration is stored locally and is not part of the package manifest.
-
-## Scope and safety considerations
-
-Dependency mirrors apply only to the top-level package being built. Dependencies cannot define or override mirror configurations for downstream packages.
-
-Because mirror configuration is local and external to the package manifest, it is not shared when a package is published or checked into version control.
-
-## Learn more
-
-For the complete design and behavior details, see the Swift Evolution proposal [SE-0219: Package Manager Dependency Mirroring](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0219-package-manager-dependency-mirroring.md).
-
