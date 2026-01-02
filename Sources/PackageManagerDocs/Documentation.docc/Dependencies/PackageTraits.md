@@ -1,24 +1,26 @@
 # Provide configurable packages using traits.
 
-Define one or more traits to offer default and configurable features for a package.
+Define one or more package traits to offer default and configurable features for a package.
+
+## Overview
 
 Swift packages prior to Swift 6.1 offered a non-configurable API surface for each version.
-With Swift 6.1, packages may offer traits, which express a configurable API surface for a package.
+Starting with Swift 6.1, packages may offer traits, which express a configurable API surface for a package.
 
 Use traits to enable additional API beyond the core API of the package.
 For example, a trait may enable an experimental API, optional extended functionality that requires additional dependencies, or functionality that isn't critical that a developer may want to enable only in specific circumstances.
 
+When Swift Package Manager builds with a requested trait, it does so across the package dependency tree, propogating that request for traits throughout the dependencies.
+Traits are not confined to targets within a package, instead have a potential effect on all targets being built in the package as well as any dependencies.
+
 > Note: Traits should never "remove" or disable public API when a trait is enabled.
 
 Within the package, traits express conditional compilation, and may be used to declare additional dependencies that are enabled when that trait is active.
+Enabled traits are exposed as conditional blocks (for example, `#if YourTrait`) that you can use to conditionally enable imports or different compilation paths in code.
 
 Traits are identified by their names, which are name-spaced within the package that hosts them.
 Trait names must be [valid swift identifiers](https://docs.swift.org/swift-book/documentation/the-swift-programming-language/lexicalstructure#Identifiers) with the addition of the characters of `-` and `+`.
 The trait names `default` and `defaults` (regardless of any capitalization) aren't allowed to avoid confusion with the default traits that a package defines.
-
-Enabled traits are exposed as conditional blocks (for example, `#if YourTrait`) that you can use to conditionally enable imports or different compilation paths in code.
-
-## Overview
 
 ### Declaring Traits
 
@@ -57,7 +59,10 @@ The traits enabled by default for the example above is `FeatureA`.
 > Note: Changing the default set of traits for your package is a major semantic version change if it removes API surface.
 > Adding additional traits is not a major version change.
 
-#### Mutually Exclusive Traits
+Swift Package Manager expects traits to be a purely additive effect while building.
+Design your traits such that they enable additional API (and their dependencies, if needed). 
+
+#### Defininig mutually exclusive traits
 
 The package manifest format doesn't support declaring mutually exclusive traits.
 In the rare case that you need to offer mutually exclusive traits, protect that scenario in code:
