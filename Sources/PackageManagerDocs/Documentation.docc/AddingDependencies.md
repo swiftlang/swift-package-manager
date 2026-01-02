@@ -107,6 +107,19 @@ To add a dependency on a precompiled binary target, specify a `.binaryTarget` in
 [binarytarget(name:url:checksum:)](https://developer.apple.com/documentation/packagedescription/target/binarytarget(name:url:checksum:)) for a downloadable target, 
 or [binarytarget(name:path:)](https://developer.apple.com/documentation/packagedescription/target/binarytarget(name:path:)) for a local binary.
 After adding the binary target, you can add it to the list of dependencies for any other target. 
+### ArtifactBundleIndex
+
+Swift Package Manager supports binary targets distributed as artifact bundles.
+An artifact bundle may include an `ArtifactBundleIndex` file, which describes
+the artifacts contained in the bundle and the platforms or variants they support.
+
+The `ArtifactBundleIndex` is required when an artifact bundle contains multiple
+artifacts or supports multiple platforms. SwiftPM uses this index to determine
+which artifact to select during dependency resolution.
+
+For full details on the structure and semantics of artifact bundles and
+`ArtifactBundleIndex`, see the Swift Evolution proposal
+[SE-0305: SwiftPM Binary Target Improvements](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0305-swiftpm-binary-target-improvements.md).
 
 For more information on identifying and verifying a binary target, see [Identifying binary dependencies](https://developer.apple.com/documentation/xcode/identifying-binary-dependencies).
 For more information on creating a binary target, see [Creating a multiplatform binary framework bundle](https://developer.apple.com/documentation/xcode/creating-a-multi-platform-binary-framework-bundle).
