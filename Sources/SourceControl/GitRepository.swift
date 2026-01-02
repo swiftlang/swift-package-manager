@@ -224,6 +224,52 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
         }
     }
 
+    /// Creates a working copy from a bare repository.
+    ///
+    /// This method creates a working copy (checkout) from a bare repository source.
+    /// It supports both editable and shared modes of operation.
+    ///
+    /// - Parameters:
+    ///   - repository: The repository specifier
+    ///   - sourcePath: Path to the bare repository source
+    ///   - destinationPath: Path where the working copy should be created
+    ///   - editable: If true, creates an editable clone; if false, uses shared storage
+    /// - Returns: A WorkingCheckout instance for the created working copy
+    /// - Throws: Git operation errors if cloning or setup fails
+    public func createWorkingCopyFromBare(
+        repository: RepositorySpecifier,
+        sourcePath: Basics.AbsolutePath,
+        at destinationPath: Basics.AbsolutePath,
+        editable: Bool
+    ) throws -> WorkingCheckout {
+
+        if editable {
+            try self.clone(
+                repository,
+                sourcePath.pathString,
+                destinationPath.pathString,
+                []
+            )
+            // The default name of the remote.
+            let origin = "origin"
+            // In destination repo remove the remote which will be pointing to the source repo.
+            let clone = GitRepository(git: self.git, path: destinationPath)
+            // Set the original remote to the new clone.
+            try clone.setURL(remote: origin, url: repository.location.gitURL)
+            // FIXME: This is unfortunate that we have to fetch to update remote's data.
+            try clone.fetch()
+        } else {
+            try self.clone(
+                repository,
+                sourcePath.pathString,
+                destinationPath.pathString,
+                ["--shared"]
+            )
+        }
+        return try self.openWorkingCopy(at: destinationPath)
+    }
+
+
     public func createWorkingCopy(
         repository: RepositorySpecifier,
         sourcePath: Basics.AbsolutePath,
@@ -717,6 +763,21 @@ public final class GitRepository: Repository, WorkingCheckout {
                 "-b",
                 newBranch,
                 failureMessage: "Couldn’t check out new branch ‘\(newBranch)’"
+            )
+        }
+    }
+
+    /// Checks out the branch you provides for the git repository.
+    public func checkout(branch: String) throws {
+        guard self.isWorkingRepo else {
+            throw InternalError("This operation is only valid in a working repository")
+        }
+        // use barrier for write operations
+        try self.lock.withLock {
+            try callGit(
+                "checkout",
+                branch,
+                failureMessage: "Couldn't check out branch '\(branch)'"
             )
         }
     }

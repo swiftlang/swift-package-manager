@@ -62,6 +62,7 @@ public final class ClangModule: Module {
         buildSettings: BuildSettings.AssignmentTable = .init(),
         buildSettingsDescription: [TargetBuildSettingDescription.Setting] = [],
         usesUnsafeFlags: Bool,
+        template: Bool,
         implicit: Bool
     ) throws {
         guard includeDir.isDescendantOfOrEqual(to: sources.root) else {
@@ -88,6 +89,7 @@ public final class ClangModule: Module {
             buildSettingsDescription: buildSettingsDescription,
             pluginUsages: [],
             usesUnsafeFlags: usesUnsafeFlags,
+            template: template,
             implicit: implicit
         )
     }
