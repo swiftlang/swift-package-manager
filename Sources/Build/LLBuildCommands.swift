@@ -273,11 +273,26 @@ final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
                     while let argument = iterator.next() {
                         if argument == "--testing-library", let libraryName = iterator.next() {
                             return libraryName.lowercased()
-                        }
+                        } else if let equalsIndex = argument.firstIndex(of: "="),
+                 			      argument[..<equalsIndex] == "--testing-library" {
+            				return String(argument[equalsIndex...].dropFirst())
+            			}
                     }
 
                     // Fallback if not specified: run XCTest (legacy behavior)
                     return "xctest"
+                }
+
+                private static func enterTestingLibrary<A>(_ arg: A, _ entryPoint: (A?) async -> Never) async -> Never {
+                    await entryPoint(arg)
+                }
+
+                /// Used if Swift Testing is an older package dependency that does not take a `String` argument.
+                @_disfavoredOverload private static func enterTestingLibrary<A>(_ testingLibrary: String, _ entryPoint: (A?) async -> Never) async -> Never {
+            		if testingLibrary == "swift-testing" {
+                    	await entryPoint(nil)
+            		}
+                    fatalError("Cannot run tests using the '\(testingLibrary)' library: this package has a dependency on a version of Swift Testing that does not support hosting other testing libraries.")
                 }
 
                 #if \#(needsAsyncMainWorkaround)
@@ -287,22 +302,20 @@ final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
 
                 static func main() \#(needsAsyncMainWorkaround ? "" : "async") {
                     let testingLibrary = Self.testingLibrary()
-                    #if canImport(Testing)
-                    if testingLibrary == "swift-testing" {
-                        #if \#(needsAsyncMainWorkaround)
-                        _runAsyncMain {
-                            await Testing.__swiftPMEntryPoint() as Never
-                        }
-                        #else
-                        await Testing.__swiftPMEntryPoint() as Never
-                        #endif
-                    }
-                    #endif
                     #if \#(isXCTMainAvailable)
                     if testingLibrary == "xctest" {
                         \#(testObservabilitySetup)
                         \#(awaitXCTMainKeyword) XCTMain(__allDiscoveredTests()) as Never
                     }
+                    #endif
+                    #if canImport(Testing)
+                    #if \#(needsAsyncMainWorkaround)
+                    _runAsyncMain {
+                        await Self.enterTestingLibrary(testingLibrary)
+                    }
+                    #else
+                    await Self.enterTestingLibrary(testingLibrary, Testing.__swiftPMEntryPoint)
+                    #endif
                     #endif
                 }
             }
