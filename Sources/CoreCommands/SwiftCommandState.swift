@@ -1014,6 +1014,7 @@ public final class SwiftCommandState {
     private lazy var _targetToolchain: Result<UserToolchain, Swift.Error> = {
         let swiftSDK: SwiftSDK
         let hostSwiftSDK: SwiftSDK
+        let swiftSDKSelector: String?
         do {
             let hostToolchain = try _hostToolchain.get()
             hostSwiftSDK = hostToolchain.swiftSDK
@@ -1032,6 +1033,8 @@ public final class SwiftCommandState {
                 outputHandler: { print($0.description) }
             )
 
+            swiftSDKSelector = self.options.build.swiftSDKSelector ?? self.options.build.deprecatedSwiftSDKSelector
+
             swiftSDK = try SwiftSDK.deriveTargetSwiftSDK(
                 hostSwiftSDK: hostSwiftSDK,
                 hostTriple: hostToolchain.targetTriple,
@@ -1040,7 +1043,7 @@ public final class SwiftCommandState {
                 customCompileTriple: self.options.build.customCompileTriple,
                 customCompileToolchain: self.options.build.customCompileToolchain,
                 customCompileSDK: self.options.build.customCompileSDK,
-                swiftSDKSelector: self.options.build.swiftSDKSelector ?? self.options.build.deprecatedSwiftSDKSelector,
+                swiftSDKSelector: swiftSDKSelector,
                 architectures: self.options.build.architectures,
                 store: store,
                 observabilityScope: self.observabilityScope,
@@ -1057,6 +1060,7 @@ public final class SwiftCommandState {
         return Result(catching: {
             try UserToolchain(
                 swiftSDK: swiftSDK,
+                swiftSDKSelector: swiftSDKSelector,
                 environment: self.environment,
                 customTargetInfo: targetInfo,
                 observabilityScope: self.observabilityScope,

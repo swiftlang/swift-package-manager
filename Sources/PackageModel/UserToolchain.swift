@@ -82,6 +82,9 @@ public final class UserToolchain: Toolchain {
     /// The Swift SDK used by this toolchain.
     public let swiftSDK: SwiftSDK
 
+    /// The Swift SDK selector used to select this toolchain.
+    public let swiftSDKSelector: String?
+
     /// The target triple that should be used for compilation.
     @available(*, deprecated, renamed: "targetTriple")
     public var triple: Basics.Triple { targetTriple }
@@ -736,6 +739,7 @@ public final class UserToolchain: Toolchain {
 
     public init(
         swiftSDK: SwiftSDK,
+        swiftSDKSelector: String? = nil,
         environment: Environment = .current,
         searchStrategy: SearchStrategy = .default,
         customTargetInfo: JSON? = nil,
@@ -745,6 +749,7 @@ public final class UserToolchain: Toolchain {
         fileSystem: any FileSystem = localFileSystem
     ) throws {
         self.swiftSDK = swiftSDK
+        self.swiftSDKSelector = swiftSDKSelector
         self.environment = environment
 
         switch searchStrategy {
