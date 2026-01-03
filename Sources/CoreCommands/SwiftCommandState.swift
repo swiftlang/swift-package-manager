@@ -936,7 +936,7 @@ public final class SwiftCommandState {
             buildSystemKind: options.build.buildSystem,
             pkgConfigDirectories: options.locations.pkgConfigDirectories,
             architectures: options.build.architectures,
-            workers: options.build.jobs ?? UInt32(ProcessInfo.processInfo.activeProcessorCount),
+            workers: options.build.jobs,
             shouldCreateDylibForDynamicProducts: !self.options.build.shouldBuildDylibsAsFrameworks,
             sanitizers: options.build.enabledSanitizers,
             indexStoreMode: options.build.indexStoreMode.buildParameter,

@@ -63,6 +63,7 @@ extension PluginModule {
     public func invoke(
         action: PluginAction,
         buildEnvironment: BuildEnvironment,
+        workers: UInt32,
         scriptRunner: PluginScriptRunner,
         workingDirectory: AbsolutePath,
         outputDirectory: AbsolutePath,
@@ -83,6 +84,7 @@ extension PluginModule {
             self.invoke(
                 action: action,
                 buildEnvironment: buildEnvironment,
+                workers: workers,
                 scriptRunner: scriptRunner,
                 workingDirectory: workingDirectory,
                 outputDirectory: outputDirectory,
@@ -132,6 +134,7 @@ extension PluginModule {
     public func invoke(
         action: PluginAction,
         buildEnvironment: BuildEnvironment,
+        workers: UInt32,
         scriptRunner: PluginScriptRunner,
         workingDirectory: AbsolutePath,
         outputDirectory: AbsolutePath,
@@ -419,6 +422,7 @@ extension PluginModule {
             writableDirectories: writableDirectories,
             readOnlyDirectories: readOnlyDirectories,
             allowNetworkConnections: allowNetworkConnections,
+            workers: workers,
             fileSystem: fileSystem,
             observabilityScope: observabilityScope,
             callbackQueue: callbackQueue,
@@ -442,6 +446,7 @@ extension PluginModule {
         module: ResolvedModule,
         action: PluginAction,
         buildEnvironment: BuildEnvironment,
+        workers: UInt32,
         scriptRunner: PluginScriptRunner,
         workingDirectory: AbsolutePath,
         outputDirectory: AbsolutePath,
@@ -461,6 +466,7 @@ extension PluginModule {
                 module: module,
                 action: action,
                 buildEnvironment: buildEnvironment,
+                workers: workers,
                 scriptRunner: scriptRunner,
                 workingDirectory: workingDirectory,
                 outputDirectory: outputDirectory,
@@ -488,6 +494,7 @@ extension PluginModule {
         module: ResolvedModule,
         action: PluginAction,
         buildEnvironment: BuildEnvironment,
+        workers: UInt32,
         scriptRunner: PluginScriptRunner,
         workingDirectory: AbsolutePath,
         outputDirectory: AbsolutePath,
@@ -531,6 +538,7 @@ extension PluginModule {
         self.invoke(
             action: action,
             buildEnvironment: buildEnvironment,
+            workers: workers,
             scriptRunner: scriptRunner,
             workingDirectory: workingDirectory,
             outputDirectory: outputDirectory,

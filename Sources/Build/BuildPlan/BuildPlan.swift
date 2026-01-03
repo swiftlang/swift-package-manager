@@ -817,6 +817,7 @@ extension BuildPlan {
                     pluginGeneratedResources: pluginDerivedResources.map(\.path)
                 ),
                 buildEnvironment: buildParameters.buildEnvironment,
+                workers: buildParameters.workers,
                 scriptRunner: configuration.scriptRunner,
                 workingDirectory: package.path,
                 outputDirectory: pluginOutputDir,

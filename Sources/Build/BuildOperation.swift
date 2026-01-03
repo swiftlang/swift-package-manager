@@ -624,6 +624,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             sourceFiles: plugin.sources.paths,
             pluginName: plugin.moduleName,
             toolsVersion: plugin.toolsVersion,
+            workers: config.toolsBuildParameters.workers,
             observabilityScope: self.observabilityScope,
             callbackQueue: DispatchQueue.sharedConcurrent,
             delegate: delegate
