@@ -265,6 +265,8 @@ public struct SwiftSDK: Equatable {
     /// deserialization.
     public private(set) var toolset: Toolset
 
+    public private(set) var swiftSDKManifest: Basics.AbsolutePath?
+
     /// The paths associated with a Swift SDK. The Path type can be a `String`
     /// to encapsulate the arguments for the `SwiftSDKConfigurationStore.configure`
     /// function, or can be a fully-realized `AbsolutePath` when deserialized from a configuration.
@@ -499,12 +501,14 @@ public struct SwiftSDK: Equatable {
         hostTriple: Triple? = nil,
         targetTriple: Triple? = nil,
         toolset: Toolset,
+        swiftSDKManifest: Basics.AbsolutePath? = nil,
         pathsConfiguration: PathsConfiguration<Basics.AbsolutePath>,
         xctestSupport: XCTestSupport = .supported
     ) {
         self.hostTriple = hostTriple
         self.targetTriple = targetTriple
         self.toolset = toolset
+        self.swiftSDKManifest = swiftSDKManifest
         self.pathsConfiguration = pathsConfiguration
         self.xctestSupport = xctestSupport
     }
@@ -942,7 +946,8 @@ extension SwiftSDK {
                     targetTriple: triple,
                     properties: properties,
                     toolset: toolset,
-                    swiftSDKDirectory: swiftSDKDirectory
+                    swiftSDKDirectory: swiftSDKDirectory,
+                    swiftSDKManifest: path,
                 )
             }
 
@@ -973,7 +978,8 @@ extension SwiftSDK {
                     targetTriple: triple,
                     properties: properties,
                     toolset: toolset,
-                    swiftSDKDirectory: swiftSDKDirectory
+                    swiftSDKDirectory: swiftSDKDirectory,
+                    swiftSDKManifest: path,
                 )
             }
         default:
@@ -991,11 +997,13 @@ extension SwiftSDK {
         targetTriple: Triple,
         properties: SwiftSDKMetadataV4.TripleProperties,
         toolset: Toolset = .init(),
-        swiftSDKDirectory: Basics.AbsolutePath? = nil
+        swiftSDKDirectory: Basics.AbsolutePath? = nil,
+        swiftSDKManifest: Basics.AbsolutePath? = nil,
     ) throws {
         self.init(
             targetTriple: targetTriple,
             toolset: toolset,
+            swiftSDKManifest: swiftSDKManifest,
             pathsConfiguration: try .init(properties, swiftSDKDirectory: swiftSDKDirectory)
         )
     }
@@ -1010,11 +1018,13 @@ extension SwiftSDK {
         targetTriple: Triple,
         properties: SerializedDestinationV3.TripleProperties,
         toolset: Toolset = .init(),
-        swiftSDKDirectory: Basics.AbsolutePath? = nil
+        swiftSDKDirectory: Basics.AbsolutePath? = nil,
+        swiftSDKManifest: Basics.AbsolutePath? = nil,
     ) throws {
         self.init(
             targetTriple: targetTriple,
             toolset: toolset,
+            swiftSDKManifest: swiftSDKManifest,
             pathsConfiguration: try .init(properties, swiftSDKDirectory: swiftSDKDirectory)
         )
     }
