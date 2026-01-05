@@ -22,10 +22,23 @@ For example, if a package depends on a repository hosted at a public Git URL, yo
 
 Mirror configuration affects only the top-level package being built. Once a mirror is set, Swift Package Manager treats it as authoritative and does not fall back to the original source location.
 
+### Inspecting a mirror configuration
+Use `swift package config get-mirror` to look up the mirror for a specific
+dependency identity or URL:
+
 ```bash
-$ swift package config set-mirror <original-url> <mirror-url>
-$ swift package config get-mirror
-$ swift package config unset-mirror <original-url>
+swift package config set-mirror --original <original-url-or-identity> --mirror <mirror-url-or-identity>
+swift package config get-mirror --original <original-url-or-identity>
+swift package config unset-mirror --original <original-url-or-identity>
 ```
 
 Mirror configuration is stored locally and is not part of the package manifest.
+### Configuration scope
+
+Mirror configuration is persisted by Swift Package Manager and may be
+applied from different configuration scopes (such as workspace-local or
+shared configuration). The specific scope used is determined implicitly
+by SwiftPM based on the command context and environment.
+
+The mirror configuration commands do not provide explicit flags to select
+a configuration scope.
