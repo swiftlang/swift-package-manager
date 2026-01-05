@@ -32,9 +32,11 @@ import struct PackageGraph.ModulesGraph
 import struct PackageGraph.ResolvedModule
 import struct PackageGraph.ResolvedPackage
 
+import struct SPMBuildCore.BuildParameters
+
 import enum SwiftBuild.ProjectModel
 
-typealias GUID = SwiftBuild.ProjectModel.GUID
+public typealias GUID = SwiftBuild.ProjectModel.GUID
 typealias BuildFile = SwiftBuild.ProjectModel.BuildFile
 typealias BuildConfig = SwiftBuild.ProjectModel.BuildConfig
 typealias BuildSettings = SwiftBuild.ProjectModel.BuildSettings
@@ -203,7 +205,7 @@ public final class PackagePIFBuilder {
         addLocalRpaths: Bool = true,
         packageDisplayVersion: String?,
         fileSystem: FileSystem,
-        observabilityScope: ObservabilityScope
+        observabilityScope: ObservabilityScope,
     ) {
         self.package = resolvedPackage
         self.packageManifest = packageManifest
@@ -227,7 +229,7 @@ public final class PackagePIFBuilder {
         addLocalRpaths: Bool = true,
         packageDisplayVersion: String?,
         fileSystem: FileSystem,
-        observabilityScope: ObservabilityScope
+        observabilityScope: ObservabilityScope,
     ) {
         self.package = resolvedPackage
         self.packageManifest = packageManifest
@@ -401,7 +403,7 @@ public final class PackagePIFBuilder {
             case .packageProduct: .packageProduct
             case .hostBuildTool: fatalError("Unexpected hostBuildTool type")
             @unknown default:
-                fatalError()
+                fatalError("Unknown product type: \(pifProductType)")
             }
         }
     }
@@ -438,7 +440,7 @@ public final class PackagePIFBuilder {
         //
 
         self.log(.debug, "Processing \(package.products.count) products:")
-        
+
         // For each of the **products** in the package we create a corresponding `PIFTarget` of the appropriate type.
         for product in self.package.products {
             switch product.type {
@@ -561,8 +563,8 @@ public final class PackagePIFBuilder {
         // We currently deliberately do not support Swift ObjC interface headers.
         settings[.SWIFT_INSTALL_OBJC_HEADER] = "NO"
         settings[.SWIFT_OBJC_INTERFACE_HEADER_NAME] = ""
-        
-        // rdar://47937899 (Don't try to link frameworks to object files) 
+
+        // rdar://47937899 (Don't try to link frameworks to object files)
         //  - looks like this defaults to OTHER_LDFLAGS (via xcspec) which can result in linking frameworks to mh_objects which is unwanted.
         settings[.OTHER_LDRFLAGS] = []
 
@@ -581,7 +583,7 @@ public final class PackagePIFBuilder {
                 log(.warning, "Ignoring options '\(platformOptions.joined(separator: " "))' specified for unknown platform \(platform.name)")
                 continue
             }
-            settings[.SPECIALIZATION_SDK_OPTIONS, pifPlatform]?.append(contentsOf: platformOptions)
+            settings[.SPECIALIZATION_SDK_OPTIONS, pifPlatform] = (settings[.SPECIALIZATION_SDK_OPTIONS, pifPlatform] ?? []) + platformOptions
         }
 
         let deviceFamilyIDs: Set<Int> = self.delegate.deviceFamilyIDs()
@@ -607,7 +609,7 @@ public final class PackagePIFBuilder {
                 } catch {
                     preconditionFailure("Unhandled arm64e platform: \(error)")
                 }
-                settings[.ARCHS, pifPlatform]?.append(contentsOf: ["arm64e"])
+                settings[.ARCHS, pifPlatform] = (settings[.ARCHS, pifPlatform] ?? []) + ["arm64e"]
             }
         }
 
@@ -622,6 +624,7 @@ public final class PackagePIFBuilder {
         debugSettings[.ENABLE_TESTABILITY] = "YES"
         debugSettings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS, default: []].append(contentsOf: ["DEBUG"])
         debugSettings[.GCC_PREPROCESSOR_DEFINITIONS, default: ["$(inherited)"]].append(contentsOf: ["DEBUG=1"])
+        debugSettings[.SWIFT_INDEX_STORE_ENABLE] = "YES"
         builder.project.addBuildConfig { id in BuildConfig(id: id, name: "Debug", settings: debugSettings) }
 
         // Add the build settings that are specific to release builds, and set those as the "Release" configuration.

@@ -20,6 +20,8 @@ import SPMBuildCore
 import TSCUtility
 
 public struct MockToolchain: PackageModel.Toolchain {
+    public let metalToolchainId: String?
+    public let metalToolchainPath: Basics.AbsolutePath?
     #if os(Windows)
     public let librarianPath = AbsolutePath("/fake/path/to/link.exe")
     #elseif canImport(Darwin)
@@ -54,6 +56,8 @@ public struct MockToolchain: PackageModel.Toolchain {
 
     public init(swiftResourcesPath: AbsolutePath? = nil) {
         self.swiftResourcesPath = swiftResourcesPath
+        self.metalToolchainPath = nil
+        self.metalToolchainId = nil
     }
 }
 
@@ -87,11 +91,14 @@ public func mockBuildParameters(
     shouldDisableLocalRpath: Bool = false,
     canRenameEntrypointFunctionName: Bool = false,
     triple: Basics.Triple = hostTriple,
-    indexStoreMode: BuildParameters.IndexStoreMode = .off,
+    indexStoreMode: BuildParameters.IndexStoreMode = .auto,
     linkerDeadStrip: Bool = true,
     linkTimeOptimizationMode: BuildParameters.LinkTimeOptimizationMode? = nil,
     omitFramePointers: Bool? = nil,
-    prepareForIndexing: BuildParameters.PrepareForIndexingMode = .off
+    enableXCFrameworksOnLinux: Bool = false,
+    prepareForIndexing: BuildParameters.PrepareForIndexingMode = .off,
+    sanitizers: [Sanitizer] = [],
+    numberOfWorkers: UInt32 = 3,
 ) -> BuildParameters {
     try! BuildParameters(
         destination: destination,
@@ -102,9 +109,11 @@ public func mockBuildParameters(
         flags: flags,
         buildSystemKind: buildSystemKind,
         pkgConfigDirectories: [],
-        workers: 3,
+        workers: numberOfWorkers,
+        sanitizers: EnabledSanitizers(Set(sanitizers)),
         indexStoreMode: indexStoreMode,
         prepareForIndexing: prepareForIndexing,
+        enableXCFrameworksOnLinux: enableXCFrameworksOnLinux,
         debuggingParameters: .init(
             triple: triple,
             shouldEnableDebuggingEntitlement: config == .debug,
@@ -118,7 +127,7 @@ public func mockBuildParameters(
             linkTimeOptimizationMode: linkTimeOptimizationMode,
             shouldDisableLocalRpath: shouldDisableLocalRpath,
             shouldLinkStaticSwiftStdlib: shouldLinkStaticSwiftStdlib
-        )
+        ),
     )
 }
 

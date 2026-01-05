@@ -88,7 +88,7 @@ public final class Cancellator: Cancellable, Sendable {
                 )
                 #endif
                 sigaction(SIGINT, &action, nil)
-                kill(getpid(), SIGINT)
+                kill(getpid(), SIGINT)              // ignore-unacceptable-language
             }
             interruptSignalSource.resume()
             #endif
@@ -99,7 +99,7 @@ public final class Cancellator: Cancellable, Sendable {
 
     @discardableResult
     public func register(name: String, handler: @escaping CancellationHandler) -> RegistrationKey? {
-        if self.cancelling.get(default: false) {
+        if self.cancelling.get() {
             self.observabilityScope?.emit(debug: "not registering '\(name)' with terminator, termination in progress")
             return .none
         }
@@ -229,7 +229,7 @@ extension AsyncProcess {
         let forceKillSemaphore = DispatchSemaphore(value: 0)
         let forceKillThread = TSCBasic.Thread {
             if case .timedOut = forceKillSemaphore.wait(timeout: timeout) {
-                // send a force-kill signal
+                // send a force-kill signal         // ignore-unacceptable-language
                 #if os(Windows)
                 self.signal(SIGTERM)
                 #else
@@ -239,8 +239,8 @@ extension AsyncProcess {
         }
         forceKillThread.start()
         _ = try? self.waitUntilExit()
-        forceKillSemaphore.signal() // let the force-kill thread know we do not need it any more
-        // join the force-kill thread thread so we don't exit before everything terminates
+        forceKillSemaphore.signal() // let the force-kill thread know we do not need it any more    //ignore-unacceptable-language
+        // join the force-kill thread thread so we don't exit before everything terminates          //ignore-unacceptable-language
         forceKillThread.join()
     }
 }
@@ -263,14 +263,14 @@ extension Foundation.Process {
                     return
                 }
 
-                // force kill (SIGTERM)
+                // force kill (SIGTERM)         // ignore-unacceptable-language
                 self.terminate()
             }
         }
         forceKillThread.start()
         self.waitUntilExit()
-        forceKillSemaphore.signal() // let the force-kill thread know we do not need it any more
-        // join the force-kill thread thread so we don't exit before everything terminates
+        forceKillSemaphore.signal() // let the force-kill thread know we do not need it any more    //ignore-unacceptable-language
+        // join the force-kill thread thread so we don't exit before everything terminates          //ignore-unacceptable-language
         forceKillThread.join()
     }
 }

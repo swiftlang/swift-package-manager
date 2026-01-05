@@ -980,7 +980,7 @@ final class TestRunner {
 
     /// Executes and returns execution status. Prints test output on standard streams if requested
     /// - Returns: Result of spawning and running the test process, and the output stream result
-    func test(outputHandler: @escaping (String) -> Void) -> Result {
+    func test(outputHandler: @escaping @Sendable (String) -> Void) -> Result {
         var results = [Result]()
         for path in self.bundlePaths {
             let testSuccess = self.test(at: path, outputHandler: outputHandler)
@@ -1027,11 +1027,11 @@ final class TestRunner {
         return args
     }
 
-    private func test(at path: AbsolutePath, outputHandler: @escaping (String) -> Void) -> Result {
+    private func test(at path: AbsolutePath, outputHandler: @escaping @Sendable (String) -> Void) -> Result {
         let testObservabilityScope = self.observabilityScope.makeChildScope(description: "running test at \(path)")
 
         do {
-            let outputHandler = { (bytes: [UInt8]) in
+            let outputHandler: @Sendable ([UInt8]) -> Void = { (bytes: [UInt8]) in
                 if let output = String(bytes: bytes, encoding: .utf8) {
                     outputHandler(output)
                 }
@@ -1214,17 +1214,16 @@ final class ParallelTestRunner {
                         observabilityScope: self.observabilityScope,
                         library: .xctest // swift-testing does not use ParallelTestRunner
                     )
-                    var output = ""
-                    let outputLock = NSLock()
+                    let output = ThreadSafeBox<String>("")
                     let start = DispatchTime.now()
-                    let result = testRunner.test(outputHandler: { _output in outputLock.withLock{ output += _output }})
+                    let result = testRunner.test(outputHandler: { _output in output.append(_output) })
                     let duration = start.distance(to: .now())
                     if result == .failure {
                         self.ranSuccessfully = false
                     }
                     self.finishedTests.enqueue(TestResult(
                         unitTest: test,
-                        output: output,
+                        output: output.get(),
                         success: result != .failure,
                         duration: duration
                     ))

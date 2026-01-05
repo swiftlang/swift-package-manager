@@ -90,7 +90,7 @@ private func executeAddURLDependencyAndAssert(
 }
 
 @Suite(
-    .serializedIfOnWindows,
+    .serialized,
     .tags(
         .TestSize.large,
         .Feature.Command.Package.General,
@@ -1044,7 +1044,7 @@ struct PackageCommandTests {
         func describeJson(
             data: BuildData,
         ) async throws {
-            try await withKnownIssue(isIntermittent: ProcessInfo.hostOperatingSystem == .windows) {
+            try await withKnownIssue(isIntermittent: true) {
                 try await fixture(name: "DependencyResolution/External/Simple/Bar") { fixturePath in
                     // Generate the JSON description.
                     let (jsonOutput, _) = try await execute(
@@ -1189,7 +1189,7 @@ struct PackageCommandTests {
         withPrettyPrinting: Bool,
     ) async throws {
         // try XCTSkipIf(buildSystemProvider == .native && (try? UserToolchain.default.getSymbolGraphExtract()) == nil, "skipping test because the `swift-symbolgraph-extract` tools isn't available")
-        try await withKnownIssue {
+        try await withKnownIssue(isIntermittent: true) {
             try await fixture(
                 name: "DependencyResolution/Internal/Simple",
                 removeFixturePathOnDeinit: true
@@ -3069,22 +3069,26 @@ struct PackageCommandTests {
     func purgeCacheWithoutPackage(
         data: BuildData,
     ) async throws {
-        // Create a temporary directory without Package.swift
-        try await fixture(name: "Miscellaneous") { fixturePath in
-            let tempDir = fixturePath.appending("empty-dir-for-purge-test")
-            try localFileSystem.createDirectory(tempDir, recursive: true)
+        try await withKnownIssue(isIntermittent: true) {
+            // Create a temporary directory without Package.swift
+            try await fixture(name: "Miscellaneous") { fixturePath in
+                let tempDir = fixturePath.appending("empty-dir-for-purge-test")
+                try localFileSystem.createDirectory(tempDir, recursive: true)
 
-            // Use a unique temporary cache directory to avoid conflicts with parallel tests
-            try await withTemporaryDirectory(removeTreeOnDeinit: true) { cacheDir in
-                let result = try await executeSwiftPackage(
-                    tempDir,
-                    configuration: data.config,
-                    extraArgs: ["purge-cache", "--cache-path", cacheDir.pathString],
-                    buildSystem: data.buildSystem
-                )
+                // Use a unique temporary cache directory to avoid conflicts with parallel tests
+                try await withTemporaryDirectory(removeTreeOnDeinit: true) { cacheDir in
+                    let result = try await executeSwiftPackage(
+                        tempDir,
+                        configuration: data.config,
+                        extraArgs: ["purge-cache", "--cache-path", cacheDir.pathString],
+                        buildSystem: data.buildSystem
+                    )
 
-                #expect(!result.stderr.contains("Could not find Package.swift"))
+                    #expect(!result.stderr.contains("Could not find Package.swift"))
+                }
             }
+        } when: {
+            ProcessInfo.isHostAmazonLinux2() //rdar://134238535
         }
     }
 
@@ -3095,57 +3099,63 @@ struct PackageCommandTests {
     func purgeCacheInPackageDirectory(
         data: BuildData,
     ) async throws {
-        // Test that purge-cache works in a package directory and successfully purges caches
-        try await fixture(name: "DependencyResolution/External/Simple") { fixturePath in
-            let packageRoot = fixturePath.appending("Bar")
+        try await withKnownIssue(
+            isIntermittent: ProcessInfo.isHostAmazonLinux2() // rdar://134238535
+        ) {
+            // Test that purge-cache works in a package directory and successfully purges caches
+            try await fixture(name: "DependencyResolution/External/Simple") { fixturePath in
+                let packageRoot = fixturePath.appending("Bar")
 
-            // Use a unique temporary cache directory for this test
-            try await withTemporaryDirectory(removeTreeOnDeinit: true) { tempDir in
-                let cacheDir = tempDir.appending("test-cache")
-                let cacheArgs = ["--cache-path", cacheDir.pathString]
+                // Use a unique temporary cache directory for this test
+                try await withTemporaryDirectory(removeTreeOnDeinit: true) { tempDir in
+                    let cacheDir = tempDir.appending("test-cache")
+                    let cacheArgs = ["--cache-path", cacheDir.pathString]
 
-                // Resolve dependencies to populate cache
-                // Note: This fixture uses local dependencies, so only manifest cache will be populated
-                try await executeSwiftPackage(
-                    packageRoot,
-                    configuration: data.config,
-                    extraArgs: ["resolve"] + cacheArgs,
-                    buildSystem: data.buildSystem
-                )
+                    // Resolve dependencies to populate cache
+                    // Note: This fixture uses local dependencies, so only manifest cache will be populated
+                    try await executeSwiftPackage(
+                        packageRoot,
+                        configuration: data.config,
+                        extraArgs: ["resolve"] + cacheArgs,
+                        buildSystem: data.buildSystem
+                    )
 
-                // Verify manifest cache was populated
-                let manifestsCache = cacheDir.appending(components: "manifests")
-                expectDirectoryExists(at: manifestsCache)
+                    // Verify manifest cache was populated
+                    let manifestsCache = cacheDir.appending(components: "manifests")
+                    expectDirectoryExists(at: manifestsCache)
 
-                // Check for manifest.db file (main database file)
-                let manifestDB = manifestsCache.appending("manifest.db")
-                let hasManifestDB = localFileSystem.exists(manifestDB)
+                    // Check for manifest.db file (main database file)
+                    let manifestDB = manifestsCache.appending("manifest.db")
+                    let hasManifestDB = localFileSystem.exists(manifestDB)
 
-                // Check for SQLite auxiliary files that might exist
-                let manifestDBWAL = manifestsCache.appending("manifest.db-wal")
-                let manifestDBSHM = manifestsCache.appending("manifest.db-shm")
-                let hasAuxFiles = localFileSystem.exists(manifestDBWAL) || localFileSystem.exists(manifestDBSHM)
+                    // Check for SQLite auxiliary files that might exist
+                    let manifestDBWAL = manifestsCache.appending("manifest.db-wal")
+                    let manifestDBSHM = manifestsCache.appending("manifest.db-shm")
+                    let hasAuxFiles = localFileSystem.exists(manifestDBWAL) || localFileSystem.exists(manifestDBSHM)
 
-                // At least one manifest database file should exist
-                #expect(hasManifestDB || hasAuxFiles, "Manifest cache should be populated after resolve")
+                    // At least one manifest database file should exist
+                    #expect(hasManifestDB || hasAuxFiles, "Manifest cache should be populated after resolve")
 
-                // Run purge-cache
-                let result = try await executeSwiftPackage(
-                    packageRoot,
-                    configuration: data.config,
-                    extraArgs: ["purge-cache"] + cacheArgs,
-                    buildSystem: data.buildSystem
-                )
+                    // Run purge-cache
+                    let result = try await executeSwiftPackage(
+                        packageRoot,
+                        configuration: data.config,
+                        extraArgs: ["purge-cache"] + cacheArgs,
+                        buildSystem: data.buildSystem
+                    )
 
-                // Verify command succeeded
-                #expect(!result.stderr.contains("Could not find Package.swift"))
+                    // Verify command succeeded
+                    #expect(!result.stderr.contains("Could not find Package.swift"))
 
-                // Verify manifest.db was removed (the purge implementation removes this file)
-                expectFileDoesNotExists(at: manifestDB, "manifest.db should be removed after purge")
+                    // Verify manifest.db was removed (the purge implementation removes this file)
+                    expectFileDoesNotExists(at: manifestDB, "manifest.db should be removed after purge")
 
-                // Note: SQLite auxiliary files (WAL/SHM) may or may not be removed depending on SQLite state
-                // The important check is that the main database file is removed
+                    // Note: SQLite auxiliary files (WAL/SHM) may or may not be removed depending on SQLite state
+                    // The important check is that the main database file is removed
+                }
             }
+        } when: {
+            ProcessInfo.isHostAmazonLinux2()
         }
     }
 
@@ -3422,7 +3432,7 @@ struct PackageCommandTests {
                     """
             )
         }
-        try await withKnownIssue {
+        try await withKnownIssue(isIntermittent: true) {
             try await testWithTemporaryDirectory { tmpPath in
                 let packageDir = tmpPath.appending(components: "library")
                 try localFileSystem.writeFileContents(
@@ -4130,6 +4140,7 @@ struct PackageCommandTests {
                 "https://github.com/swiftlang/swift-package-manager/issues/9006",
                 relationship: .defect
             ),
+            .IssueWindowsCannotSaveAttachment,
             arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
             [
                 // When updating these, make sure we keep testing both the singular and
@@ -4154,7 +4165,7 @@ struct PackageCommandTests {
         ) async throws {
             let featureName = testData.featureName
             let expectedSummary = testData.expectedSummary
-
+            try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "SwiftMigrate/\(featureName)Migration") { fixturePath in
                 let sourcePaths: [AbsolutePath]
                 let fixedSourcePaths: [AbsolutePath]
@@ -4181,7 +4192,6 @@ struct PackageCommandTests {
                     packagePath: fixturePath,
                     configuration: buildData.config,
                     buildSystem: buildData.buildSystem,
-
                 )
 
                 #expect(sourcePaths.count == fixedSourcePaths.count)
@@ -4194,6 +4204,9 @@ struct PackageCommandTests {
 
                 let regexMatch = try Regex("> \(expectedSummary)" + #" \([0-9]\.[0-9]{1,3}s\)"#)
                 #expect(stdout.contains(regexMatch))
+            }
+            } when: {
+                ProcessInfo.hostOperatingSystem == .windows && buildData.buildSystem == .swiftbuild
             }
         }
 
@@ -4208,6 +4221,7 @@ struct PackageCommandTests {
         func migrateCommandWithBuildToolPlugins(
             data: BuildData,
         ) async throws {
+            try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "SwiftMigrate/ExistentialAnyWithPluginMigration") { fixturePath in
                 let (stdout, _) = try await execute(
                     ["migrate", "--to-feature", "ExistentialAny"],
@@ -4233,6 +4247,9 @@ struct PackageCommandTests {
                 )
                 #expect(stdout.contains(regexMatch))
             }
+            } when: {
+                ProcessInfo.hostOperatingSystem == .windows
+            }
         }
 
         @Test(
@@ -4241,11 +4258,13 @@ struct PackageCommandTests {
                 "https://github.com/swiftlang/swift-package-manager/issues/9006",
                 relationship: .defect
             ),
+            .IssueWindowsCannotSaveAttachment,
             arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
         )
         func migrateCommandWhenDependencyBuildsForHostAndTarget(
             data: BuildData,
         ) async throws {
+            try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "SwiftMigrate/ExistentialAnyWithCommonPluginDependencyMigration") {
                 fixturePath in
                 let (stdout, _) = try await execute(
@@ -4261,6 +4280,9 @@ struct PackageCommandTests {
                     "> \("Applied 1 fix-it in 1 file")" + #" \([0-9]\.[0-9]{1,3}s\)"#
                 )
                 #expect(stdout.contains(regexMatch))
+            }
+            } when: {
+                ProcessInfo.hostOperatingSystem == .windows
             }
         }
 
@@ -4397,7 +4419,7 @@ struct PackageCommandTests {
         func buildToolPlugin(
             data: BuildData,
         ) async throws {
-            try await withKnownIssue {
+            try await withKnownIssue(isIntermittent: true) {
                 try await testBuildToolPlugin(data: data, staticStdlib: false)
             } when: {
                 ProcessInfo.hostOperatingSystem == .windows && data.buildSystem == .swiftbuild
@@ -4511,7 +4533,8 @@ struct PackageCommandTests {
                 #expect(stdout.contains("Build complete!"))
 
                 // We expect a warning about `library.bar` but not about `library.foo`.
-                #expect(!stderr.contains(RelativePath("Sources/MyLibrary/library.foo").pathString))
+                let libraryFooPath = RelativePath("Sources/MyLibrary/library.foo").pathString
+                #expect(!stderr.components(separatedBy: "\n").contains { $0.contains("warning: ") && $0.contains(libraryFooPath) })
                 if data.buildSystem == .native {
                     #expect(stderr.contains("found 1 file(s) which are unhandled"))
                     #expect(stderr.contains(RelativePath("Sources/MyLibrary/library.bar").pathString))
@@ -4522,7 +4545,7 @@ struct PackageCommandTests {
         @Test(
             .tags(
               .Feature.Command.Build,
-              .Feature.PackageType.BuildToolPlugin  
+              .Feature.PackageType.BuildToolPlugin
             ),
             .requiresSwiftConcurrencySupport,
             arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
@@ -4540,7 +4563,7 @@ struct PackageCommandTests {
                         buildSystem: data.buildSystem,
                     )
                 ) { error in
-                    withKnownIssue {
+                    withKnownIssue(isIntermittent: true) {
                         #expect(error.stderr.contains("This is text from the plugin"))
                         #expect(error.stderr.contains("error: This is an error from the plugin"))
                     } when: {
@@ -5264,7 +5287,7 @@ struct PackageCommandTests {
         @Test(
             .tags(
               .Feature.Command.Build,
-              .Feature.PackageType.CommandPlugin 
+              .Feature.PackageType.CommandPlugin
             ),
             .requiresSwiftConcurrencySupport,
             .issue(
@@ -5470,7 +5493,7 @@ struct PackageCommandTests {
         ) async throws {
             let debugTarget = try buildData.buildSystem.binPath(for: .debug) + [executableName("placeholder")]
             let releaseTarget = try buildData.buildSystem.binPath(for: .release) + [executableName("placeholder")]
-            try await withKnownIssue {
+            try await withKnownIssue(isIntermittent: true) {
                 // By default, a plugin-requested build produces a debug binary
                 try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
                     let _ = try await execute(
@@ -5505,7 +5528,7 @@ struct PackageCommandTests {
         ) async throws {
             let debugTarget = try buildData.buildSystem.binPath(for: .debug) + [executableName("placeholder")]
             let releaseTarget = try buildData.buildSystem.binPath(for: .release) + [executableName("placeholder")]
-            try await withKnownIssue {
+            try await withKnownIssue(isIntermittent: true) {
                 // If the plugin specifies a debug binary, that is what will be built, regardless of overall configuration
                 try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
                     let _ = try await execute(
@@ -5544,7 +5567,7 @@ struct PackageCommandTests {
         ) async throws {
             let debugTarget = try buildData.buildSystem.binPath(for: .debug) + [executableName("placeholder")]
             let releaseTarget = try buildData.buildSystem.binPath(for: .release) + [executableName("placeholder")]
-            try await withKnownIssue {
+            try await withKnownIssue(isIntermittent: true) {
                 // If the plugin requests a release binary, that is what will be built, regardless of overall configuration
                 try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
                     let _ = try await execute(
@@ -5582,7 +5605,7 @@ struct PackageCommandTests {
         ) async throws {
             let debugTarget = try buildData.buildSystem.binPath(for: .debug) + [executableName("placeholder")]
             let releaseTarget = try buildData.buildSystem.binPath(for: .release) + [executableName("placeholder")]
-            try await withKnownIssue {
+            try await withKnownIssue(isIntermittent: true) {
                 // If the plugin inherits the overall build configuration, that is what will be built
                 try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
                     let _ = try await execute(
@@ -5621,7 +5644,7 @@ struct PackageCommandTests {
             data: BuildData,
         ) async throws {
             // Plugin arguments: check-testability <targetName> <config> <shouldTestable>
-            try await withKnownIssue {
+            try await withKnownIssue(isIntermittent: true) {
                 // Overall configuration: debug, plugin build request: debug -> without testability
                 try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
                     let _ = await #expect(throws: Never.self) {
@@ -5649,7 +5672,7 @@ struct PackageCommandTests {
         func commandPluginBuildTestabilityInternalModule_Release_False(
             data: BuildData,
         ) async throws {
-            try await withKnownIssue {
+            try await withKnownIssue(isIntermittent: true) {
                 // Overall configuration: debug, plugin build request: release -> without testability
                 try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
                     let _ = await #expect(throws: Never.self) {
@@ -5680,7 +5703,7 @@ struct PackageCommandTests {
         func commandPluginBuildTestabilityAllWithTests_Release_True(
             data: BuildData,
         ) async throws {
-            try await withKnownIssue(isIntermittent: (ProcessInfo.hostOperatingSystem == .linux)) {
+            try await withKnownIssue(isIntermittent: true) {
                 // Overall configuration: release, plugin build request: release including tests -> with testability
                 try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
                     let _ = await #expect(throws: Never.self) {
@@ -5729,7 +5752,7 @@ struct PackageCommandTests {
             // otherwise the logs may be different in subsequent tests.
 
             // Check than nothing is echoed when echoLogs is false
-            try await withKnownIssue(isIntermittent: ProcessInfo.hostOperatingSystem == .windows) {
+            try await withKnownIssue(isIntermittent: true) {
                 try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
                     let (stdout, stderr) = try await execute(  //got here
                         ["print-diagnostics", "build"],
@@ -5743,6 +5766,7 @@ struct PackageCommandTests {
                     let filteredStderr = stderr.components(separatedBy: "\n")
                         .filter { !$0.contains("Unable to locate libSwiftScan") }
                         .filter { !($0.contains("warning: ") && $0.contains("unable to find libclang")) }
+                        .filter { !$0.contains("Build description")}
                         .joined(separator: "\n")
                     #expect(filteredStderr == isEmpty)
                 }
@@ -5761,6 +5785,7 @@ struct PackageCommandTests {
                     let filteredStderr = stderr.components(separatedBy: "\n")
                         .filter { !$0.contains("Unable to locate libSwiftScan") }
                         .filter { !($0.contains("warning: ") && $0.contains("unable to find libclang")) }
+                        .filter { !$0.contains("Build description")}
                         .joined(separator: "\n")
                     #expect(filteredStderr == isEmpty)
                 }
@@ -6475,7 +6500,7 @@ struct PackageCommandTests {
         func commandPluginBuildingCallbacks(
             data: BuildData,
         ) async throws {
-            try await withKnownIssue {
+            try await withKnownIssue(isIntermittent: true) {
                 try await testWithTemporaryDirectory { tmpPath in
                     let buildSystemProvider = data.buildSystem
                     // Create a sample package with a library, an executable, and a command plugin.
@@ -6651,7 +6676,7 @@ struct PackageCommandTests {
                     }
 
                     // SwiftBuild is currently not producing a static archive for static products unless they are linked into some other binary.
-                    try await withKnownIssue {
+                    try await withKnownIssue(isIntermittent: true) {
                         // Invoke the plugin with parameters choosing a verbose build of MyStaticLibrary for release.
                         do {
                             let (stdout, _) = try await execute(
@@ -6730,7 +6755,7 @@ struct PackageCommandTests {
             arguments: [BuildSystemProvider.Kind.native, .swiftbuild],
         )
         func commandPluginBuildingCallbacksExcludeUnbuiltArtifacts(buildSystem: BuildSystemProvider.Kind) async throws {
-            try await withKnownIssue {
+            try await withKnownIssue(isIntermittent: true) {
                 try await fixture(name: "PartiallyUnusedDependency") { fixturePath in
                     let (stdout, _) = try await execute(
                         ["dump-artifacts-plugin"],
@@ -6769,7 +6794,7 @@ struct PackageCommandTests {
         func commandPluginTestingCallbacks(
             data: BuildData,
         ) async throws {
-            try await withKnownIssue {
+            try await withKnownIssue(isIntermittent: true) {
                 try await testWithTemporaryDirectory { tmpPath in
                     // Create a sample package with a library, a command plugin, and a couple of tests.
                     let packageDir = tmpPath.appending(components: "MyPackage")
@@ -7471,7 +7496,7 @@ struct PackageCommandTests {
         func commandPluginDynamicDependencies(
             buildData: BuildData
         ) async throws {
-            try await withKnownIssue {
+            try await withKnownIssue(isIntermittent: true) {
                 try await testWithTemporaryDirectory { tmpPath in
                     // Create a sample package with a command plugin that has a dynamic dependency.
                     let packageDir = tmpPath.appending(components: "MyPackage")

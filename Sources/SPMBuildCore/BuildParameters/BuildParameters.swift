@@ -29,7 +29,7 @@ public struct BuildParameters: Encodable {
     }
 
     /// Mode for the indexing-while-building feature.
-    public enum IndexStoreMode: String, Encodable {
+    public enum IndexStoreMode: String, Encodable, CaseIterable {
         /// Index store should be enabled.
         case on
         /// Index store should be disabled.
@@ -132,6 +132,9 @@ public struct BuildParameters: Encodable {
     /// Do minimal build to prepare for indexing
     public var prepareForIndexing: PrepareForIndexingMode
 
+    /// Support Experimental XCF on Linux
+    public var enableXCFrameworksOnLinux: Bool
+
     /// Build parameters related to debugging.
     public var debuggingParameters: Debugging
 
@@ -166,6 +169,7 @@ public struct BuildParameters: Encodable {
         indexStoreMode: IndexStoreMode = .auto,
         shouldSkipBuilding: Bool = false,
         prepareForIndexing: PrepareForIndexingMode = .off,
+        enableXCFrameworksOnLinux: Bool = false,
         debuggingParameters: Debugging? = nil,
         driverParameters: Driver = .init(),
         linkingParameters: Linking = .init(),
@@ -229,6 +233,7 @@ public struct BuildParameters: Encodable {
         self.indexStoreMode = indexStoreMode
         self.shouldSkipBuilding = shouldSkipBuilding
         self.prepareForIndexing = prepareForIndexing
+        self.enableXCFrameworksOnLinux = enableXCFrameworksOnLinux
         self.driverParameters = driverParameters
         self.linkingParameters = linkingParameters
         self.outputParameters = outputParameters
@@ -327,7 +332,7 @@ public struct BuildParameters: Encodable {
         case .library(.dynamic):
             return try dynamicLibraryPath(for: product.name)
         case .library(.automatic), .plugin:
-            fatalError()
+            fatalError("\(#file):\(#line) - Illegal call of function \(#function) with automatica library and plugin")
         case .test:
             switch buildSystemKind {
             case .native, .xcode:

@@ -105,12 +105,14 @@ let swiftDriverDeps: [Target.Dependency]
 let swiftTSCBasicsDeps: [Target.Dependency]
 let swiftToolsCoreSupportAutoDeps: [Target.Dependency]
 let swiftTSCTestSupportDeps: [Target.Dependency]
+let swiftToolsProtocolsDeps: [Target.Dependency]
 
 if shouldUseSwiftBuildFramework {
     swiftDriverDeps = []
     swiftTSCBasicsDeps = []
     swiftToolsCoreSupportAutoDeps = []
     swiftTSCTestSupportDeps = []
+    swiftToolsProtocolsDeps = []
 } else {
     swiftDriverDeps = [
         .product(name: "SwiftDriver", package: "swift-driver")
@@ -123,6 +125,11 @@ if shouldUseSwiftBuildFramework {
     ]
     swiftTSCTestSupportDeps = [
         .product(name: "TSCTestSupport", package: "swift-tools-support-core"),
+    ]
+    swiftToolsProtocolsDeps = [
+        .product(name: "BuildServerProtocol", package: "swift-tools-protocols", condition: .when(platforms: [.macOS, .linux, .windows, .android, .openbsd, .custom("freebsd")])),
+        .product(name: "LanguageServerProtocol", package: "swift-tools-protocols", condition: .when(platforms: [.macOS, .linux, .windows, .android, .openbsd, .custom("freebsd")])),
+        .product(name: "LanguageServerProtocolTransport", package: "swift-tools-protocols", condition: .when(platforms: [.macOS, .linux, .windows, .android, .openbsd, .custom("freebsd")])),
     ]
 }
 let package = Package(
@@ -547,6 +554,26 @@ let package = Package(
             ]
         ),
 
+        // MARK: BSP
+        .target(
+            name: "SwiftPMBuildServer",
+            dependencies: [
+                "Basics",
+                "Build",
+                "PackageGraph",
+                "PackageLoading",
+                "PackageModel",
+                "SPMBuildCore",
+                "SourceControl",
+                "SourceKitLSPAPI",
+                "SwiftBuildSupport",
+                "Workspace"
+            ] + swiftTSCBasicsDeps + swiftToolsProtocolsDeps,
+            exclude: [
+                "CMakeLists.txt",
+            ],
+        ),
+
         // MARK: Commands
 
         .target(
@@ -575,6 +602,7 @@ let package = Package(
             dependencies: [
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 .product(name: "OrderedCollections", package: "swift-collections"),
+                .product(name: "SystemPackage", package: "swift-system"),
                 "Basics",
                 "BinarySymbols",
                 "Build",
@@ -585,6 +613,7 @@ let package = Package(
                 "XCBuildSupport",
                 "SwiftBuildSupport",
                 "SwiftFixIt",
+                "SwiftPMBuildServer",
             ] + swiftSyntaxDependencies(["SwiftIDEUtils", "SwiftRefactor"]),
             exclude: ["CMakeLists.txt", "README.md"],
             swiftSettings: swift6CompatibleExperimentalFeatures + [
@@ -991,6 +1020,13 @@ let package = Package(
             name: "SwiftBuildSupportTests",
             dependencies: ["SwiftBuildSupport", "_InternalTestSupport", "_InternalBuildTestSupport"]
         ),
+        .testTarget(
+            name: "BuildMetalTests",
+            dependencies: [
+                "_InternalTestSupport",
+                "Basics"
+            ]
+        ),
         // Examples (These are built to ensure they stay up to date with the API.)
         .executableTarget(
             name: "package-info",
@@ -1054,6 +1090,13 @@ if ProcessInfo.processInfo.environment["SWIFTCI_DISABLE_SDK_DEPENDENT_TESTS"] ==
                 "Workspace",
                 "dummy-swiftc",
             ]
+        ),
+        .testTarget(
+            name: "SwiftPMBuildServerTests",
+            dependencies: [
+                "SwiftPMBuildServer",
+                "_InternalTestSupport",
+            ] + swiftToolsProtocolsDeps
         ),
     ])
 }
@@ -1151,7 +1194,7 @@ if ProcessInfo.processInfo.environment["ENABLE_APPLE_PRODUCT_TYPES"] == "1" {
 
 if !shouldUseSwiftBuildFramework {
 
-    let swiftbuildsupport: Target = package.targets.first(where: { $0.name == "SwiftBuildSupport" } )!
+    let swiftbuildsupport: Target = package.targets.first(where: { ["SwiftBuildSupport", "SwiftPMBuildServer", "SwiftPMBuildServerTests"].contains($0.name) } )!
     swiftbuildsupport.dependencies += [
         .product(name: "SwiftBuild", package: "swift-build"),
     ]
@@ -1164,10 +1207,12 @@ if !shouldUseSwiftBuildFramework {
     if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         package.dependencies += [
             .package(url: "https://github.com/swiftlang/swift-build.git", branch: relatedDependenciesBranch),
+            .package(url: "https://github.com/swiftlang/swift-tools-protocols.git", .upToNextMinor(from: "0.0.9")),
         ]
     } else {
         package.dependencies += [
             .package(path: "../swift-build"),
+            .package(path: "../swift-tools-protocols"),
         ]
     }
 }

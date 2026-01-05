@@ -47,8 +47,8 @@ struct BuildSystemDelegateTests {
             case .swiftbuild:
                 let searchPathRegex = try Regex("warning:(.*)Search path 'foobar' not found")
                 #expect(
-                    stderr.contains(searchPathRegex),
-                    "log didn't contain expected linker diagnostics. stderr: '\(stdout)",
+                    stderr.contains("ld: warning: search path 'foobar' not found"),
+                    "log didn't contain expected linker diagnostics. stderr: '\(stderr)",
                 )
                 #expect(
                     !stdout.contains(searchPathRegex),

@@ -58,7 +58,7 @@ extension ClangModule: ModuleMapProtocol {
 /// *  Otherwise, if the "include" directory only contains header files and no other subdirectory:
 ///    Generates: `umbrella "path/to/include"`
 ///
-/// These rules are documented at https://github.com/swiftlang/swift-package-manager/blob/master/Documentation/Usage.md#creating-c-language-targets.  To avoid breaking existing packages, do not change the semantics here without making any change conditional on the tools version of the package that defines the module.
+/// These rules are documented at https://github.com/swiftlang/swift-package-manager/blob/main/Documentation/Usage.md#creating-c-language-targets.  To avoid breaking existing packages, do not change the semantics here without making any change conditional on the tools version of the package that defines the module.
 ///
 /// Note that a module map generator doesn't require a module to already have been instantiated; it can operate on information that will later be used to instantiate a module.
 public struct ModuleMapGenerator {
@@ -84,7 +84,7 @@ public struct ModuleMapGenerator {
 
     /// Inspects the file system at the public-headers directory with which the module map generator was instantiated, and returns the type of module map that applies to that directory.  This function contains all of the heuristics that implement module map policy for package targets; other functions just use the results of this determination.
     public func determineModuleMapType(observabilityScope: ObservabilityScope) -> ModuleMapType {
-        // The following rules are documented at https://github.com/swiftlang/swift-package-manager/blob/master/Documentation/Usage.md#creating-c-language-targets.  To avoid breaking existing packages, do not change the semantics here without making any change conditional on the tools version of the package that defines the module.
+        // The following rules are documented at https://github.com/swiftlang/swift-package-manager/blob/main/Documentation/Usage.md#creating-c-language-targets.  To avoid breaking existing packages, do not change the semantics here without making any change conditional on the tools version of the package that defines the module.
 
         let diagnosticsEmitter = observabilityScope.makeDiagnosticsEmitter {
             var metadata = ObservabilityMetadata()

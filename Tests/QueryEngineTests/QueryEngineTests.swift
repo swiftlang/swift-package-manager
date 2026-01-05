@@ -5,8 +5,8 @@
 // Copyright (c) 2023 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
-// See https://swift.org/LICENSE.txt for license information
-// See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
 import Foundation
@@ -100,12 +100,13 @@ private struct Expression: CachingQuery {
 }
 
 struct QueryEngineTests {
-    @Test(
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8541"),
-        .disabled(if: ProcessInfo.hostOperatingSystem == .windows),
-    )
+    @Test
     func filePathHashing() throws {
+#if os(Windows)
+        let path = "C:\\root"
+#else
         let path = "/root"
+#endif
 
         let hashEncoder1 = HashEncoder<SHA256>()
         try hashEncoder1.encode(FilePath(path))

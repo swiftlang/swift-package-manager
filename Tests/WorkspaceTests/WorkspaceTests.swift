@@ -28,20 +28,6 @@ import struct TSCBasic.ByteString
 import struct TSCUtility.Version
 
 final class WorkspaceTests: XCTestCase {
-    // override func setUpWithError() throws {
-    //     let windowsPassingTests = [
-    //         #selector(self.testBinaryArtifactsInvalidPath),
-    //         #selector(self.testManifestLoaderDiagnostics),
-    //         #selector(self.testInterpreterFlags),
-    //         #selector(self.testManifestParseError),
-    //         #selector(self.testSimpleAPI)
-    //     ]
-    //     let matches = windowsPassingTests.filter { $0 == self.invocation?.selector}
-    //     if matches.count == 0 {
-    //         try XCTSkipOnWindows()
-    //     }
-    // }
-
     func testBasics() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
@@ -1099,7 +1085,7 @@ final class WorkspaceTests: XCTestCase {
         let bPath = RelativePath("B")
         let cPath = RelativePath("C")
         let v1Requirement: SourceControlRequirement = .range("1.0.0" ..< "2.0.0")
-        let branchRequirement: SourceControlRequirement = .branch("master")
+        let branchRequirement: SourceControlRequirement = .branch("main")
         let v1_5 = CheckoutState.version("1.0.5", revision: Revision(identifier: "hello"))
 
         let workspace = try await MockWorkspace(
@@ -1157,7 +1143,7 @@ final class WorkspaceTests: XCTestCase {
         XCTAssertEqual(result.result, .required(reason: .packageRequirementChange(
             package: cRef,
             state: .sourceControlCheckout(v1_5),
-            requirement: .revision("master")
+            requirement: .revision("main")
         )))
     }
 
@@ -1217,7 +1203,7 @@ final class WorkspaceTests: XCTestCase {
         let fs = InMemoryFileSystem()
         let bPath = RelativePath("B")
         let v1Requirement: SourceControlRequirement = .range("1.0.0" ..< "2.0.0")
-        let masterRequirement: SourceControlRequirement = .branch("master")
+        let masterRequirement: SourceControlRequirement = .branch("main")
         let v1_5 = CheckoutState.version("1.0.5", revision: Revision(identifier: "hello"))
 
         let workspace = try await MockWorkspace(
@@ -1275,7 +1261,7 @@ final class WorkspaceTests: XCTestCase {
         XCTAssertEqual(result.result, .required(reason: .packageRequirementChange(
             package: cRef,
             state: .fileSystem(cPackagePath),
-            requirement: .revision("master")
+            requirement: .revision("main")
         )))
     }
 
@@ -1353,7 +1339,7 @@ final class WorkspaceTests: XCTestCase {
         let cPath = RelativePath("C")
         let v1Requirement: SourceControlRequirement = .range("1.0.0" ..< "2.0.0")
         let v1_5 = CheckoutState.version("1.0.5", revision: Revision(identifier: "hello"))
-        let master = CheckoutState.branch(name: "master", revision: Revision(identifier: "master"))
+        let main = CheckoutState.branch(name: "main", revision: Revision(identifier: "main"))
 
         let workspace = try await MockWorkspace(
             sandbox: sandbox,
@@ -1398,10 +1384,10 @@ final class WorkspaceTests: XCTestCase {
         )
 
         try await workspace.set(
-            resolvedPackages: [bRef: v1_5, cRef: master],
+            resolvedPackages: [bRef: v1_5, cRef: main],
             managedDependencies: [
                 bPackagePath: .sourceControlCheckout(packageRef: bRef, state: v1_5, subpath: bPath),
-                cPackagePath: .sourceControlCheckout(packageRef: cRef, state: master, subpath: cPath),
+                cPackagePath: .sourceControlCheckout(packageRef: cRef, state: main, subpath: cPath),
             ]
         )
 
@@ -1409,7 +1395,7 @@ final class WorkspaceTests: XCTestCase {
         XCTAssertNoDiagnostics(result.diagnostics)
         XCTAssertEqual(result.result, .required(reason: .packageRequirementChange(
             package: cRef,
-            state: .sourceControlCheckout(master),
+            state: .sourceControlCheckout(main),
             requirement: .unversioned
         )))
     }
@@ -5644,7 +5630,7 @@ final class WorkspaceTests: XCTestCase {
             roots: [
                 MockPackage(
                     name: "Baz",
-                    path: "Overridden/bazzz-master",
+                    path: "Overridden/bazzz-default",
                     targets: [
                         MockTarget(name: "Baz"),
                     ],
@@ -5672,11 +5658,11 @@ final class WorkspaceTests: XCTestCase {
             .sourceControl(path: "./bazzz", requirement: .exact("1.0.0"), products: .specific(["Baz"])),
         ]
 
-        try await workspace.checkPackageGraphFailure(roots: ["Overridden/bazzz-master"], deps: deps) { diagnostics in
+        try await workspace.checkPackageGraphFailure(roots: ["Overridden/bazzz-default"], deps: deps) { diagnostics in
             testDiagnostics(diagnostics) { result in
                 result.check(
                     diagnostic: .equal(
-                        "unable to override package 'Baz' because its identity 'bazzz' doesn't match override's identity (directory name) 'bazzz-master'"
+                        "unable to override package 'Baz' because its identity 'bazzz' doesn't match override's identity (directory name) 'bazzz-default'"
                     ),
                     severity: .error
                 )
@@ -5922,7 +5908,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        .sourceControl(path: "./Foo", requirement: .branch("master")),
+                        .sourceControl(path: "./Foo", requirement: .branch("main")),
                         .sourceControl(path: "./Baz", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
@@ -5937,9 +5923,9 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Foo", modules: ["Foo"]),
                     ],
                     dependencies: [
-                        .sourceControl(path: "./Bar", requirement: .branch("master")),
+                        .sourceControl(path: "./Bar", requirement: .branch("main")),
                     ],
-                    versions: ["master", nil]
+                    versions: ["main", nil]
                 ),
                 MockPackage(
                     name: "Bar",
@@ -5949,7 +5935,7 @@ final class WorkspaceTests: XCTestCase {
                     products: [
                         MockProduct(name: "Bar", modules: ["Bar"]),
                     ],
-                    versions: ["master", "1.0.0", nil]
+                    versions: ["main", "1.0.0", nil]
                 ),
                 MockPackage(
                     name: "Baz",
@@ -5972,8 +5958,8 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertNoDiagnostics(diagnostics)
         }
         await workspace.checkManagedDependencies { result in
-            result.check(dependency: "foo", at: .checkout(.branch("master")))
-            result.check(dependency: "bar", at: .checkout(.branch("master")))
+            result.check(dependency: "foo", at: .checkout(.branch("main")))
+            result.check(dependency: "bar", at: .checkout(.branch("main")))
             result.check(dependency: "baz", at: .checkout(.version("1.0.0")))
         }
 
@@ -6002,7 +5988,7 @@ final class WorkspaceTests: XCTestCase {
         }
         await workspace.checkManagedDependencies { result in
             result.check(dependency: "foo", at: .edited(nil))
-            result.check(dependency: "bar", at: .checkout(.branch("master")))
+            result.check(dependency: "bar", at: .checkout(.branch("main")))
             result.check(dependency: "baz", at: .checkout(.version("1.0.0")))
         }
         XCTAssertNoMatch(workspace.delegate.events, [.equal("will resolve dependencies")])
@@ -8313,7 +8299,7 @@ final class WorkspaceTests: XCTestCase {
             guard case .download(let fileSystem, let destination) = request.kind else {
                 throw StringError("invalid request \(request.kind)")
             }
-            acceptHeaders.mutate { $0?.append(request.headers.get("accept").first!) }
+            acceptHeaders.mutate { $0.append(request.headers.get("accept").first!) }
 
             let contents: [UInt8]
             switch request.url.lastPathComponent {
@@ -8873,7 +8859,7 @@ final class WorkspaceTests: XCTestCase {
             }
 
             concurrentRequests.increment()
-            if concurrentRequests.get()! > maxConcurrentRequests {
+            if concurrentRequests.get() > maxConcurrentRequests {
                 XCTFail("too many concurrent requests \(concurrentRequests), expected \(maxConcurrentRequests)")
             }
 

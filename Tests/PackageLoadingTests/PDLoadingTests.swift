@@ -18,7 +18,7 @@ import XCTest
 
 class PackageDescriptionLoadingTests: XCTestCase, ManifestLoaderDelegate {
     lazy var manifestLoader = ManifestLoader(toolchain: try! UserToolchain.default, delegate: self)
-    var parsedManifest = ThreadSafeBox<AbsolutePath>()
+    var parsedManifest = ThreadSafeBox<AbsolutePath>(.root)
 
     func willLoad(packageIdentity: PackageModel.PackageIdentity, packageLocation: String, manifestPath: AbsolutePath) {
         // noop

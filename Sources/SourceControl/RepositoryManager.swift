@@ -46,7 +46,7 @@ public class RepositoryManager: Cancellable {
     // Limits how many concurrent operations can be performed at once.
     private let asyncOperationQueue: AsyncOperationQueue
 
-    private var emitNoConnectivityWarning = ThreadSafeBox<Bool>(true)
+    private var emitNoConnectivityWarning = ThreadSafeBox<[String: Bool]>([:])
 
     /// Create a new empty manager.
     ///
@@ -343,10 +343,12 @@ public class RepositoryManager: Cancellable {
                 // If we are offline and have a valid cached repository, use the cache anyway.
                 if try isOffline(error) && self.provider.isValidDirectory(cachedRepositoryPath, for: handle.repository) {
                     // For the first offline use in the lifetime of this repository manager, emit a warning.
-                    if self.emitNoConnectivityWarning.get(default: false) {
-                        self.emitNoConnectivityWarning.put(false)
-                        observabilityScope.emit(warning: "no connectivity, using previously cached repository state")
-                    }
+                    self.emitNoConnectivityWarning.mutate(body: {
+                        if !$0[handle.repository.url, default: false] {
+                            $0[handle.repository.url] = true
+                            observabilityScope.emit(warning: "no connectivity to \(handle.repository.url), using previously cached repository state")
+                        }
+                    })
                     observabilityScope.emit(info: "using previously cached repository state for \(package)")
 
                     cacheUsed = true
@@ -645,45 +647,13 @@ extension RepositorySpecifier {
     }
 }
 
-#if canImport(SystemConfiguration)
-import SystemConfiguration
-
-private struct Reachability {
-    let reachability: SCNetworkReachability
-
-    init?() {
-        var emptyAddress = sockaddr()
-        emptyAddress.sa_len = UInt8(MemoryLayout<sockaddr>.size)
-        emptyAddress.sa_family = sa_family_t(AF_INET)
-
-        guard let reachability = withUnsafePointer(to: &emptyAddress, {
-            SCNetworkReachabilityCreateWithAddress(nil, UnsafePointer($0))
-        }) else {
-            return nil
-        }
-        self.reachability = reachability
-    }
-
-    var connectionRequired: Bool {
-        var flags = SCNetworkReachabilityFlags()
-        let hasFlags = withUnsafeMutablePointer(to: &flags) {
-            SCNetworkReachabilityGetFlags(reachability, UnsafeMutablePointer($0))
-        }
-        guard hasFlags else { return false }
-        guard flags.contains(.reachable) else {
-            return true
-        }
-        return flags.contains(.connectionRequired) || flags.contains(.transientConnection)
-    }
-}
-
+/// This used to rely on the SCNetworkReachability APIs on Darwin platforms and
+/// the string match elsewhere, however SCNetworkReachability has not been recommended
+/// to determine online/offline status. Instead do a simple string match on the error
+/// message indicating the host could not be resolved.
+/// This may falsely report offline status if the host is down, but this is effectively
+/// equivalent from the user's perspective.
 fileprivate func isOffline(_ error: Swift.Error) -> Bool {
-    return Reachability()?.connectionRequired == true
-}
-#else
-fileprivate func isOffline(_ error: Swift.Error) -> Bool {
-    // TODO: Find a better way to determine reachability on non-Darwin platforms.
     return "\(error)".contains("Could not resolve host")
 }
-#endif
 
