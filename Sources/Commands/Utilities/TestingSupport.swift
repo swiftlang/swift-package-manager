@@ -377,58 +377,9 @@ final class DebugTestRunner {
             try Environment.set(key: key, value: value)
         }
 
-        // Check if we're running Swift Package Manager's own tests
-        let isRunningTests = Environment.current["SWIFTPM_TESTS_LLDB"] != nil
-
-        if isRunningTests {
-            // When running tests, use AsyncProcess to launch LLDB as a subprocess
-            // This allows the test to capture output while LLDB exits due to no stdin
-            try runLLDBForTesting(lldbPath: lldbPath, args: lldbArgs)
-        } else {
-            // Normal interactive mode - use exec to replace the current process with LLDB
-            // This avoids PTY issues that interfere with LLDB's command line editing
-            try exec(path: lldbPath.pathString, args: [lldbPath.pathString] + lldbArgs)
-        }
-    }
-
-    /// Launches LLDB as a subprocess for testing purposes.
-    ///
-    /// This method is used when running Swift Package Manager's own tests to validate
-    /// debugger functionality. It launches LLDB without stdin attached, which causes
-    /// LLDB to execute its startup commands and then exit, allowing the test to capture
-    /// and validate the output.
-    ///
-    /// - Parameters:
-    ///   - lldbPath: Path to the LLDB executable
-    ///   - args: Command line arguments for LLDB
-    /// - Throws: Process execution errors
-    private func runLLDBForTesting(lldbPath: AbsolutePath, args: [String]) throws {
-        let process = AsyncProcess(
-            arguments: [lldbPath.pathString] + args,
-            environment: testEnv,
-            outputRedirection: .collect
-        )
-
-        try process.launch()
-        let result = try process.waitUntilExit()
-
-        // Print the output so tests can capture it
-        if let stdout = try? result.utf8Output() {
-            print(stdout, terminator: "")
-        }
-        if let stderr = try? result.utf8stderrOutput() {
-            print(stderr, terminator: "")
-        }
-
-        // Exit with the same code as LLDB to indicate success/failure
-        switch result.exitStatus {
-        case .terminated(let code):
-            if code != 0 {
-                throw AsyncProcessResult.Error.nonZeroExit(result)
-            }
-        default:
-            throw AsyncProcessResult.Error.nonZeroExit(result)
-        }
+        // Normal interactive mode - use exec to replace the current process with LLDB
+        // This avoids PTY issues that interfere with LLDB's command line editing
+        try exec(path: lldbPath.pathString, args: [lldbPath.pathString] + lldbArgs)
     }
 
     /// Returns the path to the Python script file.
