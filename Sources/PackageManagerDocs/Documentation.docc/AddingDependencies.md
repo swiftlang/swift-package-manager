@@ -1,3 +1,4 @@
+
 # Adding dependencies to a Swift package
 
 Use other Swift packages, system libraries, or binary dependencies in your package.
@@ -106,7 +107,32 @@ For more information on using a library provided by the system as a dependency, 
 To add a dependency on a precompiled binary target, specify a `.binaryTarget` in your list of targets, using either 
 [binarytarget(name:url:checksum:)](https://developer.apple.com/documentation/packagedescription/target/binarytarget(name:url:checksum:)) for a downloadable target, 
 or [binarytarget(name:path:)](https://developer.apple.com/documentation/packagedescription/target/binarytarget(name:path:)) for a local binary.
-After adding the binary target, you can add it to the list of dependencies for any other target. 
+After adding the binary target, you can add it to the list of dependencies for any other target.
+
+For more information on identifying and verifying a binary target, see [Identifying binary dependencies](https://developer.apple.com/documentation/xcode/identifying-binary-dependencies).
+For more information on creating a binary target, see [Creating a multiplatform binary framework bundle](https://developer.apple.com/documentation/xcode/creating-a-multi-platform-binary-framework-bundle).
+
+---
+
+### Referencing Artifact Bundles from a Swift Package
+
+Swift Package Manager allows packages to depend on prebuilt artifacts that are
+distributed as artifact bundles. Artifact bundles may contain either libraries
+or executables, depending on the intended use case.
+
+A Swift package references an artifact bundle by declaring a binary target using
+`.binaryTarget`. SwiftPM resolves the artifact bundle during dependency
+resolution and selects the appropriate artifact based on the target platform
+and configuration.
+
+Artifact bundles are currently used in two primary scenarios:
+
+- Providing prebuilt executables, such as tools used by SwiftPM plugins.
+- Providing prebuilt binary libraries, such as static or dynamic libraries
+  consumed by package targets.
+
+The following sections describe each use case in more detail.
+
 ### ArtifactBundleIndex
 
 Swift Package Manager supports binary targets distributed as artifact bundles.
@@ -117,12 +143,103 @@ The `ArtifactBundleIndex` is required when an artifact bundle contains multiple
 artifacts or supports multiple platforms. SwiftPM uses this index to determine
 which artifact to select during dependency resolution.
 
-For full details on the structure and semantics of artifact bundles and
-`ArtifactBundleIndex`, see the Swift Evolution proposal
-[SE-0305: SwiftPM Binary Target Improvements](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0305-swiftpm-binary-target-improvements.md).
+This section describes the use of artifact bundles for **binary library
+dependencies**, such as static or dynamic libraries consumed by Swift package
+targets.
 
-For more information on identifying and verifying a binary target, see [Identifying binary dependencies](https://developer.apple.com/documentation/xcode/identifying-binary-dependencies).
-For more information on creating a binary target, see [Creating a multiplatform binary framework bundle](https://developer.apple.com/documentation/xcode/creating-a-multi-platform-binary-framework-bundle).
+An artifact bundle that uses an `ArtifactBundleIndex` has the following structure:
+
+```
+MyLibrary.artifactbundle/
+├── info.json
+├── artifactbundleindex.json
+└── artifacts/
+    ├── x86_64-apple-macos/
+    │   └── libMyLibrary.a
+    └── aarch64-apple-macos/
+        └── libMyLibrary.a
+```
+
+The `artifactbundleindex.json` file describes the artifacts in the bundle and
+the target triples they support.
+
+```json
+{
+  "schemaVersion": "1.0",
+  "artifacts": {
+    "MyLibrary": {
+      "type": "library",
+      "variants": [
+        {
+          "path": "artifacts/x86_64-apple-macos/libMyLibrary.a",
+          "supportedTriples": ["x86_64-apple-macos"]
+        },
+        {
+          "path": "artifacts/aarch64-apple-macos/libMyLibrary.a",
+          "supportedTriples": ["aarch64-apple-macos"]
+        }
+      ]
+    }
+  }
+}
+```
+The values in supportedTriples correspond to Swift target triples. SwiftPM
+matches these triples against the build target during dependency resolution to
+select the appropriate artifact variant.
+```
+A binary library artifact bundle is referenced from a Swift package using a
+binary target declaration:
+
+.binaryTarget(
+    name: "MyLibrary",
+    url: "https://example.com/MyLibrary.artifactbundle.zip",
+    checksum: "…"
+)
+```
+
+### Artifact Bundles for SwiftPM Tool Invocation
+
+Artifact bundles can also be used to distribute prebuilt executables that are
+invoked by Swift Package Manager, such as tools used by SwiftPM plugins.
+
+In this use case, the artifact bundle contains one or more executable artifacts,
+and the ArtifactBundleIndex describes the available executable variants.
+
+An example artifact bundle structure for a tool executable is shown below:
+```
+MyTool.artifactbundle/
+├── info.json
+├── artifactbundleindex.json
+└── artifacts/
+    └── x86_64-apple-macos/
+        └── my-tool
+```
+The corresponding artifactbundleindex.json file describes the executable
+artifact:
+```json
+{
+  "schemaVersion": "1.0",
+  "artifacts": {
+    "my-tool": {
+      "type": "executable",
+      "variants": [
+        {
+          "path": "artifacts/x86_64-apple-macos/my-tool",
+          "supportedTriples": ["x86_64-apple-macos"]
+        }
+      ]
+    }
+  }
+}
+```
+
+When an artifact bundle containing executables is referenced by a SwiftPM
+plugin, SwiftPM resolves the artifact bundle and makes the selected executable
+available during tool invocation.
+
+This section focuses on artifact bundles as used by SwiftPM itself. Workflows
+involving Apple platform application builds with Xcode, including
+XCFramework-based distribution, are not covered here.
 
 ## Topics
 
