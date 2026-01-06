@@ -59,6 +59,9 @@ package extension Connection {
         )
     }
 
+    // Disfavor this over Connection.send implemented in swift-tools-protocols by https://github.com/swiftlang/swift-tools-protocols/pull/28
+    // TODO: Remove this method once we have updated the swift-tools-protocols dependency to include #28
+    @_disfavoredOverload
     func send<R: RequestType>(_ request: R) async throws -> R.Response {
         return try await withCancellableCheckedThrowingContinuation { continuation in
             return self.send(request) { result in
