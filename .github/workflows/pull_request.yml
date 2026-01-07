@@ -12,54 +12,63 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  tests-using-native:
+  build:
     needs: [soundness]
     strategy:
       fail-fast: false
       matrix:
+        executableTargetBuildSystem: ["native"]
         buildSystem: ["native", "swiftbuild"]
         linuxSwiftVersion: ['["nightly-main", "nightly-6.2"]', '["nightly-main"]']
-        enable_windows_checks: [true]
         exclude:
           - buildSystem: "swiftbuild"
             linuxSwiftVersion: '["nightly-main", "nightly-6.2"]'
-          - buildSystem: "swiftbuild"
-            enable_windows_checks: true
           - buildSystem: "native"
             linuxSwiftVersion: '["nightly-main"]'
-    name: Test (${{ matrix.buildSystem }})
+    name: Build (${{ matrix.buildSystem }}) (exectable target built using ${{ matrix.executableTargetBuildSystem }})
     uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@0.0.4
     with:
       linux_os_versions: '["amazonlinux2", "bookworm", "noble", "jammy", "rhel-ubi9"]'
       linux_swift_versions: ${{ matrix.linuxSwiftVersion }}
       linux_pre_build_command: ./.github/scripts/prebuild.sh
-      linux_build_command: 'swift run swift-build --build-tests --build-system ${{ matrix.buildSystem}}'
+      linux_build_command: 'swift run --build-system ${{ matrix.executableTargetBuildSystem }} swift-build --build-tests --build-system ${{ matrix.buildSystem}}'
+      # linux_build_command: 'swift run --build-system ${{ matrix.executableTargetBuildSystem }} swift-build --build-tests --build-system ${{ matrix.buildSystem}} && swift run --build-system ${{ matrix.executableTargetBuildSystem }} swift-test --parallel --build-system ${{ matrix.buildSystem}}'
       windows_swift_versions: '["nightly-main"]'
       windows_pre_build_command: 'Invoke-Program .\.github\scripts\prebuild.ps1'
-      windows_build_command: 'Invoke-Program swift run swift-build --build-tests --build-system ${{ matrix.buildSystem}}'
-      enable_windows_checks: ${{ matrix.enable_windows_checks }}
+      windows_build_command: 'Invoke-Program swift run -Xlinker /ignore:4217 --build-system ${{ matrix.executableTargetBuildSystem }} swift-build --build-tests -Xlinker /ignore:4217 --build-system ${{ matrix.buildSystem}}'
+      # windows_build_command: 'Invoke-Program swift run -Xlinker /ignore:4217 --build-system ${{ matrix.executableTargetBuildSystem }} swift-build --build-tests -Xlinker /ignore:4217 --build-system ${{ matrix.buildSystem}}; Invoke-Program swift run --build-system ${{ matrix.executableTargetBuildSystem }} -Xlinker /ignore:4217 swift-test -Xlinker /ignore:4217 --parallel --build-system ${{ matrix.buildSystem}}'
+      enable_windows_checks: true
       enable_ios_checks: true
       enable_macos_checks: true
       macos_exclude_xcode_versions: "[{\"xcode_version\": \"16.3\"}, {\"xcode_version\": \"16.4\"}]"
-      macos_build_command: 'swift run swift-build --build-tests --build-system ${{ matrix.buildSystem}}'
+      macos_build_command: 'swift run --build-system ${{ matrix.executableTargetBuildSystem }} swift-build --build-tests --build-system ${{ matrix.buildSystem}}'
+      # macos_build_command: 'swift run --build-system ${{ matrix.executableTargetBuildSystem }} swift-build --build-tests --build-system ${{ matrix.buildSystem}} && swift run --build-system ${{ matrix.executableTargetBuildSystem }} swift-test --parallel --build-system ${{ matrix.buildSystem}}'
+      ios_build_command: 'swift run --build-system ${{ matrix.executableTargetBuildSystem }} swift-build --build-tests --build-system ${{ matrix.buildSystem}}  --sdk \"$(xcrun --sdk iphoneos --show-sdk-path)\" --triple arm64-apple-ios'
+      # ios_build_command: 'swift run --build-system ${{ matrix.executableTargetBuildSystem }} swift-build --build-tests --build-system ${{ matrix.buildSystem}} --sdk \"$(xcrun --sdk iphoneos --show-sdk-path)\" --triple arm64-apple-ios && swift run --build-system ${{ matrix.executableTargetBuildSystem }} swift-test --parallel --build-system ${{ matrix.buildSystem }} --sdk \"$(xcrun --sdk iphoneos --show-sdk-path)\" --triple arm64-apple-ios'
 
-  tests-using-swiftbuild:
-    name: Test (all SwiftBuild)
+  build-using-swiftbuild:
+    strategy:
+      fail-fast: false
+      matrix:
+        executableTargetBuildSystem: ["swiftbuild"]
+        buildSystem: ["swiftbuild"]
+    name: Build (${{ matrix.buildSystem }}) (exectable target built using ${{ matrix.executableTargetBuildSystem }})
     needs: [soundness]
     uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@0.0.4
     with:
       linux_os_versions: '["amazonlinux2", "bookworm", "noble", "jammy", "rhel-ubi9"]'
       linux_swift_versions: '["nightly-main"]'
       linux_pre_build_command: ./.github/scripts/prebuild.sh
-      linux_build_command: 'swift run --build-system swiftbuild swift-build --build-tests --build-system swiftbuild'
+      linux_build_command: 'swift run --build-system ${{ matrix.executableTargetBuildSystem }} swift-build --build-tests --build-system ${{ matrix.buildSystem }}'
       enable_windows_checks: false
       windows_swift_versions: '["nightly-main"]'
       windows_pre_build_command: 'Invoke-Program .\.github\scripts\prebuild.ps1'
-      windows_build_command: 'Invoke-Program swift run --build-system swiftbuild swift-build --build-tests --build-system swiftbuild'
+      windows_build_command: 'Invoke-Program swift run --build-system ${{ matrix.executableTargetBuildSystem }} swift-build --build-tests --build-system ${{ matrix.buildSystem }}'
       enable_ios_checks: true
       enable_macos_checks: true
       macos_exclude_xcode_versions: "[{\"xcode_version\": \"16.3\"}, {\"xcode_version\": \"16.4\"}]"
-      macos_build_command: 'swift run --build-system swiftbuild swift-build --build-tests --build-system swiftbuild'
+      macos_build_command: 'swift run --build-system ${{ matrix.executableTargetBuildSystem }} swift-build --build-tests --build-system ${{ matrix.buildSystem }}'
+      ios_build_command: 'swift run --build-system ${{ matrix.executableTargetBuildSystem }} swift-build --build-tests --build-system ${{ matrix.buildSystem }} --sdk \"$(xcrun --sdk iphoneos --show-sdk-path)\" --triple arm64-apple-ios'
 
   soundness:
     name: Soundness
@@ -71,3 +80,7 @@ jobs:
       api_breakage_check_enabled: false
       format_check_enabled: false
       shell_check_enabled: false
+      docs_check_enabled: true
+      broken_symlink_check_enabled: true
+      python_lint_check_enabled: true
+      yamllint_check_enabled: true
