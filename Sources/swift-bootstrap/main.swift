@@ -132,7 +132,10 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
     public var shouldDisableLocalRpath: Bool = false
 
     /// The build system to use.
-    @Option(name: .customLong("build-system"))
+    @Option(
+        name: .customLong("build-system"),
+        help: "The build system to use.",
+    )
     var _buildSystem: BuildSystemProvider.Kind = .native
 
     private var buildSystem: BuildSystemProvider.Kind {

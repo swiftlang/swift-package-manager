@@ -133,7 +133,7 @@ public struct BuildResult {
         self.replArguments = replArguments
         self.builtArtifacts = builtArtifacts
     }
-    
+
     public let replArguments: CLIArguments?
     public let symbolGraph: SymbolGraphResult?
     public let buildPlan: BuildPlan?
@@ -219,6 +219,14 @@ public struct BuildSystemProvider {
         case native
         case swiftbuild
         case xcode
+
+        public var defaultValueDescription: String {
+            switch self {
+                case .native: "Native Build System"
+                case .swiftbuild: "Swift Build build engine (preview; recommended for feedback and testing.  Report issues at https://github.com/swiftlang/swift-package-manager/issues)"
+                case .xcode: "Xcode build system integration (discouraged)"
+            }
+        }
     }
 
     public let providers: [Kind: any BuildSystemFactory]
