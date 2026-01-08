@@ -267,8 +267,6 @@ public struct CoverageOptions: ParsableArguments {
     /// If the path of the exported code coverage JSON should be printed.
     @Option(
         name: [
-            .customLong("show-codecov-path"),
-            .customLong("show-code-coverage-path"),
             .customLong("show-coverage-path"),
         ],
         parsing: .scanningForValue(default: CoveragePrintPathMode.text),
@@ -292,8 +290,6 @@ public struct CoverageOptions: ParsableArguments {
     /// Whether to enable code coverage.
     @Flag(
         name: [
-            .customLong("codecov"),
-            .customLong("code-coverage"),
             .customLong("coverage"),
         ],
         inversion: .prefixedEnableDisable,
@@ -303,8 +299,6 @@ public struct CoverageOptions: ParsableArguments {
 
     @Option(
         name: [
-            .customLong("codecov-format"),
-            .customLong("code-coverage-format"),
             .customLong("coverage-format"),
         ],
         help: ArgumentHelp(
@@ -313,6 +307,16 @@ public struct CoverageOptions: ParsableArguments {
         )
     )
     var formats: [CoverageFormat] = [.json]
+
+    @Option(
+        name: [
+            .customLong("Xcov", withSingleDash: true),
+        ],
+        help: ArgumentHelp(
+            "Pass flag through to the underlying coverage report tool.  Syntax is `[<format>=]<value>`",
+        )
+    )
+    var coverateArgs: [String] = [] // TODO: make this into a custom `ExpressibleByArgument` type and actually use the value
 
 }
 
