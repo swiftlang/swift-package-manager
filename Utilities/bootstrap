@@ -172,6 +172,9 @@ def add_build_args(parser):
         action="store_true",
         help="whether to link to the llbuild framework")
     parser.add_argument(
+        "--extra-dynamic-library-path",
+        help="path to add to DYLD/LD_LIBRARY_PATH")
+    parser.add_argument(
         "--release",
         action="store_true",
         help="enables building SwiftPM in release mode")
@@ -883,8 +886,9 @@ def get_swiftpm_env_cmd(args):
     if not '-macosx' in args.build_target and args.command == 'install':
         env_cmd.append("SWIFTCI_INSTALL_RPATH_OS=%s" % args.platform_path.group(2))
 
+    libs = []
     if args.bootstrap:
-        libs = [
+        libs += [
             os.path.join(args.bootstrap_dir,                       "lib"),
             os.path.join(args.build_dirs["tsc"],                   "lib"),
             os.path.join(args.build_dirs["llbuild"],               "lib"),
@@ -898,7 +902,18 @@ def get_swiftpm_env_cmd(args):
             os.path.join(args.build_dirs["swift-build"],           "lib"),
         ]
 
+    if args.extra_dynamic_library_path:
+        libs.append(args.extra_dynamic_library_path)
+
+    if libs:
         if platform.system() == 'Darwin':
+            # This DYLD_INSERT_LIBRARIES command is necessary to prevent problems
+            # with dyld failing to realise that the newly built libraries are
+            # the replacement for the system version.
+            #
+            # (This is caused by the install name in the newly built version
+            # using an `@rpath`.)
+            env_cmd.append("DYLD_INSERT_LIBRARIES=/usr/lib/swift/libswiftCore.dylib:/usr/lib/swift/libswift_Concurrency.dylib")
             env_cmd.append("DYLD_LIBRARY_PATH=%s" % ":".join(libs))
         else:
             libs_joined = ":".join(libs + args.target_info["paths"]["runtimeLibraryPaths"])
@@ -908,6 +923,7 @@ def get_swiftpm_env_cmd(args):
         env_cmd.append("SWIFTCI_DISABLE_SDK_DEPENDENT_TESTS=YES")
 
     env_cmd += [
+        "SWIFT_BACKTRACE=enable=yes,warnings=suppressed",
         "SWIFT_EXEC=" + args.swiftc_path,
         "SWIFT_DRIVER_SWIFT_EXEC=" + args.swiftc_path,
         "CC=" + args.clang_path,
