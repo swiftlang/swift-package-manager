@@ -380,6 +380,7 @@ struct PluginCommand: AsyncSwiftCommand {
         let _ = try await pluginTarget.invoke(
             action: .performCommand(package: package, arguments: arguments),
             buildEnvironment: buildEnvironment,
+            workers: buildParameters.workers,
             scriptRunner: pluginScriptRunner,
             workingDirectory: swiftCommandState.originalWorkingDirectory,
             outputDirectory: outputDir,
