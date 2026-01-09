@@ -35,7 +35,8 @@ swift package config get-mirror --original <original-url-or-identity>
 swift package config unset-mirror --original <original-url-or-identity>
 ```
 
-Mirror configuration is stored locally and is not part of the package manifest.
+Swift Package Manager stores mirror configuration locally; it's not part of the package manifest.
+
 ### Understand configuration scope
 
 Mirror configuration is persisted by Swift Package Manager and may be
