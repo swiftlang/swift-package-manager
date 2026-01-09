@@ -20,6 +20,8 @@ MACOS_X86_64_FLAGS := -target x86_64-apple-macos$(MACOS_MIN_VERSION) -isysroot $
 MACOS_ARM64_FLAGS := -target arm64-apple-macos$(MACOS_MIN_VERSION) -isysroot $(MACOS_SDK)
 LINUX_X86_64_FLAGS := -target x86_64-unknown-linux-gnu
 LINUX_ARM64_FLAGS := -target aarch64-unknown-linux-gnu
+WINDOWS_X86_64_FLAGS := -target x86_64-unknown-windows-msvc
+WINDOWS_ARM64_FLAGS := -target aarch64-unknown-windows-msvc
 
 .PHONY: all clean macos linux universal
 
@@ -31,10 +33,13 @@ $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)/macos/arm64
 	mkdir -p $(BUILD_DIR)/linux/x86_64
 	mkdir -p $(BUILD_DIR)/linux/arm64
+	mkdir -p $(BUILD_DIR)/windows/x86_64
+	mkdir -p $(BUILD_DIR)/windows/arm64
 
 $(DIST_DIR):
 	mkdir -p $(DIST_DIR)/macos
 	mkdir -p $(DIST_DIR)/linux
+	mkdir -p $(DIST_DIR)/windows
 
 # macOS x86_64 build
 $(BUILD_DIR)/macos/x86_64/%.o: %.c | $(BUILD_DIR)
@@ -52,11 +57,21 @@ $(BUILD_DIR)/linux/x86_64/%.o: %.c | $(BUILD_DIR)
 $(BUILD_DIR)/linux/arm64/%.o: %.c | $(BUILD_DIR)
 	clang $(COMMON_FLAGS) $(LINUX_ARM64_FLAGS) -c -o $@ $<
 
+# Windows x86_64 build
+$(BUILD_DIR)/windows/x86_64/%.o: %.c | $(BUILD_DIR)
+	clang $(COMMON_FLAGS) $(WINDOWS_X86_64_FLAGS) -c -o $@ $<
+
+# Windows arm64 build
+$(BUILD_DIR)/windows/arm64/%.o: %.c | $(BUILD_DIR)
+	clang $(COMMON_FLAGS) $(WINDOWS_ARM64_FLAGS) -c -o $@ $<
+
 # Define object files for each platform and architecture
 MACOS_X86_64_OBJ_FILES := $(patsubst %.c,$(BUILD_DIR)/macos/x86_64/%.o,$(SRC_FILES))
 MACOS_ARM64_OBJ_FILES := $(patsubst %.c,$(BUILD_DIR)/macos/arm64/%.o,$(SRC_FILES))
 LINUX_X86_64_OBJ_FILES := $(patsubst %.c,$(BUILD_DIR)/linux/x86_64/%.o,$(SRC_FILES))
 LINUX_ARM64_OBJ_FILES := $(patsubst %.c,$(BUILD_DIR)/linux/arm64/%.o,$(SRC_FILES))
+WINDOWS_X86_64_OBJ_FILES := $(patsubst %.c,$(BUILD_DIR)/windows/x86_64/%.o,$(SRC_FILES))
+WINDOWS_ARM64_OBJ_FILES := $(patsubst %.c,$(BUILD_DIR)/windows/arm64/%.o,$(SRC_FILES))
 
 # Create individual architecture libraries
 $(DIST_DIR)/macos/libSimple_x86_64.a: $(MACOS_X86_64_OBJ_FILES) | $(DIST_DIR)
@@ -69,6 +84,12 @@ $(DIST_DIR)/linux/libSimple_x86_64.a: $(LINUX_X86_64_OBJ_FILES) | $(DIST_DIR)
 	llvm-ar rc $@ $^
 
 $(DIST_DIR)/linux/libSimple_arm64.a: $(LINUX_ARM64_OBJ_FILES) | $(DIST_DIR)
+	llvm-ar rc $@ $^
+
+$(DIST_DIR)/windows/Simple_x86_64.lib: $(LINUX_X86_64_OBJ_FILES) | $(DIST_DIR)
+	llvm-ar rc $@ $^
+
+$(DIST_DIR)/windows/Simple_arm64.lib: $(LINUX_ARM64_OBJ_FILES) | $(DIST_DIR)
 	llvm-ar rc $@ $^
 
 # Create universal binary for macOS
