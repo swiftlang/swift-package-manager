@@ -400,6 +400,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         var result = BuildResult(
             serializedDiagnosticPathsByTargetName: .failure(StringError("Building was skipped")),
             replArguments: nil,
+            dependencyGraph: nil
         )
 
         guard !self.config.shouldSkipBuilding(for: .target) else {
@@ -491,7 +492,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             symbolGraph: result.symbolGraph,
             buildPlan: buildResultBuildPlan,
             replArguments: buildResultReplArgs,
-            builtArtifacts: artifacts
+            builtArtifacts: artifacts,
+            dependencyGraph: nil  // Not supported in native build system
         )
         var serializedDiagnosticPaths: [String: [AbsolutePath]] = [:]
         do {
