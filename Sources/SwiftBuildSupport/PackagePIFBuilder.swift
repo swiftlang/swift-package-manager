@@ -171,6 +171,11 @@ public final class PackagePIFBuilder {
     /// * <rdar://56889224> Remove IDEPackageSupportCreateDylibsForDynamicProducts.
     let createDylibForDynamicProducts: Bool
 
+    /// When building a static library product for a root package, ensure the final build product is always materialized.
+    /// In other words, don't represent it using the `packageProduct` target type which only allows other targets
+    /// built from source in the same build to consume it without eagerly linking it into a product.
+    let materializeStaticArchiveProductsForRootPackages: Bool
+
     /// Add rpaths which allow loading libraries adjacent to the current image at runtime. This is desirable
     /// when launching build products from the build directory, but should often be disabled when deploying
     /// the build products to a different location.
@@ -203,6 +208,7 @@ public final class PackagePIFBuilder {
         delegate: PackagePIFBuilder.BuildDelegate,
         buildToolPluginResultsByTargetName: [String: [BuildToolPluginInvocationResult]],
         createDylibForDynamicProducts: Bool = false,
+        materializeStaticArchiveProductsForRootPackages: Bool = false,
         addLocalRpaths: Bool = true,
         packageDisplayVersion: String?,
         fileSystem: FileSystem,
@@ -214,6 +220,7 @@ public final class PackagePIFBuilder {
         self.delegate = delegate
         self.buildToolPluginResultsByTargetName = buildToolPluginResultsByTargetName
         self.createDylibForDynamicProducts = createDylibForDynamicProducts
+        self.materializeStaticArchiveProductsForRootPackages = materializeStaticArchiveProductsForRootPackages
         self.packageDisplayVersion = packageDisplayVersion
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope
@@ -227,6 +234,7 @@ public final class PackagePIFBuilder {
         delegate: PackagePIFBuilder.BuildDelegate,
         buildToolPluginResultsByTargetName: [String: BuildToolPluginInvocationResult],
         createDylibForDynamicProducts: Bool = false,
+        materializeStaticArchiveProductsForRootPackages: Bool = false,
         addLocalRpaths: Bool = true,
         packageDisplayVersion: String?,
         fileSystem: FileSystem,
@@ -238,6 +246,7 @@ public final class PackagePIFBuilder {
         self.delegate = delegate
         self.buildToolPluginResultsByTargetName = buildToolPluginResultsByTargetName.mapValues { [$0] }
         self.createDylibForDynamicProducts = createDylibForDynamicProducts
+        self.materializeStaticArchiveProductsForRootPackages = materializeStaticArchiveProductsForRootPackages
         self.addLocalRpaths = addLocalRpaths
         self.packageDisplayVersion = packageDisplayVersion
         self.fileSystem = fileSystem

@@ -603,6 +603,8 @@ extension PackagePIFProjectBuilder {
                 productName = "$(WRAPPER_NAME)"
                 productType = .framework
             }
+        } else if pifBuilder.delegate.isRootPackage && pifBuilder.materializeStaticArchiveProductsForRootPackages {
+            productType = .staticArchive
         } else {
             productType = .packageProduct
         }
@@ -691,6 +693,20 @@ extension PackagePIFProjectBuilder {
                 installPath: installPath(for: product.underlying),
                 delegate: pifBuilder.delegate
             )
+            // An empty sources phase is required in order to trigger linking.
+            self.project[keyPath: libraryUmbrellaTargetKeyPath].common.addSourcesBuildPhase { id in
+                ProjectModel.SourcesBuildPhase(id: id)
+            }
+        } else if productType == .staticArchive {
+            settings[.TARGET_NAME] = product.targetName()
+            settings[.PRODUCT_NAME] = product.name
+
+            // This should really be swift-build defaults set in the .xcspec files, but changing that requires
+            // some extensive testing to ensure xcode projects are not affected.
+            // So for now lets just force it here.
+            settings[.EXECUTABLE_PREFIX] = "lib"
+            settings[.EXECUTABLE_PREFIX, ProjectModel.BuildSettings.Platform.windows] = ""
+            // An empty sources phase is required in order to trigger linking.
             self.project[keyPath: libraryUmbrellaTargetKeyPath].common.addSourcesBuildPhase { id in
                 ProjectModel.SourcesBuildPhase(id: id)
             }
