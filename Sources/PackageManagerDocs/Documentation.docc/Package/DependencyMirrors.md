@@ -39,10 +39,8 @@ Swift Package Manager stores mirror configuration locally; it's not part of the 
 
 ### Understand configuration scope
 
-Mirror configuration is persisted by Swift Package Manager and may be
-applied from different configuration scopes (such as workspace-local or
-shared configuration). The specific scope used is determined implicitly
-by SwiftPM based on the command context and environment.
+Swift Package Manager persists mirror configuration and may apply it from different configuration scopes (such as workspace-local or shared configuration).
+It automatically determines the specific scope to use based on the command context and environment.
 
 The mirror configuration commands do not provide explicit flags to select
 a configuration scope.
