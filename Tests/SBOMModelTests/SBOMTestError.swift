@@ -13,4 +13,5 @@
 
 enum SBOMTestError: Error {
     case failedToCaptureModulesGraph
+    case failedToGetCurrentBranch
 }
