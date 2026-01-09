@@ -13,6 +13,8 @@
 import Basics
 import Foundation
 
+import protocol TSCBasic.OutputByteStream
+
 internal struct SBOMResult {
     internal let spec: SBOMSpec
     internal let path: AbsolutePath
@@ -35,14 +37,17 @@ package struct SBOMCreator {
         return configPath ?? defaultPath.appending(component: "sboms")
     }
 
-    /// Creates SBOMs with timing and logging output to the observability scope.
+    /// Creates SBOMs with timing and logging output to the output stream.
     /// This method consolidates the common SBOM generation logic used by both
     /// the `swift build` and `swift package generate-sbom` commands.
     ///
     /// - Returns: An array of paths to the created SBOM files
-    /// - Throws: SBOMError if SBOM creation fails
+    /// - Throws: SBOMGenerationError if SBOM creation fails
     package func createSBOMsWithLogging() async throws {
-        input.observabilityScope.print("Creating SBOMs...", condition: .always)
+        defer { input.outputStream.flush() }
+        
+        input.outputStream.write("Creating SBOMs...\n")
+        input.outputStream.flush() // so users see "Creating SBOMs" message
         let sbomStartTime = ContinuousClock.Instant.now
         
         let results = try await createSBOMs()
@@ -51,14 +56,14 @@ package struct SBOMCreator {
         let formattedDuration = duration.formatted(.units(allowed: [.seconds], fractionalPart: .show(length: 2, rounded: .up)))
         
         for result in results {
-            input.observabilityScope.print("- created \(result.spec.concreteSpec) v\(SBOMVersionRegistry.getLatestVersion(for: result.spec)) SBOM at \(result.path.pathString)", condition: .always)
+            input.outputStream.write("- created \(result.spec.concreteSpec) v\(SBOMVersionRegistry.getLatestVersion(for: result.spec)) SBOM at \(result.path.pathString)\n")
         }
-        input.observabilityScope.print("SBOMs created  (\(formattedDuration))", condition: .always)
+        input.outputStream.write("SBOMs created  (\(formattedDuration))\n")
     }
 
     internal func createSBOMs() async throws -> [SBOMResult] {
         guard !input.specs.isEmpty else {
-            throw SBOMError.noSpecsProvided
+            throw SBOMGenerationError.noSpecsProvided
         }
         
         let extractor = SBOMExtractor(
@@ -80,9 +85,10 @@ package struct SBOMCreator {
         )
 
         guard !results.isEmpty else {
-            throw SBOMError.failedToWriteSBOM
+            throw SBOMGenerationError.failedToWriteSBOM
         }
 
         return results
     }
 }
+

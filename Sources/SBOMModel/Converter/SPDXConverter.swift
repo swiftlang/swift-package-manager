@@ -175,7 +175,7 @@ internal struct SPDXConverter {
         var externalIdentifiers: [any SPDXObject] = []
 
         var commitToComponents: [String: (repository: String, componentIDs: [String])] = [:]
-        for component in comps {
+        for component in comps.sorted() {
             let componentID: String = self.generateSPDXID(component.id.value)
 
             // Handle originator commits
@@ -214,7 +214,7 @@ internal struct SPDXConverter {
             }
         }
 
-        for (commitSHA, commitInfo) in commitToComponents {
+        for (commitSHA, commitInfo) in commitToComponents.sorted(by: { $0.key < $1.key }) {
             let externalIdentifier = SPDXExternalIdentifier(
                 identifier: generateSPDXID(commitSHA),
                 identifierLocator: [commitInfo.repository],
@@ -228,12 +228,23 @@ internal struct SPDXConverter {
                 category: .generates,
                 creationInfoID: SPDXConstants.spdxRootCreationInfoID,
                 parentID: self.generateSPDXID(commitSHA),
-                childrenID: commitInfo.componentIDs
+                childrenID: commitInfo.componentIDs.sorted()
             )
             externalIdentifiers.append(relationship)
         }
 
-        return externalIdentifiers
+        // Note: SPDXObject Comparable is a protocol made up of other concrete types, so use a custom sort
+        return externalIdentifiers.sorted { lhs, rhs in
+            if let lhsRel = lhs as? SPDXRelationship, let rhsRel = rhs as? SPDXRelationship {
+                return lhsRel.id < rhsRel.id
+            }
+            if let lhsExt = lhs as? SPDXExternalIdentifier, let rhsExt = rhs as? SPDXExternalIdentifier {
+                return lhsExt.identifier < rhsExt.identifier
+            }
+            if lhs is SPDXExternalIdentifier && rhs is SPDXRelationship { return true }
+            if lhs is SPDXRelationship && rhs is SPDXExternalIdentifier { return false }
+            return false
+        }
     }
 
     internal static func convertToRelationships(from dependencies: SBOMDependencies?) async -> [any SPDXObject] {
@@ -243,7 +254,7 @@ internal struct SPDXConverter {
 
         var relationships: [any SPDXObject] = []
         if let sbomRelationships = dependencies.relationships {
-            for dependency in sbomRelationships {
+            for dependency in sbomRelationships.sorted() {
                 let parentID = self.generateSPDXID(dependency.parentID.value)
                 let childrenIDs = dependency.childrenID.map { self.generateSPDXID($0.value) }
 
@@ -259,7 +270,7 @@ internal struct SPDXConverter {
 
                 var optionalDependencies: [String] = []
                 var testDependencies: [String] = []
-                for childID in dependency.childrenID {
+                for childID in dependency.childrenID.sorted(by: { $0.value < $1.value }) {
                     guard let comp = dependencies.components.first(where: { $0.id == childID }) else {
                         continue
                     }
@@ -303,14 +314,14 @@ internal struct SPDXConverter {
 
     internal static func convertToGraph(from document: SBOMDocument, spec: SBOMSpec) async throws -> SPDXGraph {
         guard spec.supportsSPDX else {
-            throw SBOMError.unexpectedSpecType(expected: "spdx", actual: spec)
+            throw SBOMGenerationError.unexpectedSpecType(expected: "spdx", actual: spec)
         }
 
         let agents = await convertToAgent(from: document.metadata)
         let elements = try await convertToDocument(from: document, spec: spec)
 
         var packages: [any SPDXObject] = []
-        for comp in document.dependencies.components {
+        for comp in document.dependencies.components.sorted() {
             let p = try await convertToPackage(from: comp)
             packages.append(p)
         }

@@ -25,7 +25,8 @@ import struct TSCUtility.Version
 
 @Suite(
     .tags(
-        .Feature.SBOM
+        .Feature.SBOM,
+        .TestSize.medium
     )
 )
 struct SBOMExtractComponentsTests {

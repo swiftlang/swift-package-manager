@@ -20,136 +20,145 @@ import Testing
 
 @Suite(
     .tags(
-        .Feature.SBOM
+        .Feature.SBOM,
+        .TestSize.small
     )
 )
 struct SBOMExtractScopeTests {
-    @Test("extractScopeFromProduct with executable product returns runtime")
-    func extractScopeFromExecutableProduct() throws {
-        let resolvedProduct = try SBOMTestModulesGraph.createProduct(
-            name: "MyExecutableProduct",
-            type: .executable,
-            moduleType: .executable
-        )
+    struct ProductScopeTestCase {
+        let productType: ProductType
+        let moduleType: Module.Kind?
+        let expectedScope: SBOMComponent.Scope
+        let description: String
+    }
+
+    static let productScopeTestCases: [ProductScopeTestCase] = [
+        ProductScopeTestCase(
+            productType: .executable,
+            moduleType: .executable,
+            expectedScope: .runtime,
+            description: "executable"
+        ),
+        ProductScopeTestCase(
+            productType: .library(.automatic),
+            moduleType: nil,
+            expectedScope: .runtime,
+            description: "library"
+        ),
+        ProductScopeTestCase(
+            productType: .test,
+            moduleType: .test,
+            expectedScope: .test,
+            description: "test"
+        ),
+        ProductScopeTestCase(
+            productType: .library(.automatic),
+            moduleType: .test,
+            expectedScope: .test,
+            description: "library with test module"
+        ),
+    ]
+
+    @Test("extractScopeFromProduct", arguments: productScopeTestCases)
+    func extractScopeFromProduct(testCase: ProductScopeTestCase) throws {
+        let resolvedProduct: ResolvedProduct
+        if let moduleType = testCase.moduleType {
+            resolvedProduct = try SBOMTestModulesGraph.createProduct(
+                name: "MyProduct",
+                type: testCase.productType,
+                moduleType: moduleType
+            )
+        } else {
+            resolvedProduct = try SBOMTestModulesGraph.createProduct(
+                name: "MyProduct",
+                type: testCase.productType
+            )
+        }
         let scope = try SBOMExtractor.extractScope(from: resolvedProduct)
-        #expect(scope == SBOMComponent.Scope.runtime)
+        #expect(scope == testCase.expectedScope)
     }
 
-    @Test("extractScopeFromProduct with library product returns runtime")
-    func extractScopeFromLibraryProduct() throws {
-        let resolvedProduct = try SBOMTestModulesGraph.createProduct(
-            name: "MyLibraryProduct",
-            type: .library(.automatic)
-        )
-        let scope = try SBOMExtractor.extractScope(from: resolvedProduct)
-        #expect(scope == SBOMComponent.Scope.runtime)
+    struct PackageScopeTestCase {
+        let productTypes: [(ProductType, Module.Kind?)]
+        let additionalModules: [Module.Kind]
+        let expectedScope: SBOMComponent.Scope
+        let description: String
     }
 
-    @Test("extractScopeFromProduct with test product returns test")
-    func extractScopeFromTestProduct() throws {
-        let resolvedProduct = try SBOMTestModulesGraph.createProduct(
-            name: "MyTestProduct",
-            type: .test,
-            moduleType: .test
-        )
-        let scope = try SBOMExtractor.extractScope(from: resolvedProduct)
-        #expect(scope == SBOMComponent.Scope.test)
-    }
+    static let packageScopeTestCases: [PackageScopeTestCase] = [
+        PackageScopeTestCase(
+            productTypes: [(.executable, .executable)],
+            additionalModules: [],
+            expectedScope: .runtime,
+            description: "executable product"
+        ),
+        PackageScopeTestCase(
+            productTypes: [(.library(.automatic), nil)],
+            additionalModules: [],
+            expectedScope: .runtime,
+            description: "library product"
+        ),
+        PackageScopeTestCase(
+            productTypes: [(.test, .test)],
+            additionalModules: [],
+            expectedScope: .test,
+            description: "test product"
+        ),
+        PackageScopeTestCase(
+            productTypes: [(.executable, .executable), (.test, .test)],
+            additionalModules: [],
+            expectedScope: .runtime,
+            description: "mixed products with test"
+        ),
+        PackageScopeTestCase(
+            productTypes: [(.library(.automatic), nil)],
+            additionalModules: [.test],
+            expectedScope: .runtime,
+            description: "test module but no test product"
+        ),
+        PackageScopeTestCase(
+            productTypes: [(.executable, .executable), (.library(.automatic), nil)],
+            additionalModules: [],
+            expectedScope: .runtime,
+            description: "only runtime products and modules"
+        ),
+    ]
 
-    @Test("extractScopeFromProduct with library product containing only test module returns test")
-    func extractScopeFromLibraryProductWithTestModule() throws {
-        let resolvedProduct = try SBOMTestModulesGraph.createProduct(
-            name: "MyLibraryProduct",
-            type: .library(.automatic),
-            moduleType: .test
-        )
-        let scope = try SBOMExtractor.extractScope(from: resolvedProduct)
-        #expect(scope == SBOMComponent.Scope.test)
-    }
-
-    @Test("extractScopeFromPackage with executable product returns runtime")
-    func extractScopeFromPackageWithExecutable() throws {
-        let resolvedProduct = try SBOMTestModulesGraph.createProduct(
-            name: "MyExecutableProduct",
-            type: .executable,
-            moduleType: .executable
-        )
-        let resolvedPackage = try SBOMTestModulesGraph.createPackage(name: "Executable", products: [resolvedProduct])
-        let scope = try SBOMExtractor.extractScope(from: resolvedPackage)
-        #expect(scope == SBOMComponent.Scope.runtime)
-    }
-
-    @Test("extractScopeFromPackage with library product returns runtime")
-    func extractScopeFromPackageWithLibrary() throws {
-        let resolvedProduct = try SBOMTestModulesGraph.createProduct(
-            name: "MyLibraryProduct",
-            type: .library(.automatic)
-        )
-        let resolvedPackage = try SBOMTestModulesGraph.createPackage(name: "Library", products: [resolvedProduct])
-        let scope = try SBOMExtractor.extractScope(from: resolvedPackage)
-        #expect(scope == SBOMComponent.Scope.runtime)
-    }
-
-    @Test("extractScopeFromPackage with test product returns test")
-    func extractScopeFromPackageWithTestProduct() throws {
-        let resolvedProduct = try SBOMTestModulesGraph.createProduct(
-            name: "MyTestProduct",
-            type: .test,
-            moduleType: .test
-        )
-        let resolvedPackage = try SBOMTestModulesGraph.createPackage(name: "TestPackage", products: [resolvedProduct])
-        let scope = try SBOMExtractor.extractScope(from: resolvedPackage)
-        #expect(scope == SBOMComponent.Scope.test)
-    }
-
-    @Test("extractScopeFromPackage with mixed products containing test returns runtime")
-    func extractScopeFromPackageWithMixedProductsIncludingTest() throws {
-        let executableProduct = try SBOMTestModulesGraph.createProduct(
-            name: "MyExecutableProduct",
-            type: .executable,
-            moduleType: .executable
-        )
-        let testProduct = try SBOMTestModulesGraph.createProduct(name: "MyTestProduct", type: .test, moduleType: .test)
+    @Test("extractScopeFromPackage", arguments: packageScopeTestCases)
+    func extractScopeFromPackage(testCase: PackageScopeTestCase) throws {
+        var products: [ResolvedProduct] = []
+        for (index, (productType, moduleType)) in testCase.productTypes.enumerated() {
+            let product: ResolvedProduct
+            if let moduleType = moduleType {
+                product = try SBOMTestModulesGraph.createProduct(
+                    name: "Product\(index)",
+                    type: productType,
+                    moduleType: moduleType
+                )
+            } else {
+                product = try SBOMTestModulesGraph.createProduct(
+                    name: "Product\(index)",
+                    type: productType
+                )
+            }
+            products.append(product)
+        }
+        
+        var modules: [Module] = []
+        for (index, moduleType) in testCase.additionalModules.enumerated() {
+            let module = SBOMTestModulesGraph.createSwiftModule(
+                name: "AdditionalModule\(index)",
+                type: moduleType
+            )
+            modules.append(module)
+        }
+        
         let resolvedPackage = try SBOMTestModulesGraph.createPackage(
-            name: "MixedPackage",
-            products: [executableProduct, testProduct]
+            name: "TestPackage",
+            products: products,
+            modules: modules
         )
         let scope = try SBOMExtractor.extractScope(from: resolvedPackage)
-        #expect(scope == SBOMComponent.Scope.runtime)
-    }
-
-    @Test("extractScopeFromPackage with test module but no test product returns test")
-    func extractScopeFromPackageWithTestModule() throws {
-        let libraryProduct = try SBOMTestModulesGraph.createProduct(
-            name: "MyLibraryProduct",
-            type: .library(.automatic)
-        )
-        let testModule = SBOMTestModulesGraph.createSwiftModule(name: "TestModule", type: .test)
-        let resolvedPackage = try SBOMTestModulesGraph.createPackage(
-            name: "PackageWithTests",
-            products: [libraryProduct],
-            modules: [testModule]
-        )
-        let scope = try SBOMExtractor.extractScope(from: resolvedPackage)
-        #expect(scope == SBOMComponent.Scope.runtime)
-    }
-
-    @Test("extractScopeFromPackage with only runtime products and modules returns runtime")
-    func extractScopeFromPackageWithOnlyRuntimeComponents() throws {
-        let executableProduct = try SBOMTestModulesGraph.createProduct(
-            name: "MyExecutableProduct",
-            type: .executable,
-            moduleType: .executable
-        )
-        let libraryProduct = try SBOMTestModulesGraph.createProduct(
-            name: "MyLibraryProduct",
-            type: .library(.automatic)
-        )
-        let resolvedPackage = try SBOMTestModulesGraph.createPackage(
-            name: "RuntimePackage",
-            products: [executableProduct, libraryProduct]
-        )
-        let scope = try SBOMExtractor.extractScope(from: resolvedPackage)
-        #expect(scope == SBOMComponent.Scope.runtime)
+        #expect(scope == testCase.expectedScope)
     }
 }

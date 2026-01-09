@@ -15,6 +15,9 @@ import Basics
 import PackageGraph
 import PackageModel
 
+import protocol TSCBasic.OutputByteStream
+import var TSCBasic.stdoutStream
+
 package enum Filter: String, Codable, Equatable, CaseIterable {
     case all
     case product
@@ -50,6 +53,9 @@ package struct SBOMInput {
     // ObservabilityScope for emitting diagnostics
     package let observabilityScope: ObservabilityScope
     
+    // Output stream for writing output
+    package let outputStream: OutputByteStream
+    
     package init(
         modulesGraph: ModulesGraph,
         dependencyGraph: [String: [String]]?,
@@ -58,7 +64,8 @@ package struct SBOMInput {
         product: String?,
         specs: [Spec],
         dir: AbsolutePath,
-        observabilityScope: ObservabilityScope
+        observabilityScope: ObservabilityScope,
+        outputStream: OutputByteStream = TSCBasic.stdoutStream
     ) {
         self.modulesGraph = modulesGraph
         self.dependencyGraph = dependencyGraph
@@ -68,5 +75,6 @@ package struct SBOMInput {
         self.specs = specs
         self.dir = dir
         self.observabilityScope = observabilityScope
+        self.outputStream = outputStream
     }
 }

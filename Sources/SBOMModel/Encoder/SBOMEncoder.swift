@@ -27,9 +27,9 @@ internal struct SBOMEncoder {
         if !fileSystem.exists(outputDir) {
             try fileSystem.createDirectory(outputDir, recursive: true)
         }
-        let specs = await Self.getSpecs(from: specs)
+        let sbomSpecs = Array(Set(specs.map { $0.internalSpec() })).sorted()
         var results: [SBOMResult] = []
-        for spec in specs {
+        for spec in sbomSpecs {
             let outputPath = try await self.encodeSBOM(spec: spec, outputDir: outputDir, filter: filter, fileSystem: fileSystem)
             results.append(SBOMResult(spec: spec, path: outputPath))
         }
@@ -67,18 +67,6 @@ internal struct SBOMEncoder {
         return encoded
     }
 
-    internal static func getSpec(from spec: Spec) async -> SBOMSpec {
-        return SBOMSpec(spec: spec)
-    }
-
-    internal static func getSpecs(from specs: [Spec]) async -> [SBOMSpec] {
-        var result = Set<SBOMSpec>()
-        for spec in specs {
-            await result.insert(self.getSpec(from: spec))
-        }
-        return Array(result).sorted()
-    }
-
     internal func validateSBOM(from encoded: Foundation.Data, spec: SBOMSpec, bundleName: String = "SwiftPM_SBOMModel") async throws {
         guard let sbomJSONObject = try (JSONSerialization.jsonObject(with: encoded)) as? [String: Any] else {
             throw SBOMEncoderError
@@ -86,8 +74,8 @@ internal struct SBOMEncoder {
         }
 
         do {
-            let schema = try await SBOMSchema(spec: spec, bundleName: bundleName)
-            try await schema.validate(json: sbomJSONObject, spec: spec)
+            let validator = try await SBOMValidator.create(for: spec, bundleName: bundleName)
+            try await validator.validate(sbomJSONObject)
         } catch let error as SBOMSchemaError {
             if case .bundleNotFound(_) = error {
                 self.observabilityScope.emit(warning: "\(error.errorDescription ?? "Bundle with schemas not found") - skipping SBOM validation")

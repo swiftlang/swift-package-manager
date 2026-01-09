@@ -118,7 +118,7 @@ struct BuildCommandOptions: ParsableArguments {
     @Flag(name: .customLong("static-swift-stdlib"), inversion: .prefixedNo, help: "Link Swift stdlib statically.")
     public var shouldLinkStaticSwiftStdlib: Bool = false
 
-    @OptionGroup(title: "SBOM")
+    @OptionGroup(title: "Software Bill of Materials (SBOM)")
     var sbom: SBOMOptions
 }
 
