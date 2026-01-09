@@ -33,7 +33,7 @@ swift package config unset-mirror --original <original-url-or-identity>
 ```
 
 Mirror configuration is stored locally and is not part of the package manifest.
-### Configuration scope
+### Understand configuration scope
 
 Mirror configuration is persisted by Swift Package Manager and may be
 applied from different configuration scopes (such as workspace-local or
