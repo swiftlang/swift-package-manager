@@ -5,7 +5,7 @@ Dependency mirrors let Swift Package Manager fetch dependencies from alternate l
 ## Overview
 Dependency mirrors allow Swift Package Manager to fetch a package dependency from an alternate location without modifying the package manifest. This is useful in environments where dependencies must be fetched from internal mirrors, cached repositories, or alternate hosting locations. For more information about declaring dependencies, see <doc:AddingDependencies>.
 
-Dependency mirrors are commonly used when working in corporate or restricted network environments, when redirecting dependencies to internal mirrors, or when controlling where dependencies are sourced from without modifying existing package manifests.
+You commonly use dependency mirrors when working in corporate or restricted network environments. They let you redirect dependencies to internal mirrors, or control where dependencies come from without modifying existing package manifests.
 
 Dependency mirrors are configured locally and apply only to the top-level package being built. Mirror configuration is stored outside the package manifest and is not shared when a package is published or checked into version control. Dependency mirrors apply to all versions of a dependency identity and can’t be scoped to individual versions.
 
