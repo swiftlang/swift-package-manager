@@ -101,11 +101,13 @@ extension Workspace {
         addedOrUpdatedPackages: [PackageReference],
         observabilityScope: ObservabilityScope
     ) async throws {
-        // TODO bp complete implementation
-        for manifest in addedOrUpdatedPackages {
-            // do validation check on the traits here.
-            // take in the enabled traits map; use validation methods
-            // available on the manifest, referenced from the DependencyManifests.
+        let packages = manifests.dependencies.filter({ addedOrUpdatedPackages.map(\.identity).contains($0.manifest.packageIdentity) })
+
+        for package in packages {
+            let manifest = package.manifest
+            let enabledTraits = self.enabledTraitsMap[manifest.packageIdentity]
+            // Validate traits on update.
+            try manifest.validateEnabledTraits(enabledTraits)
         }
     }
 }
