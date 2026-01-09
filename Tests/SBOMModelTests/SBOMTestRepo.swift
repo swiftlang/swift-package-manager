@@ -40,13 +40,16 @@ enum SBOMTestRepo {
         try localFileSystem.writeFileContents(file, string: "// swift-tools-version: 5.9\nimport PackageDescription\n")
         try repo.stageEverything()
         try repo.commit(message: "Initial commit")
+        guard let branch = try repo.getCurrentBranch() else {
+            throw SBOMTestError.failedToGetCurrentBranch
+        }
         
         try Process.checkNonZeroExit(
             args: "git",
             "-C",
             path.pathString,
             "config",
-            "branch.main.remote",
+            "branch.\(branch).remote",
             "test_origin"
         )
 
@@ -76,6 +79,9 @@ enum SBOMTestRepo {
         try localFileSystem.writeFileContents(file, string: "// swift-tools-version: 5.9\nimport PackageDescription\n")
         try repo.stageEverything()
         try repo.commit(message: "Initial commit")
+        guard let branch = try repo.getCurrentBranch() else {
+            throw SBOMTestError.failedToGetCurrentBranch
+        }
         
         try repo.tag(name: "v1.0.0")
         
@@ -84,7 +90,7 @@ enum SBOMTestRepo {
             "-C",
             path.pathString,
             "config",
-            "branch.main.remote",
+            "branch.\(branch).remote",
             "test_origin"
         )
 
