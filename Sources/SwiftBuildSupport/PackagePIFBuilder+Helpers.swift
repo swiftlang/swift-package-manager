@@ -61,7 +61,7 @@ import enum SwiftBuild.ProjectModel
 
 // MARK: - PIF GUID Helpers
 
-public enum TargetSuffix: String {
+package enum TargetSuffix: String, CaseIterable {
     case testable, dynamic
 
     func hasSuffix(id: GUID) -> Bool {
@@ -136,7 +136,7 @@ extension PackagePIFBuilder {
     ///
     /// This format helps make sure that there is no collision with any other PIF targets,
     /// and in particular that a PIF target and a PIF product can have the same name (as they often do).
-    public static func targetGUID(forProductName name: String, withId id: String, suffix: TargetSuffix? = nil) -> GUID {
+    package static func targetGUID(forProductName name: String, withId id: String, suffix: TargetSuffix? = nil) -> GUID {
         let suffixDescription: String = suffix.uniqueDescription(forName: name)
         return "PACKAGE-PRODUCT:\(id).\(name)\(suffixDescription)"
     }
@@ -145,7 +145,7 @@ extension PackagePIFBuilder {
     ///
     /// This format helps make sure that modules and products with the same name (as they often have)
     /// have different target names in the PIF.
-    static func targetName(forProductName name: String, suffix: TargetSuffix? = nil) -> String {
+    package static func targetName(forProductName name: String, suffix: TargetSuffix? = nil) -> String {
         let suffix = suffix?.rawValue ?? ""
         return "\(name)\(suffix)-product"
     }
