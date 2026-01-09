@@ -60,6 +60,7 @@ extension Tag.Feature {
     @Tag public static var NetRc: Tag
     @Tag public static var Plugin: Tag
     @Tag public static var Resource: Tag
+    @Tag public static var SBOM: Tag
     @Tag public static var SourceGeneration: Tag
     @Tag public static var SpecialCharacters: Tag
     @Tag public static var Snippets: Tag
@@ -150,6 +151,7 @@ extension Tag.Feature.Command.Package {
     @Tag public static var DumpSymbolGraph: Tag
     @Tag public static var Edit: Tag
     @Tag public static var ExperimentalApiDiff: Tag
+    @Tag public static var GenerateSBOM: Tag
     @Tag public static var Init: Tag
     @Tag public static var Migrate: Tag
     @Tag public static var Plugin: Tag
