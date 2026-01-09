@@ -22,7 +22,7 @@ For example, if a package depends on a repository hosted at a public Git URL, yo
 
 Mirror configuration affects only the top-level package being built. Once a mirror is set, Swift Package Manager treats it as authoritative and does not fall back to the original source location.
 
-### Inspecting a mirror configuration
+### Inspect a mirror configuration
 Use `swift package config get-mirror` to look up the mirror for a specific
 dependency identity or URL:
 
