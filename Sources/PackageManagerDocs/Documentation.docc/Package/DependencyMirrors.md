@@ -1,4 +1,4 @@
-# Dependency Mirrors
+# Configuring Dependency Mirrors
 
 Dependency mirrors let Swift Package Manager fetch dependencies from alternate locations without modifying the package manifest.
 
