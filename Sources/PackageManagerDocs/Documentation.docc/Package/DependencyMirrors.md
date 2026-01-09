@@ -22,7 +22,8 @@ To configure a mirror, you register a mapping between the original dependency so
 
 For example, if a package depends on a repository hosted at a public Git URL, you can configure Swift Package Manager to fetch that dependency from an internal mirror instead. After setting the mirror, subsequent dependency resolution operations will use the mirrored location transparently, without requiring changes to the package’s dependency declarations.
 
-Mirror configuration affects only the top-level package being built. Once a mirror is set, Swift Package Manager treats it as authoritative and does not fall back to the original source location.
+Mirror configuration affects only the top-level package you're building.
+Once you set a mirror, Swift Package Manager treats it as authoritative and doesn't fall back to the original source location.
 
 ### Inspect a mirror configuration
 Use `swift package config get-mirror` to look up the mirror for a specific
