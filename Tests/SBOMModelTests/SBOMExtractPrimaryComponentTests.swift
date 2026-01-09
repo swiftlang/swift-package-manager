@@ -45,10 +45,11 @@ struct SBOMExtractPrimaryComponentTests {
         #expect(component.scope == .runtime)
         #expect(component.description == rootPackage.description)
 
-        #expect(component.originator.commits != nil)
-        #expect(component.originator.commits?.count == 1)
-        #expect(component.originator.commits?.first?.sha == expectedRevision)
-        #expect(component.originator.commits?.first?.repository == SBOMTestStore.swiftPMURL)
+        let commits = try #require(component.originator.commits)
+        #expect(commits.count == 1)
+        let firstCommit = try #require(commits.first)
+        #expect(firstCommit.sha == expectedRevision)
+        #expect(firstCommit.repository == SBOMTestStore.swiftPMURL)
     }
 
     @Test("extractPrimaryComponent from sample Swiftly ModulesGraph")
@@ -75,10 +76,11 @@ struct SBOMExtractPrimaryComponentTests {
         #expect(component.version.commit?.repository == SBOMTestStore.swiftlyURL)
         #expect(component.scope == .runtime)
         #expect(component.description == rootPackage.description)
-        #expect(component.originator.commits != nil)
-        #expect(component.originator.commits?.count == 1)
-        #expect(component.originator.commits?.first?.sha == expectedRevision)
-        #expect(component.originator.commits?.first?.repository == SBOMTestStore.swiftlyURL)
+        let commits = try #require(component.originator.commits)
+        #expect(commits.count == 1)
+        let firstCommit = try #require(commits.first)
+        #expect(firstCommit.sha == expectedRevision)
+        #expect(firstCommit.repository == SBOMTestStore.swiftlyURL)
     }
 
     @Test("extractComponent from product from primary component from sample SwiftPM ModulesGraph")
@@ -106,10 +108,11 @@ struct SBOMExtractPrimaryComponentTests {
         #expect(component.purl
             .contains("pkg:swift/github.com/swiftlang/swift-package-manager:SwiftPMDataModel@\(actualRevision)"))
         #expect(component.description == nil)
-        #expect(component.originator.commits != nil)
-        #expect(component.originator.commits?.count == 1)
-        #expect(component.originator.commits?.first?.sha == actualRevision)
-        #expect(component.originator.commits?.first?.repository == SBOMTestStore.swiftPMURL)
+        let commits = try #require(component.originator.commits)
+        #expect(commits.count == 1)
+        let firstCommit = try #require(commits.first)
+        #expect(firstCommit.sha == actualRevision)
+        #expect(firstCommit.repository == SBOMTestStore.swiftPMURL)
     }
 
     @Test("extractComponent from product from primary component from sample Swiftly ModulesGraph")
@@ -137,10 +140,11 @@ struct SBOMExtractPrimaryComponentTests {
         #expect(component.purl.contains("pkg:swift/github.com/swiftlang/swiftly:swiftly@v1.0.0"))
         #expect(component.description == nil)
 
-        #expect(component.originator.commits != nil)
-        #expect(component.originator.commits?.count == 1)
-        #expect(component.originator.commits?.first?.sha == actualRevision)
-        #expect(component.originator.commits?.first?.repository == SBOMTestStore.swiftlyURL)
+        let commits = try #require(component.originator.commits)
+        #expect(commits.count == 1)
+        let firstCommit = try #require(commits.first)
+        #expect(firstCommit.sha == actualRevision)
+        #expect(firstCommit.repository == SBOMTestStore.swiftlyURL)
     }
 
     @Test("extractPrimaryComponent with product filter")
@@ -401,11 +405,11 @@ struct SBOMExtractPrimaryComponentTests {
             store: store
         ); return try await extractor.extractComponent(product: product) }()
 
-        #expect(component.originator.commits != nil)
         let commits = try #require(component.originator.commits)
         #expect(commits.count == 1)
-        #expect(commits.first?.sha == expectedRevision)
-        #expect(commits.first?.repository == SBOMTestStore.swiftPMURL)
+        let firstCommit = try #require(commits.first)
+        #expect(firstCommit.sha == expectedRevision)
+        #expect(firstCommit.repository == SBOMTestStore.swiftPMURL)
     }
 
     @Test("extractComponent from package preserves package description")
@@ -470,7 +474,8 @@ struct SBOMExtractPrimaryComponentTests {
             let expectedCategory: SBOMComponent.Category = product.type == .executable ? .application : .library
             #expect(productComponent.category == expectedCategory)
             #expect(productComponent.version.revision == expectedRevision)
-            #expect(productComponent.version.commit?.sha == expectedRevision)
+            let versionCommit = try #require(productComponent.version.commit)
+            #expect(versionCommit.sha == expectedRevision)
             #expect(productComponent.scope == .runtime || productComponent.scope == .test)
             #expect(productComponent.description == nil)
             #expect(productComponent.purl.contains(":\(product.name)@"))
@@ -619,11 +624,11 @@ struct SBOMExtractPrimaryComponentTests {
         ); return try await extractor.extractComponent(package: rootPackage) }()
 
         // Verify the version commit uses the origin remote, not upstream
-        #expect(component.version.commit?.repository == SBOMTestStore.swiftPMURL)
-        #expect(component.version.commit?.sha == expectedRevision)
+        let versionCommit = try #require(component.version.commit)
+        #expect(versionCommit.repository == SBOMTestStore.swiftPMURL)
+        #expect(versionCommit.sha == expectedRevision)
 
         // Verify originator still contains all remotes
-        #expect(component.originator.commits != nil)
         let commits = try #require(component.originator.commits)
         #expect(commits.count == 1, "Should prioritize origin remote")
 

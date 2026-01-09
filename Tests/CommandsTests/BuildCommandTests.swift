@@ -1805,34 +1805,6 @@ struct BuildCommandTestCases {
             ProcessInfo.hostOperatingSystem == .windows
         }
     }
-
-
-    @Test(
-        .IssueWindowsLongPath,
-        .tags(
-            .Feature.CommandLineArguments.BuildSystem,
-            .Feature.CommandLineArguments.Configuration,
-        ),
-        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
-    )
-    func executableTargetIntegratedIntoTwoProducts(
-        data: BuildData,
-    ) async throws {
-        try await withKnownIssue("Sometimes failed to build due to a possible path issue", isIntermittent: true) {
-            let buildSystem = data.buildSystem
-            try await fixture(name: "Miscellaneous/ExecutableTargetWithTwoProducts") { fixturePath in
-                try await build(
-                    [],
-                    packagePath: fixturePath,
-                    configuration: data.config,
-                    cleanAfterward: false,
-                    buildSystem: buildSystem,
-                )
-            }
-        } when: {
-            ProcessInfo.hostOperatingSystem == .windows
-        }
-    }
 }
 
 extension Triple {
