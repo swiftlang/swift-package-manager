@@ -15,7 +15,9 @@ Swift Package Manager resolves dependency versions according to the rules descri
 
 
 ### Configuring dependency mirrors
-Dependency mirrors are configured using Swift Package Manager’s local configuration commands. These commands allow you to map a package dependency identity or source location to an alternate location without modifying the package manifest. Commands such as <doc:SwiftBuild>, <doc:SwiftRun>, and <doc:PackageUpdate> trigger dependency resolution.
+You configure dependency mirrors using Swift Package Manager's local configuration commands.
+These commands let you map a package dependency identity or source location to an alternate location without modifying the package manifest.
+Commands such as <doc:SwiftBuild>, <doc:SwiftRun>, and <doc:PackageUpdate> trigger dependency resolution.
 
 
 To configure a mirror, you register a mapping between the original dependency source and the mirror location. Once configured, Swift Package Manager automatically applies this mapping during dependency resolution.
