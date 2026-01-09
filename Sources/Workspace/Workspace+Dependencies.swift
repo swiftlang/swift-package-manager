@@ -712,6 +712,8 @@ extension Workspace {
         observabilityScope: ObservabilityScope
     ) async -> [(PackageReference, PackageStateChange)] {
         // Get the update package states from resolved results.
+
+        // TODO bp should traits be included in the package state changes?
         guard let packageStateChanges = await observabilityScope.trap({
             try await self.computePackageStateChanges(
                 root: root,

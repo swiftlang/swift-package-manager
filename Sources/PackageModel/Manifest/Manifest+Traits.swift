@@ -102,7 +102,7 @@ extension Manifest {
     /// Validates a set of traits that is intended to be enabled for the manifest; if there are any discrepencies in the
     /// set of enabled traits and whether the manifest defines these traits (or if it defines any traits at all), then an
     /// error indicating the issue will be thrown.
-    private func validateEnabledTraits(_ explicitlyEnabledTraits: EnabledTraits) throws {
+    public func validateEnabledTraits(_ explicitlyEnabledTraits: EnabledTraits) throws {
         guard supportsTraits else {
             if explicitlyEnabledTraits != ["default"] {
                 throw TraitError.traitsNotSupported(
@@ -220,7 +220,7 @@ extension Manifest {
         // If this manifest does not support traits, but the passed configuration either
         // disables default traits or enables non-default traits (i.e. traits that would
         // not exist for this manifest) then we must throw an error.
-        try validateEnabledTraits(explicitlyEnabledTraits)
+//        try validateEnabledTraits(explicitlyEnabledTraits)
         guard supportsTraits else {
             return ["default"]
         }
