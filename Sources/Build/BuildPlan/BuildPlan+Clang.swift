@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+import BuildSystemCMake
 import PackageGraph
 import PackageLoading
 import SPMBuildCore
@@ -46,8 +47,27 @@ extension BuildPlan {
                     }
                 }
             case let target as SystemLibraryModule:
-                clangTarget.additionalFlags += ["-fmodule-map-file=\(target.moduleMapPath.pathString)"]
-                clangTarget.additionalFlags += try pkgConfig(for: target).cFlags
+                // Check if this is a CMake-based system library
+                if let cmake = try prepareCMakeIfNeeded(for: target) {
+                    // Add include directory from CMake staging
+                    if let includePath = try? AbsolutePath(validating: cmake.includeDir) {
+                        clangTarget.additionalFlags += ["-I", includePath.pathString]
+                    }
+
+                    // Add libraries from CMake build
+                    for lib in cmake.libFiles {
+                        if let libPath = try? AbsolutePath(validating: lib) {
+                            clangTarget.libraryBinaryPaths.insert(libPath)
+                        }
+                    }
+
+                    // Add extra compiler flags (e.g., for overlay mode)
+                    clangTarget.additionalFlags += cmake.extraCFlags
+                } else {
+                    // Fall back to traditional pkgConfig-based system library
+                    clangTarget.additionalFlags += ["-fmodule-map-file=\(target.moduleMapPath.pathString)"]
+                    clangTarget.additionalFlags += try pkgConfig(for: target).cFlags
+                }
             case let target as BinaryModule:
                 switch target.kind {
                 case .unknown:
