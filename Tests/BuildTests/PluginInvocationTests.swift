@@ -150,7 +150,17 @@ final class PluginInvocationTests: XCTestCase {
                     completion(.failure(StringError("unimplemented")))
                 }
             }
-            
+
+            func buildCommandLine(
+                sourceFiles: [AbsolutePath],
+                pluginName: String,
+                toolsVersion: ToolsVersion,
+                workers: UInt32,
+                observabilityScope: ObservabilityScope?
+            ) -> (commandLine: [String], execName: String, execFilePath: Basics.AbsolutePath, diagFilePath: Basics.AbsolutePath) {
+                fatalError("Not implemented")
+            }
+
             func runPluginScript(
                 sourceFiles: [AbsolutePath],
                 pluginName: String,

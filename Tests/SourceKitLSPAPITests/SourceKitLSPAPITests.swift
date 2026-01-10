@@ -23,6 +23,18 @@ import _InternalTestSupport
 import XCTest
 
 final class SourceKitLSPAPITests: XCTestCase {
+    private func pluginConfiguration(fileSystem: InMemoryFileSystem) throws -> PluginConfiguration {
+        return PluginConfiguration(
+            scriptRunner: DefaultPluginScriptRunner(
+                fileSystem: fileSystem,
+                cacheDir: "/tmp/cache",
+                toolchain: try UserToolchain.default
+            ),
+            workDirectory: "/tmp/cache",
+            disableSandbox: false
+        )
+    }
+
     func testBasicSwiftPackage() async throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Pkg/Sources/exe/main.swift",
@@ -76,7 +88,7 @@ final class SourceKitLSPAPITests: XCTestCase {
             fileSystem: fs,
             observabilityScope: observability.topScope
         )
-        let description = BuildDescription(buildPlan: plan)
+        let description = BuildDescription(buildPlan: plan, pluginConfiguration: try pluginConfiguration(fileSystem: fs))
 
         try description.checkArguments(
             for: "exe",
@@ -163,7 +175,7 @@ final class SourceKitLSPAPITests: XCTestCase {
             fileSystem: fs,
             observabilityScope: observability.topScope
         )
-        let description = BuildDescription(buildPlan: plan)
+        let description = BuildDescription(buildPlan: plan, pluginConfiguration: try pluginConfiguration(fileSystem: fs))
 
         struct Result: Equatable {
             let moduleName: String
@@ -234,7 +246,7 @@ final class SourceKitLSPAPITests: XCTestCase {
             fileSystem: fs,
             observabilityScope: observability.topScope
         )
-        let description = BuildDescription(buildPlan: plan)
+        let description = BuildDescription(buildPlan: plan, pluginConfiguration: try pluginConfiguration(fileSystem: fs))
 
         struct Result: Equatable {
             let moduleName: String
@@ -357,7 +369,7 @@ final class SourceKitLSPAPITests: XCTestCase {
             fileSystem: fs,
             observabilityScope: observability.topScope
         )
-        let description = BuildDescription(buildPlan: plan)
+        let description = BuildDescription(buildPlan: plan, pluginConfiguration: try pluginConfiguration(fileSystem: fs))
 
         let target = try XCTUnwrap(description.getBuildTarget(for: XCTUnwrap(graph.module(for: "lib")), destination: .target))
         XCTAssertEqual(target.compiler, .clang)

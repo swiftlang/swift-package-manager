@@ -116,17 +116,13 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         return self.toolchain.targetTriple
     }
 
-    /// Starts compiling a plugin script asynchronously and when done, calls the completion handler on the callback queue with the results (including the path of the compiled plugin executable and with any emitted diagnostics, etc).  Existing compilation results that are still valid are reused, if possible.  This function itself returns immediately after starting the compile.  Note that the completion handler only receives a `.failure` result if the compiler couldn't be invoked at all; a non-zero exit code from the compiler still returns `.success` with a full compilation result that notes the error in the diagnostics (in other words, a `.failure` result only means "failure to invoke the compiler").
-    public func compilePluginScript(
+    public func buildCommandLine(
         sourceFiles: [Basics.AbsolutePath],
         pluginName: String,
         toolsVersion: ToolsVersion,
         workers: UInt32,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        delegate: PluginScriptCompilerDelegate,
-        completion: @escaping (Result<PluginCompilationResult, Error>) -> Void
-    ) {
+        observabilityScope: ObservabilityScope?
+    ) -> (commandLine: [String], execName: String, execFilePath: AbsolutePath, diagFilePath: AbsolutePath) {
         // Determine the path of the executable and other produced files.
         let execName = pluginName.spm_mangledToC99ExtendedIdentifier()
         #if os(Windows)
@@ -136,7 +132,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         #endif
         let execFilePath = self.cacheDir.appending(component: execName + execSuffix)
         let diagFilePath = self.cacheDir.appending(component: execName + ".dia")
-        observabilityScope.emit(debug: "Compiling plugin to executable at \(execFilePath)")
+        observabilityScope?.emit(debug: "Compiling plugin to executable at \(execFilePath)")
 
         // Construct the command line for compiling the plugin script(s).
         // FIXME: Much of this is similar to what the ManifestLoader is doing. This should be consolidated.
@@ -144,7 +140,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         // We use the toolchain's Swift compiler for compiling the plugin.
         var commandLine = [self.toolchain.swiftCompilerPathForManifests.pathString]
 
-        observabilityScope.emit(debug: "Using compiler \(self.toolchain.swiftCompilerPathForManifests.pathString)")
+        observabilityScope?.emit(debug: "Using compiler \(self.toolchain.swiftCompilerPathForManifests.pathString)")
 
         // Get access to the path containing the PackagePlugin module and library.
         let pluginLibraryPath = self.toolchain.swiftPMLibrariesLocation.pluginLibraryPath
@@ -242,6 +238,28 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         if (verboseOutput) {
             commandLine.append("-v")
         }
+        return (commandLine, execName, execFilePath, diagFilePath)
+    }
+
+    /// Starts compiling a plugin script asynchronously and when done, calls the completion handler on the callback queue with the results (including the path of the compiled plugin executable and with any emitted diagnostics, etc).  Existing compilation results that are still valid are reused, if possible.  This function itself returns immediately after starting the compile.  Note that the completion handler only receives a `.failure` result if the compiler couldn't be invoked at all; a non-zero exit code from the compiler still returns `.success` with a full compilation result that notes the error in the diagnostics (in other words, a `.failure` result only means "failure to invoke the compiler").
+    public func compilePluginScript(
+        sourceFiles: [Basics.AbsolutePath],
+        pluginName: String,
+        toolsVersion: ToolsVersion,
+        workers: UInt32,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
+        delegate: PluginScriptCompilerDelegate,
+        completion: @escaping (Result<PluginCompilationResult, Error>) -> Void
+    ) {
+        let (commandLine, execName, execFilePath, diagFilePath) = self.buildCommandLine(
+            sourceFiles: sourceFiles,
+            pluginName: pluginName,
+            toolsVersion: toolsVersion,
+            workers: workers,
+            observabilityScope: observabilityScope
+        )
+
         // Pass through the compilation environment.
         let environment = toolchain.swiftCompilerEnvironment
 
