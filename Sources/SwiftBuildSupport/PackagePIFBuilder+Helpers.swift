@@ -58,15 +58,12 @@ import func PackageLoading.pkgConfigArgs
 import SPMBuildCore
 
 import enum SwiftBuild.ProjectModel
+import SWBUtil
 
 // MARK: - PIF GUID Helpers
 
 public enum TargetSuffix: String {
     case testable, dynamic
-
-    func hasSuffix(id: GUID) -> Bool {
-        id.value.hasSuffix("-\(self.rawValue)")
-    }
 }
 
 extension TargetSuffix? {
@@ -354,7 +351,7 @@ extension PackageGraph.ResolvedModule {
 
     /// The stable sorted list of resources in the module
     var resources: [PackageModel.Resource] {
-        self.underlying.resources.sorted(on: \.path)
+        self.underlying.resources.sorted(by: \.path)
     }
 
     /// The name of the group this module belongs to; by default, the package identity.
@@ -1199,10 +1196,11 @@ extension Optional {
     }
 }
 
-extension Sequence {
-    /// Evaluates `predicate` on each element in the collection.
-    /// If exactly 1 element returns `true` return that element.
+package extension Sequence {
     /// Returns the *only* element in the sequence satisfying the specified predicate.
+    ///
+    /// Evaluates `predicate` on each element in the collection.
+    /// If exactly 1 element returns `true` return that element, otherwise returns `nil`.
     ///
     /// **Complexity**.  O(n), where n is the length of the sequence.
     func only(where predicate: (Element) throws -> Bool) rethrows -> Element? {
@@ -1226,24 +1224,8 @@ extension Collection {
         !self.isEmpty
     }
 
-    var only: Element? {
-        (count == 1) ? first : nil
-    }
-
     func anySatisfy(_ predicate: (Element) throws -> Bool) rethrows -> Bool {
         try contains(where: predicate)
-    }
-
-    /// For example: `people.sorted(on: \.name)`.
-    func sorted(on projection: (Element) -> some Comparable) -> [Element] {
-        self.sorted(on: projection, by: <)
-    }
-
-    /// For example: `people.sorted(on: \.name, comparator: >)`.
-    func sorted<T>(on projection: (Element) -> T, by comparator: (T, T) -> Bool) -> [Element] {
-        self.sorted { lhs, rhs in
-            comparator(projection(lhs), projection(rhs))
-        }
     }
 }
 
@@ -1253,7 +1235,7 @@ extension Array {
     }
 }
 
-extension UserDefaults {
+extension Foundation.UserDefaults {
     func bool(forKey key: String, defaultValue: Bool) -> Bool {
         if self.object(forKey: key) != nil {
             self.bool(forKey: key)
