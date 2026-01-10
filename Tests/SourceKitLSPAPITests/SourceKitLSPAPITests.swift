@@ -23,6 +23,18 @@ import _InternalTestSupport
 import XCTest
 
 final class SourceKitLSPAPITests: XCTestCase {
+    private func pluginConfiguration(fileSystem: InMemoryFileSystem) throws -> PluginConfiguration {
+        return PluginConfiguration(
+            scriptRunner: DefaultPluginScriptRunner(
+                fileSystem: fileSystem,
+                cacheDir: "/tmp/cache",
+                toolchain: try MockToolchain()
+            ),
+            workDirectory: "/tmp/cache",
+            disableSandbox: false
+        )
+    }
+
     func testBasicSwiftPackage() async throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Pkg/Sources/exe/main.swift",
@@ -76,7 +88,7 @@ final class SourceKitLSPAPITests: XCTestCase {
             fileSystem: fs,
             observabilityScope: observability.topScope
         )
-        let description = BuildDescription(buildPlan: plan)
+        let description = BuildDescription(buildPlan: plan, pluginConfiguration: try pluginConfiguration(fileSystem: fs))
 
         try description.checkArguments(
             for: "exe",
@@ -112,7 +124,7 @@ final class SourceKitLSPAPITests: XCTestCase {
             for: "plugin",
             graph: graph,
             partialArguments: [
-                "-I", AbsolutePath("/fake/manifestLib/path").pathString
+                "-I", AbsolutePath("/fake/pluginLibrary/path").pathString
             ],
             isPartOfRootPackage: true,
             destination: .host
@@ -163,7 +175,7 @@ final class SourceKitLSPAPITests: XCTestCase {
             fileSystem: fs,
             observabilityScope: observability.topScope
         )
-        let description = BuildDescription(buildPlan: plan)
+        let description = BuildDescription(buildPlan: plan, pluginConfiguration: try pluginConfiguration(fileSystem: fs))
 
         struct Result: Equatable {
             let moduleName: String
@@ -234,7 +246,7 @@ final class SourceKitLSPAPITests: XCTestCase {
             fileSystem: fs,
             observabilityScope: observability.topScope
         )
-        let description = BuildDescription(buildPlan: plan)
+        let description = BuildDescription(buildPlan: plan, pluginConfiguration: try pluginConfiguration(fileSystem: fs))
 
         struct Result: Equatable {
             let moduleName: String
@@ -357,7 +369,7 @@ final class SourceKitLSPAPITests: XCTestCase {
             fileSystem: fs,
             observabilityScope: observability.topScope
         )
-        let description = BuildDescription(buildPlan: plan)
+        let description = BuildDescription(buildPlan: plan, pluginConfiguration: try pluginConfiguration(fileSystem: fs))
 
         let target = try XCTUnwrap(description.getBuildTarget(for: XCTUnwrap(graph.module(for: "lib")), destination: .target))
         XCTAssertEqual(target.compiler, .clang)
@@ -375,25 +387,27 @@ extension SourceKitLSPAPI.BuildDescription {
         ignoredFiles: [URL] = [],
         otherFiles: [URL] = [],
         isPartOfRootPackage: Bool,
-        destination: BuildParameters.Destination = .target
+        destination: BuildParameters.Destination = .target,
+        file: StaticString = #file,
+        line: UInt = #line
     ) throws -> Bool {
-        let target = try XCTUnwrap(graph.module(for: targetName))
-        let buildTarget = try XCTUnwrap(self.getBuildTarget(for: target, destination: destination))
+        let target = try XCTUnwrap(graph.module(for: targetName), file: file, line: line)
+        let buildTarget = try XCTUnwrap(self.getBuildTarget(for: target, destination: destination), file: file, line: line)
 
-        XCTAssertEqual(buildTarget.resources, resources, "build target \(targetName) contains unexpected resource files")
-        XCTAssertEqual(buildTarget.ignored, ignoredFiles, "build target \(targetName) contains unexpected ignored files")
-        XCTAssertEqual(buildTarget.others, otherFiles, "build target \(targetName) contains unexpected other files")
+        XCTAssertEqual(buildTarget.resources, resources, "build target \(targetName) contains unexpected resource files", file: file, line: line)
+        XCTAssertEqual(buildTarget.ignored, ignoredFiles, "build target \(targetName) contains unexpected ignored files", file: file, line: line)
+        XCTAssertEqual(buildTarget.others, otherFiles, "build target \(targetName) contains unexpected other files", file: file, line: line)
 
         guard let source = buildTarget.sources.first?.sourceFile else {
-            XCTFail("build target \(targetName) contains no source files")
+            XCTFail("build target \(targetName) contains no source files", file: file, line: line)
             return false
         }
 
         let arguments = try buildTarget.compileArguments(for: source)
         let result = arguments.contains(partialArguments)
 
-        XCTAssertTrue(result, "could not match \(partialArguments) to actual arguments \(arguments)")
-        XCTAssertEqual(buildTarget.isPartOfRootPackage, isPartOfRootPackage)
+        XCTAssertTrue(result, "could not match \(partialArguments) to actual arguments \(arguments)", file: file, line: line)
+        XCTAssertEqual(buildTarget.isPartOfRootPackage, isPartOfRootPackage, file: file, line: line)
         return result
     }
 }
