@@ -224,14 +224,11 @@ public final class SwiftBuildSystemMessageHandler {
                 "\(progressInfo.message)"
             }
 
-            if step >= 0 {
-                print("progress: \(step) with \(message)")
-                print("progress info: \(progressInfo)")
-            } else {
-                print("weird progress: \(progressInfo)")
+            // Skip if message doesn't contain anything useful to display.
+            if message.contains(where: \.isLetter) {
+                progressAnimation.update(step: step, total: 100, text: message)
             }
 
-            progressAnimation.update(step: step, total: 100, text: message)
             callback = { [weak self] buildSystem in
                 self?.buildDelegate?.buildSystem(buildSystem, didUpdateTaskProgress: message)
             }
@@ -248,7 +245,7 @@ public final class SwiftBuildSystemMessageHandler {
             // Append to buffer-per-task storage
             buildState.appendToBuffer(info)
         case .taskStarted(let info):
-            try buildState.started(task: info)
+            try buildState.started(task: info, self.logLevel)
 
             let targetInfo = try buildState.target(for: info)
             callback = { [weak self] buildSystem in
@@ -258,8 +255,8 @@ public final class SwiftBuildSystemMessageHandler {
         case .taskComplete(let info):
             let startedInfo = try buildState.completed(task: info)
 
-            // Handler for failed tasks, if applicable.
-            try handleTaskOutput(info, startedInfo, self.enableBacktraces)
+            // Handler for task output, handling failures if applicable.
+            try self.handleTaskOutput(info, startedInfo, self.enableBacktraces)
 
             let targetInfo = try buildState.target(for: startedInfo)
             callback = { [weak self] buildSystem in
@@ -278,7 +275,21 @@ public final class SwiftBuildSystemMessageHandler {
             }
         case .targetComplete(let info):
             _ = try buildState.completed(target: info)
-        case .planningOperationStarted, .planningOperationCompleted, .reportBuildDescription, .reportPathMap, .preparedForIndex, .buildStarted, .preparationComplete, .targetUpToDate, .taskUpToDate:
+        case .planningOperationStarted(_):
+            // Emitting under higher-level verbosity so as not to overwhelm output.
+            // This is the same behaviour as the native system.
+            if self.logLevel.isVerbose {
+                self.outputStream.send("Planning build" + "\n")
+            }
+        case .planningOperationCompleted(_):
+            // Emitting under higher-level verbosity so as not to overwhelm output.
+            if self.logLevel.isVerbose {
+                self.outputStream.send("Planning complete" + "\n")
+            }
+        case .targetUpToDate(let info):
+            // Received when a target is entirely up to date and did not need to be built.
+            self.outputStream.send("Target \(info.guid) up to date." + "\n")
+        case .reportBuildDescription, .reportPathMap, .preparedForIndex, .buildStarted, .preparationComplete, .taskUpToDate:
             break
         case .buildDiagnostic, .targetDiagnostic, .taskDiagnostic:
             break // deprecated
@@ -318,7 +329,7 @@ extension SwiftBuildSystemMessageHandler {
         /// Registers the start of a build task, validating that the task hasn't already been started.
         /// - Parameter task: The task start information containing task ID and signature
         /// - Throws: Fatal error if the task is already active
-        mutating func started(task: SwiftBuild.SwiftBuildMessage.TaskStartedInfo) throws {
+        mutating func started(task: SwiftBuild.SwiftBuildMessage.TaskStartedInfo, _ logLevel: Basics.Diagnostic.Severity) throws {
             if activeTasks[task.taskID] != nil {
                 throw Diagnostics.fatalError
             }
@@ -326,7 +337,7 @@ extension SwiftBuildSystemMessageHandler {
             taskIDToSignature[task.taskID] = task.taskSignature
 
             // Track relevant task info to emit to user.
-            let output = if let cmdLineDisplayStr = task.commandLineDisplayString {
+            let output = if let cmdLineDisplayStr = task.commandLineDisplayString, logLevel.isVerbose {
                 "\(task.executionDescription)\n\(cmdLineDisplayStr)"
             } else {
                 task.executionDescription
