@@ -70,6 +70,7 @@ target_link_libraries(Commands PUBLIC
   CoreCommands
   LLBuildManifest
   PackageGraph
+  SBOMModel
   SourceControl
   SwiftFixIt
   SwiftPMBuildServer
