@@ -334,7 +334,21 @@ public struct CoverageOptions: ParsableArguments {
     )
     var formats: [CoverageFormat] = [.json]
 
+    /// Coverage arguments with optional format specification.
+    @Option(
+        name: [
+            .customLong("Xcov", withSingleDash: true),
+        ],
+        help: ArgumentHelp(
+            "Pass coverage arguments with optional format specification. Syntax: '[<coverage-format>=]<value>'. Can be specified multiple times.",
+            valueName: "[<coverage-format>=]<value>"
+        )
+    )
+    var _xcovArguments: [XcovArgument] = []
 
+    package var xcovArguments: XcovArgumentCollection {
+        return XcovArgumentCollection(_xcovArguments)
+    }
 }
 
 
@@ -541,6 +555,11 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
 
     @OptionGroup()
     var options: TestCommandOptions
+
+    // Helper for testing access to xcov arguments
+    package func getXcovArguments() -> XcovArgumentCollection {
+        return options.coverageOptions.xcovArguments
+    }
 
     private func run(_ swiftCommandState: SwiftCommandState, buildParameters: BuildParameters, testProducts: [BuiltTestProduct]) async throws {
         // Remove test output from prior runs and validate priors.

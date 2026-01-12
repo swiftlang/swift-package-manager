@@ -55,7 +55,7 @@ package struct XcovArgument: ExpressibleByArgument {
 
 /// Collection of multiple -Xcov arguments that preserves order and handles filtering
 package struct XcovArgumentCollection {
-    private let arguments: [XcovArgument]
+    package let arguments: [XcovArgument]
 
     package init(_ arguments: [XcovArgument]) {
         self.arguments = arguments
@@ -69,4 +69,5 @@ package struct XcovArgumentCollection {
     package func getArguments(for coverageFormat: CoverageFormat) -> [String] {
         return arguments.flatMap { $0.getArguments(for: coverageFormat) }
     }
+
 }
