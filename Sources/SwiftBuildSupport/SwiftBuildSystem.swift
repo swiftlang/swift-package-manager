@@ -718,11 +718,6 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                 // Android triples are identified by the environment part of the triple
                 platformName = "android"
                 sdkName = platformName
-            // FIXME remove this case
-            } else if self.buildParameters.triple.isWasm {
-                // Swift Build uses webassembly instead of wasi as the platform name
-                platformName = "webassembly"
-                sdkName = platformName
             } else {
                 platformName = self.buildParameters.triple.darwinPlatform?.platformName ?? self.buildParameters.triple.osNameUnversioned
                 sdkName = platformName
