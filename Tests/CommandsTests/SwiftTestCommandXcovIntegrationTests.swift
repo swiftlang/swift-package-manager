@@ -15,6 +15,25 @@ import ArgumentParser
 import Commands
 @testable import PackageModel
 
+/// Categories for different types of integration tests
+enum IntegrationTestCategory {
+    case singleArgument
+    case multipleArguments
+    case edgeCases
+    case compatibility
+    case ordering
+}
+
+/// Test data for SwiftTestCommand -Xcov integration scenarios
+struct IntegrationTestData {
+    let category: IntegrationTestCategory
+    let description: String
+    let commandLineArgs: [String]
+    let expectedXcovArgumentCount: Int
+    let expectedJsonArgs: [String]
+    let expectedHtmlArgs: [String]
+}
+
 @Suite(
     "SwiftTestCommand -Xcov Integration Tests",
     .tags(
@@ -24,208 +43,175 @@ import Commands
 )
 struct SwiftTestCommandXcovIntegrationTests {
 
-    @Test("Parse single -Xcov argument with json format")
-    func parseSingleXcovWithJsonFormat() throws {
-        // GIVEN SwiftTestCommand with single -Xcov json argument
-        let args = ["-Xcov", "json=coverage.json"]
+    @Test(
+        "SwiftTestCommand -Xcov Integration Test",
+        arguments: [
+            // MARK: - Single Argument Tests
+            IntegrationTestData(
+                category: .singleArgument,
+                description: "Parse single -Xcov argument with json format",
+                commandLineArgs: ["-Xcov", "json=coverage.json"],
+                expectedXcovArgumentCount: 1,
+                expectedJsonArgs: ["coverage.json"],
+                expectedHtmlArgs: []
+            ),
+            IntegrationTestData(
+                category: .singleArgument,
+                description: "Parse single -Xcov argument with html format",
+                commandLineArgs: ["-Xcov", "html=coverage-report"],
+                expectedXcovArgumentCount: 1,
+                expectedJsonArgs: [],
+                expectedHtmlArgs: ["coverage-report"]
+            ),
+            IntegrationTestData(
+                category: .singleArgument,
+                description: "Parse single -Xcov argument without format",
+                commandLineArgs: ["-Xcov", "output.json"],
+                expectedXcovArgumentCount: 1,
+                expectedJsonArgs: ["output.json"],
+                expectedHtmlArgs: ["output.json"]
+            ),
+            // MARK: - Multiple Arguments Tests
+            IntegrationTestData(
+                category: .multipleArguments,
+                description: "Parse multiple -Xcov arguments with mixed formats",
+                commandLineArgs: [
+                    "-Xcov", "json=coverage.json",
+                    "-Xcov", "html=coverage-report",
+                    "-Xcov", "xml=coverage.xml",  // Unsupported format
+                    "-Xcov", "plain-output.txt"   // No format
+                ],
+                expectedXcovArgumentCount: 4,
+                expectedJsonArgs: ["coverage.json", "xml=coverage.xml", "plain-output.txt"],
+                expectedHtmlArgs: ["coverage-report", "xml=coverage.xml", "plain-output.txt"]
+            ),
+            IntegrationTestData(
+                category: .multipleArguments,
+                description: "Parse -Xcov with complex file paths",
+                commandLineArgs: [
+                    "-Xcov", "json=/path/with spaces/coverage.json",
+                    "-Xcov", "html=./relative/path/coverage-report",
+                    "-Xcov", "json=~/home/coverage.json"
+                ],
+                expectedXcovArgumentCount: 3,
+                expectedJsonArgs: ["/path/with spaces/coverage.json", "~/home/coverage.json"],
+                expectedHtmlArgs: ["./relative/path/coverage-report"]
+            ),
+            // MARK: - Ordering Tests
+            IntegrationTestData(
+                category: .ordering,
+                description: "Parse -Xcov arguments preserve command-line order",
+                commandLineArgs: [
+                    "-Xcov", "json=first.json",
+                    "-Xcov", "xml=unsupported.xml",
+                    "-Xcov", "json=second.json",
+                    "-Xcov", "third.txt"
+                ],
+                expectedXcovArgumentCount: 4,
+                expectedJsonArgs: ["first.json", "xml=unsupported.xml", "second.json", "third.txt"],
+                expectedHtmlArgs: ["xml=unsupported.xml", "third.txt"]
+            ),
+            // MARK: - Edge Cases Tests
+            IntegrationTestData(
+                category: .edgeCases,
+                description: "Parse -Xcov with edge cases",
+                commandLineArgs: [
+                    "-Xcov", "json=",           // Empty value
+                    "-Xcov", "=",               // Just equals
+                    "-Xcov", "json=key=value",  // Multiple equals
+                    "-Xcov", ""                 // Empty string
+                ],
+                expectedXcovArgumentCount: 4,
+                expectedJsonArgs: ["", "=", "key=value", ""],
+                expectedHtmlArgs: ["=", ""]
+            ),
+            IntegrationTestData(
+                category: .edgeCases,
+                description: "Parse command without -Xcov arguments",
+                commandLineArgs: ["--enable-coverage"],
+                expectedXcovArgumentCount: 0,
+                expectedJsonArgs: [],
+                expectedHtmlArgs: []
+            ),
+            // MARK: - Compatibility Tests
+            IntegrationTestData(
+                category: .compatibility,
+                description: "Parse -Xcov works with existing coverage options",
+                commandLineArgs: [
+                    "--enable-coverage",
+                    "--coverage-format", "json",
+                    "--coverage-format", "html",
+                    "-Xcov", "json=coverage.json",
+                    "-Xcov", "html=coverage-report"
+                ],
+                expectedXcovArgumentCount: 2,
+                expectedJsonArgs: ["coverage.json"],
+                expectedHtmlArgs: ["coverage-report"]
+            ),
+            IntegrationTestData(
+                category: .compatibility,
+                description: "Parse -Xcov with other test command options",
+                commandLineArgs: [
+                    "--enable-coverage",
+                    "--parallel",
+                    "-Xcov", "json=coverage.json",
+                    "--filter", "SomeTests",
+                    "-Xcov", "html=coverage-report"
+                ],
+                expectedXcovArgumentCount: 2,
+                expectedJsonArgs: ["coverage.json"],
+                expectedHtmlArgs: ["coverage-report"]
+            ),
+            // MARK: - Real World Scenarios
+            IntegrationTestData(
+                category: .multipleArguments,
+                description: "Parse realistic mix of -Xcov arguments",
+                commandLineArgs: [
+                    "-Xcov", "json=./build/coverage.json",
+                    "-Xcov", "html=./build/coverage-report",
+                    "-Xcov", "lcov=./build/coverage.lcov",  // Unsupported
+                    "-Xcov", "exclude-paths=/tmp/*",        // Generic flag (no leading dashes)
+                    "-Xcov", "xml=./build/cobertura.xml"    // Unsupported
+                ],
+                expectedXcovArgumentCount: 5,
+                expectedJsonArgs: [
+                    "./build/coverage.json",
+                    "lcov=./build/coverage.lcov",
+                    "exclude-paths=/tmp/*",
+                    "xml=./build/cobertura.xml"
+                ],
+                expectedHtmlArgs: [
+                    "./build/coverage-report",
+                    "lcov=./build/coverage.lcov",
+                    "exclude-paths=/tmp/*",
+                    "xml=./build/cobertura.xml"
+                ]
+            ),
+        ],
+    )
+    func swiftTestCommandXcovIntegration(testData: IntegrationTestData) throws {
+        // WHEN: Parsing the command with the test data arguments
+        let command = try SwiftTestCommand.parseAsRoot(testData.commandLineArgs) as! SwiftTestCommand
 
-        // WHEN Parsing the command
-        let command = try SwiftTestCommand.parseAsRoot(args) as! SwiftTestCommand
-
-        // THEN Should have parsed the -Xcov argument correctly
+        // THEN: Should have parsed the -Xcov arguments correctly
         let xcovArgs = command.xcovArguments
-        #expect(xcovArgs.count == 1)
+        #expect(xcovArgs.count == testData.expectedXcovArgumentCount, "Expected \(testData.expectedXcovArgumentCount) arguments, got \(xcovArgs.count) for: \(testData.description)")
 
-        // AND JSON should have the correct argument
+        // AND: JSON arguments should match expectations
         let jsonArgs = xcovArgs.getArguments(for: .json)
-        #expect(jsonArgs == ["coverage.json"])
+        #expect(jsonArgs == testData.expectedJsonArgs, "JSON args mismatch for: \(testData.description). Expected: \(testData.expectedJsonArgs), Got: \(jsonArgs)")
 
-        // AND HTML arguments should be empty
+        // AND: HTML arguments should match expectations
         let htmlArgs = xcovArgs.getArguments(for: .html)
-        #expect(htmlArgs.isEmpty)
-    }
-
-    @Test("Parse single -Xcov argument with html format")
-    func parseSingleXcovWithHtmlFormat() throws {
-        // GIVEN SwiftTestCommand with single -Xcov html argument
-        let args = ["-Xcov", "html=coverage-report"]
-
-        // WHEN Parsing the command
-        let command = try SwiftTestCommand.parseAsRoot(args) as! SwiftTestCommand
-
-        // THEN Should have parsed the -Xcov argument correctly
-        let xcovArgs = command.xcovArguments
-        #expect(xcovArgs.count == 1)
-
-        // AND HTML should have the correct argument
-        let htmlArgs = xcovArgs.getArguments(for: .html)
-        #expect(htmlArgs == ["coverage-report"])
-
-        // AND JSON should have the correct argument
-        let jsonArgs = xcovArgs.getArguments(for: .json)
-        #expect(jsonArgs.isEmpty)
-    }
-
-    @Test("Parse single -Xcov argument without format")
-    func parseSingleXcovWithoutFormat() throws {
-        // Given: SwiftTestCommand with -Xcov argument without format
-        let args = ["-Xcov", "output.json"]
-
-        // When: Parsing the command
-        let command = try SwiftTestCommand.parseAsRoot(args) as! SwiftTestCommand
-
-        // Then: Should have parsed the -Xcov argument correctly
-        let xcovArgs = command.xcovArguments
-        #expect(xcovArgs.count == 1)
-
-        // Should return the value for any format since no format was specified
-        let jsonArgs = xcovArgs.getArguments(for: .json)
-        #expect(jsonArgs == ["output.json"])
-
-        let htmlArgs = xcovArgs.getArguments(for: .html)
-        #expect(htmlArgs == ["output.json"])
-    }
-
-    @Test("Parse multiple -Xcov arguments with mixed formats")
-    func parseMultipleXcovWithMixedFormats() throws {
-        // Given: SwiftTestCommand with multiple -Xcov arguments
-        let args = [
-            "-Xcov", "json=coverage.json",
-            "-Xcov", "html=coverage-report",
-            "-Xcov", "xml=coverage.xml",  // Unsupported format
-            "-Xcov", "plain-output.txt"   // No format
-        ]
-
-        // When: Parsing the command
-        let command = try SwiftTestCommand.parseAsRoot(args) as! SwiftTestCommand
-
-        // Then: Should have parsed all -Xcov arguments correctly
-        let xcovArgs = command.xcovArguments
-        #expect(xcovArgs.count == 4)
-
-        // JSON format should include json-specific + unsupported + no-format
-        let jsonArgs = xcovArgs.getArguments(for: .json)
-        #expect(jsonArgs == ["coverage.json", "xml=coverage.xml", "plain-output.txt"])
-
-        // HTML format should include html-specific + unsupported + no-format
-        let htmlArgs = xcovArgs.getArguments(for: .html)
-        #expect(htmlArgs == ["coverage-report", "xml=coverage.xml", "plain-output.txt"])
-    }
-
-    @Test("Parse -Xcov arguments preserve command-line order")
-    func parseXcovPreservesCommandLineOrder() throws {
-        // Given: SwiftTestCommand with -Xcov arguments in specific order
-        let args = [
-            "-Xcov", "json=first.json",
-            "-Xcov", "xml=unsupported.xml",
-            "-Xcov", "json=second.json",
-            "-Xcov", "third.txt"
-        ]
-
-        // When: Parsing the command
-        let command = try SwiftTestCommand.parseAsRoot(args) as! SwiftTestCommand
-
-        // Then: Should preserve the command-line order
-        let jsonArgs = command.xcovArguments.getArguments(for: .json)
-        #expect(jsonArgs == ["first.json", "xml=unsupported.xml", "second.json", "third.txt"])
-    }
-
-    @Test("Parse -Xcov with complex file paths")
-    func parseXcovWithComplexFilePaths() throws {
-        // Given: SwiftTestCommand with complex file paths
-        let args = [
-            "-Xcov", "json=/path/with spaces/coverage.json",
-            "-Xcov", "html=./relative/path/coverage-report",
-            "-Xcov", "json=~/home/coverage.json"
-        ]
-
-        // When: Parsing the command
-        let command = try SwiftTestCommand.parseAsRoot(args) as! SwiftTestCommand
-
-        // Then: Should handle complex paths correctly
-        let xcovArgs = command.xcovArguments
-        let jsonArgs = xcovArgs.getArguments(for: .json)
-        #expect(jsonArgs == ["/path/with spaces/coverage.json", "~/home/coverage.json"])
-
-        let htmlArgs = xcovArgs.getArguments(for: .html)
-        #expect(htmlArgs == ["./relative/path/coverage-report"])
-    }
-
-    @Test("Parse -Xcov with edge cases")
-    func parseXcovWithEdgeCases() throws {
-        // Given: SwiftTestCommand with edge case -Xcov arguments
-        let args = [
-            "-Xcov", "json=",           // Empty value
-            "-Xcov", "=",               // Just equals
-            "-Xcov", "json=key=value",  // Multiple equals
-            "-Xcov", ""                 // Empty string
-        ]
-
-        // When: Parsing the command
-        let command = try SwiftTestCommand.parseAsRoot(args) as! SwiftTestCommand
-
-        // Then: Should handle edge cases correctly
-        let xcovArgs = command.xcovArguments
-        #expect(xcovArgs.count == 4)
-
-        let jsonArgs = xcovArgs.getArguments(for: .json)
-        #expect(jsonArgs == ["", "=", "key=value", ""])
-    }
-
-    @Test("Parse command without -Xcov arguments")
-    func parseCommandWithoutXcovArguments() throws {
-        // Given: SwiftTestCommand without any -Xcov arguments
-        let args = ["--enable-coverage"]
-
-        // When: Parsing the command
-        let command = try SwiftTestCommand.parseAsRoot(args) as! SwiftTestCommand
-
-        // Then: Should have empty XcovArgumentCollection
-        let xcovArgs = command.xcovArguments
-        #expect(xcovArgs.count == 0)
-
-        let jsonArgs = xcovArgs.getArguments(for: .json)
-        #expect(jsonArgs.isEmpty)
-
-        let htmlArgs = xcovArgs.getArguments(for: .html)
-        #expect(htmlArgs.isEmpty)
-    }
-
-    @Test("Parse -Xcov works with existing coverage options")
-    func parseXcovWorksWithExistingCoverageOptions() throws {
-        // Given: SwiftTestCommand with both -Xcov and existing coverage options
-        let args = [
-            "--enable-coverage",
-            "--coverage-format", "json",
-            "--coverage-format", "html",
-            "-Xcov", "json=coverage.json",
-            "-Xcov", "html=coverage-report"
-        ]
-
-        // When: Parsing the command
-        let command = try SwiftTestCommand.parseAsRoot(args) as! SwiftTestCommand
-
-        // Then: Should have both existing coverage options and -Xcov arguments
-        let xcovArgs = command.xcovArguments
-        #expect(xcovArgs.count == 2)
-
-        let jsonArgs = xcovArgs.getArguments(for: .json)
-        #expect(jsonArgs == ["coverage.json"])
-
-        let htmlArgs = xcovArgs.getArguments(for: .html)
-        #expect(htmlArgs == ["coverage-report"])
-
-        // Note: We can't easily test isEnabled/formats due to access control,
-        // but the fact that parsing succeeded indicates they work together
+        #expect(htmlArgs == testData.expectedHtmlArgs, "HTML args mismatch for: \(testData.description). Expected: \(testData.expectedHtmlArgs), Got: \(htmlArgs)")
     }
 }
 
-// Extensions to add count property to XcovArgumentCollection for testing
+// MARK: - Extensions
+
+/// Extension to add count property to XcovArgumentCollection for testing
 extension XcovArgumentCollection {
     var count: Int {
-        // This is a test helper - in real implementation we'd need to track this
-        // For now, assume we can get count from the internal arguments array
         return self.arguments.count
     }
-
 }

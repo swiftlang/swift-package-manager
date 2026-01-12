@@ -276,7 +276,7 @@ public struct CoverageOptions: ParsableArguments {
     var _printPathMode: CoveragePrintPathMode?
 
     /// If the path of the exported code coverage JSON should be printed.
-    @Option(
+    @Flag(
         name: [
             .customLong("show-codecov-path"),
             .customLong("show-code-coverage-path"),
@@ -285,16 +285,11 @@ public struct CoverageOptions: ParsableArguments {
             "Print the path of the exported code coverage files. (deprecated.  use `--show-coverage-path [<mode>]` instead)",
         )
     )
-    var _printPathModeDeprecated: Bool?
-
+    var _printPathModeDeprecated: Bool = false
 
     var printPathMode: CoveragePrintPathMode? {
         guard self._printPathMode != nil else {
-            if self._printPathModeDeprecated == true  {
-                return .text
-            } else {
-                return nil
-            }
+            return self._printPathModeDeprecated ? .text : nil
         }
         return self._printPathMode
     }
@@ -340,8 +335,10 @@ public struct CoverageOptions: ParsableArguments {
             .customLong("Xcov", withSingleDash: true),
         ],
         help: ArgumentHelp(
-            "Pass coverage arguments with optional format specification. Syntax: '[<coverage-format>=]<value>'. Can be specified multiple times.",
-            valueName: "[<coverage-format>=]<value>"
+            [
+                "Pass flag, with optional format specification, through to the underlying coverage report",
+                "tool. Syntax: '[<coverage-format>=]<value>'. Can be specified multiple times.",
+            ].joined(separator: " "),
         )
     )
     var _xcovArguments: [XcovArgument] = []
@@ -738,7 +735,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             )
         }
 
-        if self.options.coverageOptions._printPathModeDeprecated != nil {
+        if self.options.coverageOptions._printPathModeDeprecated {
             swiftCommandState.observabilityScope.emit(
                 warning: "The '--show-code-coverage-path' and '--show-codecov-path' options are deprecated.  Use '--show-coverage-pathe' instead."
             )
