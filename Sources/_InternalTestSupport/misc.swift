@@ -322,7 +322,7 @@ fileprivate func setup(
         #else
         try Process.checkNonZeroExit(args: "cp", "-R", "-H", srcDir.pathString, dstDir.pathString)
         #endif
-        
+
         // Ensure we get a clean test fixture.
         try localFileSystem.removeFileTree(dstDir.appending(component: ".build"))
         try localFileSystem.removeFileTree(dstDir.appending(component: ".swiftpm"))
@@ -549,7 +549,7 @@ private func swiftArgs(
     return args
 }
 
-@available(*, 
+@available(*,
     deprecated,
     renamed: "loadModulesGraph",
     message: "Rename for consistency: the type of this functions return value is named `ModulesGraph`."
@@ -694,7 +694,7 @@ public func getNumberOfMatches(of match: String, in value: String) -> Int {
 }
 
 public extension String {
-    var withSwiftLineEnding: String {   
+    var withSwiftLineEnding: String {
         return replacingOccurrences(of: "\r\n", with: "\n")
     }
 }
@@ -708,4 +708,19 @@ public func executableName(_ name: String) -> String {
 #else
   return name
 #endif
+}
+
+package func getCoveragePath(
+    _ path: AbsolutePath,
+    with buildData: BuildData,
+) async throws -> String {
+    return try await executeSwiftTest(
+            path,
+            configuration: buildData.config,
+            extraArgs: [
+                "--show-coverage-path",
+            ],
+            throwIfCommandFails: true,
+            buildSystem: buildData.buildSystem,
+        ).stdout.trimmingCharacters(in: .whitespacesAndNewlines)
 }
