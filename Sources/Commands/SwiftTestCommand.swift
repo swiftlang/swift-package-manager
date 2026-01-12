@@ -556,8 +556,9 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
     @OptionGroup()
     var options: TestCommandOptions
 
-    // Helper for testing access to xcov arguments
-    package func getXcovArguments() -> XcovArgumentCollection {
+    /// Returns the -Xcov arguments for testing purposes.
+    /// This is a package-level method to allow tests to verify argument parsing.
+    package var xcovArguments: XcovArgumentCollection {
         return options.coverageOptions.xcovArguments
     }
 

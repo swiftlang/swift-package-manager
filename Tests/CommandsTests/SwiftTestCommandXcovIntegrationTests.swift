@@ -13,6 +13,7 @@
 import Testing
 import ArgumentParser
 import Commands
+@testable import PackageModel
 
 @Suite(
     "SwiftTestCommand -Xcov Integration Tests",
@@ -32,7 +33,7 @@ struct SwiftTestCommandXcovIntegrationTests {
         let command = try SwiftTestCommand.parseAsRoot(args) as! SwiftTestCommand
 
         // THEN Should have parsed the -Xcov argument correctly
-        let xcovArgs = command.getXcovArguments()
+        let xcovArgs = command.xcovArguments
         #expect(xcovArgs.count == 1)
 
         // AND JSON should have the correct argument
@@ -53,7 +54,7 @@ struct SwiftTestCommandXcovIntegrationTests {
         let command = try SwiftTestCommand.parseAsRoot(args) as! SwiftTestCommand
 
         // THEN Should have parsed the -Xcov argument correctly
-        let xcovArgs = command.getXcovArguments()
+        let xcovArgs = command.xcovArguments
         #expect(xcovArgs.count == 1)
 
         // AND HTML should have the correct argument
@@ -74,7 +75,7 @@ struct SwiftTestCommandXcovIntegrationTests {
         let command = try SwiftTestCommand.parseAsRoot(args) as! SwiftTestCommand
 
         // Then: Should have parsed the -Xcov argument correctly
-        let xcovArgs = command.getXcovArguments()
+        let xcovArgs = command.xcovArguments
         #expect(xcovArgs.count == 1)
 
         // Should return the value for any format since no format was specified
@@ -99,7 +100,7 @@ struct SwiftTestCommandXcovIntegrationTests {
         let command = try SwiftTestCommand.parseAsRoot(args) as! SwiftTestCommand
 
         // Then: Should have parsed all -Xcov arguments correctly
-        let xcovArgs = command.getXcovArguments()
+        let xcovArgs = command.xcovArguments
         #expect(xcovArgs.count == 4)
 
         // JSON format should include json-specific + unsupported + no-format
@@ -125,7 +126,7 @@ struct SwiftTestCommandXcovIntegrationTests {
         let command = try SwiftTestCommand.parseAsRoot(args) as! SwiftTestCommand
 
         // Then: Should preserve the command-line order
-        let jsonArgs = command.getXcovArguments().getArguments(for: .json)
+        let jsonArgs = command.xcovArguments.getArguments(for: .json)
         #expect(jsonArgs == ["first.json", "xml=unsupported.xml", "second.json", "third.txt"])
     }
 
@@ -142,7 +143,7 @@ struct SwiftTestCommandXcovIntegrationTests {
         let command = try SwiftTestCommand.parseAsRoot(args) as! SwiftTestCommand
 
         // Then: Should handle complex paths correctly
-        let xcovArgs = command.getXcovArguments()
+        let xcovArgs = command.xcovArguments
         let jsonArgs = xcovArgs.getArguments(for: .json)
         #expect(jsonArgs == ["/path/with spaces/coverage.json", "~/home/coverage.json"])
 
@@ -164,7 +165,7 @@ struct SwiftTestCommandXcovIntegrationTests {
         let command = try SwiftTestCommand.parseAsRoot(args) as! SwiftTestCommand
 
         // Then: Should handle edge cases correctly
-        let xcovArgs = command.getXcovArguments()
+        let xcovArgs = command.xcovArguments
         #expect(xcovArgs.count == 4)
 
         let jsonArgs = xcovArgs.getArguments(for: .json)
@@ -180,7 +181,7 @@ struct SwiftTestCommandXcovIntegrationTests {
         let command = try SwiftTestCommand.parseAsRoot(args) as! SwiftTestCommand
 
         // Then: Should have empty XcovArgumentCollection
-        let xcovArgs = command.getXcovArguments()
+        let xcovArgs = command.xcovArguments
         #expect(xcovArgs.count == 0)
 
         let jsonArgs = xcovArgs.getArguments(for: .json)
@@ -205,7 +206,7 @@ struct SwiftTestCommandXcovIntegrationTests {
         let command = try SwiftTestCommand.parseAsRoot(args) as! SwiftTestCommand
 
         // Then: Should have both existing coverage options and -Xcov arguments
-        let xcovArgs = command.getXcovArguments()
+        let xcovArgs = command.xcovArguments
         #expect(xcovArgs.count == 2)
 
         let jsonArgs = xcovArgs.getArguments(for: .json)
