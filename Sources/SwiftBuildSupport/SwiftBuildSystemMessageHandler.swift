@@ -288,7 +288,7 @@ public final class SwiftBuildSystemMessageHandler {
             }
         case .targetUpToDate(let info):
             // Received when a target is entirely up to date and did not need to be built.
-            self.outputStream.send("Target \(info.guid) up to date." + "\n")
+            self.observabilityScope.emit(info: "Target \(info.guid) up to date." + "\n")
         case .reportBuildDescription, .reportPathMap, .preparedForIndex, .buildStarted, .preparationComplete, .taskUpToDate:
             break
         case .buildDiagnostic, .targetDiagnostic, .taskDiagnostic:

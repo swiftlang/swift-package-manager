@@ -373,7 +373,30 @@ struct SwiftBuildSystemMessageHandlerTests {
     }
 
     @Test
-    func testPlanningOperationStartAndComplete() throws {
+    func testPlanningOperationStartAndCompleteMessagesVerboseOnly() throws {
+        let verboseMessageHandler = self.messageHandler.debug
+
+        let events: [SwiftBuildMessage] = [
+            .planningOperationStartedInfo(),
+            .planningOperationCompletedInfo()
+        ]
+
+        for event in events {
+            _ = try verboseMessageHandler.emitEvent(event)
+        }
+
+        let verboseOutput = self.outputStream.bytes.description
+
+        #expect(!self.observability.hasWarningDiagnostics)
+        #expect(!self.observability.hasErrorDiagnostics)
+        #expect(self.observability.diagnostics.count == 0)
+
+        #expect(verboseOutput.contains("Planning build"))
+        #expect(verboseOutput.contains("Planning complete"))
+    }
+
+    @Test
+    func testPlanningOperationStartAndCompleteNoMessageWarningLogLevel() throws {
         let messageHandler = self.messageHandler.warning
 
         let events: [SwiftBuildMessage] = [
@@ -391,8 +414,78 @@ struct SwiftBuildSystemMessageHandlerTests {
         #expect(!self.observability.hasErrorDiagnostics)
         #expect(self.observability.diagnostics.count == 0)
 
-        #expect(output.contains("Planning build"))
-        #expect(output.contains("Planning complete"))
+        #expect(!output.contains("Planning build"))
+        #expect(!output.contains("Planning complete"))
+    }
+
+    @Test
+    func testPlanningOperationStartAndCompleteNoMessageErrorLogLevel() throws {
+        let messageHandler = self.messageHandler.error
+
+        let events: [SwiftBuildMessage] = [
+            .planningOperationStartedInfo(),
+            .planningOperationCompletedInfo()
+        ]
+
+        for event in events {
+            _ = try messageHandler.emitEvent(event)
+        }
+
+        let output = self.outputStream.bytes.description
+
+        #expect(!self.observability.hasWarningDiagnostics)
+        #expect(!self.observability.hasErrorDiagnostics)
+        #expect(self.observability.diagnostics.count == 0)
+
+        #expect(!output.contains("Planning build"))
+        #expect(!output.contains("Planning complete"))
+    }
+
+    @Test
+    func testTargetUpToDateMessage() throws {
+        let messageHandler = self.messageHandler.warning
+
+        let events: [SwiftBuildMessage] = [
+            .targetUpToDateInfo()
+        ]
+
+        for event in events {
+            _ = try messageHandler.emitEvent(event)
+        }
+
+        #expect(!self.observability.hasWarningDiagnostics)
+        #expect(!self.observability.hasErrorDiagnostics)
+        #expect(self.observability.diagnostics.count == 1)
+
+        try expectDiagnostics(self.observability.diagnostics) { result in
+            result.check(diagnostic: "Target mock-target-guid up to date.", severity: .info)
+        }
+    }
+
+    @Test
+    func testBuildProgressMessages() throws {
+        let messageHandler = self.messageHandler.warning
+
+        let events: [SwiftBuildMessage] = [
+            .progress(message: "Weird percent", percentComplete: -1),
+            .progress(message: "12 / 32", percentComplete: 0),
+            .progress(message: "Something useful", percentComplete: 12),
+            .progress(message: "Complete", percentComplete: 100)
+        ]
+
+        for event in events {
+            _ = try messageHandler.emitEvent(event)
+        }
+
+        #expect(!self.observability.hasWarningDiagnostics)
+        #expect(!self.observability.hasErrorDiagnostics)
+        #expect(self.observability.diagnostics.count == 0)
+
+        let output = self.outputStream.bytes.description
+        #expect(output.contains("Weird percent"))
+        #expect(!output.contains("12 / 32"))
+        #expect(output.contains("Something useful"))
+        #expect(output.contains("Complete"))
     }
 }
 
@@ -533,6 +626,32 @@ extension SwiftBuildMessage {
     ) -> SwiftBuildMessage {
         .planningOperationCompleted(
             .init(planningOperationID: planningOperationID)
+        )
+    }
+
+    /// SwiftBuildMessage.TargetUpToDateInfo
+    package static func targetUpToDateInfo(
+        guid: String = "mock-target-guid"
+    ) -> SwiftBuildMessage {
+        .targetUpToDate(
+            .init(guid: guid)
+        )
+    }
+
+    /// SwiftBuildMessage.DidUpdateProgressInfo
+    package static func progress(
+        message: String,
+        percentComplete: Double,
+        showInLog: Bool = false,
+        targetName: String? = nil
+    ) -> SwiftBuildMessage {
+        .didUpdateProgress(
+            .init(
+                message: message,
+                percentComplete: percentComplete,
+                showInLog: showInLog,
+                targetName: targetName
+            )
         )
     }
 }
