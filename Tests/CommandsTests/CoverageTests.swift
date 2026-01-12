@@ -29,19 +29,19 @@ import Testing
 )
 struct CoverageTests {
     @Test(
-        .SWBINTTODO("Test failed because of missing plugin support in the PIF builder. This can be reinvestigated after the support is there."),
         .tags(
             .Feature.Command.Build,
             .Feature.Command.Test,
             .Feature.CommandLineArguments.BuildTests,
         ),
+        .IssueWindowsPathNoEntry,
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/9600", relationship: .defect),
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func executingTestsWithCoverageWithoutCodeBuiltWithCoverageGeneratesAFailure(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let config = BuildConfiguration.debug
-        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { path in
                 _ = try await executeSwiftBuild(
                     path,
@@ -49,6 +49,7 @@ struct CoverageTests {
                     extraArgs: ["--build-tests"],
                     buildSystem: buildSystem,
                 )
+                await withKnownIssue(isIntermittent: true) {
                 await #expect(throws: (any Error).self ) {
                     try await executeSwiftTest(
                         path,
@@ -61,15 +62,15 @@ struct CoverageTests {
                         throwIfCommandFails: true,
                     )
                 }
+                } when: {
+                    ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild
+                }
             }
-        } when: {
-            buildSystem == .swiftbuild && [.linux, .windows].contains(ProcessInfo.hostOperatingSystem)
-        }
     }
 
     @Test(
-        .SWBINTTODO("Test failed because of missing plugin support in the PIF builder. This can be reinvestigated after the support is there."),
-        .IssueWindowsCannotSaveAttachment,
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/9588", relationship: .defect),
+        .IssueWindowsPathNoEntry,
         .tags(
             .Feature.Command.Test,
             .Feature.CommandLineArguments.BuildTests,
@@ -83,20 +84,14 @@ struct CoverageTests {
         // Test that enabling code coverage during building produces the expected folder.
         try await withKnownIssue(isIntermittent: true) {
         try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { path in
-            let codeCovPathString = try await executeSwiftTest(
+            let codeCovPathString = try await getCoveragePath(
                 path,
-                configuration: config,
-                extraArgs: [
-                    "--show-coverage-path",
-                ],
-                buildSystem: buildSystem,
-                throwIfCommandFails: true,
-            ).stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+                with: BuildData(buildSystem: buildSystem, config: config),
+            )
 
             let codeCovPath = try AbsolutePath(validating: codeCovPathString)
 
             // WHEN we build with coverage enabled
-            try await withKnownIssue(isIntermittent: true) {
                 try await executeSwiftBuild(
                     path,
                     configuration: config,
@@ -121,12 +116,9 @@ struct CoverageTests {
                 // AND the parent directory is non empty
                 let codeCovFiles = try localFileSystem.getDirectoryContents(codeCovPath.parentDirectory)
                 #expect(codeCovFiles.count > 0)
-            } when: {
-                ProcessInfo.hostOperatingSystem == .linux && buildSystem == .swiftbuild
-            }
         }
         } when: {
-            ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild
+            ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild // This was no longer an issue when I tested at-desk
         }
     }
 
@@ -134,6 +126,8 @@ struct CoverageTests {
         .tags(
             .Feature.Command.Test,
         ),
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/9588", relationship: .defect),
+        .IssueWindowsPathNoEntry,
         arguments: SupportedBuildSystemOnAllPlatforms, [
             "Coverage/Simple",
             "Miscellaneous/TestDiscovery/Simple",
@@ -145,15 +139,10 @@ struct CoverageTests {
     ) async throws {
         let config = BuildConfiguration.debug
         try await fixture(name: fixtureName) { path in
-            let coveragePathString = try await executeSwiftTest(
+            let coveragePathString = try await getCoveragePath(
                 path,
-                configuration: config,
-                extraArgs: [
-                    "--show-coverage-path",
-                ],
-                buildSystem: buildSystem,
-                throwIfCommandFails: true,
-            ).stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+                with: BuildData(buildSystem: buildSystem, config: config),
+            )
             let coveragePath = try AbsolutePath(validating: coveragePathString)
             try #require(!localFileSystem.exists(coveragePath))
 
@@ -172,8 +161,9 @@ struct CoverageTests {
                 // THEN we expect the file to exists
                 #expect(localFileSystem.exists(coveragePath))
             } when: {
-                (buildSystem == .swiftbuild && [.windows, .linux].contains(ProcessInfo.hostOperatingSystem))
+                (ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild)
             }
         }
     }
+
 }

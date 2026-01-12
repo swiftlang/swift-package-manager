@@ -26,6 +26,14 @@ public var SupportedBuildSystemOnPlatform: [BuildSystemProvider.Kind] {
 public struct BuildData {
     public let buildSystem: BuildSystemProvider.Kind
     public let config: BuildConfiguration
+
+    public init(
+        buildSystem: BuildSystemProvider.Kind,
+        config: BuildConfiguration,
+    ) {
+        self.buildSystem = buildSystem
+        self.config = config
+    }
 }
 
 public func getBuildData(for buildSystems: [BuildSystemProvider.Kind]) -> [BuildData] {
