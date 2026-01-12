@@ -235,7 +235,7 @@ package enum CoverageFormat: String, ExpressibleByArgument, CaseIterable, Compar
     package var defaultValueDescription: String {
         switch self {
             case .json: "Produces a JSON coverage report."
-            case .html: "Produces an HTML report producd by llvm-cov.  The HTML report can be configured using a reponse file stored in the project repository. See 'TODO' for more."
+            case .html: "Produces an HTML report produced by llvm-cov."
         }
     }
 
@@ -271,7 +271,10 @@ public struct CoverageOptions: ParsableArguments {
         ],
         defaultAsFlag: .text,
         // parsing: .scanningForValue(default: CoveragePrintPathMode.text),
-        help: "Print the path of the exported code coverage files.",
+        help: ArgumentHelp(
+            "Print the path of the exported code coverage files.",
+            valueName: "mode",
+        )
     )
     var _printPathMode: CoveragePrintPathMode?
 
@@ -282,7 +285,7 @@ public struct CoverageOptions: ParsableArguments {
             .customLong("show-code-coverage-path"),
         ],
         help: ArgumentHelp(
-            "Print the path of the exported code coverage files. (deprecated.  use `--show-coverage-path [<mode>]` instead)",
+            "Print the path of the exported code coverage files. (deprecated. use `--show-coverage-path [<mode>]` instead)",
         )
     )
     var _printPathModeDeprecated: Bool = false
@@ -309,7 +312,7 @@ public struct CoverageOptions: ParsableArguments {
             .customLong("code-coverage"),
         ],
         inversion: .prefixedEnableDisable,
-        help: "Enable code coverage. (deprecated.  use '--enable-coverage/--disable-coverage' instead)",
+        help: "Enable code coverage. (deprecated. use '--enable-coverage/--disable-coverage' instead)",
     )
     var _isEnabledDeprecated: Bool?
 
@@ -334,6 +337,7 @@ public struct CoverageOptions: ParsableArguments {
         name: [
             .customLong("Xcov", withSingleDash: true),
         ],
+        parsing: .unconditionalSingleValue,
         help: ArgumentHelp(
             [
                 "Pass flag, with optional format specification, through to the underlying coverage report",
@@ -376,24 +380,22 @@ public enum TestOutput: String, ExpressibleByArgument {
     case experimentalParseable
 }
 
-package func getOutputDir(
-    from file: AbsolutePath,
-    fileSystem: FileSystem = localFileSystem,
-    workspacePath: AbsolutePath,
-) throws-> AbsolutePath? {
-    guard fileSystem.exists(file) else {
-        return nil
-    }
-    return try getOutputDir(from: try fileSystem.readFileContents(file), workspacePath: workspacePath)
-}
+// package func getOutputDir(
+//     from args: [String],
+//     fileSystem: FileSystem = localFileSystem,
+//     workspacePath: AbsolutePath,
+// ) throws-> AbsolutePath? {
+//     return try getOutputDir(from: try fileSystem.readFileContents(file), workspacePath: workspacePath)
+// }
 
 package func getOutputDir(
-    from content: String,
+    from arguments: [String],
+    outputDirectoryArgumentName: String,
     workspacePath: AbsolutePath,
 ) throws ->  AbsolutePath? {
     var returnValue : AbsolutePath? = nil
-    let commandArg = "--output-dir"
-    let lines = content.split(whereSeparator: \.isNewline)
+    // let commandArg = "--output-dir"
+    // let lines = content.split(whereSeparator: \.isNewline)
 
     let outputDir = Reference(String.self)
     let outputDirRegex = Regex {
@@ -401,7 +403,7 @@ package func getOutputDir(
             ZeroOrMore(.any, .reluctant)
             OneOrMore(.whitespace)
         }
-        "--output-dir"
+        outputDirectoryArgumentName
         ChoiceOf {
             "="
             OneOrMore(.whitespace)
@@ -426,14 +428,14 @@ package func getOutputDir(
     }
 
     // Loop on the contents.
-    for (index, line) in lines.enumerated() {
-        if !line.contains(commandArg) {
+    for (index, line) in arguments.enumerated() {
+        if !line.contains(outputDirectoryArgumentName) {
             continue
         }
 
-        if line == commandArg || line.hasSuffix(" \(commandArg)") {
+        if line == outputDirectoryArgumentName || line.hasSuffix(" \(outputDirectoryArgumentName)") {
             // The argument value is on the next line
-            let value = "\(lines[index + 1])"
+            let value = "\(arguments[index + 1])"
             returnValue = try convertStringToAbsolutePath(value)
             continue
         }
@@ -530,7 +532,7 @@ package struct CoverageFormatOutput: Encodable {
 struct CodeCoverageConfiguration {
     // let outputDirMap: CoverageFormatOutput
     let outputDir: AbsolutePath
-    let htmlArgumentFile: AbsolutePath
+    // let htmlArgumentFile: AbsolutePath
 }
 
 /// swift-test tool namespace
@@ -778,6 +780,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                     testProducts,
                     swiftCommandState: swiftCommandState,
                     formats: uniqueCoverageFormats,
+                    xcovArguments: self.options.coverageOptions.xcovArguments,
                 )
             }
         }
@@ -889,6 +892,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         _ testProducts: [BuiltTestProduct],
         swiftCommandState: SwiftCommandState,
         formats: [CoverageFormat],
+        xcovArguments: XcovArgumentCollection,
     ) async throws {
         swiftCommandState.observabilityScope.emit(info: "Processing code coverage data...")
         let workspace = try swiftCommandState.getActiveWorkspace()
@@ -921,6 +925,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                         coverageReportData[format] = try await exportCodeCovAsJSON(
                             to: jsonPath,
                             testBinary: product.binaryPath,
+                            extraArguments: xcovArguments.getArguments(for: .json),
                             swiftCommandState: swiftCommandState,
                         )
                    }
@@ -945,8 +950,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                             testBinary: product.binaryPath,
                             sourceFiles: sourceFiles,
                             withTitle: rootManifest.displayName,
-                            llvmCovShowArgumentFile: configuration.htmlArgumentFile,
-                            //  .appending("coverage.html.report.args.txt"),
+                            extraArguments: xcovArguments.getArguments(for: .html),
                             observabilityScope: swiftCommandState.observabilityScope,
                         )
                         coverageReportData[format] = coveragaHtmlReportPath.appending("index.html")
@@ -1019,6 +1023,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
     func exportCodeCovAsJSON(
         to path: AbsolutePath,
         testBinary: AbsolutePath,
+        extraArguments: [String],
         swiftCommandState: SwiftCommandState
     ) async throws -> AbsolutePath{
         // Export using the llvm-cov tool.
@@ -1035,10 +1040,12 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             llvmCov.pathString,
             "export",
             "-instr-profile=\(productsBuildParameters.codeCovDataFile)",
-        ] + archArgs + [
+        ] + extraArguments + archArgs + [
             testBinary.pathString,
         ]
-        let result = try await AsyncProcess.popen(arguments: args)
+
+        swiftCommandState.observabilityScope.emit(debug: "Calling \(args.joined(separator: " "))")
+        let result: AsyncProcessResult = try await AsyncProcess.popen(arguments: args)
 
         if result.exitStatus != .terminated(code: 0) {
             let output = try result.utf8Output() + result.utf8stderrOutput()
@@ -1056,7 +1063,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         testBinary: AbsolutePath,
         sourceFiles: [AbsolutePath],
         withTitle title: String,
-        llvmCovShowArgumentFile: AbsolutePath,
+        extraArguments: [String],
         observabilityScope: ObservabilityScope,
     ) async throws -> AbsolutePath {
         // Generate the HTML report.
@@ -1066,11 +1073,6 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             try localFileSystem.createDirectory(outputPath, recursive: true)
         }
 
-        let argumentFile: [String] = if localFileSystem.exists(llvmCovShowArgumentFile) {
-            ["@\(llvmCovShowArgumentFile)"]
-        } else {
-            []
-        }
 
         var args = [
             llvmCovPath.pathString,
@@ -1078,7 +1080,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             "--project-title=\(title) Coverage Report",
             "--instr-profile=\(profData.pathString)",
             "--output-dir=\(outputPath.pathString)",
-        ] + argumentFile + [
+        ] + extraArguments + [
             // ensure we overdie the fomat to HTML as that's what the user specified via
             // the Swift test command line argument
             "--format=html",
@@ -1161,7 +1163,7 @@ extension SwiftTestCommand {
 
         return CodeCoverageConfiguration(
             outputDir: outputDir,
-            htmlArgumentFile: htmlArgumentFile,
+            // htmlArgumentFile: htmlArgumentFile,
         )
     }
 
@@ -1183,7 +1185,11 @@ extension SwiftTestCommand {
 
         return switch format {
             case .html:
-                try! getOutputDir(from: argumentFile, workspacePath: self.globalOptions.locations.packageDirectory ?? swiftCommandState.fileSystem.currentWorkingDirectory ?? AbsolutePath.root) ?? productsBuildParameters.codeCovAsHTMLPath(packageName: rootManifest.displayName)
+                try! getOutputDir(
+                    from: self.xcovArguments.getArguments(for: .html),
+                    outputDirectoryArgumentName: "--output-dir",
+                    workspacePath: self.globalOptions.locations.packageDirectory ?? swiftCommandState.fileSystem.currentWorkingDirectory ?? AbsolutePath.root) ?? productsBuildParameters.codeCovAsHTMLPath(packageName: rootManifest.displayName,
+                )
             case .json:
                 productsBuildParameters.codeCovAsJSONPath(packageName: rootManifest.displayName)
         }

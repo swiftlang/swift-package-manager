@@ -50,7 +50,11 @@ struct TestCommmandHelpersTests {
         func outputDirArgumentNotPresentReturnsNil(
             content: String
         ) async throws {
-            let actual = try getOutputDir(from: content, workspacePath: AbsolutePath.root,)
+            let actual = try getOutputDir(
+                from: content.components(separatedBy: .newlines),
+                outputDirectoryArgumentName: "--output-dir",
+                workspacePath: AbsolutePath.root,)
+
 
             #expect(actual == nil)
         }
@@ -139,7 +143,11 @@ struct TestCommmandHelpersTests {
         func contentContainsOutputDirectoryReturnsCorrectPath(
             data: GetOutputDirTestData,
         ) async throws {
-            let actual = try getOutputDir(from: data.content, workspacePath: AbsolutePath.root,)
+            let actual = try getOutputDir(
+                from: data.content.components(separatedBy: .newlines),
+                outputDirectoryArgumentName: "--ouput-dir",
+                workspacePath: AbsolutePath.root,
+            )
 
             #expect(actual == data.expected)
         }
@@ -166,40 +174,34 @@ struct TestCommmandHelpersTests {
                     dir: AbsolutePath("/some/random/longish/path"),
                     expected: AbsolutePath("/some/random/relative/path"),
                 ),
-            ],
+            ], [
+                "--output-dir", "out"
+            ]
         )
         func contentContainsOutputDirectoryAsRelativePathReturnsCorrectPath(
-            relativePathUnderTest: String,
-            dir: AbsolutePath,
-            expected: AbsolutePath,
+            testData: (
+                relativePathUnderTest: String,
+                dir: AbsolutePath,
+                expected: AbsolutePath,
+            ),
+            outputDirectoryArgumentName: String,
         ) async throws {
-            let relativePathUnderTest = RelativePath(relativePathUnderTest)
-            let content = """
-            --output-dir \(relativePathUnderTest)
-            """
+            // let outputDirectoryArgumentName = "--output-dir"
+            let relativePathUnderTest = RelativePath(testData.relativePathUnderTest)
+            let content = [
+                outputDirectoryArgumentName,
+             relativePathUnderTest.pathString,
+            ]
 
-            let actual = try getOutputDir(from: content, workspacePath: dir,)
+            let actual = try getOutputDir(
+                from: content,
+                outputDirectoryArgumentName: outputDirectoryArgumentName,
+                workspacePath: testData.dir,
+            )
 
-            #expect(actual == expected)
+            #expect(actual == testData.expected)
         }
 
-        @Test func sample() async throws {
-            let logMessage = "ERROR: User 'john.doe' failed login attempt from IP 192.168.1.100."
-
-            // Create a Regex with named captue groups for user and ipAddress
-            let regex = try! Regex("User '(?<user>[a-zA-Z0-9.]+)' failed login attempt from IP (?<ipAddress>\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3})")
-
-            // Find the first match in the log message
-            if let match = logMessage.firstMatch(of: regex) {
-                // Access the captured values using their named properties
-                // let username = match.user
-                // let ipAddress = match.ipAddress
-
-                #expect(Bool(true))
-            } else {
-                #expect(Bool(false))
-            }
-        }
     }
 
     @Suite

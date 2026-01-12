@@ -35,16 +35,15 @@ struct IntegrationTestData {
 }
 
 @Suite(
-    "SwiftTestCommand -Xcov Integration Tests",
     .tags(
         .TestSize.medium,
         .Feature.CodeCoverage,
+        .Feature.Command.Test,
     ),
 )
-struct SwiftTestCommandXcovIntegrationTests {
+struct XcovArgumentSwiftTestCommandIntegrationTests {
 
     @Test(
-        "SwiftTestCommand -Xcov Integration Test",
         arguments: [
             // MARK: - Single Argument Tests
             IntegrationTestData(
@@ -53,7 +52,7 @@ struct SwiftTestCommandXcovIntegrationTests {
                 commandLineArgs: ["-Xcov", "json=coverage.json"],
                 expectedXcovArgumentCount: 1,
                 expectedJsonArgs: ["coverage.json"],
-                expectedHtmlArgs: []
+                expectedHtmlArgs: [],
             ),
             IntegrationTestData(
                 category: .singleArgument,
@@ -61,7 +60,7 @@ struct SwiftTestCommandXcovIntegrationTests {
                 commandLineArgs: ["-Xcov", "html=coverage-report"],
                 expectedXcovArgumentCount: 1,
                 expectedJsonArgs: [],
-                expectedHtmlArgs: ["coverage-report"]
+                expectedHtmlArgs: ["coverage-report"],
             ),
             IntegrationTestData(
                 category: .singleArgument,
@@ -69,7 +68,23 @@ struct SwiftTestCommandXcovIntegrationTests {
                 commandLineArgs: ["-Xcov", "output.json"],
                 expectedXcovArgumentCount: 1,
                 expectedJsonArgs: ["output.json"],
-                expectedHtmlArgs: ["output.json"]
+                expectedHtmlArgs: ["output.json"],
+            ),
+            IntegrationTestData(
+                category: .singleArgument,
+                description: "Parse single -Xcov argument with special character but no format ",
+                commandLineArgs: ["-Xcov", "--title"],
+                expectedXcovArgumentCount: 1,
+                expectedJsonArgs: ["--title"],
+                expectedHtmlArgs: ["--title"],
+            ),
+            IntegrationTestData(
+                category: .singleArgument,
+                description: "Parse single -Xcov argument with special character and an equal sign, with no format",
+                commandLineArgs: ["-Xcov", "--coverage-watermark=80,20"],
+                expectedXcovArgumentCount: 1,
+                expectedJsonArgs: ["--coverage-watermark=80,20"],
+                expectedHtmlArgs: ["--coverage-watermark=80,20"],
             ),
             // MARK: - Multiple Arguments Tests
             IntegrationTestData(
@@ -79,11 +94,11 @@ struct SwiftTestCommandXcovIntegrationTests {
                     "-Xcov", "json=coverage.json",
                     "-Xcov", "html=coverage-report",
                     "-Xcov", "xml=coverage.xml",  // Unsupported format
-                    "-Xcov", "plain-output.txt"   // No format
+                    "-Xcov", "plain-output.txt",   // No format
                 ],
                 expectedXcovArgumentCount: 4,
                 expectedJsonArgs: ["coverage.json", "xml=coverage.xml", "plain-output.txt"],
-                expectedHtmlArgs: ["coverage-report", "xml=coverage.xml", "plain-output.txt"]
+                expectedHtmlArgs: ["coverage-report", "xml=coverage.xml", "plain-output.txt"],
             ),
             IntegrationTestData(
                 category: .multipleArguments,
@@ -91,11 +106,11 @@ struct SwiftTestCommandXcovIntegrationTests {
                 commandLineArgs: [
                     "-Xcov", "json=/path/with spaces/coverage.json",
                     "-Xcov", "html=./relative/path/coverage-report",
-                    "-Xcov", "json=~/home/coverage.json"
+                    "-Xcov", "json=~/home/coverage.json",
                 ],
                 expectedXcovArgumentCount: 3,
                 expectedJsonArgs: ["/path/with spaces/coverage.json", "~/home/coverage.json"],
-                expectedHtmlArgs: ["./relative/path/coverage-report"]
+                expectedHtmlArgs: ["./relative/path/coverage-report"],
             ),
             // MARK: - Ordering Tests
             IntegrationTestData(
@@ -105,11 +120,11 @@ struct SwiftTestCommandXcovIntegrationTests {
                     "-Xcov", "json=first.json",
                     "-Xcov", "xml=unsupported.xml",
                     "-Xcov", "json=second.json",
-                    "-Xcov", "third.txt"
+                    "-Xcov", "third.txt",
                 ],
                 expectedXcovArgumentCount: 4,
                 expectedJsonArgs: ["first.json", "xml=unsupported.xml", "second.json", "third.txt"],
-                expectedHtmlArgs: ["xml=unsupported.xml", "third.txt"]
+                expectedHtmlArgs: ["xml=unsupported.xml", "third.txt"],
             ),
             // MARK: - Edge Cases Tests
             IntegrationTestData(
@@ -119,11 +134,11 @@ struct SwiftTestCommandXcovIntegrationTests {
                     "-Xcov", "json=",           // Empty value
                     "-Xcov", "=",               // Just equals
                     "-Xcov", "json=key=value",  // Multiple equals
-                    "-Xcov", ""                 // Empty string
+                    "-Xcov", "",                // Empty string
                 ],
                 expectedXcovArgumentCount: 4,
                 expectedJsonArgs: ["", "=", "key=value", ""],
-                expectedHtmlArgs: ["=", ""]
+                expectedHtmlArgs: ["=", ""],
             ),
             IntegrationTestData(
                 category: .edgeCases,
@@ -131,7 +146,7 @@ struct SwiftTestCommandXcovIntegrationTests {
                 commandLineArgs: ["--enable-coverage"],
                 expectedXcovArgumentCount: 0,
                 expectedJsonArgs: [],
-                expectedHtmlArgs: []
+                expectedHtmlArgs: [],
             ),
             // MARK: - Compatibility Tests
             IntegrationTestData(
@@ -142,11 +157,11 @@ struct SwiftTestCommandXcovIntegrationTests {
                     "--coverage-format", "json",
                     "--coverage-format", "html",
                     "-Xcov", "json=coverage.json",
-                    "-Xcov", "html=coverage-report"
+                    "-Xcov", "html=coverage-report",
                 ],
                 expectedXcovArgumentCount: 2,
                 expectedJsonArgs: ["coverage.json"],
-                expectedHtmlArgs: ["coverage-report"]
+                expectedHtmlArgs: ["coverage-report"],
             ),
             IntegrationTestData(
                 category: .compatibility,
@@ -156,11 +171,11 @@ struct SwiftTestCommandXcovIntegrationTests {
                     "--parallel",
                     "-Xcov", "json=coverage.json",
                     "--filter", "SomeTests",
-                    "-Xcov", "html=coverage-report"
+                    "-Xcov", "html=coverage-report",
                 ],
                 expectedXcovArgumentCount: 2,
                 expectedJsonArgs: ["coverage.json"],
-                expectedHtmlArgs: ["coverage-report"]
+                expectedHtmlArgs: ["coverage-report"],
             ),
             // MARK: - Real World Scenarios
             IntegrationTestData(
@@ -171,7 +186,7 @@ struct SwiftTestCommandXcovIntegrationTests {
                     "-Xcov", "html=./build/coverage-report",
                     "-Xcov", "lcov=./build/coverage.lcov",  // Unsupported
                     "-Xcov", "exclude-paths=/tmp/*",        // Generic flag (no leading dashes)
-                    "-Xcov", "xml=./build/cobertura.xml"    // Unsupported
+                    "-Xcov", "xml=./build/cobertura.xml",   // Unsupported
                 ],
                 expectedXcovArgumentCount: 5,
                 expectedJsonArgs: [
@@ -185,7 +200,7 @@ struct SwiftTestCommandXcovIntegrationTests {
                     "lcov=./build/coverage.lcov",
                     "exclude-paths=/tmp/*",
                     "xml=./build/cobertura.xml"
-                ]
+                ],
             ),
         ],
     )

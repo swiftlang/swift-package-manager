@@ -70,6 +70,24 @@ struct XcovArgumentTests {
                 expectedValue: "xml=output.xml",
             ),
             ParsingTestData(
+                category: .basic,
+                argumentUT: "--title",
+                expectedFormat: nil,
+                expectedValue: "--title",
+            ),
+            ParsingTestData(
+                category: .basic,
+                argumentUT: "\"My title\"",
+                expectedFormat: nil,
+                expectedValue: "\"My title\"",
+            ),
+            ParsingTestData(
+                category: .basic,
+                argumentUT: "--coverage-watermark=80,20",
+                expectedFormat: nil,
+                expectedValue: "--coverage-watermark=80,20",
+            ),
+            ParsingTestData(
                 category: .edgeCase,
                 argumentUT: "",
                 expectedFormat: nil,
@@ -238,6 +256,18 @@ struct XcovArgumentTests {
                 argumentUT: "jacoco=coverage.xml",
                 expectedFormat: nil,
                 expectedValue: "jacoco=coverage.xml",
+            ),
+            ParsingTestData(
+                category: .realWorldScenario,
+                argumentUT: "html=--coverage-watermark=80,20",
+                expectedFormat: .html,
+                expectedValue: "--coverage-watermark=80,20",
+            ),
+            ParsingTestData(
+                category: .realWorldScenario,
+                argumentUT: "html=--title=\"my title\"",
+                expectedFormat: .html,
+                expectedValue: "--title=\"my title\"",
             ),
         ],
     )
@@ -486,7 +516,10 @@ struct XcovArgumentCollectionTests {
             try #require(XcovArgument(argument: "html=./coverage/html-report")),
             try #require(XcovArgument(argument: "lcov=./coverage/lcov.info")),  // Unsupported
             try #require(XcovArgument(argument: "./coverage/summary.txt")),     // No format
-            try #require(XcovArgument(argument: "xml=./coverage/cobertura.xml")) // Unsupported
+            try #require(XcovArgument(argument: "xml=./coverage/cobertura.xml")), // Unsupported
+            try #require(XcovArgument(argument: "html=--coverage-watermark=80,20")),
+            try #require(XcovArgument(argument: "html=--title=\"my title\"")),
+
         ]
 
         let collection = XcovArgumentCollection(args)
@@ -497,7 +530,7 @@ struct XcovArgumentCollectionTests {
             "./coverage/coverage.json",    // json format
             "lcov=./coverage/lcov.info",   // unsupported
             "./coverage/summary.txt",      // no format
-            "xml=./coverage/cobertura.xml" // unsupported
+            "xml=./coverage/cobertura.xml", // unsupported
         ])
 
         // When: Getting HTML format arguments
@@ -506,7 +539,9 @@ struct XcovArgumentCollectionTests {
             "./coverage/html-report",     // html format
             "lcov=./coverage/lcov.info",  // unsupported
             "./coverage/summary.txt",     // no format
-            "xml=./coverage/cobertura.xml" // unsupported
+            "xml=./coverage/cobertura.xml", // unsupported
+            "--coverage-watermark=80,20",
+            "--title=\"my title\"",
         ])
     }
 
