@@ -269,23 +269,35 @@ public struct CoverageOptions: ParsableArguments {
         name: [
             .customLong("show-coverage-path"),
         ],
-        parsing: .scanningForValue(default: CoveragePrintPathMode.text),
+        defaultAsFlag: .text,
+        // parsing: .scanningForValue(default: CoveragePrintPathMode.text),
         help: "Print the path of the exported code coverage files.",
     )
-    var printPathMode: CoveragePrintPathMode?
+    var _printPathMode: CoveragePrintPathMode?
 
-    // /// If the path of the exported code coverage JSON should be printed.
-    // @Option(
-    //     name: [
-    //         .customLong("show-codecov-path-mode"),
-    //         .customLong("show-code-coverage-path-mode"),
-    //         .customLong("show-coverage-path-mode"),
-    //     ],
-    //     help: ArgumentHelp(
-    //         "How to display the paths of the selected code coverage file formats.",
-    //     )
-    // )
-    // var printPathMode: CoveragePrintPathMode = .text
+    /// If the path of the exported code coverage JSON should be printed.
+    @Option(
+        name: [
+            .customLong("show-codecov-path"),
+            .customLong("show-code-coverage-path"),
+        ],
+        help: ArgumentHelp(
+            "Print the path of the exported code coverage files. (deprecated.  use `--show-coverage-path [<mode>]` instead)",
+        )
+    )
+    var _printPathModeDeprecated: Bool?
+
+
+    var printPathMode: CoveragePrintPathMode? {
+        guard self._printPathMode != nil else {
+            if self._printPathModeDeprecated == true  {
+                return .text
+            } else {
+                return nil
+            }
+        }
+        return self._printPathMode
+    }
 
     /// Whether to enable code coverage.
     @Flag(
@@ -295,7 +307,21 @@ public struct CoverageOptions: ParsableArguments {
         inversion: .prefixedEnableDisable,
         help: "Enable code coverage.",
     )
-    var isEnabled: Bool = false
+    var _isEnabled: Bool = false
+
+    @Flag(
+        name: [
+            .customLong("code-coverage"),
+        ],
+        inversion: .prefixedEnableDisable,
+        help: "Enable code coverage. (deprecated.  use '--enable-coverage/--disable-coverage' instead)",
+    )
+    var _isEnabledDeprecated: Bool?
+
+    var isEnabled: Bool {
+        return self._isEnabled || (self._isEnabledDeprecated ?? false)
+    }
+
 
     @Option(
         name: [
@@ -308,15 +334,6 @@ public struct CoverageOptions: ParsableArguments {
     )
     var formats: [CoverageFormat] = [.json]
 
-    @Option(
-        name: [
-            .customLong("Xcov", withSingleDash: true),
-        ],
-        help: ArgumentHelp(
-            "Pass flag through to the underlying coverage report tool.  Syntax is `[<format>=]<value>`",
-        )
-    )
-    var coverateArgs: [String] = [] // TODO: make this into a custom `ExpressibleByArgument` type and actually use the value
 
 }
 
@@ -694,6 +711,19 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
 
     public func run(_ swiftCommandState: SwiftCommandState) async throws {
         let uniqueCoverageFormats = Array(Set(self.options.coverageOptions.formats)).sorted( by: <)
+
+        if self.options.coverageOptions._isEnabledDeprecated != nil {
+            swiftCommandState.observabilityScope.emit(
+                warning: "The '--enable-code-coverage' option has been deprecated.  Use '--enable-coverage' instead."
+            )
+        }
+
+        if self.options.coverageOptions._printPathModeDeprecated != nil {
+            swiftCommandState.observabilityScope.emit(
+                warning: "The '--show-code-coverage-path' and '--show-codecov-path' options are deprecated.  Use '--show-coverage-pathe' instead."
+            )
+        }
+
         do {
             // Validate commands arguments
             try self.validateArguments(swiftCommandState: swiftCommandState)
