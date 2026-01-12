@@ -568,7 +568,10 @@ let package = Package(
                 "SourceKitLSPAPI",
                 "SwiftBuildSupport",
                 "Workspace"
-            ] + swiftTSCBasicsDeps + swiftToolsProtocolsDeps
+            ] + swiftTSCBasicsDeps + swiftToolsProtocolsDeps,
+            exclude: [
+                "CMakeLists.txt",
+            ],
         ),
 
         // MARK: Commands
@@ -1204,7 +1207,7 @@ if !shouldUseSwiftBuildFramework {
     if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         package.dependencies += [
             .package(url: "https://github.com/swiftlang/swift-build.git", branch: relatedDependenciesBranch),
-            .package(url: "https://github.com/swiftlang/swift-tools-protocols.git", .upToNextMinor(from: "0.0.9")),
+            .package(url: "https://github.com/swiftlang/swift-tools-protocols.git", revision: "0.0.10"),
         ]
     } else {
         package.dependencies += [

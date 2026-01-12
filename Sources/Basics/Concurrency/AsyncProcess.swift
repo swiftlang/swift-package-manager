@@ -375,11 +375,12 @@ package final class AsyncProcess {
         environment: Environment = .current,
         outputRedirection: OutputRedirection = .collect,
         startNewProcessGroup: Bool = true,
-        loggingHandler: LoggingHandler? = .none
+        loggingHandler: LoggingHandler? = .none,
+        workingDirectory: AbsolutePath? = nil
     ) {
         self.arguments = arguments
         self.environment = environment
-        self.workingDirectory = nil
+        self.workingDirectory = workingDirectory
         self.outputRedirection = outputRedirection
         self.startNewProcessGroup = startNewProcessGroup
         self.loggingHandler = loggingHandler ?? AsyncProcess.loggingHandler
@@ -508,8 +509,7 @@ package final class AsyncProcess {
 
             group.enter()
             stdoutPipe.fileHandleForReading.readabilityHandler = { (fh: FileHandle) in
-                // 4096 is default pipe buffer size so reading in that size seems most efficient and still get output as it available
-                let data = (try? fh.read(upToCount: 4096)) ?? Data()
+                let data = (try? fh.read(upToCount: Int.max)) ?? Data()
                 if data.count == 0 {
                     stdoutPipe.fileHandleForReading.readabilityHandler = nil
                     group.leave()
@@ -524,8 +524,7 @@ package final class AsyncProcess {
 
             group.enter()
             stderrPipe.fileHandleForReading.readabilityHandler = { (fh: FileHandle) in
-                // 4096 is default pipe buffer size so reading in that size seems most efficient and still get output as it available
-                let data = (try? fh.read(upToCount: 4096)) ?? Data()
+                let data = (try? fh.read(upToCount: Int.max)) ?? Data()
                 if data.count == 0 {
                     stderrPipe.fileHandleForReading.readabilityHandler = nil
                     group.leave()
@@ -805,7 +804,7 @@ package final class AsyncProcess {
     package func waitUntilExit() throws -> AsyncProcessResult {
         let group = DispatchGroup()
         group.enter()
-        let resultBox = ThreadSafeBox<Result<AsyncProcessResult, Swift.Error>>()
+        let resultBox = ThreadSafeBox<Result<AsyncProcessResult, Swift.Error>?>()
         self.waitUntilExit { result in
             resultBox.put(result)
             group.leave()
@@ -1126,13 +1125,15 @@ extension AsyncProcess {
     package static func popen(
         arguments: [String],
         environment: Environment = .current,
-        loggingHandler: LoggingHandler? = .none
+        loggingHandler: LoggingHandler? = .none,
+        workingDirectory: AbsolutePath? = nil
     ) throws -> AsyncProcessResult {
         let process = AsyncProcess(
             arguments: arguments,
             environment: environment,
             outputRedirection: .collect,
-            loggingHandler: loggingHandler
+            loggingHandler: loggingHandler,
+            workingDirectory: workingDirectory
         )
         try process.launch()
         return try process.waitUntilExit()

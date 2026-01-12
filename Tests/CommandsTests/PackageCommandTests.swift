@@ -90,7 +90,7 @@ private func executeAddURLDependencyAndAssert(
 }
 
 @Suite(
-    .serializedIfOnWindows,
+    .serialized,
     .tags(
         .TestSize.large,
         .Feature.Command.Package.General,
@@ -104,7 +104,7 @@ struct PackageCommandTests {
         data: BuildData,
     ) async throws {
         let stdout = try await executeSwiftPackage(
-            nil,
+            AbsolutePath.root,
             configuration: data.config,
             buildSystem: data.buildSystem,
         ).stdout
@@ -130,9 +130,18 @@ struct PackageCommandTests {
         }
     }
 
-    @Test
-    func seeAlso() async throws {
-        let stdout = try await SwiftPM.Package.execute(["--help"]).stdout
+    @Test(
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+    )
+    func seeAlso(
+        buildData: BuildData,
+     ) async throws {
+        let stdout = try await executeSwiftPackage(
+            AbsolutePath.root,
+            configuration: buildData.config,
+            extraArgs: ["--help"],
+            buildSystem: buildData.buildSystem,
+        ).stdout
         #expect(stdout.contains("SEE ALSO: swift build, swift run, swift test \n(Run this command without --help to see possible dynamic plugin commands.)"))
     }
 
@@ -1044,7 +1053,7 @@ struct PackageCommandTests {
         func describeJson(
             data: BuildData,
         ) async throws {
-            try await withKnownIssue(isIntermittent: ProcessInfo.hostOperatingSystem == .windows) {
+            try await withKnownIssue(isIntermittent: true) {
                 try await fixture(name: "DependencyResolution/External/Simple/Bar") { fixturePath in
                     // Generate the JSON description.
                     let (jsonOutput, _) = try await execute(
@@ -1189,7 +1198,7 @@ struct PackageCommandTests {
         withPrettyPrinting: Bool,
     ) async throws {
         // try XCTSkipIf(buildSystemProvider == .native && (try? UserToolchain.default.getSymbolGraphExtract()) == nil, "skipping test because the `swift-symbolgraph-extract` tools isn't available")
-        try await withKnownIssue {
+        try await withKnownIssue(isIntermittent: true) {
             try await fixture(
                 name: "DependencyResolution/Internal/Simple",
                 removeFixturePathOnDeinit: true
@@ -3069,9 +3078,7 @@ struct PackageCommandTests {
     func purgeCacheWithoutPackage(
         data: BuildData,
     ) async throws {
-        try await withKnownIssue(
-            isIntermittent: ProcessInfo.isHostAmazonLinux2() // rdar://134238535
-        ) {
+        try await withKnownIssue(isIntermittent: true) {
             // Create a temporary directory without Package.swift
             try await fixture(name: "Miscellaneous") { fixturePath in
                 let tempDir = fixturePath.appending("empty-dir-for-purge-test")
@@ -3090,7 +3097,7 @@ struct PackageCommandTests {
                 }
             }
         } when: {
-            ProcessInfo.isHostAmazonLinux2()
+            ProcessInfo.isHostAmazonLinux2() //rdar://134238535
         }
     }
 
@@ -3434,7 +3441,7 @@ struct PackageCommandTests {
                     """
             )
         }
-        try await withKnownIssue {
+        try await withKnownIssue(isIntermittent: true) {
             try await testWithTemporaryDirectory { tmpPath in
                 let packageDir = tmpPath.appending(components: "library")
                 try localFileSystem.writeFileContents(
@@ -4421,7 +4428,7 @@ struct PackageCommandTests {
         func buildToolPlugin(
             data: BuildData,
         ) async throws {
-            try await withKnownIssue {
+            try await withKnownIssue(isIntermittent: true) {
                 try await testBuildToolPlugin(data: data, staticStdlib: false)
             } when: {
                 ProcessInfo.hostOperatingSystem == .windows && data.buildSystem == .swiftbuild
@@ -4568,7 +4575,7 @@ struct PackageCommandTests {
                         buildSystem: data.buildSystem,
                     )
                 ) { error in
-                    withKnownIssue {
+                    withKnownIssue(isIntermittent: true) {
                         #expect(error.stderr.contains("This is text from the plugin"))
                         #expect(error.stderr.contains("error: This is an error from the plugin"))
                     } when: {
@@ -5498,7 +5505,7 @@ struct PackageCommandTests {
         ) async throws {
             let debugTarget = try buildData.buildSystem.binPath(for: .debug) + [executableName("placeholder")]
             let releaseTarget = try buildData.buildSystem.binPath(for: .release) + [executableName("placeholder")]
-            try await withKnownIssue {
+            try await withKnownIssue(isIntermittent: true) {
                 // By default, a plugin-requested build produces a debug binary
                 try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
                     let _ = try await execute(
@@ -5533,7 +5540,7 @@ struct PackageCommandTests {
         ) async throws {
             let debugTarget = try buildData.buildSystem.binPath(for: .debug) + [executableName("placeholder")]
             let releaseTarget = try buildData.buildSystem.binPath(for: .release) + [executableName("placeholder")]
-            try await withKnownIssue {
+            try await withKnownIssue(isIntermittent: true) {
                 // If the plugin specifies a debug binary, that is what will be built, regardless of overall configuration
                 try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
                     let _ = try await execute(
@@ -5572,7 +5579,7 @@ struct PackageCommandTests {
         ) async throws {
             let debugTarget = try buildData.buildSystem.binPath(for: .debug) + [executableName("placeholder")]
             let releaseTarget = try buildData.buildSystem.binPath(for: .release) + [executableName("placeholder")]
-            try await withKnownIssue {
+            try await withKnownIssue(isIntermittent: true) {
                 // If the plugin requests a release binary, that is what will be built, regardless of overall configuration
                 try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
                     let _ = try await execute(
@@ -5610,7 +5617,7 @@ struct PackageCommandTests {
         ) async throws {
             let debugTarget = try buildData.buildSystem.binPath(for: .debug) + [executableName("placeholder")]
             let releaseTarget = try buildData.buildSystem.binPath(for: .release) + [executableName("placeholder")]
-            try await withKnownIssue {
+            try await withKnownIssue(isIntermittent: true) {
                 // If the plugin inherits the overall build configuration, that is what will be built
                 try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
                     let _ = try await execute(
@@ -5708,7 +5715,7 @@ struct PackageCommandTests {
         func commandPluginBuildTestabilityAllWithTests_Release_True(
             data: BuildData,
         ) async throws {
-            try await withKnownIssue(isIntermittent: (ProcessInfo.hostOperatingSystem == .linux)) {
+            try await withKnownIssue(isIntermittent: true) {
                 // Overall configuration: release, plugin build request: release including tests -> with testability
                 try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
                     let _ = await #expect(throws: Never.self) {
@@ -5757,7 +5764,7 @@ struct PackageCommandTests {
             // otherwise the logs may be different in subsequent tests.
 
             // Check than nothing is echoed when echoLogs is false
-            try await withKnownIssue(isIntermittent: ProcessInfo.hostOperatingSystem == .windows) {
+            try await withKnownIssue(isIntermittent: true) {
                 try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
                     let (stdout, stderr) = try await execute(  //got here
                         ["print-diagnostics", "build"],
@@ -6505,7 +6512,7 @@ struct PackageCommandTests {
         func commandPluginBuildingCallbacks(
             data: BuildData,
         ) async throws {
-            try await withKnownIssue {
+            try await withKnownIssue(isIntermittent: true) {
                 try await testWithTemporaryDirectory { tmpPath in
                     let buildSystemProvider = data.buildSystem
                     // Create a sample package with a library, an executable, and a command plugin.
@@ -6681,7 +6688,7 @@ struct PackageCommandTests {
                     }
 
                     // SwiftBuild is currently not producing a static archive for static products unless they are linked into some other binary.
-                    try await withKnownIssue {
+                    try await withKnownIssue(isIntermittent: true) {
                         // Invoke the plugin with parameters choosing a verbose build of MyStaticLibrary for release.
                         do {
                             let (stdout, _) = try await execute(
@@ -6760,7 +6767,7 @@ struct PackageCommandTests {
             arguments: [BuildSystemProvider.Kind.native, .swiftbuild],
         )
         func commandPluginBuildingCallbacksExcludeUnbuiltArtifacts(buildSystem: BuildSystemProvider.Kind) async throws {
-            try await withKnownIssue {
+            try await withKnownIssue(isIntermittent: true) {
                 try await fixture(name: "PartiallyUnusedDependency") { fixturePath in
                     let (stdout, _) = try await execute(
                         ["dump-artifacts-plugin"],
@@ -6799,7 +6806,7 @@ struct PackageCommandTests {
         func commandPluginTestingCallbacks(
             data: BuildData,
         ) async throws {
-            try await withKnownIssue {
+            try await withKnownIssue(isIntermittent: true) {
                 try await testWithTemporaryDirectory { tmpPath in
                     // Create a sample package with a library, a command plugin, and a couple of tests.
                     let packageDir = tmpPath.appending(components: "MyPackage")
@@ -7501,7 +7508,7 @@ struct PackageCommandTests {
         func commandPluginDynamicDependencies(
             buildData: BuildData
         ) async throws {
-            try await withKnownIssue {
+            try await withKnownIssue(isIntermittent: true) {
                 try await testWithTemporaryDirectory { tmpPath in
                     // Create a sample package with a command plugin that has a dynamic dependency.
                     let packageDir = tmpPath.appending(components: "MyPackage")

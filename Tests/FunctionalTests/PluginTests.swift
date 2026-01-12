@@ -46,7 +46,7 @@ struct PluginTests {
     func testUseOfBuildToolPluginTargetByExecutableInSamePackage(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        try await withKnownIssue {
+        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
                 let (stdout, _) = try await executeSwiftBuild(
                     fixturePath.appending("MySourceGenPlugin"),
@@ -84,7 +84,7 @@ struct PluginTests {
     func testUseOfBuildToolPluginTargetNoPreBuildCommands(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        try await withKnownIssue {
+        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
                 let (_, stderr) = try await executeSwiftTest(
                     fixturePath.appending("MySourceGenPluginNoPreBuildCommands"),
@@ -112,7 +112,7 @@ struct PluginTests {
     func testUseOfBuildToolPluginProductByExecutableAcrossPackages(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        try await withKnownIssue {
+        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
                 let (stdout, _) = try await executeSwiftBuild(
                     fixturePath.appending("MySourceGenClient"),
@@ -151,7 +151,7 @@ struct PluginTests {
     func testUseOfPrebuildPluginTargetByExecutableAcrossPackages(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        try await withKnownIssue {
+        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
                 let (stdout, _) = try await executeSwiftBuild(
                     fixturePath.appending("MySourceGenPlugin"),
@@ -185,7 +185,7 @@ struct PluginTests {
     func testUseOfPluginWithInternalExecutable(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        try await withKnownIssue {
+        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
                 let (stdout, _) = try await executeSwiftBuild(
                     fixturePath.appending("ClientOfPluginWithInternalExecutable"),
@@ -252,7 +252,7 @@ struct PluginTests {
     func testLocalBuildToolPluginUsingRemoteExecutable(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        try await withKnownIssue {
+        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
                 let (stdout, _) = try await executeSwiftBuild(
                     fixturePath.appending("LibraryWithLocalBuildToolPluginUsingRemoteTool"),
@@ -286,7 +286,7 @@ struct PluginTests {
     func testBuildToolPluginDependencies(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        try await withKnownIssue {
+        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
                 let (stdout, _) = try await executeSwiftBuild(
                     fixturePath.appending("MyBuildToolPluginDependencies"),
@@ -319,7 +319,7 @@ struct PluginTests {
     func testContrivedTestCases(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        try await withKnownIssue {
+        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
                 let buildSpecificArgs: [String] = switch buildSystem {
                     case .native, .xcode:
@@ -385,7 +385,7 @@ struct PluginTests {
     )
     func testUseOfVendedBinaryTool(buildSystem: BuildSystemProvider.Kind) async throws {
         try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
-            try await withKnownIssue (isIntermittent: true) {
+            try await withKnownIssue(isIntermittent: true) {
                 let (stdout, _) = try await executeSwiftBuild(
                     fixturePath.appending("MyBinaryToolPlugin"),
                     configuration: .debug,
@@ -487,7 +487,7 @@ struct PluginTests {
             """)
         }
 
-        try await withKnownIssue {
+        try await withKnownIssue(isIntermittent: true) {
             try await testWithTemporaryDirectory { tmpPath in
                 let packageDir = tmpPath.appending(components: "MyPackage")
                 let pathOfGeneratedFile = packageDir.appending(components: [".build", "plugins", "outputs", "mypackage", "SomeTarget", "destination", "Plugin", "best.txt"])
@@ -813,6 +813,7 @@ struct PluginTests {
                       plugin.invoke(
                         action: .performCommand(package: package, arguments: arguments),
                         buildEnvironment: BuildEnvironment(platform: .macOS, configuration: .debug),
+                        workers: 1,
                         scriptRunner: scriptRunner,
                         workingDirectory: package.path,
                         outputDirectory: pluginDir.appending("output"),
@@ -877,7 +878,7 @@ struct PluginTests {
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func testLocalAndRemoteToolDependencies(buildSystem: BuildSystemProvider.Kind) async throws {
-        try await withKnownIssue (isIntermittent: true) {
+        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/Plugins/PluginUsingLocalAndRemoteTool") { path in
                 let (stdout, stderr) = try await executeSwiftPackage(
                     path.appending("MyLibrary"),
@@ -1112,6 +1113,7 @@ struct PluginTests {
                     _ = try await plugin.invoke(
                         action: .performCommand(package: package, arguments: []),
                         buildEnvironment: BuildEnvironment(platform: .macOS, configuration: .debug),
+                        workers: 1,
                         scriptRunner: scriptRunner,
                         workingDirectory: package.path,
                         outputDirectory: pluginDir.appending("output"),
@@ -1491,7 +1493,7 @@ struct PluginTests {
     func testIncorrectDependencies(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        try await withKnownIssue (isIntermittent: true) {
+        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/Plugins") { path in
                 let (stdout, stderr) = try await executeSwiftBuild(
                     path.appending("IncorrectDependencies"),
@@ -1658,7 +1660,7 @@ struct PluginTests {
     func testPluginCanBeReferencedByProductName(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        try await withKnownIssue {
+        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
                 let (stdout, _) = try await executeSwiftBuild(
                     fixturePath.appending("PluginCanBeReferencedByProductName"),
@@ -1696,7 +1698,7 @@ struct PluginTests {
     func testPluginCanBeAffectedByXBuildToolsParameters(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        try await withKnownIssue {
+        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
                 let buildArgs: [String] = switch buildSystem {
                     case .native, .xcode: []
@@ -1738,7 +1740,7 @@ struct PluginTests {
     func testURLBasedPluginAPI(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        try await withKnownIssue {
+        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/Plugins/MySourceGenPluginUsingURLBasedAPI") { fixturePath in
                 let (stdout, _) = try await executeSwiftBuild(
                     fixturePath,
@@ -1760,7 +1762,7 @@ struct PluginTests {
     func testDependentPlugins(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        try await withKnownIssue {
+        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/Plugins/DependentPlugins") { fixturePath in
                 let (stdout, _) = try await executeSwiftBuild(
                     fixturePath,

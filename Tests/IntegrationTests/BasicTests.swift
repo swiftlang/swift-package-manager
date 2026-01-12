@@ -69,8 +69,7 @@ private struct BasicTests {
             #expect(dealerOutput.filter(\.isPlayingCardSuit).count == 10)
 
             // Verify that the 'git status' is clean after a build.
-            try localFileSystem.changeCurrentWorkingDirectory(to: packagePath)
-            let gitOutput = try sh("git\(ProcessInfo.exeSuffix)", "status").stdout
+            let gitOutput = try sh("git\(ProcessInfo.exeSuffix)", "-C", packagePath, "status").stdout
             #expect(gitOutput.contains("nothing to commit, working tree clean"))
 
             // Verify that another 'swift build' does nothing.

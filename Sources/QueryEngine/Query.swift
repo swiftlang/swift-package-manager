@@ -156,7 +156,7 @@ extension HashEncoder: UnkeyedEncodingContainer {
     }
 
     func superEncoder() -> any Encoder {
-        fatalError()
+        fatalError("\(#file):\(#line) - Illegal call of function \(#function)")
     }
 }
 
@@ -272,11 +272,11 @@ extension HashEncoder {
         }
 
         mutating func superEncoder() -> any Encoder {
-            fatalError()
+            fatalError("\(#file):\(#line) - Illegal call of function \(#function)")
         }
 
         mutating func superEncoder(forKey key: K) -> any Encoder {
-            fatalError()
+            fatalError("\(#file):\(#line) - Illegal call of function \(#function)")
         }
 
         typealias Key = K

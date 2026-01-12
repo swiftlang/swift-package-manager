@@ -120,7 +120,7 @@ func withSession(
 
 package final class SwiftBuildSystemPlanningOperationDelegate: SWBPlanningOperationDelegate, SWBIndexingDelegate, Sendable {
     package init() {}
-    
+
     public func provisioningTaskInputs(
         targetGUID: String,
         provisioningSourceData: SWBProvisioningTaskInputsSourceData
@@ -515,6 +515,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                 sourceFiles: plugin.sources.paths,
                 pluginName: plugin.moduleName,
                 toolsVersion: plugin.toolsVersion,
+                workers: self.buildParameters.workers,
                 observabilityScope: observabilityScope,
                 callbackQueue: DispatchQueue.sharedConcurrent,
                 delegate: delegate
@@ -762,7 +763,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                 // native build system.
                 settings["SWIFT_EXEC"] = buildParameters.toolchain.swiftCompilerPath.pathString
             }
-            
+
             let overrideToolchains = [buildParameters.toolchain.metalToolchainId, toolchainID?.rawValue].compactMap { $0 }
             if !overrideToolchains.isEmpty {
                 settings["TOOLCHAINS"] = (overrideToolchains + ["$(inherited)"]).joined(separator: " ")
@@ -920,7 +921,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         }
         try settings.merge(Self.constructDebuggingSettingsOverrides(from: buildParameters.debuggingParameters), uniquingKeysWith: reportConflict)
         try settings.merge(Self.constructDriverSettingsOverrides(from: buildParameters.driverParameters), uniquingKeysWith: reportConflict)
-        try settings.merge(Self.constructLinkerSettingsOverrides(from: buildParameters.linkingParameters), uniquingKeysWith: reportConflict)
+        try settings.merge(self.constructLinkerSettingsOverrides(from: buildParameters.linkingParameters, triple: buildParameters.triple), uniquingKeysWith: reportConflict)
         try settings.merge(Self.constructTestingSettingsOverrides(from: buildParameters.testingParameters), uniquingKeysWith: reportConflict)
         try settings.merge(Self.constructAPIDigesterSettingsOverrides(from: buildParameters.apiDigesterMode), uniquingKeysWith: reportConflict)
 
@@ -937,9 +938,19 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         return params
     }
 
-    public func makeBuildRequest(session: SWBBuildServiceSession, configuredTargets: [SWBTargetGUID], derivedDataPath: Basics.AbsolutePath, symbolGraphOptions: BuildOutput.SymbolGraphOptions?) async throws -> SWBBuildRequest {
+    public func makeBuildRequest(
+        session: SWBBuildServiceSession,
+        configuredTargets: [SWBTargetGUID],
+        derivedDataPath: Basics.AbsolutePath,
+        symbolGraphOptions: BuildOutput.SymbolGraphOptions?,
+        setToolchainSetting: Bool = true,
+        ) async throws -> SWBBuildRequest {
         var request = SWBBuildRequest()
-        request.parameters = try await makeBuildParameters(session: session, symbolGraphOptions: symbolGraphOptions)
+        request.parameters = try await makeBuildParameters(
+            session: session,
+            symbolGraphOptions: symbolGraphOptions,
+            setToolchainSetting: setToolchainSetting,
+        )
         request.configuredTargets = configuredTargets.map { SWBConfiguredTarget(guid: $0.rawValue, parameters: request.parameters) }
         request.useParallelTargets = true
         request.useImplicitDependencies = false
@@ -947,6 +958,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         request.hideShellScriptEnvironment = true
         request.showNonLoggedProgress = true
         request.recordBuildBacktraces = buildParameters.outputParameters.enableTaskBacktraces
+        request.schedulerLaneWidthOverride = buildParameters.workers
 
         // Override the arena. We need to apply the arena info to both the request-global build
         // parameters as well as the target-specific build parameters, since they may have been
@@ -1007,7 +1019,10 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         return settings
     }
 
-    private static func constructLinkerSettingsOverrides(from parameters: BuildParameters.Linking) -> [String: String] {
+    private func constructLinkerSettingsOverrides(
+        from parameters: BuildParameters.Linking,
+        triple: Triple,
+    ) -> [String: String] {
         var settings: [String: String] = [:]
 
         if parameters.linkerDeadStrip {
@@ -1025,7 +1040,19 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             break
         }
 
-        // TODO: shouldLinkStaticSwiftStdlib
+        if triple.isDarwin() && parameters.shouldLinkStaticSwiftStdlib {
+            self.observabilityScope.emit(Basics.Diagnostic.swiftBackDeployWarning)
+        } else {
+            if parameters.shouldLinkStaticSwiftStdlib {
+                settings["SWIFT_FORCE_STATIC_LINK_STDLIB"] = "YES"
+            } else {
+                settings["SWIFT_FORCE_STATIC_LINK_STDLIB"] = "NO"
+            }
+        }
+
+        if let resourcesPath = self.buildParameters.toolchain.swiftResourcesPath(isStatic: parameters.shouldLinkStaticSwiftStdlib) {
+            settings["SWIFT_RESOURCE_DIR"] = resourcesPath.pathString
+        }
 
         return settings
     }

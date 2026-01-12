@@ -132,13 +132,25 @@ def log_environment() -> None:
         logging.info("  --> %s=%r", key, value)
 
 
+BUILD_OVERRIDES: t.List[str] = [
+    "--build-system",
+    "native",
+]
+
+
 def get_swiftpm_bin_dir(
         *,
         global_args: t.List[str],
 ) -> pathlib.Path:
     logging.info("Retrieving Swift PM binary directory.")
     swiftpm_bin_dir = pathlib.Path(
-        call_output(["swift", "build", *global_args, "--show-bin-path"])
+        call_output([
+            "swift",
+            "build",
+            *global_args,
+            *BUILD_OVERRIDES,
+            "--show-bin-path",
+        ])
     )
     logging.info("SwiftPM BIN DIR: %s", swiftpm_bin_dir)
     return swiftpm_bin_dir
@@ -245,6 +257,7 @@ def main() -> None:
                         "swift",
                         "package",
                         *global_args,
+                        *BUILD_OVERRIDES,
                         "clean",
                     ]
                 )
@@ -257,6 +270,7 @@ def main() -> None:
                         "swift",
                         "package",
                         *global_args,
+                        *BUILD_OVERRIDES,
                         "update",
                     ]
                 )
@@ -268,7 +282,7 @@ def main() -> None:
                     "swift",
                     "build",
                     *global_args,
-                    "--build-tests",
+                    *BUILD_OVERRIDES,
                     *ignore_args,
                     *args.additional_build_args.split(" ")
                 ]
@@ -281,11 +295,11 @@ def main() -> None:
                     "swift",
                     "run",
                     *global_args,
+                    *BUILD_OVERRIDES,
                     *ignore_args,
                     *args.additional_run_args.split(" "),
                     "swift-test",
                     *global_args,
-                    "--vv",
                     "--force-resolved-versions",
                     "--parallel",
                     "--scratch-path",

@@ -59,6 +59,9 @@ package extension Connection {
         )
     }
 
+    // Disfavor this over Connection.send implemented in swift-tools-protocols by https://github.com/swiftlang/swift-tools-protocols/pull/28
+    // TODO: Remove this method once we have updated the swift-tools-protocols dependency to include #28
+    @_disfavoredOverload
     func send<R: RequestType>(_ request: R) async throws -> R.Response {
         return try await withCancellableCheckedThrowingContinuation { continuation in
             return self.send(request) { result in
@@ -164,6 +167,9 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
             }
         case is OnBuildLogMessageNotification:
             // If we receive a build log message notification, forward it on to the client
+            connectionToClient.send(notification)
+        case is OnBuildTargetDidChangeNotification:
+            // If the underlying server notifies us of target updates, forward the notification to the client
             connectionToClient.send(notification)
         default:
             logToClient(.warning, "SwiftPM build server received unknown notification type: \(notification)")
