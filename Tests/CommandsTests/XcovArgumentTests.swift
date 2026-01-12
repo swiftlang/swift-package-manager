@@ -38,6 +38,7 @@ struct GetArgumentsTestData {
 @Suite(
     .tags(
         .TestSize.small,
+        .Feature.CodeCoverage,
     ),
 )
 struct XcovArgumentTests {

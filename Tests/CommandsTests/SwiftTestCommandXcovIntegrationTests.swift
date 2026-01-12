@@ -18,6 +18,7 @@ import Commands
     "SwiftTestCommand -Xcov Integration Tests",
     .tags(
         .TestSize.medium,
+        .Feature.CodeCoverage,
     ),
 )
 struct SwiftTestCommandXcovIntegrationTests {
