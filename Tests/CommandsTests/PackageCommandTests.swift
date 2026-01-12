@@ -104,7 +104,7 @@ struct PackageCommandTests {
         data: BuildData,
     ) async throws {
         let stdout = try await executeSwiftPackage(
-            nil,
+            AbsolutePath.root,
             configuration: data.config,
             buildSystem: data.buildSystem,
         ).stdout
@@ -130,9 +130,18 @@ struct PackageCommandTests {
         }
     }
 
-    @Test
-    func seeAlso() async throws {
-        let stdout = try await SwiftPM.Package.execute(["--help"]).stdout
+    @Test(
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+    )
+    func seeAlso(
+        buildData: BuildData,
+     ) async throws {
+        let stdout = try await executeSwiftPackage(
+            AbsolutePath.root,
+            configuration: buildData.config,
+            extraArgs: ["--help"],
+            buildSystem: buildData.buildSystem,
+        ).stdout
         #expect(stdout.contains("SEE ALSO: swift build, swift run, swift test \n(Run this command without --help to see possible dynamic plugin commands.)"))
     }
 
