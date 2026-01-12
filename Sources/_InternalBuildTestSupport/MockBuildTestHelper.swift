@@ -28,7 +28,7 @@ import Testing
 public func mockBuildPlan(
     buildPath: AbsolutePath? = nil,
     environment: BuildEnvironment,
-    toolchain: PackageModel.Toolchain = MockToolchain(),
+    toolchain: PackageModel.Toolchain = try! MockToolchain(),
     graph: ModulesGraph,
     commonFlags: PackageModel.BuildFlags = .init(),
     indexStoreMode: BuildParameters.IndexStoreMode = .off,
@@ -61,7 +61,7 @@ public func mockBuildPlan(
     config: BuildConfiguration = .debug,
     triple: Basics.Triple? = nil,
     platform: PackageModel.Platform? = nil,
-    toolchain: PackageModel.Toolchain = MockToolchain(),
+    toolchain: PackageModel.Toolchain = try! MockToolchain(),
     graph: ModulesGraph,
     commonFlags: PackageModel.BuildFlags = .init(),
     indexStoreMode: BuildParameters.IndexStoreMode = .off,
