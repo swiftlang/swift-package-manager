@@ -12,14 +12,35 @@
 
 import Foundation
 
+#if os(Windows)
+// MARK: - Bundle.module workaround for Windows
+// On Windows, Bundle.module is generated as internal, so we need to provide
+// a public accessor to work around this limitation.
+private extension Bundle {
+    static var sbomModule: Bundle {
+        return Bundle(for: BundleModuleMarker.self)
+    }
+}
+
+// Private marker class to identify this module's bundle
+private final class BundleModuleMarker {}
+#else
+// On other platforms, Bundle.module is public
+private extension Bundle {
+    static var sbomModule: Bundle {
+        return Bundle.module
+    }
+}
+#endif
+
 internal struct SBOMSchema {
     private let schema: [String: Any]
 
     internal init(from schemaFilename: String) throws {
-        guard let schemaURL = Bundle.module.url(forResource: schemaFilename, withExtension: "json") else {
+        guard let schemaURL = Bundle.sbomModule.url(forResource: schemaFilename, withExtension: "json") else {
             throw SBOMSchemaError.schemaFileNotFound(
                 filename: schemaFilename,
-                bundlePath: Bundle.module.bundlePath
+                bundlePath: Bundle.sbomModule.bundlePath
             )
         }
         let schemaData = try Data(contentsOf: schemaURL)
