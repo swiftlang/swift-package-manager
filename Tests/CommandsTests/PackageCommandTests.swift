@@ -1233,7 +1233,6 @@ struct PackageCommandTests {
         withPrettyPrinting: Bool,
     ) async throws {
         let config = BuildConfiguration.debug
-        // try await withKnownIssue(isIntermittent: true) {
             try await fixture(
                 name: "DependencyResolution/Internal/Simple",
                 removeFixturePathOnDeinit: true
@@ -1284,10 +1283,6 @@ struct PackageCommandTests {
                     #expect(JSONText.components(separatedBy: .newlines).count == 1)
                 }
             }
-        // } when: {
-        //     (ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild && !withPrettyPrinting)
-        //         || (buildSystem == .swiftbuild && withPrettyPrinting)
-        // }
     }
 
     @Suite(
