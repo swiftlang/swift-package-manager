@@ -371,6 +371,29 @@ struct SwiftBuildSystemMessageHandlerTests {
             result.check(diagnostic: "Simple debug diagnostic", severity: .debug)
         }
     }
+
+    @Test
+    func testPlanningOperationStartAndComplete() throws {
+        let messageHandler = self.messageHandler.warning
+
+        let events: [SwiftBuildMessage] = [
+            .planningOperationStartedInfo(),
+            .planningOperationCompletedInfo()
+        ]
+
+        for event in events {
+            _ = try messageHandler.emitEvent(event)
+        }
+
+        let output = self.outputStream.bytes.description
+
+        #expect(!self.observability.hasWarningDiagnostics)
+        #expect(!self.observability.hasErrorDiagnostics)
+        #expect(self.observability.diagnostics.count == 0)
+
+        #expect(output.contains("Planning build"))
+        #expect(output.contains("Planning complete"))
+    }
 }
 
 private func data(_ message: String) -> Data {
@@ -492,6 +515,24 @@ extension SwiftBuildMessage {
                 locationContext: locationContext,
                 locationContext2: locationContext2
             )
+        )
+    }
+
+    /// SwiftBuildMessage.PlanningOperationStartedInfo
+    package static func planningOperationStartedInfo(
+        planningOperationID: String = "mock-planning-operation-id"
+    ) -> SwiftBuildMessage {
+        .planningOperationStarted(
+            .init(planningOperationID: planningOperationID)
+        )
+    }
+
+    /// SwiftBuildMessage.PlanningOperationCompletedInfo
+    package static func planningOperationCompletedInfo(
+        planningOperationID: String = "mock-planning-operation-id"
+    ) -> SwiftBuildMessage {
+        .planningOperationCompleted(
+            .init(planningOperationID: planningOperationID)
         )
     }
 }
