@@ -24,7 +24,7 @@ public enum ClangSupport {
         let features: [Feature]
     }
 
-    private static var cachedFeatures = ThreadSafeBox<Features>()
+    private static var cachedFeatures = ThreadSafeBox<Features?>()
 
     public static func supportsFeature(name: String, toolchain: PackageModel.Toolchain) throws -> Bool {
         let features = try cachedFeatures.memoize {

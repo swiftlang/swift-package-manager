@@ -1223,7 +1223,7 @@ final class ParallelTestRunner {
                     }
                     self.finishedTests.enqueue(TestResult(
                         unitTest: test,
-                        output: output.get() ?? "",
+                        output: output.get(),
                         success: result != .failure,
                         duration: duration
                     ))

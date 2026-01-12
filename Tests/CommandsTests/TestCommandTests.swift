@@ -1011,7 +1011,7 @@ struct TestCommandTests {
         buildSystem: BuildSystemProvider.Kind,
         configuration: BuildConfiguration,
     ) async throws {
-        try await withKnownIssue("Failes to find test executable, or getting error: module 'Simple' was not compiled for testing, onMacOS", isIntermittent: true) {
+        try await withKnownIssue("Failed to find test executable, or getting error: module 'Simple' was not compiled for testing, onMacOS", isIntermittent: true) {
             try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
                 // build first
                 try await withKnownIssue("Failed to save attachment", isIntermittent: true) {
@@ -1286,6 +1286,7 @@ struct TestCommandTests {
                 }
             } when: {
                 .windows == ProcessInfo.hostOperatingSystem
+                || ProcessInfo.processInfo.environment["SWIFTCI_EXHIBITS_GH_9524"] != nil
             }
          }
 

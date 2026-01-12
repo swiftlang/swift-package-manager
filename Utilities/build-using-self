@@ -283,7 +283,6 @@ def main() -> None:
                     "build",
                     *global_args,
                     *BUILD_OVERRIDES,
-                    "--build-tests",
                     *ignore_args,
                     *args.additional_build_args.split(" ")
                 ]
@@ -301,7 +300,6 @@ def main() -> None:
                     *args.additional_run_args.split(" "),
                     "swift-test",
                     *global_args,
-                    "--vv",
                     "--force-resolved-versions",
                     "--parallel",
                     "--scratch-path",

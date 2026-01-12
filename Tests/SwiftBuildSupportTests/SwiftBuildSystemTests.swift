@@ -352,6 +352,7 @@ struct SwiftBuildSystemTests {
     }
 
     @Test(
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/9321", relationship: .verifies),
         arguments: [
             0,
             1,
