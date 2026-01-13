@@ -64,7 +64,8 @@ target_link_libraries(SBOMModel PUBLIC
   PackageGraph
   PackageModel
   SourceControl
-  SwiftBuildSupport)
+  SwiftBuildSupport
+  $<$<NOT:$<PLATFORM_ID:Darwin>>:_StringProcessing>)
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(SBOMModel PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
