@@ -12,26 +12,23 @@
 
 import Foundation
 
-#if os(Windows)
-// MARK: - Bundle.module workaround for Windows
-// On Windows, Bundle.module is generated as internal, so we need to provide
-// a public accessor to work around this limitation.
+// MARK: - Bundle.module accessor
+// Provides access to the module's resource bundle across all platforms
 private extension Bundle {
     static var sbomModule: Bundle {
+        #if SWIFT_PACKAGE
+        // In Swift Package Manager context, use Bundle.module
+        // On Windows, this requires accessing the internal property
+        return Bundle.module
+        #else
+        // Fallback for non-SPM builds
         return Bundle(for: BundleModuleMarker.self)
+        #endif
     }
 }
 
-// Private marker class to identify this module's bundle
+// Private marker class for non-SPM builds
 private final class BundleModuleMarker {}
-#else
-// On other platforms, Bundle.module is public
-private extension Bundle {
-    static var sbomModule: Bundle {
-        return Bundle.module
-    }
-}
-#endif
 
 internal struct SBOMSchema {
     private let schema: [String: Any]
