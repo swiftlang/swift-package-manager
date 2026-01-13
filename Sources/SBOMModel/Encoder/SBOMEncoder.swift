@@ -86,20 +86,7 @@ internal struct SBOMEncoder {
             throw SBOMEncoderError
                 .jsonConversionFailed(message: "Could not convert generated SBOM file into JSON object for validation")
         }
-        let schema = try SBOMSchema(from: getSchemaFilename(from: spec.type))
+        let schema = try SBOMSchema(spec: spec)
         try await schema.validate(json: sbomJSONObject, spec: spec)
-    }
-
-    private static func getSchemaFilename(from spec: Spec) throws -> String {
-        switch spec {
-        case .cyclonedx, .cyclonedx1:
-            CycloneDXConstants.cyclonedx1SchemaFile
-        case .spdx, .spdx3:
-            SPDXConstants.spdx3SchemaFile
-            // case .cyclonedx, .cyclonedx2:
-            //     return CycloneDXConstants.cyclonedx2SchemaFile
-            // case .spdx, .spdx4:
-            //     return SPDXConstants.spdx4SchemaFile
-        }
     }
 }

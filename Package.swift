@@ -352,8 +352,8 @@ let package = Package(
             dependencies: ["Basics", "PackageCollections", "PackageGraph", "PackageModel", "SourceControl", "SwiftBuildSupport"],
             exclude: ["CMakeLists.txt"],
             resources: [
-                .copy("CycloneDX/Resources/cyclonedx-1.7.schema.json"),
-                .copy("SPDX/Resources/spdx-3.0.1.schema.json"),
+                .embedInCode("CycloneDX/Resources/cyclonedx-1.7.schema.json"),
+                .embedInCode("SPDX/Resources/spdx-3.0.1.schema.json"),
             ],
             swiftSettings: commonExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
