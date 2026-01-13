@@ -12,35 +12,20 @@
 
 import Foundation
 
-// MARK: - Bundle.module accessor
-// Provides access to the module's resource bundle across all platforms
-private extension Bundle {
-    static var sbomModule: Bundle {
-        #if SWIFT_PACKAGE
-        // In Swift Package Manager context, use Bundle.module
-        // On Windows, this requires accessing the internal property
-        return Bundle.module
-        #else
-        // Fallback for non-SPM builds
-        return Bundle(for: BundleModuleMarker.self)
-        #endif
-    }
-}
-
-// Private marker class for non-SPM builds
-private final class BundleModuleMarker {}
-
 internal struct SBOMSchema {
     private let schema: [String: Any]
 
-    internal init(from schemaFilename: String) throws {
-        guard let schemaURL = Bundle.sbomModule.url(forResource: schemaFilename, withExtension: "json") else {
-            throw SBOMSchemaError.schemaFileNotFound(
-                filename: schemaFilename,
-                bundlePath: Bundle.sbomModule.bundlePath
-            )
+    internal init(spec: SBOMSpec) throws {
+        // Resources are embedded in code, accessed via PackageResources
+        let schemaData: Data
+        
+        switch spec.type {
+        case .cyclonedx, .cyclonedx1:
+            schemaData = Data(PackageResources.cyclonedx_1_7_schema_json)
+        case .spdx, .spdx3:
+            schemaData = Data(PackageResources.spdx_3_0_1_schema_json)
         }
-        let schemaData = try Data(contentsOf: schemaURL)
+        
         guard let jsonObject = try JSONSerialization.jsonObject(with: schemaData) as? [String: Any] else {
             throw SBOMSchemaError.invalidSchemaFormat(message: "Could not parse schema as JSON dictionary")
         }
