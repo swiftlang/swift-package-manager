@@ -19,8 +19,14 @@ private final class BundleCache {
     
     private let lock = NSLock()
     private var cache: [String: Bundle] = [:]
+    // Cache Bundle.allBundles once at initialization to avoid thread-safety issues on Linux
+    private let allBundles: [Bundle]
     
-    private init() {}
+    private init() {
+        // Cache Bundle.allBundles once during initialization
+        // This avoids concurrent access to Bundle.allBundles which is not thread-safe on Linux
+        self.allBundles = Bundle.allBundles
+    }
     
     func findBundle(named bundleName: String) -> Bundle? {
         lock.lock()
@@ -40,8 +46,8 @@ private final class BundleCache {
     }
     
     private func searchForBundle(named bundleName: String) -> Bundle? {
-        // First, try to find the bundle in Bundle.allBundles
-        for bundle in Bundle.allBundles {
+        // First, try to find the bundle in our cached allBundles
+        for bundle in allBundles {
             let bundlePath = bundle.bundleURL.lastPathComponent
             if bundlePath == "\(bundleName).bundle" || bundlePath == "\(bundleName).resources" || bundlePath == bundleName {
                 return bundle
