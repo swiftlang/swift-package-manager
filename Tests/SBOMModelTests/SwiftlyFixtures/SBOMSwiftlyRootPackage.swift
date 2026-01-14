@@ -320,7 +320,6 @@ extension SBOMTestModulesGraph {
             packageIdentity: identity,
             module: swiftlyTestsModule,
             dependencies: [
-                .module(resolvedSwiftlyModule, conditions: []),
                 .product(systemPackageProduct, conditions: []),
             ]
         )
