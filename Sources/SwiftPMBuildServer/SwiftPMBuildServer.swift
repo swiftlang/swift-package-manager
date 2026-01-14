@@ -157,6 +157,7 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
         case is OnBuildInitializedNotification:
             connectionToUnderlyingBuildServer.send(notification)
             state = .running
+            scheduleRegeneratingBuildDescription()
         case let notification as OnWatchedFilesDidChangeNotification:
             // The underlying build server only receives updates via new PIF, so don't forward this notification.
             for change in notification.changes {
@@ -249,7 +250,6 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
             logToClient(.warning, "Underlying build server reported unexpected file watchers")
         }
         state = .waitingForInitializedNotification
-        scheduleRegeneratingBuildDescription()
         return InitializeBuildResponse(
             displayName: "SwiftPM Build Server",
             version: SwiftVersion.current.displayString,
