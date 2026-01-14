@@ -41,6 +41,7 @@ import enum TSCBasic.JSON
 import var TSCBasic.stdoutStream
 import class TSCBasic.SynchronizedQueue
 import class TSCBasic.Thread
+import struct TSCBasic.Condition
 
 #if os(Windows)
 import WinSDK // for ERROR_NOT_FOUND
@@ -1196,6 +1197,8 @@ final class ParallelTestRunner {
             library: .xctest // swift-testing does not use ParallelTestRunner
         )
 
+        var runningTests: [String] = []
+        let runningTestsLock = Condition()
         // Enqueue all the tests.
         try enqueueTests(tests)
 
@@ -1215,9 +1218,15 @@ final class ParallelTestRunner {
                         library: .xctest // swift-testing does not use ParallelTestRunner
                     )
                     let output = ThreadSafeBox<String>("")
+                    runningTestsLock.whileLocked() {
+                        runningTests.append(test.specifier)
+                    }
                     let start = DispatchTime.now()
                     let result = testRunner.test(outputHandler: { _output in output.append(_output) })
                     let duration = start.distance(to: .now())
+                    runningTestsLock.whileLocked() {
+                        runningTests = runningTests.filter { $0 != test.specifier }
+                    }
                     if result == .failure {
                         self.ranSuccessfully = false
                     }
@@ -1247,6 +1256,9 @@ final class ParallelTestRunner {
             // which test is last one so exit this when all the tests have finished running.
             if numCurrentTest == numTests {
                 break
+            }
+            runningTestsLock.whileLocked() {
+                print("\nRUNNING: \(runningTests)")
             }
         }
 
