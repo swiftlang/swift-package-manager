@@ -86,8 +86,18 @@ internal struct SBOMEncoder {
             throw SBOMEncoderError
                 .jsonConversionFailed(message: "Could not convert generated SBOM file into JSON object for validation")
         }
-        let schema = try SBOMSchema(from: getSchemaFilename(from: spec.type))
-        try await schema.validate(json: sbomJSONObject, spec: spec)
+        
+        do {
+            let schema = try SBOMSchema(from: getSchemaFilename(from: spec.type))
+            try await schema.validate(json: sbomJSONObject, spec: spec)
+        } catch let error as SBOMSchemaError {
+            if case .bundleNotFound(_) = error {
+                // TODO echeng3805, handle this more nicely
+                print("warning: \(error.errorDescription ?? "Bundle with schemas not found") - skipping SBOM validation")
+                return
+            }
+            throw error
+        }
     }
 
     private static func getSchemaFilename(from spec: Spec) throws -> String {
@@ -103,3 +113,4 @@ internal struct SBOMEncoder {
         }
     }
 }
+

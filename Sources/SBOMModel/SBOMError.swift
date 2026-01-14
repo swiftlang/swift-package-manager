@@ -59,12 +59,17 @@ internal enum SBOMSchemaError: Error, LocalizedError, CustomStringConvertible {
     case schemaFileNotFound(filename: String, bundlePath: String)
     /// Invalid JSON schema format
     case invalidSchemaFormat(message: String)
+    /// Bundle not found (validation will be skipped)
+    case bundleNotFound(bundleName: String)
+    
     internal var errorDescription: String? {
         switch self {
         case .schemaFileNotFound(let filename, let bundlePath):
             "SBOM schema file '\(filename).json' not found in bundle: \(bundlePath)"
         case .invalidSchemaFormat(let message):
             "Invalid JSON schema format: \(message)"
+        case .bundleNotFound(let bundleName):
+            "Bundle '\(bundleName)' with schemas not found"
         }
     }
 
