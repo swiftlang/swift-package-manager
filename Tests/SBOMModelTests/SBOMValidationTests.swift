@@ -180,6 +180,12 @@ struct SBOMValidationTests {
         )
         let encodedData = try Data(contentsOf: fileURL)
 
+        // Manually load the bundle so schemas can be found
+        let testBundleDir = testBundle.bundleURL.deletingLastPathComponent()
+        let sbomModelBundleURL = testBundleDir.appendingPathComponent("SwiftPM_SBOMModel")
+        let _ = Bundle(url: "\(sbomModelBundleURL).bundle")
+        let _ = Bundle(url: "\(sbomModelBundleURL).resources")
+
         if testCase.wantError {
             await #expect(throws: (any Error).self) {
                 try await SBOMEncoder.validateSBOM(from: encodedData, spec: testCase.inputSBOMSpec)
