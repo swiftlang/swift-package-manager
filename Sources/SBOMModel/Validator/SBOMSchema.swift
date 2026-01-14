@@ -12,40 +12,83 @@
 
 import Foundation
 
-// MARK: - Bundle.module accessor
-// Provides access to the module's resource bundle across all platforms
-private extension Bundle {
-    static func getSBOMModule() -> Bundle? {
-        // Avoid using Bundle.module directly because it results in a fatal error if not found
-        let bundleName = "SwiftPM_SBOMModel"
+// MARK: - Thread-safe bundle cache
+// Provides thread-safe access to cached bundles to avoid concurrent access to Bundle.allBundles
+private final class BundleCache {
+    static let shared = BundleCache()
+    
+    private let lock = NSLock()
+    private var cache: [String: Bundle] = [:]
+    
+    private init() {}
+    
+    func findBundle(named bundleName: String) -> Bundle? {
+        lock.lock()
+        defer { lock.unlock() }
+        
+        if let cachedBundle = cache[bundleName] {
+            return cachedBundle
+        }
+        
+        let foundBundle = searchForBundle(named: bundleName)
+        
+        if let foundBundle = foundBundle {
+            cache[bundleName] = foundBundle
+        }
+        
+        return foundBundle
+    }
+    
+    private func searchForBundle(named bundleName: String) -> Bundle? {
+        // First, try to find the bundle in Bundle.allBundles
         for bundle in Bundle.allBundles {
-            if bundle.bundleURL.lastPathComponent == "\(bundleName).bundle" {
+            let bundlePath = bundle.bundleURL.lastPathComponent
+            if bundlePath == "\(bundleName).bundle" || bundlePath == "\(bundleName).resources" || bundlePath == bundleName {
                 return bundle
             }
         }
+        
+        // For resource-only bundles, try to find them on disk
+        // Note: On macOS, these are .bundle directories; on Linux, they're .resources directories
+        let bundleExtensions = ["bundle", "resources"]
+        
+        if let executableURL = Bundle.main.executableURL {
+            let executableDir = executableURL.deletingLastPathComponent()
+            for ext in bundleExtensions {
+                let bundleURL = executableDir.appendingPathComponent("\(bundleName).\(ext)")
+                if let bundle = Bundle(url: bundleURL) {
+                    return bundle
+                }
+            }
+        }
+        
         return nil
+    }
+}
+
+// MARK: - Bundle accessor
+// Provides access to the module's resource bundle across all platforms
+private extension Bundle {
+    static func findBundle(named bundleName: String) -> Bundle? {
+        BundleCache.shared.findBundle(named: bundleName)
     }
 }
 
 internal struct SBOMSchema {
     private let schema: [String: Any]
 
-    internal init(from schemaFilename: String) throws {
-        guard let bundle = Bundle.getSBOMModule() else {
-            throw SBOMSchemaError.bundleNotFound(bundleName: "SwiftPM_SBOMModel")
+    internal init(from schemaFilename: String, bundleName: String = "SwiftPM_SBOMModel") throws {
+        if let foundBundle = Bundle.findBundle(named: bundleName),
+           let schemaURL = foundBundle.url(forResource: schemaFilename, withExtension: "json") {
+            let schemaData = try Data(contentsOf: schemaURL)
+            guard let jsonObject = try JSONSerialization.jsonObject(with: schemaData) as? [String: Any] else {
+                throw SBOMSchemaError.invalidSchemaFormat(message: "Could not parse schema as JSON dictionary")
+            }
+            self.schema = jsonObject
+            return
         }
-        
-        guard let schemaURL = bundle.url(forResource: schemaFilename, withExtension: "json") else {
-            throw SBOMSchemaError.schemaFileNotFound(
-                filename: schemaFilename,
-                bundlePath: bundle.bundlePath
-            )
-        }
-        let schemaData = try Data(contentsOf: schemaURL)
-        guard let jsonObject = try JSONSerialization.jsonObject(with: schemaData) as? [String: Any] else {
-            throw SBOMSchemaError.invalidSchemaFormat(message: "Could not parse schema as JSON dictionary")
-        }
-        self.schema = jsonObject
+
+        throw SBOMSchemaError.bundleNotFound(bundleName: bundleName)
     }
 
     internal func validate(json jsonObject: Any, spec: SBOMSpec) async throws {

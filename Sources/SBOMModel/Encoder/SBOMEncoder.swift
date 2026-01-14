@@ -81,14 +81,14 @@ internal struct SBOMEncoder {
         return Array(result)
     }
 
-    internal static func validateSBOM(from encoded: Foundation.Data, spec: SBOMSpec) async throws {
+    internal static func validateSBOM(from encoded: Foundation.Data, spec: SBOMSpec, bundleName: String = "SwiftPM_SBOMModel") async throws {
         guard let sbomJSONObject = try (JSONSerialization.jsonObject(with: encoded)) as? [String: Any] else {
             throw SBOMEncoderError
                 .jsonConversionFailed(message: "Could not convert generated SBOM file into JSON object for validation")
         }
         
         do {
-            let schema = try SBOMSchema(from: getSchemaFilename(from: spec.type))
+            let schema = try SBOMSchema(from: getSchemaFilename(from: spec.type), bundleName: bundleName)
             try await schema.validate(json: sbomJSONObject, spec: spec)
         } catch let error as SBOMSchemaError {
             if case .bundleNotFound(_) = error {
