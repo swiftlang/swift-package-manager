@@ -88,6 +88,9 @@ swift run --build-system swiftbuild
 - Swift SDK's and toolset.json files aren't working yet.
   - **Tracking**: [swiftlang/swift-package-manager#9346](https://github.com/swiftlang/swift-package-manager/issues/9346)
 
+- Coverage reporting issues on some Linux platforms
+  - **Tracking**: [swiftlang/swift-package-manager#9600](https://github.com/swiftlang/swift-package-manager/issues/9600)
+
 ## Reporting issues
 
 Please follow these steps when reporting issues:
