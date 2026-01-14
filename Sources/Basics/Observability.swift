@@ -56,6 +56,10 @@ public class ObservabilitySystem {
         func handleDiagnostic(scope: ObservabilityScope, diagnostic: Diagnostic) {
             self.underlying(scope, diagnostic)
         }
+
+        func print(_ output: String, verbose: Bool) {
+            self.diagnosticsHandler.print(output, verbose: verbose)
+        }
     }
 
     public static var NOOP: ObservabilityScope {
@@ -128,6 +132,10 @@ public final class ObservabilityScope: DiagnosticsEmitterProtocol, Sendable, Cus
         return parent?.errorsReportedInAnyScope ?? false
     }
 
+    public func print(_ output: String, verbose: Bool) {
+        self.diagnosticsHandler.print(output, verbose: verbose)
+    }
+
     // DiagnosticsEmitterProtocol
     public func emit(_ diagnostic: Diagnostic) {
         var diagnostic = diagnostic
@@ -150,8 +158,12 @@ public final class ObservabilityScope: DiagnosticsEmitterProtocol, Sendable, Cus
             self.underlying.handleDiagnostic(scope: scope, diagnostic: diagnostic)
         }
 
+        public func print(_ output: String, verbose: Bool) {
+            self.underlying.print(output, verbose: verbose)
+        }
+
         var errorsReported: Bool {
-            self._errorsReported.get() ?? false
+            self._errorsReported.get()
         }
     }
 }
@@ -160,6 +172,8 @@ public final class ObservabilityScope: DiagnosticsEmitterProtocol, Sendable, Cus
 
 public protocol DiagnosticsHandler: Sendable {
     func handleDiagnostic(scope: ObservabilityScope, diagnostic: Diagnostic)
+
+    func print(_ output: String, verbose: Bool)
 }
 
 /// Helper protocol to share default behavior.

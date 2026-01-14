@@ -25,7 +25,7 @@
 
 import Foundation
 
-// Source: https://github.com/vapor/jwt-kit/blob/master/Sources/JWTKit/Utilities/Base64URL.swift
+// Source: https://github.com/vapor/jwt-kit/blob/main/Sources/JWTKit/Utilities/Base64URL.swift
 
 extension DataProtocol {
     func base64URLDecodedBytes() -> Data? {

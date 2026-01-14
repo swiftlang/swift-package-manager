@@ -15,7 +15,8 @@ import enum PackageModel.Sanitizer
 
 @Suite(
     .tags(
-        Tag.TestSize.small,
+        .TestSize.small,
+        .FunctionalArea.Sanitizer,
     ),
 )
 struct SanitizerExtensionTests {

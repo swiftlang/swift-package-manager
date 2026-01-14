@@ -72,7 +72,7 @@ struct PackageDescription6_2LoadingTests {
             """
 
         let observability = ObservabilitySystem.makeForTesting()
-        try await withKnownIssue("https://github.com/swiftlang/swift-package-manager/issues/8543: there are compilation errors on Windows") {
+        try await withKnownIssue("https://github.com/swiftlang/swift-package-manager/issues/8543: there are compilation errors on Windows", isIntermittent: true) {
             let (_, validationDiagnostics) = try await PackageDescriptionLoadingTests
                 .loadAndValidateManifest(
                     content,

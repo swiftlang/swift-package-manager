@@ -112,7 +112,8 @@ extension PackagePIFProjectBuilder {
         settings[.TARGET_NAME] = product.name
         settings[.PACKAGE_RESOURCE_TARGET_KIND] = "regular"
         settings[.PRODUCT_NAME] = "$(TARGET_NAME)"
-        settings[.PRODUCT_MODULE_NAME] = product.c99name
+        // We must use the main module name here instead of the product name, because they're not guranteed to be the same, and the users may have authored e.g. tests which rely on an executable's module name.
+        settings[.PRODUCT_MODULE_NAME] = mainModule.c99name
         settings[.PRODUCT_BUNDLE_IDENTIFIER] = "\(self.package.identity).\(product.name)"
             .spm_mangledToBundleIdentifier()
         settings[.SWIFT_PACKAGE_NAME] = mainModule.packageName
@@ -346,7 +347,7 @@ extension PackagePIFProjectBuilder {
                         break
                     }
                     let binaryFileRef = self.binaryGroup.addFileReference { id in
-                        FileReference(id: id, path: binaryModule.artifactPath.pathString)
+                        Self.createBinaryModuleFileReference(binaryModule, id: id)
                     }
                     let toolsVersion = self.package.manifest.toolsVersion
                     self.project[keyPath: mainModuleTargetKeyPath].addLibrary { id in
@@ -415,7 +416,7 @@ extension PackagePIFProjectBuilder {
                 case .executable, .snippet:
                     // For executable targets, we depend on the *product* instead
                     // (i.e., we infuse the product's main module target into the one for the product itself).
-                    let productDependency = modulesGraph.allProducts.only { $0.name == moduleDependency.name }
+                    let productDependency = modulesGraph.allProducts.only { $0.mainModule?.name == moduleDependency.name }
                     if let productDependency {
                         let productDependencyGUID = productDependency.pifTargetGUID
                         self.project[keyPath: mainModuleTargetKeyPath].common.addDependency(

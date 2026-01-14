@@ -61,9 +61,9 @@ import enum SwiftBuild.ProjectModel
 
 // MARK: - PIF GUID Helpers
 
-enum TargetSuffix: String {
+public enum TargetSuffix: String {
     case testable, dynamic
-    
+
     func hasSuffix(id: GUID) -> Bool {
         id.value.hasSuffix("-\(self.rawValue)")
     }
@@ -136,7 +136,7 @@ extension PackagePIFBuilder {
     ///
     /// This format helps make sure that there is no collision with any other PIF targets,
     /// and in particular that a PIF target and a PIF product can have the same name (as they often do).
-    static func targetGUID(forProductName name: String, withId id: String, suffix: TargetSuffix? = nil) -> GUID {
+    public static func targetGUID(forProductName name: String, withId id: String, suffix: TargetSuffix? = nil) -> GUID {
         let suffixDescription: String = suffix.uniqueDescription(forName: name)
         return "PACKAGE-PRODUCT:\(id).\(name)\(suffixDescription)"
     }
@@ -524,18 +524,18 @@ extension PackageGraph.ResolvedModule {
 
         /// Target-specific single-value build settings declared in the manifest and that apply to the target itself.
         var targetSingleValueSettings: [BuildConfiguration: SingleValueSettingsByPlatform] = [:]
-        
+
         /// Target-specific multiple-value build settings declared in the manifest and that apply to the target itself.
         var targetMultipleValueSettings: [BuildConfiguration: MultipleValueSettingsByPlatform] = [:]
 
         /// Target-specific single-value build settings that should be imparted to client targets (packages and projects).
         var impartedSingleValueSettings: SingleValueSettingsByPlatform = [:]
-        
+
         /// Target-specific multiple-value build settings that should be imparted to client targets (packages and projects).
         var impartedMultipleValueSettings: MultipleValueSettingsByPlatform = [:]
-        
+
         // MARK: - Convenience Methods
-        
+
         /// Apply all settings to a ProjectModel.BuildSettings instance
         func apply(to buildSettings: inout ProjectModel.BuildSettings, for configuration: BuildConfiguration) {
             // Apply single value settings for all platforms
@@ -550,7 +550,7 @@ extension PackageGraph.ResolvedModule {
                     }
                 }
             }
-            
+
             // Apply multiple value settings for all platforms
             if let multipleValuesByPlatform = targetMultipleValueSettings[configuration] {
                 // First, collect all multiple-value settings that are being used
@@ -560,7 +560,7 @@ extension PackageGraph.ResolvedModule {
                         usedMultipleValueSettings.insert(setting)
                     }
                 }
-                               
+
                 // Now apply the platform-specific values
                 for (platform, multipleValues) in multipleValuesByPlatform {
                     for (setting, values) in multipleValues {
@@ -577,7 +577,7 @@ extension PackageGraph.ResolvedModule {
                 }
             }
         }
-        
+
         /// Apply imparted settings to a ProjectModel.BuildSettings instance
         func applyImparted(to buildSettings: inout ProjectModel.BuildSettings) {
             // Apply imparted single value settings for all platforms
@@ -590,7 +590,7 @@ extension PackageGraph.ResolvedModule {
                     }
                 }
             }
-            
+
             // Apply imparted multiple value settings for all platforms
             for (platform, multipleValues) in impartedMultipleValueSettings {
                 for (setting, values) in multipleValues {
@@ -621,7 +621,7 @@ extension PackageGraph.ResolvedModule {
                 let values: [String]
                 let singleValueSetting: ProjectModel.BuildSettings.SingleValueSetting?
                 let multipleValueSetting: ProjectModel.BuildSettings.MultipleValueSetting?
-                
+
                 switch declaration {
                 case .LINK_FRAMEWORKS:
                     singleValueSetting = nil
@@ -1032,6 +1032,12 @@ extension ProjectModel.BuildSettings {
         self[.PRODUCT_BUNDLE_IDENTIFIER] = "\(packageIdentity).\(productName)".spm_mangledToBundleIdentifier()
         self[.SWIFT_PACKAGE_NAME] = packageName ?? nil
 
+        // This should really be swift-build defaults set in the .xcspec files, but changing that requires
+        // some extensive testing to ensure xcode projects are not effected.
+        // So for now lets just force it here.
+        self[.EXECUTABLE_PREFIX] = "lib"
+        self[.EXECUTABLE_PREFIX, Platform.windows] = ""
+
         if !createDylibForDynamicProducts {
             self[.GENERATE_INFOPLIST_FILE] = "YES"
             // If the built framework is named same as one of the target in the package,
@@ -1106,7 +1112,7 @@ extension ObservabilityScope {
 
         let indentation = String(repeating: "  ", count: Int(indent))
         let message = "PIF: \(indentation)\(message)"
-        
+
         let diagnostic = Diagnostic(severity: severity, message: message, metadata: metadata)
         self.emit(diagnostic)
     }
@@ -1133,7 +1139,7 @@ public struct SourceLocation: Sendable {
 
     public init(_ file: StaticString, _ line: UInt) {
         precondition(file.description.hasContent)
-        
+
         self.file = file
         self.line = line
     }

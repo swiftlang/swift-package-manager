@@ -50,7 +50,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
     private let ftsLock = NSLock()
     // FTS not supported on some platforms; the code falls back to "slow path" in that case
     // marked internal for testing
-    internal let useSearchIndices = ThreadSafeBox<Bool>()
+    internal let useSearchIndices = ThreadSafeBox<Bool>(false)
 
     // Targets have in-memory trie in addition to SQLite FTS as optimization
     private let targetTrie = Trie<CollectionPackage>()
@@ -725,9 +725,10 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
     private func shouldUseSearchIndices() throws -> Bool {
         // Make sure createSchemaIfNecessary is called and useSearchIndices is set before reading it
         try self.withDB { _ in
-            self.useSearchIndices.get() ?? false
+            self.useSearchIndices.get()
         }
     }
+
     internal func populateTargetTrie() async throws {
         try await withCheckedThrowingContinuation { continuation in
             self.populateTargetTrie(callback: {

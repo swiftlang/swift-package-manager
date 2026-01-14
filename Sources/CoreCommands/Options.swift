@@ -528,7 +528,7 @@ public struct BuildOptions: ParsableArguments {
 
     /// The number of jobs for llbuild to start (aka the number of schedulerLanes)
     @Option(name: .shortAndLong, help: "The number of jobs to spawn in parallel during the build process.")
-    public var jobs: UInt32?
+    public var jobs: UInt32 = UInt32(ProcessInfo.processInfo.activeProcessorCount)
 
     /// Whether to use the integrated Swift driver rather than shelling out
     /// to a separate process.

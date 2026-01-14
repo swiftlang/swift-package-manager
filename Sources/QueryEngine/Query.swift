@@ -5,8 +5,8 @@
 // Copyright (c) 2023-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
-// See https://swift.org/LICENSE.txt for license information
-// See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
 
@@ -156,7 +156,7 @@ extension HashEncoder: UnkeyedEncodingContainer {
     }
 
     func superEncoder() -> any Encoder {
-        fatalError()
+        fatalError("\(#file):\(#line) - Illegal call of function \(#function)")
     }
 }
 
@@ -272,11 +272,11 @@ extension HashEncoder {
         }
 
         mutating func superEncoder() -> any Encoder {
-            fatalError()
+            fatalError("\(#file):\(#line) - Illegal call of function \(#function)")
         }
 
         mutating func superEncoder(forKey key: K) -> any Encoder {
-            fatalError()
+            fatalError("\(#file):\(#line) - Illegal call of function \(#function)")
         }
 
         typealias Key = K

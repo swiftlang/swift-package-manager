@@ -26,6 +26,6 @@
 
 * @jakepetroules @dschaefer2 @bripeticca @plemarquand @owenv @bkhouri @cmcgee1024 @daveyc123 @rconnell9
 
-Sources/Commands/PackageCommands/Migrate.swift @AnthonyLatsis @bnbarham @xedin @jakepetroules @dschaefer2 @bripeticca @plemarquand @owenv @bkhouri @cmcgee1024 @daveyc123 @rconnell9
-Sources/SwiftFixIt/* @AnthonyLatsis @bnbarham @xedin @jakepetroules @dschaefer2 @bripeticca @plemarquand @owenv @bkhouri @cmcgee1024 @daveyc123 @rconnell9
-Tests/SwiftFixItTests/* @AnthonyLatsis @bnbarham @xedin @jakepetroules @dschaefer2 @bripeticca @plemarquand @owenv @bkhouri @cmcgee1024 @daveyc123 @rconnell9
+Sources/Commands/PackageCommands/Migrate.swift @AnthonyLatsis @xedin @jakepetroules @dschaefer2 @bripeticca @plemarquand @owenv @bkhouri @cmcgee1024 @daveyc123 @rconnell9
+Sources/SwiftFixIt/* @AnthonyLatsis @xedin @jakepetroules @dschaefer2 @bripeticca @plemarquand @owenv @bkhouri @cmcgee1024 @daveyc123 @rconnell9
+Tests/SwiftFixItTests/* @AnthonyLatsis @xedin @jakepetroules @dschaefer2 @bripeticca @plemarquand @owenv @bkhouri @cmcgee1024 @daveyc123 @rconnell9

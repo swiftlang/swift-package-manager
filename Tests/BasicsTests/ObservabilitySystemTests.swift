@@ -309,6 +309,12 @@ struct ObservabilitySystemTest {
         func handleDiagnostic(scope: ObservabilityScope, diagnostic: Diagnostic) {
             self._diagnostics.append(diagnostic)
         }
+
+        func print(_ output: String, verbose: Bool) {
+            if verbose {
+                Swift.print(output)
+            }
+        }
     }
 }
 

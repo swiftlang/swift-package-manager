@@ -410,10 +410,10 @@ public final class GitRepository: Repository, WorkingCheckout {
     private var cachedHashes = ThreadSafeKeyValueStore<String, Hash>()
     private var cachedBlobs = ThreadSafeKeyValueStore<Hash, ByteString>()
     private var cachedTrees = ThreadSafeKeyValueStore<String, Tree>()
-    private var cachedTags = ThreadSafeBox<[String]>()
-    private var cachedBranches = ThreadSafeBox<[String]>()
-    private var cachedIsBareRepo = ThreadSafeBox<Bool>()
-    private var cachedHasSubmodules = ThreadSafeBox<Bool>()
+    private var cachedTags = ThreadSafeBox<[String]?>()
+    private var cachedBranches = ThreadSafeBox<[String]?>()
+    private var cachedIsBareRepo = ThreadSafeBox<Bool?>()
+    private var cachedHasSubmodules = ThreadSafeBox<Bool?>()
 
     public convenience init(path: AbsolutePath, isWorkingRepo: Bool = true, cancellator: Cancellator? = .none) {
         // used in one-off operations on git repo, as such the terminator is not ver important

@@ -1,12 +1,12 @@
 //===----------------------------------------------------------------------===//
 //
-// This source file is part of the Swift.org open source project
+// This source file is part of the Swift open source project
 //
 // Copyright (c) 2025 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
-// See https://swift.org/LICENSE.txt for license information
-// See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
 
@@ -103,12 +103,10 @@ public struct EnabledTraitsMap {
     }
 
     public subscript(key: PackageIdentity) -> EnabledTraits {
-        get { storage.get()?.traits[key] ?? ["default"] }
+        get { storage.get().traits[key] ?? ["default"] }
         set {
-            storage.mutate { state -> Storage? in
-                guard var state = state else {
-                    return Storage()
-                }
+            storage.mutate { (state: Storage) -> Storage in
+                var state = state
 
                 // Omit adding "default" explicitly, since the map returns "default"
                 // if there are no explicit traits enabled. This will allow us to check
@@ -157,7 +155,7 @@ public struct EnabledTraitsMap {
     /// - Parameter key: The package identity to query.
     /// - Returns: The set of setters that disabled default traits, or `nil` if no disablers exist.
     public subscript(disablersFor key: PackageIdentity) -> Set<EnabledTrait.Setter>? {
-        storage.get()?._disablers[key]
+        storage.get()._disablers[key]
     }
 
     /// Returns the set of setters that explicitly disabled default traits for a package identified by a string.
@@ -178,7 +176,7 @@ public struct EnabledTraitsMap {
     /// - Parameter key: The package identity to query.
     /// - Returns: The set of setters that requested default traits, or `nil` if no default setters exist.
     public subscript(defaultSettersFor key: PackageIdentity) -> Set<EnabledTrait.Setter>? {
-        storage.get()?._defaultSetters[key]
+        storage.get()._defaultSetters[key]
     }
 
     /// Returns the set of setters that requested default traits for a package identified by a string.
@@ -196,7 +194,7 @@ public struct EnabledTraitsMap {
     /// - Parameter key: The package identity to query.
     /// - Returns: The explicitly enabled traits, or `nil` if no traits were explicitly set (meaning the package uses defaults).
     public subscript(explicitlyEnabledTraitsFor key: PackageIdentity) -> EnabledTraits? {
-        storage.get()?.traits[key]
+        storage.get().traits[key]
     }
 
     /// Returns a list of traits that were explicitly enabled for a given package.
@@ -211,7 +209,7 @@ public struct EnabledTraitsMap {
 
     /// Returns a dictionary literal representation of the enabled traits map.
     public var dictionaryLiteral: [PackageIdentity: EnabledTraits] {
-        return storage.get()?.traits ?? [:]
+        return storage.get().traits
     }
 }
 

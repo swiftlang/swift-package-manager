@@ -171,10 +171,10 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     }
 
     /// The build description resulting from planing.
-    private let buildDescription = ThreadSafeBox<BuildDescription>()
+    private let buildDescription = AsyncThrowingValueMemoizer<BuildDescription>()
 
     /// The loaded package graph.
-    private let packageGraph = ThreadSafeBox<ModulesGraph>()
+    private let packageGraph = AsyncThrowingValueMemoizer<ModulesGraph>()
 
     /// File system to operate on.
     private var fileSystem: Basics.FileSystem {
@@ -291,7 +291,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             if self.cacheBuildManifest {
                 do {
                     // if buildPackageStructure returns a valid description we use that, otherwise we perform full planning
-                    if try self.buildPackageStructure() {
+                    if try await self.buildPackageStructure() {
                         // confirm the step above created the build description as expected
                         // we trust it to update the build description when needed
                         let buildDescriptionPath = self.config.buildDescriptionPath(for: .target)
@@ -624,6 +624,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             sourceFiles: plugin.sources.paths,
             pluginName: plugin.moduleName,
             toolsVersion: plugin.toolsVersion,
+            workers: config.toolsBuildParameters.workers,
             observabilityScope: self.observabilityScope,
             callbackQueue: DispatchQueue.sharedConcurrent,
             delegate: delegate
@@ -829,15 +830,21 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     }
 
     /// Build the package structure target.
-    private func buildPackageStructure() throws -> Bool {
+    private func buildPackageStructure() async throws -> Bool {
         let (buildSystem, tracker) = try self.createBuildSystem(
             buildDescription: .none,
             config: self.config
         )
         self.current = (buildSystem, tracker)
 
-        // Build the package structure target which will re-generate the llbuild manifest, if necessary.
-        let buildSuccess = buildSystem.build(target: "PackageStructure")
+        // We use Task.detachNewThread here because buildSystem.build() is a blocking
+        // operation. Running this on the Swift Concurrency thread pool can block a worker thread
+        // potentially causing thread pool starvation and deadlocks. By running it on a dedicated
+        // thread, we keep the Swift Concurrency pool available for other async work.
+        let buildSuccess = await _Concurrency.Task.detachNewThread(name: "buildPackageStructure") {
+            // Build the package structure target which will re-generate the llbuild manifest, if necessary.
+            buildSystem.build(target: "PackageStructure")
+        }
 
         // If progress has been printed this will add a newline to separate it from what could be
         // the output of the command. For instance `swift test --skip-build` may print progress for

@@ -249,7 +249,7 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
         )
     }
 
-    package static func fileSystem(
+    public static func fileSystem(
         identity: PackageIdentity,
         nameForTargetDependencyResolutionOnly: String?,
         path: AbsolutePath,
@@ -284,7 +284,7 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
         )
     }
 
-    package static func localSourceControl(
+    public static func localSourceControl(
         identity: PackageIdentity,
         nameForTargetDependencyResolutionOnly: String?,
         path: AbsolutePath,
@@ -319,7 +319,7 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
         )
     }
 
-    package static func remoteSourceControl(
+    public static func remoteSourceControl(
         identity: PackageIdentity,
         nameForTargetDependencyResolutionOnly: String?,
         url: SourceControlURL,
@@ -354,7 +354,7 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
         )
     }
 
-    package static func sourceControl(
+    public static func sourceControl(
         identity: PackageIdentity,
         nameForTargetDependencyResolutionOnly: String?,
         location: SourceControl.Location,
@@ -387,7 +387,7 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
         )
     }
 
-    package static func registry(
+    public static func registry(
         identity: PackageIdentity,
         requirement: Registry.Requirement,
         productFilter: ProductFilter,

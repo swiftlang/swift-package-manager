@@ -451,7 +451,7 @@ class ProcessStartedSemaphore {
         self.term = term
     }
 
-    func handleOutput(_ bytes: [UInt8]) {
+    @Sendable func handleOutput(_ bytes: [UInt8]) {
         self.lock.withLock {
             guard !self.trapped else {
                 return

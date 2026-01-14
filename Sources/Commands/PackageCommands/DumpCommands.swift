@@ -201,7 +201,7 @@ struct DumpPIF: AsyncSwiftCommand {
 }
 
 fileprivate extension BuildOutput.SymbolGraphAccessLevel {
-    fileprivate static func accessLevel(_ accessLevel: SymbolGraphExtract.AccessLevel) -> BuildOutput.SymbolGraphAccessLevel {
+    static func accessLevel(_ accessLevel: SymbolGraphExtract.AccessLevel) -> BuildOutput.SymbolGraphAccessLevel {
         return BuildOutput.SymbolGraphAccessLevel.init(rawValue: accessLevel.rawValue)!
     }
 }
