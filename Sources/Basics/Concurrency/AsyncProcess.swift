@@ -507,38 +507,81 @@ package final class AsyncProcess {
             let stdoutPipe = Pipe()
             let stderrPipe = Pipe()
 
-            group.enter()
-            stdoutPipe.fileHandleForReading.readabilityHandler = { (fh: FileHandle) in
-                let data = (try? fh.read(upToCount: Int.max)) ?? Data()
-                if data.count == 0 {
-                    stdoutPipe.fileHandleForReading.readabilityHandler = nil
-                    group.leave()
-                } else {
-                    let contents = data.withUnsafeBytes { [UInt8]($0) }
-                    self.outputRedirection.outputClosures?.stdoutClosure(contents)
-                    stdoutLock.withLock {
-                        stdout += contents
-                    }
-                }
-            }
-
-            group.enter()
-            stderrPipe.fileHandleForReading.readabilityHandler = { (fh: FileHandle) in
-                let data = (try? fh.read(upToCount: Int.max)) ?? Data()
-                if data.count == 0 {
-                    stderrPipe.fileHandleForReading.readabilityHandler = nil
-                    group.leave()
-                } else {
-                    let contents = data.withUnsafeBytes { [UInt8]($0) }
-                    self.outputRedirection.outputClosures?.stderrClosure(contents)
-                    stderrLock.withLock {
-                        stderr += contents
-                    }
-                }
-            }
-
             process.standardOutput = stdoutPipe
             process.standardError = stderrPipe
+
+            var pending: Result<[UInt8], Swift.Error>?
+            let pendingLock = NSLock()
+
+            let outputClosures = self.outputRedirection.outputClosures
+
+            // Create a thread and start reading the stdout output on it.
+            group.enter()
+            let stdoutThread = Thread { [weak self] in
+                if let readResult = self?.readOutput(
+                    from: stdoutPipe.fileHandleForReading,
+                    outputClosure: outputClosures?.stdoutClosure
+                ) {
+                    pendingLock.withLock {
+                        if let stderrResult = pending {
+                            stdoutLock.withLock {
+                                stdout = (try? readResult.get()) ?? []
+                            }
+                            stderrLock.withLock {
+                                stderr = (try? stderrResult.get()) ?? []
+                            }
+                        } else {
+                            pending = readResult
+                        }
+                    }
+                    group.leave()
+                } else if let stderrResult = (pendingLock.withLock { pending }) {
+                    // TODO: this is more of an error
+                    stderrLock.withLock {
+                        stderr = (try? stderrResult.get()) ?? []
+                    }
+                    group.leave()
+                }
+            }
+
+            // Only schedule a thread for stderr if no redirect was requested.
+            var stderrThread: Thread? = nil
+            if !self.outputRedirection.redirectStderr {
+                // Create a thread and start reading the stderr output on it.
+                group.enter()
+                stderrThread = Thread { [weak self] in
+                    if let readResult = self?.readOutput(
+                        from: stderrPipe.fileHandleForReading,
+                        outputClosure: outputClosures?.stderrClosure
+                    ) {
+                        pendingLock.withLock {
+                            if let stdoutResult = pending {
+                                stdoutLock.withLock {
+                                    stdout = (try? stdoutResult.get()) ?? []
+                                }
+                                stderrLock.withLock {
+                                    stderr = (try? readResult.get()) ?? []
+                                }
+                            } else {
+                                pending = readResult
+                            }
+                        }
+                        group.leave()
+                    } else if let stdoutResult = (pendingLock.withLock { pending }) {
+                        // TODO: this is more of an error
+                        stdoutLock.withLock {
+                            stdout = (try? stdoutResult.get()) ?? []
+                        }
+                        group.leave()
+                    }
+                }
+            } else {
+                pendingLock.withLock {
+                    pending = .success([]) // no stderr in this case
+                }
+            }
+            stdoutThread.start()
+            stderrThread?.start()
         }
 
         // first set state then start reading threads
@@ -912,6 +955,47 @@ package final class AsyncProcess {
         return error.map(Result.failure) ?? .success(out)
     }
     #endif
+    #if os(Windows)
+    /// Reads the given FileHandle and returns its result.
+    ///
+    /// Closes the file handle before returning.
+    private func readOutput(from fileHandle: FileHandle, outputClosure: OutputClosure?) -> Result<[UInt8], Swift.Error> {
+        // Read all of the data from the output pipe.
+        let N = 4096
+        var out = [UInt8]()
+        var error: Swift.Error? = nil
+        
+        loop: while true {
+            do {
+                guard let data = try fileHandle.read(upToCount: N) else {
+                    // EOF reached
+                    break loop
+                }
+                
+                if data.count == 0 {
+                    break loop
+                }
+                
+                let bytes = data.withUnsafeBytes { [UInt8]($0) }
+                if let outputClosure {
+                    outputClosure(bytes)
+                } else {
+                    out += bytes
+                }
+            } catch let readError {
+                error = readError
+                break loop
+            }
+        }
+        
+        // Close the file handle
+        try? fileHandle.close()
+        
+        // Construct the output result.
+        return error.map(Result.failure) ?? .success(out)
+    }
+    #endif
+
 
     /// Send a signal to the process.
     ///
