@@ -443,7 +443,7 @@ struct SwiftBuildSystemMessageHandlerTests {
 
     @Test
     func testTargetUpToDateMessage() throws {
-        let messageHandler = self.messageHandler.warning
+        let messageHandler = self.messageHandler.debug
 
         let events: [SwiftBuildMessage] = [
             .targetUpToDateInfo()
@@ -455,11 +455,10 @@ struct SwiftBuildSystemMessageHandlerTests {
 
         #expect(!self.observability.hasWarningDiagnostics)
         #expect(!self.observability.hasErrorDiagnostics)
-        #expect(self.observability.diagnostics.count == 1)
+        #expect(self.observability.diagnostics.count == 0)
 
-        try expectDiagnostics(self.observability.diagnostics) { result in
-            result.check(diagnostic: "Target mock-target-guid up to date.", severity: .info)
-        }
+        let output = self.outputStream.bytes.description
+        #expect(output.contains("Target mock-target-guid up to date."))
     }
 
     @Test

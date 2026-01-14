@@ -35,7 +35,6 @@ struct BuildSystemDelegateTests {
             let (stdout, stderr) = try await executeSwiftBuild(
                 fixturePath,
                 configuration: data.config,
-                // extraArgs: ["--verbose"],
                 buildSystem: data.buildSystem,
             )
             switch data.buildSystem {

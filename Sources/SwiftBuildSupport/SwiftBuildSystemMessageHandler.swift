@@ -108,8 +108,9 @@ public final class SwiftBuildSystemMessageHandler {
         // Decode the buffer to a string
         let decodedOutput = String(decoding: buffer, as: UTF8.self)
 
-        // Emit message.
-        observabilityScope.print(decodedOutput, verbose: self.logLevel.isVerbose)
+        // Emit message. Setting verbose to true so as to ensure
+        // that this message is emitted.
+        observabilityScope.print(decodedOutput, verbose: true)
 
         // Record that we've emitted the output for a given task.
         self.tasksEmitted.insert(info)
@@ -122,12 +123,8 @@ public final class SwiftBuildSystemMessageHandler {
     ) throws {
         // Begin by emitting the text received by the task started event.
         if let started = self.buildState.startedInfo(for: startedInfo) {
-            // Determine where to emit depending on the verbosity level.
-            if self.logLevel.isVerbose {
-                self.outputStream.send(started.description + "\n")
-            } else {
-                observabilityScope.print(started, verbose: self.logLevel.isVerbose)
-            }
+            // Emit depending on verbosity level.
+            self.observabilityScope.print(started, verbose: self.logLevel.isVerbose)
         }
 
         guard info.result == .success else {
@@ -288,7 +285,9 @@ public final class SwiftBuildSystemMessageHandler {
             }
         case .targetUpToDate(let info):
             // Received when a target is entirely up to date and did not need to be built.
-            self.observabilityScope.emit(info: "Target \(info.guid) up to date." + "\n")
+            if self.logLevel.isVerbose {
+                self.outputStream.send("Target \(info.guid) up to date." + "\n")
+            }
         case .reportBuildDescription, .reportPathMap, .preparedForIndex, .buildStarted, .preparationComplete, .taskUpToDate:
             break
         case .buildDiagnostic, .targetDiagnostic, .taskDiagnostic:
@@ -342,7 +341,7 @@ extension SwiftBuildSystemMessageHandler {
             } else {
                 task.executionDescription
             }
-            taskDataBuffer[task] = output
+            taskDataBuffer.setTaskStartedInfo(task, output)
         }
 
         /// Marks a task as completed and removes it from active tracking.
@@ -505,17 +504,16 @@ extension SwiftBuildSystemMessageHandler.BuildState {
             }
         }
 
-        subscript(task: SwiftBuildMessage.TaskStartedInfo) -> String? {
-            get {
-                guard let result = taskStartedNotifications[task.taskID] else {
-                    return nil
-                }
+        func taskStartedInfo(_ task: SwiftBuildMessage.TaskStartedInfo) -> String? {
+            guard let result = taskStartedNotifications[task.taskID] else {
+                return nil
+            }
 
-                return result
-            }
-            set {
-                self.taskStartedNotifications[task.taskID] = newValue
-            }
+            return result
+        }
+
+        mutating func setTaskStartedInfo(_ task: SwiftBuildMessage.TaskStartedInfo, _ text: String) {
+            self.taskStartedNotifications[task.taskID] = text
         }
     }
 
@@ -555,7 +553,7 @@ extension SwiftBuildSystemMessageHandler.BuildState {
     }
 
     func startedInfo(for task: SwiftBuild.SwiftBuildMessage.TaskStartedInfo) -> String? {
-        return self.taskDataBuffer[task]
+        return self.taskDataBuffer.taskStartedInfo(task)
     }
 }
 
