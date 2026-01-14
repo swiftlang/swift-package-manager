@@ -15,29 +15,30 @@ import Foundation
 // MARK: - Bundle.module accessor
 // Provides access to the module's resource bundle across all platforms
 private extension Bundle {
-    static var sbomModule: Bundle {
-        #if SWIFT_PACKAGE
-        // In Swift Package Manager context, use Bundle.module
-        // On Windows, this requires accessing the internal property
-        return Bundle.module
-        #else
-        // Fallback for non-SPM builds
-        return Bundle(for: BundleModuleMarker.self)
-        #endif
+    static func getSBOMModule() -> Bundle? {
+        // Avoid using Bundle.module directly because it results in a fatal error if not found
+        let bundleName = "SwiftPM_SBOMModel"
+        for bundle in Bundle.allBundles {
+            if bundle.bundleURL.lastPathComponent == "\(bundleName).bundle" {
+                return bundle
+            }
+        }
+        return nil
     }
 }
-
-// Private marker class for non-SPM builds
-private final class BundleModuleMarker {}
 
 internal struct SBOMSchema {
     private let schema: [String: Any]
 
     internal init(from schemaFilename: String) throws {
-        guard let schemaURL = Bundle.sbomModule.url(forResource: schemaFilename, withExtension: "json") else {
+        guard let bundle = Bundle.getSBOMModule() else {
+            throw SBOMSchemaError.bundleNotFound(bundleName: "SwiftPM_SBOMModel")
+        }
+        
+        guard let schemaURL = bundle.url(forResource: schemaFilename, withExtension: "json") else {
             throw SBOMSchemaError.schemaFileNotFound(
                 filename: schemaFilename,
-                bundlePath: Bundle.sbomModule.bundlePath
+                bundlePath: bundle.bundlePath
             )
         }
         let schemaData = try Data(contentsOf: schemaURL)
