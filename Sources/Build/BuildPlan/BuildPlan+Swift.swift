@@ -14,6 +14,7 @@ import struct Basics.InternalError
 
 import class PackageModel.BinaryModule
 import class PackageModel.ClangModule
+import class PackageModel.SwiftModule
 import class PackageModel.SystemLibraryModule
 
 import PackageGraph
@@ -39,6 +40,11 @@ extension BuildPlan {
                     "-Xcc", "-fmodule-map-file=\(moduleMap.pathString)",
                     "-Xcc", "-I", "-Xcc", target.clangTarget.includeDir.pathString,
                 ]
+            case let target as SwiftModule:
+                // Copy header paths over
+                if let assignment = target.buildSettings.assignments[.HEADER_SEARCH_PATHS] {
+                    swiftTarget.additionalFlags += assignment.flatMap({ $0.values.map({ "-I\($0)" })})
+                }
             case let target as SystemLibraryModule:
                 swiftTarget.additionalFlags += ["-Xcc", "-fmodule-map-file=\(target.moduleMapPath.pathString)"]
                 swiftTarget.additionalFlags += try pkgConfig(for: target).cFlags

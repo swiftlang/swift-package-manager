@@ -167,7 +167,6 @@ extension ModulesGraph {
                     path: packagePath,
                     additionalFileRules: additionalFileRules,
                     binaryArtifacts: binaryArtifacts[node.identity] ?? [:],
-                    prebuilts: prebuilts,
                     shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
                     testEntryPointPath: testEntryPointPath,
                     createREPLProduct: manifest.packageKind.isRoot ? createREPLProduct : false,
@@ -657,6 +656,56 @@ private func createResolvedPackages(
         }
     }
 
+    // Determine if prebuilts can be applied safely, i.e. only used from macros and plugins
+    // And not exported otherwise through root package products
+    // TODO: Optomize this to be O(n) over the number of modules in the graph
+    let canUsePrebuilts = !prebuilts.isEmpty && packageBuilders.allSatisfy {
+        $0.modules.allSatisfy { moduleBuilder in
+            // Guard that this module uses a prebuilt
+            guard moduleBuilder.module.dependencies.contains(where: {
+                guard case let .product(product, _) = $0, let package = product.package else {
+                    return false
+                }
+                return prebuilts[.plain(package)]?[product.name] != nil
+            }) else {
+                return true
+            }
+
+            // Check all root packages and see if this module is exported
+            return packageBuilders.filter({ rootManifests.keys.contains($0.package.identity) }).allSatisfy({
+                // Ignore the test product
+                $0.products.map(\.product).filter({ $0.type != .test}).allSatisfy({
+                    func transitivelyDepends(on module: Module) -> Bool {
+                        if module.type == .macro || module.type == .plugin {
+                            return false
+                        }
+
+                        if module.name == moduleBuilder.module.name {
+                            return true
+                        }
+
+                        return module.dependencies.flatMap({ deps -> [Module] in
+                            switch deps {
+                            case .module(let module, conditions: _):
+                                return [module]
+                            case .product(let product, conditions: _):
+                                guard let packageRef = product.package,
+                                      let packageBuilder = packagesByIdentity[.plain(packageRef)],
+                                      let product = packageBuilder.package.products.first(where: { $0.name == product.name })
+                                else {
+                                    return []
+                                }
+                                return product.modules
+                            }
+                        }).contains(where: { transitivelyDepends(on: $0) })
+                    }
+
+                    return $0.modules.allSatisfy({ !transitivelyDepends(on: $0) })
+                })
+            })
+        }
+    }
+
     // Do another pass and establish product dependencies of each module.
     for packageBuilder in packageBuilders {
         let package = packageBuilder.package
@@ -727,24 +776,19 @@ private func createResolvedPackages(
             // Directly add all the system module dependencies.
             moduleBuilder.dependencies += implicitSystemLibraryDeps.map { .module($0, conditions: []) }
 
+            var prebuiltLibraries: [String: PrebuiltLibrary] = [:]
+
             // Establish product dependencies.
             for case .product(let productRef, let conditions) in moduleBuilder.module.dependencies {
-                if let package = productRef.package, prebuilts[.plain(package)]?[productRef.name] != nil {
-                    // See if we're using a prebuilt instead
-                    if moduleBuilder.module.type == .macro {
-                        continue
-                    } else if moduleBuilder.module.type == .test {
-                        // use prebuilt if this is a test that depends a macro target
-                        // these are guaranteed built for host
-                        if moduleBuilder.module.dependencies.contains(where: { dep in
-                            guard let module = dep.module else {
-                                return false
-                            }
-                            return module.type == .macro
-                        }) {
-                            continue
-                        }
-                    }
+                if canUsePrebuilts,
+                   let package = productRef.package,
+                   let prebuilt = prebuilts[.plain(package)]?[productRef.name]
+                {
+                    // Record the prebuilt being used
+                    prebuiltLibraries[prebuilt.libraryName] = prebuilt
+
+                    // Skip the dependency
+                    continue
                 }
 
                 // Find the product in this package's dependency products.
@@ -796,6 +840,28 @@ private func createResolvedPackages(
                 }
 
                 moduleBuilder.dependencies.append(.product(product, conditions: conditions))
+            }
+
+            // Hook up prebuilts to the module's build settings
+            for prebuilt in prebuiltLibraries.values {
+                let lib = prebuilt.path.appending(components: ["lib", "lib\(prebuilt.libraryName).a"]).pathString
+                var ldFlagsAssignment = BuildSettings.Assignment()
+                ldFlagsAssignment.values = [lib]
+                moduleBuilder.module.buildSettings.add(ldFlagsAssignment, for: .OTHER_LDFLAGS)
+
+                var includeDirs: [AbsolutePath] = [prebuilt.path.appending(component: "Modules")]
+                if let checkoutPath = prebuilt.checkoutPath, let includePath = prebuilt.includePath {
+                    for includeDir in includePath {
+                        includeDirs.append(checkoutPath.appending(includeDir))
+                    }
+                } else {
+                    for cModule in prebuilt.cModules {
+                        includeDirs.append(prebuilt.path.appending(components: "include", cModule))
+                    }
+                }
+                var includeAssignment = BuildSettings.Assignment()
+                includeAssignment.values = includeDirs.map(\.pathString)
+                moduleBuilder.module.buildSettings.add(includeAssignment, for: .HEADER_SEARCH_PATHS)
             }
         }
     }
@@ -1414,6 +1480,20 @@ extension Module {
                 dependencyPackage: productPackage.description
             )
         }
+    }
+
+    fileprivate var isMacroTest: Bool {
+        guard self.type == .test else { return false }
+
+        return self.dependencies.contains(where: {
+            let name: String
+            switch $0 {
+            case .module(let target, conditions: _):
+                return target.type == .macro
+            default:
+                return false
+            }
+        })
     }
 }
 

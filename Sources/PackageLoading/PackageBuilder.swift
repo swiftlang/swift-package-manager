@@ -348,9 +348,6 @@ public final class PackageBuilder {
     /// Information concerning the different downloaded or local (archived) binary target artifacts.
     private let binaryArtifacts: [String: BinaryArtifact]
 
-    /// Prebuilts that may referenced from this package's targets
-    private let prebuilts: [PackageIdentity: [Product.ID: PrebuiltLibrary]]
-
     /// Create multiple test products.
     ///
     /// If set to true, one test product will be created for each test target.
@@ -407,7 +404,6 @@ public final class PackageBuilder {
         path: AbsolutePath,
         additionalFileRules: [FileRuleDescription],
         binaryArtifacts: [String: BinaryArtifact],
-        prebuilts: [PackageIdentity: [String: PrebuiltLibrary]],
         shouldCreateMultipleTestProducts: Bool = false,
         testEntryPointPath: AbsolutePath? = nil,
         warnAboutImplicitExecutableTargets: Bool = true,
@@ -422,7 +418,6 @@ public final class PackageBuilder {
         self.packagePath = path
         self.additionalFileRules = additionalFileRules
         self.binaryArtifacts = binaryArtifacts
-        self.prebuilts = prebuilts
         self.shouldCreateMultipleTestProducts = shouldCreateMultipleTestProducts
         self.testEntryPointPath = testEntryPointPath
         self.createREPLProduct = createREPLProduct
@@ -1407,42 +1402,6 @@ public final class PackageBuilder {
             table.add(assignment, for: .SWIFT_ACTIVE_COMPILATION_CONDITIONS)
         }
 
-        // Add in flags for prebuilts if the target is a macro or a macro test.
-        // Currently we only support prebuilts for macros.
-        if target.type == .macro || target.isMacroTest(in: manifest) {
-            let prebuiltLibraries: [String: PrebuiltLibrary] = target.dependencies.reduce(into: .init()) {
-                guard case let .product(name: name, package: package, moduleAliases: _, condition: _) = $1,
-                      let package = package,
-                      let prebuilt = prebuilts[.plain(package)]?[name]
-                else {
-                    return
-                }
-
-                $0[prebuilt.libraryName] = prebuilt
-            }
-
-            for prebuilt in prebuiltLibraries.values {
-                let lib = prebuilt.path.appending(components: ["lib", "lib\(prebuilt.libraryName).a"]).pathString
-                var ldFlagsAssignment = BuildSettings.Assignment()
-                ldFlagsAssignment.values = [lib]
-                table.add(ldFlagsAssignment, for: .OTHER_LDFLAGS)
-
-                var includeDirs: [AbsolutePath] = [prebuilt.path.appending(component: "Modules")]
-                if let checkoutPath = prebuilt.checkoutPath, let includePath = prebuilt.includePath {
-                    for includeDir in includePath {
-                        includeDirs.append(checkoutPath.appending(includeDir))
-                    }
-                } else {
-                    for cModule in prebuilt.cModules {
-                        includeDirs.append(prebuilt.path.appending(components: "include", cModule))
-                    }
-                }
-                var includeAssignment = BuildSettings.Assignment()
-                includeAssignment.values = includeDirs.map({ "-I\($0.pathString)" })
-                table.add(includeAssignment, for: .OTHER_SWIFT_FLAGS)
-            }
-        }
-
         return table
     }
 
@@ -2027,27 +1986,5 @@ extension Sequence {
 extension TargetDescription {
     fileprivate var usesUnsafeFlags: Bool {
         settings.filter(\.kind.isUnsafeFlags).isEmpty == false
-    }
-
-    fileprivate func isMacroTest(in manifest: Manifest) -> Bool {
-        guard self.type == .test else { return false }
-
-        return self.dependencies.contains(where: {
-            let name: String
-            switch $0 {
-            case .byName(name: let n, condition: _):
-                name = n
-            case .target(name: let n, condition: _):
-                name = n
-            default:
-                return false
-            }
-
-            guard let target = manifest.targetMap[name] else {
-                return false
-            }
-
-            return target.type == .macro
-        })
     }
 }
