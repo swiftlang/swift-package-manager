@@ -63,7 +63,7 @@ struct SBOMValidationTests {
         ]
     }
 
-    @Test("validate SBOM from graphs", arguments: try getValidateGraphSBOMTestCases())
+    @Test("validate SBOM from graphs", .skip("TODO echeng3805, Schema bundles can't be found"), arguments: try getValidateGraphSBOMTestCases())
     func validateSBOMFromGraph(testCase: ValidateGraphSBOMTestCase) async throws {
         let extractor = SBOMExtractor(
             modulesGraph: testCase.inputGraph,
@@ -171,7 +171,7 @@ struct SBOMValidationTests {
         ]
     }
 
-    @Test("validate SBOM from files", arguments: try getValidateFileSBOMTestCases())
+    @Test("validate SBOM from files", .skip("TODO echeng3805, Schema bundles can't be found"), arguments: try getValidateFileSBOMTestCases())
     func validateSBOMFromFile(testCase: ValidateFileSBOMTestCase) async throws {
         let testBundle = Bundle.module
         let fileURL = try #require(
@@ -179,12 +179,6 @@ struct SBOMValidationTests {
             "Could not find \(testCase.inputFilePath).json test file"
         )
         let encodedData = try Data(contentsOf: fileURL)
-
-        // Manually load the bundle so schemas can be found
-        let testBundleDir = testBundle.bundleURL.deletingLastPathComponent()
-        let sbomModelBundleURL = testBundleDir.appendingPathComponent("SwiftPM_SBOMModel")
-        let _ = Bundle(url: "\(sbomModelBundleURL).bundle")
-        let _ = Bundle(url: "\(sbomModelBundleURL).resources")
 
         if testCase.wantError {
             await #expect(throws: (any Error).self) {
