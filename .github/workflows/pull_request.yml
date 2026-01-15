@@ -35,7 +35,7 @@ jobs:
       # linux_build_command: 'swift run --build-system ${{ matrix.executableTargetBuildSystem }} swift-build --build-tests --build-system ${{ matrix.buildSystem}} && swift run --build-system ${{ matrix.executableTargetBuildSystem }} swift-test --parallel --build-system ${{ matrix.buildSystem}}'
       windows_swift_versions: '["nightly-main"]'
       windows_pre_build_command: 'Invoke-Program .\.github\scripts\prebuild.ps1'
-      windows_build_command: 'Invoke-Program swift run -Xlinker /ignore:4217 --configuration release --build-system ${{ matrix.executableTargetBuildSystem }} swift-build --build-tests -Xlinker /ignore:4217 --build-system ${{ matrix.buildSystem}}'
+      windows_build_command: 'Invoke-Program swift run -Xlinker /ignore:4217 --build-system ${{ matrix.executableTargetBuildSystem }} swift-build --build-tests -Xlinker /ignore:4217 --build-system ${{ matrix.buildSystem}}'
       # windows_build_command: 'Invoke-Program swift run -Xlinker /ignore:4217 --build-system ${{ matrix.executableTargetBuildSystem }} swift-build --build-tests -Xlinker /ignore:4217 --build-system ${{ matrix.buildSystem}}; Invoke-Program swift run --build-system ${{ matrix.executableTargetBuildSystem }} -Xlinker /ignore:4217 swift-test -Xlinker /ignore:4217 --parallel --build-system ${{ matrix.buildSystem}}'
       enable_windows_checks: true
       enable_ios_checks: true
