@@ -12,21 +12,13 @@
 
 import Foundation
 
-// MARK: - Thread-safe bundle cache
-// Provides thread-safe access to cached bundles to avoid concurrent access to Bundle.allBundles
 private final class BundleCache {
     static let shared = BundleCache()
     
     private let lock = NSLock()
     private var cache: [String: Bundle] = [:]
-    // Cache Bundle.allBundles once at initialization to avoid thread-safety issues on Linux
-    private let allBundles: [Bundle]
     
-    private init() {
-        // Cache Bundle.allBundles once during initialization
-        // This avoids concurrent access to Bundle.allBundles which is not thread-safe on Linux
-        self.allBundles = Bundle.allBundles
-    }
+    private init() {}
     
     func findBundle(named bundleName: String) -> Bundle? {
         lock.lock()
@@ -46,28 +38,24 @@ private final class BundleCache {
     }
     
     private func searchForBundle(named bundleName: String) -> Bundle? {
-        // First, try to find the bundle in our cached allBundles
-        for bundle in allBundles {
-            let bundlePath = bundle.bundleURL.lastPathComponent
-            if bundlePath == "\(bundleName).bundle" || bundlePath == "\(bundleName).resources" || bundlePath == bundleName {
-                return bundle
-            }
-        }
+        // Avoid using Bundle.module because it causes a fatal error if not found (e.g., when using custom toolchains)
+        // Avoid using Bundle.allBundles because it's not thread-safe on Linux and only includes bundles that have already been loaded from disk
         
-        // For resource-only bundles, try to find them on disk
-        // Note: On macOS, these are .bundle directories; on Linux, they're .resources directories
+        // On macOS, these are .bundle directories; on other platforms, they're .resources directories
         let bundleExtensions = ["bundle", "resources"]
-        
-        if let executableURL = Bundle.main.executableURL {
-            let executableDir = executableURL.deletingLastPathComponent()
-            for ext in bundleExtensions {
-                let bundleURL = executableDir.appendingPathComponent("\(bundleName).\(ext)")
+        let searchLocations = [Bundle.main.resourceURL, Bundle.main.bundleURL, Bundle.main.executableURL]
+
+        for ext in bundleExtensions {
+            for searchLocation in searchLocations {
+                guard let searchURL = searchLocation?.deletingLastPathComponent() else {
+                    continue
+                }
+                let bundleURL = searchURL.appendingPathComponent("\(bundleName).\(ext)")
                 if let bundle = Bundle(url: bundleURL) {
                     return bundle
                 }
             }
         }
-        
         return nil
     }
 }
