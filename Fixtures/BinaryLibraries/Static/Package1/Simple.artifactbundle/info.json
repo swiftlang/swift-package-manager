@@ -28,24 +28,7 @@
                         "headerPaths": ["include"],
                         "moduleMapPath": "include/simple.modulemap"
                     }
-                },
-                {
-                    "path": "dist/windows/Simple_arm64.lib",
-                    "supportedTriples": ["aarch64-unknown-windows-msvc"],
-                    "staticLibraryMetadata": {
-                        "headerPaths": ["include"],
-                        "moduleMapPath": "include/simple.modulemap"
-                    }
-                },
-                {
-                    "path": "dist/windows/Simple_x86_64.lib",
-                    "supportedTriples": ["x86_64-unknown-windows-msvc"],
-                    "staticLibraryMetadata": {
-                        "headerPaths": ["include"],
-                        "moduleMapPath": "include/simple.modulemap"
-                    }
-                },
-                             
+                }
             ]
         }
     }
