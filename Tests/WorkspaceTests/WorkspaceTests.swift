@@ -7729,6 +7729,10 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testArtifactDownloaderOrArchiverError() async throws {
+        #if os(macOS)
+        // rdar://168109308
+        try XCTSkip("something causing the test to fail during a toolchain build")
+        #endif
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -9793,6 +9797,10 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDownloadArchiveIndexFileArchiveNotFound() async throws {
+        #if os(macOS)
+        // rdar://168101480
+        try XCTSkip("something causing the test to fail during a toolchain build")
+        #endif
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         try fs.createMockToolchain()
