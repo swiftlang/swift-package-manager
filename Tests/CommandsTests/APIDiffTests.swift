@@ -256,7 +256,7 @@ struct APIDiffTests {
         arguments: SupportedBuildSystemOnAllPlatforms
     )
     func testAPIDiffOfModuleWithCDependency(buildSystem: BuildSystemProvider.Kind) async throws {
-        try await withKnownIssue("https://github.com/swiftlang/swift/issues/82394", isIntermittent: true) {
+        try await withKnownIssue("https://github.com/swiftlang/swift/issues/82394") {
             try await fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
                 let packageRoot = fixturePath.appending("CTargetDep")
                 // Overwrite the existing decl.
@@ -293,7 +293,7 @@ struct APIDiffTests {
         arguments: SupportedBuildSystemOnAllPlatforms
     )
     func testAPIDiffOfVendoredCDependency(buildSystem: BuildSystemProvider.Kind) async throws {
-        try await withKnownIssue("https://github.com/swiftlang/swift/issues/82394", isIntermittent: true) {
+        try await withKnownIssue("https://github.com/swiftlang/swift/issues/82394") {
             try await fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
                 let packageRoot = fixturePath.appending("CIncludePath")
                 let (output, _) = try await execute(["diagnose-api-breaking-changes", "main"], packagePath: packageRoot, buildSystem: buildSystem)
@@ -531,6 +531,22 @@ struct APIDiffTests {
     func testOldName(buildSystem: BuildSystemProvider.Kind) async throws {
         await expectThrowsCommandExecutionError(try await execute(["experimental-api-diff", "1.2.3", "--regenerate-baseline"], packagePath: nil, buildSystem: buildSystem)) { error in
             #expect(error.stdout.contains("`swift package experimental-api-diff` has been renamed to `swift package diagnose-api-breaking-changes`"))
+        }
+    }
+
+    @Test(.requiresAPIDigester, arguments: SupportedBuildSystemOnAllPlatforms)
+    func testBrokenAPIDiff(buildSystem: BuildSystemProvider.Kind) async throws {
+        try await fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
+            let packageRoot = fixturePath.appending("BrokenPkg")
+            await expectThrowsCommandExecutionError(try await execute(["diagnose-api-breaking-changes", "1.2.3"], packagePath: packageRoot, buildSystem: buildSystem)) { error in
+                let expectedError: String
+                if buildSystem == .swiftbuild {
+                    expectedError = "error: Build failed"
+                } else {
+                    expectedError = "baseline for Swift2 contains no symbols, swift-api-digester output"
+                }
+                #expect(error.stderr.contains(expectedError))
+            }
         }
     }
 }
