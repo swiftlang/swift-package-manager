@@ -263,10 +263,7 @@ extension PackagePIFProjectBuilder {
                 productType = .framework
             }
 
-        case .staticLibrary:
-            productType = .commonStaticArchive
-
-        case .executable:
+        case .staticLibrary, .executable:
             productType = .commonObject
 
         case .macro:
