@@ -13,14 +13,17 @@
 import Foundation
 
 /// Cache for storing compiled regex patterns (to avoid redundant compilation)
+/// Note: Using NSRegularExpression instead of Swift's native Regex type for Windows compatibility.
+/// Windows Swift toolchain currently lacks _StringProcessing module support, which causes linker errors
+/// with symbols like __imp_$sSS17_StringProcessing14RegexComponent0C7BuilderMc
 internal actor SBOMRegexCache {
-    private var cache: [String: Regex<AnyRegexOutput>] = [:]
+    private var cache: [String: NSRegularExpression] = [:]
     
-    internal func get(_ pattern: String) -> Regex<AnyRegexOutput>? {
+    internal func get(_ pattern: String) -> NSRegularExpression? {
         self.cache[pattern]
     }
     
-    internal func set(_ pattern: String, regex: Regex<AnyRegexOutput>) {
+    internal func set(_ pattern: String, regex: NSRegularExpression) {
         self.cache[pattern] = regex
     }
 }
@@ -53,7 +56,8 @@ struct SBOMValidator: SBOMValidatorProtocol {
         return formatter
     }()
     
-    private static let emailRegex = #/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/#
+    // Note: Using NSRegularExpression for Windows compatibility (see SBOMRegexCache comment)
+    private static let emailRegex = try! NSRegularExpression(pattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$", options: [])
     private static let regexCache = SBOMRegexCache()
     private static let referenceCache = SBOMSchemaReferenceCache()
 
@@ -76,7 +80,8 @@ struct SBOMValidator: SBOMValidatorProtocol {
                     throw SBOMValidatorError.invalidValue(path: path, message: "invalid date format")
                 }
             case .email, .idnEmail:
-                if value.wholeMatch(of: SBOMValidator.emailRegex) == nil {
+                let range = NSRange(location: 0, length: value.utf16.count)
+                if SBOMValidator.emailRegex.firstMatch(in: value, options: [], range: range) == nil {
                     throw SBOMValidatorError.invalidValue(path: path, message: "invalid email format")
                 }
             case .uri, .iriReference:
@@ -571,15 +576,11 @@ struct SBOMValidator: SBOMValidatorProtocol {
 
     private func validatePattern(_ value: String, pattern: String, path: String) async throws {
         let regex = try await Self.getCachedRegex(for: pattern, path: path)
-
-        guard let match = try? regex.wholeMatch(in: value) else {
-            throw SBOMValidatorError.constraintViolation(
-                path: path,
-                message: "String does not match pattern: \(pattern). Value: \"\(value)\""
-            )
-        }
         
-        guard match.range == value.startIndex..<value.endIndex else {
+        let range = NSRange(location: 0, length: value.utf16.count)
+        guard let match = regex.firstMatch(in: value, options: [], range: range),
+              match.range.location == 0,
+              match.range.length == value.utf16.count else {
             throw SBOMValidatorError.constraintViolation(
                 path: path,
                 message: "String does not match pattern: \(pattern). Value: \"\(value)\""
@@ -588,13 +589,14 @@ struct SBOMValidator: SBOMValidatorProtocol {
     }
     
     /// Get a cached compiled regex pattern, or compile and cache it if not present
-    private static func getCachedRegex(for pattern: String, path: String) async throws -> Regex<AnyRegexOutput> {
+    /// Note: Using NSRegularExpression for Windows compatibility (see SBOMRegexCache comment)
+    private static func getCachedRegex(for pattern: String, path: String) async throws -> NSRegularExpression {
         // Check cache first
         if let cached = await regexCache.get(pattern) {
             return cached
         }
         
-        guard let regex = try? Regex(pattern) else {
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: []) else {
             throw SBOMValidatorError.invalidValue(path: path, message: "Invalid regex pattern: \(pattern)")
         }
         await regexCache.set(pattern, regex: regex)
