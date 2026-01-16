@@ -936,13 +936,15 @@ public final class SwiftModuleBuildDescription {
         let headerSearchPaths = scope.evaluate(.HEADER_SEARCH_PATHS)
         flags += try headerSearchPaths.flatMap { path in
             [
-                "-I\(try AbsolutePath(validating: path, relativeTo: target.sources.root).pathString)",
                 "-Xcc", "-I\(try AbsolutePath(validating: path, relativeTo: target.sources.root).pathString)"
             ]
         }
 
         // Other C flags.
         flags += scope.evaluate(.OTHER_CFLAGS).flatMap { ["-Xcc", $0] }
+
+        // Prebuilt include paths
+        flags += scope.evaluate(.PREBUILT_INCLUDE_PATHS).flatMap { ["-I", $0] }
 
         // Include path for the toolchain's copy of SwiftSyntax.
         #if BUILD_MACROS_AS_DYLIBS

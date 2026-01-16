@@ -41,8 +41,8 @@ extension BuildPlan {
                     "-Xcc", "-I", "-Xcc", target.clangTarget.includeDir.pathString,
                 ]
             case let target as SwiftModule:
-                // Copy header paths over
-                if let assignment = target.buildSettings.assignments[.HEADER_SEARCH_PATHS] {
+                // Copy include paths over
+                if let assignment = target.buildSettings.assignments[.PREBUILT_INCLUDE_PATHS] {
                     swiftTarget.additionalFlags += assignment.flatMap({ $0.values.map({ "-I\($0)" })})
                 }
             case let target as SystemLibraryModule:

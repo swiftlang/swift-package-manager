@@ -844,24 +844,26 @@ private func createResolvedPackages(
 
             // Hook up prebuilts to the module's build settings
             for prebuilt in prebuiltLibraries.values {
-                let lib = prebuilt.path.appending(components: ["lib", "lib\(prebuilt.libraryName).a"]).pathString
-                var ldFlagsAssignment = BuildSettings.Assignment()
-                ldFlagsAssignment.values = [lib]
-                moduleBuilder.module.buildSettings.add(ldFlagsAssignment, for: .OTHER_LDFLAGS)
+                var libPathAssignment = BuildSettings.Assignment()
+                libPathAssignment.values.append(prebuilt.path.appending(component: "lib").pathString)
+                moduleBuilder.module.buildSettings.add(libPathAssignment, for: .PREBUILT_LIBRARY_PATHS)
 
-                var includeDirs: [AbsolutePath] = [prebuilt.path.appending(component: "Modules")]
+                var libsAssignment = BuildSettings.Assignment()
+                libsAssignment.values.append(prebuilt.libraryName)
+                moduleBuilder.module.buildSettings.add(libsAssignment, for: .PREBUILT_LIBRARIES)
+
+                var includeAssignment = BuildSettings.Assignment()
+                includeAssignment.values.append(prebuilt.path.appending(component: "Modules").pathString)
                 if let checkoutPath = prebuilt.checkoutPath, let includePath = prebuilt.includePath {
                     for includeDir in includePath {
-                        includeDirs.append(checkoutPath.appending(includeDir))
+                        includeAssignment.values.append(checkoutPath.appending(includeDir).pathString)
                     }
                 } else {
                     for cModule in prebuilt.cModules {
-                        includeDirs.append(prebuilt.path.appending(components: "include", cModule))
+                        includeAssignment.values.append(prebuilt.path.appending(components: "include", cModule).pathString)
                     }
                 }
-                var includeAssignment = BuildSettings.Assignment()
-                includeAssignment.values = includeDirs.map(\.pathString)
-                moduleBuilder.module.buildSettings.add(includeAssignment, for: .HEADER_SEARCH_PATHS)
+                moduleBuilder.module.buildSettings.add(includeAssignment, for: .PREBUILT_INCLUDE_PATHS)
             }
         }
     }
@@ -1480,20 +1482,6 @@ extension Module {
                 dependencyPackage: productPackage.description
             )
         }
-    }
-
-    fileprivate var isMacroTest: Bool {
-        guard self.type == .test else { return false }
-
-        return self.dependencies.contains(where: {
-            let name: String
-            switch $0 {
-            case .module(let target, conditions: _):
-                return target.type == .macro
-            default:
-                return false
-            }
-        })
     }
 }
 
