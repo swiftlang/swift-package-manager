@@ -153,11 +153,14 @@ final class PrebuiltsTests: XCTestCase {
     func checkSettings(_ rootPackage: ResolvedPackage, _ targetName: String, usePrebuilt: Bool) throws {
         let target = try XCTUnwrap(rootPackage.underlying.modules.first(where: { $0.name == targetName }))
         if usePrebuilt {
-            let swiftFlags = try XCTUnwrap(target.buildSettings.assignments[.OTHER_SWIFT_FLAGS]).flatMap({ $0.values })
-            XCTAssertTrue(swiftFlags.contains("-I/tmp/ws/.build/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-MacroSupport-macos_aarch64/Modules".fixwin))
-            XCTAssertTrue(swiftFlags.contains("-I/tmp/ws/.build/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-MacroSupport-macos_aarch64/include/_SwiftSyntaxCShims".fixwin))
-            let ldFlags = try XCTUnwrap(target.buildSettings.assignments[.OTHER_LDFLAGS]).flatMap({ $0.values })
-            XCTAssertTrue(ldFlags.contains("/tmp/ws/.build/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-MacroSupport-macos_aarch64/lib/libMacroSupport.a".fixwin))
+            let includes = try XCTUnwrap(target.buildSettings.assignments[.PREBUILT_INCLUDE_PATHS]).flatMap(\.values)
+            XCTAssertEqual(includes.count, 2)
+            XCTAssertTrue(includes.contains("/tmp/ws/.build/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-MacroSupport-macos_aarch64/Modules".fixwin))
+            XCTAssertTrue(includes.contains("/tmp/ws/.build/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-MacroSupport-macos_aarch64/include/_SwiftSyntaxCShims".fixwin))
+            let libPaths = try XCTUnwrap(target.buildSettings.assignments[.PREBUILT_LIBRARY_PATHS]).flatMap(\.values)
+            XCTAssertEqual(libPaths, ["/tmp/ws/.build/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-MacroSupport-macos_aarch64/lib".fixwin])
+            let lib = try XCTUnwrap(target.buildSettings.assignments[.PREBUILT_LIBRARIES]).flatMap(\.values)
+            XCTAssertEqual(lib, ["MacroSupport"])
         } else {
             XCTAssertNil(target.buildSettings.assignments[.OTHER_SWIFT_FLAGS])
             XCTAssertNil(target.buildSettings.assignments[.OTHER_LDFLAGS])

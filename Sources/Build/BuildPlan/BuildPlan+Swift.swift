@@ -25,6 +25,7 @@ extension BuildPlan {
     func plan(swiftTarget: SwiftModuleBuildDescription) throws {
         // We need to iterate recursive dependencies because Swift compiler needs to see all the targets a target
         // builds against
+        var prebuiltPaths = Set<String>()
         for case .module(let dependency, let description) in swiftTarget.recursiveLinkDependencies(using: self) {
             switch dependency.underlying {
             case let underlyingTarget as ClangModule where underlyingTarget.type == .library:
@@ -41,9 +42,16 @@ extension BuildPlan {
                     "-Xcc", "-I", "-Xcc", target.clangTarget.includeDir.pathString,
                 ]
             case let target as SwiftModule:
-                // Copy include paths over
+                // Copy include paths over if needed
+                let targetPaths = Set(swiftTarget.target.underlying.buildSettings.assignments[.PREBUILT_INCLUDE_PATHS]?.flatMap(\.values) ?? [])
                 if let assignment = target.buildSettings.assignments[.PREBUILT_INCLUDE_PATHS] {
-                    swiftTarget.additionalFlags += assignment.flatMap({ $0.values.map({ "-I\($0)" })})
+                    for path in assignment.flatMap(\.values) {
+                        if !prebuiltPaths.contains(path), !targetPaths.contains(path) {
+                            swiftTarget.additionalFlags += ["-I", path]
+                        }
+                        // Dedup thepath
+                        prebuiltPaths.insert(path)
+                    }
                 }
             case let target as SystemLibraryModule:
                 swiftTarget.additionalFlags += ["-Xcc", "-fmodule-map-file=\(target.moduleMapPath.pathString)"]
