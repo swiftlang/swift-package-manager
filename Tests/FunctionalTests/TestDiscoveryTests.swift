@@ -325,7 +325,7 @@ func testWithSanitizeAndFilterFailsWithPlatformPolicyViolation(
 ) async throws {
 #if os(macOS)
 try await withKnownIssue(
-    "Fails due to swiftpm-xctest-helper (Xcode tool) violating platform sanitizer policy"
+    "Fails due to swiftpm-xctest-helper (Xcode tool) violating platform sanitizer policy (#9546, rdar://168234231)"
 ) {
     try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
         let (_, stderr) = try await executeSwiftTest(
