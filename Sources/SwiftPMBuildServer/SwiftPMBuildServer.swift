@@ -137,12 +137,12 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
             buildRequest: buildrequest,
             connectionToClient: connectionFromUnderlyingBuildServer,
             exitHandler: { _ in
-                connectionToUnderlyingBuildServer.close()
                 do {
                     try await session.teardownHandler()
                 } catch {
                     print("SwiftPMBuildServer session teardown failed: \(error)")
                 }
+                connectionToUnderlyingBuildServer.close()
             }
         )
         connectionToUnderlyingBuildServer.start(handler: underlyingBuildServer)
