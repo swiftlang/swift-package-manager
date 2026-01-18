@@ -426,6 +426,94 @@ final class InitTests: XCTestCase {
         }
     }
 
+    func testInitPackageMacroWithXCTest() throws {
+        try testWithTemporaryDirectory { tmpPath in
+            let fs = localFileSystem
+            let path = tmpPath.appending("Foo")
+            let name = path.basename
+            try fs.createDirectory(path)
+
+            // Create the package
+            try InitPackage(
+                name: name,
+                packageType: .macro,
+                supportedTestingLibraries: [.xctest],
+                destinationPath: path,
+                fileSystem: localFileSystem
+            ).writePackageStructure()
+
+            // Verify basic file system content that we expect in the package
+            let manifest = path.appending("Package.swift")
+            XCTAssertFileExists(manifest)
+            let manifestContents: String = try localFileSystem.readFileContents(manifest)
+            
+
+            XCTAssertMatch(manifestContents, .and(.contains(".executable("), .contains("targets: [\"FooClient\"]")))
+            XCTAssertMatch(manifestContents, .and(.contains(".macro("), .contains("name: \"FooMacros\"")))
+            XCTAssertMatch(manifestContents, .contains(".executableTarget(name: \"FooClient\", dependencies: [\"Foo\"]),"))
+
+            let sourceLibrary = path.appending("Sources", "Foo", "Foo.swift")
+            XCTAssertFileExists(sourceLibrary)
+            let sourceClient = path.appending("Sources", "FooClient", "main.swift")
+            XCTAssertFileExists(sourceClient)
+            let sourceMacros = path.appending("Sources", "FooMacros", "FooMacro.swift")
+            XCTAssertFileExists(sourceMacros)
+
+            let sourceTests = path.appending("Tests", "FooTests", "FooTests.swift")
+            XCTAssertFileExists(sourceTests)
+            let sourceTestsContents: String = try localFileSystem.readFileContents(sourceTests)
+            XCTAssertMatch(sourceTestsContents, .contains("import XCTest"))
+            XCTAssertMatch(sourceTestsContents, .contains("import SwiftSyntaxMacrosTestSupport"))
+            XCTAssertNoMatch(sourceTestsContents, .contains("import Testing"))
+            XCTAssertNoMatch(sourceTestsContents, .contains("import SwiftSyntaxMacrosGenericTestSupport"))
+            XCTAssertMatch(sourceTestsContents, .contains("final class FooTests: XCTestCase {"))
+        }
+    }
+
+    func testInitPackageMacroWithSwiftTesting() throws {
+        try testWithTemporaryDirectory { tmpPath in
+            let fs = localFileSystem
+            let path = tmpPath.appending("Foo")
+            let name = path.basename
+            try fs.createDirectory(path)
+
+            // Create the package
+            try InitPackage(
+                name: name,
+                packageType: .macro,
+                supportedTestingLibraries: [.swiftTesting],
+                destinationPath: path,
+                fileSystem: localFileSystem
+            ).writePackageStructure()
+
+            // Verify basic file system content that we expect in the package
+            let manifest = path.appending("Package.swift")
+            XCTAssertFileExists(manifest)
+            let manifestContents: String = try localFileSystem.readFileContents(manifest)
+
+
+            XCTAssertMatch(manifestContents, .and(.contains(".executable("), .contains("targets: [\"FooClient\"]")))
+            XCTAssertMatch(manifestContents, .and(.contains(".macro("), .contains("name: \"FooMacros\"")))
+            XCTAssertMatch(manifestContents, .contains(".executableTarget(name: \"FooClient\", dependencies: [\"Foo\"]),"))
+
+            let sourceLibrary = path.appending("Sources", "Foo", "Foo.swift")
+            XCTAssertFileExists(sourceLibrary)
+            let sourceClient = path.appending("Sources", "FooClient", "main.swift")
+            XCTAssertFileExists(sourceClient)
+            let sourceMacros = path.appending("Sources", "FooMacros", "FooMacro.swift")
+            XCTAssertFileExists(sourceMacros)
+
+            let sourceTests = path.appending("Tests", "FooTests", "FooTests.swift")
+            XCTAssertFileExists(sourceTests)
+            let sourceTestsContents: String = try localFileSystem.readFileContents(sourceTests)
+            XCTAssertMatch(sourceTestsContents, .contains("import Testing"))
+            XCTAssertMatch(sourceTestsContents, .contains("import SwiftSyntaxMacrosGenericTestSupport"))
+            XCTAssertNoMatch(sourceTestsContents, .contains("import XCTest"))
+            XCTAssertNoMatch(sourceTestsContents, .contains("import SwiftSyntaxMacrosTestSupport"))
+            XCTAssertMatch(sourceTestsContents, .contains("struct FooTests {"))
+        }
+    }
+
     // MARK: Special case testing
 
     func testInitPackageNonc99Directory() async throws {

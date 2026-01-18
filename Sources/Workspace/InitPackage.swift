@@ -121,11 +121,6 @@ public final class InitPackage {
         installedSwiftPMConfiguration: InstalledSwiftPMConfiguration,
         fileSystem: FileSystem
     ) throws {
-        if options.packageType == .macro && options.supportedTestingLibraries.contains(.swiftTesting) {
-            // FIXME: https://github.com/swiftlang/swift-syntax/issues/2400
-            throw InitError.unsupportedTestingLibraryForPackageType(.swiftTesting, .macro)
-        }
-
         self.options = options
         self.pkgname = name
         self.moduleName = name.spm_mangledToC99ExtendedIdentifier()
@@ -375,7 +370,6 @@ public final class InitPackage {
                                     dependencies: [
                                         "\(pkgname)Macros",
                                         .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax"),
-                                        .product(name: "Testing", package: "swift-testing"),
                                     ]
                                 ),
                         """
@@ -766,15 +760,22 @@ public final class InitPackage {
             import SwiftSyntax
             import SwiftSyntaxBuilder
             import SwiftSyntaxMacros
-            import SwiftSyntaxMacrosTestSupport
+            import SwiftSyntaxMacroExpansion
 
             """##
 
         if options.supportedTestingLibraries.contains(.swiftTesting) {
-            content += "import Testing\n"
-        }
-        if options.supportedTestingLibraries.contains(.xctest) {
-            content += "import XCTest\n"
+            content += ##"""
+                import Testing
+                import SwiftSyntaxMacrosGenericTestSupport
+                
+                """##
+        } else if options.supportedTestingLibraries.contains(.xctest) {
+            content += ##"""
+                import XCTest
+                import SwiftSyntaxMacrosTestSupport
+                
+                """##
         }
 
         content += ##"""
@@ -783,8 +784,8 @@ public final class InitPackage {
             #if canImport(\##(moduleName)Macros)
             import \##(moduleName)Macros
 
-            let testMacros: [String: Macro.Type] = [
-                "stringify": StringifyMacro.self,
+            let testMacros: [String: MacroSpec] = [
+                "stringify": MacroSpec(type: StringifyMacro.self),
             ]
             #endif
 
@@ -795,10 +796,68 @@ public final class InitPackage {
         // for it *and* Testing if it is enabled.
 
         if options.supportedTestingLibraries.contains(.swiftTesting) {
-            // FIXME: https://github.com/swiftlang/swift-syntax/issues/2400
-        }
-
-        if options.supportedTestingLibraries.contains(.xctest) {
+            content += ##"""
+            struct \##(moduleName)Tests {
+                
+                @Test
+                func macro() {
+            #if canImport(\##(moduleName)Macros)
+                    assertMacroExpansion(
+                        """
+                        #stringify(a + b)
+                        """,
+                        expandedSource: """
+                        (a + b, "a + b")
+                        """,
+                        macroSpecs: testMacros
+                    ) {
+                        Issue.record(
+                            "\($0.message)",
+                            sourceLocation:
+                                SourceLocation(
+                                    fileID: $0.location.fileID,
+                                    filePath: $0.location.filePath,
+                                    line: $0.location.line,
+                                    column: $0.location.column
+                                )
+                        )
+                    }
+            #else
+                    Issue.record("macros are only supported when running tests for the host platform")
+            #endif
+                }
+                
+                @Test
+                func macroWithStringLiteral() {
+            #if canImport(\##(moduleName)Macros)
+                    assertMacroExpansion(
+                        #"""
+                        #stringify("Hello, \(name)")
+                        """#,
+                        expandedSource: #"""
+                        ("Hello, \(name)", #""Hello, \(name)""#)
+                        """#,
+                        macroSpecs: testMacros
+                    ) {
+                        Issue.record(
+                            "\($0.message)",
+                            sourceLocation:
+                                SourceLocation(
+                                    fileID: $0.location.fileID,
+                                    filePath: $0.location.filePath,
+                                    line: $0.location.line,
+                                    column: $0.location.column
+                                )
+                        )
+                    }
+            #else
+                    Issue.record("macros are only supported when running tests for the host platform")
+            #endif
+                }
+            }
+            
+            """##
+        } else if options.supportedTestingLibraries.contains(.xctest) {
             content += ##"""
                 final class \##(moduleName)Tests: XCTestCase {
                     func testMacro() throws {
@@ -810,7 +869,7 @@ public final class InitPackage {
                             expandedSource: """
                             (a + b, "a + b")
                             """,
-                            macros: testMacros
+                            macroSpecs: testMacros
                         )
                         #else
                         throw XCTSkip("macros are only supported when running tests for the host platform")
@@ -826,7 +885,7 @@ public final class InitPackage {
                             expandedSource: #"""
                             ("Hello, \(name)", #""Hello, \(name)""#)
                             """#,
-                            macros: testMacros
+                            macroSpecs: testMacros
                         )
                         #else
                         throw XCTSkip("macros are only supported when running tests for the host platform")
@@ -929,7 +988,6 @@ public final class InitPackage {
 
 private enum InitError: Swift.Error {
     case manifestAlreadyExists
-    case unsupportedTestingLibraryForPackageType(_ testingLibrary: TestingLibrary, _ packageType: InitPackage.PackageType)
 }
 
 extension InitError: CustomStringConvertible {
@@ -937,8 +995,6 @@ extension InitError: CustomStringConvertible {
         switch self {
         case .manifestAlreadyExists:
             return "a manifest file already exists in this directory"
-        case let .unsupportedTestingLibraryForPackageType(library, packageType):
-            return "\(library) cannot be used when initializing a \(packageType) package"
         }
     }
 }
