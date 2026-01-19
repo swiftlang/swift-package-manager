@@ -95,7 +95,7 @@ swift run --build-system swiftbuild
 - Swift Build does not yet support test targets depending on other test targets.
   - **Tracking**: [swiftlang/swift-package-manager#9458](https://github.com/swiftlang/swift-package-manager/issues/9458)
 
-- SwiftBuild may not fail when building packages in `release` configuration, while it does with `native`
+- Expected `native` build failure in `release` configuraiton may not fail with Swift Build
   - **Tracking**: [swiftlang/swift-package-manager#8984](https://github.com/swiftlang/swift-package-manager/issues/8984)
 
 ## Reporting issues
