@@ -218,7 +218,7 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
                         // Task 1: Send shutdown to underlying server
                         group.addTask {
                             print("[DEBUG] SwiftPMBuildServer: Sending shutdown to underlying server...")
-                            let response = try await connectionToUnderlyingBuildServer.send(request.params)
+                            let response = try await self.connectionToUnderlyingBuildServer.send(request.params)
                             print("[DEBUG] SwiftPMBuildServer: Underlying server responded to shutdown")
                             return response
                         }
