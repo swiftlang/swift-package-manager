@@ -12,7 +12,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
+  build-and-test:
     needs: [soundness]
     strategy:
       fail-fast: false
@@ -25,26 +25,44 @@ jobs:
             linuxSwiftVersion: '["nightly-main", "nightly-6.2"]'
           - buildSystem: "native"
             linuxSwiftVersion: '["nightly-main"]'
-    name: Build (${{ matrix.buildSystem }}) (exectable target built using ${{ matrix.executableTargetBuildSystem }})
+    name: "Build and Test (${{ matrix.buildSystem }}) (exectable target built using ${{ matrix.executableTargetBuildSystem }})"
     uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@0.0.6
     with:
       linux_os_versions: '["amazonlinux2", "bookworm", "noble", "jammy", "rhel-ubi9"]'
       linux_swift_versions: ${{ matrix.linuxSwiftVersion }}
       linux_pre_build_command: ./.github/scripts/prebuild.sh
-      linux_build_command: 'swift run --build-system ${{ matrix.executableTargetBuildSystem }} swift-build --build-tests --build-system ${{ matrix.buildSystem}}'
-      # linux_build_command: 'swift run --build-system ${{ matrix.executableTargetBuildSystem }} swift-build --build-tests --build-system ${{ matrix.buildSystem}} && swift run --build-system ${{ matrix.executableTargetBuildSystem }} swift-test --parallel --build-system ${{ matrix.buildSystem}}'
+      linux_build_command: 'set -x; swift run --build-system ${{ matrix.executableTargetBuildSystem }} swift-build --build-tests --build-system ${{ matrix.buildSystem}} --scratch-path ${{ github.workspace }}/.build-gha && swift run --build-system ${{ matrix.executableTargetBuildSystem }} swift-test --parallel --build-system ${{ matrix.buildSystem}}  --scratch-path ${{ github.workspace }}/.build-gha'
+      # windows_os_versions: '["windows-2022", "windows-11-arm"]'
+      windows_build_timeout: 240
       windows_swift_versions: '["nightly-main"]'
       windows_pre_build_command: 'Invoke-Program .\.github\scripts\prebuild.ps1'
-      windows_build_command: 'Invoke-Program swift run -Xlinker /ignore:4217 --configuration release --build-system ${{ matrix.executableTargetBuildSystem }} swift-build --build-tests -Xlinker /ignore:4217 --build-system ${{ matrix.buildSystem}}'
-      # windows_build_command: 'Invoke-Program swift run -Xlinker /ignore:4217 --build-system ${{ matrix.executableTargetBuildSystem }} swift-build --build-tests -Xlinker /ignore:4217 --build-system ${{ matrix.buildSystem}}; Invoke-Program swift run --build-system ${{ matrix.executableTargetBuildSystem }} -Xlinker /ignore:4217 swift-test -Xlinker /ignore:4217 --parallel --build-system ${{ matrix.buildSystem}}'
+      windows_build_command: 'Invoke-Program swift run -Xlinker /ignore:4217 --configuration release --build-system ${{ matrix.executableTargetBuildSystem }} swift-build --build-tests -Xlinker /ignore:4217 --build-system ${{ matrix.buildSystem}} --scratch-path ${{ github.workspace }}/.build-gha; Invoke-Program swift run --build-system ${{ matrix.executableTargetBuildSystem }} -Xlinker /ignore:4217 --configuration release swift-test -Xlinker /ignore:4217 --parallel --build-system ${{ matrix.buildSystem}} --scratch-path ${{ github.workspace }}/.build-gha'
       enable_windows_checks: true
       enable_ios_checks: false
       enable_macos_checks: true
+      # macos_versions: '["sequoia"]'
       macos_exclude_xcode_versions: "[{\"xcode_version\": \"16.3\"}, {\"xcode_version\": \"16.4\"}]"
-      macos_build_command: 'swift run --build-system ${{ matrix.executableTargetBuildSystem }} swift-build --build-tests --build-system ${{ matrix.buildSystem}}'
-      # macos_build_command: 'swift run --build-system ${{ matrix.executableTargetBuildSystem }} swift-build --build-tests --build-system ${{ matrix.buildSystem}} && swift run --build-system ${{ matrix.executableTargetBuildSystem }} swift-test --parallel --build-system ${{ matrix.buildSystem}}'
-      ios_build_command: 'swift run --build-system ${{ matrix.executableTargetBuildSystem }} swift-build --build-tests --build-system ${{ matrix.buildSystem}}  --sdk \"$(xcrun --sdk iphoneos --show-sdk-path)\" --triple arm64-apple-ios'
-      # ios_build_command: 'swift run --build-system ${{ matrix.executableTargetBuildSystem }} swift-build --build-tests --build-system ${{ matrix.buildSystem}} --sdk \"$(xcrun --sdk iphoneos --show-sdk-path)\" --triple arm64-apple-ios && swift run --build-system ${{ matrix.executableTargetBuildSystem }} swift-test --parallel --build-system ${{ matrix.buildSystem }} --sdk \"$(xcrun --sdk iphoneos --show-sdk-path)\" --triple arm64-apple-ios'
+      macos_build_command: 'set -x; swift run --build-system ${{ matrix.executableTargetBuildSystem }} swift-build --build-tests --build-system ${{ matrix.buildSystem}} --scratch-path ${{ github.workspace }}/.build-gha && swift run --build-system ${{ matrix.executableTargetBuildSystem }} swift-test --parallel --build-system ${{ matrix.buildSystem}} --scratch-path ${{ github.workspace }}/.build-gha'
+      ios_build_command: 'set -x; swift run --build-system ${{ matrix.executableTargetBuildSystem }} swift-build --build-tests --build-system ${{ matrix.buildSystem}} --sdk \"$(xcrun --sdk iphoneos --show-sdk-path)\" --triple arm64-apple-ios --scratch-path ${{ github.workspace }}/.build-gha && swift run --build-system ${{ matrix.executableTargetBuildSystem }} swift-test --parallel --build-system ${{ matrix.buildSystem }} --sdk \"$(xcrun --sdk iphoneos --show-sdk-path)\" --triple arm64-apple-ios --scratch-path ${{ github.workspace }}/.build-gha'
+
+  tests-without-docker:
+    name: "Build and Test without Docker (${{ matrix.buildSystem }}) (exectable target built using ${{ matrix.executableTargetBuildSystem }})"
+    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@0.0.6
+    needs: [soundness]
+    strategy:
+      fail-fast: false
+      matrix:
+        executableTargetBuildSystem: ["native"]
+        buildSystem: ["native", "swiftbuild"]
+    with:
+      enable_linux_checks: false
+      enable_macos_checks: false
+      enable_windows_docker: false
+      windows_build_timeout: 240
+      windows_pre_build_command: 'Invoke-Program .\.github\scripts\prebuild.ps1'
+      windows_swift_versions: '["nightly-main", "nightly-6.2"]'
+      windows_build_command: 'Invoke-Program swift run -Xlinker /ignore:4217 --build-system ${{ matrix.executableTargetBuildSystem }} swift-build --build-tests -Xlinker /ignore:4217 --build-system ${{ matrix.buildSystem}}; Invoke-Program swift run --build-system ${{ matrix.executableTargetBuildSystem }} -Xlinker /ignore:4217 swift-test -Xlinker /ignore:4217 --parallel --build-system ${{ matrix.buildSystem}}'
+      # windows_os_versions: '["windows-2022", "windows-11-arm"]'
 
   build-using-swiftbuild:
     strategy:
@@ -59,16 +77,16 @@ jobs:
       linux_os_versions: '["amazonlinux2", "bookworm", "noble", "jammy", "rhel-ubi9"]'
       linux_swift_versions: '["nightly-main"]'
       linux_pre_build_command: ./.github/scripts/prebuild.sh
-      linux_build_command: 'swift run --build-system ${{ matrix.executableTargetBuildSystem }} swift-build --build-tests --build-system ${{ matrix.buildSystem }}'
+      linux_build_command: 'set -x; swift run --build-system ${{ matrix.executableTargetBuildSystem }} swift-build --build-tests --build-system ${{ matrix.buildSystem }} --scratch-path ${{ github.workspace }}/.build-gha'
       enable_windows_checks: false
       windows_swift_versions: '["nightly-main"]'
       windows_pre_build_command: 'Invoke-Program .\.github\scripts\prebuild.ps1'
-      windows_build_command: 'Invoke-Program swift run --build-system ${{ matrix.executableTargetBuildSystem }} swift-build --build-tests --build-system ${{ matrix.buildSystem }}'
+      windows_build_command: 'Invoke-Program swift run --build-system ${{ matrix.executableTargetBuildSystem }} swift-build --build-tests --build-system ${{ matrix.buildSystem }} --scratch-path ${{ github.workspace }}/.build-gha'
       enable_ios_checks: false
       enable_macos_checks: true
       macos_exclude_xcode_versions: "[{\"xcode_version\": \"16.3\"}, {\"xcode_version\": \"16.4\"}]"
-      macos_build_command: 'swift run --build-system ${{ matrix.executableTargetBuildSystem }} swift-build --build-tests --build-system ${{ matrix.buildSystem }}'
-      ios_build_command: 'swift run --build-system ${{ matrix.executableTargetBuildSystem }} swift-build --build-tests --build-system ${{ matrix.buildSystem }} --sdk \"$(xcrun --sdk iphoneos --show-sdk-path)\" --triple arm64-apple-ios'
+      macos_build_command: 'set -x; swift run --build-system ${{ matrix.executableTargetBuildSystem }} swift-build --build-tests --build-system ${{ matrix.buildSystem }} --scratch-path ${{ github.workspace }}/.build-gha'
+      ios_build_command: 'set -x; swift run --build-system ${{ matrix.executableTargetBuildSystem }} swift-build --build-tests --build-system ${{ matrix.buildSystem }} --sdk \"$(xcrun --sdk iphoneos --show-sdk-path)\" --triple arm64-apple-ios --scratch-path ${{ github.workspace }}/.build-gha'
 
   soundness:
     name: Soundness
