@@ -26,7 +26,7 @@ jobs:
           - buildSystem: "native"
             linuxSwiftVersion: '["nightly-main"]'
     name: Build (${{ matrix.buildSystem }}) (exectable target built using ${{ matrix.executableTargetBuildSystem }})
-    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@0.0.4
+    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@0.0.5
     with:
       linux_os_versions: '["amazonlinux2", "bookworm", "noble", "jammy", "rhel-ubi9"]'
       linux_swift_versions: ${{ matrix.linuxSwiftVersion }}
@@ -54,7 +54,7 @@ jobs:
         buildSystem: ["swiftbuild"]
     name: Build (${{ matrix.buildSystem }}) (exectable target built using ${{ matrix.executableTargetBuildSystem }})
     needs: [soundness]
-    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@0.0.4
+    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@0.0.5
     with:
       linux_os_versions: '["amazonlinux2", "bookworm", "noble", "jammy", "rhel-ubi9"]'
       linux_swift_versions: '["nightly-main"]'
