@@ -71,6 +71,7 @@ extension Basics.Triple {
     public static let arm64Windows = try! Self("aarch64-unknown-windows-msvc")
     public static let wasi = try! Self("wasm32-unknown-wasi")
     public static let arm64iOS = try! Self("arm64-apple-ios")
+    public static let arm64MacOS = try! Self("arm64-apple-macosx")
 }
 
 public let hostTriple = try! UserToolchain.default.targetTriple

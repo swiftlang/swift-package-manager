@@ -166,6 +166,9 @@ public struct ResolvedModule {
     /// The list of platforms that are supported by this module.
     public let supportedPlatforms: [SupportedPlatform]
 
+    /// A constraint on which platforms this module needs to build for.
+    public let platformConstraint: PlatformConstraint
+
     @_spi(SwiftPMInternal)
     public let platformVersionProvider: PlatformVersionProvider
 
@@ -193,6 +196,7 @@ public struct ResolvedModule {
         dependencies: [ResolvedModule.Dependency],
         defaultLocalization: String? = nil,
         supportedPlatforms: [SupportedPlatform],
+        platformConstraint: PlatformConstraint,
         platformVersionProvider: PlatformVersionProvider
     ) {
         self.packageIdentity = packageIdentity
@@ -200,6 +204,7 @@ public struct ResolvedModule {
         self.dependencies = dependencies
         self.defaultLocalization = defaultLocalization
         self.supportedPlatforms = supportedPlatforms
+        self.platformConstraint = platformConstraint
         self.platformVersionProvider = platformVersionProvider
     }
 

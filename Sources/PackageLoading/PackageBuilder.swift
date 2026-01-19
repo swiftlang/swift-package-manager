@@ -1699,7 +1699,8 @@ public final class PackageBuilder {
                         package: self.identity,
                         name: module.name,
                         type: .executable,
-                        modules: [module]
+                        modules: [module],
+                        isImplicit: true
                     )
                     append(product)
                 }
