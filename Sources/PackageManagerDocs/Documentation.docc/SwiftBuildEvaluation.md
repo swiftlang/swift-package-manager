@@ -70,6 +70,10 @@ swift run --build-system swiftbuild
   - **Tracking**: [swiftlang/swift-package-manager#9302](https://github.com/swiftlang/swift-package-manager/issues/9302)
   - **Impact**: Limited debugging capabilities on Windows.
 
+#### Linux Platform
+- Coverage reporting issues on some Linux platforms
+  - **Tracking**: [swiftlang/swift-package-manager#9600](https://github.com/swiftlang/swift-package-manager/issues/9600)
+
 ### Feature gaps
 
 - The `swift run --repl` command may fail to import some modules.
@@ -88,12 +92,11 @@ swift run --build-system swiftbuild
 - Swift SDK's and toolset.json files aren't working yet.
   - **Tracking**: [swiftlang/swift-package-manager#9346](https://github.com/swiftlang/swift-package-manager/issues/9346)
 
-- Coverage reporting issues on some Linux platforms
-  - **Tracking**: [swiftlang/swift-package-manager#9600](https://github.com/swiftlang/swift-package-manager/issues/9600)
-
 - Swift Build does not yet support test targets depending on other test targets.
- - **Tracking**: [swiftlang/swift-package-manager#9458](https://github.com/swiftlang/swift-package-manager/issues/9458)
-    
+  - **Tracking**: [swiftlang/swift-package-manager#9458](https://github.com/swiftlang/swift-package-manager/issues/9458)
+
+- SwiftBuild may not fail when building packages in `release` configuration, while it does with `native`
+  - **Tracking**: [swiftlang/swift-package-manager#8984](https://github.com/swiftlang/swift-package-manager/issues/8984)
 
 ## Reporting issues
 
