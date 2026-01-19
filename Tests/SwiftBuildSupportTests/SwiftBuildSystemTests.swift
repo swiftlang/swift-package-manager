@@ -317,7 +317,7 @@ struct SwiftBuildSystemTests {
                 case .auto: nil
             }
             let expectedPathValue: String? = switch indexStoreSettingUT {
-                case .on: buildParameters.indexStore.pathString
+                case .on: buildParameters.indexStore.pathString.fixwin
                 case .off: nil
                 case .auto: nil
             }

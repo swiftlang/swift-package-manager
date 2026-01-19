@@ -11,7 +11,7 @@
 ##
 ##===----------------------------------------------------------------------===##
 
-set -e
+set -ex
 
 if [[ $(uname) == Darwin ]] ; then
     if [[ "$INSTALL_CMAKE" == "1" ]] ; then
@@ -43,9 +43,15 @@ elif command -v apt-get >/dev/null 2>&1 ; then # bookworm, noble, jammy
     # Debug symbols
     apt-get install -y libc6-dbg
 
+    # SwiftPM requirements
+    apt-get install -y zip unzip
+
     if [[ "$INSTALL_CMAKE" == "1" ]] ; then
         apt-get install -y cmake ninja-build
     fi
+
+    # Install test dependencies
+    apt-get install -y python3
 
     # Android NDK
     dpkg_architecture="$(dpkg --print-architecture)"
@@ -82,4 +88,12 @@ elif command -v yum >/dev/null 2>&1 ; then # amazonlinux2
     # Debug symbols
     yum install -y yum-utils
     debuginfo-install -y glibc
+
+    # Install test dependencies
+    yum install --assumeyes python3
+
+    # SwiftPM requirements
+    yum install -y zip unzip
 fi
+
+env | sort
