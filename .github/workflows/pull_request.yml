@@ -24,16 +24,32 @@ jobs:
       linux_swift_versions: '["nightly-main", "nightly-6.2"]'
       linux_pre_build_command: ./.github/scripts/prebuild.sh
       linux_build_command: 'swift run swift-build --build-tests'
-      windows_build_timeout: 180
-      windows_swift_versions: '["nightly-main", "nightly-6.2"]'
-      windows_pre_build_command: 'Invoke-Program .\.github\scripts\prebuild.ps1'
-      windows_build_command: 'Invoke-Program swift run -Xlinker /ignore:4217 --configuration release swift-build --build-tests --scratch-path .tests'
-      enable_windows_checks: true
+      enable_windows_checks: false
       enable_macos_checks: true
       macos_exclude_xcode_versions: "[{\"xcode_version\": \"16.4\"}]"
       macos_build_command: 'swift run swift-build --build-tests'
       enable_ios_checks: false
       # ios_build_command: 'swift run swift-build --build-tests  --sdk \"$(xcrun --sdk iphoneos --show-sdk-path)\" --triple arm64-apple-ios'
+
+  build-and-test-windows:
+    needs: [soundness]
+    strategy:
+      fail-fast: false
+      matrix:
+        windows_with_docker: [true, false]
+    name: "Build and Test ${{ case(matrix.windows_with_docker, 'with', 'without') }} Docker"
+    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@0.0.11
+    with:
+      enable_cross_pr_testing: false
+      enable_linux_checks: false
+      enable_macos_checks: false
+      enable_ios_checks: false
+      enable_windows_checks: true
+      enable_windows_docker: ${{ matrix.windows_with_docker }}
+      windows_build_timeout: 480
+      windows_swift_versions: ${{ case(matrix.windows_with_docker,'["nightly-main", "6.2.0"]', '["nightly-main"]') }}
+      windows_pre_build_command: 'Invoke-Program .\.github\scripts\prebuild.ps1 -SkipAndroid'
+      windows_build_command: 'Invoke-Program swift run --configuration release swift-test --scratch-path .test --parallel --experimental-xunit-message-failure --xunit-output windows-xunit.xml --filter BasicTest --filter BasicsTests --filter WorkspaceTest'
 
   soundness:
     name: Soundness

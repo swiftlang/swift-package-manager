@@ -847,8 +847,12 @@ struct MiscellaneousTestCase {
             #expect(stdout.contains("Hello, async universe"), "stderr: \(stderr)")
         }
         } when: {
+            #if compiler(>=6.4)
+            false
+            #else
             // error: FileSystemError(kind: TSCBasic.FileSystemError.Kind.noEntry, path: Optional(<AbsolutePath:"C:\Users\ContainerAdministrator\AppData\Local\Temp\Miscellaneous_TestableAsyncExe.74Koc7\Miscellaneous_TestableAsyncExe\.build\out\Intermediates.noindex\TestableAsyncExe.build\Debug-windows\TestableAsyncExe4.build\Objects-normal\x86_64\TestableAsyncExe4.LinkFileList">))
             ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild
+            #endif
         }
     }
 

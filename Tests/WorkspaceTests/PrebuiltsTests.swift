@@ -151,10 +151,10 @@ final class PrebuiltsTests: XCTestCase {
         if usePrebuilt {
             let includes = try XCTUnwrap(target.buildSettings.assignments[.PREBUILT_INCLUDE_PATHS]).flatMap(\.values)
             XCTAssertEqual(includes.count, 2)
-            XCTAssertTrue(includes.contains("/tmp/ws/.build/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-MacroSupport/Modules".fixwin))
-            XCTAssertTrue(includes.contains("/tmp/ws/.build/checkouts/swift-syntax/Sources/_SwiftSyntaxCShims/include".fixwin))
+            XCTAssertTrue(includes.contains(AbsolutePath("/tmp/ws/.build/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-MacroSupport/Modules").pathString))
+            XCTAssertTrue(includes.contains(AbsolutePath("/tmp/ws/.build/checkouts/swift-syntax/Sources/_SwiftSyntaxCShims/include").pathString))
             let libPaths = try XCTUnwrap(target.buildSettings.assignments[.PREBUILT_LIBRARY_PATHS]).flatMap(\.values)
-            XCTAssertEqual(libPaths, ["/tmp/ws/.build/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-MacroSupport/lib".fixwin])
+            XCTAssertEqual(libPaths, [AbsolutePath("/tmp/ws/.build/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-MacroSupport/lib").pathString])
             let lib = try XCTUnwrap(target.buildSettings.assignments[.PREBUILT_LIBRARIES]).flatMap(\.values)
             XCTAssertEqual(lib, ["MacroSupport"])
         } else {
@@ -523,7 +523,7 @@ final class PrebuiltsTests: XCTestCase {
 
         try await with(fileSystem: fs, artifact: artifact, swiftSyntaxVersion: "600.0.2") { _, rootCertPath, rootPackage, swiftSyntax in
             let secondFetch = SendableBox(false)
-            
+
             let httpClient = HTTPClient { request, progressHandler in
                 if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.2/\(self.swiftVersion).json" {
                     let secondFetch = await secondFetch.value
@@ -534,12 +534,12 @@ final class PrebuiltsTests: XCTestCase {
                     return .notFound()
                 }
             }
-            
+
             let archiver = MockArchiver(handler: { _, archivePath, destination, completion in
                 XCTFail("Unexpected call to archiver")
                 completion(.success(()))
             })
-            
+
             let workspace = try await MockWorkspace(
                 sandbox: sandbox,
                 fileSystem: fs,
@@ -556,7 +556,7 @@ final class PrebuiltsTests: XCTestCase {
                     rootCertPath: rootCertPath
                 )
             )
-            
+
             try await workspace.checkPackageGraph(roots: ["Foo"]) { modulesGraph, diagnostics in
                 XCTAssertTrue(diagnostics.filter({ $0.severity == .error }).isEmpty)
                 let rootPackage = try XCTUnwrap(modulesGraph.rootPackages.first)
@@ -565,9 +565,9 @@ final class PrebuiltsTests: XCTestCase {
                 try checkSettings(rootPackage, "Foo", usePrebuilt: false)
                 try checkSettings(rootPackage, "FooClient", usePrebuilt: false)
             }
-            
+
             await secondFetch.set(true)
-            
+
             try await workspace.checkPackageGraph(roots: ["Foo"]) { modulesGraph, diagnostics in
                 XCTAssertTrue(diagnostics.filter({ $0.severity == .error }).isEmpty)
                 let rootPackage = try XCTUnwrap(modulesGraph.rootPackages.first)
@@ -938,7 +938,7 @@ final class PrebuiltsTests: XCTestCase {
                     swiftSyntax
                 ]
             )
-            
+
             try await workspace.checkPackageGraph(roots: ["Foo"]) { modulesGraph, diagnostics in
                 XCTAssertTrue(diagnostics.filter({ $0.severity == .error }).isEmpty)
                 let rootPackage = try XCTUnwrap(modulesGraph.rootPackages.first)
@@ -1449,15 +1449,5 @@ final class PrebuiltsTests: XCTestCase {
                 try checkSettings(rootPackage, "Foo", usePrebuilt: false)
             }
         }
-    }
-}
-
-extension String {
-    var fixwin: String {
-        #if os(Windows)
-        return self.replacingOccurrences(of: "/", with: "\\")
-        #else
-        return self
-        #endif
     }
 }
