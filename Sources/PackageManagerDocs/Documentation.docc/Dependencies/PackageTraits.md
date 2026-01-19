@@ -59,7 +59,7 @@ For the example above, the default trait is `FeatureA`.
 > Note: Changing the default set of traits for your package is a major semantic version change if it removes API surface.
 > Adding additional traits is not a major version change.
 
-Swift Package Manager treats traits as purely additive, and enables traits across all packages within the build graph.
+Swift Package Manager treats traits as purely additive, and unifies enabled traits across all packages within the build graph.
 Design your traits such that they enable additional API (and their dependencies, if needed). 
 
 #### Define mutually exclusive traits
