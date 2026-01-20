@@ -203,7 +203,7 @@ public final class PIFBuilder {
     }
 
     /// Constructs all `PackagePIFBuilder` objects used by the `constructPIF` function.
-    /// In particular, this is useful for unit testing the complex `PIFBuilder`class.
+    /// In particular, this is useful for unit testing the complex `PIFBuilder` class.
     package func makePIFBuilders(
         buildParameters: BuildParameters
     ) async throws -> [(ResolvedPackage, PackagePIFBuilder, any PackagePIFBuilder.BuildDelegate)] {
