@@ -9,6 +9,8 @@ Swift Package Manager is evaluating a new build system [Swift Build](https://git
 
 We encourage you to [try](#How-to-use-the-Swift-Build-build-system) the new build system in your project and [report any issues](#Reporting-issues) you encounter.
 
+For more information about the migration to Swift Build, see [this forum post](https://forums.swift.org/t/evolving-swiftpm-builds-with-swift-build/77596).
+
 ## Migration plan
 
 The Swift Build integration follows these phases:
@@ -57,10 +59,6 @@ swift run --build-system swiftbuild
 ### Platform-specific issues
 
 #### Windows platform
-- Missing `.dynamic` dynamic library option support
-  - **Tracking**: [swiftlang/swift-package-manager#9574](https://github.com/swiftlang/swift-package-manager/issues/9574)
-  - **Impact**: Cannot build dynamic libraries on Windows.
-
 - Swift Build does not support CodeView debug information format.
   - **Tracking**: [swiftlang/swift-package-manager#9302](https://github.com/swiftlang/swift-package-manager/issues/9302)
   - **Impact**: Limited debugging capabilities on Windows.
@@ -92,6 +90,13 @@ swift run --build-system swiftbuild
 
 - Expected `native` build failure in `release` configuraiton may not fail with Swift Build
   - **Tracking**: [swiftlang/swift-package-manager#8984](https://github.com/swiftlang/swift-package-manager/issues/8984)
+
+- Swift Build does not support the `--explicit-target-dependency-import-check` flag.
+  - **Tracking**: [swiftlang/swift-package-manager#9620](https://github.com/swiftlang/swift-package-manager/issues/9620)
+  - **Workaround**: Create a non-test target for the test target to depend on.
+
+- Swift Build does not pass environment variables to plugin tools.
+  - **Tracking**: [swiftlang/swift-package-manager#9184](https://github.com/swiftlang/swift-package-manager/issues/9184)
 
 ## Reporting issues
 
