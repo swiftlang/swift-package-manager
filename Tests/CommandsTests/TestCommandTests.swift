@@ -1265,6 +1265,7 @@ struct TestCommandTests {
     }
 
     @Test(
+            .disabled(if: ProcessInfo.hostOperatingSystem == .windows, "This hangs intermittently on Windows in CI using the native build system"),
             .IssueWindowsLongPath,
             .tags(
                 .Feature.TargetType.Executable,
