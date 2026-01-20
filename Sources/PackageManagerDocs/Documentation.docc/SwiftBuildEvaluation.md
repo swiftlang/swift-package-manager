@@ -93,7 +93,6 @@ swift run --build-system swiftbuild
 
 - Swift Build does not support the `--explicit-target-dependency-import-check` flag.
   - **Tracking**: [swiftlang/swift-package-manager#9620](https://github.com/swiftlang/swift-package-manager/issues/9620)
-  - **Workaround**: Create a non-test target for the test target to depend on.
 
 - Swift Build does not pass environment variables to plugin tools.
   - **Tracking**: [swiftlang/swift-package-manager#9184](https://github.com/swiftlang/swift-package-manager/issues/9184)
