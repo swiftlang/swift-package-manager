@@ -15,7 +15,6 @@ import Testing
 @testable import SwiftBuildSupport
 import SPMBuildCore
 
-
 import var TSCBasic.stderrStream
 import Basics
 import Workspace

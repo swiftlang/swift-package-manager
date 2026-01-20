@@ -21,14 +21,13 @@ import SwiftBuildSupport
 import TSCBasic
 import _InternalTestSupport
 
-
 @Suite
 struct SwiftBuildSystemMessageHandlerTests {
     private func createMessageHandler(
         _ logLevel: Basics.Diagnostic.Severity = .warning
     ) -> (handler: SwiftBuildSystemMessageHandler, outputStream: BufferedOutputByteStream, observability: TestingObservability) {
         let outputStream = BufferedOutputByteStream()
-        let observability = ObservabilitySystem.makeForTesting(outputStream: outputStream)
+        let observability = ObservabilitySystem.makeForTesting(verbose: true, outputStream: outputStream)
 
         let handler = SwiftBuildSystemMessageHandler(
             observabilityScope: observability.topScope,

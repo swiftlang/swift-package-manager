@@ -665,45 +665,45 @@ public struct SwiftSDK: Equatable {
         for darwinPlatform: DarwinPlatform,
         environment: Environment = .current
     ) throws -> PlatformPaths {
-        if let path = _sdkPlatformFrameworkPath[darwinPlatform] {
-            return path
+        let sdkPlatformFrameworkPath = try _sdkPlatformFrameworkPathCache.memoize(darwinPlatform) {
+            // Compute the platform path.
+            let platformPath = try environment[
+                EnvironmentKey("SWIFTPM_PLATFORM_PATH_\(darwinPlatform.xcrunName)")
+            ] ?? AsyncProcess.checkNonZeroExit(
+                arguments: ["/usr/bin/xcrun", "--sdk", darwinPlatform.xcrunName, "--show-sdk-platform-path"],
+                environment: environment
+            ).spm_chomp()
+
+            guard !platformPath.isEmpty else {
+                throw StringError("could not determine SDK platform path")
+            }
+
+            // For testing frameworks.
+            let frameworksPath = try Basics.AbsolutePath(validating: platformPath).appending(
+                components: "Developer", "Library", "Frameworks"
+            )
+            let privateFrameworksPath = try Basics.AbsolutePath(validating: platformPath).appending(
+                components: "Developer", "Library", "PrivateFrameworks"
+            )
+
+            // For testing libraries.
+            let librariesPath = try Basics.AbsolutePath(validating: platformPath).appending(
+                components: "Developer", "usr", "lib"
+            )
+
+            let sdkPlatformFrameworkPath = PlatformPaths(
+                buildTimeFrameworkSearchPaths: [frameworksPath /* omit privateFrameworksPath */],
+                buildTimeLibrarySearchPaths: [librariesPath],
+                runtimeFrameworkSearchPaths: [frameworksPath, privateFrameworksPath],
+                runtimeLibrarySearchPaths: [librariesPath]
+            )
+            return sdkPlatformFrameworkPath
         }
-        let platformPath = try environment[
-            EnvironmentKey("SWIFTPM_PLATFORM_PATH_\(darwinPlatform.xcrunName)")
-        ] ?? AsyncProcess.checkNonZeroExit(
-            arguments: ["/usr/bin/xcrun", "--sdk", darwinPlatform.xcrunName, "--show-sdk-platform-path"],
-            environment: environment
-        ).spm_chomp()
-
-        guard !platformPath.isEmpty else {
-            throw StringError("could not determine SDK platform path")
-        }
-
-        // For testing frameworks.
-        let frameworksPath = try Basics.AbsolutePath(validating: platformPath).appending(
-            components: "Developer", "Library", "Frameworks"
-        )
-        let privateFrameworksPath = try Basics.AbsolutePath(validating: platformPath).appending(
-            components: "Developer", "Library", "PrivateFrameworks"
-        )
-
-        // For testing libraries.
-        let librariesPath = try Basics.AbsolutePath(validating: platformPath).appending(
-            components: "Developer", "usr", "lib"
-        )
-
-        let sdkPlatformFrameworkPath = PlatformPaths(
-            buildTimeFrameworkSearchPaths: [frameworksPath /* omit privateFrameworksPath */],
-            buildTimeLibrarySearchPaths: [librariesPath],
-            runtimeFrameworkSearchPaths: [frameworksPath, privateFrameworksPath],
-            runtimeLibrarySearchPaths: [librariesPath]
-        )
-        _sdkPlatformFrameworkPath[darwinPlatform] = sdkPlatformFrameworkPath
         return sdkPlatformFrameworkPath
     }
 
     /// Cache storage for sdk platform paths.
-    private static var _sdkPlatformFrameworkPath: [DarwinPlatform: PlatformPaths] = [:]
+    private static let _sdkPlatformFrameworkPathCache = ThreadSafeKeyValueStore<DarwinPlatform, PlatformPaths>()
 
     /// Returns a default Swift SDK for a given target environment
     @available(*, deprecated, renamed: "defaultSwiftSDK")
