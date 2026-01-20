@@ -678,7 +678,8 @@ package final class AsyncProcess {
             resolvedArgs[0] = executablePath.pathString
         }
         let argv = CStringArray(resolvedArgs)
-        let env = CStringArray(environment.map { "\($0.0)=\($0.1)" })
+        let envValues = environment.map { "\($0.0)=\($0.1)" }
+        let env = CStringArray(envValues)
         let rv = posix_spawnp(&self.processID, argv.cArray[0]!, &fileActions, &attributes, argv.cArray, env.cArray)
 
         guard rv == 0 else {

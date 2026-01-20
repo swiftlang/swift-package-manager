@@ -816,7 +816,7 @@ final class URLSessionHTTPClientTest: XCTestCase {
         // https://github.com/apple/swift-corelibs-foundation/pull/2593 tries to address the latter part
         try XCTSkipIf(true, "test is only supported on macOS")
         #endif
-        let netrcContent = "machine async-protected.downloader-tests.com login anonymous password qwerty"
+        let netrcContent = "machine async-protected.downloader-tests2.com login anonymous password qwerty"
         let netrc = try NetrcAuthorizationWrapper(underlying: NetrcParser.parse(netrcContent))
         let authData = Data("anonymous:qwerty".utf8)
         let testAuthHeader = "Basic \(authData.base64EncodedString())"
@@ -827,7 +827,7 @@ final class URLSessionHTTPClientTest: XCTestCase {
         let httpClient = HTTPClient(implementation: urlSession.execute)
 
         try await testWithTemporaryDirectory { temporaryDirectory in
-            let url = URL("https://async-protected.downloader-tests.com/testBasics.zip")
+            let url = URL("https://async-protected.downloader-tests2.com/testBasics.zip")
             let redirectURL = URL("https://cdn-async.downloader-tests.com/testBasics.zip")
             let destination = temporaryDirectory.appending("download")
             var options = HTTPClientRequest.Options()
@@ -1110,7 +1110,7 @@ private class MockURLProtocol: URLProtocol {
     static func onRequest(_ method: String, _ url: URL, completion: @escaping Action) {
         let key = Key(method, url)
         guard !self.observers.contains(key) else {
-            return XCTFail("does not support multiple observers for the same url")
+            return XCTFail("does not support multiple observers for the same url: \(key)")
         }
         self.observers[key] = completion
     }
