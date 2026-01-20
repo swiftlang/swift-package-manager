@@ -85,7 +85,8 @@ swift run --build-system swiftbuild
 - Swift SDK's and toolset.json files aren't working yet.
   - **Tracking**: [swiftlang/swift-package-manager#9346](https://github.com/swiftlang/swift-package-manager/issues/9346)
 
-- Swift Build does not yet support test targets depending on other test targets.
+- Swift Build does not support test targets depending on other test targets.
+  - **Workaround**: Create a non-test target for the test target to depend on.
   - **Tracking**: [swiftlang/swift-package-manager#9458](https://github.com/swiftlang/swift-package-manager/issues/9458)
 
 - Expected `native` build failure in `release` configuraiton may not fail with Swift Build
