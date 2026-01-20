@@ -165,7 +165,7 @@ class ManifestTests: XCTestCase {
         }
     }
 
-    func testIsTraitEnabled_WhenNoTraitsInManifest() throws {
+    func testValidateTrait_WhenNoTraitsInManifest() throws {
         let products = try [
             ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"]),
             ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"]),
@@ -202,9 +202,8 @@ class ManifestTests: XCTestCase {
                 pruneDependencies: true // Since all dependencies are used, this shouldn't affect the outcome.
             )
 
-            let enabledTraits = EnabledTraits(traits.map(\.name), setBy: .traitConfiguration)
             for trait in traits.sorted(by: { $0.name < $1.name }) {
-                XCTAssertThrowsError(try manifest.isTraitEnabled(trait, enabledTraits)) { error in
+                XCTAssertThrowsError(try manifest.validateTrait(trait)) { error in
                     XCTAssertEqual("\(error)", """
                     Trait '\(
                         trait
@@ -216,7 +215,7 @@ class ManifestTests: XCTestCase {
         }
     }
 
-    func testIsTraitEnabled_WhenInvalidTraitQueried() throws {
+    func testValidateTrait_WhenInvalidTraitQueried() throws {
         let products = try [
             ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"]),
             ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"]),
@@ -253,34 +252,15 @@ class ManifestTests: XCTestCase {
                 pruneDependencies: true // Since all dependencies are used, this shouldn't affect the outcome.
             )
 
-            // Test `isTraitEnabled` when the trait we're querying for does not exist.
-            XCTAssertThrowsError(try manifest.isTraitEnabled(.init(stringLiteral: "IDontExist"), ["default"])) { error in
+            // Test `validateTrait` when the trait we're querying for does not exist.
+            XCTAssertThrowsError(try manifest.validateTrait(.init(name: "IDontExist"))) { error in
                 XCTAssertEqual("\(error)", """
                 Trait 'IDontExist' is not declared by package 'foo' (Foo). The available traits declared by this package are: Trait1, Trait2.
                 """)
             }
 
-            // Test `isTraitEnabled` when the set of enabled traits contains a trait that isn't defined in the package.
-            XCTAssertThrowsError(try manifest.isTraitEnabled(.init(stringLiteral: "Trait1"), ["IDontExist"])) { error in
-                XCTAssertEqual("\(error)", """
-                Trait 'IDontExist' is not declared by package 'foo' (Foo). The available traits declared by this package are: Trait1, Trait2.
-                """)
-            }
-
-            // Test `isTraitEnabled` when the set of enabled traits contains a trait that isn't defined in the package, and the queried trait is the same non-existant trait.
-            XCTAssertThrowsError(try manifest.isTraitEnabled(.init(stringLiteral: "IDontExist"), ["IDontExist"])) { error in
-                XCTAssertEqual("\(error)", """
-                Trait 'IDontExist' is not declared by package 'foo' (Foo). The available traits declared by this package are: Trait1, Trait2.
-                """)
-            }
-
-            // Test `isTraitEnabled` when the set of enabled traits contains a trait that isn't defined in the package, and the queried trait is another non-existant trait.
-            XCTAssertThrowsError(try manifest.isTraitEnabled(.init(stringLiteral: "IDontExistPart2"), ["IDontExist"])) { error in
-                XCTAssertEqual("\(error)", """
-                Trait 'IDontExistPart2' is not declared by package 'foo' (Foo). The available traits declared by this package are: Trait1, Trait2.
-                """)
-            }
-
+            // Test `validateTrait` the trait is defined in the package.
+            XCTAssertNoThrow(try manifest.validateTrait(.init(name: "Trait1")))
         }
     }
 
@@ -316,7 +296,7 @@ class ManifestTests: XCTestCase {
                 pruneDependencies: true // Since all dependencies are used, this shouldn't affect the outcome.
             )
 
-            // Enabled Traits when passed a TraitConfiguration:
+            // `Manifest.enabledTraits` when passed a TraitConfiguration:
 
             // When passed .disableAllTraits configuration
             XCTAssertThrowsError(try manifest.enabledTraits(using: .disableAllTraits)) { error in
@@ -335,17 +315,17 @@ class ManifestTests: XCTestCase {
             XCTAssertNoThrow(try manifest.enabledTraits(using: .enableAllTraits))
             XCTAssertNoThrow(try manifest.enabledTraits(using: .default))
 
-            // Enabled Traits when passed explicitly enabled traits list:
+            // `Manifest.validateEnabledTraits`
 
             // If given a parent package, and the enabled traits being passed don't exist:
-            XCTAssertThrowsError(try manifest.enabledTraits(using: [EnabledTrait(name: "Trait1", setBy: .package(.init(identity: "qux")))])) { error in
+            XCTAssertThrowsError(try manifest.validateEnabledTraits([EnabledTrait(name: "Trait1", setBy: .package(.init(identity: "qux")))])) { error in
                 XCTAssertEqual("\(error)", """
                     Package 'qux' enables traits [Trait1] on package 'foo' (Foo) that declares no traits.
                     """)
             }
 
             // If given a parent package, and the default traits are disabled:
-            XCTAssertThrowsError(try manifest.enabledTraits(using: .init([], setBy: .package("qux")))) { error in
+            XCTAssertThrowsError(try manifest.validateEnabledTraits(.init([], setBy: .package("qux")))) { error in
                 XCTAssertEqual("\(error)", """
                     Disabled default traits by package 'qux' on package 'foo' (Foo) that declares no traits. This is prohibited to allow packages to adopt traits initially without causing an API break.
                     """)
