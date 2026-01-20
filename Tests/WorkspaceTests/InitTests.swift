@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2024 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2025 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -14,19 +14,31 @@ import Basics
 import _InternalTestSupport
 import PackageModel
 import Workspace
-import XCTest
+import Testing
 
-final class InitTests: XCTestCase {
+import struct SPMBuildCore.BuildSystemProvider
+
+@Suite(
+    .tags(
+        .FunctionalArea.Workspace,
+    ),
+)
+struct InitTests {
 
     // MARK: TSCBasic package creation for each package type.
-    
-    func testInitPackageEmpty() throws {
-        try testWithTemporaryDirectory { tmpPath in
+
+    @Test(
+        .tags(
+            .TestSize.medium,
+        ),
+    )
+    func initPackageEmpty() throws {
+        try withTemporaryDirectory { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending("Foo")
             let name = path.basename
             try fs.createDirectory(path)
-            
+
             // Create the package
             let initPackage = try InitPackage(
                 name: name,
@@ -41,294 +53,500 @@ final class InitTests: XCTestCase {
             try initPackage.writePackageStructure()
 
             // Not picky about the specific progress messages, just checking that we got some.
-            XCTAssertGreaterThan(progressMessages.count, 0)
+            #expect(progressMessages.count > 0)
 
             // Verify basic file system content that we expect in the package
             let manifest = path.appending("Package.swift")
-            XCTAssertFileExists(manifest)
+            try requireFileExists(at: manifest)
+
             let manifestContents: String = try localFileSystem.readFileContents(manifest)
             let version = InitPackage.newPackageToolsVersion
             let versionSpecifier = "\(version.major).\(version.minor)"
-            XCTAssertMatch(manifestContents, .prefix("// swift-tools-version:\(version < .v5_4 ? "" : " ")\(versionSpecifier)\n"))
-            XCTAssertMatch(manifestContents, .contains(packageWithNameOnly(named: name)))
+            #expect(manifestContents.hasPrefix("// swift-tools-version:\(version < .v5_4 ? "" : " ")\(versionSpecifier)\n"))
+            #expect(manifestContents.contains(packageWithNameOnly(named: name)))
         }
     }
 
-    func testInitPackageExecutable() async throws  {
-        try await testWithTemporaryDirectory { tmpPath in
+    @Suite(
+        .serialized, // Crash occurred when executed in parallel.  Needs investigation
+        .tags(
+            .TestSize.large,
+        ),
+    )
+    struct InitTestsThatPerformABuild {
+        @Test(
+            .tags(
+                .Feature.Command.Build,
+            ),
+            buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.tags,
+            arguments: buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.buildData,
+        )
+        func initPackageExecutable(
+            buildData: BuildData,
+        ) async throws  {
+            let buildSystem = buildData.buildSystem
+            let configuration = buildData.config
+            try await testWithTemporaryDirectory { tmpPath in
+                let fs = localFileSystem
+                let path = tmpPath.appending("Foo")
+                let name = path.basename
+                try fs.createDirectory(path)
+
+                // Create the package
+                let initPackage = try InitPackage(
+                    name: name,
+                    packageType: .executable,
+                    destinationPath: path,
+                    fileSystem: localFileSystem
+                )
+                var progressMessages = [String]()
+                initPackage.progressReporter = { message in
+                    progressMessages.append(message)
+                }
+                try initPackage.writePackageStructure()
+
+                // Not picky about the specific progress messages, just checking that we got some.
+                #expect(progressMessages.count > 0)
+
+                // Verify basic file system content that we expect in the package
+                let manifest = path.appending("Package.swift")
+                try requireFileExists(at: manifest)
+
+                let manifestContents: String = try localFileSystem.readFileContents(manifest)
+                let version = InitPackage.newPackageToolsVersion
+                let versionSpecifier = "\(version.major).\(version.minor)"
+                #expect(manifestContents.hasPrefix("// swift-tools-version:\(version < .v5_4 ? "" : " ")\(versionSpecifier)\n"))
+
+                #expect(try fs.getDirectoryContents(path.appending("Sources").appending("Foo")) == ["Foo.swift"])
+                try await executeSwiftBuild(
+                    path,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                )
+                let binPath = try path.appending(components: buildSystem.binPath(for: configuration))
+                expectFileExists(at: binPath.appending(executableName("Foo")))
+                let expectedOutput: [String]
+                switch buildSystem {
+                    case .native:
+                    expectedOutput = ["Modules", "Foo.swiftmodule"]
+                    case .swiftbuild:
+                    expectedOutput = ["Foo.swiftmodule"]
+                    case .xcode:
+                    expectedOutput = ["Foo.swiftmodule"]
+                    Issue.record("Test expectation is not implemented")
+                }
+                let expectedFile = binPath.appending(components: expectedOutput)
+
+                expectFileExists(at: expectedFile)
+            }
+        }
+
+        @Test(
+            .tags(
+                .Feature.Command.Build,
+            ),
+            buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.tags,
+            arguments: buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.buildData,
+        )
+        func initPackageExecutableCalledMain(
+            buildData: BuildData,
+        ) async throws {
+            let buildSystem = buildData.buildSystem
+            let configuration = buildData.config
+            try await testWithTemporaryDirectory { tmpPath in
+                let fs = localFileSystem
+                let path = tmpPath.appending("main")
+                let name = path.basename
+                try fs.createDirectory(path)
+
+                // Create the package
+                let initPackage = try InitPackage(
+                    name: name,
+                    packageType: .executable,
+                    destinationPath: path,
+                    fileSystem: localFileSystem
+                )
+                try initPackage.writePackageStructure()
+
+                let contents = try fs.getDirectoryContents(path.appending("Sources").appending("main"))
+                try #require(contents == ["MainEntrypoint.swift"])
+                try await executeSwiftBuild(
+                    path,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                )
+            }
+        }
+
+        @Test(
+            .tags(
+                .Feature.Command.Build,
+            ),
+            buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.tags,
+            arguments: buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.buildData,
+        )
+        func initPackageLibraryWithXCTestOnly(
+            buildData: BuildData,
+        ) async throws {
+            let buildSystem = buildData.buildSystem
+            let configuration = buildData.config
+            try await withTemporaryDirectory(removeTreeOnDeinit: true) { tmpPath in
+                let fs = localFileSystem
+                let path = tmpPath.appending("Foo")
+                let name = path.basename
+                try fs.createDirectory(path)
+
+                // Create the package
+                let initPackage = try InitPackage(
+                    name: name,
+                    packageType: .library,
+                    supportedTestingLibraries: [.xctest],
+                    destinationPath: path,
+                    fileSystem: localFileSystem
+                )
+                var progressMessages = [String]()
+                initPackage.progressReporter = { message in
+                    progressMessages.append(message)
+                }
+                try initPackage.writePackageStructure()
+
+                // Not picky about the specific progress messages, just checking that we got some.
+                #expect(progressMessages.count > 0)
+
+                // Verify basic file system content that we expect in the package
+                let manifest = path.appending("Package.swift")
+                try requireFileExists(at:  manifest)
+                let manifestContents: String = try localFileSystem.readFileContents(manifest)
+                let version = InitPackage.newPackageToolsVersion
+                let versionSpecifier = "\(version.major).\(version.minor)"
+                #expect(manifestContents.hasPrefix("// swift-tools-version:\(version < .v5_4 ? "" : " ")\(versionSpecifier)\n"))
+
+                #expect(try fs.getDirectoryContents(path.appending("Sources").appending("Foo")) == ["Foo.swift"])
+
+                let tests = path.appending("Tests")
+                #expect(try fs.getDirectoryContents(tests).sorted() == ["FooTests"])
+
+                let testFile = tests.appending("FooTests").appending("FooTests.swift")
+                let testFileContents: String = try localFileSystem.readFileContents(testFile)
+                #expect(testFileContents.hasPrefix("import XCTest"), """
+                            Validates formatting of XCTest source file, in particular that it does not contain leading whitespace:
+                            \(testFileContents)
+                            """)
+                #expect(testFileContents.contains("func testExample() throws"))
+
+                // Try building it
+                try await executeSwiftBuild(
+                    path,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                )
+                let expectedOutput: [String]
+                switch buildSystem {
+                    case .native:
+                    expectedOutput = ["Modules", "Foo.swiftmodule"]
+                    case .swiftbuild:
+                    expectedOutput = ["Foo.swiftmodule"]
+                    case .xcode:
+                    expectedOutput = ["Foo.swiftmodule"]
+                    Issue.record("Test expectation is not implemented")
+                }
+                let expectedFile = try path.appending(components: buildSystem.binPath(for: configuration) + expectedOutput)
+                expectFileExists(at: expectedFile)
+            }
+        }
+
+        @Test(
+            .tags(
+                .Feature.Command.Build,
+            ),
+            buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.tags,
+            arguments: buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.buildData,
+        )
+        func initPackageLibraryWithSwiftTestingOnly(
+            buildData: BuildData,
+        ) async throws  {
+
+            let buildSystem = buildData.buildSystem
+            let configuration = buildData.config
+            try withTemporaryDirectory { tmpPath in
+                let fs = localFileSystem
+                let path = tmpPath.appending("Foo")
+                let name = path.basename
+                try fs.createDirectory(path)
+
+                // Create the package
+                let initPackage = try InitPackage(
+                    name: name,
+                    packageType: .library,
+                    supportedTestingLibraries: [.swiftTesting],
+                    destinationPath: path,
+                    fileSystem: localFileSystem
+                )
+                try initPackage.writePackageStructure()
+
+                // Verify basic file system content that we expect in the package
+                let manifest = path.appending("Package.swift")
+                try requireFileExists(at: manifest)
+
+                let testFile = path.appending("Tests").appending("FooTests").appending("FooTests.swift")
+                let testFileContents: String = try localFileSystem.readFileContents(testFile)
+                #expect(testFileContents.contains(#"import Testing"#))
+                #expect(!testFileContents.contains(#"import XCTest"#))
+                #expect(testFileContents.contains(#"@Test func example() async throws"#))
+                #expect(!testFileContents.contains("func testExample() throws"))
+
+    #if canImport(TestingDisabled)
+                // Try building it
+                try await executeSwiftBuild(
+                    path,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                )
+                let triple = try UserToolchain.default.targetTriple
+                expectFileExists(at: path.appending(components: buildSystem.binPath(for: configuration) + ["Modules", "Foo.swiftmodule"]))
+    #endif
+            }
+        }
+
+        @Test(
+            .tags(
+                .Feature.Command.Build,
+            ),
+            buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.tags,
+            arguments: buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.buildData,
+        )
+        func initPackageLibraryWithBothSwiftTestingAndXCTest(
+            buildData: BuildData,
+        ) async throws  {
+            let buildSystem = buildData.buildSystem
+            let configuration = buildData.config
+            try withTemporaryDirectory { tmpPath in
+                let fs = localFileSystem
+                let path = tmpPath.appending("Foo")
+                let name = path.basename
+                try fs.createDirectory(path)
+
+                // Create the package
+                let initPackage = try InitPackage(
+                    name: name,
+                    packageType: .library,
+                    supportedTestingLibraries: [.swiftTesting, .xctest],
+                    destinationPath: path,
+                    fileSystem: localFileSystem
+                )
+                try initPackage.writePackageStructure()
+
+                // Verify basic file system content that we expect in the package
+                let manifest = path.appending("Package.swift")
+                try requireFileExists(at: manifest)
+
+                let testFile = path.appending("Tests").appending("FooTests").appending("FooTests.swift")
+                let testFileContents: String = try localFileSystem.readFileContents(testFile)
+                #expect(testFileContents.contains(#"import Testing"#))
+                #expect(testFileContents.contains(#"import XCTest"#))
+                #expect(testFileContents.contains(#"@Test func example() async throws"#))
+                #expect(testFileContents.contains("func testExample() throws"))
+
+    #if canImport(TestingDisabled)
+                // Try building it
+                try await executeSwiftBuild(
+                    path,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                )
+                let triple = try UserToolchain.default.targetTriple
+                expectFileExists(at: path.appending(components: buildSystem.binPath(for: configuration) + ["Modules", "Foo.swiftmodule"]))
+    #endif
+            }
+        }
+
+        @Test(
+            .tags(
+                .Feature.Command.Build,
+            ),
+            buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.tags,
+            arguments: buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.buildData,
+        )
+        func initPackageLibraryWithNoTests(
+            buildData: BuildData,
+        ) async throws {
+            let buildSystem = buildData.buildSystem
+            let configuration = buildData.config
+            try withTemporaryDirectory { tmpPath in
+                let fs = localFileSystem
+                let path = tmpPath.appending("Foo")
+                let name = path.basename
+                try fs.createDirectory(path)
+
+                // Create the package
+                let initPackage = try InitPackage(
+                    name: name,
+                    packageType: .library,
+                    supportedTestingLibraries: [],
+                    destinationPath: path,
+                    fileSystem: localFileSystem
+                )
+                try initPackage.writePackageStructure()
+
+                // Verify basic file system content that we expect in the package
+                let manifest = path.appending("Package.swift")
+                try requireFileExists(at: manifest)
+
+                let manifestContents: String = try localFileSystem.readFileContents(manifest)
+                #expect(!manifestContents.contains(#".testTarget"#))
+
+                expectFileDoesNotExists(at: path.appending("Tests"))
+
+    #if canImport(TestingDisabled)
+                // Try building it
+                try await executeSwiftBuild(
+                    path,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                )
+                let triple = try UserToolchain.default.targetTriple
+                expectFileExists(at: path.appending(components: ".build", triple.platformBuildPathComponent, configuration.dirname, "Modules", "Foo.swiftmodule"))
+    #endif
+            }
+        }
+
+        // MARK: Special case testing
+
+        @Test(
+            .tags(
+                .Feature.Command.Build,
+            ),
+            buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.tags,
+            arguments: buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.buildData,
+        )
+        func initPackageNonc99Directory(
+            buildData: BuildData,
+        ) async throws {
+            let buildSystem = buildData.buildSystem
+            let configuration = buildData.config
+            try await withTemporaryDirectory(removeTreeOnDeinit: true) { tempDirPath in
+                expectDirectoryExists(at: tempDirPath)
+
+                // Create a directory with non c99name.
+                let packageRoot = tempDirPath.appending("some-package")
+                let packageName = packageRoot.basename
+                try localFileSystem.createDirectory(packageRoot)
+                expectDirectoryExists(at: packageRoot)
+
+                // Create the package
+                let initPackage = try InitPackage(
+                    name: packageName,
+                    packageType: .library,
+                    destinationPath: packageRoot,
+                    fileSystem: localFileSystem
+                )
+                initPackage.progressReporter = { message in }
+                try initPackage.writePackageStructure()
+
+                // Try building it.
+                try await executeSwiftBuild(
+                    packageRoot,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                )
+
+                let expectedFile: AbsolutePath
+                switch buildSystem {
+                    case .native:
+                    expectedFile = try packageRoot.appending(components: buildSystem.binPath(for: configuration) + ["Modules", "some_package.swiftmodule"])
+                    case .swiftbuild:
+                    expectedFile = try packageRoot.appending(components: buildSystem.binPath(for: configuration) + [ "some_package.swiftmodule"])
+                    case .xcode:
+                    expectedFile = try packageRoot.appending(components: buildSystem.binPath(for: configuration) + [ "some_package.swiftmodule"])
+                    Issue.record("Test expectation is not implemented")
+                }
+
+                expectFileExists(at: expectedFile)
+            }
+        }
+
+        @Test(
+            .tags(
+                .Feature.Command.Build,
+            ),
+            buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.tags,
+            buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.tags,
+            arguments: buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.buildData,
+        )
+        func nonC99NameExecutablePackage(
+            buildData: BuildData,
+        ) async throws {
+            let buildSystem = buildData.buildSystem
+            let configuration = buildData.config
+            try await withTemporaryDirectory(removeTreeOnDeinit: true) { tempDirPath in
+                expectDirectoryExists(at: tempDirPath)
+
+                let packageRoot = tempDirPath.appending("Foo")
+                try localFileSystem.createDirectory(packageRoot)
+                expectDirectoryExists(at: packageRoot)
+
+                // Create package with non c99name.
+                let initPackage = try InitPackage(
+                    name: "package-name",
+                    packageType: .executable,
+                    destinationPath: packageRoot,
+                    fileSystem: localFileSystem
+                )
+                try initPackage.writePackageStructure()
+
+                try await executeSwiftBuild(
+                    packageRoot,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                )
+            }
+        }
+
+    }
+
+    @Test(
+        .tags(
+            .TestSize.medium,
+        ),
+    )
+    func initPackageExecutableWithSwiftTesting() async throws {
+        try withTemporaryDirectory { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending("Foo")
             let name = path.basename
             try fs.createDirectory(path)
-
             // Create the package
             let initPackage = try InitPackage(
                 name: name,
                 packageType: .executable,
-                destinationPath: path,
-                fileSystem: localFileSystem
-            )
-            var progressMessages = [String]()
-            initPackage.progressReporter = { message in
-                progressMessages.append(message)
-            }
-            try initPackage.writePackageStructure()
-
-            // Not picky about the specific progress messages, just checking that we got some.
-            XCTAssertGreaterThan(progressMessages.count, 0)
-            
-            // Verify basic file system content that we expect in the package
-            let manifest = path.appending("Package.swift")
-            XCTAssertFileExists(manifest)
-            let manifestContents: String = try localFileSystem.readFileContents(manifest)
-            let version = InitPackage.newPackageToolsVersion
-            let versionSpecifier = "\(version.major).\(version.minor)"
-            XCTAssertMatch(manifestContents, .prefix("// swift-tools-version:\(version < .v5_4 ? "" : " ")\(versionSpecifier)\n"))
-
-            XCTAssertEqual(try fs.getDirectoryContents(path.appending("Sources").appending("Foo")), ["Foo.swift"])
-            await XCTAssertBuilds(
-                path,
-                buildSystem: .native,
-            )
-            let triple = try UserToolchain.default.targetTriple
-            let binPath = path.appending(components: ".build", triple.platformBuildPathComponent, "debug")
-#if os(Windows)
-            XCTAssertFileExists(binPath.appending("Foo.exe"))
-#else
-            XCTAssertFileExists(binPath.appending("Foo"))
-#endif
-            XCTAssertFileExists(binPath.appending(components: "Modules", "Foo.swiftmodule"))
-        }
-    }
-
-    func testInitPackageExecutableCalledMain() async throws {
-        try await testWithTemporaryDirectory { tmpPath in
-            let fs = localFileSystem
-            let path = tmpPath.appending("main")
-            let name = path.basename
-            try fs.createDirectory(path)
-
-            // Create the package
-            let initPackage = try InitPackage(
-                name: name,
-                packageType: .executable,
-                destinationPath: path,
-                fileSystem: localFileSystem
-            )
-            try initPackage.writePackageStructure()
-
-            XCTAssertEqual(try fs.getDirectoryContents(path.appending("Sources").appending("main")), ["MainEntrypoint.swift"])
-            await XCTAssertBuilds(
-                path,
-                buildSystem: .native,
-            )
-        }
-    }
-
-    func testInitPackageLibraryWithXCTestOnly() async throws {
-        try await testWithTemporaryDirectory { tmpPath in
-            let fs = localFileSystem
-            let path = tmpPath.appending("Foo")
-            let name = path.basename
-            try fs.createDirectory(path)
-
-            // Create the package
-            let initPackage = try InitPackage(
-                name: name,
-                packageType: .library,
-                supportedTestingLibraries: [.xctest],
-                destinationPath: path,
-                fileSystem: localFileSystem
-            )
-            var progressMessages = [String]()
-            initPackage.progressReporter = { message in
-                progressMessages.append(message)
-            }
-            try initPackage.writePackageStructure()
-
-            // Not picky about the specific progress messages, just checking that we got some.
-            XCTAssertGreaterThan(progressMessages.count, 0)
-
-            // Verify basic file system content that we expect in the package
-            let manifest = path.appending("Package.swift")
-            XCTAssertFileExists(manifest)
-            let manifestContents: String = try localFileSystem.readFileContents(manifest)
-            let version = InitPackage.newPackageToolsVersion
-            let versionSpecifier = "\(version.major).\(version.minor)"
-            XCTAssertMatch(manifestContents, .prefix("// swift-tools-version:\(version < .v5_4 ? "" : " ")\(versionSpecifier)\n"))
-
-            XCTAssertEqual(try fs.getDirectoryContents(path.appending("Sources").appending("Foo")), ["Foo.swift"])
-
-            let tests = path.appending("Tests")
-            XCTAssertEqual(try fs.getDirectoryContents(tests).sorted(), ["FooTests"])
-
-            let testFile = tests.appending("FooTests").appending("FooTests.swift")
-            let testFileContents: String = try localFileSystem.readFileContents(testFile)
-            XCTAssertTrue(testFileContents.hasPrefix("import XCTest"), """
-                          Validates formatting of XCTest source file, in particular that it does not contain leading whitespace:
-                          \(testFileContents)
-                          """)
-            XCTAssertMatch(testFileContents, .contains("func testExample() throws"))
-
-            // Try building it
-            await XCTAssertBuilds(
-                path,
-                buildSystem: .native,
-            )
-            let triple = try UserToolchain.default.targetTriple
-            XCTAssertFileExists(path.appending(components: ".build", triple.platformBuildPathComponent, "debug", "Modules", "Foo.swiftmodule"))
-        }
-    }
-
-    func testInitPackageLibraryWithSwiftTestingOnly() async throws {
-        try testWithTemporaryDirectory { tmpPath in
-            let fs = localFileSystem
-            let path = tmpPath.appending("Foo")
-            let name = path.basename
-            try fs.createDirectory(path)
-
-            // Create the package
-            let initPackage = try InitPackage(
-                name: name,
-                packageType: .library,
                 supportedTestingLibraries: [.swiftTesting],
                 destinationPath: path,
                 fileSystem: localFileSystem
             )
-            try initPackage.writePackageStructure()
 
+            try initPackage.writePackageStructure()
             // Verify basic file system content that we expect in the package
             let manifest = path.appending("Package.swift")
-            XCTAssertFileExists(manifest)
+            try requireFileExists(at: manifest)
 
-            let testFile = path.appending("Tests").appending("FooTests").appending("FooTests.swift")
-            let testFileContents: String = try localFileSystem.readFileContents(testFile)
-            XCTAssertMatch(testFileContents, .contains(#"import Testing"#))
-            XCTAssertNoMatch(testFileContents, .contains(#"import XCTest"#))
-            XCTAssertMatch(testFileContents, .contains(#"@Test func example() async throws"#))
-            XCTAssertNoMatch(testFileContents, .contains("func testExample() throws"))
-
-#if canImport(TestingDisabled)
-            // Try building it
-            await XCTAssertBuilds(
-                path,
-                buildSystem: .native,
-            )
-            let triple = try UserToolchain.default.targetTriple
-            XCTAssertFileExists(path.appending(components: ".build", triple.platformBuildPathComponent, "debug", "Modules", "Foo.swiftmodule"))
-#endif
-        }
-    }
-
-    func testInitPackageLibraryWithBothSwiftTestingAndXCTest() async throws {
-        try testWithTemporaryDirectory { tmpPath in
-            let fs = localFileSystem
-            let path = tmpPath.appending("Foo")
-            let name = path.basename
-            try fs.createDirectory(path)
-
-            // Create the package
-            let initPackage = try InitPackage(
-                name: name,
-                packageType: .library,
-                supportedTestingLibraries: [.swiftTesting, .xctest],
-                destinationPath: path,
-                fileSystem: localFileSystem
-            )
-            try initPackage.writePackageStructure()
-
-            // Verify basic file system content that we expect in the package
-            let manifest = path.appending("Package.swift")
-            XCTAssertFileExists(manifest)
-
-            let testFile = path.appending("Tests").appending("FooTests").appending("FooTests.swift")
-            let testFileContents: String = try localFileSystem.readFileContents(testFile)
-            XCTAssertMatch(testFileContents, .contains(#"import Testing"#))
-            XCTAssertMatch(testFileContents, .contains(#"import XCTest"#))
-            XCTAssertMatch(testFileContents, .contains(#"@Test func example() async throws"#))
-            XCTAssertMatch(testFileContents, .contains("func testExample() throws"))
-
-#if canImport(TestingDisabled)
-            // Try building it
-            await XCTAssertBuilds(
-                path,
-                buildSystem: .native,
-            )
-            let triple = try UserToolchain.default.targetTriple
-            XCTAssertFileExists(path.appending(components: ".build", triple.platformBuildPathComponent, "debug", "Modules", "Foo.swiftmodule"))
-#endif
-        }
-    }
-
-    func testInitPackageLibraryWithNoTests() async throws {
-        try testWithTemporaryDirectory { tmpPath in
-            let fs = localFileSystem
-            let path = tmpPath.appending("Foo")
-            let name = path.basename
-            try fs.createDirectory(path)
-
-            // Create the package
-            let initPackage = try InitPackage(
-                name: name,
-                packageType: .library,
-                supportedTestingLibraries: [],
-                destinationPath: path,
-                fileSystem: localFileSystem
-            )
-            try initPackage.writePackageStructure()
-
-            // Verify basic file system content that we expect in the package
-            let manifest = path.appending("Package.swift")
-            XCTAssertFileExists(manifest)
             let manifestContents: String = try localFileSystem.readFileContents(manifest)
-            XCTAssertNoMatch(manifestContents, .contains(#".testTarget"#))
-
-            XCTAssertNoSuchPath(path.appending("Tests"))
-
-#if canImport(TestingDisabled)
-            // Try building it
-            await XCTAssertBuilds(
-                path,
-                buildSystem: .native,
-            )
-            let triple = try UserToolchain.default.targetTriple
-            XCTAssertFileExists(path.appending(components: ".build", triple.platformBuildPathComponent, "debug", "Modules", "Foo.swiftmodule"))
-#endif
-        }
-    }
-
-    func testInitPackageExecutableWithSwiftTesting() async throws {
-        try testWithTemporaryDirectory { tmpPath in
-            let fs = localFileSystem
-            let path = tmpPath.appending("Foo")
-            let name = path.basename
-            try fs.createDirectory(path)
-            // Create the package
-            let initPackage = try InitPackage(
-                name: name,
-                packageType: .executable,
-                supportedTestingLibraries: [.swiftTesting],
-                destinationPath: path,
-                fileSystem: localFileSystem
-            )
-
-            try initPackage.writePackageStructure()
-            // Verify basic file system content that we expect in the package
-            let manifest = path.appending("Package.swift")
-            XCTAssertFileExists(manifest)
-            let manifestContents: String = try localFileSystem.readFileContents(manifest)
-            XCTAssertMatch(manifestContents, .contains(".testTarget("))
+            #expect(manifestContents.contains(".testTarget("))
             let testFile = path.appending("Tests").appending("FooTests").appending("FooTests.swift")
             let testFileContents: String = try localFileSystem.readFileContents(testFile)
-            XCTAssertMatch(testFileContents, .contains(#"import Testing"#))
-            XCTAssertNoMatch(testFileContents, .contains(#"import XCTest"#))
-            XCTAssertMatch(testFileContents, .contains(#"@Test func example() async throws"#))
-            XCTAssertNoMatch(testFileContents, .contains("func testExample() throws"))
+            #expect(testFileContents.contains(#"import Testing"#))
+            #expect(!testFileContents.contains(#"import XCTest"#))
+            #expect(testFileContents.contains(#"@Test func example() async throws"#))
+            #expect(!testFileContents.contains("func testExample() throws"))
         }
     }
 
-    func testInitPackageToolWithSwiftTesting() async throws {
-        try testWithTemporaryDirectory { tmpPath in
+    @Test(
+        .tags(
+            .TestSize.medium,
+        ),
+    )
+    func initPackageToolWithSwiftTesting() async throws {
+        try withTemporaryDirectory { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending("Foo")
             let name = path.basename
@@ -345,20 +563,26 @@ final class InitTests: XCTestCase {
             try initPackage.writePackageStructure()
             // Verify basic file system content that we expect in the package
             let manifest = path.appending("Package.swift")
-            XCTAssertFileExists(manifest)
+            try requireFileExists(at: manifest)
+
             let manifestContents: String = try localFileSystem.readFileContents(manifest)
-            XCTAssertMatch(manifestContents, .contains(".testTarget("))
+            #expect(manifestContents.contains(".testTarget("))
             let testFile = path.appending("Tests").appending("FooTests").appending("FooTests.swift")
             let testFileContents: String = try localFileSystem.readFileContents(testFile)
-            XCTAssertMatch(testFileContents, .contains(#"import Testing"#))
-            XCTAssertNoMatch(testFileContents, .contains(#"import XCTest"#))
-            XCTAssertMatch(testFileContents, .contains(#"@Test func example() async throws"#))
-            XCTAssertNoMatch(testFileContents, .contains("func testExample() throws"))
+            #expect(testFileContents.contains(#"import Testing"#))
+            #expect(!testFileContents.contains(#"import XCTest"#))
+            #expect(testFileContents.contains(#"@Test func example() async throws"#))
+            #expect(!testFileContents.contains("func testExample() throws"))
         }
     }
 
-    func testInitPackageCommandPlugin() throws {
-        try testWithTemporaryDirectory { tmpPath in
+    @Test(
+        .tags(
+            .TestSize.medium,
+        ),
+    )
+    func initPackageCommandPlugin() throws {
+        try withTemporaryDirectory { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending("MyCommandPlugin")
             let name = path.basename
@@ -374,26 +598,33 @@ final class InitTests: XCTestCase {
 
             // Verify basic file system content that we expect in the package
             let manifest = path.appending("Package.swift")
-            XCTAssertFileExists(manifest)
+            try requireFileExists(at: manifest)
+
             let manifestContents: String = try localFileSystem.readFileContents(manifest)
-            XCTAssertMatch(manifestContents, .and(.contains(".plugin("), .contains("targets: [\"MyCommandPlugin\"]")))
-            XCTAssertMatch(manifestContents, .and(.contains(".plugin("),
-                .and(.contains("capability: .command(intent: .custom("), .contains("verb: \"MyCommandPlugin\""))))
+            #expect(manifestContents.contains(".plugin(") && manifestContents.contains("targets: [\"MyCommandPlugin\"]"))
+            #expect(manifestContents.contains(".plugin(") &&
+                   manifestContents.contains("capability: .command(intent: .custom(") &&
+                   manifestContents.contains("verb: \"MyCommandPlugin\""))
 
             // Check basic content that we expect in the plugin source file
             let source = path.appending("Plugins", "MyCommandPlugin.swift")
-            XCTAssertFileExists(source)
+            expectFileExists(at: source)
             let sourceContents: String = try localFileSystem.readFileContents(source)
-            XCTAssertMatch(sourceContents, .contains("struct MyCommandPlugin: CommandPlugin"))
-            XCTAssertMatch(sourceContents, .contains("performCommand(context: PluginContext"))
-            XCTAssertMatch(sourceContents, .contains("import XcodeProjectPlugin"))
-            XCTAssertMatch(sourceContents, .contains("extension MyCommandPlugin: XcodeCommandPlugin"))
-            XCTAssertMatch(sourceContents, .contains("performCommand(context: XcodePluginContext"))
+            #expect(sourceContents.contains("struct MyCommandPlugin: CommandPlugin"))
+            #expect(sourceContents.contains("performCommand(context: PluginContext"))
+            #expect(sourceContents.contains("import XcodeProjectPlugin"))
+            #expect(sourceContents.contains("extension MyCommandPlugin: XcodeCommandPlugin"))
+            #expect(sourceContents.contains("performCommand(context: XcodePluginContext"))
         }
     }
-    
-    func testInitPackageBuildToolPlugin() throws {
-        try testWithTemporaryDirectory { tmpPath in
+
+    @Test(
+        .tags(
+            .TestSize.medium,
+        ),
+    )
+    func initPackageBuildToolPlugin() throws {
+        try withTemporaryDirectory { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending("MyBuildToolPlugin")
             let name = path.basename
@@ -409,80 +640,30 @@ final class InitTests: XCTestCase {
 
             // Verify basic file system content that we expect in the package
             let manifest = path.appending("Package.swift")
-            XCTAssertFileExists(manifest)
+            try requireFileExists(at: manifest)
+
             let manifestContents: String = try localFileSystem.readFileContents(manifest)
-            XCTAssertMatch(manifestContents, .and(.contains(".plugin("), .contains("targets: [\"MyBuildToolPlugin\"]")))
-            XCTAssertMatch(manifestContents, .and(.contains(".plugin("), .contains("capability: .buildTool()")))
+            #expect(manifestContents.contains(".plugin(") && manifestContents.contains("targets: [\"MyBuildToolPlugin\"]"))
+            #expect(manifestContents.contains(".plugin(") && manifestContents.contains("capability: .buildTool()"))
 
             // Check basic content that we expect in the plugin source file
             let source = path.appending("Plugins", "MyBuildToolPlugin.swift")
-            XCTAssertFileExists(source)
+            expectFileExists(at: source)
             let sourceContents: String = try localFileSystem.readFileContents(source)
-            XCTAssertMatch(sourceContents, .contains("struct MyBuildToolPlugin: BuildToolPlugin"))
-            XCTAssertMatch(sourceContents, .contains("createBuildCommands(context: PluginContext"))
-            XCTAssertMatch(sourceContents, .contains("import XcodeProjectPlugin"))
-            XCTAssertMatch(sourceContents, .contains("extension MyBuildToolPlugin: XcodeBuildToolPlugin"))
-            XCTAssertMatch(sourceContents, .contains("createBuildCommands(context: XcodePluginContext"))
+            #expect(sourceContents.contains("struct MyBuildToolPlugin: BuildToolPlugin"))
+            #expect(sourceContents.contains("createBuildCommands(context: PluginContext"))
+            #expect(sourceContents.contains("import XcodeProjectPlugin"))
+            #expect(sourceContents.contains("extension MyBuildToolPlugin: XcodeBuildToolPlugin"))
+            #expect(sourceContents.contains("createBuildCommands(context: XcodePluginContext"))
         }
     }
 
-    // MARK: Special case testing
-
-    func testInitPackageNonc99Directory() async throws {
-        try await withTemporaryDirectory(removeTreeOnDeinit: true) { tempDirPath in
-            XCTAssertDirectoryExists(tempDirPath)
-            
-            // Create a directory with non c99name.
-            let packageRoot = tempDirPath.appending("some-package")
-            let packageName = packageRoot.basename
-            try localFileSystem.createDirectory(packageRoot)
-            XCTAssertDirectoryExists(packageRoot)
-            
-            // Create the package
-            let initPackage = try InitPackage(
-                name: packageName,
-                packageType: .library,
-                destinationPath: packageRoot,
-                fileSystem: localFileSystem
-            )
-            initPackage.progressReporter = { message in }
-            try initPackage.writePackageStructure()
-
-            // Try building it.
-            await XCTAssertBuilds(
-                packageRoot,
-                buildSystem: .native,
-            )
-            let triple = try UserToolchain.default.targetTriple
-            XCTAssertFileExists(packageRoot.appending(components: ".build", triple.platformBuildPathComponent, "debug", "Modules", "some_package.swiftmodule"))
-        }
-    }
-    
-    func testNonC99NameExecutablePackage() async throws {
-        try await withTemporaryDirectory(removeTreeOnDeinit: true) { tempDirPath in
-            XCTAssertDirectoryExists(tempDirPath)
-            
-            let packageRoot = tempDirPath.appending("Foo")
-            try localFileSystem.createDirectory(packageRoot)
-            XCTAssertDirectoryExists(packageRoot)
-            
-            // Create package with non c99name.
-            let initPackage = try InitPackage(
-                name: "package-name",
-                packageType: .executable,
-                destinationPath: packageRoot,
-                fileSystem: localFileSystem
-            )
-            try initPackage.writePackageStructure()
-            
-            await XCTAssertBuilds(
-                packageRoot,
-                buildSystem: .native,
-            )
-        }
-    }
-
-    func testPlatforms() throws {
+    @Test(
+        .tags(
+            .TestSize.medium,
+        ),
+    )
+    func platforms() throws {
         try withTemporaryDirectory(removeTreeOnDeinit: true) { tempDirPath in
             var options = InitPackage.InitPackageOptions(packageType: .library, supportedTestingLibraries: [])
             options.platforms = [
@@ -506,12 +687,17 @@ final class InitTests: XCTestCase {
             try initPackage.writePackageStructure()
 
             let contents: String = try localFileSystem.readFileContents(packageRoot.appending("Package.swift"))
-            XCTAssertMatch(contents, .contains(#"platforms: [.macOS(.v10_15), .iOS(.v12), .watchOS("2.1"), .tvOS("999.0")],"#))
+            #expect(contents.contains(#"platforms: [.macOS(.v10_15), .iOS(.v12), .watchOS("2.1"), .tvOS("999.0")],"#))
         }
     }
 
-    func testInitPackageIncludesSwiftLanguageMode() throws {
-        try testWithTemporaryDirectory { tmpPath in
+    @Test(
+        .tags(
+            .TestSize.medium,
+        ),
+    )
+    func initPackageIncludesSwiftLanguageMode() throws {
+        try withTemporaryDirectory { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending("testInitPackageIncludesSwiftLanguageMode")
             let name = path.basename
@@ -531,7 +717,7 @@ final class InitTests: XCTestCase {
             // Verify the manifest includes Swift language mode
             let manifest = path.appending("Package.swift")
             let manifestContents: String = try localFileSystem.readFileContents(manifest)
-            XCTAssertMatch(manifestContents, .contains("swiftLanguageModes: [.v6]"))
+            #expect(manifestContents.contains("swiftLanguageModes: [.v6]"))
         }
     }
 
