@@ -59,6 +59,9 @@ package extension Connection {
         )
     }
 
+    // Disfavor this over Connection.send implemented in swift-tools-protocols by https://github.com/swiftlang/swift-tools-protocols/pull/28
+    // TODO: Remove this method once we have updated the swift-tools-protocols dependency to include #28
+    @_disfavoredOverload
     func send<R: RequestType>(_ request: R) async throws -> R.Response {
         return try await withCancellableCheckedThrowingContinuation { continuation in
             return self.send(request) { result in
@@ -154,6 +157,7 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
         case is OnBuildInitializedNotification:
             connectionToUnderlyingBuildServer.send(notification)
             state = .running
+            scheduleRegeneratingBuildDescription()
         case let notification as OnWatchedFilesDidChangeNotification:
             // The underlying build server only receives updates via new PIF, so don't forward this notification.
             for change in notification.changes {
@@ -246,7 +250,6 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
             logToClient(.warning, "Underlying build server reported unexpected file watchers")
         }
         state = .waitingForInitializedNotification
-        scheduleRegeneratingBuildDescription()
         return InitializeBuildResponse(
             displayName: "SwiftPM Build Server",
             version: SwiftVersion.current.displayString,

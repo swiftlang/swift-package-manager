@@ -1040,7 +1040,8 @@ final class TestRunner {
                 stdout: outputHandler,
                 stderr: outputHandler
             )
-            let process = AsyncProcess(arguments: try args(forTestAt: path), environment: self.testEnv, outputRedirection: outputRedirection)
+            let arguments = try args(forTestAt: path)
+            let process = AsyncProcess(arguments: arguments, environment: self.testEnv, outputRedirection: outputRedirection)
             guard let terminationKey = self.cancellator.register(process) else {
                 return .failure // terminating
             }
@@ -1054,7 +1055,7 @@ final class TestRunner {
                 return .noMatchingTests
             #if !os(Windows)
             case .signalled(let signal) where ![SIGINT, SIGKILL, SIGTERM].contains(signal):
-                testObservabilityScope.emit(error: "Exited with unexpected signal code \(signal)")
+                testObservabilityScope.emit(error: "Process '\(arguments.joined(separator: " "))' exited with unexpected signal code \(signal)")
                 return .failure
             #endif
             default:
