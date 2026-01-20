@@ -421,6 +421,14 @@ public final class PIFBuilder {
     /// Constructs a `PIF.TopLevelObject` representing the package graph.
     package func constructPIF(buildParameters: BuildParameters) async throws -> PIF.TopLevelObject {
         return try await memoize(to: &self.cachedPIF) {
+            guard let rootPackage = self.graph.rootPackages.only else {
+                if self.graph.rootPackages.isEmpty {
+                    throw PIFGenerationError.rootPackageNotFound
+                } else {
+                    throw PIFGenerationError.multipleRootPackagesFound
+                }
+            }
+
             let packagesAndPIFBuilders = try await makePIFBuilders(buildParameters: buildParameters)
 
             let packagesAndPIFProjects = try packagesAndPIFBuilders.map { (package, pifBuilder, _) in
@@ -438,14 +446,6 @@ public final class PIFBuilder {
                     buildParameters: buildParameters
                 )
             )
-
-            guard let rootPackage = self.graph.rootPackages.only else {
-                if self.graph.rootPackages.isEmpty {
-                    throw PIFGenerationError.rootPackageNotFound
-                } else {
-                    throw PIFGenerationError.multipleRootPackagesFound
-                }
-            }
 
             let workspace = PIF.Workspace(
                 id: "Workspace:\(rootPackage.path.pathString)",
