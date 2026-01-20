@@ -140,8 +140,6 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
             connectionToClient: connectionFromUnderlyingBuildServer,
             exitHandler: { exitCode in
                 print("[DEBUG] SwiftPMBuildServer: exitHandler called with code \(exitCode)")
-                // Tear down the session BEFORE closing the connection
-                // The teardown may need the connection to be open for coordination
                 do {
                     print("[DEBUG] SwiftPMBuildServer: Calling session.teardownHandler()...")
                     try await session.teardownHandler()
@@ -149,7 +147,6 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
                 } catch {
                     print("[ERROR] SwiftPMBuildServer: session.teardownHandler() failed: \(error)")
                 }
-                // Close the connection after teardown completes
                 print("[DEBUG] SwiftPMBuildServer: Closing connection to underlying build server")
                 connectionToUnderlyingBuildServer.close()
                 print("[DEBUG] SwiftPMBuildServer: exitHandler completed")
@@ -165,7 +162,6 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
         switch notification {
         case is OnBuildExitNotification:
             print("[DEBUG] SwiftPMBuildServer: Received OnBuildExitNotification, state=\(state)")
-            connectionToUnderlyingBuildServer.send(notification)
             if state == .shutdown {
                 print("[DEBUG] SwiftPMBuildServer: State is shutdown, calling exitHandler(0)")
                 exitHandler(0)
