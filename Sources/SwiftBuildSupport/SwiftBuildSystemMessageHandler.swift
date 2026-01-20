@@ -124,6 +124,9 @@ public final class SwiftBuildSystemMessageHandler {
         // Begin by emitting the text received by the task started event.
         if let started = self.buildState.startedInfo(for: startedInfo) {
             // Emit depending on verbosity level.
+            if logLevel.isVerbose {
+                self.outputStream.send(started)
+            }
             self.observabilityScope.print(started, verbose: self.logLevel.isVerbose)
         }
 
