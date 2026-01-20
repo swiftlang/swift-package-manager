@@ -96,6 +96,9 @@ swift run --build-system swiftbuild
   - **Tracking**: [swiftlang/swift-package-manager#9620](https://github.com/swiftlang/swift-package-manager/issues/9620)
 
 - Swift Build does not pass environment variables to plugin tools.
+  - **Tracking**: [swiftlang/swift-package-manager#9122](https://github.com/swiftlang/swift-package-manager/issues/9122)
+
+- Swift Build does not support overlapping executable product names and library product names (case-insensitive).
   - **Tracking**: [swiftlang/swift-package-manager#9184](https://github.com/swiftlang/swift-package-manager/issues/9184)
 
 ## Reporting issues
