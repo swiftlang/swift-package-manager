@@ -95,7 +95,6 @@ public struct ManifestValidator {
     }
 
     private func validateTraits() -> [Basics.Diagnostic] {
-        // TODO bp add trait validation here.
         var diagnostics = [Basics.Diagnostic]()
 
         if self.manifest.traits.count > 300 {
@@ -118,7 +117,11 @@ public struct ManifestValidator {
 
         let traitKeys = Set(self.manifest.traits.map { $0.name })
 
+//        self.manifest.validateEnabledTraits(<#T##explicitlyEnabledTraits: EnabledTraits##EnabledTraits#>)
+
         for trait in self.manifest.traits {
+            // TODO bp: this is called during loadManifest, so perhaps we can have a post-updated packages check for validation.
+//            try self.manifest.validateTrait(trait)
             for otherTrait in trait.enabledTraits {
                 if !traitKeys.contains(otherTrait) {
                     // The trait is not contained in the other trait.
