@@ -196,7 +196,7 @@ struct PIFBuilderTests {
 
     @Test func platformConditionBasics() async throws {
         try await withGeneratedPIF(fromFixture: "PIFBuilder/UnknownPlatforms") { pif, observabilitySystem in
-            // We should emit a warning to the PIF log about the unknown platform
+            // We should emit a warning to the PIF log about the unknown platform.
             #expect(observabilitySystem.diagnostics.filter {
                 $0.severity == .warning && $0.message.contains("Ignoring settings assignments for unknown platform 'DoesNotExist'")
             }.count > 0)

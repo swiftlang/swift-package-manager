@@ -103,7 +103,7 @@ extension PackageModel.Product {
     var pifTargetGUID: GUID { pifTargetGUID(suffix: nil) }
 
     func pifTargetGUID(suffix: TargetSuffix?) -> GUID {
-        PackagePIFBuilder.targetGUID(forProductName: self.name, withId:self.identity, suffix: suffix)
+        PackagePIFBuilder.targetGUID(forProductName: self.name, withId: self.identity, suffix: suffix)
     }
 }
 
