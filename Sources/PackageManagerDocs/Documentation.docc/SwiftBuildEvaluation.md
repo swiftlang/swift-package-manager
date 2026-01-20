@@ -38,24 +38,19 @@ swift run --build-system swiftbuild
 
 ### Detailed differences
 
-#### Metal support
-- Swift Build now recognizes Metal files alongside your Swift code and compiles them into a `.metallib` that it places directly in your resources.
-- You can load it with [`MTLCreateSystemDefaultDevice()`](https://developer.apple.com/documentation/metal/mtlcreatesystemdefaultdevice()/)
-- Aligns command-line SwiftPM behavior with how packages containing Metal are supported in Xcode today
-- See [`Fixtures/Metal/SimpleLibrary`](https://github.com/swiftlang/swift-package-manager/tree/main/Fixtures/Metal/SimpleLibrary) for a sample library
+#### Resource support parity with xcodebuild
+- When targeting Apple platforms using `--build-system swiftbuild`, SwiftPM now consistently applies the same set of resource rules as xcodebuild when a package contains resource types like asset catalogs, storyboards, Metal sources, etc.
 
 #### Swift Driver integration
-- Deprecation of `--use-integrated-swift-driver` command-line option
-- The native build system never fully supported this, and the Swift Build build system uses it as the default behavior
+- The `--use-integrated-swift-driver` command-line option is considered deprecated. `--build-system swiftbuild` always uses the library-based Swift driver.
+- On supported platforms, `--build-system swiftbuild` will make use of explicitly-built Clang and Swift modules.
 
 #### Enhanced diagnostics
 - Logging and diagnostic differences between native and Swift Build build systems
-- Swift Build includes support for explicit modules
 
 #### Other
 
-- Support for multi-architecture builds on Apple platforms, e.g., `swift build --build-system swiftbuild --arch arm64 --arch x86_64`
-
+- When targeting Apple platforms, `--build-system swiftbuild` supports building universal binaries. Example invocation: `swift build --build-system swiftbuild --arch arm64 --arch x86_64`
 
 ## Known issues
 
