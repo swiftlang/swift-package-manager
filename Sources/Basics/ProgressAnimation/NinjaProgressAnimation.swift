@@ -98,7 +98,7 @@ final class MultiLineNinjaProgressAnimation: ProgressAnimationProtocol {
 
         guard text != lastDisplayedText else { return }
 
-        if step < 0 && normalizeStep {
+        if (step < 0 && normalizeStep) || step >= 0 {
             let normalizedStep = max(0, step)
             stream.send("[\(normalizedStep)/\(total)] ")
         }

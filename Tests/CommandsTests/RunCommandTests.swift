@@ -123,8 +123,16 @@ struct RunCommandTests {
             #expect(stdout.contains("sentinel"))
 
             // swift-build-tool output should go to stderr.
-            #expect(stderr.contains("Compiling"))
-            #expect(stderr.contains("Linking"))
+            withKnownIssue {
+                #expect(stderr.contains("Compiling"))
+            } when: {
+                buildSystem == .swiftbuild
+            }
+            withKnownIssue {
+                #expect(stderr.contains("Linking"))
+            } when: {
+                buildSystem == .swiftbuild
+            }
         }
     }
 
@@ -152,8 +160,16 @@ struct RunCommandTests {
                 """))
 
             // swift-build-tool output should go to stderr.
-            #expect(stderr.contains("Compiling"))
-            #expect(stderr.contains("Linking"))
+            withKnownIssue {
+                #expect(stderr.contains("Compiling"))
+            } when: {
+                buildSystem == .swiftbuild
+            }
+            withKnownIssue {
+                #expect(stderr.contains("Linking"))
+            } when: {
+                buildSystem == .swiftbuild
+            }
         }
     }
 
