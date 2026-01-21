@@ -34,18 +34,16 @@ final class SerializedJSONTests: XCTestCase {
     }
 
     func testPathInterpolationFailsOnWindows() throws {
-        try XCTSkipOnWindows(because: "Expectations are not met. Possibly related to https://github.com/swiftlang/swift-package-manager/issues/8511")
-
 #if os(Windows)
         var path = try AbsolutePath(validating: #"\\?\C:\Users"#)
         var json: SerializedJSON = "\(path)"
 
-        XCTAssertEqual(json.underlying, #"C:\\Users"#)
+        XCTAssertEqual(json.underlying, #"\\\\?\\C:\\Users"#)
 
         path = try AbsolutePath(validating: #"\\.\UNC\server\share\"#)
         json = "\(path)"
 
-        XCTAssertEqual(json.underlying, #"\\.\\UNC\\server\\share"#)
+        XCTAssertEqual(json.underlying, #"\\\\.\\UNC\\server\\share"#)
 #endif
     }
 }

@@ -294,6 +294,7 @@ public final class PIFBuilder {
                             pluginGeneratedResources: pluginDerivedResources.map(\.path)
                         ),
                         buildEnvironment: buildParameters.buildEnvironment,
+                        workers: buildParameters.workers,
                         scriptRunner: pluginScriptRunner,
                         workingDirectory: package.path,
                         outputDirectory: pluginOutputDir,

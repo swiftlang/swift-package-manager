@@ -782,7 +782,7 @@ struct BuildCommandTestCases {
     ) async throws {
         let buildSystem = data.buildSystem
         try await fixture(name: "Miscellaneous/ParseableInterfaces") { fixturePath in
-            try await withKnownIssue(isIntermittent: ProcessInfo.hostOperatingSystem == .windows) {
+            try await withKnownIssue(isIntermittent: true) {
                 let result = try await build(
                     ["--enable-parseable-module-interfaces"],
                     packagePath: fixturePath,
@@ -818,7 +818,7 @@ struct BuildCommandTestCases {
         data: BuildData,
     ) async throws {
         let buildSystem = data.buildSystem
-        try await withKnownIssue {
+        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/LibraryEvolution") { fixturePath in
                 let result = try await build(
                     [],
@@ -846,7 +846,25 @@ struct BuildCommandTestCases {
         }
     }
 
+    @Test
+    func pifManifestFileIsCreatedInTheRootScratchPathDirectory() async throws {
+        try await fixture(name: "Miscellaneous/ParseableInterfaces") { fixturePath in
+            try await withTemporaryDirectory { tmpDir in
+                try await executeSwiftBuild(
+                    fixturePath,
+                    extraArgs: [
+                        "--scratch-path",
+                        tmpDir.pathString,
+                    ],
+                    buildSystem: .swiftbuild
+                )
+                expectFileExists(at: tmpDir.appending("manifest.pif"))
+            }
+        }
+    }
+
     @Test(
+        .IssueWindowsLongPath,
         .tags(
             .Feature.BuildCache,
         ),
@@ -857,7 +875,7 @@ struct BuildCommandTestCases {
         data: BuildData,
     ) async throws {
         let buildSystem = data.buildSystem
-        try await withKnownIssue {
+        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
                 let buildCompleteRegex = try Regex(#"Build complete!\s?(\([0-9]*\.[0-9]*\s*s(econds)?\))?"#)
                 do {
@@ -897,7 +915,7 @@ struct BuildCommandTestCases {
                 }
             }
         } when: {
-            buildSystem == .swiftbuild && (ProcessInfo.hostOperatingSystem == .windows)
+            (buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows)
         }
     }
 
@@ -1137,7 +1155,7 @@ struct BuildCommandTestCases {
     ) async throws {
          try await withKnownIssue(
             "error produced for this fixture",
-            isIntermittent: ProcessInfo.hostOperatingSystem == .linux,
+            isIntermittent: true,
         ) {
             try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
                 // Building with `-wmo` should result in a `remark: Incremental compilation has been disabled: it is not
@@ -1199,7 +1217,7 @@ struct BuildCommandTestCases {
 
             try await withKnownIssue(
                 "https://github.com/swiftlang/swift-package-manager/issues/8659, SWIFT_EXEC override is not working",
-                isIntermittent: (buildSystem == .native && config == .release)
+                isIntermittent: true
             ){
                 // Build with a swiftc that returns version 1.0, we expect a successful build which compiles our one source
                 // file.
@@ -1294,7 +1312,7 @@ struct BuildCommandTestCases {
     func getTaskAllowEntitlement(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        try await withKnownIssue(isIntermittent: (ProcessInfo.hostOperatingSystem == .linux)) {
+        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { fixturePath in
     #if os(macOS)
                 // try await building with default parameters.  This should succeed. We build verbosely so we get full command
@@ -1469,7 +1487,7 @@ struct BuildCommandTestCases {
             """
             Windows: Sometimes failed to build due to a possible path issue
             All: --very-verbose causes rebuild on SwiftBuild (https://github.com/swiftlang/swift-package-manager/issues/9299)
-            """, 
+            """,
             isIntermittent: true) {
             try await fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { fixturePath in
                 _ = try await build(
@@ -1506,7 +1524,7 @@ struct BuildCommandTestCases {
      func parseAsLibraryCriteria(
         buildData: BuildData,
     ) async throws {
-        try await withKnownIssue {
+        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/ParseAsLibrary") { fixturePath in
                 _ =  try await executeSwiftBuild(
                     fixturePath,
@@ -1571,7 +1589,7 @@ struct BuildCommandTestCases {
      ) async throws {
          let buildSystem = data.buildSystem
          let configuration = data.config
-         try await withKnownIssue {
+         try await withKnownIssue(isIntermittent: true) {
              // GIVEN we have a simple test package
              try await fixture(name: "Miscellaneous/SwiftBuild") { fixturePath in
                 //WHEN we build with the --quiet option

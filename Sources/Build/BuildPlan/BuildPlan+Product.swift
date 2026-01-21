@@ -56,6 +56,9 @@ extension BuildPlan {
                 buildProduct.additionalFlags += ["-framework", binaryPath.basenameWithoutExt]
             } else if binaryPath.basename.starts(with: "lib") {
                 buildProduct.additionalFlags += ["-l\(binaryPath.basenameWithoutExt.dropFirst(3))"]
+            } else if binaryPath.extension == "lib" {
+                // Static libraries on Windows
+                buildProduct.additionalFlags += ["-l\(binaryPath.basenameWithoutExt)"]
             } else {
                 self.observabilityScope.emit(error: "unexpected binary name at \(binaryPath). Static libraries should be prefixed with lib")
             }

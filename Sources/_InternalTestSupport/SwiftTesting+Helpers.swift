@@ -1,21 +1,22 @@
-/*
- This source file is part of the Swift.org open source project
-
- Copyright (c) 2025 Apple Inc. and the Swift project authors
- Licensed under Apache License v2.0 with Runtime Library Exception
-
- See http://swift.org/LICENSE.txt for license information
- See http://swift.org/CONTRIBUTORS.txt for Swift project authors
- */
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift open source project
+//
+// Copyright (c) 2025 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
 
 import Basics
 import Testing
 
-public func expectFileExists(
-    at path: AbsolutePath,
-    _ comment: Comment? = nil,
-    sourceLocation: SourceLocation = #_sourceLocation,
-) {
+private func fileExistsErrorMessage(
+    for path: AbsolutePath,
+    comment: Comment?
+) -> Comment {
     let commentPrefix =
         if let comment {
             "\(comment): "
@@ -28,9 +29,29 @@ public func expectFileExists(
     } catch {
         msgSuffix = ""
     }
+    return Comment("\(commentPrefix)File '\(path)' does not exist. \(msgSuffix)")
+}
+
+public func expectFileExists(
+    at path: AbsolutePath,
+    _ comment: Comment? = nil,
+    sourceLocation: SourceLocation = #_sourceLocation,
+) {
     #expect(
         localFileSystem.exists(path),
-        "\(commentPrefix)File '\(path)' does not exist. \(msgSuffix)",
+        fileExistsErrorMessage(for: path, comment: comment),
+        sourceLocation: sourceLocation,
+    )
+}
+
+public func requireFileExists(
+    at path: AbsolutePath,
+    _ comment: Comment? = nil,
+    sourceLocation: SourceLocation = #_sourceLocation,
+) throws {
+    try #require(
+        localFileSystem.exists(path),
+        fileExistsErrorMessage(for: path, comment: comment),
         sourceLocation: sourceLocation,
     )
 }
