@@ -6,7 +6,7 @@
 # See http://swift.org/LICENSE.txt for license information
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
-add_library(SBOMModel
+add_library(SBOMModel STATIC
   SBOMCreator.swift
   SBOMError.swift
   SBOMInput.swift
