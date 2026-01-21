@@ -22,7 +22,7 @@ import _InternalTestSupport
 import Workspace
 
 extension PIFBuilderParameters {
-    fileprivate static func constructDefaultParametersForTesting(temporaryDirectory: Basics.AbsolutePath, addLocalRpaths: Bool) throws -> Self {
+    static func constructDefaultParametersForTesting(temporaryDirectory: Basics.AbsolutePath, addLocalRpaths: Bool) throws -> Self {
         self.init(
             isPackageAccessModifierSupported: true,
             enableTestability: false,

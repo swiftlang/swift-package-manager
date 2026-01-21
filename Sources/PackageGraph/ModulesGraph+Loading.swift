@@ -979,6 +979,12 @@ private func handlePrebuilts(
             return isHostOnly(moduleBuilder)
         }
     }) else {
+        // Remove the platform constraints
+        for packageBuilder in packageBuilders {
+            for moduleBuilder in packageBuilder.modules {
+                moduleBuilder.platformConstraint = nil
+            }
+        }
         return []
     }
 

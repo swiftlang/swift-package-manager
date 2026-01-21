@@ -944,7 +944,12 @@ extension PackagePIFProjectBuilder {
             log(.debug, "Created aggregate target '\(pluginTarget.id)' with name '\(pluginTarget.name)'")
         }
 
-        let buildSettings: ProjectModel.BuildSettings = package.underlying.packageBaseBuildSettings
+        var buildSettings: ProjectModel.BuildSettings = package.underlying.packageBaseBuildSettings
+
+        if pluginProduct.platformConstraint == .host {
+            buildSettings[.SUPPORTED_PLATFORMS] = ["$(HOST_PLATFORM)"]
+        }
+
         self.project[keyPath: pluginTargetKeyPath].common.addBuildConfig { id in
             BuildConfig(id: id, name: "Debug", settings: buildSettings)
         }
