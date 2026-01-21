@@ -65,7 +65,9 @@ fileprivate func withSwiftPMBSP(fixtureName: String, body: (Connection, Notifica
     }
 }
 
-@Suite
+@Suite(
+    .disabled(if: ProcessInfo.hostOperatingSystem == .windows, "This hangs intermittently on Windows in CI using the native build system")
+)
 struct SwiftPMBuildServerTests {
     @Test
     func lifecycleBasics() async throws {
