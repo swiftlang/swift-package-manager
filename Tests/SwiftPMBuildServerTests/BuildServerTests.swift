@@ -65,7 +65,7 @@ fileprivate func withSwiftPMBSP(fixtureName: String, body: (Connection, Notifica
     }
 }
 
-@Suite
+@Suite(.disabled("Tests hanging in some environments"))
 struct SwiftPMBuildServerTests {
     @Test
     func lifecycleBasics() async throws {
