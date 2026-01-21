@@ -148,7 +148,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     let packageGraphLoader: () async throws -> ModulesGraph
 
     /// the plugin configuration for build plugins
-    let pluginConfiguration: PluginConfiguration?
+    package let pluginConfiguration: PluginConfiguration?
 
     /// The llbuild build system reference previously created
     /// via `createBuildSystem` call.
@@ -944,7 +944,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
 public struct PluginConfiguration {
     /// Entity responsible for compiling and running plugin scripts.
-    let scriptRunner: PluginScriptRunner
+    package let scriptRunner: PluginScriptRunner
 
     /// Directory where plugin intermediate files are stored.
     let workDirectory: AbsolutePath

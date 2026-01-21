@@ -203,14 +203,17 @@ private struct WrappedSwiftTargetBuildDescription: BuildTarget {
 public struct BuildDescription {
     private let buildPlan: Build.BuildPlan
 
+    private let pluginConfiguration: PluginConfiguration
+
     /// The inputs of the build plan so we don't need to re-compute them  on every call to
     /// `fileAffectsSwiftOrClangBuildSettings`.
     private let inputs: [Build.BuildPlan.Input]
 
     /// Wrap an already constructed build plan.
-    public init(buildPlan: Build.BuildPlan) {
+    public init(buildPlan: Build.BuildPlan, pluginConfiguration: PluginConfiguration) {
         self.buildPlan = buildPlan
         self.inputs = buildPlan.inputs
+        self.pluginConfiguration = pluginConfiguration
     }
 
     /// Construct a build description, compiling build tool plugins and generating their output when necessary.
@@ -249,7 +252,8 @@ public struct BuildDescription {
         )
 
         let plan = try await operation.generatePlan()
-        return (BuildDescription(buildPlan: plan), bufferedOutput.bytes.description)
+        let buildDescription = BuildDescription(buildPlan: plan, pluginConfiguration: pluginConfiguration)
+        return (buildDescription, bufferedOutput.bytes.description)
     }
 
     func getBuildTarget(
@@ -275,8 +279,9 @@ public struct BuildDescription {
                 let modulesGraph = self.buildPlan.graph
                 return PluginTargetBuildDescription(
                     target: module,
+                    toolsBuildParameters: buildPlan.toolsBuildParameters,
                     toolsVersion: package.manifest.toolsVersion,
-                    toolchain: buildPlan.toolsBuildParameters.toolchain,
+                    pluginConfiguration: pluginConfiguration,
                     isPartOfRootPackage: modulesGraph.rootPackages.map(\.id).contains(package.id)
                 )
             }

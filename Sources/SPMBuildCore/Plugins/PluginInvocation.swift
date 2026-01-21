@@ -705,8 +705,7 @@ fileprivate func collectAccessibleTools(
         }
         // For an executable target we create a `builtTool`.
         else if executableOrBinaryModule.type == .executable {
-            let exeName = executableOrBinaryModule.name + hostTriple.executableExtension
-            return try [.builtTool(name: builtToolName, path: RelativePath(validating: exeName))]
+            return try [.builtTool(name: builtToolName, path: RelativePath(validating: executableOrBinaryModule.name))]
         }
         else {
             return []
