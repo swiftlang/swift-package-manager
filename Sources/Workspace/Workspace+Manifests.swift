@@ -618,7 +618,6 @@ extension Workspace {
         >] = { node in
             // optimization: preload manifest we know about in parallel
             // avoid loading dependencies that are trait-guarded here since this is redundant.
-            // todo bp note that traits could have changed here if the package dependency is slated for an update and the user references the new trait but we still have an old checkout. avoid validating traits as a result, and wait until we have updated manifests after resolution.
             let dependenciesRequired = try node.item.manifest.dependenciesRequired(
                 for: node.item.productFilter,
                 node.item.enabledTraits
