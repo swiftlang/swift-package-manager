@@ -65,7 +65,9 @@ fileprivate func withSwiftPMBSP(fixtureName: String, body: (Connection, Notifica
     }
 }
 
-@Suite
+@Suite(
+    .disabled(if: ProcessInfo.hostOperatingSystem == .windows, "Intermittent hangs on Windows")
+)
 struct SwiftPMBuildServerTests {
     @Test
     func lifecycleBasics() async throws {
