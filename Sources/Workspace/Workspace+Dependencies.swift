@@ -628,17 +628,12 @@ extension Workspace {
             observabilityScope: observabilityScope
         )
 
-        // TODO bp; some possible trait validation here.
-
         // Reset the active resolver.
         self.activeResolver = nil
 
         guard !observabilityScope.errorsReported else {
             return currentManifests
         }
-
-        // TODO bp: during an update to dependencies checkout, must
-        // also update/validate the traits here if previous versions of dependencies have been changed.
 
         // Update the checkouts with dependency resolution result.
         let packageStateChanges = await self.updateDependenciesCheckouts(
@@ -942,7 +937,6 @@ extension Workspace {
 
         guard let requiredDependencies = observabilityScope
             .trap({ try
-                // TODO bp; don't do preemptive trait validation at this step; could be loading from cache re: old trait version
                 dependencyManifests.requiredPackages.filter(\.kind.isResolvable) })
         else {
             return nil
