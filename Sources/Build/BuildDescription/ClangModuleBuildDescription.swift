@@ -97,9 +97,6 @@ public final class ClangModuleBuildDescription {
     /// These are the resource files derived from plugins.
     private var pluginDerivedResources: [Resource]
 
-    /// Header paths form plugins
-    private var pluginDerivedHeaderPaths: [AbsolutePath]
-
     /// Public header paths from plugins
     public private(set) var pluginDerivedPublicHeaderPaths: [AbsolutePath]
 
@@ -179,7 +176,6 @@ public final class ClangModuleBuildDescription {
                 root: buildParameters.dataPath
             )
             self.pluginDerivedResources = pluginGeneratedFiles.resources.values.map(\.self)
-            self.pluginDerivedHeaderPaths = pluginGeneratedFiles.headerPaths.map(\.self)
             self.pluginDerivedPublicHeaderPaths = pluginGeneratedFiles.publicHeaderPaths.map(\.self)
 
             if pluginGeneratedFiles.moduleMaps.count > 1 {
@@ -191,7 +187,6 @@ public final class ClangModuleBuildDescription {
             self.buildToolPluginInvocationResults = []
             self.pluginDerivedSources = Sources(paths: [], root: buildParameters.dataPath)
             self.pluginDerivedResources = []
-            self.pluginDerivedHeaderPaths = []
             self.pluginDerivedPublicHeaderPaths = []
         }
 

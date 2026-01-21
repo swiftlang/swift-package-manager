@@ -627,8 +627,7 @@ extension ModulesGraph {
             )
             generatedFiles.merge(files)
             if !files.headers.isEmpty {
-                // Capture the plugin output directory and public include directory if there were header files generated
-                generatedFiles.headerPaths.insert(result.pluginOutputDirectory)
+                // Capture the public include directory if there were header files generated there
                 // Hardcoding as the default for now
                 let publicDir = result.pluginOutputDirectory.appending(ClangModule.defaultPublicHeadersComponent)
                 if files.headers.contains(where: { $0.isDescendantOfOrEqual(to: publicDir) }) {
@@ -655,8 +654,6 @@ extension ModulesGraph {
                     // If the output dir ends in the default public header dir, make it public (yuck)
                     if dir.basename == ClangModule.defaultPublicHeadersComponent {
                         generatedFiles.publicHeaderPaths.insert(dir)
-                    } else {
-                        generatedFiles.headerPaths.insert(dir)
                     }
                 }
             }

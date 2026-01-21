@@ -493,19 +493,19 @@ extension PackagePIFProjectBuilder {
             headerSearchPaths.append(includeDirAbsPath.pathString)
         }
 
-        // Add paths to plugin generated headers
-        //headerSearchPaths.append(contentsOf: generatedFiles.headerSearchPaths.map(\.pathString))
-
         if !headerSearchPaths.isEmpty {
             // Let the target itself find its own headers.
-            settings[.HEADER_SEARCH_PATHS] = headerSearchPaths + ["$(inherited)"]
-            for path in headerSearchPaths {
+            let targetHeaderSearchPaths = headerSearchPaths
+            settings[.HEADER_SEARCH_PATHS] = targetHeaderSearchPaths + ["$(inherited)"]
+            for path in targetHeaderSearchPaths {
                 log(.debug, indent: 1, "Added '\(path)' to HEADER_SEARCH_PATHS")
             }
 
             // Also propagate this search path to all direct and indirect clients.
-            impartedSettings[.HEADER_SEARCH_PATHS] = headerSearchPaths + ["$(inherited)"]
-            for path in headerSearchPaths {
+            // Include generated public header paths.
+            let publicHeaderSearchPaths = headerSearchPaths + generatedFiles.publicHeaderPaths.map(\.pathString)
+            impartedSettings[.HEADER_SEARCH_PATHS] = publicHeaderSearchPaths + ["$(inherited)"]
+            for path in publicHeaderSearchPaths {
                 log(.debug, indent: 1, "Added '\(path)' to imparted HEADER_SEARCH_PATHS")
             }
         }

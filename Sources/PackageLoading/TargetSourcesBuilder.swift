@@ -585,7 +585,6 @@ public struct TargetSourcesBuilder {
 }
 
 public struct GeneratedFiles {
-    public var headerPaths: Set<Basics.AbsolutePath> = []
     public var publicHeaderPaths: Set<Basics.AbsolutePath> = []
     public var sources: Set<Basics.AbsolutePath>
     public var headers: Set<Basics.AbsolutePath>
