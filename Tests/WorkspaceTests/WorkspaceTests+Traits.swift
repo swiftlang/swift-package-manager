@@ -1205,5 +1205,132 @@ extension WorkspaceTests {
         }
     }
 
+    func testTraitGuardedPackageDependency_NotInManagedDependencies() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [
+                                .product(
+                                    name: "GuardedProduct",
+                                    package: "GuardedPackage",
+                                    condition: .init(traits: ["DisabledTrait"])
+                                )
+                            ]
+                        )
+                    ],
+                    dependencies: [
+                        .sourceControl(path: "./GuardedPackage", requirement: .upToNextMajor(from: "1.0.0"))
+                    ],
+                    traits: ["DisabledTrait"]
+                )
+            ],
+            packages: [
+                MockPackage(
+                    name: "GuardedPackage",
+                    targets: [MockTarget(name: "GuardedTarget")],
+                    products: [MockProduct(name: "GuardedProduct", modules: ["GuardedTarget"])],
+                    versions: ["1.0.0"]
+                )
+            ],
+            traitConfiguration: .disableAllTraits,  // DisabledTrait is OFF
+            pruneDependencies: true
+        )
+
+        // Verify package graph excludes the dependency
+        try await workspace.checkPackageGraph(roots: ["Root"], deps: []) { graph, diagnostics in
+            PackageGraphTesterXCTest(graph) { result in
+                result.check(roots: "Root")
+                result.check(packages: "Root")  // GuardedPackage should NOT be here
+                result.check(modules: "RootTarget")  // GuardedTarget should NOT be here
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+
+        // CRITICAL: Verify GuardedPackage is NOT in managed dependencies
+        await workspace.checkManagedDependencies { result in
+            // Should be empty - guarded package should not be downloaded
+            result.checkEmpty()
+        }
+    }
+
+    func testPartiallyGuardedPackageDependency_IsInManagedDependencies() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(
+                            name: "GuardedTarget",
+                            dependencies: [
+                                .product(
+                                    name: "SharedProduct",
+                                    package: "SharedPackage",
+                                    condition: .init(traits: ["DisabledTrait"])
+                                )
+                            ]
+                        ),
+                        MockTarget(
+                            name: "UnguardedTarget",
+                            dependencies: [
+                                .product(name: "SharedProduct", package: "SharedPackage")  // NO trait guard
+                            ]
+                        )
+                    ],
+                    dependencies: [
+                        .sourceControl(path: "./SharedPackage", requirement: .upToNextMajor(from: "1.0.0"))
+                    ],
+                    traits: ["DisabledTrait"]
+                )
+            ],
+            packages: [
+                MockPackage(
+                    name: "SharedPackage",
+                    targets: [MockTarget(name: "SharedTarget")],
+                    products: [MockProduct(name: "SharedProduct", modules: ["SharedTarget"])],
+                    versions: ["1.0.0"]
+                )
+            ],
+            traitConfiguration: .disableAllTraits,
+            pruneDependencies: true
+        )
+
+        let deps: [MockDependency] = [
+            .sourceControl(path: "./SharedPackage", requirement: .exact("1.0.0"), products: .specific(["SharedProduct"]))
+        ]
+
+        // Verify dependency IS included (due to non-guarded use)
+        try await workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
+            PackageGraphTesterXCTest(graph) { result in
+                result.check(roots: "Root")
+                result.check(packages: "Root", "SharedPackage")  // Should be present
+                result.checkTarget("UnguardedTarget") { result in
+                    result.check(dependencies: "SharedProduct")
+                }
+                result.checkTarget("GuardedTarget") { result in
+                    result.check(dependencies: [])  // No deps due to disabled trait
+                }
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+
+        // Verify SharedPackage IS in managed dependencies
+        await workspace.checkManagedDependencies { result in
+            result.check(dependency: "sharedpackage", at: .checkout(.version("1.0.0")))
+        }
+    }
 }
 
