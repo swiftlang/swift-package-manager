@@ -135,8 +135,6 @@ struct BuildPrebuilts: AsyncParsableCommand {
         let libraryName = "MacroSupport"
         let repoDir = srcDir.appending(id)
         let scratchDir = repoDir.appending(".build")
-        let buildDir = scratchDir.appending("release")
-        let srcModulesDir = buildDir.appending("Modules")
         let prebuiltDir = stageDir.appending(id)
 
         try await shell("git clone https://github.com/swiftlang/swift-syntax.git", cwd: srcDir)
@@ -172,6 +170,7 @@ struct BuildPrebuilts: AsyncParsableCommand {
 
             // Build
             let cModules = libraryTargets.compactMap({ $0 as? ClangModule })
+            let lib = "lib\(libraryName).a"
 
             for platform in Workspace.PrebuiltsManifest.Platform.allCases {
                 guard canBuild(platform) else {
@@ -187,16 +186,36 @@ struct BuildPrebuilts: AsyncParsableCommand {
                 }
 
                 // Build
-                let cmd = "swift build -c release -debug-info-format none --arch \(platform.arch) --product \(libraryName)"
-                try await shell(cmd, cwd: repoDir)
+                if platform.os == .macos {
+                    let cmd = "swift build -c release -debug-info-format none --build-system swiftbuild --product \(libraryName)"
+                    try await shell(cmd, cwd: repoDir)
 
-                // Copy the library to staging
-                let lib = "lib\(libraryName).a"
-                try fileSystem.copy(from: buildDir.appending(lib), to: libDir.appending(lib))
+                    let buildDir = scratchDir.appending(components: "out", "Products", "Release")
 
-                // Copy the swiftmodules
-                for file in try fileSystem.getDirectoryContents(srcModulesDir) {
-                    try fileSystem.copy(from: srcModulesDir.appending(file), to: modulesDir.appending(file))
+                    // Create the library and copy it over
+                    let objectFiles = try fileSystem.getDirectoryContents(buildDir).filter { $0.hasSuffix(".o") }
+                    let ar = "libtool -static " + objectFiles.joined(separator: " ") + " -o \(lib)"
+                    try await shell(ar, cwd: buildDir)
+                    try fileSystem.copy(from: buildDir.appending(lib), to: libDir.appending(lib))
+
+                    // Copy the swiftmodules
+                    for file in try fileSystem.getDirectoryContents(buildDir) where file.hasSuffix(".swiftmodule") {
+                        try fileSystem.copy(from: buildDir.appending(file), to: modulesDir.appending(file))
+                    }
+                } else {
+                    let cmd = "swift build -c release -debug-info-format none --arch \(platform.arch) --product \(libraryName)"
+                    try await shell(cmd, cwd: repoDir)
+
+                    let buildDir = scratchDir.appending("release")
+                    let srcModulesDir = buildDir.appending("Modules")
+
+                    // Copy the library to staging
+                    try fileSystem.copy(from: buildDir.appending(lib), to: libDir.appending(lib))
+
+                    // Copy the swiftmodules
+                    for file in try fileSystem.getDirectoryContents(srcModulesDir) {
+                        try fileSystem.copy(from: srcModulesDir.appending(file), to: modulesDir.appending(file))
+                    }
                 }
 
                 // Zip it up

@@ -956,7 +956,7 @@ private func handlePrebuilts(
     // so for prebuilts, we need to make sure all the macros and plugin dependencies are host only
     guard packageBuilders.allSatisfy({
         $0.modules.allSatisfy { moduleBuilder in
-            guard moduleBuilder.module.type == .macro || moduleBuilder.module.type == .plugin else {
+            guard moduleBuilder.isHostOnly else {
                 return true
             }
 

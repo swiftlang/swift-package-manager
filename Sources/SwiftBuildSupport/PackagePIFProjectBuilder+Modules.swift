@@ -362,6 +362,9 @@ extension PackagePIFProjectBuilder {
         // Configure the target-wide build settings. The details depend on the kind of product we're building.
         var settings: BuildSettings = self.package.underlying.packageBaseBuildSettings
 
+        if sourceModule.platformConstraint == .host {
+            settings[.SUPPORTED_PLATFORMS] = ["$(HOST_PLATFORM)"]
+        }
         if shouldGenerateBundleAccessor {
             settings[.GENERATE_RESOURCE_ACCESSORS] = "YES"
         }
