@@ -390,6 +390,12 @@ public final class PIFBuilder {
                         observabilityScope: observabilityScope
                     )
 
+                    self.diagnoseUnhandledFiles(
+                        package: package,
+                        module: module,
+                        buildToolPluginInvocationResults: buildToolPluginResults
+                    )
+
                     let result = PackagePIFBuilder.BuildToolPluginInvocationResult(
                         prebuildCommandOutputPaths: runResults.flatMap( { $0.derivedFiles }),
                         buildCommands: buildCommands
@@ -530,6 +536,42 @@ public final class PIFBuilder {
             observabilityScope: observabilityScope
         )
         return try await builder.generatePIF(preservePIFModelStructure: preservePIFModelStructure, buildParameters: buildParameters)
+    }
+
+    private func diagnoseUnhandledFiles(
+        package: ResolvedPackage,
+        module: ResolvedModule,
+        buildToolPluginInvocationResults: [BuildToolPluginInvocationResult]
+    ) {
+        guard package.manifest.toolsVersion >= .v5_3 else {
+            return
+        }
+
+        var unhandledFiles = Set(module.underlying.others)
+        if unhandledFiles.isEmpty {
+            return
+        }
+
+        let handledFiles = buildToolPluginInvocationResults.flatMap { $0.buildCommands.flatMap(\.inputFiles) }
+        unhandledFiles.subtract(handledFiles)
+
+        if unhandledFiles.isEmpty {
+            return
+        }
+
+        let diagnosticsEmitter = self.observabilityScope.makeDiagnosticsEmitter {
+            var metadata = ObservabilityMetadata()
+            metadata.packageIdentity = package.identity
+            metadata.packageKind = package.manifest.packageKind
+            metadata.moduleName = module.name
+            return metadata
+        }
+        var warning =
+            "found \(unhandledFiles.count) file(s) which are unhandled; explicitly declare them as resources or exclude from the target\n"
+        for file in unhandledFiles {
+            warning += "    " + file.pathString + "\n"
+        }
+        diagnosticsEmitter.emit(warning: warning)
     }
 }
 

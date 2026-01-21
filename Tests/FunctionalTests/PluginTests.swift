@@ -73,7 +73,6 @@ struct PluginTests {
 
     @Test(
         .IssueWindowsRelativePathAssert,
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8786"),
         .requiresSwiftConcurrencySupport,
         .tags(
             .Feature.Command.Test,
@@ -93,8 +92,7 @@ struct PluginTests {
                 #expect(stderr.contains("file(s) which are unhandled; explicitly declare them as resources or exclude from the target"), "expected warning not emitted")
             }
         } when: {
-            (ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSelfHostedPipeline && buildSystem == .native)
-            || (buildSystem == .swiftbuild)
+            ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSelfHostedPipeline && buildSystem == .native
         }
     }
 
