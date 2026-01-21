@@ -47,7 +47,7 @@ final class RedrawingNinjaProgressAnimation: ProgressAnimationProtocol {
 
         terminal.clearLine()
         var progressText = ""
-        if step < 0 && normalizeStep {
+        if step < 0 && normalizeStep || step >= 0 {
             let normalizedStep = max(0, step)
             progressText = "[\(normalizedStep)/\(total)] \(text)"
         } else {

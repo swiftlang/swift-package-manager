@@ -266,7 +266,7 @@ struct DependencyResolutionTests {
                     let output = try await executeSwiftPackage(
                         appPath,
                         configuration: configuration,
-                        extraArgs: ["show-dependencies"],
+                        extraArgs: ["show-dependencies", "-v"],
                         buildSystem: buildSystem,
                     )
                     // logs are in stderr
@@ -311,7 +311,7 @@ struct DependencyResolutionTests {
                     let output = try await executeSwiftPackage(
                         appPath,
                         configuration: configuration,
-                        extraArgs: ["show-dependencies"],
+                        extraArgs: ["show-dependencies", "-v"],
                         buildSystem: buildSystem,
                     )
                     // logs are in stderr
