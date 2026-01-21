@@ -242,6 +242,9 @@ public class Module {
     /// Whether or not this target uses any custom unsafe flags.
     public let usesUnsafeFlags: Bool
 
+    /// Whether or not this is a module that represents a template
+    public let template: Bool
+
     /// Whether this module comes from a declaration in the manifest file
     /// or was synthesized (i.e. some test modules are synthesized).
     public let implicit: Bool
@@ -261,6 +264,7 @@ public class Module {
         buildSettingsDescription: [TargetBuildSettingDescription.Setting],
         pluginUsages: [PluginUsage],
         usesUnsafeFlags: Bool,
+        template: Bool,
         implicit: Bool
     ) {
         self.name = name
@@ -278,6 +282,7 @@ public class Module {
         self.buildSettingsDescription = buildSettingsDescription
         self.pluginUsages = pluginUsages
         self.usesUnsafeFlags = usesUnsafeFlags
+        self.template = template
         self.implicit = implicit
     }
 }

@@ -99,10 +99,21 @@ extension Basics.Diagnostic {
         .error("plugin product '\(product)' should have at least one plugin target")
     }
 
+    static func templateProductWithNoTargets(product: String) -> Self {
+        .error("template product '\(product)' should have at least one plugin target")
+    }
+
     static func pluginProductWithNonPluginTargets(product: String, otherTargets: [String]) -> Self {
         .error("plugin product '\(product)' should have only plugin targets (it has \(otherTargets.map{ "'\($0)'" }.joined(separator: ", ")))")
     }
 
+    static func templateProductWithNonTemplateTargets(product: String, otherTargets: [String]) -> Self {
+        .error("template product `\(product)` should have only template targets (it has \(otherTargets.map{ "'\($0)'" }.joined(separator: ", ")))")
+    }
+
+    static func templateProductWithMultipleTemplates(product: String) -> Self {
+        .error("template product `\(product)` should have only one template target")
+    }
     static var noLibraryTargetsForREPL: Self {
         .error("unable to synthesize a REPL product as there are no library targets in the package")
     }

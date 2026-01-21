@@ -209,7 +209,7 @@ public final class SwiftCommandState {
     public let options: GlobalOptions
 
     /// Path to the root package directory, nil if manifest is not found.
-    private let packageRoot: AbsolutePath?
+    private var packageRoot: AbsolutePath?
 
     /// Helper function to get package root or throw error if it is not found.
     public func getPackageRoot() throws -> AbsolutePath {
@@ -234,7 +234,7 @@ public final class SwiftCommandState {
     }
 
     /// Scratch space (.build) directory.
-    public let scratchDirectory: AbsolutePath
+    public var scratchDirectory: AbsolutePath
 
     /// Path to the shared security directory
     public let sharedSecurityDirectory: AbsolutePath
@@ -358,8 +358,10 @@ public final class SwiftCommandState {
 
         let cancellator = Cancellator(observabilityScope: self.observabilityScope)
 
-        // Capture the original working directory ASAP.
-        guard let cwd = self.fileSystem.currentWorkingDirectory else {
+        // In test contexts with @TaskLocal, use the task-local directory, otherwise capture the original working directory ASAP
+        let cwd = TestContext.currentWorkingDirectory ?? self.fileSystem.currentWorkingDirectory
+
+        guard let cwd else {
             self.observabilityScope.emit(error: "couldn't determine the current working directory")
             throw ExitCode.failure
         }
@@ -1393,3 +1395,87 @@ extension Basics.Diagnostic {
     }
 }
 
+extension SwiftCommandState {
+
+    /// Test helper utility for managing task-local currentWorkingDirectory in parallel tests.
+    /// This allows tests to use @TaskLocal to virtualize the current working directory without polluting the process-level working directory that would afffect other parallel tests.
+    @_spi(SwiftPMCoreCommandsTestSupport)
+    public enum TestContext {
+        @TaskLocal
+        public static var currentWorkingDirectory: AbsolutePath?
+    }
+    /// Temporarily switch to a different package directory and execute the provided closure you provide.
+    ///
+    /// This method temporarily changes the current working directory and workspace context
+    /// to operate on a different package. It handles all the necessary state management
+    /// including workspace initialization, file system changes, and cleanup.
+    ///
+    /// - Parameters:
+    ///   - packagePath: The absolute path to switch to.
+    ///   - createPackagePath: A Boolean value that indicates whether to create the directory if it doesn't exist.
+    ///   - perform: The closure to execute in the temporary workspace context.
+    /// - Returns: The result of the performed closure.
+    /// - Throws: Any error thrown by the closure or during workspace setup.
+    public func withTemporaryWorkspace<R>(
+        switchingTo packagePath: AbsolutePath,
+        createPackagePath: Bool = true,
+        perform: @escaping (Workspace, PackageGraphRootInput) async throws -> R
+    ) async throws -> R {
+        let originalWorkspace = self._workspace
+        let originalDelegate = self._workspaceDelegate
+        let originalWorkingDirectory = self.fileSystem.currentWorkingDirectory
+        let originalLock = self.workspaceLock
+        let originalLockState = self.workspaceLockState
+
+        let isTestContext = TestContext.currentWorkingDirectory != nil
+
+        if !isTestContext {
+            try Self.chdirIfNeeded(packageDirectory: packagePath, createPackagePath: createPackagePath)
+        }
+
+        // Reset for new context
+        self._workspace = nil
+        self._workspaceDelegate = nil
+        self.workspaceLock = nil
+        self.workspaceLockState = .needsLocking
+
+        defer {
+            if self.workspaceLockState == .locked {
+                self.releaseLockIfNeeded()
+            }
+
+            // Restore lock state
+            self.workspaceLock = originalLock
+            self.workspaceLockState = originalLockState
+
+            if !isTestContext, let cwd = originalWorkingDirectory {
+                try? Self.chdirIfNeeded(packageDirectory: cwd, createPackagePath: false)
+                do {
+                    self.scratchDirectory = try BuildSystemUtilities.getEnvBuildPath(workingDir: cwd)
+                        ?? (packageRoot ?? cwd).appending(component: ".build")
+                } catch {
+                    self.scratchDirectory = (packageRoot ?? cwd).appending(component: ".build")
+                }
+            }
+
+            self._workspace = originalWorkspace
+            self._workspaceDelegate = originalDelegate
+        }
+
+        // Set up new context
+        self.packageRoot = findPackageRoot(fileSystem: self.fileSystem)
+
+        // If testing, use task-local directory, otherwise use actual filesystem cwd
+        let effectiveCwd = TestContext.currentWorkingDirectory ?? self.fileSystem.currentWorkingDirectory
+
+        if let cwd = effectiveCwd {
+            self.scratchDirectory = try BuildSystemUtilities
+                .getEnvBuildPath(workingDir: cwd) ?? (self.packageRoot ?? cwd).appending(".build")
+        }
+
+        let tempWorkspace = try self.getActiveWorkspace()
+        let tempRoot = try self.getWorkspaceRoot()
+
+        return try await perform(tempWorkspace, tempRoot)
+    }
+}

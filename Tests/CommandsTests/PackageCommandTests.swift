@@ -1460,6 +1460,7 @@ struct PackageCommandTests {
             )
             #expect(textOutput.contains("dealer\n"))
             #expect(textOutput.contains("deck (deck-of-playing-cards)\n"))
+            #expect(!textOutput.contains("TemplateExample"))
 
             let (jsonOutput, _) = try await execute(
                 ["show-executables", "--format=json"],
@@ -1511,6 +1512,52 @@ struct PackageCommandTests {
             } else {
                 Issue.record("missing package for deck")
                 return
+            }
+        }
+    }
+
+
+
+    @Test(
+        .tags(
+            .Feature.Command.Package.ShowTemplates
+        ),
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms)
+    )
+    func testShowTemplates(
+        data: BuildData
+    ) async throws {
+        try await fixture(name: "Miscellaneous/ShowTemplates") { fixturePath in
+            let packageRoot = fixturePath.appending("app")
+
+            let (textOutput, _) = try await execute(
+                ["show-templates", "--format=flatlist"],
+                packagePath: packageRoot,
+                configuration: data.config,
+                buildSystem: data.buildSystem,
+            )
+            #expect(textOutput.contains("GenerateFromTemplate"))
+
+            let (jsonOutput, _) = try await execute(
+                ["show-templates", "--format=json"],
+                packagePath: packageRoot,
+                configuration: data.config,
+                buildSystem: data.buildSystem,
+            )
+
+            let json = try JSON(bytes: ByteString(encodingAsUTF8: jsonOutput))
+            guard case let .array(contents) = json else {
+                Issue.record("unexpected result"); return
+            }
+
+            #expect(contents.count == 1)
+
+            guard case let first = contents.first else { Issue.record("unexpected result"); return }
+            guard case let .dictionary(generateFromTemplate) = first else { Issue.record("unexpected result"); return }
+            guard case let .string(generateFromTemplateName)? = generateFromTemplate["name"] else { Issue.record("unexpected result"); return }
+            #expect(generateFromTemplateName == "GenerateFromTemplate")
+            if case let .string(package)? = generateFromTemplate["package"] {
+                Issue.record("unexpected result"); return
             }
         }
     }
@@ -2037,7 +2084,7 @@ struct PackageCommandTests {
                 let path = tmpPath.appending("Foo")
                 try fs.createDirectory(path)
                 _ = try await execute(
-                    ["init"],
+                    ["init", "--type", "library"],
                     packagePath: path,
                     configuration: data.config,
                     buildSystem: data.buildSystem,
@@ -2088,6 +2135,80 @@ struct PackageCommandTests {
                         "CustomName.swift"
                     ]
                 )
+            }
+        }
+
+        @Test(
+            .tags(
+                .Feature.Command.Package.Init,
+                .Feature.PackageType.LocalTemplate,
+            ),
+            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms)
+        )
+        func initLocalTemplate(
+            data: BuildData
+        ) async throws {
+            try await fixture(name: "Miscellaneous/InitTemplates") { fixturePath in
+                let packageRoot = fixturePath.appending("ExecutableTemplate")
+                let destinationPath = fixturePath.appending("Foo")
+                try localFileSystem.createDirectory(destinationPath)
+
+                _ = try await execute(
+                    ["--package-path", destinationPath.pathString,
+                        "init", "--type", "ExecutableTemplate",
+                        "--path", packageRoot.pathString,
+                        "--", "--name", "foo", "--include-readme"],
+                    packagePath: packageRoot,
+                    configuration: data.config,
+                    buildSystem: data.buildSystem,
+                )
+
+                let manifest = destinationPath.appending("Package.swift")
+                let readMe = destinationPath.appending("README.md")
+                expectFileExists(at: manifest)
+                expectFileExists(at: readMe)
+                #expect(localFileSystem.exists(destinationPath.appending("Sources").appending("foo")))
+            }
+        }
+
+        @Test(
+            .tags(
+                .Feature.Command.Package.Init,
+                .Feature.PackageType.LocalTemplate,
+            ),
+            .skipHostOS(.windows, "Git operations not fully supported in test environment"),
+            .requireUnrestrictedNetworkAccess("Test needs to create and access local git repositories"),
+            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        )
+        func initGitTemplate(
+            data: BuildData
+        ) async throws {
+            try await testWithTemporaryDirectory { tempDir in
+                let templateRepoPath = tempDir.appending("template-repo")
+                let destinationPath = tempDir.appending("Foo")
+                try localFileSystem.createDirectory(destinationPath)
+
+                try fixture(name: "Miscellaneous/InitTemplates/ExecutableTemplate") { fixturePath in
+                    try localFileSystem.copy(from: fixturePath, to: templateRepoPath)
+                }
+
+                initGitRepo(templateRepoPath, tag: "1.0.0")
+
+                _ = try await execute(
+                    ["--package-path", destinationPath.pathString,
+                        "init", "--type", "ExecutableTemplate",
+                     "--url", templateRepoPath.pathString,
+                     "--exact", "1.0.0", "--", "--name", "foo", "--include-readme"],
+                    packagePath: templateRepoPath,
+                    configuration: data.config,
+                    buildSystem: data.buildSystem,
+                )
+
+                let manifest = destinationPath.appending("Package.swift")
+                let readMe = destinationPath.appending("README.md")
+                expectFileExists(at: manifest)
+                expectFileExists(at: readMe)
+                #expect(localFileSystem.exists(destinationPath.appending("Sources").appending("foo")))
             }
         }
     }

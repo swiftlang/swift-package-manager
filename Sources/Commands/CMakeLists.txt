@@ -58,7 +58,19 @@ add_library(Commands
   Utilities/RefactoringSupport.swift
   Utilities/SymbolGraphExtract.swift
   Utilities/TestingSupport.swift
-  Utilities/XCTEvents.swift)
+  Utilities/XCTEvents.swift
+  Utilities/_InternalInitSupport/PackageDependencyBuilder.swift
+  Utilities/_InternalInitSupport/PackageInitializationDirectoryManager.swift
+  Utilities/_InternalInitSupport/PackageInitializer.swift
+  Utilities/_InternalInitSupport/RequirementResolver.swift
+  Utilities/_InternalInitSupport/TemplateBuild.swift
+  Utilities/_InternalInitSupport/TemplatePathResolver.swift
+  Utilities/_InternalInitSupport/TemplatePluginCoordinator.swift
+  Utilities/_InternalInitSupport/TemplatePluginManager.swift
+  Utilities/_InternalInitSupport/TemplatePluginRunner.swift
+  Utilities/_InternalTemplateTestSupport/TemplateTestDirectoryManager.swift
+  Utilities/_InternalTemplateTestSupport/TemplateTester.swift
+  Utilities/_InternalTemplateTestSupport/TemplateTesterManager.swift)
 target_link_libraries(Commands PUBLIC
   SwiftCollections::OrderedCollections
   SwiftSyntax::SwiftRefactor

@@ -289,6 +289,7 @@ private extension PackageModel.SwiftModule {
             packageAccess: packageAccess,
             buildSettings: buildSettings,
             usesUnsafeFlags: false,
+            template: false, // test entry points are not templates
             implicit: true
         )
     }

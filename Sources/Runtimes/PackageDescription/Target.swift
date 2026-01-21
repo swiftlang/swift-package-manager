@@ -229,6 +229,26 @@ public final class Target {
         case plugin(name: String, package: String?)
     }
 
+    /// Options for how a template generates a Swift project.
+    public var templateInitializationOptions: TemplateInitializationOptions?
+
+    /// The base package structure SwiftPM will set up before invoking a template's executable.
+    public enum TemplateType: String {
+        case executable
+        case `macro`
+        case library
+        case tool
+        case buildToolPlugin
+        case commandPlugin
+        case empty
+    }
+
+    /// Options for how a template generates a Swift project.
+    @available(_PackageDescription, introduced: 6.3)
+    public enum TemplateInitializationOptions {
+        case packageInit(templateType: TemplateType, templatePermissions: [TemplatePermissions]? = nil, description: String)
+    }
+
     /// Construct a target.
     @_spi(PackageDescriptionInternal)
     public init(
@@ -250,7 +270,8 @@ public final class Target {
         swiftSettings: [SwiftSetting]? = nil,
         linkerSettings: [LinkerSetting]? = nil,
         checksum: String? = nil,
-        plugins: [PluginUsage]? = nil
+        plugins: [PluginUsage]? = nil,
+        templateInitializationOptions: TemplateInitializationOptions? = nil
     ) {
         self.name = name
         self.dependencies = dependencies
@@ -271,9 +292,19 @@ public final class Target {
         self.linkerSettings = linkerSettings
         self.checksum = checksum
         self.plugins = plugins
+        self.templateInitializationOptions = templateInitializationOptions
 
         switch type {
-        case .regular, .executable, .test:
+        case .regular, .test:
+            precondition(
+                url == nil &&
+                pkgConfig == nil &&
+                providers == nil &&
+                pluginCapability == nil &&
+                checksum == nil &&
+                templateInitializationOptions == nil
+            )
+        case .executable:
             precondition(
                 url == nil &&
                 pkgConfig == nil &&
@@ -295,7 +326,8 @@ public final class Target {
                 swiftSettings == nil &&
                 linkerSettings == nil &&
                 checksum == nil &&
-                plugins == nil
+                plugins == nil &&
+                templateInitializationOptions == nil
             )
         case .binary:
             precondition(
@@ -311,7 +343,8 @@ public final class Target {
                 cxxSettings == nil &&
                 swiftSettings == nil &&
                 linkerSettings == nil &&
-                plugins == nil
+                plugins == nil &&
+                templateInitializationOptions == nil
             )
         case .plugin:
             precondition(
@@ -325,7 +358,8 @@ public final class Target {
                 cxxSettings == nil &&
                 swiftSettings == nil &&
                 linkerSettings == nil &&
-                plugins == nil
+                plugins == nil &&
+                templateInitializationOptions == nil
             )
         case .macro:
             precondition(
@@ -336,7 +370,8 @@ public final class Target {
                 providers == nil &&
                 pluginCapability == nil &&
                 cSettings == nil &&
-                cxxSettings == nil
+                cxxSettings == nil &&
+                templateInitializationOptions == nil
             )
         }
     }
@@ -581,7 +616,8 @@ public final class Target {
         cxxSettings: [CXXSetting]? = nil,
         swiftSettings: [SwiftSetting]? = nil,
         linkerSettings: [LinkerSetting]? = nil,
-        plugins: [PluginUsage]? = nil
+        plugins: [PluginUsage]? = nil,
+        templateInitializationOptions: TemplateInitializationOptions? = nil
     ) -> Target {
         return Target(
             name: name,
@@ -597,7 +633,8 @@ public final class Target {
             cxxSettings: cxxSettings,
             swiftSettings: swiftSettings,
             linkerSettings: linkerSettings,
-            plugins: plugins
+            plugins: plugins,
+            templateInitializationOptions: templateInitializationOptions
         )
     }
 
@@ -1236,6 +1273,90 @@ public final class Target {
     }
 }
 
+public extension [Target] {
+    /// The declaration of a Swift package template target.
+    @available(_PackageDescription, introduced: 6.3.0)
+    static func template(
+        name: String,
+        dependencies: [Target.Dependency] = [],
+        path: String? = nil,
+        exclude: [String] = [],
+        sources: [String]? = nil,
+        resources: [Resource]? = nil,
+        publicHeadersPath: String? = nil,
+        packageAccess: Bool = true,
+        cSettings: [CSetting]? = nil,
+        cxxSettings: [CXXSetting]? = nil,
+        swiftSettings: [SwiftSetting]? = nil,
+        linkerSettings: [LinkerSetting]? = nil,
+        plugins: [Target.PluginUsage]? = nil,
+        initialPackageType: Target.TemplateType = .empty,
+        templatePermissions: [TemplatePermissions]? = nil,
+        description: String
+    ) -> [Target] {
+        let templatePluginName = "\(name)Plugin"
+        let templateExecutableName = "\(name)"
+        let permissions: [PluginPermission] = {
+            return templatePermissions?.compactMap { permission in
+                switch permission {
+                case .allowNetworkConnections(let scope, let reason):
+                    // Map from TemplateNetworkPermissionScope to PluginNetworkPermissionScope
+                    let pluginScope: PluginNetworkPermissionScope
+                    switch scope {
+                    case .none:
+                        pluginScope = .none
+                    case .local(let ports):
+                        pluginScope = .local(ports: ports)
+                    case .all(let ports):
+                        pluginScope = .all(ports: ports)
+                    case .docker:
+                        pluginScope = .docker
+                    case .unixDomainSocket:
+                        pluginScope = .unixDomainSocket
+                    }
+                    return .allowNetworkConnections(scope: pluginScope, reason: reason)
+                }
+            } ?? []
+        }()
+
+        let templateInitializationOptions = Target.TemplateInitializationOptions.packageInit(
+            templateType: initialPackageType,
+            templatePermissions: templatePermissions,
+            description: description
+        )
+
+        let templateTarget = Target(
+            name: templateExecutableName,
+            dependencies: dependencies,
+            path: path,
+            exclude: exclude,
+            sources: sources,
+            resources: resources,
+            publicHeadersPath: publicHeadersPath,
+            type: .executable,
+            packageAccess: packageAccess,
+            cSettings: cSettings,
+            cxxSettings: cxxSettings,
+            swiftSettings: swiftSettings,
+            linkerSettings: linkerSettings,
+            plugins: plugins,
+            templateInitializationOptions: templateInitializationOptions
+        )
+
+        // Plugin target that depends on the template
+        let pluginTarget = Target.plugin(
+            name: templatePluginName,
+            capability: .command(
+                intent: .custom(verb: templateExecutableName, description: description),
+                permissions: permissions
+            ),
+            dependencies: [Target.Dependency.target(name: templateExecutableName, condition: nil)]
+        )
+
+        return [templateTarget, pluginTarget]
+    }
+}
+
 extension Target.Dependency {
     @available(_PackageDescription, obsoleted: 5.7, message: "use .product(name:package:condition) instead.")
     public static func productItem(name: String, package: String? = nil, condition: TargetDependencyCondition? = nil) -> Target.Dependency {
@@ -1561,4 +1682,47 @@ extension Target.PluginUsage: ExpressibleByStringLiteral {
         self = .plugin(name: value, package: nil)
     }
 }
+
+/// The types of permission that a Swift Package Manager template plug-in may require.
+///
+/// Supported types are ``allowNetworkConnections(scope:reason:)`` and ``writeToPackageDirectory(reason:)``.
+@available(_PackageDescription, introduced: 6.3.0)
+public enum TemplatePermissions {
+    /// The permission to make network connections.
+    ///
+    /// The plug-in requires permission to make network connections. Swift Package Manager shows the `reason` string
+    /// to the user at the time of request for their approval, explaining why the plug-in is requesting access.
+    ///   - Parameter scope: The scope of the permission.
+    ///   - Parameter reason: A reason why the permission is needed. This is shown to the user when permission is sought.
+    @available(_PackageDescription, introduced: 6.3.0)
+    case allowNetworkConnections(scope: TemplateNetworkPermissionScope, reason: String)
+
+}
+
+/// Network permissions that a template may require.
+@available(_PackageDescription, introduced: 6.3.0)
+public enum TemplateNetworkPermissionScope {
+    /// Do not allow network access.
+    case none
+    /// Allow local network connections; can be limited to a list of allowed ports.
+    case local(ports: [Int] = [])
+    /// Allow local and outgoing network connections; can be limited to a list of allowed ports.
+    case all(ports: [Int] = [])
+    /// Allow connections to Docker through UNIX domain sockets.
+    case docker
+    /// Allow connections to any UNIX domain socket.
+    case unixDomainSocket
+
+    /// Allow local and outgoing network connections, limited to a range of allowed ports.
+    public static func all(ports: Range<Int>) -> TemplateNetworkPermissionScope {
+        return .all(ports: Array(ports))
+    }
+
+    /// Allow local network connections, limited to a range of allowed ports.
+    public static func local(ports: Range<Int>) -> TemplateNetworkPermissionScope {
+        return .local(ports: Array(ports))
+    }
+}
+
+
 

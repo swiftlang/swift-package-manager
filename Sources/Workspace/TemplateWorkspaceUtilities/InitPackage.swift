@@ -925,15 +925,15 @@ public final class InitPackage {
     }
 }
 
-// Private helpers
+// Public helpers
 
-private enum InitError: Swift.Error {
+public enum InitError: Swift.Error {
     case manifestAlreadyExists
     case unsupportedTestingLibraryForPackageType(_ testingLibrary: TestingLibrary, _ packageType: InitPackage.PackageType)
 }
 
 extension InitError: CustomStringConvertible {
-    var description: String {
+    public var description: String {
         switch self {
         case .manifestAlreadyExists:
             return "a manifest file already exists in this directory"

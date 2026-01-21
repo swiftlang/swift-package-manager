@@ -268,7 +268,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         discussion: "SEE ALSO: swift build, swift run, swift package",
         version: SwiftVersion.current.completeDisplayString,
         subcommands: [
-            List.self, Last.self
+            List.self, Last.self, Template.self
         ],
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
 

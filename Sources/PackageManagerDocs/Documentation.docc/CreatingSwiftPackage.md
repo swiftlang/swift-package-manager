@@ -81,3 +81,79 @@ This creates a package with:
 The sample macro, `StringifyMacro`, is documented in the Swift Evolution proposal for [Expression Macros](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0382-expression-macros.md)
 and the WWDC [Write Swift macros](https://developer.apple.com/videos/play/wwdc2023/10166) video.
 For further documentation, see macros in [The Swift Programming Language](https://docs.swift.org/swift-book/documentation/the-swift-programming-language/macros/) book.
+
+### Creating a Package based on a custom template
+
+Swift Package Manager can create packages based on custom templates that authors distribute as Swift packages.
+Obtain templates from local directories, Git repositories, or package registries.
+Templates may provide interactive configuration using command-line arguments.
+To create a package from a custom template, use the `swift package init` command with the `--type` option along with a template source:
+
+```bash
+# From a package registry
+$ swift package init --type MyTemplate --package-id author.template-example
+
+# From a Git repository
+$ swift package init --type MyTemplate --url https://github.com/author/template-example
+
+# From a local directory
+$ swift package init --type MyTemplate --path /path/to/template
+```
+
+If there are options, the template prompts you for the package configuration during initialization:
+
+```bash
+$ swift package init --type ServerTemplate --package-id example.server-templates
+Building template package...
+Build of product 'ServerTemplate' complete! (3.2s)
+
+Add a README.md file with an introduction and tour of the code: [y/N] y
+
+Choose from the following:
+
+• Name: crud
+  About: Generate CRUD server with database support
+• Name: bare  
+  About: Generate a minimal server
+
+Type the name of the option:
+crud
+
+Pick a database system for data storage. [sqlite3, postgresql] (default: sqlite3):
+postgresql
+
+Building for debugging...
+Build of product 'ServerTemplate' complete! (1.1s)
+```
+
+Templates support the same versioning options as other Swift package dependencies:
+
+```bash
+# Specific version
+$ swift package init --type MyTemplate --package-id author.template --exact 1.2.0
+
+# Version range
+$ swift package init --type MyTemplate --package-id author.template --from 1.0.0
+
+# Specific branch
+$ swift package init --type MyTemplate --url https://github.com/author/template --branch main
+
+# Specific revision
+$ swift package init --type MyTemplate --url https://github.com/author/template --revision abc123
+```
+
+You may provide template arguments proactively in order to skip the interactive prompts when you use a template:
+
+```bash
+$ swift package init --type ServerTemplate --package-id example.server-templates crud --database postgresql --readme true
+```
+
+Use the `--build-package` flag to automatically build and validate the generated package:
+
+```bash
+$ swift package init --type MyTemplate --package-id author.template --build-package
+```
+
+This helps you ensure that your template generates valid, buildable Swift packages.
+
+To learn more about creating and providing templates for Swift packages, read <doc:Templates>.
