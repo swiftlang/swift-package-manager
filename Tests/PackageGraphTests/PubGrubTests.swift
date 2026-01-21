@@ -3117,6 +3117,7 @@ public class MockContainer: PackageContainer {
 
     public var package: PackageReference
     var manifestName: PackageReference?
+    var traits: Set<TraitDescription> = []
 
     var dependencies: [String: [String: [Dependency]]]
 
@@ -3199,8 +3200,7 @@ public class MockContainer: PackageContainer {
     }
 
     public func loadPackageTraits(at boundVersion: BoundVersion) async throws -> Set<TraitDescription> {
-        // TODO bp complete implementation
-        return []
+        return self.traits
     }
 
     func appendVersion(_ version: BoundVersion) {

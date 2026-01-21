@@ -40,9 +40,6 @@ public enum WorkspaceResolveReason: Equatable {
     /// Requirements were added for new packages.
     case newPackages(packages: [PackageReference])
 
-    // TODO bp search for instances of this to determine whether a package
-    // needs to be updated, and therefore possibly has a change in its
-    // traits.
     /// The requirement of a dependency has changed.
     case packageRequirementChange(
         package: PackageReference,
