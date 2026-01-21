@@ -42,9 +42,7 @@ import var TSCBasic.stdoutStream
 import class TSCBasic.SynchronizedQueue
 import class TSCBasic.Thread
 
-#if os(Windows)
-import WinSDK // for ERROR_NOT_FOUND
-#elseif canImport(Android)
+#if canImport(Android)
 import Android
 #endif
 
@@ -287,8 +285,10 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
 
         var results = [TestRunner.Result]()
 
+        let enabledLibraries = options.testLibraryOptions.enabledTestingLibraries(swiftCommandState: swiftCommandState)
+
         // Run XCTest.
-        if options.testLibraryOptions.isEnabled(.xctest, swiftCommandState: swiftCommandState) {
+        if enabledLibraries.contains(.xctest) {
             // Validate XCTest is available on Darwin-based systems. If it's not available and we're hitting this code
             // path, that means the developer must have explicitly passed --enable-xctest (or the toolchain is
             // corrupt, I suppose.)
@@ -357,24 +357,25 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             }
         }
 
-        // Run Swift Testing (parallel or not, it has a single entry point.)
-        if options.testLibraryOptions.isEnabled(.swiftTesting, swiftCommandState: swiftCommandState) {
-            lazy var testEntryPointPath = testProducts.lazy.compactMap(\.testEntryPointPath).first
-            if options.testLibraryOptions.isExplicitlyEnabled(.swiftTesting, swiftCommandState: swiftCommandState) || testEntryPointPath == nil {
+        // Run Swift Testing and third-party libraries (parallel or not, they
+        // have a single semi-shared entry point.)
+        lazy var testEntryPointPath = testProducts.lazy.compactMap(\.testEntryPointPath).first
+        for library in enabledLibraries where library != .xctest {
+            if options.testLibraryOptions.isExplicitlyEnabled(library, swiftCommandState: swiftCommandState) || testEntryPointPath == nil {
                 results.append(
                     try await runTestProducts(
                         testProducts,
                         additionalArguments: [],
                         productsBuildParameters: buildParameters,
                         swiftCommandState: swiftCommandState,
-                        library: .swiftTesting
+                        library: library
                     )
                 )
             } else if let testEntryPointPath {
                 // Cannot run Swift Testing because an entry point file was used and the developer
                 // didn't explicitly enable Swift Testing.
                 swiftCommandState.observabilityScope.emit(
-                    debug: "Skipping automatic Swift Testing invocation because a test entry point path is present: \(testEntryPointPath)"
+                    debug: "Skipping automatic \(library) invocation because a test entry point path is present: \(testEntryPointPath)"
                 )
             }
         }
@@ -490,7 +491,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
     ) async throws -> TestRunner.Result {
         // Pass through all arguments from the command line to Swift Testing.
         var additionalArguments = additionalArguments
-        if library == .swiftTesting {
+        if library != .xctest {
             // Reconstruct the arguments list. If an xUnit path was specified, remove it.
             var commandLineArguments = [String]()
             var originalCommandLineArguments = CommandLine.arguments.dropFirst().makeIterator()
@@ -504,11 +505,12 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             additionalArguments += commandLineArguments
 
             if var xunitPath = options.xUnitOutput {
-                if options.testLibraryOptions.isEnabled(.xctest, swiftCommandState: swiftCommandState) {
-                    // We are running Swift Testing, XCTest is also running in this session, and an xUnit path
-                    // was specified. Make sure we don't stomp on XCTest's XML output by having Swift Testing
-                    // write to a different path.
-                    var xunitFileName = "\(xunitPath.basenameWithoutExt)-swift-testing"
+                let enabledLibraryCount = options.testLibraryOptions.enabledTestingLibraries(swiftCommandState: swiftCommandState).count
+                if enabledLibraryCount > 1 {
+                    // We are running more than one test library in this session and an xUnit path
+                    // was specified. Make sure the libraries don't stomp on each other's XML output
+                    // by having each of them write to a different path.
+                    var xunitFileName = "\(xunitPath.basenameWithoutExt)-\(library.shortName)"
                     if let ext = xunitPath.extension {
                         xunitFileName = "\(xunitFileName).\(ext)"
                     }
@@ -529,7 +531,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         let runnerPaths: [AbsolutePath] = switch library {
         case .xctest:
             testProducts.map(\.bundlePath)
-        case .swiftTesting:
+        default:
             testProducts.map(\.binaryPath)
         }
 
@@ -812,7 +814,9 @@ extension SwiftTestCommand {
                 library: .swiftTesting
             )
 
-            if testLibraryOptions.isEnabled(.xctest, swiftCommandState: swiftCommandState) {
+            let enabledLibraries = testLibraryOptions.enabledTestingLibraries(swiftCommandState: swiftCommandState)
+
+            if enabledLibraries.contains(.xctest) {
                 let testSuites = try TestingSupport.getTestSuites(
                     in: testProducts,
                     swiftCommandState: swiftCommandState,
@@ -828,9 +832,9 @@ extension SwiftTestCommand {
                 }
             }
 
-            if testLibraryOptions.isEnabled(.swiftTesting, swiftCommandState: swiftCommandState) {
+            for library in enabledLibraries where library != .xctest {
                 lazy var testEntryPointPath = testProducts.lazy.compactMap(\.testEntryPointPath).first
-                if testLibraryOptions.isExplicitlyEnabled(.swiftTesting, swiftCommandState: swiftCommandState) || testEntryPointPath == nil {
+                if testLibraryOptions.isExplicitlyEnabled(library, swiftCommandState: swiftCommandState) || testEntryPointPath == nil {
                     let additionalArguments = ["--list-tests"] + CommandLine.arguments.dropFirst()
                     let runner = TestRunner(
                         bundlePaths: testProducts.map(\.binaryPath),
@@ -839,7 +843,7 @@ extension SwiftTestCommand {
                         toolchain: toolchain,
                         testEnv: testEnv,
                         observabilityScope: swiftCommandState.observabilityScope,
-                        library: .swiftTesting
+                        library: library
                     )
 
                     // Finally, run the tests.
@@ -1006,7 +1010,7 @@ final class TestRunner {
                     throw TestError.xcodeNotInstalled
                 }
                 args += [xctestPath.pathString]
-            case .swiftTesting:
+            default:
                 let helper = try self.toolchain.getSwiftTestingHelper()
                 args += [helper.pathString, "--test-bundle-path", testPath.pathString]
             }
@@ -1018,10 +1022,17 @@ final class TestRunner {
     #endif
         }
 
-        if library == .swiftTesting {
-            // HACK: tell the test bundle/executable that we want to run Swift Testing, not XCTest.
-            // XCTest doesn't understand this argument (yet), so don't pass it there.
-            args += ["--testing-library", "swift-testing"]
+        var addLibraryArgument = true
+#if os(macOS)
+        if library == .xctest {
+            // On macOS, the XCTest runner doesn't understand the --testing-library
+            // argument, so we must omit it.
+            addLibraryArgument = false
+        }
+#endif
+        if addLibraryArgument {
+            // Tell the test harness process which library to run.
+            args += ["--testing-library", library.shortName]
         }
 
         return args
@@ -1051,7 +1062,7 @@ final class TestRunner {
             switch result.exitStatus {
             case .terminated(code: 0):
                 return .success
-            case .terminated(code: EXIT_NO_TESTS_FOUND) where library == .swiftTesting:
+            case .terminated(code: EXIT_NO_TESTS_FOUND) where library != .xctest:
                 return .noMatchingTests
             #if !os(Windows)
             case .signalled(let signal) where ![SIGINT, SIGKILL, SIGTERM].contains(signal):
