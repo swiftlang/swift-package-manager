@@ -193,9 +193,6 @@ struct BuildPrebuilts: AsyncParsableCommand {
                     let buildDir = scratchDir.appending(components: "out", "Products", "Release")
 
                     // Create the library and copy it over
-                    let objectFiles = try fileSystem.getDirectoryContents(buildDir).filter { $0.hasSuffix(".o") }
-                    let ar = "libtool -static " + objectFiles.joined(separator: " ") + " -o \(lib)"
-                    try await shell(ar, cwd: buildDir)
                     try fileSystem.copy(from: buildDir.appending(lib), to: libDir.appending(lib))
 
                     // Copy the swiftmodules
