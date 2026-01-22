@@ -1032,23 +1032,7 @@ let package = Package(
             name: "package-info",
             dependencies: ["Workspace"],
             path: "Examples/package-info/Sources/package-info"
-        )
-    ],
-    swiftLanguageModes: [.v5]
-)
-
-#if canImport(Darwin)
-package.targets.append(contentsOf: [
-    .executableTarget(
-        name: "swiftpm-testing-helper"
-    )
-])
-#endif
-
-// rdar://101868275 "error: cannot find 'XCTAssertEqual' in scope" can affect almost any functional test, so we flat out
-// disable them all until we know what is going on
-if ProcessInfo.processInfo.environment["SWIFTCI_DISABLE_SDK_DEPENDENT_TESTS"] == nil {
-    package.targets.append(contentsOf: [
+        ),
         .testTarget(
             name: "FunctionalTests",
             dependencies: [
@@ -1098,9 +1082,17 @@ if ProcessInfo.processInfo.environment["SWIFTCI_DISABLE_SDK_DEPENDENT_TESTS"] ==
                 "_InternalTestSupport",
             ] + swiftToolsProtocolsDeps
         ),
-    ])
-}
+    ],
+    swiftLanguageModes: [.v5]
+)
 
+#if canImport(Darwin)
+package.targets.append(contentsOf: [
+    .executableTarget(
+        name: "swiftpm-testing-helper"
+    )
+])
+#endif
 
 func swiftSyntaxDependencies(_ names: [String]) -> [Target.Dependency] {
   /// Whether swift-syntax is being built as a single dynamic library instead of as a separate library per module.
