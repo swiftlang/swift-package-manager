@@ -49,7 +49,7 @@ extension BuildPlan {
                         if !prebuiltPaths.contains(path), !targetPaths.contains(path) {
                             swiftTarget.additionalFlags += ["-I", path]
                         }
-                        // Dedup thepath
+                        // Dedup the path
                         prebuiltPaths.insert(path)
                     }
                 }

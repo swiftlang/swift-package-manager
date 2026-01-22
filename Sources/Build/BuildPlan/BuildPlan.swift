@@ -944,7 +944,7 @@ extension BuildPlan {
             case .test:
                 self = .product(product, product.hasDirectMacroDependencies ? .host : destination)
             default:
-                self = .product(product, product.platformConstraint == .host ? .host : destination)
+                self = .product(product, destination)
             }
         }
 
@@ -962,8 +962,7 @@ extension BuildPlan {
                 // By default assume the destination of the context.
                 // This means that i.e. test products that reference macros
                 // would force all of their successors to be `host`.
-                // Also if the module has a platform constraint of `host`, use that.
-                self = .module(module, module.platformConstraint == .host ? .host : destination)
+                self = .module(module, destination)
             }
         }
     }
@@ -994,8 +993,6 @@ extension BuildPlan {
                 if case .test = module.underlying.type {
                     continue
                 }
-
-                // Skip host only tools (macros, plugins) and their modules
 
                 successors.append(.init(module: module, context: .target))
             }

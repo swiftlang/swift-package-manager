@@ -935,9 +935,7 @@ public final class SwiftModuleBuildDescription {
         // Header search paths.
         let headerSearchPaths = scope.evaluate(.HEADER_SEARCH_PATHS)
         flags += try headerSearchPaths.flatMap { path in
-            [
-                "-Xcc", "-I\(try AbsolutePath(validating: path, relativeTo: target.sources.root).pathString)"
-            ]
+            ["-Xcc", "-I\(try AbsolutePath(validating: path, relativeTo: target.sources.root).pathString)"]
         }
 
         // Other C flags.
