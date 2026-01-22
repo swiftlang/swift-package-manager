@@ -23,6 +23,7 @@ add_library(Commands
   PackageCommands/DumpCommands.swift
   PackageCommands/EditCommands.swift
   PackageCommands/Format.swift
+  PackageCommands/GenerateSBOM.swift
   PackageCommands/Init.swift
   PackageCommands/Install.swift
   PackageCommands/Learn.swift
