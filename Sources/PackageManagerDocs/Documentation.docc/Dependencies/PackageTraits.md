@@ -4,7 +4,7 @@ Define one or more package traits to offer default and configurable features for
 
 ## Overview
 
-Swift packages prior to Swift 6.1 offered a non-configurable API surface for each version.
+Swift packages before version 6.1 offer a non-configurable API surface for each version.
 Starting with Swift 6.1, packages may offer traits, which express a configurable API surface for a package.
 
 Use traits to enable additional API beyond the core API of the package.
@@ -13,13 +13,13 @@ For example, a trait may enable an experimental API, optional extended functiona
 Traits that you specify when building a package only activate within the package you're building.
 If your package wants to use a trait in a dependent package, it needs to encode the traits it needs in its dependencies.
 
-> Note: Traits should never "remove" or disable public API when a trait is enabled.
+> Note: Don't remove or disable public API when you enable a trait.
 
-Within the package where a trait is defined, the trait expresses conditional compilation.
+Within the package that defines a trait, the trait expresses conditional compilation.
 Swift Package Manager exposes enabled traits as conditional blocks (for example, `#if YourTrait`) that you can use to conditionally enable imports or different compilation paths in code.
 
 Trait names are namespaced within the package that hosts them - a trait name in one package has no impact on any other package.
-Trait names must be [valid swift identifiers](https://docs.swift.org/swift-book/documentation/the-swift-programming-language/lexicalstructure#Identifiers) with the addition of the characters of `-` and `+`.
+Trait names must be [valid Swift identifiers](https://docs.swift.org/swift-book/documentation/the-swift-programming-language/lexicalstructure#Identifiers) with the addition of the characters of `-` and `+`.
 Don't use the trait names `default` or `defaults` (regardless of capitalization).
 These values aren't allowed in order to avoid confusion with the default traits that a package defines.
 
@@ -58,7 +58,7 @@ traits: [
 For the example above, the default trait is `FeatureA`.
 
 > Note: Changing the default set of traits for your package is a major semantic version change if it removes API surface.
-> Adding additional traits is not a major version change.
+> Adding additional traits isn't a major version change.
 
 Swift Package Manager treats traits as purely additive, and unifies enabled traits across all packages within the build graph.
 Design your traits such that they enable additional API (and their dependencies, if needed). 
@@ -78,7 +78,7 @@ In the rare case that you need to offer mutually exclusive traits, protect that 
 
 ### Depend on a package with a trait
 
-A package dependency that doesn't specify traits in its declaration uses the package with its default traits enabled.
+A package dependency that doesn't specify traits uses the package with its default traits enabled.
 Add one or more traits that the package provides within the `traits` parameter for the package dependency to use that package with those traits enabled.
 
 The following example shows depending on the `swift-configuration` with both the `defaults` and `YAML` traits enabled:
@@ -96,8 +96,9 @@ dependencies: [
 ]
 ```
 
-> Tip: The traits you define for a dependency are a strict, additive list of the traits that the package provides.
-> If you want to use defaults and additional traits, make sure to add `.defaults` to the list of traits you specify.
+> Tip: When you specify traits for a dependency, you explicitly define which traits to enable.
+> The default traits aren't included automatically.
+> To use both the default and additional traits, add `.defaults` to the list of traits you specify.
 
 ### Use traits in your code
 
@@ -124,7 +125,7 @@ The following example illustrates the relevant portions of a package manifest th
 ```swift
 // ...
 traits: [
-    "FeatureB" 
+    FeatureB
     // this trait exists only within *this* package
 ],
 dependencies: [
