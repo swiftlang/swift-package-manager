@@ -427,7 +427,7 @@ struct BuildPrebuilts: AsyncParsableCommand {
 #elseif os(Windows)
         return platform.os == .windows
 #elseif os(Linux)
-        return platform == Workspace.PrebuiltsManifest.Platform.hostPlatform
+        return platform == PrebuiltsPlatform.hostPlatform
 #else
         return false
 #endif
