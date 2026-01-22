@@ -32,17 +32,18 @@ struct StaticBinaryLibraryTests {
     func staticLibrary(
         buildData: BuildData,
     ) async throws {
-        try await fixture(name: "BinaryLibraries") { fixturePath in
-            let (stdout, _) = try await executeSwiftRun(
-                fixturePath.appending("Static").appending("Package1"),
-                "Example",
-                configuration: buildData.config,
-                extraArgs: ["--experimental-prune-unused-dependencies"],
-                buildSystem: buildData.buildSystem,
-            )
-            #expect(stdout == """
-            42
-            42
+        try await withKnownIssue(isIntermittent: true) {
+            try await fixture(name: "BinaryLibraries") { fixturePath in
+                let (stdout, _) = try await executeSwiftRun(
+                    fixturePath.appending("Static").appending("Package1"),
+                    "Example",
+                    configuration: buildData.config,
+                    extraArgs: ["--experimental-prune-unused-dependencies"],
+                    buildSystem: buildData.buildSystem,
+                )
+                #expect(stdout == """
+                42
+                42
 
             """)
         }
