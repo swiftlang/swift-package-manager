@@ -1,10 +1,10 @@
-# Evaluate the Swift Build System Integration
+# Preview the Swift Build System Integration
 
-Understand, use, and evaluate the next-generation build system for Package Manager.
+Understand, use, and preview the next-generation build system for Package Manager.
 
 ## Overview
 
-Swift Package Manager is evaluating a new build system [Swift Build](https://github.com/swiftlang/swift-build) as a replacement for the current native build system. This document outlines the current state of the evaluation, key differences, and known issues.
+Swift Package Manager is previewing a new build system [Swift Build](https://github.com/swiftlang/swift-build) as a replacement for the current native build system. This document outlines the current state of the preview, key differences, and known issues.
 
 
 We encourage you to [try](#How-to-use-the-Swift-Build-build-system) the new build system in your project and [report any issues](#Reporting-issues) you encounter.
@@ -15,14 +15,14 @@ For more information about the migration to Swift Build, see [this forum post](h
 
 The Swift Build integration follows these phases:
 
-1. **Evaluation Phase** (Current) - Testing and feedback collection
+1. **Preview Phase** (Current) - Testing and feedback collection
 2. **Feature Parity** - Address remaining gaps and platform issues
 3. **Default Migration** - Transition to Swift Build as default
 4. **Legacy Build System Deprecation** - Phase out `native` and `xcode` build systems
 
 ## How to use the Swift Build build system
 
-To participate in the evaluation, run your Swift Package Manager commands with the `--build-system swiftbuild` flag:
+To participate in the preview, run your Swift Package Manager commands with the `--build-system swiftbuild` flag:
 
 ```bash
 swift build --build-system swiftbuild
@@ -112,3 +112,4 @@ Please follow these steps when reporting issues:
    - Complete error output
    - System information (operating system, Swift version, etc.)
    - Whether the same command works with the native build system
+

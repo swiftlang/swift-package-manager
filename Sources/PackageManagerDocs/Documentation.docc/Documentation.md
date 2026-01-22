@@ -10,7 +10,7 @@ Organize, manage, and edit Swift packages.
 
 The Swift Package Manager lets you share your code as a package, depend on and use other shared packages, as well as build, test, document, and run your code.
 
-> Note: Swift Package Manager is evaluating the Swift Build build system. Learn more [here](<doc:SwiftBuildEvaluation>).
+> Note: Swift Package Manager is evaluating the Swift Build build system. Learn more [here](<doc:SwiftBuildPreview>).
 
 ## Topics
 
@@ -22,7 +22,7 @@ The Swift Package Manager lets you share your code as a package, depend on and u
 
 ### Guides
 
-- <doc:SwiftBuildEvaluation>
+- <doc:SwiftBuildPreview>
 - <doc:CreatingSwiftPackage>
 - <doc:SettingSwiftToolsVersion>
 - <doc:AddingDependencies>
