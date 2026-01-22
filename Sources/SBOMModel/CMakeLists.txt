@@ -6,7 +6,7 @@
 # See http://swift.org/LICENSE.txt for license information
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
-add_library(SBOMModel STATIC
+add_library(SBOMModel
   SBOMCreator.swift
   SBOMError.swift
   SBOMInput.swift
@@ -65,8 +65,8 @@ target_link_libraries(SBOMModel PUBLIC
   PackageModel
   SourceControl
   SwiftBuildSupport
-  Foundation)
-  
+)
+
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(SBOMModel PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
