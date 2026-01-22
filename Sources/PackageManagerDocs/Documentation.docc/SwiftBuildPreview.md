@@ -56,7 +56,6 @@ swift run --build-system swiftbuild
 
 ## Known issues
 
-### Platform-specific issues
 
 ### Windows platform
 - Swift Build does not support CodeView debug information format.
