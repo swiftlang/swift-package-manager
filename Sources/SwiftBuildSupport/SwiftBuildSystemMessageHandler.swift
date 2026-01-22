@@ -95,7 +95,7 @@ public final class SwiftBuildSystemMessageHandler {
         }
     }
 
-    private func emitDiagnosticCompilerOutput(_ info: SwiftBuildMessage.TaskStartedInfo) {
+    private func emitDiagnosticCompilerOutput(_ info: SwiftBuildMessage.TaskStartedInfo, verbose: Bool) {
         // Don't redundantly emit task output.
         guard !self.tasksEmitted.contains(info.taskSignature) else {
             return
@@ -108,9 +108,8 @@ public final class SwiftBuildSystemMessageHandler {
         // Decode the buffer to a string
         let decodedOutput = String(decoding: buffer, as: UTF8.self)
 
-        // Emit message. Setting verbose to true so as to ensure
-        // that this message is emitted.
-        observabilityScope.print(decodedOutput, verbose: true)
+        // Emit message.
+        observabilityScope.print(decodedOutput, verbose: verbose)
 
         // Record that we've emitted the output for a given task.
         self.tasksEmitted.insert(info)
@@ -136,13 +135,15 @@ public final class SwiftBuildSystemMessageHandler {
         }
 
         // Handle diagnostics, if applicable.
+        // This handles diagnostics for successful tasks, which could be notes or warnings.
         let diagnostics = self.buildState.diagnostics(for: info)
         if !diagnostics.isEmpty {
             // Emit diagnostics using the `DiagnosticInfo` model.
             diagnostics.forEach({ emitInfoAsDiagnostic(info: $0) })
         } else {
             // Emit diagnostics through textual compiler output.
-            emitDiagnosticCompilerOutput(startedInfo)
+            let isDiagnosticOutput = self.buildState.diagnosticDataBufferExists(for: info)
+            emitDiagnosticCompilerOutput(startedInfo, verbose: isDiagnosticOutput || self.logLevel.isVerbose)
         }
 
         // Handle task backtraces, if applicable.
@@ -182,7 +183,7 @@ public final class SwiftBuildSystemMessageHandler {
         if !diagnosticsBuffer.isEmpty {
             diagnosticsBuffer.forEach({ emitInfoAsDiagnostic(info: $0) })
         } else {
-            emitDiagnosticCompilerOutput(startedInfo)
+            emitDiagnosticCompilerOutput(startedInfo, verbose: true)
         }
 
         let message = "\(startedInfo.ruleInfo) failed with a nonzero exit code."
@@ -240,6 +241,9 @@ public final class SwiftBuildSystemMessageHandler {
                 emitInfoAsDiagnostic(info: info)
             } else if info.appendToOutputStream {
                 buildState.appendDiagnostic(info)
+            } else {
+                // Track task IDs for diagnostics to later emit them via compiler output.
+                buildState.appendDiagnosticID(info)
             }
         case .output(let info):
             // Append to buffer-per-task storage
@@ -324,6 +328,7 @@ extension SwiftBuildSystemMessageHandler {
         // Per-task buffers
         private var taskDataBuffer: TaskDataBuffer = .init()
         private var diagnosticsBuffer: TaskDiagnosticBuffer = .init()
+        private var diagnosticTaskIDs: Set<Int> = []
 
         // Backtrace frames
         internal var collectedBacktraceFrames = SWBBuildOperationCollectedBacktraceFrames()
@@ -639,11 +644,28 @@ extension SwiftBuildSystemMessageHandler.BuildState {
         diagnosticsBuffer[taskID].append(info)
     }
 
+    /// Appends a diagnostic task ID to the appropriate diagnostic buffer.
+    /// - Parameter info: The diagnostic information to store, containing location context for identification
+    mutating func appendDiagnosticID(_ info: SwiftBuildMessage.DiagnosticInfo) {
+        guard let taskID = info.locationContext.taskID else {
+            return
+        }
+
+        self.diagnosticTaskIDs.insert(taskID)
+    }
+
     /// Retrieves all diagnostic information for a completed task.
     /// - Parameter task: The task completion information containing the task ID
     /// - Returns: Array of diagnostic info associated with the task
     func diagnostics(for task: SwiftBuild.SwiftBuildMessage.TaskCompleteInfo) -> [SwiftBuildMessage.DiagnosticInfo] {
-        return diagnosticsBuffer[task.taskID]
+        return self.diagnosticsBuffer[task.taskID]
+    }
+
+    /// Determines whether there is a data buffer for the given diagnostic task ID.
+    /// - Parameter task: The task completion information containing the task ID
+    /// - Returns: A Bool that indicates whether a data buffer entry exists for the given task ID.
+    func diagnosticDataBufferExists(for task: SwiftBuild.SwiftBuildMessage.TaskCompleteInfo) -> Bool {
+        return self.diagnosticTaskIDs.contains(task.taskID)
     }
 }
 
