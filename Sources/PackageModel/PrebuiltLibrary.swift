@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Foundation
 import Basics
 
 /// A structure representing a prebuilt library to be used instead of a source dependency
