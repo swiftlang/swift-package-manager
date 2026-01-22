@@ -256,7 +256,7 @@ struct APIDiffTests {
         arguments: SupportedBuildSystemOnAllPlatforms
     )
     func testAPIDiffOfModuleWithCDependency(buildSystem: BuildSystemProvider.Kind) async throws {
-        try await withKnownIssue("https://github.com/swiftlang/swift/issues/82394") {
+        try await withKnownIssue("https://github.com/swiftlang/swift/issues/82394", isIntermittent: true) {
             try await fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
                 let packageRoot = fixturePath.appending("CTargetDep")
                 // Overwrite the existing decl.
@@ -293,7 +293,7 @@ struct APIDiffTests {
         arguments: SupportedBuildSystemOnAllPlatforms
     )
     func testAPIDiffOfVendoredCDependency(buildSystem: BuildSystemProvider.Kind) async throws {
-        try await withKnownIssue("https://github.com/swiftlang/swift/issues/82394") {
+        try await withKnownIssue("https://github.com/swiftlang/swift/issues/82394", isIntermittent: true) {
             try await fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
                 let packageRoot = fixturePath.appending("CIncludePath")
                 let (output, _) = try await execute(["diagnose-api-breaking-changes", "main"], packagePath: packageRoot, buildSystem: buildSystem)

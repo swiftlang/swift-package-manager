@@ -54,16 +54,14 @@ final class AsyncProcessTests: XCTestCase {
     }
 
     func testPopenWithBufferLargerThanAllocated() throws {
-        try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/9031: test fails on windows.")
-
         // Test buffer larger than that allocated.
         try withTemporaryFile { file in
             let count = 10000
             let stream = BufferedOutputByteStream()
             stream.send(Format.asRepeating(string: "a", count: count))
-            try localFileSystem.writeFileContents(file.path, bytes: stream.bytes)
+            file.fileHandle.write(Data(stream.bytes.contents))
             let actualStreamCount = stream.bytes.count
-            XCTAssertTrue(actualStreamCount == count, "Actual stream count (\(actualStreamCount)) is not as exxpected (\(count))")
+            XCTAssertTrue(actualStreamCount == count, "Actual stream count (\(actualStreamCount)) is not as expected (\(count))")
             let outputCount = try AsyncProcess.popen(arguments: catExecutableArgs + [file.path.pathString]).utf8Output().count
             XCTAssert(outputCount == count, "Actual count (\(outputCount)) is not as expected (\(count))")
         }

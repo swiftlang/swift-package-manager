@@ -15,6 +15,7 @@ import _InternalTestSupport
 import Testing
 
 @Suite(
+    .serialized, // these change CWD
     .tags(
         .TestSize.small,
     ),
