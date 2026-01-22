@@ -58,12 +58,12 @@ swift run --build-system swiftbuild
 
 ### Platform-specific issues
 
-#### Windows platform
+### Windows platform
 - Swift Build does not support CodeView debug information format.
   - **Tracking**: [swiftlang/swift-package-manager#9302](https://github.com/swiftlang/swift-package-manager/issues/9302)
   - **Impact**: Limited debugging capabilities on Windows.
 
-#### Linux Platform
+### Linux platform
 - Coverage reporting issues on some Linux platforms
   - **Tracking**: [swiftlang/swift-package-manager#9600](https://github.com/swiftlang/swift-package-manager/issues/9600)
 
@@ -89,7 +89,7 @@ swift run --build-system swiftbuild
   - **Workaround**: Create a non-test target for the test target to depend on.
   - **Tracking**: [swiftlang/swift-package-manager#9458](https://github.com/swiftlang/swift-package-manager/issues/9458)
 
-- Expected `native` build failure in `release` configuraiton may not fail with Swift Build
+- Expected `native` build failure in `release` configuration may not fail with Swift Build
   - **Tracking**: [swiftlang/swift-package-manager#8984](https://github.com/swiftlang/swift-package-manager/issues/8984)
 
 - Swift Build does not support the `--explicit-target-dependency-import-check` flag.
