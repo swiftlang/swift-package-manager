@@ -1073,6 +1073,52 @@ class ManifestTests: XCTestCase {
         }
     }
 
+    func testIsPackageDependencyUsed_AllUsesGuarded_ReturnsFalse() throws {
+        let manifest = Manifest.createRootManifest(
+            displayName: "MyPackage",
+            path: "/MyPackage",
+            toolsVersion: .v5_9,
+            dependencies: [
+                .localSourceControl(path: "/Dependency", requirement: .upToNextMajor(from: "1.0.0"))
+            ],
+            targets: [
+                try TargetDescription(
+                    name: "Target1",
+                    dependencies: [
+                        .product(
+                            name: "Product",
+                            package: "Dependency",
+                            condition: .init(traits: ["Feature1"])
+                        )
+                    ]
+                ),
+                try TargetDescription(
+                    name: "Target2",
+                    dependencies: [
+                        .product(
+                            name: "Product",
+                            package: "Dependency",
+                            condition: .init(traits: ["Feature2"])
+                        )
+                    ]
+                )
+            ],
+            traits: ["Feature1", "Feature2"],
+            pruneDependencies: true
+        )
+
+        let dependency = try XCTUnwrap(manifest.dependencies.first)
+
+        // With no traits enabled, dependency should not be used
+        XCTAssertFalse(try manifest.isPackageDependencyUsed(dependency, enabledTraits: []))
+
+        // With Feature1 enabled, dependency should be used
+        XCTAssertTrue(try manifest.isPackageDependencyUsed(dependency, enabledTraits: ["Feature1"]))
+
+        // With both traits enabled, dependency should be used
+        XCTAssertTrue(try manifest.isPackageDependencyUsed(dependency, enabledTraits: ["Feature1", "Feature2"]))
+    }
+
     func testDependenciesGuardedByTraits_WithTraitConfigurations() throws {
         let products = try [
             ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"]),

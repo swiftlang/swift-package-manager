@@ -1262,7 +1262,7 @@ extension WorkspaceTests {
         }
     }
 
-    func testPartiallyGuardedPackageDependency_IsInManagedDependencies() async throws {
+    func testPartiallyGuardedPackageDependency_IsInManagedDeps() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -1330,6 +1330,139 @@ extension WorkspaceTests {
         // Verify SharedPackage IS in managed dependencies
         await workspace.checkManagedDependencies { result in
             result.check(dependency: "sharedpackage", at: .checkout(.version("1.0.0")))
+        }
+    }
+
+    func testTraitGuardedDependency_PruningFlagFalse_NotInManagedDeps() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [
+                                .product(
+                                    name: "GuardedProduct",
+                                    package: "GuardedPackage",
+                                    condition: .init(traits: ["DisabledTrait"])
+                                )
+                            ]
+                        )
+                    ],
+                    dependencies: [
+                        .sourceControl(path: "./GuardedPackage", requirement: .upToNextMajor(from: "1.0.0"))
+                    ],
+                    traits: ["DisabledTrait"]
+                )
+            ],
+            packages: [
+                MockPackage(
+                    name: "GuardedPackage",
+                    targets: [MockTarget(name: "GuardedTarget")],
+                    products: [MockProduct(name: "GuardedProduct", modules: ["GuardedTarget"])],
+                    versions: ["1.0.0"]
+                )
+            ],
+            traitConfiguration: .disableAllTraits,
+            pruneDependencies: false  // DISABLED
+        )
+
+        let deps: [MockDependency] = [
+            .sourceControl(path: "./GuardedPackage", requirement: .exact("1.0.0"), products: .specific(["GuardedProduct"]))
+        ]
+
+        try await workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
+            PackageGraphTesterXCTest(graph) { result in
+                result.check(roots: "Root")
+                result.check(packages: "Root")
+                result.check(modules: "RootTarget")  // GuardedTarget should NOT be a module
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+
+        // Dependency is not downloaded when pruneDependencies=false
+        await workspace.checkManagedDependencies { result in
+            result.checkEmpty()
+        }
+    }
+
+    func testTransitiveTraitGuardedDependency_NotDownloaded() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [.product(name: "IntermediateProduct", package: "Intermediate")]
+                        )
+                    ],
+                    dependencies: [
+                        .sourceControl(path: "./Intermediate", requirement: .upToNextMajor(from: "1.0.0"))
+                    ],
+                    traits: ["MyTrait"]
+                )
+            ],
+            packages: [
+                MockPackage(
+                    name: "Intermediate",
+                    targets: [
+                        MockTarget(
+                            name: "IntermediateTarget",
+                            dependencies: [
+                                .product(
+                                    name: "GuardedProduct",
+                                    package: "GuardedPackage",
+                                    condition: .init(traits: ["OptionalFeature"])
+                                )
+                            ]
+                        )
+                    ],
+                    products: [MockProduct(name: "IntermediateProduct", modules: ["IntermediateTarget"])],
+                    dependencies: [
+                        .sourceControl(path: "./GuardedPackage", requirement: .upToNextMajor(from: "1.0.0"))
+                    ],
+                    traits: ["OptionalFeature"],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "GuardedPackage",
+                    targets: [MockTarget(name: "GuardedTarget")],
+                    products: [MockProduct(name: "GuardedProduct", modules: ["GuardedTarget"])],
+                    versions: ["1.0.0"]
+                )
+            ],
+            traitConfiguration: .disableAllTraits,
+            pruneDependencies: true
+        )
+
+        let deps: [MockDependency] = [
+            .sourceControl(path: "./Intermediate", requirement: .exact("1.0.0"), products: .specific(["IntermediateProduct"]))
+        ]
+
+        try await workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
+            PackageGraphTesterXCTest(graph) { result in
+                result.check(roots: "Root")
+                result.check(packages: "Root", "Intermediate")  // GuardedPackage should NOT be here
+                result.check(modules: "RootTarget", "IntermediateTarget")  // No GuardedTarget
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+
+        await workspace.checkManagedDependencies { result in
+            result.check(dependency: "intermediate", at: .checkout(.version("1.0.0")))
+            // GuardedPackage should NOT be in managed dependencies
         }
     }
 }
