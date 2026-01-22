@@ -20,7 +20,8 @@ Swift Package Manager exposes enabled traits as conditional blocks (for example,
 
 Trait names are namespaced within the package that hosts them - a trait name in one package has no impact on any other package.
 Trait names must be [valid swift identifiers](https://docs.swift.org/swift-book/documentation/the-swift-programming-language/lexicalstructure#Identifiers) with the addition of the characters of `-` and `+`.
-Don't use the trait names `default` or `defaults` (regardless of capitalization) to avoid confusion with the default traits that a package defines.
+Don't use the trait names `default` or `defaults` (regardless of capitalization).
+These values aren't allowed in order to avoid confusion with the default traits that a package defines.
 
 ### Declare traits
 
