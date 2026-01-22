@@ -45,7 +45,8 @@ struct StaticBinaryLibraryTests {
                 42
                 42
 
-            """)
+                """)
+            }
         }
     }
 }
