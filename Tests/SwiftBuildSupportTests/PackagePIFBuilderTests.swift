@@ -61,18 +61,21 @@ struct ExecutableAndLibraryPIFBuilderTests {
             let modulesOrProducts: [PackagePIFBuilder.ModuleOrProduct] = try pifBuilder.build()
 
             #expect(modulesOrProducts.count == 6)
+            #expect(modulesOrProducts.count { $0.name == "FooExecutable" } == 2)
+            #expect(modulesOrProducts.count { $0.name == "FooLibrary" } == 4)
 
-//            print(">>> =======================")
-//            print(">>> modulesOrProducts", modulesOrProducts.count)
-//            for moduleOrProduct in modulesOrProducts {
-//                print(
-//                    ">>> moduleOrProduct:",
-//                    moduleOrProduct.name,
-//                    moduleOrProduct.pifTarget!.common.id
-//                    , "linked:", moduleOrProduct.linkedPackageBinaries.count
-//                )
-//            }
-//            print(">>> =======================")
+            print(">>> =======================")
+            print(">>> modulesOrProducts", modulesOrProducts.count)
+            for moduleOrProduct in modulesOrProducts.sorted(by: \.name) {
+                print(
+                    ">>> moduleOrProduct:",
+                    moduleOrProduct.name,
+                    moduleOrProduct.pifTarget!.common.id,
+                    "linked:", moduleOrProduct.linkedPackageBinaries.count,
+                    "type:", try moduleOrProduct.underlyingPIFTarget.productType
+                )
+            }
+            print(">>> =======================")
         }
     }
 
@@ -84,16 +87,18 @@ struct ExecutableAndLibraryPIFBuilderTests {
 
             let libraryModulePIFTarget = try #require(modulesOrProducts.only {
                 try $0.name == "FooLibrary" &&
-                $0.underlyingPIFTarget.productType == .commonObject &&
+                $0.underlyingPIFTarget.productType == .commonStaticArchive &&
                 !$0.underlyingPIFTarget.isVariant(.dynamic)
             })
+
+            
 
             #expect(libraryModulePIFTarget.type == .commonObject)
             #expect(libraryModulePIFTarget.indexableFileURLs.count == 1)
             #expect(libraryModulePIFTarget.linkedPackageBinaries.count == 0)
             try #expect(libraryModulePIFTarget.underlyingPIFTarget.id.value == "PACKAGE-TARGET:FooLibrary")
             try #expect(libraryModulePIFTarget.underlyingPIFTarget.name == "FooLibrary")
-            try #expect(libraryModulePIFTarget.underlyingPIFTarget.productType == .commonObject)
+            try #expect(libraryModulePIFTarget.underlyingPIFTarget.productType == .commonStaticArchive)
             try #expect(libraryModulePIFTarget.underlyingPIFTarget.sourceFiles.count == 1)
             try #expect(libraryModulePIFTarget.underlyingPIFTarget.linkedTargets.count == 0)
         }
@@ -117,7 +122,7 @@ struct ExecutableAndLibraryPIFBuilderTests {
             })
             let libraryModulePIFTarget = try #require(modulesOrProducts.only {
                 try $0.name == "FooLibrary" &&
-                $0.underlyingPIFTarget.productType == .commonObject &&
+                $0.underlyingPIFTarget.productType == .commonStaticArchive &&
                 !$0.underlyingPIFTarget.isVariant(.dynamic)
             })
 
