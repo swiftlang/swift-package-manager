@@ -32,7 +32,6 @@ swift run --build-system swiftbuild
 
 ## Key improvements and differences
 
-### Behavior changes
 
 - **`--static-swift-stdlib`**: Stricter validation (errors instead of silently ignoring)
   - The native build system silently ignored this option on some platforms; Swift Build now produces an error.
