@@ -26,7 +26,7 @@ import Workspace
 
 // Format for the .zip.json files.
 struct Artifact: Codable {
-    var platform: Workspace.PrebuiltsManifest.Platform
+    var platform: PrebuiltsPlatform
     var checksum: String
     var libraryName: String?
     var products: [String]?
@@ -172,7 +172,7 @@ struct BuildPrebuilts: AsyncParsableCommand {
             let cModules = libraryTargets.compactMap({ $0 as? ClangModule })
             let lib = "lib\(libraryName).a"
 
-            for platform in Workspace.PrebuiltsManifest.Platform.allCases {
+            for platform in PrebuiltsPlatform.allCases {
                 guard canBuild(platform) else {
                     continue
                 }
@@ -186,33 +186,18 @@ struct BuildPrebuilts: AsyncParsableCommand {
                 }
 
                 // Build
-                if platform.os == .macos {
-                    let cmd = "swift build -c release -debug-info-format none --build-system swiftbuild --product \(libraryName)"
-                    try await shell(cmd, cwd: repoDir)
+                let cmd = "swift build -c release -debug-info-format none --arch \(platform.arch) --product \(libraryName)"
+                try await shell(cmd, cwd: repoDir)
 
-                    let buildDir = scratchDir.appending(components: "out", "Products", "Release")
+                let buildDir = scratchDir.appending("release")
+                let srcModulesDir = buildDir.appending("Modules")
 
-                    // Create the library and copy it over
-                    try fileSystem.copy(from: buildDir.appending(lib), to: libDir.appending(lib))
+                // Copy the library to staging
+                try fileSystem.copy(from: buildDir.appending(lib), to: libDir.appending(lib))
 
-                    // Copy the swiftmodules
-                    for file in try fileSystem.getDirectoryContents(buildDir) where file.hasSuffix(".swiftmodule") {
-                        try fileSystem.copy(from: buildDir.appending(file), to: modulesDir.appending(file))
-                    }
-                } else {
-                    let cmd = "swift build -c release -debug-info-format none --arch \(platform.arch) --product \(libraryName)"
-                    try await shell(cmd, cwd: repoDir)
-
-                    let buildDir = scratchDir.appending("release")
-                    let srcModulesDir = buildDir.appending("Modules")
-
-                    // Copy the library to staging
-                    try fileSystem.copy(from: buildDir.appending(lib), to: libDir.appending(lib))
-
-                    // Copy the swiftmodules
-                    for file in try fileSystem.getDirectoryContents(srcModulesDir) {
-                        try fileSystem.copy(from: srcModulesDir.appending(file), to: modulesDir.appending(file))
-                    }
+                // Copy the swiftmodules
+                for file in try fileSystem.getDirectoryContents(srcModulesDir) {
+                    try fileSystem.copy(from: srcModulesDir.appending(file), to: modulesDir.appending(file))
                 }
 
                 // Zip it up
@@ -436,7 +421,7 @@ struct BuildPrebuilts: AsyncParsableCommand {
         }
     }
 
-    func canBuild(_ platform: Workspace.PrebuiltsManifest.Platform) -> Bool {
+    func canBuild(_ platform: PrebuiltsPlatform) -> Bool {
 #if os(macOS)
         return platform.os == .macos
 #elseif os(Windows)
@@ -487,34 +472,6 @@ func shell(_ command: String, cwd: AbsolutePath) async throws {
     case .signalled(signal: let signal):
         throw StringError("Command exited on signal \(signal): \(command)")
 #endif
-    }
-}
-
-extension Workspace.PrebuiltsManifest.Platform {
-    var dockerTag: String? {
-        switch self {
-        case .ubuntu_jammy_aarch64, .ubuntu_jammy_x86_64:
-            return "jammy"
-        case .ubuntu_focal_aarch64, .ubuntu_focal_x86_64:
-            return "focal"
-        case .rhel_ubi9_aarch64, .rhel_ubi9_x86_64:
-            return "rhel-ubi9"
-        case .amazonlinux2_aarch64, .amazonlinux2_x86_64:
-            return "amazonlinux2"
-        default:
-            return nil
-        }
-    }
-}
-
-extension Workspace.PrebuiltsManifest.Platform.Arch {
-    var dockerPlatform: String? {
-        switch self {
-        case .aarch64:
-            return "linux/arm64"
-        case .x86_64:
-            return "linux/amd64"
-        }
     }
 }
 

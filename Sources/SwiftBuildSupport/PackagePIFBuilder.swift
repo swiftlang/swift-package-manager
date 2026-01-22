@@ -25,6 +25,7 @@ import class PackageModel.Package
 import class PackageModel.Product
 import struct PackageModel.Platform
 import struct PackageModel.PlatformVersion
+import enum PackageModel.PrebuiltsPlatform
 import struct PackageModel.Resource
 import enum PackageModel.ProductType
 
@@ -721,6 +722,17 @@ extension PackagePIFBuilder.LinkedPackageBinary {
 
         case .module(let moduleDependency, _):
             self.init(module: moduleDependency, package: package)
+        }
+    }
+}
+
+extension PrebuiltsPlatform.Arch {
+    public var archs: [String] {
+        switch self {
+        case .aarch64:
+            return ["arm64"]
+        case .x86_64:
+            return ["x86_64"]
         }
     }
 }

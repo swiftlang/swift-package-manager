@@ -578,7 +578,7 @@ public class Workspace {
 
         var prebuiltsManager: PrebuiltsManager?
         if configuration.usePrebuilts,
-           let hostPlatform = customPrebuiltsManager?.hostPlatform ?? PrebuiltsManifest.Platform.hostPlatform
+           let hostPlatform = customPrebuiltsManager?.hostPlatform ?? PrebuiltsPlatform.hostPlatform
         {
             let rootCertPath: AbsolutePath?
             if let path = configuration.prebuiltsRootCertPath {

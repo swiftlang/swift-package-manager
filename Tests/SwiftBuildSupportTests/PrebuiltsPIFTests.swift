@@ -223,10 +223,12 @@ struct PrebuiltsPIFTests {
         let targets = pif.workspace.projects.flatMap({ $0.underlying.targets })
         for target in targets {
             let isHost: Bool = target.common.buildConfigs.contains {
-                guard let platforms = $0.settings[.SUPPORTED_PLATFORMS] else {
+                guard let platforms = $0.settings[.SUPPORTED_PLATFORMS],
+                      let archs = $0.settings[.ARCHS]
+                else {
                     return false
                 }
-                return platforms == ["$(HOST_PLATFORM)"]
+                return platforms == ["$(HOST_PLATFORM)"] && archs == PrebuiltsPlatform.hostPlatform?.arch.archs
             }
 
             if isHost {
@@ -397,15 +399,12 @@ struct PrebuiltsPIFTests {
 
         let targets = pif.workspace.projects.flatMap({ $0.underlying.targets })
         for target in targets {
-            guard target.common.name != "Plugin" else {
-                // The Plugin was already HOST_PLATFORM
-                continue
-            }
             let isHost: Bool = target.common.buildConfigs.contains {
-                guard let platforms = $0.settings[.SUPPORTED_PLATFORMS] else {
+                guard let platforms = $0.settings[.SUPPORTED_PLATFORMS],
+                      let archs = $0.settings[.ARCHS] else {
                     return false
                 }
-                return platforms == ["$(HOST_PLATFORM)"]
+                return platforms == ["$(HOST_PLATFORM)"] && archs == PrebuiltsPlatform.hostPlatform?.arch.archs
             }
             #expect(isHost == false, "\(target.common.name)")
         }

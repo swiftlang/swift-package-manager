@@ -22,6 +22,7 @@ import struct Basics.SourceControlURL
 import class PackageModel.Manifest
 import class PackageModel.Module
 import class PackageModel.BinaryModule
+import enum PackageModel.PrebuiltsPlatform
 import class PackageModel.Product
 import class PackageModel.SystemLibraryModule
 
@@ -124,6 +125,9 @@ extension PackagePIFProjectBuilder {
 
         // Any dependencies of plugin targets need to be built for the host.
         buildSettings[.SUPPORTED_PLATFORMS] = ["$(HOST_PLATFORM)"]
+        if pluginModule.platformConstraint == .host, let archs = PrebuiltsPlatform.hostPlatform?.arch.archs {
+            buildSettings[.ARCHS] = archs
+        }
 
         self.project[keyPath: pluginTargetKeyPath].common.addBuildConfig { id in
             BuildConfig(id: id, name: "Debug", settings: buildSettings)
@@ -364,6 +368,9 @@ extension PackagePIFProjectBuilder {
 
         if sourceModule.platformConstraint == .host {
             settings[.SUPPORTED_PLATFORMS] = ["$(HOST_PLATFORM)"]
+            if let archs = PrebuiltsPlatform.hostPlatform?.arch.archs {
+                settings[.ARCHS] = archs
+            }
         }
         if shouldGenerateBundleAccessor {
             settings[.GENERATE_RESOURCE_ACCESSORS] = "YES"

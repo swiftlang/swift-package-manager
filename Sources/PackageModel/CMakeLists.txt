@@ -42,6 +42,7 @@ add_library(PackageModel
   PackageReference.swift
   Platform.swift
   PlatformRegistry.swift
+  PrebuiltLibrary.swift
   Product.swift
   Registry.swift
   RegistryReleaseMetadata.swift
