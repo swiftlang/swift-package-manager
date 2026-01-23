@@ -256,32 +256,28 @@ struct APIDiffTests {
         arguments: SupportedBuildSystemOnAllPlatforms
     )
     func testAPIDiffOfModuleWithCDependency(buildSystem: BuildSystemProvider.Kind) async throws {
-        try await withKnownIssue("https://github.com/swiftlang/swift/issues/82394", isIntermittent: true) {
-            try await fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
-                let packageRoot = fixturePath.appending("CTargetDep")
-                // Overwrite the existing decl.
-                try localFileSystem.writeFileContents(packageRoot.appending(components: "Sources", "Bar", "Bar.swift"), string:
+        try await fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
+            let packageRoot = fixturePath.appending("CTargetDep")
+            // Overwrite the existing decl.
+            try localFileSystem.writeFileContents(packageRoot.appending(components: "Sources", "Bar", "Bar.swift"), string:
                     """
                     import Foo
-
+                    
                     public func bar() -> String {
                         foo()
                         return "hello, world!"
                     }
                     """
-                )
-                await expectThrowsCommandExecutionError(try await execute(["diagnose-api-breaking-changes", "1.2.3"], packagePath: packageRoot, buildSystem: buildSystem)) { error in
-                    #expect(error.stdout.contains("1 breaking change detected in Bar"))
-                    #expect(error.stdout.contains("💔 API breakage: func bar() has return type change from Swift.Int to Swift.String"))
-                }
-
-                // Report an error if we explicitly ask to diff a C-family target
-                await expectThrowsCommandExecutionError(try await execute(["diagnose-api-breaking-changes", "1.2.3", "--targets", "Foo"], packagePath: packageRoot, buildSystem: buildSystem)) { error in
-                    #expect(error.stderr.contains("error: 'Foo' is not a Swift language target"))
-                }
+            )
+            await expectThrowsCommandExecutionError(try await execute(["diagnose-api-breaking-changes", "1.2.3"], packagePath: packageRoot, buildSystem: buildSystem)) { error in
+                #expect(error.stdout.contains("1 breaking change detected in Bar"))
+                #expect(error.stdout.contains("💔 API breakage: func bar() has return type change from Swift.Int to Swift.String"))
             }
-        } when: {
-            buildSystem == .swiftbuild
+
+            // Report an error if we explicitly ask to diff a C-family target
+            await expectThrowsCommandExecutionError(try await execute(["diagnose-api-breaking-changes", "1.2.3", "--targets", "Foo"], packagePath: packageRoot, buildSystem: buildSystem)) { error in
+                #expect(error.stderr.contains("error: 'Foo' is not a Swift language target"))
+            }
         }
     }
 
@@ -293,15 +289,11 @@ struct APIDiffTests {
         arguments: SupportedBuildSystemOnAllPlatforms
     )
     func testAPIDiffOfVendoredCDependency(buildSystem: BuildSystemProvider.Kind) async throws {
-        try await withKnownIssue("https://github.com/swiftlang/swift/issues/82394", isIntermittent: true) {
-            try await fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
-                let packageRoot = fixturePath.appending("CIncludePath")
-                let (output, _) = try await execute(["diagnose-api-breaking-changes", "main"], packagePath: packageRoot, buildSystem: buildSystem)
+        try await fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
+            let packageRoot = fixturePath.appending("CIncludePath")
+            let (output, _) = try await execute(["diagnose-api-breaking-changes", "main"], packagePath: packageRoot, buildSystem: buildSystem)
 
-                #expect(output.contains("No breaking changes detected in Sample"))
-            }
-        } when: {
-            buildSystem == .swiftbuild
+            #expect(output.contains("No breaking changes detected in Sample"))
         }
     }
 
