@@ -912,15 +912,8 @@ private func handlePrebuilts(
                         return
                     }
                     depModule.platformConstraint = .all
-                    for dep in depModule.dependencies {
-                        switch dep {
-                        case .module(let childModule, conditions: _):
-                            markExternal(childModule)
-                        case .product(let childProduct, conditions: _):
-                            for childmodule in childProduct.moduleBuilders {
-                                markExternal(childmodule)
-                            }
-                        }
+                    for dep in depModule.allModuleDependencies {
+                        markExternal(dep)
                     }
                 }
                 markExternal(moduleBuilder)
@@ -928,55 +921,52 @@ private func handlePrebuilts(
         }
     }
 
-    // Find those not marked that are references from macro and plugins
-    // Skip the prebuilt packages
+    // Find those not marked that are references from macro and plugins.
+    // For now we can't have host modules depending on .all modules so only
+    // mark as .host if all the deps are .host
     for packageBuilder in packageBuilders {
         for moduleBuilder in packageBuilder.modules where moduleBuilder.isHostOnly {
-            func markHostOnly(_ depModule: ResolvedModuleBuilder) {
-                guard depModule.platformConstraint == nil else {
-                    return
+            func markHost(_ depModule: ResolvedModuleBuilder) -> Bool {
+                switch depModule.platformConstraint {
+                case .all:
+                    return false
+                case .host:
+                    return true
+                case .none:
+                    break
                 }
-                depModule.platformConstraint = .host
-                for dep in depModule.dependencies {
-                    switch dep {
-                    case .module(let childModule, conditions: _):
-                        markHostOnly(childModule)
-                    case .product(let childProduct, conditions: _):
-                        for childmodule in childProduct.moduleBuilders {
-                            markHostOnly(childmodule)
+
+                for dep in depModule.allModuleDependencies {
+                    if !markHost(dep) {
+                        // Depending on .all, revisit all deps and mark .all so we don't mix
+                        func markExternal(_ depModule: ResolvedModuleBuilder) {
+                            guard depModule.platformConstraint == .host else {
+                                return
+                            }
+                            depModule.platformConstraint = .all
+                            for dep in depModule.allModuleDependencies {
+                                markExternal(dep)
+                            }
                         }
+                        markExternal(depModule)
+                        return false
                     }
                 }
+                depModule.platformConstraint = .host
+                return true
             }
-            markHostOnly(moduleBuilder)
+            _ = markHost(moduleBuilder)
         }
     }
 
-    // For now, we can't rely on the build systems properly supporting platform constraints
-    // so for prebuilts, we need to make sure all the macros and plugin dependencies are host only
+    // Also for now, to ensure we're not mixing prebuilts and not prebuilts in the build graph,
+    // Only use prebuilts if we can use them for all host only modules
     guard packageBuilders.allSatisfy({
         $0.modules.allSatisfy { moduleBuilder in
             guard moduleBuilder.isHostOnly else {
                 return true
             }
-
-            func isHostOnly(_ moduleBuilder: ResolvedModuleBuilder) -> Bool {
-                guard moduleBuilder.platformConstraint == .host else {
-                    return false
-                }
-                return moduleBuilder.dependencies.allSatisfy {
-                    switch $0 {
-                    case .module(let childModule, conditions: _):
-                        return isHostOnly(childModule)
-                    case .product(let childProduct, conditions: _):
-                        return childProduct.moduleBuilders.allSatisfy {
-                            isHostOnly($0)
-                        }
-                    }
-                }
-            }
-
-            return isHostOnly(moduleBuilder)
+            return moduleBuilder.platformConstraint == .host
         }
     }) else {
         // Remove the platform constraints
@@ -1520,6 +1510,18 @@ private final class ResolvedModuleBuilder: ResolvedBuilder<ResolvedModule> {
 
     /// The module dependencies of this module.
     var dependencies: [Dependency] = []
+
+    /// All the modules this module depends on ignoring the conditions
+    var allModuleDependencies: [ResolvedModuleBuilder] {
+        dependencies.flatMap {
+            switch $0 {
+            case .module(let childModule, conditions: _):
+                return [childModule]
+            case .product(let childProduct, conditions: _):
+                return childProduct.moduleBuilders
+            }
+        }
+    }
 
     /// The defaultLocalization for this package
     var defaultLocalization: String? = nil
