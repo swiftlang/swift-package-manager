@@ -21,6 +21,8 @@ import SwiftBuildSupport
 import _InternalTestSupport
 import Workspace
 
+// MARK: - Helpers
+
 extension PIFBuilderParameters {
     fileprivate static func constructDefaultParametersForTesting(temporaryDirectory: Basics.AbsolutePath, addLocalRpaths: Bool) throws -> Self {
         self.init(
@@ -55,7 +57,7 @@ fileprivate func withGeneratedPIF(
        mockBuildParameters(destination: .host)
     }
     try await fixture(name: fixtureName) { fixturePath in
-        let observabilitySystem: TestingObservability = ObservabilitySystem.makeForTesting()
+        let observabilitySystem: TestingObservability = ObservabilitySystem.makeForTesting(verbose: false)
         let toolchain = try UserToolchain.default
         let workspace = try Workspace(
             fileSystem: localFileSystem,
@@ -170,11 +172,13 @@ extension BuildConfiguration {
     }
 }
 
+// MARK: - Tests
+
 @Suite(
     .tags(
         .TestSize.medium,
-        .FunctionalArea.PIF,
-    ),
+        .FunctionalArea.PIF
+    )
 )
 struct PIFBuilderTests {
 
@@ -396,8 +400,8 @@ struct PIFBuilderTests {
 
     @Suite(
         .tags(
-            .FunctionalArea.IndexMode,
-        ),
+            .FunctionalArea.IndexMode
+        )
     )
     struct IndexModeSettingTests {
 
