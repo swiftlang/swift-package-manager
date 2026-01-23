@@ -21,7 +21,6 @@ import SwiftBuildSupport
 import TSCBasic
 import _InternalTestSupport
 
-
 @Suite
 struct SwiftBuildSystemMessageHandlerTests {
     struct MockMessageHandlerProvider {

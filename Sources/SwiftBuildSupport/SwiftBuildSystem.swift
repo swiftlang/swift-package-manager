@@ -703,36 +703,45 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
     }
 
     private func makeRunDestination() -> SwiftBuild.SWBRunDestinationInfo {
-        let platformName: String
-        let sdkName: String
-        if self.buildParameters.triple.isAndroid() {
-            // Android triples are identified by the environment part of the triple
-            platformName = "android"
-            sdkName = platformName
-        } else if self.buildParameters.triple.isWasm {
-            // Swift Build uses webassembly instead of wasi as the platform name
-            platformName = "webassembly"
-            sdkName = platformName
+        if let sdkManifestPath = self.buildParameters.toolchain.swiftSDK.swiftSDKManifest {
+            return SwiftBuild.SWBRunDestinationInfo(
+                buildTarget: .swiftSDK(sdkManifestPath: sdkManifestPath.pathString, triple: self.buildParameters.triple.tripleString),
+                targetArchitecture: buildParameters.triple.archName,
+                supportedArchitectures: [],
+                disableOnlyActiveArch: (buildParameters.architectures?.count ?? 1) > 1,
+            )
         } else {
-            platformName = self.buildParameters.triple.darwinPlatform?.platformName ?? self.buildParameters.triple.osNameUnversioned
-            sdkName = platformName
-        }
+            let platformName: String
+            let sdkName: String
 
-        let sdkVariant: String?
-        if self.buildParameters.triple.environment == .macabi {
-            sdkVariant = "iosmac"
-        } else {
-            sdkVariant = nil
-        }
+            if self.buildParameters.triple.isAndroid() {
+                // Android triples are identified by the environment part of the triple
+                platformName = "android"
+                sdkName = platformName
+            } else {
+                platformName = self.buildParameters.triple.darwinPlatform?.platformName ?? self.buildParameters.triple.osNameUnversioned
+                sdkName = platformName
+            }
 
-        return SwiftBuild.SWBRunDestinationInfo(
-            platform: platformName,
-            sdk: sdkName,
-            sdkVariant: sdkVariant,
-            targetArchitecture: buildParameters.triple.archName,
-            supportedArchitectures: [],
-            disableOnlyActiveArch: (buildParameters.architectures?.count ?? 1) > 1
-        )
+            let sdkVariant: String?
+            if self.buildParameters.triple.environment == .macabi {
+                sdkVariant = "iosmac"
+            } else {
+                sdkVariant = nil
+            }
+
+            return SwiftBuild.SWBRunDestinationInfo(
+                buildTarget: .toolchainSDK(
+                    platform: platformName,
+                    sdk: sdkName,
+                    sdkVariant: sdkVariant
+                ),
+                targetArchitecture: buildParameters.triple.archName,
+                supportedArchitectures: [],
+                disableOnlyActiveArch: (buildParameters.architectures?.count ?? 1) > 1,
+                hostTargetedPlatform: nil
+            )
+        }
     }
 
     internal func makeBuildParameters(
@@ -867,12 +876,19 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                 + buildParameters.flags.swiftCompilerFlags.map { $0.shellEscaped() }
         ).joined(separator: " ")
 
-        settings["OTHER_LDFLAGS"] = (
-            verboseFlag + // clang will be invoked to link so the verbose flag is valid for it
-                ["$(inherited)"]
-                + buildParameters.toolchain.extraFlags.linkerFlags.asSwiftcLinkerFlags().map { $0.shellEscaped() }
-                + buildParameters.flags.linkerFlags.asSwiftcLinkerFlags().map { $0.shellEscaped() }
-        ).joined(separator: " ")
+        let inherited = ["$(inherited)"]
+
+        let buildParametersLinkFlags =
+            buildParameters.toolchain.extraFlags.linkerFlags.asSwiftcLinkerFlags().map { $0.shellEscaped() }
+            + buildParameters.flags.linkerFlags.asSwiftcLinkerFlags().map { $0.shellEscaped() }
+
+        var otherLdFlags =
+                verboseFlag  // clang will be invoked to link so the verbose flag is valid for it
+                + inherited
+
+        otherLdFlags += buildParametersLinkFlags
+
+        settings["OTHER_LDFLAGS"] = otherLdFlags.joined(separator: " ")
 
         // Optionally also set the list of architectures to build for.
         if let architectures = buildParameters.architectures, !architectures.isEmpty {

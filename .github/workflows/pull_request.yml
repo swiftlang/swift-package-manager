@@ -26,7 +26,7 @@ jobs:
           - buildSystem: "native"
             linuxSwiftVersion: '["nightly-main"]'
     name: Build (${{ matrix.buildSystem }}) (exectable target built using ${{ matrix.executableTargetBuildSystem }})
-    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@0.0.4
+    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@0.0.6
     with:
       linux_os_versions: '["amazonlinux2", "bookworm", "noble", "jammy", "rhel-ubi9"]'
       linux_swift_versions: ${{ matrix.linuxSwiftVersion }}
@@ -54,7 +54,7 @@ jobs:
         buildSystem: ["swiftbuild"]
     name: Build (${{ matrix.buildSystem }}) (exectable target built using ${{ matrix.executableTargetBuildSystem }})
     needs: [soundness]
-    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@0.0.4
+    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@0.0.6
     with:
       linux_os_versions: '["amazonlinux2", "bookworm", "noble", "jammy", "rhel-ubi9"]'
       linux_swift_versions: '["nightly-main"]'
@@ -72,7 +72,7 @@ jobs:
 
   soundness:
     name: Soundness
-    uses: swiftlang/github-workflows/.github/workflows/soundness.yml@0.0.2
+    uses: swiftlang/github-workflows/.github/workflows/soundness.yml@0.0.6
     with:
       license_header_check_project_name: "Swift"
       license_header_check_enabled: true
