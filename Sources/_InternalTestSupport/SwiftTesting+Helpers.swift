@@ -132,6 +132,23 @@ public func expectDirectoryDoesNotExist(
     )
 }
 
+/// Expects a directory (recursively) contains a file.
+package func expectDirectoryContainsFile(
+    dir: AbsolutePath,
+    filename: String,
+    sourceLocation: SourceLocation = #_sourceLocation,
+) {
+    do {
+        for entry in try walk(dir) {
+            if entry.basename == filename { return }
+        }
+    } catch {
+        Issue.record("Failed with error \(error)", sourceLocation: sourceLocation)
+    }
+    Issue.record("Directory \(dir) does not contain \(filename)", sourceLocation: sourceLocation)
+}
+
+
 /// Expects that the expression throws a CommandExecutionError and passes it to the provided throwing error handler.
 /// - Parameters:
 ///   - expression: The expression expected to throw
