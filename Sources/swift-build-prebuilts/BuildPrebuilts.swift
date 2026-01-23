@@ -186,18 +186,55 @@ struct BuildPrebuilts: AsyncParsableCommand {
                 }
 
                 // Build
-                let cmd = "swift build -c release -debug-info-format none --arch \(platform.arch) --product \(libraryName)"
-                try await shell(cmd, cwd: repoDir)
+                if platform.os == .macos {
+                    // Create universal binaries for macOS
+                    for arch in ["arm64", "x86_64"] {
+                        let cmd = "swift build -c release -debug-info-format none --arch \(arch) --product \(libraryName)"
+                        try await shell(cmd, cwd: repoDir)
+                    }
 
-                let buildDir = scratchDir.appending("release")
-                let srcModulesDir = buildDir.appending("Modules")
+                    let armTriple = "arm64-apple-macos"
+                    let armDir = scratchDir.appending("arm64-apple-macosx", "release")
+                    let armModulesDir = armDir.appending("Modules")
+                    let x86Triple = "x86_64-apple-macos"
+                    let x86Dir = scratchDir.appending("x86_64-apple-macosx", "release")
+                    let x86ModulesDir = x86Dir.appending("Modules")
 
-                // Copy the library to staging
-                try fileSystem.copy(from: buildDir.appending(lib), to: libDir.appending(lib))
+                    // Universal swiftmodules
+                    for swiftmodule in try fileSystem.getDirectoryContents(armModulesDir).filter({ $0.hasSuffix(".swiftmodule") }) {
+                        let moduleDir = modulesDir.appending(swiftmodule)
+                        let projectDir = moduleDir.appending("Project")
+                        try fileSystem.createDirectory(projectDir, recursive: true)
+                        let moduleName = swiftmodule.replacingOccurrences(of: ".swiftmodule", with: "")
+                        try fileSystem.copy(from: armModulesDir.appending(swiftmodule), to: moduleDir.appending(armTriple + ".swiftmodule"))
+                        try fileSystem.copy(from: x86ModulesDir.appending(swiftmodule), to: moduleDir.appending(x86Triple + ".swiftmodule"))
+                        try fileSystem.copy(from: armModulesDir.appending(moduleName + ".abi.json"), to: moduleDir.appending(armTriple + ".abi.json"))
+                        try fileSystem.copy(from: x86ModulesDir.appending(moduleName + ".abi.json"), to: moduleDir.appending(x86Triple + ".abi.json"))
+                        try fileSystem.copy(from: armModulesDir.appending(moduleName + ".swiftdoc"), to: moduleDir.appending(armTriple + ".swiftdoc"))
+                        try fileSystem.copy(from: x86ModulesDir.appending(moduleName + ".swiftdoc"), to: moduleDir.appending(x86Triple + ".swiftdoc"))
+                        try fileSystem.copy(from: armModulesDir.appending(moduleName + ".swiftsourceinfo"), to: projectDir.appending(armTriple + ".swiftsourceinfo"))
+                        try fileSystem.copy(from: x86ModulesDir.appending(moduleName + ".swiftsourceinfo"), to: projectDir.appending(x86Triple + ".swiftsourceinfo"))
+                    }
 
-                // Copy the swiftmodules
-                for file in try fileSystem.getDirectoryContents(srcModulesDir) {
-                    try fileSystem.copy(from: srcModulesDir.appending(file), to: modulesDir.appending(file))
+                    // lipo the archive
+                    let armLib = armDir.appending(lib)
+                    let x86Lib = x86Dir.appending(lib)
+                    let cmd = "lipo -create -output \(lib) \(armLib) \(x86Lib)"
+                    try await shell(cmd, cwd: libDir)
+                } else {
+                    let cmd = "swift build -c release -debug-info-format none --arch \(platform.arch) --product \(libraryName)"
+                    try await shell(cmd, cwd: repoDir)
+
+                    let buildDir = scratchDir.appending("release")
+                    let srcModulesDir = buildDir.appending("Modules")
+
+                    // Copy the swiftmodules
+                    for file in try fileSystem.getDirectoryContents(srcModulesDir) {
+                        try fileSystem.copy(from: srcModulesDir.appending(file), to: modulesDir.appending(file))
+                    }
+
+                    // Copy the library to staging
+                    try fileSystem.copy(from: buildDir.appending(lib), to: libDir.appending(lib))
                 }
 
                 // Zip it up

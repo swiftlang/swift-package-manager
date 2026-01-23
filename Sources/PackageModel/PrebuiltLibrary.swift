@@ -75,7 +75,7 @@ public enum PrebuiltsPlatform: String, Codable, CaseIterable {
     case debian_12_aarch64
     case debian_12_x86_64
 
-    public enum Arch: String {
+    public enum Arch: String, CaseIterable {
         case x86_64
         case aarch64
     }

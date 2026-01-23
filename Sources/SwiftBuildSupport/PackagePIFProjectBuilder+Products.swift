@@ -121,9 +121,6 @@ extension PackagePIFProjectBuilder {
 
         if product.platformConstraint == .host {
             settings[.SUPPORTED_PLATFORMS] = [ "$(HOST_PLATFORM)" ]
-            if let archs = PrebuiltsPlatform.hostPlatform?.arch.archs {
-                settings[.ARCHS] = archs
-            }
         }
 
         if mainModule.type == .test {
@@ -690,9 +687,6 @@ extension PackagePIFProjectBuilder {
 
         if product.platformConstraint == .host {
             settings[.SUPPORTED_PLATFORMS] = ["$(HOST_PLATFORM)"]
-            if let archs = PrebuiltsPlatform.hostPlatform?.arch.archs {
-                settings[.ARCHS] = archs
-            }
         }
 
         // Add other build settings when we're building an actual dylib.
@@ -955,9 +949,6 @@ extension PackagePIFProjectBuilder {
 
         if pluginProduct.platformConstraint == .host {
             buildSettings[.SUPPORTED_PLATFORMS] = ["$(HOST_PLATFORM)"]
-            if let archs = PrebuiltsPlatform.hostPlatform?.arch.archs {
-                buildSettings[.ARCHS] = archs
-            }
         }
 
         self.project[keyPath: pluginTargetKeyPath].common.addBuildConfig { id in

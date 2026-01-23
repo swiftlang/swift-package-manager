@@ -725,14 +725,3 @@ extension PackagePIFBuilder.LinkedPackageBinary {
         }
     }
 }
-
-extension PrebuiltsPlatform.Arch {
-    public var archs: [String] {
-        switch self {
-        case .aarch64:
-            return ["arm64"]
-        case .x86_64:
-            return ["x86_64"]
-        }
-    }
-}
