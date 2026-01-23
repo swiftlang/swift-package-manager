@@ -491,7 +491,7 @@ extension PackagePIFProjectBuilder {
 
         // Collect linked binaries.
         let linkedPackageBinaries: [PackagePIFBuilder.LinkedPackageBinary] = mainModule.dependencies.compactMap {
-            PackagePIFBuilder.LinkedPackageBinary(dependency: $0, package: self.package)
+            PackagePIFBuilder.LinkedPackageBinary(dependency: $0)
         }
 
         let moduleOrProduct = PackagePIFBuilder.ModuleOrProduct(
@@ -845,7 +845,7 @@ extension PackagePIFProjectBuilder {
 
         // Collect linked binaries.
         let linkedPackageBinaries = product.modules.compactMap {
-            PackagePIFBuilder.LinkedPackageBinary(module: $0, package: self.package)
+            PackagePIFBuilder.LinkedPackageBinary(module: $0)
         }
 
         let moduleOrProductType: PackagePIFBuilder.ModuleOrProductType = switch product.libraryType {

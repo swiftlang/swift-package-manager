@@ -47,7 +47,7 @@ fileprivate func withGeneratedPIF(
     fromFixture fixtureName: String,
     addLocalRpaths: Bool = true,
     buildParameters: BuildParameters? = nil,
-    do doIt: (SwiftBuildSupport.PIF.TopLevelObject, TestingObservability) async throws -> (),
+    do doIt: (SwiftBuildSupport.PIF.TopLevelObject, TestingObservability) async throws -> ()
 ) async throws {
     let buildParameters = if let buildParameters {
         buildParameters
@@ -70,7 +70,10 @@ fileprivate func withGeneratedPIF(
         )
         let builder = PIFBuilder(
             graph: graph,
-            parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(temporaryDirectory: fixturePath, addLocalRpaths: addLocalRpaths),
+            parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
+                temporaryDirectory: fixturePath,
+                addLocalRpaths: addLocalRpaths
+            ),
             fileSystem: localFileSystem,
             observabilityScope: observabilitySystem.topScope
         )
