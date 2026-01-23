@@ -112,8 +112,7 @@ extension PackagePIFProjectBuilder {
         settings[.TARGET_NAME] = product.name
         settings[.PACKAGE_RESOURCE_TARGET_KIND] = "regular"
         settings[.PRODUCT_NAME] = "$(TARGET_NAME)"
-        // We must use the main module name here instead of the product name, because they're not guranteed to be the same, and the users may have authored e.g. tests which rely on an executable's module name.
-        settings[.PRODUCT_MODULE_NAME] = mainModule.c99name
+        settings[.PRODUCT_MODULE_NAME] = product.c99name
         settings[.PRODUCT_BUNDLE_IDENTIFIER] = "\(self.package.identity).\(product.name)"
             .spm_mangledToBundleIdentifier()
         settings[.SWIFT_PACKAGE_NAME] = mainModule.packageName
