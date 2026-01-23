@@ -204,9 +204,9 @@ public final class PIFBuilder {
 
     /// Constructs all `PackagePIFBuilder` objects used by the `constructPIF` function.
     /// In particular, this is useful for unit testing the complex `PIFBuilder` class.
-    package func makePIFBuilders(
-        buildParameters: BuildParameters
-    ) async throws -> [(ResolvedPackage, PackagePIFBuilder, any PackagePIFBuilder.BuildDelegate)] {
+    func makePIFBuilders(
+        buildParameters: BuildParameters 
+    ) async throws -> [(ResolvedPackage, PackagePIFBuilder, any PackagePIFBuilder.BuildDelegate)] { 
         let pluginScriptRunner = self.parameters.pluginScriptRunner
         let outputDir = self.parameters.pluginWorkingDirectory.appending("outputs")
 
@@ -420,7 +420,9 @@ public final class PIFBuilder {
     }
 
     /// Constructs a `PIF.TopLevelObject` representing the package graph.
-    package func constructPIF(buildParameters: BuildParameters) async throws -> PIF.TopLevelObject {
+    package func constructPIF( 
+        buildParameters: BuildParameters
+    ) async throws -> PIF.TopLevelObject {
         return try await memoize(to: &self.cachedPIF) {
             guard let rootPackage = self.graph.rootPackages.only else {
                 if self.graph.rootPackages.isEmpty {
@@ -454,7 +456,6 @@ public final class PIFBuilder {
                 path: rootPackage.path,
                 projects: pifProjects
             )
-
             return PIF.TopLevelObject(workspace: workspace)
         }
     }
