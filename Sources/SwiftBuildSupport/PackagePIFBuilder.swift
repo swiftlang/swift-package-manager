@@ -392,8 +392,10 @@ public final class PackagePIFBuilder {
         init(from pifProductType: ProjectModel.Target.ProductType) {
             self = switch pifProductType {
             case .application: .application
+            case .commonStaticArchive: .staticArchive
             case .staticArchive: .staticArchive
             case .commonObject: .commonObject
+            case .objectFile: .commonObject
             case .dynamicLibrary: .dynamicLibrary
             case .framework: .framework
             case .executable: .executable
@@ -403,7 +405,7 @@ public final class PackagePIFBuilder {
             case .packageProduct: .packageProduct
             case .hostBuildTool: fatalError("Unexpected hostBuildTool type")
             @unknown default:
-                fatalError()
+                fatalError("Unknown product type: \(pifProductType)")
             }
         }
     }

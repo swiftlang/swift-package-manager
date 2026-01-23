@@ -8,6 +8,7 @@
 
 add_library(SwiftBuildSupport STATIC
   BuildSystem.swift
+  Diagnostics+Extensions.swift
   DotPIFSerializer.swift
   PackagePIFBuilder.swift
   PackagePIFBuilder+Helpers.swift

@@ -47,8 +47,6 @@ struct StaticBinaryLibraryTests {
 
                 """)
             }
-        } when: {
-            ProcessInfo.hostOperatingSystem == .windows
         }
     }
 }

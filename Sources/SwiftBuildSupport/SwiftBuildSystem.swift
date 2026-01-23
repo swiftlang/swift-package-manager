@@ -120,7 +120,7 @@ func withSession(
 
 package final class SwiftBuildSystemPlanningOperationDelegate: SWBPlanningOperationDelegate, SWBIndexingDelegate, Sendable {
     package init() {}
-    
+
     public func provisioningTaskInputs(
         targetGUID: String,
         provisioningSourceData: SWBProvisioningTaskInputsSourceData
@@ -515,6 +515,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                 sourceFiles: plugin.sources.paths,
                 pluginName: plugin.moduleName,
                 toolsVersion: plugin.toolsVersion,
+                workers: self.buildParameters.workers,
                 observabilityScope: observabilityScope,
                 callbackQueue: DispatchQueue.sharedConcurrent,
                 delegate: delegate
@@ -702,36 +703,45 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
     }
 
     private func makeRunDestination() -> SwiftBuild.SWBRunDestinationInfo {
-        let platformName: String
-        let sdkName: String
-        if self.buildParameters.triple.isAndroid() {
-            // Android triples are identified by the environment part of the triple
-            platformName = "android"
-            sdkName = platformName
-        } else if self.buildParameters.triple.isWasm {
-            // Swift Build uses webassembly instead of wasi as the platform name
-            platformName = "webassembly"
-            sdkName = platformName
+        if let sdkManifestPath = self.buildParameters.toolchain.swiftSDK.swiftSDKManifest {
+            return SwiftBuild.SWBRunDestinationInfo(
+                buildTarget: .swiftSDK(sdkManifestPath: sdkManifestPath.pathString, triple: self.buildParameters.triple.tripleString),
+                targetArchitecture: buildParameters.triple.archName,
+                supportedArchitectures: [],
+                disableOnlyActiveArch: (buildParameters.architectures?.count ?? 1) > 1,
+            )
         } else {
-            platformName = self.buildParameters.triple.darwinPlatform?.platformName ?? self.buildParameters.triple.osNameUnversioned
-            sdkName = platformName
-        }
+            let platformName: String
+            let sdkName: String
 
-        let sdkVariant: String?
-        if self.buildParameters.triple.environment == .macabi {
-            sdkVariant = "iosmac"
-        } else {
-            sdkVariant = nil
-        }
+            if self.buildParameters.triple.isAndroid() {
+                // Android triples are identified by the environment part of the triple
+                platformName = "android"
+                sdkName = platformName
+            } else {
+                platformName = self.buildParameters.triple.darwinPlatform?.platformName ?? self.buildParameters.triple.osNameUnversioned
+                sdkName = platformName
+            }
 
-        return SwiftBuild.SWBRunDestinationInfo(
-            platform: platformName,
-            sdk: sdkName,
-            sdkVariant: sdkVariant,
-            targetArchitecture: buildParameters.triple.archName,
-            supportedArchitectures: [],
-            disableOnlyActiveArch: (buildParameters.architectures?.count ?? 1) > 1
-        )
+            let sdkVariant: String?
+            if self.buildParameters.triple.environment == .macabi {
+                sdkVariant = "iosmac"
+            } else {
+                sdkVariant = nil
+            }
+
+            return SwiftBuild.SWBRunDestinationInfo(
+                buildTarget: .toolchainSDK(
+                    platform: platformName,
+                    sdk: sdkName,
+                    sdkVariant: sdkVariant
+                ),
+                targetArchitecture: buildParameters.triple.archName,
+                supportedArchitectures: [],
+                disableOnlyActiveArch: (buildParameters.architectures?.count ?? 1) > 1,
+                hostTargetedPlatform: nil
+            )
+        }
     }
 
     internal func makeBuildParameters(
@@ -762,7 +772,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                 // native build system.
                 settings["SWIFT_EXEC"] = buildParameters.toolchain.swiftCompilerPath.pathString
             }
-            
+
             let overrideToolchains = [buildParameters.toolchain.metalToolchainId, toolchainID?.rawValue].compactMap { $0 }
             if !overrideToolchains.isEmpty {
                 settings["TOOLCHAINS"] = (overrideToolchains + ["$(inherited)"]).joined(separator: " ")
@@ -866,12 +876,19 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                 + buildParameters.flags.swiftCompilerFlags.map { $0.shellEscaped() }
         ).joined(separator: " ")
 
-        settings["OTHER_LDFLAGS"] = (
-            verboseFlag + // clang will be invoked to link so the verbose flag is valid for it
-                ["$(inherited)"]
-                + buildParameters.toolchain.extraFlags.linkerFlags.asSwiftcLinkerFlags().map { $0.shellEscaped() }
-                + buildParameters.flags.linkerFlags.asSwiftcLinkerFlags().map { $0.shellEscaped() }
-        ).joined(separator: " ")
+        let inherited = ["$(inherited)"]
+
+        let buildParametersLinkFlags =
+            buildParameters.toolchain.extraFlags.linkerFlags.asSwiftcLinkerFlags().map { $0.shellEscaped() }
+            + buildParameters.flags.linkerFlags.asSwiftcLinkerFlags().map { $0.shellEscaped() }
+
+        var otherLdFlags =
+                verboseFlag  // clang will be invoked to link so the verbose flag is valid for it
+                + inherited
+
+        otherLdFlags += buildParametersLinkFlags
+
+        settings["OTHER_LDFLAGS"] = otherLdFlags.joined(separator: " ")
 
         // Optionally also set the list of architectures to build for.
         if let architectures = buildParameters.architectures, !architectures.isEmpty {
@@ -920,7 +937,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         }
         try settings.merge(Self.constructDebuggingSettingsOverrides(from: buildParameters.debuggingParameters), uniquingKeysWith: reportConflict)
         try settings.merge(Self.constructDriverSettingsOverrides(from: buildParameters.driverParameters), uniquingKeysWith: reportConflict)
-        try settings.merge(Self.constructLinkerSettingsOverrides(from: buildParameters.linkingParameters), uniquingKeysWith: reportConflict)
+        try settings.merge(self.constructLinkerSettingsOverrides(from: buildParameters.linkingParameters, triple: buildParameters.triple), uniquingKeysWith: reportConflict)
         try settings.merge(Self.constructTestingSettingsOverrides(from: buildParameters.testingParameters), uniquingKeysWith: reportConflict)
         try settings.merge(Self.constructAPIDigesterSettingsOverrides(from: buildParameters.apiDigesterMode), uniquingKeysWith: reportConflict)
 
@@ -937,9 +954,19 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         return params
     }
 
-    public func makeBuildRequest(session: SWBBuildServiceSession, configuredTargets: [SWBTargetGUID], derivedDataPath: Basics.AbsolutePath, symbolGraphOptions: BuildOutput.SymbolGraphOptions?) async throws -> SWBBuildRequest {
+    public func makeBuildRequest(
+        session: SWBBuildServiceSession,
+        configuredTargets: [SWBTargetGUID],
+        derivedDataPath: Basics.AbsolutePath,
+        symbolGraphOptions: BuildOutput.SymbolGraphOptions?,
+        setToolchainSetting: Bool = true,
+        ) async throws -> SWBBuildRequest {
         var request = SWBBuildRequest()
-        request.parameters = try await makeBuildParameters(session: session, symbolGraphOptions: symbolGraphOptions)
+        request.parameters = try await makeBuildParameters(
+            session: session,
+            symbolGraphOptions: symbolGraphOptions,
+            setToolchainSetting: setToolchainSetting,
+        )
         request.configuredTargets = configuredTargets.map { SWBConfiguredTarget(guid: $0.rawValue, parameters: request.parameters) }
         request.useParallelTargets = true
         request.useImplicitDependencies = false
@@ -947,6 +974,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         request.hideShellScriptEnvironment = true
         request.showNonLoggedProgress = true
         request.recordBuildBacktraces = buildParameters.outputParameters.enableTaskBacktraces
+        request.schedulerLaneWidthOverride = buildParameters.workers
 
         // Override the arena. We need to apply the arena info to both the request-global build
         // parameters as well as the target-specific build parameters, since they may have been
@@ -1007,7 +1035,10 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         return settings
     }
 
-    private static func constructLinkerSettingsOverrides(from parameters: BuildParameters.Linking) -> [String: String] {
+    private func constructLinkerSettingsOverrides(
+        from parameters: BuildParameters.Linking,
+        triple: Triple,
+    ) -> [String: String] {
         var settings: [String: String] = [:]
 
         if parameters.linkerDeadStrip {
@@ -1025,7 +1056,19 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             break
         }
 
-        // TODO: shouldLinkStaticSwiftStdlib
+        if triple.isDarwin() && parameters.shouldLinkStaticSwiftStdlib {
+            self.observabilityScope.emit(Basics.Diagnostic.swiftBackDeployWarning)
+        } else {
+            if parameters.shouldLinkStaticSwiftStdlib {
+                settings["SWIFT_FORCE_STATIC_LINK_STDLIB"] = "YES"
+            } else {
+                settings["SWIFT_FORCE_STATIC_LINK_STDLIB"] = "NO"
+            }
+        }
+
+        if let resourcesPath = self.buildParameters.toolchain.swiftResourcesPath(isStatic: parameters.shouldLinkStaticSwiftStdlib) {
+            settings["SWIFT_RESOURCE_DIR"] = resourcesPath.pathString
+        }
 
         return settings
     }

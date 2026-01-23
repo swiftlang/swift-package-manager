@@ -157,6 +157,7 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
         case is OnBuildInitializedNotification:
             connectionToUnderlyingBuildServer.send(notification)
             state = .running
+            scheduleRegeneratingBuildDescription()
         case let notification as OnWatchedFilesDidChangeNotification:
             // The underlying build server only receives updates via new PIF, so don't forward this notification.
             for change in notification.changes {
@@ -167,6 +168,9 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
             }
         case is OnBuildLogMessageNotification:
             // If we receive a build log message notification, forward it on to the client
+            connectionToClient.send(notification)
+        case is OnBuildTargetDidChangeNotification:
+            // If the underlying server notifies us of target updates, forward the notification to the client
             connectionToClient.send(notification)
         default:
             logToClient(.warning, "SwiftPM build server received unknown notification type: \(notification)")
@@ -246,7 +250,6 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
             logToClient(.warning, "Underlying build server reported unexpected file watchers")
         }
         state = .waitingForInitializedNotification
-        scheduleRegeneratingBuildDescription()
         return InitializeBuildResponse(
             displayName: "SwiftPM Build Server",
             version: SwiftVersion.current.displayString,

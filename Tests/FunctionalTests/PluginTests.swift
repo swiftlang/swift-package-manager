@@ -380,7 +380,6 @@ struct PluginTests {
     @Test(
         .issue("https://github.com/swiftlang/swift-package-manager/issues/9215", relationship: .verifies),
         .requiresSwiftConcurrencySupport,
-        .disabled("rdar://162053979"),
         arguments: [BuildSystemProvider.Kind.native, .swiftbuild]
     )
     func testUseOfVendedBinaryTool(buildSystem: BuildSystemProvider.Kind) async throws {
@@ -813,6 +812,7 @@ struct PluginTests {
                       plugin.invoke(
                         action: .performCommand(package: package, arguments: arguments),
                         buildEnvironment: BuildEnvironment(platform: .macOS, configuration: .debug),
+                        workers: 1,
                         scriptRunner: scriptRunner,
                         workingDirectory: package.path,
                         outputDirectory: pluginDir.appending("output"),
@@ -1112,6 +1112,7 @@ struct PluginTests {
                     _ = try await plugin.invoke(
                         action: .performCommand(package: package, arguments: []),
                         buildEnvironment: BuildEnvironment(platform: .macOS, configuration: .debug),
+                        workers: 1,
                         scriptRunner: scriptRunner,
                         workingDirectory: package.path,
                         outputDirectory: pluginDir.appending("output"),

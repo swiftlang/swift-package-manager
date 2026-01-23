@@ -41,6 +41,7 @@ public struct MockToolchain: PackageModel.Toolchain {
     public let swiftPMLibrariesLocation = ToolchainConfiguration.SwiftPMLibrariesLocation(
         manifestLibraryPath: AbsolutePath("/fake/manifestLib/path"), pluginLibraryPath: AbsolutePath("/fake/pluginLibrary/path")
     )
+    public var swiftSDK: PackageModel.SwiftSDK
 
     public func getClangCompiler() throws -> AbsolutePath {
         "/fake/path/to/clang"
@@ -54,10 +55,11 @@ public struct MockToolchain: PackageModel.Toolchain {
         #endif
     }
 
-    public init(swiftResourcesPath: AbsolutePath? = nil) {
+    public init(swiftResourcesPath: AbsolutePath? = nil) throws {
         self.swiftResourcesPath = swiftResourcesPath
         self.metalToolchainPath = nil
         self.metalToolchainId = nil
+        self.swiftSDK = try .hostSwiftSDK()
     }
 }
 
@@ -84,7 +86,7 @@ public func mockBuildParameters(
     destination: BuildParameters.Destination,
     buildPath: AbsolutePath? = nil,
     config: BuildConfiguration = .debug,
-    toolchain: PackageModel.Toolchain = MockToolchain(),
+    toolchain: PackageModel.Toolchain = try! MockToolchain(),
     flags: PackageModel.BuildFlags = PackageModel.BuildFlags(),
     buildSystemKind: BuildSystemProvider.Kind = .native,
     shouldLinkStaticSwiftStdlib: Bool = false,
@@ -98,6 +100,7 @@ public func mockBuildParameters(
     enableXCFrameworksOnLinux: Bool = false,
     prepareForIndexing: BuildParameters.PrepareForIndexingMode = .off,
     sanitizers: [Sanitizer] = [],
+    numberOfWorkers: UInt32 = 3,
 ) -> BuildParameters {
     try! BuildParameters(
         destination: destination,
@@ -108,7 +111,7 @@ public func mockBuildParameters(
         flags: flags,
         buildSystemKind: buildSystemKind,
         pkgConfigDirectories: [],
-        workers: 3,
+        workers: numberOfWorkers,
         sanitizers: EnabledSanitizers(Set(sanitizers)),
         indexStoreMode: indexStoreMode,
         prepareForIndexing: prepareForIndexing,

@@ -332,7 +332,7 @@ public struct BuildParameters: Encodable {
         case .library(.dynamic):
             return try dynamicLibraryPath(for: product.name)
         case .library(.automatic), .plugin:
-            fatalError()
+            fatalError("\(#file):\(#line) - Illegal call of function \(#function) with automatica library and plugin")
         case .test:
             switch buildSystemKind {
             case .native, .xcode:

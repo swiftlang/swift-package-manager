@@ -150,7 +150,7 @@ public struct LocationOptions: ParsableArguments {
         completion: .directory
     )
     public var pkgConfigDirectories: [AbsolutePath] = []
-    
+
     @Option(
         help: .init("Specify alternate path to search for resources required for SwiftPM to operate. (default: <Toolchain Directory>/usr/share/pm)", visibility: .hidden),
         completion: .directory
@@ -236,7 +236,7 @@ public struct LoggingOptions: ParsableArguments {
           inversion: .prefixedNo,
           help:
             """
-            Enables or disables color diagnostics when printing to a TTY. 
+            Enables or disables color diagnostics when printing to a TTY.
             By default, color diagnostics are enabled when connected to a TTY and disabled otherwise.
             """)
     public var colorDiagnostics: Bool = ProcessInfo.processInfo.environment["NO_COLOR"] == nil
@@ -528,7 +528,7 @@ public struct BuildOptions: ParsableArguments {
 
     /// The number of jobs for llbuild to start (aka the number of schedulerLanes)
     @Option(name: .shortAndLong, help: "The number of jobs to spawn in parallel during the build process.")
-    public var jobs: UInt32?
+    public var jobs: UInt32 = UInt32(ProcessInfo.processInfo.activeProcessorCount)
 
     /// Whether to use the integrated Swift driver rather than shelling out
     /// to a separate process.
@@ -542,7 +542,10 @@ public struct BuildOptions: ParsableArguments {
     public var explicitTargetDependencyImportCheck: TargetDependencyImportCheckingMode = .none
 
     /// The build system to use.
-    @Option(name: .customLong("build-system"))
+    @Option(
+        name: .customLong("build-system"),
+        help: "Specify the build system to use.",
+    )
     var _buildSystem: BuildSystemProvider.Kind = .native
 
     /// The Debug Information Format to use.

@@ -75,6 +75,8 @@ public protocol Toolchain {
     /// Additional flags to be passed to the C++ compiler.
     @available(*, deprecated, message: "use extraFlags.cxxCompilerFlags instead")
     var extraCPPFlags: [String] { get }
+
+    var swiftSDK: SwiftSDK { get }
 }
 
 extension Toolchain {
