@@ -26,6 +26,7 @@ import class PackageModel.Product
 import struct PackageModel.Platform
 import struct PackageModel.PlatformVersion
 import struct PackageModel.Resource
+import struct PackageModel.PackageIdentity
 import enum PackageModel.ProductType
 
 import struct PackageGraph.ModulesGraph
@@ -349,8 +350,8 @@ public final class PackagePIFBuilder {
 
     public struct LinkedPackageBinary {
         public let name: String
-        public let packageName: String
         public let type: BinaryType
+        public let packageIdentity: PackageIdentity
 
         @frozen
         public enum BinaryType {
@@ -358,10 +359,16 @@ public final class PackagePIFBuilder {
             case target
         }
 
-        public init(name: String, packageName: String, type: BinaryType) {
-            self.name = name
-            self.packageName = packageName
-            self.type = type
+        public init(product: String, packageIdentity: PackageIdentity) {
+            self.name = product
+            self.type = .product
+            self.packageIdentity = packageIdentity
+        }
+
+        public init(module: String, packageIdentity: PackageIdentity) {
+            self.name = module
+            self.type = .target
+            self.packageIdentity = packageIdentity
         }
     }
 
@@ -700,29 +707,27 @@ enum PIFBuildingError: Error {
 }
 
 extension PackagePIFBuilder.LinkedPackageBinary {
-    init?(module: ResolvedModule, package: ResolvedPackage) {
-        let packageName = package.manifest.displayName
-
+    init?(module: ResolvedModule) {
         switch module.type {
         case .executable, .snippet, .test:
-            self.init(name: module.name, packageName: packageName, type: .product)
+            self.init(product: module.name, packageIdentity: module.packageIdentity)
 
         case .library, .binary, .macro:
-            self.init(name: module.name, packageName: packageName, type: .target)
+            self.init(module: module.name, packageIdentity: module.packageIdentity)
 
         case .systemModule, .plugin:
             return nil
         }
     }
 
-    init?(dependency: ResolvedModule.Dependency, package: ResolvedPackage) {
+    init?(dependency: ResolvedModule.Dependency) {
         switch dependency {
         case .product(let productDependency, _):
             guard productDependency.hasSourceTargets else { return nil }
-            self.init(name: productDependency.name, packageName: package.name, type: .product)
+            self.init(product: productDependency.name, packageIdentity: productDependency.packageIdentity)
 
         case .module(let moduleDependency, _):
-            self.init(module: moduleDependency, package: package)
+            self.init(module: moduleDependency)
         }
     }
 }
