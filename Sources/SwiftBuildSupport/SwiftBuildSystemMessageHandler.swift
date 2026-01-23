@@ -226,6 +226,7 @@ public final class SwiftBuildSystemMessageHandler {
             }
 
             // Skip if message doesn't contain anything useful to display.
+            // TODO: To file an issue for SwiftBuild here.
             if message.contains(where: \.isLetter) {
                 progressAnimation.update(step: step, total: 100, text: message)
             }
