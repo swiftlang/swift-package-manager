@@ -815,12 +815,13 @@ extension PackagePIFProjectBuilder {
             PackagePIFBuilder.LinkedPackageBinary(dependency: $0)
         }
 
-        let productOrModuleType: PackagePIFBuilder.ModuleOrProductType = if desiredModuleType == .dynamicLibrary {
+        let productOrModuleType: PackagePIFBuilder.ModuleOrProductType = switch desiredModuleType {
+        case .dynamicLibrary:
             pifBuilder.createDylibForDynamicProducts ? .dynamicLibrary : .framework
-        } else if desiredModuleType == .macro {
+        case .staticLibrary, .executable:
+            .commonObject
+        case .macro:
             .macro
-        } else {
-            .module
         }
 
         let moduleOrProduct = PackagePIFBuilder.ModuleOrProduct(

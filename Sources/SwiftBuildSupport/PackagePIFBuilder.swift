@@ -376,7 +376,6 @@ public final class PackagePIFBuilder {
         // Products.
         case application
         case staticArchive
-        case commonObject
         case dynamicLibrary
         case framework
         case executable
@@ -389,6 +388,7 @@ public final class PackagePIFBuilder {
         case buildToolPlugin
 
         // Modules.
+        case commonObject
         case module
         case plugin
         case macro
