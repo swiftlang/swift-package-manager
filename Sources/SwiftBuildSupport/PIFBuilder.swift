@@ -206,9 +206,11 @@ public final class PIFBuilder {
         return accessibleToolsPerPlugin
     }
 
-    package func makePIFBuilders(
-        buildParameters: BuildParameters
-    ) async throws -> [(ResolvedPackage, PackagePIFBuilder, any PackagePIFBuilder.BuildDelegate)] {
+    /// Constructs all `PackagePIFBuilder` objects used by the `constructPIF` function.
+    /// In particular, this is useful for unit testing the complex `PIFBuilder` class.
+    func makePIFBuilders(
+        buildParameters: BuildParameters 
+    ) async throws -> [(ResolvedPackage, PackagePIFBuilder, any PackagePIFBuilder.BuildDelegate)] { 
         let pluginScriptRunner = self.parameters.pluginScriptRunner
         let outputDir = self.parameters.pluginWorkingDirectory.appending("outputs")
 
@@ -423,8 +425,18 @@ public final class PIFBuilder {
     }
 
     /// Constructs a `PIF.TopLevelObject` representing the package graph.
-    package func constructPIF(buildParameters: BuildParameters) async throws -> PIF.TopLevelObject {
+    package func constructPIF( 
+        buildParameters: BuildParameters
+    ) async throws -> PIF.TopLevelObject {
         return try await memoize(to: &self.cachedPIF) {
+            guard let rootPackage = self.graph.rootPackages.only else {
+                if self.graph.rootPackages.isEmpty {
+                    throw PIFGenerationError.rootPackageNotFound
+                } else {
+                    throw PIFGenerationError.multipleRootPackagesFound
+                }
+            }
+
             let packagesAndPIFBuilders = try await makePIFBuilders(buildParameters: buildParameters)
 
             let packagesAndPIFProjects = try packagesAndPIFBuilders.map { (package, pifBuilder, _) in
@@ -443,21 +455,12 @@ public final class PIFBuilder {
                 )
             )
 
-            guard let rootPackage = self.graph.rootPackages.only else {
-                if self.graph.rootPackages.isEmpty {
-                    throw PIFGenerationError.rootPackageNotFound
-                } else {
-                    throw PIFGenerationError.multipleRootPackagesFound
-                }
-            }
-
             let workspace = PIF.Workspace(
                 id: "Workspace:\(rootPackage.path.pathString)",
                 name: rootPackage.manifest.displayName, // TODO: use identity instead?
                 path: rootPackage.path,
                 projects: pifProjects
             )
-
             return PIF.TopLevelObject(workspace: workspace)
         }
     }
