@@ -26,7 +26,7 @@ import Workspace
 
 // Format for the .zip.json files.
 struct Artifact: Codable {
-    var platform: Workspace.PrebuiltsManifest.Platform
+    var platform: PrebuiltsPlatform
     var checksum: String
     var libraryName: String?
     var products: [String]?
@@ -135,8 +135,6 @@ struct BuildPrebuilts: AsyncParsableCommand {
         let libraryName = "MacroSupport"
         let repoDir = srcDir.appending(id)
         let scratchDir = repoDir.appending(".build")
-        let buildDir = scratchDir.appending("release")
-        let srcModulesDir = buildDir.appending("Modules")
         let prebuiltDir = stageDir.appending(id)
 
         try await shell("git clone https://github.com/swiftlang/swift-syntax.git", cwd: srcDir)
@@ -172,8 +170,9 @@ struct BuildPrebuilts: AsyncParsableCommand {
 
             // Build
             let cModules = libraryTargets.compactMap({ $0 as? ClangModule })
+            let lib = "lib\(libraryName).a"
 
-            for platform in Workspace.PrebuiltsManifest.Platform.allCases {
+            for platform in PrebuiltsPlatform.allCases {
                 guard canBuild(platform) else {
                     continue
                 }
@@ -187,16 +186,55 @@ struct BuildPrebuilts: AsyncParsableCommand {
                 }
 
                 // Build
-                let cmd = "swift build -c release -debug-info-format none --arch \(platform.arch) --product \(libraryName)"
-                try await shell(cmd, cwd: repoDir)
+                if platform.os == .macos {
+                    // Create universal binaries for macOS
+                    for arch in ["arm64", "x86_64"] {
+                        let cmd = "swift build -c release -debug-info-format none --arch \(arch) --product \(libraryName)"
+                        try await shell(cmd, cwd: repoDir)
+                    }
 
-                // Copy the library to staging
-                let lib = "lib\(libraryName).a"
-                try fileSystem.copy(from: buildDir.appending(lib), to: libDir.appending(lib))
+                    let armTriple = "arm64-apple-macos"
+                    let armDir = scratchDir.appending("arm64-apple-macosx", "release")
+                    let armModulesDir = armDir.appending("Modules")
+                    let x86Triple = "x86_64-apple-macos"
+                    let x86Dir = scratchDir.appending("x86_64-apple-macosx", "release")
+                    let x86ModulesDir = x86Dir.appending("Modules")
 
-                // Copy the swiftmodules
-                for file in try fileSystem.getDirectoryContents(srcModulesDir) {
-                    try fileSystem.copy(from: srcModulesDir.appending(file), to: modulesDir.appending(file))
+                    // Universal swiftmodules
+                    for swiftmodule in try fileSystem.getDirectoryContents(armModulesDir).filter({ $0.hasSuffix(".swiftmodule") }) {
+                        let moduleDir = modulesDir.appending(swiftmodule)
+                        let projectDir = moduleDir.appending("Project")
+                        try fileSystem.createDirectory(projectDir, recursive: true)
+                        let moduleName = swiftmodule.replacingOccurrences(of: ".swiftmodule", with: "")
+                        try fileSystem.copy(from: armModulesDir.appending(swiftmodule), to: moduleDir.appending(armTriple + ".swiftmodule"))
+                        try fileSystem.copy(from: x86ModulesDir.appending(swiftmodule), to: moduleDir.appending(x86Triple + ".swiftmodule"))
+                        try fileSystem.copy(from: armModulesDir.appending(moduleName + ".abi.json"), to: moduleDir.appending(armTriple + ".abi.json"))
+                        try fileSystem.copy(from: x86ModulesDir.appending(moduleName + ".abi.json"), to: moduleDir.appending(x86Triple + ".abi.json"))
+                        try fileSystem.copy(from: armModulesDir.appending(moduleName + ".swiftdoc"), to: moduleDir.appending(armTriple + ".swiftdoc"))
+                        try fileSystem.copy(from: x86ModulesDir.appending(moduleName + ".swiftdoc"), to: moduleDir.appending(x86Triple + ".swiftdoc"))
+                        try fileSystem.copy(from: armModulesDir.appending(moduleName + ".swiftsourceinfo"), to: projectDir.appending(armTriple + ".swiftsourceinfo"))
+                        try fileSystem.copy(from: x86ModulesDir.appending(moduleName + ".swiftsourceinfo"), to: projectDir.appending(x86Triple + ".swiftsourceinfo"))
+                    }
+
+                    // lipo the archive
+                    let armLib = armDir.appending(lib)
+                    let x86Lib = x86Dir.appending(lib)
+                    let cmd = "lipo -create -output \(lib) \(armLib) \(x86Lib)"
+                    try await shell(cmd, cwd: libDir)
+                } else {
+                    let cmd = "swift build -c release -debug-info-format none --arch \(platform.arch) --product \(libraryName)"
+                    try await shell(cmd, cwd: repoDir)
+
+                    let buildDir = scratchDir.appending("release")
+                    let srcModulesDir = buildDir.appending("Modules")
+
+                    // Copy the swiftmodules
+                    for file in try fileSystem.getDirectoryContents(srcModulesDir) {
+                        try fileSystem.copy(from: srcModulesDir.appending(file), to: modulesDir.appending(file))
+                    }
+
+                    // Copy the library to staging
+                    try fileSystem.copy(from: buildDir.appending(lib), to: libDir.appending(lib))
                 }
 
                 // Zip it up
@@ -420,13 +458,13 @@ struct BuildPrebuilts: AsyncParsableCommand {
         }
     }
 
-    func canBuild(_ platform: Workspace.PrebuiltsManifest.Platform) -> Bool {
+    func canBuild(_ platform: PrebuiltsPlatform) -> Bool {
 #if os(macOS)
         return platform.os == .macos
 #elseif os(Windows)
         return platform.os == .windows
 #elseif os(Linux)
-        return platform == Workspace.PrebuiltsManifest.Platform.hostPlatform
+        return platform == PrebuiltsPlatform.hostPlatform
 #else
         return false
 #endif
@@ -471,34 +509,6 @@ func shell(_ command: String, cwd: AbsolutePath) async throws {
     case .signalled(signal: let signal):
         throw StringError("Command exited on signal \(signal): \(command)")
 #endif
-    }
-}
-
-extension Workspace.PrebuiltsManifest.Platform {
-    var dockerTag: String? {
-        switch self {
-        case .ubuntu_jammy_aarch64, .ubuntu_jammy_x86_64:
-            return "jammy"
-        case .ubuntu_focal_aarch64, .ubuntu_focal_x86_64:
-            return "focal"
-        case .rhel_ubi9_aarch64, .rhel_ubi9_x86_64:
-            return "rhel-ubi9"
-        case .amazonlinux2_aarch64, .amazonlinux2_x86_64:
-            return "amazonlinux2"
-        default:
-            return nil
-        }
-    }
-}
-
-extension Workspace.PrebuiltsManifest.Platform.Arch {
-    var dockerPlatform: String? {
-        switch self {
-        case .aarch64:
-            return "linux/arm64"
-        case .x86_64:
-            return "linux/amd64"
-        }
     }
 }
 

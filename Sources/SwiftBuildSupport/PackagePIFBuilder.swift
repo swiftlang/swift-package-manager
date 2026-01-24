@@ -25,6 +25,7 @@ import class PackageModel.Package
 import class PackageModel.Product
 import struct PackageModel.Platform
 import struct PackageModel.PlatformVersion
+import enum PackageModel.PrebuiltsPlatform
 import struct PackageModel.Resource
 import struct PackageModel.PackageIdentity
 import enum PackageModel.ProductType

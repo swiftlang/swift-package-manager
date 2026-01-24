@@ -21,6 +21,7 @@ import struct Basics.SourceControlURL
 import class PackageModel.BinaryModule
 import class PackageModel.Manifest
 import enum PackageModel.PackageCondition
+import enum PackageModel.PrebuiltsPlatform
 import class PackageModel.Product
 import enum PackageModel.ProductType
 import struct PackageModel.RegistryReleaseMetadata
@@ -117,6 +118,10 @@ extension PackagePIFProjectBuilder {
         settings[.PRODUCT_BUNDLE_IDENTIFIER] = "\(self.package.identity).\(product.name)"
             .spm_mangledToBundleIdentifier()
         settings[.SWIFT_PACKAGE_NAME] = mainModule.packageName
+
+        if product.platformConstraint == .host {
+            settings[.SUPPORTED_PLATFORMS] = [ "$(HOST_PLATFORM)" ]
+        }
 
         if mainModule.type == .test {
             // FIXME: we shouldn't always include both the deep and shallow bundle paths here, but for that we'll need rdar://31867023
@@ -682,6 +687,10 @@ extension PackagePIFProjectBuilder {
 
         var settings: ProjectModel.BuildSettings = package.underlying.packageBaseBuildSettings
 
+        if product.platformConstraint == .host {
+            settings[.SUPPORTED_PLATFORMS] = ["$(HOST_PLATFORM)"]
+        }
+
         // Add other build settings when we're building an actual dylib.
         if desiredProductType == .dynamic {
             settings.configureDynamicSettings(
@@ -952,7 +961,12 @@ extension PackagePIFProjectBuilder {
             log(.debug, "Created aggregate target '\(pluginTarget.id)' with name '\(pluginTarget.name)'")
         }
 
-        let buildSettings: ProjectModel.BuildSettings = package.underlying.packageBaseBuildSettings
+        var buildSettings: ProjectModel.BuildSettings = package.underlying.packageBaseBuildSettings
+
+        if pluginProduct.platformConstraint == .host {
+            buildSettings[.SUPPORTED_PLATFORMS] = ["$(HOST_PLATFORM)"]
+        }
+
         self.project[keyPath: pluginTargetKeyPath].common.addBuildConfig { id in
             BuildConfig(id: id, name: "Debug", settings: buildSettings)
         }

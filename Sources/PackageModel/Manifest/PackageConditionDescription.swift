@@ -89,6 +89,13 @@ public struct PlatformsCondition: Hashable, Sendable {
     }
 }
 
+/// A mini version of target platform constraints that will eventually be user specifiable..
+/// For now used to mark modules host only that are only accessed by macros and plugins.
+public enum PlatformConstraint {
+    case all
+    case host
+}
+
 /// A configuration condition implies that an assignment is valid on
 /// a particular build configuration.
 public struct ConfigurationCondition: Hashable, Sendable {

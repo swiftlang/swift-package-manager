@@ -14,6 +14,7 @@ import struct Basics.InternalError
 
 import class PackageModel.BinaryModule
 import class PackageModel.ClangModule
+import class PackageModel.SwiftModule
 import class PackageModel.SystemLibraryModule
 
 import PackageGraph
@@ -24,6 +25,7 @@ extension BuildPlan {
     func plan(swiftTarget: SwiftModuleBuildDescription) throws {
         // We need to iterate recursive dependencies because Swift compiler needs to see all the targets a target
         // builds against
+        var prebuiltPaths = Set<String>()
         for case .module(let dependency, let description) in swiftTarget.recursiveLinkDependencies(using: self) {
             switch dependency.underlying {
             case let underlyingTarget as ClangModule where underlyingTarget.type == .library:
@@ -39,6 +41,18 @@ extension BuildPlan {
                     "-Xcc", "-fmodule-map-file=\(moduleMap.pathString)",
                     "-Xcc", "-I", "-Xcc", target.clangTarget.includeDir.pathString,
                 ]
+            case let target as SwiftModule:
+                // Copy include paths over if needed
+                let targetPaths = Set(swiftTarget.target.underlying.buildSettings.assignments[.PREBUILT_INCLUDE_PATHS]?.flatMap(\.values) ?? [])
+                if let assignment = target.buildSettings.assignments[.PREBUILT_INCLUDE_PATHS] {
+                    for path in assignment.flatMap(\.values) {
+                        if !prebuiltPaths.contains(path), !targetPaths.contains(path) {
+                            swiftTarget.additionalFlags += ["-I", path]
+                        }
+                        // Dedup the path
+                        prebuiltPaths.insert(path)
+                    }
+                }
             case let target as SystemLibraryModule:
                 swiftTarget.additionalFlags += ["-Xcc", "-fmodule-map-file=\(target.moduleMapPath.pathString)"]
                 swiftTarget.additionalFlags += try pkgConfig(for: target).cFlags

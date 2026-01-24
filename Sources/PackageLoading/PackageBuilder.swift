@@ -279,48 +279,6 @@ public struct BinaryArtifact {
     }
 }
 
-/// A structure representing a prebuilt library to be used instead of a source dependency
-public struct PrebuiltLibrary {
-    /// The package identity.
-    public let identity: PackageIdentity
-
-    /// The name of the binary target the artifact corresponds to.
-    public let libraryName: String
-
-    /// The path to the extracted prebuilt artifacts
-    public let path: AbsolutePath
-
-    /// The path to the checked out source
-    public let checkoutPath: AbsolutePath?
-
-    /// The products in the library
-    public let products: [String]
-
-    /// The include path relative to the checkouts dir
-    public let includePath: [RelativePath]?
-
-    /// The C modules that need their includes directory added to the include path
-    public let cModules: [String]
-
-    public init(
-        identity: PackageIdentity,
-        libraryName: String,
-        path: AbsolutePath,
-        checkoutPath: AbsolutePath?,
-        products: [String],
-        includePath: [RelativePath]? = nil,
-        cModules: [String] = []
-    ) {
-        self.identity = identity
-        self.libraryName = libraryName
-        self.path = path
-        self.checkoutPath = checkoutPath
-        self.products = products
-        self.includePath = includePath
-        self.cModules = cModules
-    }
-}
-
 /// Helper for constructing a package following the convention system.
 ///
 /// The 'builder' here refers to the builder pattern and not any build system
@@ -347,9 +305,6 @@ public final class PackageBuilder {
 
     /// Information concerning the different downloaded or local (archived) binary target artifacts.
     private let binaryArtifacts: [String: BinaryArtifact]
-
-    /// Prebuilts that may referenced from this package's targets
-    private let prebuilts: [PackageIdentity: [Product.ID: PrebuiltLibrary]]
 
     /// Create multiple test products.
     ///
@@ -407,7 +362,6 @@ public final class PackageBuilder {
         path: AbsolutePath,
         additionalFileRules: [FileRuleDescription],
         binaryArtifacts: [String: BinaryArtifact],
-        prebuilts: [PackageIdentity: [String: PrebuiltLibrary]],
         shouldCreateMultipleTestProducts: Bool = false,
         testEntryPointPath: AbsolutePath? = nil,
         warnAboutImplicitExecutableTargets: Bool = true,
@@ -422,7 +376,6 @@ public final class PackageBuilder {
         self.packagePath = path
         self.additionalFileRules = additionalFileRules
         self.binaryArtifacts = binaryArtifacts
-        self.prebuilts = prebuilts
         self.shouldCreateMultipleTestProducts = shouldCreateMultipleTestProducts
         self.testEntryPointPath = testEntryPointPath
         self.createREPLProduct = createREPLProduct
@@ -1407,42 +1360,6 @@ public final class PackageBuilder {
             table.add(assignment, for: .SWIFT_ACTIVE_COMPILATION_CONDITIONS)
         }
 
-        // Add in flags for prebuilts if the target is a macro or a macro test.
-        // Currently we only support prebuilts for macros.
-        if target.type == .macro || target.isMacroTest(in: manifest) {
-            let prebuiltLibraries: [String: PrebuiltLibrary] = target.dependencies.reduce(into: .init()) {
-                guard case let .product(name: name, package: package, moduleAliases: _, condition: _) = $1,
-                      let package = package,
-                      let prebuilt = prebuilts[.plain(package)]?[name]
-                else {
-                    return
-                }
-
-                $0[prebuilt.libraryName] = prebuilt
-            }
-
-            for prebuilt in prebuiltLibraries.values {
-                let lib = prebuilt.path.appending(components: ["lib", "lib\(prebuilt.libraryName).a"]).pathString
-                var ldFlagsAssignment = BuildSettings.Assignment()
-                ldFlagsAssignment.values = [lib]
-                table.add(ldFlagsAssignment, for: .OTHER_LDFLAGS)
-
-                var includeDirs: [AbsolutePath] = [prebuilt.path.appending(component: "Modules")]
-                if let checkoutPath = prebuilt.checkoutPath, let includePath = prebuilt.includePath {
-                    for includeDir in includePath {
-                        includeDirs.append(checkoutPath.appending(includeDir))
-                    }
-                } else {
-                    for cModule in prebuilt.cModules {
-                        includeDirs.append(prebuilt.path.appending(components: "include", cModule))
-                    }
-                }
-                var includeAssignment = BuildSettings.Assignment()
-                includeAssignment.values = includeDirs.map({ "-I\($0.pathString)" })
-                table.add(includeAssignment, for: .OTHER_SWIFT_FLAGS)
-            }
-        }
-
         return table
     }
 
@@ -1740,7 +1657,8 @@ public final class PackageBuilder {
                         package: self.identity,
                         name: module.name,
                         type: .executable,
-                        modules: [module]
+                        modules: [module],
+                        isImplicit: true
                     )
                     append(product)
                 }
@@ -2027,27 +1945,5 @@ extension Sequence {
 extension TargetDescription {
     fileprivate var usesUnsafeFlags: Bool {
         settings.filter(\.kind.isUnsafeFlags).isEmpty == false
-    }
-
-    fileprivate func isMacroTest(in manifest: Manifest) -> Bool {
-        guard self.type == .test else { return false }
-
-        return self.dependencies.contains(where: {
-            let name: String
-            switch $0 {
-            case .byName(name: let n, condition: _):
-                name = n
-            case .target(name: let n, condition: _):
-                name = n
-            default:
-                return false
-            }
-
-            guard let target = manifest.targetMap[name] else {
-                return false
-            }
-
-            return target.type == .macro
-        })
     }
 }
