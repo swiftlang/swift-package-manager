@@ -344,7 +344,7 @@ struct ResourcesTests{
                 #expect(contents == "best", "unexpected resource contents: \(contents)")
             }
         } when: {
-            buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem != .linux
+            buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .macOS
         }
     }
 }
