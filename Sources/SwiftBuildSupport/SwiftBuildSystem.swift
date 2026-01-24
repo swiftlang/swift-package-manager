@@ -129,9 +129,13 @@ package final class SwiftBuildSystemPlanningOperationDelegate: SWBPlanningOperat
         targetGUID: String,
         provisioningSourceData: SWBProvisioningTaskInputsSourceData
     ) async -> SWBProvisioningTaskInputs {
-        let identity = provisioningSourceData.signingCertificateIdentifier
+        let identity = if provisioningSourceData.signingCertificateIdentifier.isEmpty && shouldEnableDebuggingEntitlement {
+            "-"
+        } else {
+            provisioningSourceData.signingCertificateIdentifier
+        }
 
-        if identity == "-" || identity.isEmpty {
+        if identity == "-" {
             let getTaskAllowEntitlementKey: String
             let applicationIdentifierEntitlementKey: String
 
@@ -184,6 +188,8 @@ package final class SwiftBuildSystemPlanningOperationDelegate: SWBPlanningOperat
                 errors: [],
                 warnings: []
             )
+        } else if identity.isEmpty {
+            return SWBProvisioningTaskInputs()
         } else {
             return SWBProvisioningTaskInputs(
                 identityHash: "-",
