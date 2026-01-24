@@ -33,9 +33,12 @@ fileprivate func withSwiftPMBSP(fixtureName: String, body: (Connection, Notifica
             let connection = JSONRPCConnection(
                 name: "bsp-connection",
                 protocol: MessageRegistry.bspProtocol,
-                inFD: inPipe.fileHandleForReading,
-                outFD: outPipe.fileHandleForWriting
+                receiveFD: inPipe.fileHandleForReading,
+                sendFD: outPipe.fileHandleForWriting
             )
+            defer {
+                connection.close()
+            }
             let bspProcess = Process()
             bspProcess.standardOutputPipe = inPipe
             bspProcess.standardInput = outPipe
@@ -59,7 +62,6 @@ fileprivate func withSwiftPMBSP(fixtureName: String, body: (Connection, Notifica
             try await body(connection, notificationCollector, fixture)
             _ = try await connection.send(BuildShutdownRequest())
             connection.send(OnBuildExitNotification())
-            connection.close()
             try await terminationPromise
         }
     }

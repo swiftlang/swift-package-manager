@@ -45,10 +45,10 @@ struct BuildServer: AsyncSwiftCommand {
         let clientConnection = JSONRPCConnection(
             name: "client",
             protocol: MessageRegistry.bspProtocol,
-            inFD: FileHandle.standardInput,
-            outFD: realStdoutHandle,
-            inputMirrorFile: nil,
-            outputMirrorFile: nil
+            receiveFD: FileHandle.standardInput,
+            sendFD: realStdoutHandle,
+            receiveMirrorFile: nil,
+            sendMirrorFile: nil
         )
 
         guard let buildSystem = try await swiftCommandState.createBuildSystem() as? SwiftBuildSystem else {
