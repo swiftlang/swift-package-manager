@@ -70,8 +70,3 @@ target_link_libraries(SBOMModel PUBLIC
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(SBOMModel PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
-
-install(TARGETS SBOMModel
-  ARCHIVE DESTINATION lib
-  LIBRARY DESTINATION lib
-  RUNTIME DESTINATION bin)
