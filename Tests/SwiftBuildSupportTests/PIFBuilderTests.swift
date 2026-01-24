@@ -29,6 +29,7 @@ extension PIFBuilderParameters {
             isPackageAccessModifierSupported: true,
             enableTestability: false,
             shouldCreateDylibForDynamicProducts: false,
+            materializeStaticArchiveProductsForRootPackages: true,
             toolchainLibDir: temporaryDirectory.appending(component: "toolchain-lib-dir"),
             pkgConfigDirectories: [],
             supportedSwiftVersions: [.v4, .v4_2, .v5, .v6],
@@ -305,13 +306,13 @@ struct PIFBuilderTests {
                 ),
                 ExpectedValue(
                     targetName: "LibraryStatic-product",
-                    expectedValue: nil,
-                    expectedValueForWindows: nil,
+                    expectedValue: "lib",
+                    expectedValueForWindows: "",
                 ),
                 ExpectedValue(
                     targetName: "LibraryAuto-product",
-                    expectedValue: nil,
-                    expectedValueForWindows: nil,
+                    expectedValue: "lib",
+                    expectedValueForWindows: "",
                 ),
             ]
             for targetUnderTest in targetsUnderTest {

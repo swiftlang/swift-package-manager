@@ -46,6 +46,9 @@ package struct PIFBuilderParameters {
     /// Whether to create dylibs for dynamic library products.
     let shouldCreateDylibForDynamicProducts: Bool
 
+    /// Eagerly materialize static archive products.
+    let materializeStaticArchiveProductsForRootPackages: Bool
+
     /// The path to the library directory of the active toolchain.
     let toolchainLibDir: AbsolutePath
 
@@ -72,10 +75,11 @@ package struct PIFBuilderParameters {
     /// the build products to a different location.
     let addLocalRpaths: Bool
 
-    package init(isPackageAccessModifierSupported: Bool, enableTestability: Bool, shouldCreateDylibForDynamicProducts: Bool, toolchainLibDir: AbsolutePath, pkgConfigDirectories: [AbsolutePath], supportedSwiftVersions: [SwiftLanguageVersion], pluginScriptRunner: PluginScriptRunner, disableSandbox: Bool, pluginWorkingDirectory: AbsolutePath, additionalFileRules: [FileRuleDescription], addLocalRPaths: Bool) {
+    package init(isPackageAccessModifierSupported: Bool, enableTestability: Bool, shouldCreateDylibForDynamicProducts: Bool, materializeStaticArchiveProductsForRootPackages: Bool, toolchainLibDir: AbsolutePath, pkgConfigDirectories: [AbsolutePath], supportedSwiftVersions: [SwiftLanguageVersion], pluginScriptRunner: PluginScriptRunner, disableSandbox: Bool, pluginWorkingDirectory: AbsolutePath, additionalFileRules: [FileRuleDescription], addLocalRPaths: Bool) {
         self.isPackageAccessModifierSupported = isPackageAccessModifierSupported
         self.enableTestability = enableTestability
         self.shouldCreateDylibForDynamicProducts = shouldCreateDylibForDynamicProducts
+        self.materializeStaticArchiveProductsForRootPackages = materializeStaticArchiveProductsForRootPackages
         self.toolchainLibDir = toolchainLibDir
         self.pkgConfigDirectories = pkgConfigDirectories
         self.supportedSwiftVersions = supportedSwiftVersions
@@ -405,6 +409,7 @@ public final class PIFBuilder {
                 delegate: packagePIFBuilderDelegate,
                 buildToolPluginResultsByTargetName: buildToolPluginResultsByTargetName,
                 createDylibForDynamicProducts: self.parameters.shouldCreateDylibForDynamicProducts,
+                materializeStaticArchiveProductsForRootPackages: self.parameters.materializeStaticArchiveProductsForRootPackages,
                 addLocalRpaths: self.parameters.addLocalRpaths,
                 packageDisplayVersion: package.manifest.displayName,
                 fileSystem: self.fileSystem,
@@ -525,7 +530,8 @@ public final class PIFBuilder {
         pluginWorkingDirectory: AbsolutePath,
         pkgConfigDirectories: [Basics.AbsolutePath],
         additionalFileRules: [FileRuleDescription],
-        addLocalRpaths: Bool
+        addLocalRpaths: Bool,
+        materializeStaticArchiveProductsForRootPackages: Bool
     ) async throws -> String {
         let parameters = PIFBuilderParameters(
             buildParameters,
@@ -534,7 +540,8 @@ public final class PIFBuilder {
             disableSandbox: disableSandbox,
             pluginWorkingDirectory: pluginWorkingDirectory,
             additionalFileRules: additionalFileRules,
-            addLocalRpaths: addLocalRpaths
+            addLocalRpaths: addLocalRpaths,
+            materializeStaticArchiveProductsForRootPackages: materializeStaticArchiveProductsForRootPackages
         )
         let builder = Self(
             graph: packageGraph,
@@ -797,12 +804,14 @@ extension PIFBuilderParameters {
         disableSandbox: Bool,
         pluginWorkingDirectory: AbsolutePath,
         additionalFileRules: [FileRuleDescription],
-        addLocalRpaths: Bool
+        addLocalRpaths: Bool,
+        materializeStaticArchiveProductsForRootPackages: Bool,
     ) {
         self.init(
             isPackageAccessModifierSupported: buildParameters.driverParameters.isPackageAccessModifierSupported,
             enableTestability: buildParameters.enableTestability,
             shouldCreateDylibForDynamicProducts: buildParameters.shouldCreateDylibForDynamicProducts,
+            materializeStaticArchiveProductsForRootPackages: materializeStaticArchiveProductsForRootPackages,
             toolchainLibDir: (try? buildParameters.toolchain.toolchainLibDir) ?? .root,
             pkgConfigDirectories: buildParameters.pkgConfigDirectories,
             supportedSwiftVersions: supportedSwiftVersions,
