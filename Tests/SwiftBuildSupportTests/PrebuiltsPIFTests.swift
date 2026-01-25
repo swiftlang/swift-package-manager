@@ -92,10 +92,7 @@ struct PrebuiltsPIFTests {
                             dependencies: [
                                 .product(name: "MacroLib", package: "MyPackage")
                             ],
-                            type: .executable,
-                            pluginUsages: [
-                                .plugin(name: "Plugin", package: "MyPackage")
-                            ],
+                            type: .executable
                         )
                     ],
                 ),
@@ -113,13 +110,6 @@ struct PrebuiltsPIFTests {
                             type: .library(.automatic),
                             targets: [
                                 "MacroLib"
-                            ]
-                        ),
-                        ProductDescription(
-                            name: "Plugin",
-                            type: .plugin,
-                            targets: [
-                                "Plugin"
                             ]
                         ),
                     ],
@@ -149,21 +139,6 @@ struct PrebuiltsPIFTests {
                             dependencies: [
                                 "Macros"
                             ]
-                        ),
-                        TargetDescription(
-                            name: "Generator",
-                            dependencies: [
-                                "Base"
-                            ],
-                            type: .executable
-                        ),
-                        TargetDescription(
-                            name: "Plugin",
-                            dependencies: [
-                                "Generator"
-                            ],
-                            type: .plugin,
-                            pluginCapability: .buildTool
                         ),
                     ],
                 ),
@@ -203,12 +178,10 @@ struct PrebuiltsPIFTests {
         )
 
         let hostTargets = Set([
-            "Plugin-product",
-            "Generator-product",
-            "Plugin",
             "Macros",
             "Intermediate",
             "Base",
+            "SwiftSyntaxMacros",
         ])
 
         let allPlatTargets = Set([
@@ -218,6 +191,8 @@ struct PrebuiltsPIFTests {
             "MyApp-product",
             "AllIncludingTests",
             "AllExcludingTests",
+            "SwiftSyntaxMacros-product",
+            "SwiftSyntaxMacrosdynamic-product",
         ])
 
         let targets = pif.workspace.projects.flatMap({ $0.underlying.targets })

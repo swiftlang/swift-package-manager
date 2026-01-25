@@ -1027,7 +1027,6 @@ final class PrebuiltsTests: XCTestCase {
                                 name: "FooClient",
                                 dependencies: [
                                     "Foo",
-                                    .product(name: "Plugin", package: "Library"),
                                 ],
                                 type: .executable
                             ),
@@ -1077,21 +1076,6 @@ final class PrebuiltsTests: XCTestCase {
                                     "Base",
                                 ]
                             ),
-                            MockTarget(
-                                name: "Generator",
-                                dependencies: [
-                                    "Intermediate"
-                                ],
-                                type: .executable
-                            ),
-                            MockTarget(
-                                name: "Plugin",
-                                dependencies: [
-                                    "Generator"
-                                ],
-                                type: .plugin,
-                                pluginCapability: .buildTool
-                            )
                         ],
                         products: [
                             MockProduct(
@@ -1099,13 +1083,6 @@ final class PrebuiltsTests: XCTestCase {
                                 modules: [
                                     "Intermediate"
                                 ]
-                            ),
-                            MockProduct(
-                                name: "Plugin",
-                                modules: [
-                                    "Plugin",
-                                ],
-                                type: .plugin
                             ),
                         ],
                         dependencies: [

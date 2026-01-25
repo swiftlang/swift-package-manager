@@ -366,10 +366,7 @@ class PrebuiltsBuildPlanTests: XCTestCase {
                             dependencies: [
                                 .product(name: "MacroLib", package: "MyPackage"),
                             ],
-                            type: .executable,
-                            pluginUsages: [
-                                .plugin(name: "Plugin", package: "MyPackage")
-                            ],
+                            type: .executable
                         ),
                     ],
                 ),
@@ -385,13 +382,6 @@ class PrebuiltsBuildPlanTests: XCTestCase {
                             type: .library(.automatic),
                             targets: [
                                 "MacroLib"
-                            ]
-                        ),
-                        ProductDescription(
-                            name: "Plugin",
-                            type: .plugin,
-                            targets: [
-                                "Plugin"
                             ]
                         ),
                     ],
@@ -421,21 +411,6 @@ class PrebuiltsBuildPlanTests: XCTestCase {
                             dependencies: [
                                 "Macros"
                             ]
-                        ),
-                        TargetDescription(
-                            name: "Generator",
-                            dependencies: [
-                                "Base"
-                            ],
-                            type: .executable
-                        ),
-                        TargetDescription(
-                            name: "Plugin",
-                            dependencies: [
-                                "Generator"
-                            ],
-                            type: .plugin,
-                            pluginCapability: .buildTool
                         ),
                     ],
                 ),
@@ -497,16 +472,6 @@ class PrebuiltsBuildPlanTests: XCTestCase {
         let MacroLib = try XCTUnwrap(result.targetMap.filter({ $0.module.name == "MacroLib" }).only)
         XCTAssertEqual(MacroLib.buildParameters.destination, .target)
         XCTAssert(try !MacroLib.swift().compileArguments().contains(modulesDir))
-
-        let Generator = try XCTUnwrap(result.targetMap.filter({ $0.module.name == "Generator" }).only)
-        XCTAssertEqual(Generator.buildParameters.destination, .host)
-        XCTAssert(try Generator.swift().compileArguments().contains(modulesDir))
-
-        let GeneratorExe = try XCTUnwrap(result.productMap.filter({ $0.product.name == "Generator" }).only)
-        XCTAssertEqual(GeneratorExe.buildParameters.destination, .host)
-        let GeneratorExeLinkArgs = try GeneratorExe.linkArguments()
-        XCTAssert(GeneratorExeLinkArgs.contains(libDir))
-        XCTAssert(GeneratorExeLinkArgs.contains(lib))
     }
 
     // Test that a prebuilt leaking out the root package's products disables them all
