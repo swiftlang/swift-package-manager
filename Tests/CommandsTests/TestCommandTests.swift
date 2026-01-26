@@ -804,6 +804,12 @@ struct TestCommandTests {
                 isSwiftTestingEnabled: false,
                 expectNote: false,
             ),
+            .init(
+                fixturePath: "Miscellaneous/TestSingleFailureXCTest",
+                isXCTestEnabled: false,
+                isSwiftTestingEnabled: false,
+                expectNote: false,
+            ),
         ] as [XCTestFailureNoteTestArgument]
     )
     func noteXCTestFailures(noteArgument arg: XCTestFailureNoteTestArgument) async throws {
