@@ -385,7 +385,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             // emit a message informing the user so they aren't misled and know to look elsewhere for
             // those details.
             if anyXCTestFailed {
-                print("Note: One or more XCTests failed, see logging above for details.")
+                swiftCommandState.observabilityScope.print("Note: One or more XCTests failed, see logging above for details.", verbose: false)
             }
         }
 

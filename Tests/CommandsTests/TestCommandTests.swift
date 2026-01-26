@@ -822,13 +822,13 @@ struct TestCommandTests {
             case .some(false): args.append("--disable-swift-testing")
             }
 
-            let (stdout, _) = try await execute(
+            let (_, stderr) = try await execute(
                 args,
                 packagePath: fixturePath,
                 buildSystem: .native,
                 throwIfCommandFails: false,
             )
-            #expect(stdout.contains("One or more XCTests failed") == arg.expectNote)
+            #expect(stderr.contains("One or more XCTests failed") == arg.expectNote)
         }
     }
 
