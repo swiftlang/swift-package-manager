@@ -903,7 +903,10 @@ extension Collection<PackageGraph.ResolvedModule> {
                 let (unseenModule, _) = moduleIDsSeen.insert(moduleDependency.id)
                 guard unseenModule else { return }
 
-                if moduleDependency.underlying.type != .macro {
+                // Do not traverse into *macro* or *plugin* dependencies.
+                // Macros run at compile time and their dependencies should not be linked into the client.
+                // Plugins run at build time and their dependencies should not be linked into the client neither.
+                if ![.macro, .plugin].contains(moduleDependency.underlying.type) {
                     for dependency in moduleDependency.dependencies {
                         visitDependency(dependency)
                     }
