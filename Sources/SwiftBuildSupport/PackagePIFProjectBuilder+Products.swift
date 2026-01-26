@@ -119,10 +119,6 @@ extension PackagePIFProjectBuilder {
             .spm_mangledToBundleIdentifier()
         settings[.SWIFT_PACKAGE_NAME] = mainModule.packageName
 
-        if product.platformConstraint == .host {
-            settings[.SUPPORTED_PLATFORMS] = [ "$(HOST_PLATFORM)" ]
-        }
-
         if mainModule.type == .test {
             // FIXME: we shouldn't always include both the deep and shallow bundle paths here, but for that we'll need rdar://31867023
             if pifBuilder.addLocalRpaths {
@@ -137,6 +133,19 @@ extension PackagePIFProjectBuilder {
             settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS].lazilyInitialize { ["$(inherited)"] }
             // Enable index-while building for Swift compilations to facilitate discovery of XCTest tests.
             settings[.SWIFT_INDEX_STORE_ENABLE] = "YES"
+
+            if mainModule.platformConstraint == .host {
+                // This is a macro test using prebuilts
+                settings[.SUPPORTED_PLATFORMS] = ["$(HOST_PLATFORM)"]
+                switch PrebuiltsPlatform.hostPlatform?.arch {
+                case .aarch64:
+                    settings[.ARCHS] = ["arm64"]
+                case .x86_64:
+                    settings[.ARCHS] = ["86_64"]
+                case .none:
+                    break
+                }
+            }
         } else if mainModule.type == .executable {
             // Setup install path for executables if it's in root of a pure Swift package.
             if pifBuilder.delegate.hostsOnlyPackages && pifBuilder.delegate.isRootPackage {
@@ -687,10 +696,6 @@ extension PackagePIFProjectBuilder {
 
         var settings: ProjectModel.BuildSettings = package.underlying.packageBaseBuildSettings
 
-        if product.platformConstraint == .host {
-            settings[.SUPPORTED_PLATFORMS] = ["$(HOST_PLATFORM)"]
-        }
-
         // Add other build settings when we're building an actual dylib.
         if desiredProductType == .dynamic {
             settings.configureDynamicSettings(
@@ -961,11 +966,7 @@ extension PackagePIFProjectBuilder {
             log(.debug, "Created aggregate target '\(pluginTarget.id)' with name '\(pluginTarget.name)'")
         }
 
-        var buildSettings: ProjectModel.BuildSettings = package.underlying.packageBaseBuildSettings
-
-        if pluginProduct.platformConstraint == .host {
-            buildSettings[.SUPPORTED_PLATFORMS] = ["$(HOST_PLATFORM)"]
-        }
+        let buildSettings: ProjectModel.BuildSettings = package.underlying.packageBaseBuildSettings
 
         self.project[keyPath: pluginTargetKeyPath].common.addBuildConfig { id in
             BuildConfig(id: id, name: "Debug", settings: buildSettings)
