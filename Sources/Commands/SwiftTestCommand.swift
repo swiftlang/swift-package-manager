@@ -359,6 +359,9 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
 
         // Run Swift Testing (parallel or not, it has a single entry point.)
         if options.testLibraryOptions.isEnabled(.swiftTesting, swiftCommandState: swiftCommandState) {
+            // Determine whether any XCTest runs performed above failed, before Swift Testing runs.
+            let anyXCTestFailed = results.reduce() == .failure
+
             lazy var testEntryPointPath = testProducts.lazy.compactMap(\.testEntryPointPath).first
             if options.testLibraryOptions.isExplicitlyEnabled(.swiftTesting, swiftCommandState: swiftCommandState) || testEntryPointPath == nil {
                 results.append(
@@ -376,6 +379,13 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                 swiftCommandState.observabilityScope.emit(
                     debug: "Skipping automatic Swift Testing invocation because a test entry point path is present: \(testEntryPointPath)"
                 )
+            }
+
+            // After running Swift Testing tests, if we determined that any XCTests failed earlier,
+            // emit a message informing the user so they aren't misled and know to look elsewhere for
+            // those details.
+            if anyXCTestFailed {
+                print("Note: One or more XCTests failed, see logging above for details.")
             }
         }
 

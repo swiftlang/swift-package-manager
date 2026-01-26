@@ -734,6 +734,104 @@ struct TestCommandTests {
         }
     }
 
+    /// An argument to the test function `noteXCTestFailures()`.
+    struct XCTestFailureNoteTestArgument: CustomStringConvertible {
+        /// The relative path to a test fixture in this project.
+        var fixturePath: String
+
+        /// The setting representing whether XCTest should be enabled or disabled
+        /// for the test command, if any. When the value of this property is `nil`,
+        /// no flag will be passed. If non-`nil`, either `--enable-xctest` or
+        /// `--disable-xctest` will be passed representing the value. The default
+        /// value is `nil`, meaning no flag will be passed but the command defaults
+        /// to having XCTest enabled.
+        var isXCTestEnabled: Bool? = nil
+
+        /// The setting representing whether Swift Testing should be enabled or disabled
+        /// for the test command, if any. When the value of this property is `nil`,
+        /// no flag will be passed. If non-`nil`, either `--enable-swift-testing` or
+        /// `--disable-swift-testing` will be passed representing the value. The default
+        /// value is `nil`, meaning no flag will be passed but the command defaults
+        /// to having Swift Testing enabled.
+        var isSwiftTestingEnabled: Bool? = nil
+
+        /// Whether the test command output is expected to include the note.
+        var expectNote: Bool
+
+        var description: String {
+            var description = "fixture: '\((fixturePath as NSString).lastPathComponent)'"
+            if let isXCTestEnabled {
+                description.append(", XCTest enabled: \(isXCTestEnabled)")
+            }
+            if let isSwiftTestingEnabled {
+                description.append(", Swift Testing enabled: \(isSwiftTestingEnabled)")
+            }
+            description.append(", expectNote: \(expectNote)")
+            return description
+        }
+    }
+
+    /// Test whether a note is emitted to stdout indicating that XCTests failed
+    /// after Swift Testing tests finish running.
+    @Test(
+        .tags(
+            .Feature.TargetType.Test,
+            .Feature.CommandLineArguments.TestEnableXCTest,
+            .Feature.CommandLineArguments.TestDisableXCTest,
+            .Feature.CommandLineArguments.TestEnableSwiftTesting,
+            .Feature.CommandLineArguments.TestDisableSwiftTesting,
+        ),
+        arguments: [
+            .init(
+                fixturePath: "Miscellaneous/TestDiscovery/Simple",
+                expectNote: false,
+            ),
+            .init(
+                fixturePath: "Miscellaneous/TestSingleFailureXCTest",
+                expectNote: true,
+            ),
+            .init(
+                fixturePath: "Miscellaneous/TestSingleFailureSwiftTesting",
+                expectNote: false,
+            ),
+            .init(
+                fixturePath: "Miscellaneous/TestSingleFailureXCTest",
+                isXCTestEnabled: false,
+                expectNote: false,
+            ),
+            .init(
+                fixturePath: "Miscellaneous/TestSingleFailureXCTest",
+                isSwiftTestingEnabled: false,
+                expectNote: false,
+            ),
+        ] as [XCTestFailureNoteTestArgument]
+    )
+    func noteXCTestFailures(noteArgument arg: XCTestFailureNoteTestArgument) async throws {
+        try await fixture(name: arg.fixturePath) { fixturePath in
+            var args: [String] = []
+
+            switch arg.isXCTestEnabled {
+            case .none: break
+            case .some(true): args.append("--enable-xctest")
+            case .some(false): args.append("--disable-xctest")
+            }
+
+            switch arg.isSwiftTestingEnabled {
+            case .none: break
+            case .some(true): args.append("--enable-swift-testing")
+            case .some(false): args.append("--disable-swift-testing")
+            }
+
+            let (stdout, _) = try await execute(
+                args,
+                packagePath: fixturePath,
+                buildSystem: .native,
+                throwIfCommandFails: false,
+            )
+            #expect(stdout.contains("One or more XCTests failed") == arg.expectNote)
+        }
+    }
+
     @Test(
          .tags(
             .Feature.TargetType.Executable,
