@@ -34,14 +34,34 @@ import enum TSCBasic.JSON
 fileprivate func execute(
     _ args: [String] = [],
     packagePath: AbsolutePath? = nil,
-    manifest: String? = nil,
+    manifests: [String]? = nil,
     env: Environment? = nil,
     configuration: BuildConfiguration,
     buildSystem: BuildSystemProvider.Kind
 ) async throws -> (stdout: String, stderr: String) {
     var environment = env ?? [:]
-    if let manifest, let packagePath {
-        try localFileSystem.writeFileContents(packagePath.appending("Package.swift"), string: manifest)
+    if let manifests, let packagePath {
+        if manifests.count > 1 {
+            for (index, manifest) in manifests.enumerated() {
+
+                guard index != manifests.count - 1 else {
+                    let marker = "// swift-tools-version: "
+                    guard let markerRange = manifest.range(of: marker) else {
+                        continue
+                    }
+                    let startIndex = markerRange.upperBound
+                    let endIndex = manifest.index(startIndex, offsetBy: 3, limitedBy: manifest.endIndex) ?? manifest.endIndex
+
+                    let toolsVersion = manifest[startIndex..<endIndex]
+                    try localFileSystem.writeFileContents(packagePath.appending("Package@swift-\(toolsVersion).swift"), string: manifest)
+
+                    continue
+                }
+                try localFileSystem.writeFileContents(packagePath.appending("Package.swift"), string: manifest)
+            }
+        } else {
+            try localFileSystem.writeFileContents(packagePath.appending("Package.swift"), string: manifests[0])
+        }
     }
 
     // don't ignore local packages when caching
@@ -66,14 +86,37 @@ private func expectManifest(_ packagePath: AbsolutePath, _ callback: (String) th
 // Helper function to assert content exists in the manifest
 private func expectManifestContains(_ packagePath: AbsolutePath, _ expected: String) throws {
     try expectManifest(packagePath) { manifestContents in
-        #expect(manifestContents.contains(expected))
+        #expect(manifestContents.contains(expected),"expected: \(expected), and contents: \(manifestContents)")
     }
+}
+
+// Helper function to check all manifest files in a package directory
+private func expectAllManifests(_ packagePath: AbsolutePath, _ callback: ([String]) throws -> Void) throws {
+    let fs = localFileSystem
+    var manifestContents: [String] = []
+    
+    let mainManifest = packagePath.appending("Package.swift")
+    if fs.exists(mainManifest) {
+        let contents: String = try fs.readFileContents(mainManifest)
+        manifestContents.append(contents)
+    }
+    
+    let packageFiles = try fs.getDirectoryContents(packagePath)
+    let manifestFiles = packageFiles.filter { $0.hasPrefix("Package@swift-") && $0.hasSuffix(".swift") }
+    
+    for manifestFile in manifestFiles.sorted() {
+        let manifestPath = packagePath.appending(manifestFile)
+        let contents: String = try fs.readFileContents(manifestPath)
+        manifestContents.append(contents)
+    }
+    
+    try callback(manifestContents)
 }
 
 // Helper function to test adding a URL dependency and asserting the result
 private func executeAddURLDependencyAndAssert(
     packagePath: AbsolutePath,
-    initialManifest: String? = nil,
+    initialManifests: [String]? = nil,
     url: String,
     requirementArgs: [String],
     expectedManifestString: String,
@@ -82,7 +125,7 @@ private func executeAddURLDependencyAndAssert(
     _ = try await execute(
         ["add-dependency", url] + requirementArgs,
         packagePath: packagePath,
-        manifest: initialManifest,
+        manifests: initialManifests,
         configuration: buildData.config,
         buildSystem: buildData.buildSystem,
     )
@@ -2144,6 +2187,138 @@ struct PackageCommandTests {
         @Test(
             arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
         )
+        func packageAddDependencyToMultipleManifests(
+            data: BuildData,
+        ) async throws {
+            try await testWithTemporaryDirectory { tmpPath in
+                let fs = localFileSystem
+                let path = tmpPath.appending("PackageA")
+                try fs.createDirectory(path)
+
+                let url = "https://github.com/swiftlang/swift-syntax.git"
+
+                let manifestA = """
+                        // swift-tools-version: 5.9
+                        import PackageDescription
+                        let package = Package(
+                            name: "client",
+                            dependencies: [
+                                .package(url: "\(url)", exact: "601.0.1"),
+                            ],
+                            targets: [ .target(name: "client", dependencies: [ "library" ]) ]
+                        )
+                    """
+                let manifestB = """
+                        // swift-tools-version: 6.1
+                        import PackageDescription
+                        let package = Package(
+                            name: "client",
+                            dependencies: [
+                                .package(url: "\(url)", exact: "601.0.1"),
+                            ],
+                            targets: [ .target(name: "client", dependencies: [ "library" ]) ]
+                        )
+                    """
+
+                let expected =
+                    #".package(url: "https://github.com/swiftlang/swift-syntax.git", exact: "601.0.1"),"#
+
+                let manifests = [manifestA, manifestB]
+                try await executeAddURLDependencyAndAssert(
+                    packagePath: path,
+                    initialManifests: manifests,
+                    url: url,
+                    requirementArgs: ["--exact", "601.0.1"],
+                    expectedManifestString: expected,
+                    buildData: data,
+                )
+
+                try expectAllManifests(path) { manifestContents in
+                    #expect(manifestContents.count == 2)
+                    for manifest in manifestContents {
+                        let components = manifest.components(separatedBy: expected)
+                        #expect(components.count == 2, "Expected dependency to appear exactly once in each manifest, but found \(components.count - 1) occurrences")
+                    }
+                }
+
+            }
+        }
+
+        @Test(
+            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        )
+        func packageAddDependencyToMultipleManifestsWithFilter(
+            data: BuildData,
+        ) async throws {
+            try await testWithTemporaryDirectory { tmpPath in
+                let fs = localFileSystem
+                let path = tmpPath.appending("PackageA")
+                try fs.createDirectory(path)
+
+                let url = "https://github.com/swiftlang/swift-syntax.git"
+
+                let manifestA = """
+                        // swift-tools-version: 5.9
+                        import PackageDescription
+                        let package = Package(
+                            name: "client",
+                            dependencies: [
+                                .package(url: "\(url)", exact: "601.0.1"),
+                            ],
+                            targets: [ .target(name: "client", dependencies: [ "library" ]) ]
+                        )
+                    """
+                let manifestB = """
+                        // swift-tools-version: 6.1
+                        import PackageDescription
+                        let package = Package(
+                            name: "client",
+                            dependencies: [
+                                .package(url: "\(url)", exact: "601.0.1"),
+                            ],
+                            targets: [ .target(name: "client", dependencies: [ "library" ]) ]
+                        )
+                    """
+
+                let expected =
+                    #".package(url: "https://github.com/swiftlang/swift-syntax.git", exact: "601.0.1"),"#
+
+                let manifests = [manifestA, manifestB]
+                try await executeAddURLDependencyAndAssert(
+                    packagePath: path,
+                    initialManifests: manifests,
+                    url: url,
+                    requirementArgs: ["--exact", "601.0.1", "--filter-manifests", "Package@swift-6.1.swift"],
+                    expectedManifestString: expected,
+                    buildData: data,
+                )
+
+                try expectAllManifests(path) { manifestContents in
+                    #expect(manifestContents.count == 2)
+                    
+                    var mainManifestCount = 0
+                    var filteredManifestCount = 0
+                    
+                    for manifest in manifestContents {
+                        let components = manifest.components(separatedBy: expected)
+                        if manifest.contains("// swift-tools-version: 5.9") {
+                            mainManifestCount = components.count - 1
+                        } else if manifest.contains("// swift-tools-version: 6.1") {
+                            filteredManifestCount = components.count - 1
+                        }
+                    }
+                    
+                    #expect(mainManifestCount == 1, "Main manifest (5.9) should have exactly 1 dependency occurrence")
+                    #expect(filteredManifestCount == 1, "Filtered manifest (6.1) should have exactly 1 dependency occurrence")
+                }
+
+            }
+        }
+
+
+        @Test(
+            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        )
         func packageAddSameDependencyURLTwiceHasNoEffect(
             data: BuildData,
         ) async throws {
@@ -2169,7 +2344,7 @@ struct PackageCommandTests {
 
                 try await executeAddURLDependencyAndAssert(
                     packagePath: path,
-                    initialManifest: manifest,
+                    initialManifests: [manifest],
                     url: url,
                     requirementArgs: ["--exact", "601.0.1"],
                     expectedManifestString: expected,
@@ -2210,7 +2385,7 @@ struct PackageCommandTests {
                 let expected = #".package(path: "../foo")"#
                 try await executeAddURLDependencyAndAssert(
                     packagePath: path,
-                    initialManifest: manifest,
+                    initialManifests: [manifest],
                     url: depPath,
                     requirementArgs: ["--type", "path"],
                     expectedManifestString: expected,
@@ -2251,7 +2426,7 @@ struct PackageCommandTests {
                 let expected = #".package(id: "foo", exact: "1.0.0")"#
                 try await executeAddURLDependencyAndAssert(
                     packagePath: path,
-                    initialManifest: manifest,
+                    initialManifests: [manifest],
                     url: registryId,
                     requirementArgs: ["--type", "registry", "--exact", "1.0.0"],
                     expectedManifestString: expected,
@@ -2351,7 +2526,7 @@ struct PackageCommandTests {
 
                 try await executeAddURLDependencyAndAssert(
                     packagePath: path,
-                    initialManifest: manifest,
+                    initialManifests: [manifest],
                     url: testData.url,
                     requirementArgs: testData.requirementArgs,
                     expectedManifestString: testData.expectedManifestString,
@@ -2396,7 +2571,7 @@ struct PackageCommandTests {
 
                 try await executeAddURLDependencyAndAssert(
                     packagePath: path,
-                    initialManifest: manifest,
+                    initialManifests: [manifest],
                     url: testData.url,
                     requirementArgs: testData.requirementArgs,
                     expectedManifestString: testData.expectedManifestString,
@@ -2461,7 +2636,7 @@ struct PackageCommandTests {
                     """
                 try await executeAddURLDependencyAndAssert(
                     packagePath: path,
-                    initialManifest: manifest,
+                    initialManifests: [manifest],
                     url: testData.url,
                     requirementArgs: testData.requirementArgs,
                     expectedManifestString: testData.expectedManifestString,
