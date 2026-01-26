@@ -451,6 +451,8 @@ extension PackagePIFProjectBuilder {
 
             settings[.SWIFT_PACKAGE_NAME] = sourceModule.packageName
 
+            // This entrypoint is only used for the testable variant of executable targets. The primary PIF generation
+            // for executables is in makeMainModuleProduct.
             if desiredModuleType == .executable {
                 // Tell the Swift compiler to produce an alternate entry point rather than the standard `_main` entry
                 // point`,
@@ -470,14 +472,6 @@ extension PackagePIFProjectBuilder {
 
                 // on windows modules are libraries, so we need to add a search path so the linker finds them
                 impartedSettings[.LIBRARY_SEARCH_PATHS, .windows] = ["$(inherited)", "$(TARGET_BUILD_DIR)/ExecutableModules"]
-
-                // Don't install the Swift module of the testable side-built artifact, lest it conflict with the regular
-                // one.
-                // The modules should have compatible contents in any case — only the entry point function name is
-                // different in the Swift module
-                // (the actual runtime artifact is of course very different, and that's why we're building a separate
-                // testable artifact).
-                settings[.SWIFT_INSTALL_MODULE] = "NO"
             }
 
             if let aliases = sourceModule.moduleAliases {
