@@ -137,6 +137,14 @@ extension PackagePIFProjectBuilder {
             if mainModule.platformConstraint == .host {
                 // This is a macro test using prebuilts
                 settings[.SUPPORTED_PLATFORMS] = ["$(HOST_PLATFORM)"]
+                switch PrebuiltsPlatform.hostPlatform?.arch {
+                case .aarch64:
+                    settings[.ARCHS] = ["arm64"]
+                case .x86_64:
+                    settings[.ARCHS] = ["86_64"]
+                case .none:
+                    break
+                }
             }
         } else if mainModule.type == .executable {
             // Setup install path for executables if it's in root of a pure Swift package.
