@@ -894,13 +894,13 @@ extension Collection<PackageGraph.ResolvedModule> {
     /// Recursively applies a block to each of the *dependencies* of the given module, in topological sort order.
     /// Each module or product dependency is visited only once.
     func recursivelyTraverseDependencies(with block: (ResolvedModule.Dependency) -> Void) {
-        var moduleGuidsSeen: Set<ResolvedModule.ID> = []
-        var productGuidsSeen: Set<ResolvedProduct.ID> = []
+        var moduleIDsSeen: Set<ResolvedModule.ID> = []
+        var productIDsSeen: Set<ResolvedProduct.ID> = []
 
         func visitDependency(_ dependency: ResolvedModule.Dependency) {
             switch dependency {
             case .module(let moduleDependency, _):
-                let (unseenModule, _) = moduleGuidsSeen.insert(moduleDependency.id)
+                let (unseenModule, _) = moduleIDsSeen.insert(moduleDependency.id)
                 guard unseenModule else { return }
 
                 if moduleDependency.underlying.type != .macro {
@@ -911,15 +911,14 @@ extension Collection<PackageGraph.ResolvedModule> {
                 block(dependency)
 
             case .product(let productDependency, let conditions):
-                let (unseenProduct, _) = productGuidsSeen.insert(productDependency.id)
+                let (unseenProduct, _) = productIDsSeen.insert(productDependency.id)
                 guard unseenProduct && !productDependency.isBinaryOnlyExecutableProduct else { return }
                 block(dependency)
 
-                // We need to visit any binary modules to be able to add direct references to them to any client
-                // targets.
+                // We need to visit any binary modules to be able to add direct references to them to any client targets.
                 // This is needed so that XCFramework processing always happens *prior* to building any client targets.
                 for moduleDependency in productDependency.modules where moduleDependency.isBinary {
-                    if moduleGuidsSeen.contains(moduleDependency.id) { continue }
+                    if moduleIDsSeen.contains(moduleDependency.id) { continue }
                     block(.module(moduleDependency, conditions: conditions))
                 }
             }
