@@ -111,7 +111,7 @@ internal struct SPDXConverter {
         let creationInfo = SPDXCreationInfo(
             id: creationInfoID,
             type: .CreationInfo,
-            specVersion: spec.version,
+            specVersion: spec.versionString,
             createdBy: creators.map { self.generateSPDXID($0.id.value) },
             created: timestamp
         )
@@ -274,8 +274,8 @@ internal struct SPDXConverter {
     }
 
     internal static func convertToSPDXGraph(from document: SBOMDocument, spec: SBOMSpec) async throws -> SPDXGraph {
-        guard spec.type.supportsSPDX else {
-            throw SBOMError.unexpectedSpecType(expected: "spdx", actual: spec.type)
+        guard spec.supportsSPDX else {
+            throw SBOMError.unexpectedSpecType(expected: "spdx", actual: spec)
         }
 
         let agents = await convertToSPDXAgent(from: document.metadata)

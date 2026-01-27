@@ -410,7 +410,7 @@ struct CycloneDXConverterTests {
 
     @Test("convertToCycloneDXDocument with no components or dependencies")
     func convertToCycloneDXDocumentWithMinimalData() async throws {
-        let spec = SBOMSpec(type: .cyclonedx, version: "1.7")
+        let spec = SBOMSpec(spec: .cyclonedx)
         let metadata = SBOMMetadata(
             timestamp: "2025-01-01T00:00:00Z",
             creators: nil
@@ -447,7 +447,7 @@ struct CycloneDXConverterTests {
 
     @Test("convertToCycloneDXDocument with components and dependencies")
     func convertToCycloneDXDocumentWithComponentsAndDependencies() async throws {
-        let spec = SBOMSpec(type: .cyclonedx, version: "1.7")
+        let spec = SBOMSpec(spec: .cyclonedx)
         let metadata = SBOMMetadata(
             timestamp: "2025-01-01T00:00:00Z",
             creators: nil
@@ -542,7 +542,7 @@ struct CycloneDXConverterTests {
 
     @Test("convertToCycloneDXDocument with empty components and dependencies")
     func convertToCycloneDXDocumentWithEmptyComponentsAndDependencies() async throws {
-        let spec = SBOMSpec(type: .cyclonedx, version: "1.7")
+        let spec = SBOMSpec(spec: .cyclonedx)
 
         let metadata = SBOMMetadata(
             timestamp: "2025-01-01T00:00:00Z",

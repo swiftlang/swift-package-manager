@@ -51,10 +51,14 @@ internal struct CycloneDXConverter {
     }
 
     internal static func convertToCycloneDXSchema(from spec: SBOMSpec) async throws -> String {
-        guard spec.type.supportsCycloneDX else {
-            throw SBOMError.unexpectedSpecType(expected: "cyclonedx", actual: spec.type)
+        switch spec.concreteSpec {
+        case .cyclonedx1:
+            return CycloneDXConstants.cyclonedx1Schema
+        // case .cyclonedx2:
+        //     return CycloneDXConstants.cyclonedx2Schema
+        case .spdx3:
+            throw SBOMError.unexpectedSpecType(expected: "cyclonedx", actual: spec)
         }
-        return CycloneDXConstants.cyclonedx1Schema
     }
 
     internal static func convertToCycloneDXPedigree(from originator: SBOMOriginator) async throws -> CycloneDXPedigree {
@@ -140,8 +144,8 @@ internal struct CycloneDXConverter {
         from document: SBOMDocument,
         spec: SBOMSpec
     ) async throws -> CycloneDXDocument {
-        guard spec.type.supportsCycloneDX else {
-            throw SBOMError.unexpectedSpecType(expected: "cyclonedx", actual: spec.type)
+        guard spec.supportsCycloneDX else {
+            throw SBOMError.unexpectedSpecType(expected: "cyclonedx", actual: spec)
         }
 
         var components: [CycloneDXComponent] = []
@@ -161,7 +165,7 @@ internal struct CycloneDXConverter {
         return try await CycloneDXDocument(
             schema: self.convertToCycloneDXSchema(from: spec),
             bomFormat: "CycloneDX",
-            specVersion: spec.version,
+            specVersion: spec.versionString,
             serialNumber: document.id.value,
             version: 1,
             metadata: self.convertToCycloneDXMetadata(from: document),

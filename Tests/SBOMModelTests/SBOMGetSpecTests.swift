@@ -17,29 +17,29 @@ import Testing
 struct SBOMGetSpecTests {
     struct GetSpecTestCase {
         let input: Spec
-        let expectedType: Spec
+        let expectedConcreteSpec: SBOMSpec.ConcreteSpec
         let expectedVersion: String
     }
 
     static let specTestCases: [GetSpecTestCase] = [
         GetSpecTestCase(
             input: .cyclonedx,
-            expectedType: .cyclonedx1,
+            expectedConcreteSpec: .cyclonedx1,
             expectedVersion: CycloneDXConstants.cyclonedx1SpecVersion
         ),
         GetSpecTestCase(
             input: .cyclonedx1,
-            expectedType: .cyclonedx1,
+            expectedConcreteSpec: .cyclonedx1,
             expectedVersion: CycloneDXConstants.cyclonedx1SpecVersion
         ),
         GetSpecTestCase(
             input: .spdx,
-            expectedType: .spdx3,
+            expectedConcreteSpec: .spdx3,
             expectedVersion: SPDXConstants.spdx3SpecVersion
         ),
         GetSpecTestCase(
             input: .spdx3,
-            expectedType: .spdx3,
+            expectedConcreteSpec: .spdx3,
             expectedVersion: SPDXConstants.spdx3SpecVersion
         ),
     ]
@@ -48,8 +48,8 @@ struct SBOMGetSpecTests {
     func getSpecParameterized(testCase: GetSpecTestCase) async throws {
         let spec = await SBOMEncoder.getSpec(from: testCase.input)
 
-        #expect(spec.type == testCase.expectedType)
-        #expect(spec.version == testCase.expectedVersion)
+        #expect(spec.concreteSpec == testCase.expectedConcreteSpec)
+        #expect(spec.versionString == testCase.expectedVersion)
     }
 
     // MARK: - getSpecs Tests
@@ -60,7 +60,7 @@ struct SBOMGetSpecTests {
 
         #expect(specs.count == 2, "Should return only unique specs")
 
-        let types = Set(specs.map(\.type))
+        let types = Set(specs.map(\.concreteSpec))
         #expect(types.contains(.cyclonedx1))
         #expect(types.contains(.spdx3))
     }
@@ -77,6 +77,6 @@ struct SBOMGetSpecTests {
         let specs = await SBOMEncoder.getSpecs(from: [.cyclonedx])
 
         #expect(specs.count == 1)
-        #expect(specs[0].type == .cyclonedx1)
+        #expect(specs[0].concreteSpec == .cyclonedx1)
     }
 }

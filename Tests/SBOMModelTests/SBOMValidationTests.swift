@@ -34,28 +34,28 @@ struct SBOMValidationTests {
         try [
             ValidateGraphSBOMTestCase(
                 graphName: "SwiftPM",
-                inputSpec: SBOMSpec(type: .cyclonedx, version: "1.7"),
+                inputSpec: SBOMSpec(spec: .cyclonedx),
                 inputGraph: SBOMTestModulesGraph.createSPMModulesGraph(),
                 inputStore: SBOMTestStore.createSPMResolvedPackagesStore(),
                 wantError: false
             ),
             ValidateGraphSBOMTestCase(
                 graphName: "SwiftPM",
-                inputSpec: SBOMSpec(type: .spdx, version: "3.0.1"),
+                inputSpec: SBOMSpec(spec: .spdx),
                 inputGraph: SBOMTestModulesGraph.createSPMModulesGraph(),
                 inputStore: SBOMTestStore.createSPMResolvedPackagesStore(),
                 wantError: false
             ),
             ValidateGraphSBOMTestCase(
                 graphName: "Swiftly",
-                inputSpec: SBOMSpec(type: .cyclonedx, version: "1.7"),
+                inputSpec: SBOMSpec(spec: .cyclonedx),
                 inputGraph: SBOMTestModulesGraph.createSwiftlyModulesGraph(),
                 inputStore: SBOMTestStore.createSwiftlyResolvedPackagesStore(),
                 wantError: false
             ),
             ValidateGraphSBOMTestCase(
                 graphName: "Swiftly",
-                inputSpec: SBOMSpec(type: .spdx, version: "3.0.1"),
+                inputSpec: SBOMSpec(spec: .spdx),
                 inputGraph: SBOMTestModulesGraph.createSwiftlyModulesGraph(),
                 inputStore: SBOMTestStore.createSwiftlyResolvedPackagesStore(),
                 wantError: false
@@ -94,78 +94,78 @@ struct SBOMValidationTests {
             // valid CycloneDX SBOMs
             ValidateFileSBOMTestCase(
                 inputFilePath: "testfiles/valid-cyclonedx-1.7-empty-comps",
-                inputSBOMSpec: SBOMSpec(type: .cyclonedx1, version: CycloneDXConstants.cyclonedx1SpecVersion),
+                inputSBOMSpec: SBOMSpec(spec: .cyclonedx1),
                 wantError: false
             ),
             ValidateFileSBOMTestCase(
                 inputFilePath: "testfiles/valid-cyclonedx-1.7-minimal",
-                inputSBOMSpec: SBOMSpec(type: .cyclonedx1, version: CycloneDXConstants.cyclonedx1SpecVersion),
+                inputSBOMSpec: SBOMSpec(spec: .cyclonedx1),
                 wantError: false
             ),
             ValidateFileSBOMTestCase(
                 inputFilePath: "testfiles/valid-cyclonedx-1.7-unicode",
-                inputSBOMSpec: SBOMSpec(type: .cyclonedx1, version: CycloneDXConstants.cyclonedx1SpecVersion),
+                inputSBOMSpec: SBOMSpec(spec: .cyclonedx1),
                 wantError: false
             ),
             ValidateFileSBOMTestCase(
                 inputFilePath: "testfiles/valid-cyclonedx-1.7-spm",
-                inputSBOMSpec: SBOMSpec(type: .cyclonedx1, version: CycloneDXConstants.cyclonedx1SpecVersion),
+                inputSBOMSpec: SBOMSpec(spec: .cyclonedx1),
                 wantError: false
             ),
             ValidateFileSBOMTestCase(
                 inputFilePath: "testfiles/valid-cyclonedx-1.7-versions",
-                inputSBOMSpec: SBOMSpec(type: .cyclonedx1, version: CycloneDXConstants.cyclonedx1SpecVersion),
+                inputSBOMSpec: SBOMSpec(spec: .cyclonedx1),
                 wantError: false
             ),
 
             // valid SPDX SBOMs
             ValidateFileSBOMTestCase(
                 inputFilePath: "testfiles/valid-spdx-3.0.1-spm",
-                inputSBOMSpec: SBOMSpec(type: .spdx3, version: "3.0.1"),
+                inputSBOMSpec: SBOMSpec(spec: .spdx3),
                 wantError: false
             ),
 
             // invalid CycloneDX SBOMs
             ValidateFileSBOMTestCase(
                 inputFilePath: "testfiles/invalid-cyclonedx-1-missing-fields",
-                inputSBOMSpec: SBOMSpec(type: .cyclonedx1, version: CycloneDXConstants.cyclonedx1SpecVersion),
+                inputSBOMSpec: SBOMSpec(spec: .cyclonedx1),
                 wantError: true
             ),
             ValidateFileSBOMTestCase(
                 inputFilePath: "testfiles/invalid-cyclonedx-1-small",
-                inputSBOMSpec: SBOMSpec(type: .cyclonedx1, version: CycloneDXConstants.cyclonedx1SpecVersion),
+                inputSBOMSpec: SBOMSpec(spec: .cyclonedx1),
                 wantError: true
             ),
             ValidateFileSBOMTestCase(
                 inputFilePath: "testfiles/invalid-cyclonedx-1.7-uppercase-uuid",
-                inputSBOMSpec: SBOMSpec(type: .cyclonedx1, version: "1.7"),
+                inputSBOMSpec: SBOMSpec(spec: .cyclonedx1),
                 wantError: true
             ),
             ValidateFileSBOMTestCase(
                 inputFilePath: "testfiles/invalid-cyclonedx-1.7-wrong-bomformat",
-                inputSBOMSpec: SBOMSpec(type: .cyclonedx1, version: "1.7"),
+                inputSBOMSpec: SBOMSpec(spec: .cyclonedx1),
                 wantError: true
             ),
 
             // invalid SPDX SBOMs
             ValidateFileSBOMTestCase(
                 inputFilePath: "testfiles/invalid-spdx-3-small",
-                inputSBOMSpec: SBOMSpec(type: .spdx3, version: SPDXConstants.spdx3SpecVersion),
+                inputSBOMSpec: SBOMSpec(spec: .spdx3),
                 wantError: true
             ),
             ValidateFileSBOMTestCase(
                 inputFilePath: "testfiles/invalid-spdx-3.0.1-no-iri",
-                inputSBOMSpec: SBOMSpec(type: .spdx3, version: "3.0.1"),
+                inputSBOMSpec: SBOMSpec(spec: .spdx3),
                 wantError: true
             ),
             ValidateFileSBOMTestCase(
                 inputFilePath: "testfiles/invalid-spdx-3.0.1-spm",
-                inputSBOMSpec: SBOMSpec(type: .spdx3, version: "3.0.1"),
+                inputSBOMSpec: SBOMSpec(spec: .spdx3),
                 wantError: true
             ),
             ValidateFileSBOMTestCase(
                 inputFilePath: "testfiles/invalid-spdx-3.0.1-wrong-relationshiptype",
-                inputSBOMSpec: SBOMSpec(type: .spdx3, version: "3.0.1"),
+                inputSBOMSpec: SBOMSpec(spec: .spdx3),
                 wantError: true
             ),
         ]

@@ -11,8 +11,37 @@
 //===----------------------------------------------------------------------===//
 
 internal struct SPDXConstants: Codable, Equatable {
-    internal static let spdx3Context = "https://spdx.org/rdf/3.0.1/spdx-context.jsonld"
-    internal static let spdx3SchemaFile = "spdx-3.0.1.schema"
-    internal static let spdx3SpecVersion = "3.0.1"
+    /// The latest minor version of SPDX v3.x (from SBOMVersionRegistry)
+    internal static var spdx3SpecVersion: String {
+        SBOMVersionRegistry.spdx3LatestMinor
+    }
+    
+    /// The JSON-LD context URL for SPDX v3.x
+    internal static var spdx3Context: String {
+        "https://spdx.org/rdf/\(spdx3SpecVersion)/spdx-context.jsonld"
+    }
+    
+    /// The schema filename for SPDX v3.x (without .json extension)
+    internal static var spdx3SchemaFile: String {
+        "spdx-\(spdx3SpecVersion).schema"
+    }
+    
+    /// The root creation info ID used in SPDX documents
     internal static let spdxRootCreationInfoID = "_:creationInfo"
+    
+    // Future major versions (uncomment when SPDX 4.0 is released):
+    // /// The latest minor version of SPDX v4.x (from SBOMVersionRegistry)
+    // internal static var spdx4SpecVersion: String {
+    //     SBOMVersionRegistry.spdx4LatestMinor
+    // }
+    //
+    // /// The JSON-LD context URL for SPDX v4.x
+    // internal static var spdx4Context: String {
+    //     "https://spdx.org/rdf/\(spdx4SpecVersion)/spdx-context.jsonld"
+    // }
+    //
+    // /// The schema filename for SPDX v4.x (without .json extension)
+    // internal static var spdx4SchemaFile: String {
+    //     "spdx-\(spdx4SpecVersion).schema"
+    // }
 }
