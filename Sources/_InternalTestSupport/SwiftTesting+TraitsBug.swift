@@ -48,6 +48,13 @@ extension Trait where Self == Testing.Bug {
         )
     }
 
+    public static var IssueWindowsAbsoluteAndRelativePathTestFailures: Self {
+        issue(
+            "https://github.com/swiftlang/swift-package-manager/issues/8511",
+            relationship: .defect,
+        )
+    }
+
     public static var IssueWindowsLongPath: Self {
         .issue(
             // "https://github.com/swiftlang/swift-tools-support-core/pull/521",
@@ -71,6 +78,13 @@ extension Trait where Self == Testing.Bug {
         )
     }
 
+    public static var IssueWindowsFolderCreationFailure: Self {
+        .issue(
+            "https://github.com/swiftlang/swift-package-manager/issues/8433",
+            relationship: .defect,
+        )
+    }
+
     public static var IssueProductTypeForObjectLibraries: Self {
         .issue(
             "https://github.com/swiftlang/swift-build/issues/609",
@@ -84,4 +98,12 @@ extension Trait where Self == Testing.Bug {
             relationship: .defect,
         )
     }
+
+    public static var IssueSwiftBuildSpaceInPath: Self {
+        .issue(
+            "https://github.com/swiftlang/swift-package-manager/issues/8400",
+            relationship: .defect,
+        )
+    }
+
 }

@@ -322,7 +322,7 @@ fileprivate func setup(
         #else
         try Process.checkNonZeroExit(args: "cp", "-R", "-H", srcDir.pathString, dstDir.pathString)
         #endif
-        
+
         // Ensure we get a clean test fixture.
         try localFileSystem.removeFileTree(dstDir.appending(component: ".build"))
         try localFileSystem.removeFileTree(dstDir.appending(component: ".swiftpm"))
@@ -511,8 +511,8 @@ public func executeSwiftTest(
     Xld: [String] = [],
     Xswiftc: [String] = [],
     env: Environment? = nil,
-    throwIfCommandFails: Bool = false,
     buildSystem: BuildSystemProvider.Kind,
+    throwIfCommandFails: Bool = false,
 ) async throws -> (stdout: String, stderr: String) {
     let args = swiftArgs(
         configuration: configuration,
@@ -549,7 +549,7 @@ private func swiftArgs(
     return args
 }
 
-@available(*, 
+@available(*,
     deprecated,
     renamed: "loadModulesGraph",
     message: "Rename for consistency: the type of this functions return value is named `ModulesGraph`."
@@ -694,7 +694,7 @@ public func getNumberOfMatches(of match: String, in value: String) -> Int {
 }
 
 public extension String {
-    var withSwiftLineEnding: String {   
+    var withSwiftLineEnding: String {
         return replacingOccurrences(of: "\r\n", with: "\n")
     }
 }
