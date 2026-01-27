@@ -119,7 +119,7 @@ public struct SwiftCommandObservabilityHandler: ObservabilityHandlerProvider {
         // for raw output reporting
         func print(_ output: String, verbose: Bool) {
             self.queue.async(group: self.sync) {
-                guard !verbose || self.logLevel.isVerbose else {
+                guard verbose || self.logLevel.isVerbose else {
                     return
                 }
                 self.write(output)
