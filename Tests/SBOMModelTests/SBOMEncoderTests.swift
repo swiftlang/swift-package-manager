@@ -167,7 +167,7 @@ struct SBOMEncoderTests {
         let extractor = SBOMExtractor(modulesGraph: graph, dependencyGraph: nil, store: store)
         let sbom = try await extractor.extractSBOM()
         let encoder = SBOMEncoder(sbom: sbom)
-        let spec = SBOMSpec(type: .cyclonedx1, version: "1.7")
+        let spec = SBOMSpec(spec: .cyclonedx1)
 
         let _ = try await encoder.encodeSBOM(spec: spec, outputDir: outputDir)
 

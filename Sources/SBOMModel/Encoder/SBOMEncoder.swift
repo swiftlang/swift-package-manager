@@ -36,7 +36,7 @@ internal struct SBOMEncoder {
 
     internal func encodeSBOM(spec: SBOMSpec, outputDir: AbsolutePath, filter: Filter = .all) async throws -> AbsolutePath {
         let timestamp = ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "_")
-        let filename = "\(spec.type)-\(spec.version)-\(self.sbom.primaryComponent.name)-\(self.sbom.primaryComponent.version.revision)-\(filter)-\(timestamp).json"
+        let filename = "\(spec.concreteSpec)-\(spec.versionString)-\(self.sbom.primaryComponent.name)-\(self.sbom.primaryComponent.version.revision)-\(filter)-\(timestamp).json"
         let outputPath = outputDir.appending(component: filename)
         let encoded = try await encodeSBOMData(spec: spec)
         try localFileSystem.writeFileContents(outputPath, data: encoded)
@@ -44,10 +44,10 @@ internal struct SBOMEncoder {
     }
 
     internal func encodeSBOMData(spec: SBOMSpec) async throws -> Data {
-        let data: any Encodable = switch spec.type {
-        case .cyclonedx, .cyclonedx1:
+        let data: any Encodable = switch spec.concreteSpec {
+        case .cyclonedx1:
             try await CycloneDXConverter.convertToCycloneDXDocument(from: self.sbom, spec: spec)
-        case .spdx, .spdx3:
+        case .spdx3:
             try await SPDXConverter.convertToSPDXGraph(from: self.sbom, spec: spec)
             // case .cyclonedx, .cyclonedx2:
             //     data = try await convertToCycloneDX2Document(from: sbom, spec: spec)
@@ -66,11 +66,7 @@ internal struct SBOMEncoder {
     }
 
     internal static func getSpec(from spec: Spec) async -> SBOMSpec {
-        let concreteSpec = spec.latestSpec
-        return SBOMSpec(
-            type: concreteSpec.type,
-            version: concreteSpec.version
-        )
+        return SBOMSpec(spec: spec)
     }
 
     internal static func getSpecs(from specs: [Spec]) async -> [SBOMSpec] {
@@ -86,9 +82,9 @@ internal struct SBOMEncoder {
             throw SBOMEncoderError
                 .jsonConversionFailed(message: "Could not convert generated SBOM file into JSON object for validation")
         }
-        
+
         do {
-            let schema = try SBOMSchema(from: getSchemaFilename(from: spec.type), bundleName: bundleName)
+            let schema = try await SBOMSchema(from: getSchemaFilename(from: spec), bundleName: bundleName)
             try await schema.validate(json: sbomJSONObject, spec: spec)
         } catch let error as SBOMSchemaError {
             if case .bundleNotFound(_) = error {
@@ -100,15 +96,15 @@ internal struct SBOMEncoder {
         }
     }
 
-    private static func getSchemaFilename(from spec: Spec) throws -> String {
-        switch spec {
-        case .cyclonedx, .cyclonedx1:
+    private static func getSchemaFilename(from spec: SBOMSpec) throws -> String {
+        switch spec.concreteSpec {
+        case .cyclonedx1:
             CycloneDXConstants.cyclonedx1SchemaFile
-        case .spdx, .spdx3:
+        case .spdx3:
             SPDXConstants.spdx3SchemaFile
-            // case .cyclonedx, .cyclonedx2:
+            // case .cyclonedx2:
             //     return CycloneDXConstants.cyclonedx2SchemaFile
-            // case .spdx, .spdx4:
+            // case .spdx4:
             //     return SPDXConstants.spdx4SchemaFile
         }
     }

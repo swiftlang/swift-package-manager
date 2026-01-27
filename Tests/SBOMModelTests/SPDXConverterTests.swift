@@ -162,7 +162,7 @@ struct SPDXConverterTests {
 
     @Test("convertToSPDXDocument with missing timestamp throws error")
     func convertToSPDXDocumentWithMissingTimestamp() async throws {
-        let spec = SBOMSpec(type: .spdx, version: "3.0.1")
+        let spec = SBOMSpec(spec: .spdx)
         let metadata = SBOMMetadata(
             timestamp: nil,
             creators: [SBOMTool(id: SBOMIdentifier(value: "tool-1"), name: "SwiftPM", version: "3.0.1")]
@@ -191,7 +191,7 @@ struct SPDXConverterTests {
 
     @Test("convertToSPDXDocument with missing creators throws error")
     func convertToSPDXDocumentWithMissingCreators() async throws {
-        let spec = SBOMSpec(type: .spdx, version: "3.0.1")
+        let spec = SBOMSpec(spec: .spdx)
         let metadata = SBOMMetadata(
             timestamp: "2025-01-01T00:00:00Z",
             creators: nil
@@ -220,7 +220,7 @@ struct SPDXConverterTests {
 
     @Test("convertToSPDXDocument with empty creators throws error")
     func convertToSPDXDocumentWithEmptyCreators() async throws {
-        let spec = SBOMSpec(type: .spdx, version: "3.0.1")
+        let spec = SBOMSpec(spec: .spdx)
         let metadata = SBOMMetadata(
             timestamp: "2025-01-01T00:00:00Z",
             creators: []
@@ -254,7 +254,7 @@ struct SPDXConverterTests {
             name: "SwiftPM",
             version: "3.0.1"
         )
-        let spec = SBOMSpec(type: .spdx, version: "3.0.1")
+        let spec = SBOMSpec(spec: .spdx)
         let metadata = SBOMMetadata(
             timestamp: "2025-01-01T00:00:00Z",
             creators: [creator]
@@ -729,7 +729,7 @@ struct SPDXConverterTests {
 
     @Test("convertToSPDXGraph with non-SPDX spec throws error")
     func convertToSPDXGraphWithNonSPDXSpec() async throws {
-        let spec = SBOMSpec(type: .cyclonedx, version: "1.7")
+        let spec = SBOMSpec(spec: .cyclonedx)
         let metadata = SBOMMetadata(
             timestamp: "2025-01-01T00:00:00Z",
             creators: [SBOMTool(id: SBOMIdentifier(value: "tool-1"), name: "SwiftPM", version: "3.0.1")]
@@ -763,7 +763,7 @@ struct SPDXConverterTests {
             name: "SwiftPM",
             version: "3.0.1"
         )
-        let spec = SBOMSpec(type: .spdx, version: "3.0.1")
+        let spec = SBOMSpec(spec: .spdx)
         let metadata = SBOMMetadata(
             timestamp: "2025-01-01T00:00:00Z",
             creators: [creator]
@@ -800,7 +800,7 @@ struct SPDXConverterTests {
             name: "SwiftPM",
             version: "3.0.1"
         )
-        let spec = SBOMSpec(type: .spdx3, version: "3.0.1")
+        let spec = SBOMSpec(spec: .spdx3)
         let metadata = SBOMMetadata(
             timestamp: "2025-01-01T00:00:00Z",
             creators: [creator]
@@ -871,7 +871,7 @@ struct SPDXConverterTests {
             name: "SwiftPM",
             version: "3.0.1"
         )
-        let spec = SBOMSpec(type: .spdx, version: "3.0.1")
+        let spec = SBOMSpec(spec: .spdx)
         let metadata = SBOMMetadata(
             timestamp: "2025-01-01T00:00:00Z",
             creators: [creator]
