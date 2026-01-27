@@ -399,6 +399,33 @@ struct PIFBuilderTests {
         }
     }
 
+    @Test func multipleProductsSharingModuleHaveDistinctModuleNames() async throws {
+        try await withGeneratedPIF(fromFixture: "PIFBuilder/ComplexPackage") { pif, observabilitySystem in
+            let errors: [Diagnostic] = observabilitySystem.diagnostics.filter { $0.severity == .error }
+            #expect(errors.isEmpty, "Expected no errors during PIF generation, but got: \(errors)")
+
+            let project = try pif.workspace.project(named: "ComplexPackage")
+
+            let exec1Config = try project
+                .target(named: "exec-1-product")
+                .buildConfig(named: .release)
+            let exec2Config = try project
+                .target(named: "exec-2-product")
+                .buildConfig(named: .release)
+
+            let exec1ModuleName = exec1Config.settings[.PRODUCT_MODULE_NAME]
+            let exec2ModuleName = exec2Config.settings[.PRODUCT_MODULE_NAME]
+
+            #expect(exec1ModuleName != nil, "exec-1-product should have PRODUCT_MODULE_NAME set")
+            #expect(exec2ModuleName != nil, "exec-2-product should have PRODUCT_MODULE_NAME set")
+            #expect(exec1ModuleName != exec2ModuleName,
+                """
+                Products sharing a module must have distinct PRODUCT_MODULE_NAME values.
+                Got exec-1: \(exec1ModuleName ?? "nil"), exec-2: \(exec2ModuleName ?? "nil")
+                """)
+        }
+    }
+
     @Suite(
         .tags(
             .FunctionalArea.IndexMode

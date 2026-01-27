@@ -1,0 +1,3 @@
+import corecpp
+
+print(foo())
