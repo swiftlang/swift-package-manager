@@ -50,7 +50,7 @@ public final class LegacyHTTPClient: Cancellable {
 
     // static to share across instances of the http client
     private static let hostsErrorsLock = NSLock()
-    private static var hostsErrors = [String: [Date]]()
+    nonisolated(unsafe) private static var hostsErrors = [String: [Date]]()
 
     public init(configuration: LegacyHTTPClientConfiguration = .init(), handler: Handler? = nil) {
         self.configuration = configuration
