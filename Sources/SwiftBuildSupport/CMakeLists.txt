@@ -31,5 +31,11 @@ target_link_libraries(SwiftBuildSupport PUBLIC
   SwiftBuild::SWBBuildService
 )
 
+install(TARGETS SwiftBuildSupport
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION bin)
+set_property(GLOBAL APPEND PROPERTY SwiftPM_EXPORTS SwiftBuildSupport)
+
 set_target_properties(SwiftBuildSupport PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})

@@ -18,13 +18,13 @@ import Foundation
 /// General errors that can occur across SBOM operations
 internal enum SBOMError: Error, LocalizedError, CustomStringConvertible {
     /// Expected a specific SBOM spec type but got another
-    case unexpectedSpecType(expected: String, actual: Spec)
+    case unexpectedSpecType(expected: String, actual: SBOMSpec)
     case failedToWriteSBOM
 
     internal var errorDescription: String? {
         switch self {
         case .unexpectedSpecType(let expected, let actual):
-            "Expected \(expected) spec but got \(actual)"
+            "Expected \(expected) spec but got \(actual.concreteSpec)"
         case .failedToWriteSBOM:
             "Failed to write SBOM"
         }

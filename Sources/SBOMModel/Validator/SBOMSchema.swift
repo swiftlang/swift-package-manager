@@ -12,18 +12,14 @@
 
 import Foundation
 
-private final class BundleCache {
+private actor BundleCache {
     static let shared = BundleCache()
     
-    private let lock = NSLock()
     private var cache: [String: Bundle] = [:]
     
     private init() {}
     
     func findBundle(named bundleName: String) -> Bundle? {
-        lock.lock()
-        defer { lock.unlock() }
-        
         if let cachedBundle = cache[bundleName] {
             return cachedBundle
         }
@@ -63,16 +59,16 @@ private final class BundleCache {
 // MARK: - Bundle accessor
 // Provides access to the module's resource bundle across all platforms
 private extension Bundle {
-    static func findBundle(named bundleName: String) -> Bundle? {
-        BundleCache.shared.findBundle(named: bundleName)
+    static func findBundle(named bundleName: String) async -> Bundle? {
+        await BundleCache.shared.findBundle(named: bundleName)
     }
 }
 
 internal struct SBOMSchema {
     private let schema: [String: Any]
 
-    internal init(from schemaFilename: String, bundleName: String = "SwiftPM_SBOMModel") throws {
-        if let foundBundle = Bundle.findBundle(named: bundleName),
+    internal init(from schemaFilename: String, bundleName: String = "SwiftPM_SBOMModel") async throws {
+        if let foundBundle = await Bundle.findBundle(named: bundleName),
            let schemaURL = foundBundle.url(forResource: schemaFilename, withExtension: "json") {
             let schemaData = try Data(contentsOf: schemaURL)
             guard let jsonObject = try JSONSerialization.jsonObject(with: schemaData) as? [String: Any] else {
@@ -91,15 +87,11 @@ internal struct SBOMSchema {
     }
 
     private func createValidator(for spec: SBOMSpec) throws -> any SBOMValidatorProtocol {
-        switch spec.type {
-        case .cyclonedx, .cyclonedx1:
+        switch spec.concreteSpec {
+        case .cyclonedx1: // add other cyclonedx versions here
             CycloneDXValidator(schema: self.schema)
-        case .spdx, .spdx3:
+        case .spdx3: // add other spdx versions here
             SPDXValidator(schema: self.schema)
-            // case .cyclonedx2:
-            //     return CycloneDX2Validator(schema: schema)
-            // case .spdx4:
-            //     return SPDX4Validator(schema: schema)
         }
     }
 }

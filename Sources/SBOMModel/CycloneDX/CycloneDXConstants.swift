@@ -11,7 +11,34 @@
 //===----------------------------------------------------------------------===//
 
 internal struct CycloneDXConstants: Codable, Equatable {
-    internal static let cyclonedx1Schema = "http://cyclonedx.org/schema/bom-1.7.schema.json"
-    internal static let cyclonedx1SchemaFile = "cyclonedx-1.7.schema"
-    internal static let cyclonedx1SpecVersion = "1.7"
+    /// The latest minor version of CycloneDX v1.x (from SBOMVersionRegistry)
+    internal static var cyclonedx1SpecVersion: String {
+        SBOMVersionRegistry.cycloneDX1LatestMinor
+    }
+    
+    /// The JSON schema URL for CycloneDX v1.x
+    internal static var cyclonedx1Schema: String {
+        "http://cyclonedx.org/schema/bom-\(cyclonedx1SpecVersion).schema.json"
+    }
+    
+    /// The schema filename for CycloneDX v1.x (without .json extension)
+    internal static var cyclonedx1SchemaFile: String {
+        "cyclonedx-\(cyclonedx1SpecVersion).schema"
+    }
+    
+    // Future major versions (uncomment when CycloneDX 2.0 is released):
+    // /// The latest minor version of CycloneDX v2.x (from SBOMVersionRegistry)
+    // internal static var cyclonedx2SpecVersion: String {
+    //     SBOMVersionRegistry.cycloneDX2LatestMinor
+    // }
+    //
+    // /// The JSON schema URL for CycloneDX v2.x
+    // internal static var cyclonedx2Schema: String {
+    //     "http://cyclonedx.org/schema/bom-\(cyclonedx2SpecVersion).schema.json"
+    // }
+    //
+    // /// The schema filename for CycloneDX v2.x (without .json extension)
+    // internal static var cyclonedx2SchemaFile: String {
+    //     "cyclonedx-\(cyclonedx2SpecVersion).schema"
+    // }
 }
