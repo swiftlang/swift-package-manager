@@ -84,7 +84,7 @@ swift run --build-system swiftbuild
 - Test execution with coverage may fail on certain platforms.
   - **Tracking**: [swiftlang/swift-package-manager#9588](https://github.com/swiftlang/swift-package-manager/issues/9588)
 
-- Swift SDK's and toolset.json files aren't working yet.
+- Swift SDK's and toolset.json files aren't working for the most part. The webassembly SDK is ready to use.
   - **Tracking**: [swiftlang/swift-package-manager#9346](https://github.com/swiftlang/swift-package-manager/issues/9346)
 
 - Swift Build does not support test targets depending on other test targets.
