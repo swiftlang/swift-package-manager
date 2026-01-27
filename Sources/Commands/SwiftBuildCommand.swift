@@ -160,11 +160,6 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
             throw ExitCode.failure
         }
 
-        // --sbom-spec cannot be used with --target flag; validate before the build, to bail out early
-        guard self.globalOptions.sbom.sbomSpecs.isEmpty || options.target == nil else {
-            throw SBOMModel.SBOMCommandError.targetFlagNotSupported
-        }
-
         var productsBuildParameters = try swiftCommandState.productsBuildParameters
         var toolsBuildParameters = try swiftCommandState.toolsBuildParameters
 
@@ -239,39 +234,51 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
     private func generateSBOMs(
         _ swiftCommandState: SwiftCommandState,
         _ buildResult: BuildResult) async throws {
+
         if self.globalOptions.build.buildSystem != .swiftbuild {
             swiftCommandState.observabilityScope.emit(warning: "generating SBOM(s) without --build-system swiftbuild flag creates SBOM(s) based on modules graph only")
         }
 
-        let workspace = try swiftCommandState.getActiveWorkspace()
-        let packageGraph = try await workspace.loadPackageGraph(
-            rootInput: swiftCommandState.getWorkspaceRoot(),
-            explicitProduct: options.product,
-            forceResolvedVersions: self.globalOptions.resolver.forceResolvedVersions,
-            observabilityScope: swiftCommandState.observabilityScope
-        )
-        let resolvedPackagesStore = try workspace.resolvedPackagesStore.load()
-        let input = SBOMInput(
-            modulesGraph: packageGraph,
-            dependencyGraph: buildResult.dependencyGraph,
-            store: resolvedPackagesStore,
-            filter: self.globalOptions.sbom.sbomFilter,
-            product: options.product,
-            specs: self.globalOptions.sbom.sbomSpecs,
-            dir: await SBOMCreator.resolveSBOMDirectory(from: self.globalOptions.sbom.sbomDirectory, withDefault: try swiftCommandState.productsBuildParameters.buildPath)
-        )
+        do {
+            guard self.globalOptions.sbom.sbomSpecs.isEmpty || options.target == nil else {
+                throw SBOMModel.SBOMCommandError.targetFlagNotSupported
+            }
+            let workspace = try swiftCommandState.getActiveWorkspace()
+            let packageGraph = try await workspace.loadPackageGraph(
+                rootInput: swiftCommandState.getWorkspaceRoot(),
+                explicitProduct: options.product,
+                forceResolvedVersions: self.globalOptions.resolver.forceResolvedVersions,
+                observabilityScope: swiftCommandState.observabilityScope
+            )
+            let resolvedPackagesStore = try workspace.resolvedPackagesStore.load()
+            let input = SBOMInput(
+                modulesGraph: packageGraph,
+                dependencyGraph: buildResult.dependencyGraph,
+                store: resolvedPackagesStore,
+                filter: self.globalOptions.sbom.sbomFilter,
+                product: options.product,
+                specs: self.globalOptions.sbom.sbomSpecs,
+                dir: await SBOMCreator.resolveSBOMDirectory(from: self.globalOptions.sbom.sbomDirectory, withDefault: try swiftCommandState.productsBuildParameters.buildPath)
+            )
 
-        print("Creating SBOMs...")
-        let sbomStartTime = ContinuousClock.Instant.now
-        let creator = SBOMCreator(input: input)
-        let sbomPaths = try await creator.createSBOMs()
-        let duration = ContinuousClock.Instant.now - sbomStartTime
-        let formattedDuration = duration.formatted(.units(allowed: [.seconds], fractionalPart: .show(length: 2, rounded: .up)))
-        for sbomPath in sbomPaths {
-            // TODO echeng3805 should this be using observabilityScope?
-            print("- created SBOM at \(sbomPath.pathString)")
+            print("Creating SBOMs...")
+            let sbomStartTime = ContinuousClock.Instant.now
+            let creator = SBOMCreator(input: input)
+            let sbomPaths = try await creator.createSBOMs()
+            let duration = ContinuousClock.Instant.now - sbomStartTime
+            let formattedDuration = duration.formatted(.units(allowed: [.seconds], fractionalPart: .show(length: 2, rounded: .up)))
+            for sbomPath in sbomPaths {
+                // TODO echeng3805 should this be using observabilityScope?
+                print("- created SBOM at \(sbomPath.pathString)")
+            }
+            print("SBOMs created  (\(formattedDuration))")
+        } catch {
+            if self.globalOptions.sbom.sbomWarningOnly {
+                swiftCommandState.observabilityScope.emit(warning: "SBOM generation failed: \(error.localizedDescription)")
+            } else {
+                throw error
+            }
         }
-        print("SBOMs created  (\(formattedDuration))")
     }
 
     public init() {}
