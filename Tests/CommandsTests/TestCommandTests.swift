@@ -47,12 +47,13 @@ struct TestCommandTests {
     }
 
     @Test(
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
     )
     func usage(
-        buildSystem: BuildSystemProvider.Kind,
-        configuration: BuildConfiguration,
+        buildData: BuildData,
     ) async throws {
+        let buildSystem = buildData.buildSystem
+        let configuration = buildData.config
         let stdout = try await execute(
             ["-help"],
             configuration: configuration,
@@ -62,12 +63,13 @@ struct TestCommandTests {
     }
 
     @Test(
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
     )
     func experimentalXunitMessageFailureArgumentIsHidden(
-        buildSystem: BuildSystemProvider.Kind,
-        configuration: BuildConfiguration,
+        buildData: BuildData,
     ) async throws {
+        let buildSystem = buildData.buildSystem
+        let configuration = buildData.config
         let stdout = try await execute(
             ["--help"],
             configuration: configuration,
@@ -84,12 +86,13 @@ struct TestCommandTests {
     }
 
     @Test(
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
     )
     func seeAlso(
-        buildSystem: BuildSystemProvider.Kind,
-        configuration: BuildConfiguration,
+        buildData: BuildData,
     ) async throws {
+        let buildSystem = buildData.buildSystem
+        let configuration = buildData.config
         let stdout = try await execute(
             ["--help"],
             configuration: configuration,
@@ -99,12 +102,13 @@ struct TestCommandTests {
     }
 
     @Test(
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
     )
     func version(
-        buildSystem: BuildSystemProvider.Kind,
-        configuration: BuildConfiguration,
+        buildData: BuildData,
     ) async throws {
+        let buildSystem = buildData.buildSystem
+        let configuration = buildData.config
         let stdout = try await execute(
             ["--version"],
             configuration: configuration,
@@ -151,32 +155,31 @@ struct TestCommandTests {
                 #expect(stdout.contains("\(fixturePath)"))
 
                 // swift-build-tool output should go to stderr.
-                withKnownIssue {
-                    #expect(stderr.contains("Compiling"))
-                } when: {
-                    buildSystem == .swiftbuild // && ProcessInfo.hostOperatingSystem != .macOS
-                }
-
-                withKnownIssue {
-                    #expect(stderr.contains("Linking"))
-                } when: {
-                    buildSystem == .swiftbuild // && ProcessInfo.hostOperatingSystem != .macOS
+                switch buildSystem {
+                    case .native:
+                        #expect(stderr.contains("Compiling"))
+                        #expect(stderr.contains("Linking"))
+                    case .swiftbuild:
+                        break
+                    case .xcode:
+                        Issue.record("Test expectation have not been implemented")
                 }
             }
         } when: {
             (buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows)
-            || (buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .linux && CiEnvironment.runningInSmokeTestPipeline)
-            || (buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .linux && CiEnvironment.runningInSelfHostedPipeline) // error: SwiftCompile normal x86_64 /tmp/Miscellaneous_EchoExecutable.sxkNTX/Miscellaneous_EchoExecutable/.build/x86_64-unknown-linux-gnu/Intermediates.noindex/EchoExecutable.build/Debug-linux/TestSuite-test-runner.build/DerivedSources/test_entry_point.swift failed with a nonzero exit code
+            // || (buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .linux && CiEnvironment.runningInSmokeTestPipeline)
+            // || (buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .linux && CiEnvironment.runningInSelfHostedPipeline) // error: SwiftCompile normal x86_64 /tmp/Miscellaneous_EchoExecutable.sxkNTX/Miscellaneous_EchoExecutable/.build/x86_64-unknown-linux-gnu/Intermediates.noindex/EchoExecutable.build/Debug-linux/TestSuite-test-runner.build/DerivedSources/test_entry_point.swift failed with a nonzero exit code
         }
     }
 
     @Test(
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
     )
     func numWorkersParallelRequirement(
-        buildSystem: BuildSystemProvider.Kind,
-        configuration: BuildConfiguration,
+        buildData: BuildData,
     ) async throws {
+        let buildSystem = buildData.buildSystem
+        let configuration = buildData.config
         try await fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
             let error = await #expect(throws: SwiftPMError.self) {
                 try await execute(
@@ -199,12 +202,13 @@ struct TestCommandTests {
     }
 
     @Test(
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
     )
     func numWorkersValueSetToZeroRaisesAnError(
-        buildSystem: BuildSystemProvider.Kind,
-        configuration: BuildConfiguration,
+        buildData: BuildData,
     ) async throws {
+        let buildSystem = buildData.buildSystem
+        let configuration = buildData.config
         try await fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
             let error = await #expect(throws: SwiftPMError.self) {
                 try await execute(
@@ -229,12 +233,13 @@ struct TestCommandTests {
         .tags(
             .Feature.TargetType.Executable,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
     )
     func enableDisableTestabilityDefaultShouldRunWithTestability(
-        buildSystem: BuildSystemProvider.Kind,
-        configuration: BuildConfiguration,
+        buildData: BuildData,
     ) async throws {
+        let buildSystem = buildData.buildSystem
+        let configuration = buildData.config
         try await withKnownIssue(
             "fails to build the package",
             isIntermittent: true,
@@ -259,12 +264,13 @@ struct TestCommandTests {
             .Feature.TargetType.Executable,
         ),
         .SWBINTTODO("Test currently fails due to 'error: build failed'"),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
     )
     func enableDisableTestabilityDisabled(
-        buildSystem: BuildSystemProvider.Kind,
-        configuration: BuildConfiguration,
+        buildData: BuildData,
     ) async throws {
+        let buildSystem = buildData.buildSystem
+        let configuration = buildData.config
         // disabled
         try await withKnownIssue("fails to build", isIntermittent: true) {
             try await fixture(name: "Miscellaneous/TestableExe") { fixturePath in
@@ -295,12 +301,13 @@ struct TestCommandTests {
         .tags(
             .Feature.TargetType.Executable,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
     )
     func enableDisableTestabilityEnabled(
-        buildSystem: BuildSystemProvider.Kind,
-        configuration: BuildConfiguration,
+        buildData: BuildData,
     ) async throws {
+        let buildSystem = buildData.buildSystem
+        let configuration = buildData.config
         try await withKnownIssue("failes to build the package", isIntermittent: true) {
             try await fixture(name: "Miscellaneous/TestableExe") { fixturePath in
                 let result = try await execute(
@@ -321,12 +328,13 @@ struct TestCommandTests {
         .tags(
             .Feature.TargetType.Executable,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
     )
     func testableExecutableWithDifferentlyNamedExecutableProduct(
-        buildSystem: BuildSystemProvider.Kind,
-        configuration: BuildConfiguration,
+        buildData: BuildData,
     ) async throws {
+        let buildSystem = buildData.buildSystem
+        let configuration = buildData.config
         try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/TestableExeWithDifferentProductName") { fixturePath in
                 let result = try await execute(
@@ -347,12 +355,13 @@ struct TestCommandTests {
         ),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8479", relationship: .defect),
         .SWBINTTODO("Result XML could not be found. The build fails because of missing test helper generation logic for non-macOS platforms"),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
     )
     func swiftTestParallel_SerialTesting(
-        buildSystem: BuildSystemProvider.Kind,
-        configuration: BuildConfiguration,
+        buildData: BuildData,
     ) async throws {
+        let buildSystem = buildData.buildSystem
+        let configuration = buildData.config
         try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/ParallelTestsPkg") { fixturePath in
                 // First try normal serial testing.
@@ -385,12 +394,13 @@ struct TestCommandTests {
         ),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8479", relationship: .defect),
         .SWBINTTODO("Result XML could not be found. The build fails because of missing test helper generation logic for non-macOS platforms"),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
     )
     func swiftTestParallel_NoParallelArgument(
-        buildSystem: BuildSystemProvider.Kind,
-        configuration: BuildConfiguration,
+        buildData: BuildData,
     ) async throws {
+        let buildSystem = buildData.buildSystem
+        let configuration = buildData.config
         try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/ParallelTestsPkg") { fixturePath in
                 // Try --no-parallel.
@@ -410,7 +420,7 @@ struct TestCommandTests {
                 #expect(!stdout.contains("[3/3]"))
             }
         } when: {
-            [.windows].contains(ProcessInfo.hostOperatingSystem) && buildSystem == .swiftbuild
+            ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild
         }
     }
 
@@ -421,12 +431,13 @@ struct TestCommandTests {
         ),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8479", relationship: .defect),
         .SWBINTTODO("Result XML could not be found. The build fails because of missing test helper generation logic for non-macOS platforms"),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
     )
     func swiftTestParallel_ParallelArgument(
-        buildSystem: BuildSystemProvider.Kind,
-        configuration: BuildConfiguration,
+        buildData: BuildData,
     ) async throws {
+        let buildSystem = buildData.buildSystem
+        let configuration = buildData.config
         try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/ParallelTestsPkg") { fixturePath in
                 // Run tests in parallel.
@@ -460,12 +471,13 @@ struct TestCommandTests {
         ),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8479", relationship: .defect),
         .SWBINTTODO("Result XML could not be found. The build fails because of missing test helper generation logic for non-macOS platforms"),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
     )
     func swiftTestParallel_ParallelArgumentWithXunitOutputGeneration(
-        buildSystem: BuildSystemProvider.Kind,
-        configuration: BuildConfiguration,
+        buildData: BuildData,
     ) async throws {
+        let buildSystem = buildData.buildSystem
+        let configuration = buildData.config
         try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/ParallelTestsPkg") { fixturePath in
                 let xUnitOutput = fixturePath.appending("result.xml")
@@ -494,7 +506,7 @@ struct TestCommandTests {
                 #expect(stdout.contains("[3/3]"))
 
                 // Check the xUnit output.
-                #expect(localFileSystem.exists(xUnitOutput), "\(xUnitOutput) does not exist")
+                expectFileExists(at: xUnitOutput, "\(xUnitOutput) does not exist")
                 let contents: String = try localFileSystem.readFileContents(xUnitOutput)
                 #expect(contents.contains("tests=\"3\" failures=\"1\""))
                 let timeRegex = try Regex("time=\"[0-9]+\\.[0-9]+\"")
@@ -514,12 +526,13 @@ struct TestCommandTests {
         ),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8479", relationship: .defect),
         .SWBINTTODO("Result XML could not be found. The build fails because of missing test helper generation logic for non-macOS platforms"),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
     )
     func swiftTestXMLOutputWhenEmpty(
-        buildSystem: BuildSystemProvider.Kind,
-        configuration: BuildConfiguration,
+        buildData: BuildData,
     ) async throws {
+        let buildSystem = buildData.buildSystem
+        let configuration = buildData.config
         try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/EmptyTestsPkg") { fixturePath in
                 let xUnitOutput = fixturePath.appending("result.xml")
@@ -532,7 +545,7 @@ struct TestCommandTests {
                 ).stdout
 
                 // Check the xUnit output.
-                #expect(localFileSystem.exists(xUnitOutput))
+                expectFileExists(at: xUnitOutput)
                 let contents: String = try localFileSystem.readFileContents(xUnitOutput)
                 #expect(contents.contains("tests=\"0\" failures=\"0\""))
             }
@@ -558,7 +571,6 @@ struct TestCommandTests {
         testRunner: TestRunner,
         enableExperimentalFlag: Bool,
         matchesPattern: [String],
-        configuration: BuildConfiguration,
         id: String
     )
 
@@ -572,14 +584,12 @@ struct TestCommandTests {
         ),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8479", relationship: .defect),
         .SWBINTTODO("Result XML could not be found. The build fails because of missing test helper generation logic for non-macOS platforms"),
-        arguments: SupportedBuildSystemOnAllPlatforms.filter { $0 != .xcode }, BuildConfiguration.allCases.map { config in
-            [
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms), [
                 (
                     fixtureName: "Miscellaneous/TestSingleFailureXCTest",
                     testRunner: TestRunner.XCTest,
                     enableExperimentalFlag: true,
                     matchesPattern: ["Purposely failing &amp; validating XML espace &quot;'&lt;&gt;"],
-                    configuration: config,
                     id: "Single XCTest Test Failure Message With Flag Enabled",
                 ),
                 (
@@ -587,7 +597,6 @@ struct TestCommandTests {
                     testRunner: TestRunner.SwiftTesting,
                     enableExperimentalFlag: true,
                     matchesPattern: ["Purposely failing &amp; validating XML espace &quot;'&lt;&gt;"],
-                    configuration: config,
                     id: "Single Swift Testing Test Failure Message With Flag Enabled",
                 ),
                 (
@@ -595,7 +604,6 @@ struct TestCommandTests {
                     testRunner: TestRunner.XCTest,
                     enableExperimentalFlag: false,
                     matchesPattern: ["failure"],
-                    configuration: config,
                     id: "Single XCTest Test Failure Message With Flag Disabled",
                 ),
                 (
@@ -603,7 +611,6 @@ struct TestCommandTests {
                     testRunner: TestRunner.SwiftTesting,
                     enableExperimentalFlag: false,
                     matchesPattern: ["Purposely failing &amp; validating XML espace &quot;'&lt;&gt;"],
-                    configuration: config,
                     id: "Single Swift Testing Test Failure Message With Flag Disabled",
                 ),
                 (
@@ -622,7 +629,6 @@ struct TestCommandTests {
                         "Test failure 9",
                         "Test failure 10",
                     ],
-                    configuration: config,
                     id: "Single Multiple Test Failure Message With Flag Enabled",
                 ),
                 (
@@ -641,7 +647,6 @@ struct TestCommandTests {
                         "ST Test failure 9",
                         "ST Test failure 10",
                     ],
-                    configuration: config,
                     id: "Multiple Swift Testing Test Failure Message With Flag Enabled",
                 ),
                 (
@@ -660,7 +665,6 @@ struct TestCommandTests {
                         "failure",
                         "failure",
                     ],
-                    configuration: config,
                     id: "Multiple XCTest Tests Failure Message With Flag Disabled",
                 ),
                 (
@@ -679,19 +683,19 @@ struct TestCommandTests {
                         "ST Test failure 9",
                         "ST Test failure 10",
                     ],
-                    configuration: config,
                     id: "Multiple Swift Testing Tests Failure Message With Flag Disabled",
                 )
-            ]
-        }.flatMap { $0 }
+            ],
     )
     func swiftTestXMLOutputFailureMessage(
-        buildSystem: BuildSystemProvider.Kind,
+        buildData: BuildData,
         tcdata: SwiftTestXMLOutputData,
     ) async throws {
         // windows issue not recorded for:
         //   - native, single, XCTest, experimental true
         //   - native, single, XCTest, experimental false
+        let buildSystem = buildData.buildSystem
+        let configuration = buildData.config
         try await withKnownIssue( isIntermittent: true) {
             try await fixture(name: tcdata.fixtureName) { fixturePath in
                 // GIVEN we have a Package with a failing \(testRunner) test cases
@@ -710,7 +714,7 @@ struct TestCommandTests {
                         xUnitOutput.pathString,
                     ] + extraCommandArgs,
                     packagePath: fixturePath,
-                    configuration: tcdata.configuration,
+                    configuration: configuration,
                     buildSystem: buildSystem,
                     throwIfCommandFails: false,
                 )
@@ -722,7 +726,7 @@ struct TestCommandTests {
                 }
 
                 // THEN we expect \(xUnitUnderTest) to exists
-                #expect(FileManager.default.fileExists(atPath: xUnitUnderTest.pathString))
+                expectFileExists(at: xUnitUnderTest)
                 let contents: String = try localFileSystem.readFileContents(xUnitUnderTest)
                 // AND that the xUnit file has the expected contents
                 for match in tcdata.matchesPattern {
@@ -741,12 +745,13 @@ struct TestCommandTests {
         ),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8479", relationship: .defect),
         .SWBINTTODO("Result XML could not be found. The build fails because of missing test helper generation logic for non-macOS platforms"),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
     )
     func swiftTestFilter(
-        buildSystem: BuildSystemProvider.Kind,
-        configuration: BuildConfiguration,
+        buildData: BuildData,
     ) async throws {
+        let buildSystem = buildData.buildSystem
+        let configuration = buildData.config
         try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/SkipTests") { fixturePath in
                 let (stdout, _) = try await execute(
@@ -787,12 +792,13 @@ struct TestCommandTests {
         ),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8479", relationship: .defect),
         .SWBINTTODO("Result XML could not be found. The build fails because of missing test helper generation logic for non-macOS platforms"),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
     )
     func swiftTestSkip(
-        buildSystem: BuildSystemProvider.Kind,
-        configuration: BuildConfiguration,
+        buildData: BuildData,
     ) async throws {
+        let buildSystem = buildData.buildSystem
+        let configuration = buildData.config
         try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/SkipTests") { fixturePath in
                 let (stdout, _) = try await execute(
@@ -862,12 +868,13 @@ struct TestCommandTests {
         ),
         .SWBINTTODO("Fails to find test executable"),
         .issue("https://github.com/swiftlang/swift-package-manager/pull/8722", relationship: .fixedBy),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
     )
     func enableTestDiscoveryDeprecation(
-        buildSystem: BuildSystemProvider.Kind,
-        configuration: BuildConfiguration,
+        buildData: BuildData,
     ) async throws {
+        let buildSystem = buildData.buildSystem
+        let configuration = buildData.config
         try await withKnownIssue("Fails to find test executable") {
             let compilerDiagnosticFlags = ["-Xswiftc", "-Xfrontend", "-Xswiftc", "-Rmodule-interface-rebuild"]
             // should emit when LinuxMain is present
@@ -899,7 +906,8 @@ struct TestCommandTests {
                 #expect(stderr.contains("warning: '--enable-test-discovery' option is deprecated") == expected)
             }
         } when: {
-            buildSystem == .swiftbuild && [.linux, .windows].contains(ProcessInfo.hostOperatingSystem)
+            // buildSystem == .swiftbuild && [.linux, .windows].contains(ProcessInfo.hostOperatingSystem)
+            buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows
         }
     }
 
@@ -912,12 +920,13 @@ struct TestCommandTests {
         .tags(
             Tag.Feature.Command.Build,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
     )
     func listWithoutBuildingFirst(
-        buildSystem: BuildSystemProvider.Kind,
-        configuration: BuildConfiguration,
+        buildData: BuildData,
     ) async throws {
+        let buildSystem = buildData.buildSystem
+        let configuration = buildData.config
         try await withKnownIssue("Fails to find test executable") {
             try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
                 let (stdout, stderr) = try await execute(
@@ -950,12 +959,13 @@ struct TestCommandTests {
         .tags(
             Tag.Feature.Command.Build,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
     )
     func listBuildFirstThenList(
-        buildSystem: BuildSystemProvider.Kind,
-        configuration: BuildConfiguration,
+        buildData: BuildData,
     ) async throws {
+        let buildSystem = buildData.buildSystem
+        let configuration = buildData.config
         try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
             // build first
             try await withKnownIssue("Fails to save attachment", isIntermittent: true) {
@@ -1005,12 +1015,13 @@ struct TestCommandTests {
         .tags(
             Tag.Feature.Command.Build,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
     )
     func listBuildFirstThenListWhileSkippingBuild(
-        buildSystem: BuildSystemProvider.Kind,
-        configuration: BuildConfiguration,
+        buildData: BuildData,
     ) async throws {
+        let buildSystem = buildData.buildSystem
+        let configuration = buildData.config
         try await withKnownIssue("Failed to find test executable, or getting error: module 'Simple' was not compiled for testing, onMacOS", isIntermittent: true) {
             try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
                 // build first
@@ -1040,12 +1051,13 @@ struct TestCommandTests {
     }
 
     @Test(
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
     )
     func listWithSkipBuildAndNoBuildArtifacts(
-        buildSystem: BuildSystemProvider.Kind,
-        configuration: BuildConfiguration,
+        buildData: BuildData,
     ) async throws {
+        let buildSystem = buildData.buildSystem
+        let configuration = buildData.config
         try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
             let error = await #expect(throws: SwiftPMError.self) {
                 try await execute(
@@ -1072,12 +1084,13 @@ struct TestCommandTests {
             .Feature.TargetType.Executable,
             .Feature.CommandLineArguments.TestEnableSwiftTesting,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
     )
     func basicSwiftTestingIntegration(
-        buildSystem: BuildSystemProvider.Kind,
-        configuration: BuildConfiguration,
+        buildData: BuildData,
     ) async throws {
+        let buildSystem = buildData.buildSystem
+        let configuration = buildData.config
         try await withKnownIssue("Fails to find the test executable") {
             try await fixture(name: "Miscellaneous/TestDiscovery/SwiftTesting") { fixturePath in
                 let (stdout, stderr) = try await execute(
@@ -1102,12 +1115,13 @@ struct TestCommandTests {
         ),
         .skipHostOS(.macOS),  // because this was guarded with `#if !canImport(Darwin)`
         .SWBINTTODO("This is a PIF builder missing GUID problem. Further investigation is needed."),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
     )
     func generatedMainIsConcurrencySafe_XCTest(
-        buildSystem: BuildSystemProvider.Kind,
-        configuration: BuildConfiguration,
+        buildData: BuildData,
     ) async throws {
+        let buildSystem = buildData.buildSystem
+        let configuration = buildData.config
         try await withKnownIssue(isIntermittent: true) {
             let strictConcurrencyFlags = ["-Xswiftc", "-strict-concurrency=complete"]
             try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
@@ -1127,14 +1141,13 @@ struct TestCommandTests {
          .tags(
             .Feature.TargetType.Executable,
         ),
-        .skipHostOS(.macOS),  // because this was guarded with `#if !canImport(Darwin)`
-        .SWBINTTODO("This is a PIF builder missing GUID problem. Further investigation is needed."),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
     )
     func generatedMainIsExistentialAnyClean(
-        buildSystem: BuildSystemProvider.Kind,
-        configuration: BuildConfiguration,
+        buildData: BuildData,
     ) async throws {
+        let buildSystem = buildData.buildSystem
+        let configuration = buildData.config
         try await withKnownIssue(isIntermittent: true) {
             let existentialAnyFlags = ["-Xswiftc", "-enable-upcoming-feature", "-Xswiftc", "ExistentialAny"]
             try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
@@ -1147,7 +1160,7 @@ struct TestCommandTests {
                 #expect(!stderr.contains("error: use of protocol"))
             }
         } when: {
-            (buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem != .linux)
+            (buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows)
         }
     }
 
@@ -1157,12 +1170,13 @@ struct TestCommandTests {
         ),
         .IssueWindowsPathTestsFailures,
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8602", relationship: .defect),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
     )
     func libraryEnvironmentVariable(
-        buildSystem: BuildSystemProvider.Kind,
-        configuration: BuildConfiguration,
+        buildData: BuildData,
     ) async throws {
+        let buildSystem = buildData.buildSystem
+        let configuration = buildData.config
         try await withKnownIssue("produces a filepath that is too long, needs investigation", isIntermittent: true) {
             try await fixture(name: "Miscellaneous/CheckTestLibraryEnvironmentVariable") { fixturePath in
                 var extraEnv = Environment()
@@ -1190,12 +1204,13 @@ struct TestCommandTests {
         ),
         .SWBINTTODO("Fails to find test executable"),
         .issue("https://github.com/swiftlang/swift-package-manager/pull/8722", relationship: .fixedBy),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
     )
     func XCTestOnlyDoesNotLogAboutNoMatchingTests(
-        buildSystem: BuildSystemProvider.Kind,
-        configuration: BuildConfiguration,
+        buildData: BuildData,
     ) async throws {
+        let buildSystem = buildData.buildSystem
+        let configuration = buildData.config
         try await withKnownIssue("Fails to find test executable",  isIntermittent: true) {
             try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
                 let (_, stderr) = try await execute(
@@ -1217,12 +1232,13 @@ struct TestCommandTests {
         ),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/6605", relationship: .verifies),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8602", relationship: .defect),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
     )
     func fatalErrorDisplayedCorrectNumberOfTimesWhenSingleXCTestHasFatalErrorInBuildCompilation(
-        buildSystem: BuildSystemProvider.Kind,
-        configuration: BuildConfiguration,
+        buildData: BuildData,
     ) async throws {
+        let buildSystem = buildData.buildSystem
+        let configuration = buildData.config
         try await withKnownIssue("Windows path issue", isIntermittent: true) {
             // GIVEN we have a Swift Package that has a fatalError building the tests
             let expected = 1
@@ -1269,12 +1285,13 @@ struct TestCommandTests {
             .tags(
                 .Feature.TargetType.Executable,
             ),
-            arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
         )
         func testableExecutableWithEmbeddedResources(
-            buildSystem: BuildSystemProvider.Kind,
-            configuration: BuildConfiguration,
+            buildData: BuildData,
         ) async throws {
+            let buildSystem = buildData.buildSystem
+            let configuration = buildData.config
             try await withKnownIssue(isIntermittent: true) {
                 try await fixture(name: "Miscellaneous/TestableExeWithResources") { fixturePath in
                     let result = try await execute(
