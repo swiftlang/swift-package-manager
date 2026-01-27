@@ -302,6 +302,10 @@ extension PackageModel.BuildSettings.Declaration {
         case .OTHER_LDFLAGS, .LINK_LIBRARIES, .LINK_FRAMEWORKS:
             true
 
+        // Prebuilts
+        case .PREBUILT_INCLUDE_PATHS, .PREBUILT_LIBRARY_PATHS, .PREBUILT_LIBRARIES:
+            true
+
         default:
             true
         }
@@ -635,6 +639,18 @@ extension PackageGraph.ResolvedModule {
                     singleValueSetting = nil
                     multipleValueSetting = .HEADER_SEARCH_PATHS
                     values = settingAssignment.values.map { self.sourceDirAbsolutePath.pathString + "/" + $0 }
+                case .PREBUILT_INCLUDE_PATHS:
+                    singleValueSetting = nil
+                    multipleValueSetting = .OTHER_SWIFT_FLAGS
+                    values = settingAssignment.values.flatMap { ["-I", $0] }
+                case .PREBUILT_LIBRARY_PATHS:
+                    singleValueSetting = nil
+                    multipleValueSetting = .LIBRARY_SEARCH_PATHS
+                    values = settingAssignment.values
+                case .PREBUILT_LIBRARIES:
+                    singleValueSetting = nil
+                    multipleValueSetting = .OTHER_LDFLAGS
+                    values = settingAssignment.values.map { "-l\($0)" }
                 default:
                     if declaration.allowsMultipleValues {
                         singleValueSetting = nil
@@ -661,8 +677,12 @@ extension PackageGraph.ResolvedModule {
                         pifPlatform = nil
                     }
 
-                    // Handle imparted settings for OTHER_LDFLAGS (always multiple values)
-                    if let multipleValueSetting = multipleValueSetting, multipleValueSetting == .OTHER_LDFLAGS {
+                    // Handle imparted settings for OTHER_LDFLAGS and prebuilts include paths (always multiple values)
+                    // TODO: Do we realy need to impart OTHER_LDFLAGS?
+                    // TODO: Doing that for the PREBUILT_LIBRARIES was causing duplicate library warnings.
+                    if let multipleValueSetting = multipleValueSetting,
+                        declaration != .PREBUILT_LIBRARIES,
+                        (multipleValueSetting == .OTHER_LDFLAGS || declaration == .PREBUILT_INCLUDE_PATHS) {
                         allSettings.impartedMultipleValueSettings[pifPlatform, default: [:]][multipleValueSetting, default: []].append(contentsOf: values)
                     }
 
@@ -1033,7 +1053,7 @@ extension ProjectModel.BuildSettings {
         self[.SWIFT_PACKAGE_NAME] = packageName ?? nil
 
         // This should really be swift-build defaults set in the .xcspec files, but changing that requires
-        // some extensive testing to ensure xcode projects are not effected.
+        // some extensive testing to ensure xcode projects are not affected.
         // So for now lets just force it here.
         self[.EXECUTABLE_PREFIX] = "lib"
         self[.EXECUTABLE_PREFIX, Platform.windows] = ""

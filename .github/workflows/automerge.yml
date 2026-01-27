@@ -7,8 +7,6 @@ name: Create PR to merge main into release branch
 permissions:
   contents: read
 on:
-  schedule:
-    - cron: '0 9 * * MON'
   workflow_dispatch:
 jobs:
   create_merge_pr:

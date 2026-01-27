@@ -21,6 +21,7 @@ import struct Basics.SourceControlURL
 import class PackageModel.BinaryModule
 import class PackageModel.Manifest
 import enum PackageModel.PackageCondition
+import enum PackageModel.PrebuiltsPlatform
 import class PackageModel.Product
 import enum PackageModel.ProductType
 import struct PackageModel.RegistryReleaseMetadata
@@ -132,6 +133,19 @@ extension PackagePIFProjectBuilder {
             settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS].lazilyInitialize { ["$(inherited)"] }
             // Enable index-while building for Swift compilations to facilitate discovery of XCTest tests.
             settings[.SWIFT_INDEX_STORE_ENABLE] = "YES"
+
+            if mainModule.platformConstraint == .host {
+                // This is a macro test using prebuilts
+                settings[.SUPPORTED_PLATFORMS] = ["$(HOST_PLATFORM)"]
+                switch PrebuiltsPlatform.hostPlatform?.arch {
+                case .aarch64:
+                    settings[.ARCHS] = ["arm64"]
+                case .x86_64:
+                    settings[.ARCHS] = ["86_64"]
+                case .none:
+                    break
+                }
+            }
         } else if mainModule.type == .executable {
             // Setup install path for executables if it's in root of a pure Swift package.
             if pifBuilder.delegate.hostsOnlyPackages && pifBuilder.delegate.isRootPackage {
@@ -603,6 +617,8 @@ extension PackagePIFProjectBuilder {
                 productName = "$(WRAPPER_NAME)"
                 productType = .framework
             }
+        } else if pifBuilder.delegate.isRootPackage && pifBuilder.materializeStaticArchiveProductsForRootPackages {
+            productType = .staticArchive
         } else {
             productType = .packageProduct
         }
@@ -691,6 +707,20 @@ extension PackagePIFProjectBuilder {
                 installPath: installPath(for: product.underlying),
                 delegate: pifBuilder.delegate
             )
+            // An empty sources phase is required in order to trigger linking.
+            self.project[keyPath: libraryUmbrellaTargetKeyPath].common.addSourcesBuildPhase { id in
+                ProjectModel.SourcesBuildPhase(id: id)
+            }
+        } else if productType == .staticArchive {
+            settings[.TARGET_NAME] = product.targetName()
+            settings[.PRODUCT_NAME] = product.name
+
+            // This should really be swift-build defaults set in the .xcspec files, but changing that requires
+            // some extensive testing to ensure xcode projects are not affected.
+            // So for now lets just force it here.
+            settings[.EXECUTABLE_PREFIX] = "lib"
+            settings[.EXECUTABLE_PREFIX, ProjectModel.BuildSettings.Platform.windows] = ""
+            // An empty sources phase is required in order to trigger linking.
             self.project[keyPath: libraryUmbrellaTargetKeyPath].common.addSourcesBuildPhase { id in
                 ProjectModel.SourcesBuildPhase(id: id)
             }
@@ -937,6 +967,7 @@ extension PackagePIFProjectBuilder {
         }
 
         let buildSettings: ProjectModel.BuildSettings = package.underlying.packageBaseBuildSettings
+
         self.project[keyPath: pluginTargetKeyPath].common.addBuildConfig { id in
             BuildConfig(id: id, name: "Debug", settings: buildSettings)
         }

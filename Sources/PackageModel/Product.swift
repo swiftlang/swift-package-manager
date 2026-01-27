@@ -33,10 +33,20 @@ public class Product: Identifiable {
     /// The path to test entry point file.
     public let testEntryPointPath: AbsolutePath?
 
+    /// Was this product implicitly created
+    public let isImplicit: Bool
+
     /// The suffix for REPL product name.
     public static let replProductSuffix: String = "__REPL"
 
-    public init(package: PackageIdentity, name: String, type: ProductType, modules: [Module], testEntryPointPath: AbsolutePath? = nil) throws {
+    public init(
+        package: PackageIdentity,
+        name: String,
+        type: ProductType,
+        modules: [Module],
+        testEntryPointPath: AbsolutePath? = nil,
+        isImplicit: Bool = false
+    ) throws {
         guard !modules.isEmpty else {
             throw InternalError("Targets cannot be empty")
         }
@@ -55,6 +65,7 @@ public class Product: Identifiable {
         self.identity = package.description.lowercased() + "_" + name
         self.modules = modules
         self.testEntryPointPath = testEntryPointPath
+        self.isImplicit = isImplicit
     }
 }
 

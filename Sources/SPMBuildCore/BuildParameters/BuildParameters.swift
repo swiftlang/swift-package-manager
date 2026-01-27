@@ -76,10 +76,10 @@ public struct BuildParameters: Encodable {
     // FIXME: this may be inconsistent with `targetTriple`.
     public var architectures: [String]?
 
-    /// How many jobs should llbuild and the Swift compiler spawn
+    /// How many jobs should llbuild and the Swift compiler spawn.
     public var workers: UInt32
 
-    /// Which compiler sanitizers should be enabled
+    /// Which compiler sanitizers should be enabled.
     public var sanitizers: EnabledSanitizers
 
     /// The mode to use for indexing-while-building feature.

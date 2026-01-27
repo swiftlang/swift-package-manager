@@ -46,6 +46,9 @@ package struct PIFBuilderParameters {
     /// Whether to create dylibs for dynamic library products.
     let shouldCreateDylibForDynamicProducts: Bool
 
+    /// Eagerly materialize static archive products.
+    let materializeStaticArchiveProductsForRootPackages: Bool
+
     /// The path to the library directory of the active toolchain.
     let toolchainLibDir: AbsolutePath
 
@@ -72,10 +75,11 @@ package struct PIFBuilderParameters {
     /// the build products to a different location.
     let addLocalRpaths: Bool
 
-    package init(isPackageAccessModifierSupported: Bool, enableTestability: Bool, shouldCreateDylibForDynamicProducts: Bool, toolchainLibDir: AbsolutePath, pkgConfigDirectories: [AbsolutePath], supportedSwiftVersions: [SwiftLanguageVersion], pluginScriptRunner: PluginScriptRunner, disableSandbox: Bool, pluginWorkingDirectory: AbsolutePath, additionalFileRules: [FileRuleDescription], addLocalRPaths: Bool) {
+    package init(isPackageAccessModifierSupported: Bool, enableTestability: Bool, shouldCreateDylibForDynamicProducts: Bool, materializeStaticArchiveProductsForRootPackages: Bool, toolchainLibDir: AbsolutePath, pkgConfigDirectories: [AbsolutePath], supportedSwiftVersions: [SwiftLanguageVersion], pluginScriptRunner: PluginScriptRunner, disableSandbox: Bool, pluginWorkingDirectory: AbsolutePath, additionalFileRules: [FileRuleDescription], addLocalRPaths: Bool) {
         self.isPackageAccessModifierSupported = isPackageAccessModifierSupported
         self.enableTestability = enableTestability
         self.shouldCreateDylibForDynamicProducts = shouldCreateDylibForDynamicProducts
+        self.materializeStaticArchiveProductsForRootPackages = materializeStaticArchiveProductsForRootPackages
         self.toolchainLibDir = toolchainLibDir
         self.pkgConfigDirectories = pkgConfigDirectories
         self.supportedSwiftVersions = supportedSwiftVersions
@@ -202,9 +206,11 @@ public final class PIFBuilder {
         return accessibleToolsPerPlugin
     }
 
-    package func makePIFBuilders(
-        buildParameters: BuildParameters
-    ) async throws -> [(ResolvedPackage, PackagePIFBuilder, any PackagePIFBuilder.BuildDelegate)] {
+    /// Constructs all `PackagePIFBuilder` objects used by the `constructPIF` function.
+    /// In particular, this is useful for unit testing the complex `PIFBuilder` class.
+    func makePIFBuilders(
+        buildParameters: BuildParameters 
+    ) async throws -> [(ResolvedPackage, PackagePIFBuilder, any PackagePIFBuilder.BuildDelegate)] { 
         let pluginScriptRunner = self.parameters.pluginScriptRunner
         let outputDir = self.parameters.pluginWorkingDirectory.appending("outputs")
 
@@ -405,6 +411,7 @@ public final class PIFBuilder {
                 delegate: packagePIFBuilderDelegate,
                 buildToolPluginResultsByTargetName: buildToolPluginResultsByTargetName,
                 createDylibForDynamicProducts: self.parameters.shouldCreateDylibForDynamicProducts,
+                materializeStaticArchiveProductsForRootPackages: self.parameters.materializeStaticArchiveProductsForRootPackages,
                 addLocalRpaths: self.parameters.addLocalRpaths,
                 packageDisplayVersion: package.manifest.displayName,
                 fileSystem: self.fileSystem,
@@ -418,8 +425,18 @@ public final class PIFBuilder {
     }
 
     /// Constructs a `PIF.TopLevelObject` representing the package graph.
-    package func constructPIF(buildParameters: BuildParameters) async throws -> PIF.TopLevelObject {
+    package func constructPIF( 
+        buildParameters: BuildParameters
+    ) async throws -> PIF.TopLevelObject {
         return try await memoize(to: &self.cachedPIF) {
+            guard let rootPackage = self.graph.rootPackages.only else {
+                if self.graph.rootPackages.isEmpty {
+                    throw PIFGenerationError.rootPackageNotFound
+                } else {
+                    throw PIFGenerationError.multipleRootPackagesFound
+                }
+            }
+
             let packagesAndPIFBuilders = try await makePIFBuilders(buildParameters: buildParameters)
 
             let packagesAndPIFProjects = try packagesAndPIFBuilders.map { (package, pifBuilder, _) in
@@ -438,21 +455,12 @@ public final class PIFBuilder {
                 )
             )
 
-            guard let rootPackage = self.graph.rootPackages.only else {
-                if self.graph.rootPackages.isEmpty {
-                    throw PIFGenerationError.rootPackageNotFound
-                } else {
-                    throw PIFGenerationError.multipleRootPackagesFound
-                }
-            }
-
             let workspace = PIF.Workspace(
                 id: "Workspace:\(rootPackage.path.pathString)",
                 name: rootPackage.manifest.displayName, // TODO: use identity instead?
                 path: rootPackage.path,
                 projects: pifProjects
             )
-
             return PIF.TopLevelObject(workspace: workspace)
         }
     }
@@ -525,7 +533,8 @@ public final class PIFBuilder {
         pluginWorkingDirectory: AbsolutePath,
         pkgConfigDirectories: [Basics.AbsolutePath],
         additionalFileRules: [FileRuleDescription],
-        addLocalRpaths: Bool
+        addLocalRpaths: Bool,
+        materializeStaticArchiveProductsForRootPackages: Bool
     ) async throws -> String {
         let parameters = PIFBuilderParameters(
             buildParameters,
@@ -534,7 +543,8 @@ public final class PIFBuilder {
             disableSandbox: disableSandbox,
             pluginWorkingDirectory: pluginWorkingDirectory,
             additionalFileRules: additionalFileRules,
-            addLocalRpaths: addLocalRpaths
+            addLocalRpaths: addLocalRpaths,
+            materializeStaticArchiveProductsForRootPackages: materializeStaticArchiveProductsForRootPackages
         )
         let builder = Self(
             graph: packageGraph,
@@ -797,12 +807,14 @@ extension PIFBuilderParameters {
         disableSandbox: Bool,
         pluginWorkingDirectory: AbsolutePath,
         additionalFileRules: [FileRuleDescription],
-        addLocalRpaths: Bool
+        addLocalRpaths: Bool,
+        materializeStaticArchiveProductsForRootPackages: Bool,
     ) {
         self.init(
             isPackageAccessModifierSupported: buildParameters.driverParameters.isPackageAccessModifierSupported,
             enableTestability: buildParameters.enableTestability,
             shouldCreateDylibForDynamicProducts: buildParameters.shouldCreateDylibForDynamicProducts,
+            materializeStaticArchiveProductsForRootPackages: materializeStaticArchiveProductsForRootPackages,
             toolchainLibDir: (try? buildParameters.toolchain.toolchainLibDir) ?? .root,
             pkgConfigDirectories: buildParameters.pkgConfigDirectories,
             supportedSwiftVersions: supportedSwiftVersions,
