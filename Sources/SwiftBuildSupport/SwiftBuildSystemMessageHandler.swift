@@ -64,7 +64,8 @@ public final class SwiftBuildSystemMessageHandler {
         self.logLevel = logLevel
         self.progressAnimation = ProgressAnimation.ninja(
             stream: outputStream,
-            verbose: self.logLevel.isVerbose
+            verbose: self.logLevel.isVerbose,
+            normalizeStep: false
         )
         self.enableBacktraces = enableBacktraces
         self.buildDelegate = buildDelegate
@@ -94,7 +95,7 @@ public final class SwiftBuildSystemMessageHandler {
         }
     }
 
-    private func emitDiagnosticCompilerOutput(_ info: SwiftBuildMessage.TaskStartedInfo) {
+    private func emitDiagnosticCompilerOutput(_ info: SwiftBuildMessage.TaskStartedInfo, verbose: Bool) {
         // Don't redundantly emit task output.
         guard !self.tasksEmitted.contains(info.taskSignature) else {
             return
@@ -108,7 +109,7 @@ public final class SwiftBuildSystemMessageHandler {
         let decodedOutput = String(decoding: buffer, as: UTF8.self)
 
         // Emit message.
-        observabilityScope.print(decodedOutput, verbose: self.logLevel.isVerbose)
+        observabilityScope.print(decodedOutput, verbose: verbose)
 
         // Record that we've emitted the output for a given task.
         self.tasksEmitted.insert(info)
@@ -121,12 +122,11 @@ public final class SwiftBuildSystemMessageHandler {
     ) throws {
         // Begin by emitting the text received by the task started event.
         if let started = self.buildState.startedInfo(for: startedInfo) {
-            // Determine where to emit depending on the verbosity level.
-            if self.logLevel.isVerbose {
-                self.outputStream.send(started.description + "\n")
-            } else {
-                observabilityScope.emit(info: started)
+            // Emit depending on verbosity level.
+            if logLevel.isVerbose {
+                self.outputStream.send(started)
             }
+            self.observabilityScope.print(started, verbose: self.logLevel.isVerbose)
         }
 
         guard info.result == .success else {
@@ -135,13 +135,15 @@ public final class SwiftBuildSystemMessageHandler {
         }
 
         // Handle diagnostics, if applicable.
+        // This handles diagnostics for successful tasks, which could be notes or warnings.
         let diagnostics = self.buildState.diagnostics(for: info)
         if !diagnostics.isEmpty {
             // Emit diagnostics using the `DiagnosticInfo` model.
             diagnostics.forEach({ emitInfoAsDiagnostic(info: $0) })
         } else {
             // Emit diagnostics through textual compiler output.
-            emitDiagnosticCompilerOutput(startedInfo)
+            let isDiagnosticOutput = self.buildState.diagnosticDataBufferExists(for: info)
+            emitDiagnosticCompilerOutput(startedInfo, verbose: isDiagnosticOutput || self.logLevel.isVerbose)
         }
 
         // Handle task backtraces, if applicable.
@@ -181,7 +183,7 @@ public final class SwiftBuildSystemMessageHandler {
         if !diagnosticsBuffer.isEmpty {
             diagnosticsBuffer.forEach({ emitInfoAsDiagnostic(info: $0) })
         } else {
-            emitDiagnosticCompilerOutput(startedInfo)
+            emitDiagnosticCompilerOutput(startedInfo, verbose: true)
         }
 
         let message = "\(startedInfo.ruleInfo) failed with a nonzero exit code."
@@ -216,14 +218,19 @@ public final class SwiftBuildSystemMessageHandler {
                 }
             }
         case .didUpdateProgress(let progressInfo):
-            var step = Int(progressInfo.percentComplete)
-            if step < 0 { step = 0 }
+            let step = Int(progressInfo.percentComplete)
             let message = if let targetName = progressInfo.targetName {
                 "\(targetName) \(progressInfo.message)"
             } else {
                 "\(progressInfo.message)"
             }
-            progressAnimation.update(step: step, total: 100, text: message)
+
+            // Skip if message doesn't contain anything useful to display.
+            // TODO: To file an issue for SwiftBuild here.
+            if message.contains(where: \.isLetter) {
+                progressAnimation.update(step: step, total: 100, text: message)
+            }
+
             callback = { [weak self] buildSystem in
                 self?.buildDelegate?.buildSystem(buildSystem, didUpdateTaskProgress: message)
             }
@@ -235,12 +242,15 @@ public final class SwiftBuildSystemMessageHandler {
                 emitInfoAsDiagnostic(info: info)
             } else if info.appendToOutputStream {
                 buildState.appendDiagnostic(info)
+            } else {
+                // Track task IDs for diagnostics to later emit them via compiler output.
+                buildState.appendDiagnosticID(info)
             }
         case .output(let info):
             // Append to buffer-per-task storage
             buildState.appendToBuffer(info)
         case .taskStarted(let info):
-            try buildState.started(task: info)
+            try buildState.started(task: info, self.logLevel)
 
             let targetInfo = try buildState.target(for: info)
             callback = { [weak self] buildSystem in
@@ -250,8 +260,8 @@ public final class SwiftBuildSystemMessageHandler {
         case .taskComplete(let info):
             let startedInfo = try buildState.completed(task: info)
 
-            // Handler for failed tasks, if applicable.
-            try handleTaskOutput(info, startedInfo, self.enableBacktraces)
+            // Handler for task output, handling failures if applicable.
+            try self.handleTaskOutput(info, startedInfo, self.enableBacktraces)
 
             let targetInfo = try buildState.target(for: startedInfo)
             callback = { [weak self] buildSystem in
@@ -270,7 +280,23 @@ public final class SwiftBuildSystemMessageHandler {
             }
         case .targetComplete(let info):
             _ = try buildState.completed(target: info)
-        case .planningOperationStarted, .planningOperationCompleted, .reportBuildDescription, .reportPathMap, .preparedForIndex, .buildStarted, .preparationComplete, .targetUpToDate, .taskUpToDate:
+        case .planningOperationStarted(_):
+            // Emitting under higher-level verbosity so as not to overwhelm output.
+            // This is the same behaviour as the native system.
+            if self.logLevel.isVerbose {
+                self.outputStream.send("Planning build" + "\n")
+            }
+        case .planningOperationCompleted(_):
+            // Emitting under higher-level verbosity so as not to overwhelm output.
+            if self.logLevel.isVerbose {
+                self.outputStream.send("Planning complete" + "\n")
+            }
+        case .targetUpToDate(let info):
+            // Received when a target is entirely up to date and did not need to be built.
+            if self.logLevel.isVerbose {
+                self.outputStream.send("Target \(info.guid) up to date." + "\n")
+            }
+        case .reportBuildDescription, .reportPathMap, .preparedForIndex, .buildStarted, .preparationComplete, .taskUpToDate:
             break
         case .buildDiagnostic, .targetDiagnostic, .taskDiagnostic:
             break // deprecated
@@ -303,6 +329,7 @@ extension SwiftBuildSystemMessageHandler {
         // Per-task buffers
         private var taskDataBuffer: TaskDataBuffer = .init()
         private var diagnosticsBuffer: TaskDiagnosticBuffer = .init()
+        private var diagnosticTaskIDs: Set<Int> = []
 
         // Backtrace frames
         internal var collectedBacktraceFrames = SWBBuildOperationCollectedBacktraceFrames()
@@ -310,7 +337,7 @@ extension SwiftBuildSystemMessageHandler {
         /// Registers the start of a build task, validating that the task hasn't already been started.
         /// - Parameter task: The task start information containing task ID and signature
         /// - Throws: Fatal error if the task is already active
-        mutating func started(task: SwiftBuild.SwiftBuildMessage.TaskStartedInfo) throws {
+        mutating func started(task: SwiftBuild.SwiftBuildMessage.TaskStartedInfo, _ logLevel: Basics.Diagnostic.Severity) throws {
             if activeTasks[task.taskID] != nil {
                 throw Diagnostics.fatalError
             }
@@ -318,12 +345,12 @@ extension SwiftBuildSystemMessageHandler {
             taskIDToSignature[task.taskID] = task.taskSignature
 
             // Track relevant task info to emit to user.
-            let output = if let cmdLineDisplayStr = task.commandLineDisplayString {
+            let output = if let cmdLineDisplayStr = task.commandLineDisplayString, logLevel.isVerbose {
                 "\(task.executionDescription)\n\(cmdLineDisplayStr)"
             } else {
                 task.executionDescription
             }
-            taskDataBuffer[task] = output
+            taskDataBuffer.setTaskStartedInfo(task, output)
         }
 
         /// Marks a task as completed and removes it from active tracking.
@@ -486,17 +513,16 @@ extension SwiftBuildSystemMessageHandler.BuildState {
             }
         }
 
-        subscript(task: SwiftBuildMessage.TaskStartedInfo) -> String? {
-            get {
-                guard let result = taskStartedNotifications[task.taskID] else {
-                    return nil
-                }
+        func taskStartedInfo(_ task: SwiftBuildMessage.TaskStartedInfo) -> String? {
+            guard let result = taskStartedNotifications[task.taskID] else {
+                return nil
+            }
 
-                return result
-            }
-            set {
-                self.taskStartedNotifications[task.taskID] = newValue
-            }
+            return result
+        }
+
+        mutating func setTaskStartedInfo(_ task: SwiftBuildMessage.TaskStartedInfo, _ text: String) {
+            self.taskStartedNotifications[task.taskID] = text
         }
     }
 
@@ -536,7 +562,7 @@ extension SwiftBuildSystemMessageHandler.BuildState {
     }
 
     func startedInfo(for task: SwiftBuild.SwiftBuildMessage.TaskStartedInfo) -> String? {
-        return self.taskDataBuffer[task]
+        return self.taskDataBuffer.taskStartedInfo(task)
     }
 }
 
@@ -619,11 +645,28 @@ extension SwiftBuildSystemMessageHandler.BuildState {
         diagnosticsBuffer[taskID].append(info)
     }
 
+    /// Appends a diagnostic task ID to the appropriate diagnostic buffer.
+    /// - Parameter info: The diagnostic information to store, containing location context for identification
+    mutating func appendDiagnosticID(_ info: SwiftBuildMessage.DiagnosticInfo) {
+        guard let taskID = info.locationContext.taskID else {
+            return
+        }
+
+        self.diagnosticTaskIDs.insert(taskID)
+    }
+
     /// Retrieves all diagnostic information for a completed task.
     /// - Parameter task: The task completion information containing the task ID
     /// - Returns: Array of diagnostic info associated with the task
     func diagnostics(for task: SwiftBuild.SwiftBuildMessage.TaskCompleteInfo) -> [SwiftBuildMessage.DiagnosticInfo] {
-        return diagnosticsBuffer[task.taskID]
+        return self.diagnosticsBuffer[task.taskID]
+    }
+
+    /// Determines whether there is a data buffer for the given diagnostic task ID.
+    /// - Parameter task: The task completion information containing the task ID
+    /// - Returns: A Bool that indicates whether a data buffer entry exists for the given task ID.
+    func diagnosticDataBufferExists(for task: SwiftBuild.SwiftBuildMessage.TaskCompleteInfo) -> Bool {
+        return self.diagnosticTaskIDs.contains(task.taskID)
     }
 }
 
@@ -769,7 +812,6 @@ extension SwiftBuildMessage.LocationContext {
         }
     }
 }
-
 
 fileprivate extension SwiftBuild.SwiftBuildMessage.DiagnosticInfo.Location {
     var userDescription: String? {

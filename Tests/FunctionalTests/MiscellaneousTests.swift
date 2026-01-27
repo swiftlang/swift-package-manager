@@ -604,6 +604,7 @@ final class MiscellaneousTestCase: XCTestCase {
                 // make sure it builds
                 let output = try await executeSwiftBuild(
                     appPath,
+                    extraArgs: ["-v"],
                     buildSystem: .native,
                 )
                 // package resolution output goes to stderr
@@ -638,7 +639,7 @@ final class MiscellaneousTestCase: XCTestCase {
                 // take foo out of edit mode
                 let output = try await executeSwiftPackage(
                     appPath,
-                    extraArgs: ["unedit", "Foo"],
+                    extraArgs: ["-v", "unedit", "Foo"],
                     buildSystem: .native,
                 )
                 // package resolution output goes to stderr
