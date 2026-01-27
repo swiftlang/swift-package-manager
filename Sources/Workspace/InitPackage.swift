@@ -128,7 +128,12 @@ public final class InitPackage {
 
         self.options = options
         self.pkgname = name
-        self.moduleName = name.spm_mangledToC99ExtendedIdentifier()
+        var mangledName = name.spm_mangledToC99ExtendedIdentifier()
+        // Single underscore produces targets that wont compile, so use double underscore instead.
+        if mangledName == "_" {
+            mangledName = "__"
+        }
+        self.moduleName = mangledName
         self.destinationPath = destinationPath
         self.installedSwiftPMConfiguration = installedSwiftPMConfiguration
         self.fileSystem = fileSystem
@@ -245,7 +250,7 @@ public final class InitPackage {
                         // Products define the executables and libraries a package produces, making them visible to other packages.
                         .library(
                             name: "\(pkgname)",
-                            targets: ["\(pkgname)"]
+                            targets: ["\(moduleName)"]
                         ),
                     ]
                 """)
@@ -255,7 +260,7 @@ public final class InitPackage {
                         // Products can be used to vend plugins, making them visible to other packages.
                         .plugin(
                             name: "\(pkgname)",
-                            targets: ["\(pkgname)"]
+                            targets: ["\(moduleName)"]
                         ),
                     ]
                 """)
@@ -265,11 +270,11 @@ public final class InitPackage {
                         // Products define the executables and libraries a package produces, making them visible to other packages.
                         .library(
                             name: "\(pkgname)",
-                            targets: ["\(pkgname)"]
+                            targets: ["\(moduleName)"]
                         ),
                         .executable(
                             name: "\(pkgname)Client",
-                            targets: ["\(pkgname)Client"]
+                            targets: ["\(moduleName)Client"]
                         ),
                     ]
                 """)
@@ -309,8 +314,8 @@ public final class InitPackage {
                     if !options.supportedTestingLibraries.isEmpty {
                         testTarget = """
                                 .testTarget(
-                                    name: "\(pkgname)Tests",
-                                    dependencies: ["\(pkgname)"]
+                                    name: "\(moduleName)Tests",
+                                    dependencies: ["\(moduleName)"]
                                 ),
                         """
                     } else {
@@ -318,7 +323,7 @@ public final class InitPackage {
                     }
                     param += """
                             .executableTarget(
-                                name: "\(pkgname)"
+                                name: "\(moduleName)"
                             ),
                     \(testTarget)
                         ]
@@ -328,8 +333,8 @@ public final class InitPackage {
                     if !options.supportedTestingLibraries.isEmpty {
                         testTarget = """
                                 .testTarget(
-                                    name: "\(pkgname)Tests",
-                                    dependencies: ["\(pkgname)"]
+                                    name: "\(moduleName)Tests",
+                                    dependencies: ["\(moduleName)"]
                                 ),
                         """
                     } else {
@@ -337,7 +342,7 @@ public final class InitPackage {
                     }
                     param += """
                             .executableTarget(
-                                name: "\(pkgname)",
+                                name: "\(moduleName)",
                                 dependencies: [
                                     .product(name: "ArgumentParser", package: "swift-argument-parser"),
                                 ]
@@ -348,7 +353,7 @@ public final class InitPackage {
                 } else if packageType == .buildToolPlugin {
                     param += """
                             .plugin(
-                                name: "\(pkgname)",
+                                name: "\(moduleName)",
                                 capability: .buildTool()
                             ),
                         ]
@@ -356,7 +361,7 @@ public final class InitPackage {
                 } else if packageType == .commandPlugin {
                     param += """
                             .plugin(
-                                name: "\(pkgname)",
+                                name: "\(moduleName)",
                                 capability: .command(intent: .custom(
                                     verb: "\(typeName)",
                                     description: "prints hello world"
@@ -371,9 +376,9 @@ public final class InitPackage {
 
                                 // A test target used to develop the macro implementation.
                                 .testTarget(
-                                    name: "\(pkgname)Tests",
+                                    name: "\(moduleName)Tests",
                                     dependencies: [
-                                        "\(pkgname)Macros",
+                                        "\(moduleName)Macros",
                                         .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax"),
                                         .product(name: "Testing", package: "swift-testing"),
                                     ]
@@ -384,9 +389,9 @@ public final class InitPackage {
 
                                 // A test target used to develop the macro implementation.
                                 .testTarget(
-                                    name: "\(pkgname)Tests",
+                                    name: "\(moduleName)Tests",
                                     dependencies: [
-                                        "\(pkgname)Macros",
+                                        "\(moduleName)Macros",
                                         .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax"),
                                     ]
                                 ),
@@ -397,7 +402,7 @@ public final class InitPackage {
                     param += """
                             // Macro implementation that performs the source transformation of a macro.
                             .macro(
-                                name: "\(pkgname)Macros",
+                                name: "\(moduleName)Macros",
                                 dependencies: [
                                     .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
                                     .product(name: "SwiftCompilerPlugin", package: "swift-syntax")
@@ -405,10 +410,10 @@ public final class InitPackage {
                             ),
 
                             // Library that exposes a macro as part of its API, which is used in client programs.
-                            .target(name: "\(pkgname)", dependencies: ["\(pkgname)Macros"]),
+                            .target(name: "\(moduleName)", dependencies: ["\(moduleName)Macros"]),
 
                             // A client of the library, which is able to use the macro in its own code.
-                            .executableTarget(name: "\(pkgname)Client", dependencies: ["\(pkgname)"]),
+                            .executableTarget(name: "\(moduleName)Client", dependencies: ["\(moduleName)"]),
                     \(testTarget)
                         ]
                     """
@@ -417,8 +422,8 @@ public final class InitPackage {
                     if !options.supportedTestingLibraries.isEmpty {
                         testTarget = """
                                 .testTarget(
-                                    name: "\(pkgname)Tests",
-                                    dependencies: ["\(pkgname)"]
+                                    name: "\(moduleName)Tests",
+                                    dependencies: ["\(moduleName)"]
                                 ),
                         """
                     } else {
@@ -427,7 +432,7 @@ public final class InitPackage {
 
                     param += """
                             .target(
-                                name: "\(pkgname)"
+                                name: "\(moduleName)"
                             ),
                     \(testTarget)
                         ]
@@ -611,7 +616,7 @@ public final class InitPackage {
         progressReporter?("Creating \(sources.relative(to: destinationPath))")
         try makeDirectories(sources)
 
-        let moduleDir = sources.appending("\(pkgname)")
+        let moduleDir = sources.appending("\(moduleName)")
         try makeDirectories(moduleDir)
 
         // If we're creating an executable we can't have both a @main declaration and a main.swift file.
@@ -683,8 +688,8 @@ public final class InitPackage {
         }
 
         if packageType == .macro {
-          try writeMacroPluginSources(sources.appending("\(pkgname)Macros"))
-          try writeMacroClientSources(sources.appending("\(pkgname)Client"))
+          try writeMacroPluginSources(sources.appending("\(moduleName)Macros"))
+          try writeMacroClientSources(sources.appending("\(moduleName)Client"))
         }
     }
 
@@ -908,7 +913,7 @@ public final class InitPackage {
     }
 
     private func writeTestFileStubs(testsPath: AbsolutePath) throws {
-        let testModule = try AbsolutePath(validating: pkgname + Module.testModuleNameSuffix, relativeTo: testsPath)
+        let testModule = try AbsolutePath(validating: moduleName + Module.testModuleNameSuffix, relativeTo: testsPath)
         progressReporter?("Creating \(testModule.relative(to: destinationPath))/")
         try makeDirectories(testModule)
 
