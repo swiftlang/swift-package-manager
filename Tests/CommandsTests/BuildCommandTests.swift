@@ -1463,20 +1463,13 @@ struct BuildCommandTestCases {
             buildSystem: BuildSystemProvider.Kind,
             configuration: BuildConfiguration,
         ) throws -> Basics.RelativePath {
-            let triple = try UserToolchain.default.targetTriple.withoutVersion()
             let base = try RelativePath(validating: ".build")
             let path = try base.appending(components: buildSystem.binPath(for: configuration, scratchPath: []))
             switch buildSystem {
                 case .xcode:
-                    return triple.platformName() == "macosx" ? path.appending("ExecutableNew") : path
-                            .appending("ExecutableNew.swiftmodule")
-                            .appending("Project")
-                            .appending("\(triple).swiftsourceinfo")
+                    return path.appending("ExecutableNew")
                 case .swiftbuild:
-                    return triple.platformName() == "macosx" ? path.appending("ExecutableNew") : path
-                            .appending("ExecutableNew.swiftmodule")
-                            .appending("Project")
-                            .appending("\(triple).swiftsourceinfo")
+                    return path.appending("ExecutableNew")
                 case .native:
                     return path.appending("ExecutableNew.build")
                             .appending("main.swift.o")
@@ -1512,8 +1505,7 @@ struct BuildCommandTestCases {
                 #expect(initialMainOMtime == subsequentMainOMtime, "Expected no rebuild to occur when using flags \(flags), but the file was modified.")
             }
         } when: {
-            data.buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows
-            || (data.buildSystem == .swiftbuild && flags.contains("--very-verbose"))
+            data.buildSystem == .swiftbuild
         }
     }
 
@@ -1815,6 +1807,33 @@ struct BuildCommandTestCases {
                 try #require(PropertyListSerialization.propertyList(from: $0, options: [], format: nil) as? NSDictionary, "couldn't parse built resource bundle's Info.plist as a property list")
             })
             #expect(infoPlist["CFBundleExecutable"] == nil, "Expected CFBundleExecutable to be omitted from the Info.plist of a codeless resource bundle")
+        }
+    }
+
+    @Test(
+        .IssueWindowsLongPath,
+        .tags(
+            .Feature.CommandLineArguments.BuildSystem,
+            .Feature.CommandLineArguments.Configuration,
+        ),
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+    )
+    func executableTargetIntegratedIntoTwoProducts(
+        data: BuildData,
+    ) async throws {
+        try await withKnownIssue("Sometimes failed to build due to a possible path issue", isIntermittent: true) {
+            let buildSystem = data.buildSystem
+            try await fixture(name: "Miscellaneous/ExecutableTargetWithTwoProducts") { fixturePath in
+                try await build(
+                    [],
+                    packagePath: fixturePath,
+                    configuration: data.config,
+                    cleanAfterward: false,
+                    buildSystem: buildSystem,
+                )
+            }
+        } when: {
+            ProcessInfo.hostOperatingSystem == .windows
         }
     }
 }
