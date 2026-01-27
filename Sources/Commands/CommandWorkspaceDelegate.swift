@@ -132,7 +132,7 @@ final class CommandWorkspaceDelegate: WorkspaceDelegate {
     }
 
     func didComputeVersion(package: PackageIdentity, location: String, version: String, duration: DispatchTimeInterval) {
-        self.outputHandler("Computed \(location) at \(version) (\(duration.descriptionInSeconds))", false)
+        self.outputHandler("Computed \(location) at \(version) (\(duration.descriptionInSeconds))", true)
     }
 
     func willDownloadBinaryArtifact(from url: String, fromCache: Bool) {

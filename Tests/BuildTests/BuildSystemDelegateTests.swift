@@ -35,7 +35,6 @@ struct BuildSystemDelegateTests {
             let (stdout, stderr) = try await executeSwiftBuild(
                 fixturePath,
                 configuration: data.config,
-                // extraArgs: ["--verbose"],
                 buildSystem: data.buildSystem,
             )
             switch data.buildSystem {
@@ -45,13 +44,12 @@ struct BuildSystemDelegateTests {
                     "log didn't contain expected linker diagnostics.  stderr: '\(stderr)')",
                 )
             case .swiftbuild:
-                let searchPathRegex = try Regex("warning:(.*)Search path 'foobar' not found")
                 #expect(
                     stderr.contains("ld: warning: search path 'foobar' not found"),
                     "log didn't contain expected linker diagnostics. stderr: '\(stderr)",
                 )
                 #expect(
-                    !stdout.contains(searchPathRegex),
+                    !stdout.contains("ld: warning: search path 'foobar' not found"),
                     "log didn't contain expected linker diagnostics.  stderr: '\(stderr)')",
                 )
             case .xcode:
