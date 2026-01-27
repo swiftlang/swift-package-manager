@@ -1,6 +1,10 @@
-# Preview the Swift Build System Integration
+# [6.3] Preview the Swift Build System Integration
 
 Understand, use, and preview the next-generation build system for Package Manager.
+
+@Metadata {
+    @Available("Swift", introduced: "6.3")
+}
 
 ## Overview
 
