@@ -235,10 +235,6 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
         _ swiftCommandState: SwiftCommandState,
         _ buildResult: BuildResult) async throws {
 
-        if self.globalOptions.build.buildSystem != .swiftbuild {
-            swiftCommandState.observabilityScope.emit(warning: "generating SBOM(s) without --build-system swiftbuild flag creates SBOM(s) based on modules graph only")
-        }
-
         do {
             guard self.globalOptions.sbom.sbomSpecs.isEmpty || options.target == nil else {
                 throw SBOMModel.SBOMCommandError.targetFlagNotSupported
@@ -272,6 +268,9 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
                 print("- created SBOM at \(sbomPath.pathString)")
             }
             print("SBOMs created  (\(formattedDuration))")
+            if self.globalOptions.build.buildSystem != .swiftbuild {
+                swiftCommandState.observabilityScope.emit(warning: "generating SBOM(s) without --build-system swiftbuild flag creates SBOM(s) based on modules graph only")
+            }
         } catch {
             if self.globalOptions.sbom.sbomWarningOnly {
                 swiftCommandState.observabilityScope.emit(warning: "SBOM generation failed: \(error.localizedDescription)")
