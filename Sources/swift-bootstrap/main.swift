@@ -141,7 +141,7 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
     private var buildSystem: BuildSystemProvider.Kind {
         #if os(macOS)
         // Force the Xcode build system if we want to build more than one arch.
-        return self.architectures.count > 1 ? .xcode : self._buildSystem
+        return self.architectures.count > 1 ? .swiftbuild : self._buildSystem
         #else
         // Use whatever the build system provided by the command-line, or default fallback
         //  on other platforms.
@@ -175,11 +175,11 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
         do {
             let fileSystem = localFileSystem
 
-            let observabilityScope = ObservabilitySystem { _, diagnostics in
+            let observabilityScope = ObservabilitySystem({ _, diagnostics in
                 if diagnostics.severity >= logLevel {
                     print(diagnostics)
                 }
-            }.topScope
+            }, outputStream: stdoutStream).topScope
 
             guard let cwd: AbsolutePath = fileSystem.currentWorkingDirectory else {
                 observabilityScope.emit(error: "couldn't determine the current working directory")

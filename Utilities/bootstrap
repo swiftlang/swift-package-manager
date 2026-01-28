@@ -282,8 +282,8 @@ def parse_build_args(args):
     args.ranlib_path = get_tool_path(args, "ranlib")
     if args.cross_compile_hosts:
         if re.match("macosx-", args.cross_compile_hosts):
-            # Use XCBuild target directory when building for multiple arches.
-            args.target_dir = os.path.join(args.build_dir, "apple/Products")
+            # Use Swift Build target directory when building for multiple arches.
+            args.target_dir = os.path.join(args.build_dir, 'out', 'Products')
         elif re.match('android-', args.cross_compile_hosts):
             args.target_dir = os.path.join(
                                   args.build_dir,

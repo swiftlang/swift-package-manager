@@ -17,6 +17,7 @@
 import Basics
 import struct TSCBasic.SHA256
 import struct TSCBasic.ByteString
+import let TSCBasic.stdoutStream
 import struct TSCUtility.Version
 import PackageGraph
 import PackageModel
@@ -78,7 +79,7 @@ final class PrebuiltsTests: XCTestCase {
 
             let signer = ManifestSigning(
                 trustedRootCertsDir: trustDir,
-                observabilityScope: ObservabilitySystem { _, diagnostic in print(diagnostic) }.topScope
+                observabilityScope: ObservabilitySystem({ _, diagnostic in print(diagnostic) }, outputStream: stdoutStream).topScope
             )
 
             let signature = try await signer.sign(
