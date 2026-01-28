@@ -16,9 +16,11 @@ import TSCUtility
 
 internal struct SBOMEncoder {
     internal let sbom: SBOMDocument
+    internal let observabilityScope: ObservabilityScope
 
-    internal init(sbom: SBOMDocument) {
+    internal init(sbom: SBOMDocument, observabilityScope: ObservabilityScope) {
         self.sbom = sbom
+        self.observabilityScope = observabilityScope
     }
 
     internal func writeSBOMs(specs: [Spec], outputDir: AbsolutePath, filter: Filter = .all) async throws -> [AbsolutePath] {
@@ -60,7 +62,7 @@ internal struct SBOMEncoder {
         encoder.dateEncodingStrategy = .iso8601
         let encoded = try encoder.encode(data)
 
-        try await Self.validateSBOM(from: encoded, spec: spec)
+        try await self.validateSBOM(from: encoded, spec: spec)
 
         return encoded
     }
@@ -77,26 +79,25 @@ internal struct SBOMEncoder {
         return Array(result)
     }
 
-    internal static func validateSBOM(from encoded: Foundation.Data, spec: SBOMSpec, bundleName: String = "SwiftPM_SBOMModel") async throws {
+    internal func validateSBOM(from encoded: Foundation.Data, spec: SBOMSpec, bundleName: String = "SwiftPM_SBOMModel") async throws {
         guard let sbomJSONObject = try (JSONSerialization.jsonObject(with: encoded)) as? [String: Any] else {
             throw SBOMEncoderError
                 .jsonConversionFailed(message: "Could not convert generated SBOM file into JSON object for validation")
         }
 
         do {
-            let schema = try await SBOMSchema(from: getSchemaFilename(from: spec), bundleName: bundleName)
+            let schema = try await SBOMSchema(from: self.getSchemaFilename(from: spec), bundleName: bundleName)
             try await schema.validate(json: sbomJSONObject, spec: spec)
         } catch let error as SBOMSchemaError {
             if case .bundleNotFound(_) = error {
-                // TODO echeng3805, handle this more nicely
-                print("warning: \(error.errorDescription ?? "Bundle with schemas not found") - skipping SBOM validation")
+                self.observabilityScope.emit(warning: "\(error.errorDescription ?? "Bundle with schemas not found") - skipping SBOM validation")
                 return
             }
             throw error
         }
     }
 
-    private static func getSchemaFilename(from spec: SBOMSpec) throws -> String {
+    private func getSchemaFilename(from spec: SBOMSpec) throws -> String {
         switch spec.concreteSpec {
         case .cyclonedx1:
             CycloneDXConstants.cyclonedx1SchemaFile
