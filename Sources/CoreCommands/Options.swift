@@ -774,7 +774,7 @@ public struct SBOMOptions: ParsableArguments {
 
     /// Directory path to generate SBOM(s) in.
     @Option(
-        name: .customLong("sbom-dir"),
+        name: .customLong("sbom-output-dir"),
         help: ArgumentHelp("The absolute or relative directory path to generate the SBOM(s) in. Must be used with --sbom-spec. (default: <scratch_path>/sboms).", visibility: .hidden),
         completion: .directory
     )
@@ -816,7 +816,7 @@ public struct SBOMOptions: ParsableArguments {
         if let cmdLineDir = _sbomDirectory {
             return cmdLineDir
         }
-        if let envDir = ProcessInfo.processInfo.environment["SWIFTPM_BUILD_SBOM_DIRECTORY"] {
+        if let envDir = ProcessInfo.processInfo.environment["SWIFTPM_BUILD_SBOM_OUTPUT_DIR"] {
             return AbsolutePath(argument: envDir)
         }
         return nil

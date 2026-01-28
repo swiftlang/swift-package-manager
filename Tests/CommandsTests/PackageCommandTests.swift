@@ -7953,7 +7953,7 @@ struct PackageCommandTests {
                 let customSBOMDir = fixturePath.appending("custom-sboms")
                 
                 let (stdout, _) = try await execute(
-                    ["generate-sbom", "--sbom-spec", "cyclonedx", "--sbom-dir", customSBOMDir.pathString],
+                    ["generate-sbom", "--sbom-spec", "cyclonedx", "--sbom-output-dir", customSBOMDir.pathString],
                     packagePath: fixturePath,
                     configuration: data.config,
                     buildSystem: data.buildSystem,
@@ -8070,7 +8070,7 @@ struct PackageCommandTests {
                 let customSBOMDir = fixturePath.appending("custom-sboms")
                 
                 let (stdout, _) = try await execute(
-                    ["generate-sbom", "--sbom-spec", "cyclonedx", "--sbom-spec", "spdx", "--sbom-dir", customSBOMDir.pathString],
+                    ["generate-sbom", "--sbom-spec", "cyclonedx", "--sbom-spec", "spdx", "--sbom-output-dir", customSBOMDir.pathString],
                     packagePath: fixturePath,
                     configuration: data.config,
                     buildSystem: data.buildSystem,
