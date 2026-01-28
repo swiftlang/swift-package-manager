@@ -31,6 +31,10 @@ import enum TSCUtility.Diagnostics
 import func TSCUtility.getClangVersion
 import struct TSCUtility.Version
 
+import Foundation
+import SBOMModel
+import Workspace
+
 extension BuildSubset {
     var argumentName: String {
         switch self {
@@ -163,21 +167,32 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
             productsBuildParameters.testingParameters.enableCodeCoverage = true
             toolsBuildParameters.testingParameters.enableCodeCoverage = true
         }
-
+
         if self.options.printPIFManifestGraphviz {
             productsBuildParameters.printPIFManifestGraphviz = true
             toolsBuildParameters.printPIFManifestGraphviz = true
         }
-
+
+        let buildResult: BuildResult 
         do {
-            try await build(
+            buildResult = try await build(
                 swiftCommandState,
                 subset: subset,
                 productsBuildParameters: productsBuildParameters,
-                toolsBuildParameters: toolsBuildParameters
+                toolsBuildParameters: toolsBuildParameters,
+                buildOutputs: await getBuildOutputs()
             )
         } catch SwiftBuildSupport.PIFGenerationError.printedPIFManifestGraphviz {
             throw ExitCode.success
+        }
+
+        do {
+            try await processBuildResult(
+                swiftCommandState,
+                buildResult: buildResult
+            )
+        } catch _ as Diagnostics {
+            throw ExitCode.failure
         }
     }
 
@@ -185,8 +200,9 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
         _ swiftCommandState: SwiftCommandState,
         subset: BuildSubset,
         productsBuildParameters: BuildParameters,
-        toolsBuildParameters: BuildParameters
-    ) async throws {
+        toolsBuildParameters: BuildParameters,
+        buildOutputs: [BuildOutput] = [],
+    ) async throws -> BuildResult {
         let buildSystem = try await swiftCommandState.createBuildSystem(
             explicitProduct: options.product,
             shouldLinkStaticSwiftStdlib: options.shouldLinkStaticSwiftStdlib,
@@ -197,9 +213,71 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
             outputStream: TSCBasic.stdoutStream
         )
         do {
-            try await buildSystem.build(subset: subset, buildOutputs: [])
+            return try await buildSystem.build(subset: subset, buildOutputs: buildOutputs)
         } catch _ as Diagnostics {
             throw ExitCode.failure
+        }
+    }
+
+    private func getBuildOutputs() async -> [BuildOutput] {
+        return self.globalOptions.sbom.sbomSpecs.isEmpty ? [] : [.dependencyGraph]
+    }
+
+    private func processBuildResult(
+        _ swiftCommandState: SwiftCommandState,
+        buildResult: BuildResult) async throws {
+        if !self.globalOptions.sbom.sbomSpecs.isEmpty {
+            try await generateSBOMs(swiftCommandState, buildResult)
+        }
+    }
+
+    private func generateSBOMs(
+        _ swiftCommandState: SwiftCommandState,
+        _ buildResult: BuildResult) async throws {
+
+        do {
+            guard self.globalOptions.sbom.sbomSpecs.isEmpty || options.target == nil else {
+                throw SBOMModel.SBOMCommandError.targetFlagNotSupported
+            }
+            let workspace = try swiftCommandState.getActiveWorkspace()
+            let packageGraph = try await workspace.loadPackageGraph(
+                rootInput: swiftCommandState.getWorkspaceRoot(),
+                explicitProduct: options.product,
+                forceResolvedVersions: self.globalOptions.resolver.forceResolvedVersions,
+                observabilityScope: swiftCommandState.observabilityScope
+            )
+            let resolvedPackagesStore = try workspace.resolvedPackagesStore.load()
+            let input = SBOMInput(
+                modulesGraph: packageGraph,
+                dependencyGraph: buildResult.dependencyGraph,
+                store: resolvedPackagesStore,
+                filter: self.globalOptions.sbom.sbomFilter,
+                product: options.product,
+                specs: self.globalOptions.sbom.sbomSpecs,
+                dir: await SBOMCreator.resolveSBOMDirectory(from: self.globalOptions.sbom.sbomDirectory, withDefault: try swiftCommandState.productsBuildParameters.buildPath),
+                observabilityScope: swiftCommandState.observabilityScope
+            )
+
+            print("Creating SBOMs...")
+            let sbomStartTime = ContinuousClock.Instant.now
+            let creator = SBOMCreator(input: input)
+            let sbomPaths = try await creator.createSBOMs()
+            let duration = ContinuousClock.Instant.now - sbomStartTime
+            let formattedDuration = duration.formatted(.units(allowed: [.seconds], fractionalPart: .show(length: 2, rounded: .up)))
+            for sbomPath in sbomPaths {
+                // TODO echeng3805 should this be using observabilityScope?
+                print("- created SBOM at \(sbomPath.pathString)")
+            }
+            print("SBOMs created  (\(formattedDuration))")
+            if self.globalOptions.build.buildSystem != .swiftbuild {
+                swiftCommandState.observabilityScope.emit(warning: "generating SBOM(s) without --build-system swiftbuild flag creates SBOM(s) based on modules graph only")
+            }
+        } catch {
+            if self.globalOptions.sbom.sbomWarningOnly {
+                swiftCommandState.observabilityScope.emit(warning: "SBOM generation failed: \(error.localizedDescription)")
+            } else {
+                throw error
+            }
         }
     }
 

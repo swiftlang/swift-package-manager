@@ -29,6 +29,9 @@ import enum PackageModel.Sanitizer
 
 import enum PackageModel.TraitConfiguration
 
+import enum SBOMModel.Filter
+import enum SBOMModel.Spec
+
 import struct SPMBuildCore.BuildParameters
 import struct SPMBuildCore.BuildSystemProvider
 
@@ -66,6 +69,9 @@ public struct GlobalOptions: ParsableArguments {
 
     @OptionGroup(title: "Trait Options")
     public var traits: TraitOptions
+
+    @OptionGroup(title: "SBOM", visibility: .hidden) // can be used with build command and package subcommand
+    public var sbom: SBOMOptions
 }
 
 public struct LocationOptions: ParsableArguments {
@@ -753,6 +759,91 @@ extension TraitConfiguration {
             enabledTraits: enabledTraits,
             enableAllTraits: traitOptions.enableAllTraits
         )
+    }
+}
+
+public struct SBOMOptions: ParsableArguments {
+    public init() {}
+
+    /// SBOM specification(s) to generate.
+    @Option(
+        name: .customLong("sbom-spec"),
+        help: ArgumentHelp("Set the SBOM specification(s) and generate SBOM(s).", visibility: .hidden)
+    )
+    package var _sbomSpecs: [SBOMModel.Spec] = []
+
+    /// Directory path to generate SBOM(s) in.
+    @Option(
+        name: .customLong("sbom-output-dir"),
+        help: ArgumentHelp("The absolute or relative directory path to generate the SBOM(s) in. Must be used with --sbom-spec. (default: <scratch_path>/sboms).", visibility: .hidden),
+        completion: .directory
+    )
+    package var _sbomDirectory: AbsolutePath?
+
+    /// Filter SBOM components and dependencies by entity.
+    @Option(
+        name: .customLong("sbom-filter"),
+        help: ArgumentHelp("Filter the SBOM components and dependencies by products and/or packages. Must be used with --sbom-spec.", visibility: .hidden)
+    )
+    package var _sbomFilter: SBOMModel.Filter = .all
+
+    /// Whether to treat SBOM generation errors as warnings
+    @Flag(
+        name: .customLong("sbom-warning-only"),
+        help: ArgumentHelp("Treat SBOM generation errors as warnings. Must be used with --sbom-spec. (default: false).", visibility: .hidden)
+    )
+    package var _sbomWarningOnly: Bool = false
+
+    // MARK: - Computed properties with environment variable support
+
+    /// SBOM specifications with environment variable fallback. CLI flag takes precedence.
+    package var sbomSpecs: [SBOMModel.Spec] {
+        if !_sbomSpecs.isEmpty {
+            return _sbomSpecs
+        }
+        if let envSpecs = ProcessInfo.processInfo.environment["SWIFTPM_BUILD_SBOM_SPEC"] {
+            let specStrings = envSpecs.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
+            let specs = specStrings.compactMap { SBOMModel.Spec(rawValue: $0) }
+            if !specs.isEmpty {
+                return specs
+            }
+        }
+        return []
+    }
+
+    /// SBOM directory with environment variable fallback. CLI flag takes precedence.
+    package var sbomDirectory: AbsolutePath? {
+        if let cmdLineDir = _sbomDirectory {
+            return cmdLineDir
+        }
+        if let envDir = ProcessInfo.processInfo.environment["SWIFTPM_BUILD_SBOM_OUTPUT_DIR"] {
+            return AbsolutePath(argument: envDir)
+        }
+        return nil
+    }
+
+    /// SBOM filter with environment variable fallback. CLI flag takes precedence.
+    package var sbomFilter: SBOMModel.Filter {
+        if _sbomFilter != .all {
+            return _sbomFilter
+        }
+        if let envFilter = ProcessInfo.processInfo.environment["SWIFTPM_BUILD_SBOM_FILTER"],
+           let filter = SBOMModel.Filter(rawValue: envFilter) {
+            return filter
+        }
+        return _sbomFilter
+    }
+
+    /// SBOM warning-only mode with environment variable fallback. CLI flag takes precedence.
+    package var sbomWarningOnly: Bool {
+        if _sbomWarningOnly {
+            return true
+        }
+        if let envWarningOnly = ProcessInfo.processInfo.environment["SWIFTPM_BUILD_SBOM_WARNING_ONLY"] {
+            let lowercased = envWarningOnly.lowercased()
+            return lowercased == "true" || lowercased == "1"
+        }
+        return false
     }
 }
 
