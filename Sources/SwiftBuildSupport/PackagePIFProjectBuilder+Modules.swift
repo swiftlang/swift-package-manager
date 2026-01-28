@@ -265,7 +265,7 @@ extension PackagePIFProjectBuilder {
             }
 
         case .staticLibrary:
-            productType = .staticArchive
+            productType = .commonStaticArchive
 
         case .executable:
             productType = .commonObject

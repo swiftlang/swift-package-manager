@@ -409,6 +409,7 @@ public final class PackagePIFBuilder {
         init(from pifProductType: ProjectModel.Target.ProductType) {
             self = switch pifProductType {
             case .application: .application
+            case .commonStaticArchive: .staticArchive
             case .staticArchive: .staticArchive
             case .commonObject: .commonObject
             case .objectFile: .commonObject
