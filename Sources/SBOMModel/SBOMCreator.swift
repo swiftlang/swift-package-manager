@@ -35,7 +35,7 @@ package struct SBOMCreator {
             filter: input.filter
         )
         
-        let encoder = SBOMEncoder(sbom: sbom)
+        let encoder = SBOMEncoder(sbom: sbom, observabilityScope: input.observabilityScope)
         let outputPaths = try await encoder.writeSBOMs(
             specs: input.specs,
             outputDir: input.dir,

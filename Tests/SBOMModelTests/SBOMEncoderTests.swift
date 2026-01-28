@@ -52,7 +52,7 @@ struct SBOMEncoderTests {
         let store = try SBOMTestStore.createSimpleResolvedPackagesStore()
         let extractor = SBOMExtractor(modulesGraph: graph, dependencyGraph: nil, store: store)
         let sbom = try await extractor.extractSBOM()
-        let encoder = SBOMEncoder(sbom: sbom)
+        let encoder = SBOMEncoder(sbom: sbom, observabilityScope: ObservabilitySystem.makeForTesting().topScope)
 
         let outputs = try await encoder.writeSBOMs(specs: [.cyclonedx], outputDir: outputDir)
 
@@ -69,7 +69,7 @@ struct SBOMEncoderTests {
         let store = try SBOMTestStore.createSimpleResolvedPackagesStore()
         let extractor = SBOMExtractor(modulesGraph: graph, dependencyGraph: nil, store: store)
         let sbom = try await extractor.extractSBOM()
-        let encoder = SBOMEncoder(sbom: sbom)
+        let encoder = SBOMEncoder(sbom: sbom, observabilityScope: ObservabilitySystem.makeForTesting().topScope)
 
         let outputs = try await encoder.writeSBOMs(specs: [.cyclonedx, .spdx], outputDir: outputDir)
 
@@ -101,7 +101,7 @@ struct SBOMEncoderTests {
         let store = try SBOMTestStore.createSimpleResolvedPackagesStore()
         let extractor = SBOMExtractor(modulesGraph: graph, dependencyGraph: nil, store: store)
         let sbom = try await extractor.extractSBOM()
-        let encoder = SBOMEncoder(sbom: sbom)
+        let encoder = SBOMEncoder(sbom: sbom, observabilityScope: ObservabilitySystem.makeForTesting().topScope)
 
         let outputs = try await encoder.writeSBOMs(specs: [.cyclonedx, .cyclonedx1], outputDir: outputDir)
 
@@ -119,7 +119,7 @@ struct SBOMEncoderTests {
         let store = try SBOMTestStore.createSimpleResolvedPackagesStore()
         let extractor = SBOMExtractor(modulesGraph: graph, dependencyGraph: nil, store: store)
         let sbom = try await extractor.extractSBOM()
-        let encoder = SBOMEncoder(sbom: sbom)
+        let encoder = SBOMEncoder(sbom: sbom, observabilityScope: ObservabilitySystem.makeForTesting().topScope)
 
         let outputs = try await encoder.writeSBOMs(specs: [.cyclonedx], outputDir: outputDir)
 
@@ -140,7 +140,7 @@ struct SBOMEncoderTests {
         let store = try SBOMTestStore.createSwiftlyResolvedPackagesStore()
         let extractor = SBOMExtractor(modulesGraph: graph, dependencyGraph: nil, store: store)
         let sbom = try await extractor.extractSBOM()
-        let encoder = SBOMEncoder(sbom: sbom)
+        let encoder = SBOMEncoder(sbom: sbom, observabilityScope: ObservabilitySystem.makeForTesting().topScope)
 
         let outputs = try await encoder.writeSBOMs(specs: [.cyclonedx], outputDir: outputDir)
 
@@ -166,7 +166,7 @@ struct SBOMEncoderTests {
         let store = try SBOMTestStore.createSimpleResolvedPackagesStore()
         let extractor = SBOMExtractor(modulesGraph: graph, dependencyGraph: nil, store: store)
         let sbom = try await extractor.extractSBOM()
-        let encoder = SBOMEncoder(sbom: sbom)
+        let encoder = SBOMEncoder(sbom: sbom, observabilityScope: ObservabilitySystem.makeForTesting().topScope)
         let spec = SBOMSpec(spec: .cyclonedx1)
 
         let _ = try await encoder.encodeSBOM(spec: spec, outputDir: outputDir)
@@ -184,7 +184,7 @@ struct SBOMEncoderTests {
         let store = try SBOMTestStore.createSPMResolvedPackagesStore()
         let extractor = SBOMExtractor(modulesGraph: graph, dependencyGraph: nil, store: store)
         let sbom = try await extractor.extractSBOM()
-        let encoder = SBOMEncoder(sbom: sbom)
+        let encoder = SBOMEncoder(sbom: sbom, observabilityScope: ObservabilitySystem.makeForTesting().topScope)
 
         let _ = try await encoder.writeSBOMs(specs: [.cyclonedx, .spdx], outputDir: outputDir)
 
@@ -207,7 +207,7 @@ struct SBOMEncoderTests {
         let store = try SBOMTestStore.createSwiftlyResolvedPackagesStore()
         let extractor = SBOMExtractor(modulesGraph: graph, dependencyGraph: nil, store: store)
         let sbom = try await extractor.extractSBOM()
-        let encoder = SBOMEncoder(sbom: sbom)
+        let encoder = SBOMEncoder(sbom: sbom, observabilityScope: ObservabilitySystem.makeForTesting().topScope)
 
         let _ = try await encoder.writeSBOMs(specs: [.cyclonedx, .spdx], outputDir: outputDir)
 
