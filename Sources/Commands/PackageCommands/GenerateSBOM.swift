@@ -54,7 +54,8 @@ extension SwiftPackageCommand {
                 filter: self.globalOptions.sbom.sbomFilter,
                 product: self.product,
                 specs: self.globalOptions.sbom.sbomSpecs,
-                dir: await SBOMCreator.resolveSBOMDirectory(from: self.globalOptions.sbom.sbomDirectory, withDefault: try swiftCommandState.productsBuildParameters.buildPath)
+                dir: await SBOMCreator.resolveSBOMDirectory(from: self.globalOptions.sbom.sbomDirectory, withDefault: try swiftCommandState.productsBuildParameters.buildPath),
+                observabilityScope: swiftCommandState.observabilityScope
             )
 
             print("Creating SBOMs...")

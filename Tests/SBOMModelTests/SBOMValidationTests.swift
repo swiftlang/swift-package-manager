@@ -71,15 +71,16 @@ struct SBOMValidationTests {
             store: testCase.inputStore
         )
         let document = try await extractor.extractSBOM()
-        let encoder = SBOMEncoder(sbom: document)
+        let observability = ObservabilitySystem.makeForTesting()
+        let encoder = SBOMEncoder(sbom: document, observabilityScope: observability.topScope)
         let encodedData = try await encoder.encodeSBOMData(spec: testCase.inputSpec)
 
         if testCase.wantError {
             await #expect(throws: StringError.self) {
-                try await SBOMEncoder.validateSBOM(from: encodedData, spec: testCase.inputSpec)
+                try await encoder.validateSBOM(from: encodedData, spec: testCase.inputSpec)
             }
         } else {
-            try await SBOMEncoder.validateSBOM(from: encodedData, spec: testCase.inputSpec)
+            try await encoder.validateSBOM(from: encodedData, spec: testCase.inputSpec)
         }
     }
 
@@ -179,13 +180,21 @@ struct SBOMValidationTests {
             "Could not find \(testCase.inputFilePath).json test file"
         )
         let encodedData = try Data(contentsOf: fileURL)
+        let observability = ObservabilitySystem.makeForTesting()
+        
+        // Create a dummy SBOM document for the encoder (we just need it for validation)
+        let graph = try SBOMTestModulesGraph.createSimpleModulesGraph()
+        let store = try SBOMTestStore.createSimpleResolvedPackagesStore()
+        let extractor = SBOMExtractor(modulesGraph: graph, dependencyGraph: nil, store: store)
+        let document = try await extractor.extractSBOM()
+        let encoder = SBOMEncoder(sbom: document, observabilityScope: observability.topScope)
 
         if testCase.wantError {
             await #expect(throws: (any Error).self) {
-                try await SBOMEncoder.validateSBOM(from: encodedData, spec: testCase.inputSBOMSpec)
+                try await encoder.validateSBOM(from: encodedData, spec: testCase.inputSBOMSpec)
             }
         } else {
-            try await SBOMEncoder.validateSBOM(from: encodedData, spec: testCase.inputSBOMSpec)
+            try await encoder.validateSBOM(from: encodedData, spec: testCase.inputSBOMSpec)
         }
     }
 }
