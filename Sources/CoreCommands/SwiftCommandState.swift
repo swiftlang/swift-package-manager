@@ -926,13 +926,18 @@ public final class SwiftCommandState {
             case (true, true): .noLazy
             }
 
+        let flags = switch destination {
+        case .host: options.build.hostBuildFlags
+        case .target: options.build.buildFlags
+        }
+
         return try BuildParameters(
             destination: destination,
             dataPath: dataPath,
             configuration: self.options.build.configuration ?? self.preferredBuildConfiguration,
             toolchain: toolchain,
             triple: triple,
-            flags: options.build.buildFlags,
+            flags: flags,
             buildSystemKind: options.build.buildSystem,
             pkgConfigDirectories: options.locations.pkgConfigDirectories,
             architectures: options.build.architectures,
