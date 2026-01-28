@@ -21,6 +21,7 @@ import Basics
 import Foundation
 import PackageModel
 import struct TSCBasic.ByteString
+import let TSCBasic.stdoutStream
 import struct TSCBasic.SHA256
 import Workspace
 
@@ -152,7 +153,7 @@ struct BuildPrebuilts: AsyncParsableCommand {
             let workspace = try Workspace(fileSystem: fileSystem, location: .init(forRootPackage: repoDir, fileSystem: fileSystem))
             let package = try await workspace.loadRootPackage(
                 at: repoDir,
-                observabilityScope: ObservabilitySystem { _, diag in print(diag) }.topScope
+                observabilityScope: ObservabilitySystem({ _, diag in print(diag) }, outputStream: stdoutStream).topScope
             )
 
             // Gather the list of targets for the package products
@@ -439,7 +440,7 @@ struct BuildPrebuilts: AsyncParsableCommand {
 
                 let signer = ManifestSigning(
                     trustedRootCertsDir: tmpDir,
-                    observabilityScope: ObservabilitySystem { _, diagnostic in print(diagnostic) }.topScope
+                    observabilityScope: ObservabilitySystem({ _, diagnostic in print(diagnostic) }, outputStream: stdoutStream).topScope
                 )
 
                 for (swiftVersion, manifest) in manifests where !manifest.libraries.flatMap({ $0.artifacts ?? [] }).isEmpty {

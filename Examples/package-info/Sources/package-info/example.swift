@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 import Basics
+import TSCBasic
 import Workspace
 
 @main
@@ -21,7 +22,7 @@ struct Example {
 
         // We need a package to work with.
         // This computes the path of this package root based on the file location
-        let packagePath = try AbsolutePath(validating: #file).parentDirectory.parentDirectory.parentDirectory
+        let packagePath = try Basics.AbsolutePath(validating: #file).parentDirectory.parentDirectory.parentDirectory
 
         // LOADING
         // =======
@@ -29,7 +30,7 @@ struct Example {
         // There are several levels of information available.
         // Each takes longer to load than the level above it, but provides more detail.
 
-        let observability = ObservabilitySystem({ print("\($0): \($1)") })
+        let observability = ObservabilitySystem({ print("\($0): \($1)") }, outputStream: stdoutStream)
 
         let workspace = try Workspace(forRootPackage: packagePath)
 
