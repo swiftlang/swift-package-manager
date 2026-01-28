@@ -548,6 +548,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
         var replArguments: CLIArguments?
         var artifacts: [(String, PluginInvocationBuildResult.BuiltArtifact)]?
+        var dependencyGraph: [String: [String]]?
         return try await withService(connectionMode: .inProcessStatic(swiftbuildServiceEntryPoint)) { service in
             let derivedDataPath = self.buildParameters.dataPath
 
@@ -573,10 +574,9 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                     }
 
                     // Find the targets to build.
+                    let workspaceInfo = try await session.workspaceInfo()
                     let configuredTargets: [SWBTargetGUID]
                     do {
-                        let workspaceInfo = try await session.workspaceInfo()
-
                         configuredTargets = try [pifTargetName].map { targetName in
                             // TODO we filter dynamic targets until Swift Build doesn't give them to us anymore
                             let infos = workspaceInfo.targetInfos.filter { $0.targetName == targetName && !TargetSuffix.dynamic.hasSuffix(id: GUID($0.guid)) }
@@ -643,6 +643,25 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                         replArguments = try await self.createREPLArguments(session: session, request: request)
                     }
 
+                    if buildOutputs.contains(.dependencyGraph) {
+                        let depGraph = try await session.computeDependencyGraph(
+                            targetGUIDs: request.configuredTargets.map { SWBTargetGUID(rawValue: $0.guid) },
+                            buildParameters: request.parameters,
+                            includeImplicitDependencies: true
+                        )
+                        // SWBTargetGUID wraps the GUID that PIFBuilder generates
+                        var result: [String: [String]] = [:]
+                        for (target, dependencies) in depGraph {
+                            let targetInfo = workspaceInfo.targetInfos.first { $0.guid == target.rawValue }
+                            guard let targetName = targetInfo?.targetName else { continue }
+                            let depNames = dependencies.compactMap { depGUID in
+                                workspaceInfo.targetInfos.first { $0.guid == depGUID.rawValue }?.targetName
+                            }
+                            result[targetName] = depNames
+                        }
+                        dependencyGraph = result
+                    }
+
                     if buildOutputs.contains(.builtArtifacts) {
                         if let buildDescriptionID {
                             let targetInfo = try await session.configuredTargets(buildDescription: buildDescriptionID, buildRequest: request)
@@ -697,7 +716,8 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                     }
                 ),
                 replArguments: replArguments,
-                builtArtifacts: artifacts
+                builtArtifacts: artifacts,
+                dependencyGraph: dependencyGraph
             )
         }
     }
