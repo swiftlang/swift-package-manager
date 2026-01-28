@@ -47,6 +47,9 @@ package struct SBOMInput {
     package let specs: [Spec]
     package let dir: AbsolutePath
     
+    // ObservabilityScope for emitting diagnostics
+    package let observabilityScope: ObservabilityScope
+    
     package init(
         modulesGraph: ModulesGraph,
         dependencyGraph: [String: [String]]?,
@@ -54,7 +57,8 @@ package struct SBOMInput {
         filter: Filter,
         product: String?,
         specs: [Spec],
-        dir: AbsolutePath
+        dir: AbsolutePath,
+        observabilityScope: ObservabilityScope
     ) {
         self.modulesGraph = modulesGraph
         self.dependencyGraph = dependencyGraph
@@ -63,5 +67,6 @@ package struct SBOMInput {
         self.product = product
         self.specs = specs
         self.dir = dir
+        self.observabilityScope = observabilityScope
     }
 }
