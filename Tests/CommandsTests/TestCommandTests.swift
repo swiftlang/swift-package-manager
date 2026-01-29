@@ -10,8 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Foundation
+@testable import Commands
+@testable import CoreCommands
 
+import Foundation
 import Basics
 import Commands
 import struct SPMBuildCore.BuildSystemProvider
@@ -21,6 +23,26 @@ import _InternalTestSupport
 import TSCTestSupport
 import Testing
 
+import struct ArgumentParser.ExitCode
+import protocol ArgumentParser.AsyncParsableCommand
+import class TSCBasic.BufferedOutputByteStream
+
+fileprivate func execute(
+    _ args: [String],
+    packagePath: AbsolutePath? = nil,
+    configuration: BuildConfiguration = .debug,
+    buildSystem: BuildSystemProvider.Kind,
+    throwIfCommandFails: Bool = true
+) async throws -> (stdout: String, stderr: String) {
+    try await executeSwiftTest(
+        packagePath,
+        configuration: configuration,
+        extraArgs: args,
+        throwIfCommandFails: throwIfCommandFails,
+        buildSystem: buildSystem,
+    )
+}
+
 @Suite(
     .serialized,  // to limit the number of swift executable running.
     .tags(
@@ -29,22 +51,6 @@ import Testing
     )
 )
 struct TestCommandTests {
-
-    private func execute(
-        _ args: [String],
-        packagePath: AbsolutePath? = nil,
-        configuration: BuildConfiguration = .debug,
-        buildSystem: BuildSystemProvider.Kind,
-        throwIfCommandFails: Bool = true
-    ) async throws -> (stdout: String, stderr: String) {
-        try await executeSwiftTest(
-            packagePath,
-            configuration: configuration,
-            extraArgs: args,
-            throwIfCommandFails: throwIfCommandFails,
-            buildSystem: buildSystem,
-        )
-    }
 
     @Test(
         arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
@@ -1229,7 +1235,7 @@ struct TestCommandTests {
             try await fixture(name: "Miscellaneous/Errors/FatalErrorInSingleXCTest/TypeLibrary") { fixturePath in
                 // WHEN swift-test is executed
                 let error = await #expect(throws: SwiftPMError.self) {
-                    try await self.execute(
+                    try await execute(
                         [],
                         packagePath: fixturePath,
                         configuration: configuration,
@@ -1265,29 +1271,312 @@ struct TestCommandTests {
     }
 
     @Test(
-            .IssueWindowsLongPath,
-            .tags(
-                .Feature.TargetType.Executable,
-            ),
-            arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        .IssueWindowsLongPath,
+        .tags(
+            .Feature.TargetType.Executable,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+    )
+    func testableExecutableWithEmbeddedResources(
+        buildSystem: BuildSystemProvider.Kind,
+        configuration: BuildConfiguration,
+    ) async throws {
+        try await withKnownIssue(isIntermittent: true) {
+            try await fixture(name: "Miscellaneous/TestableExeWithResources") { fixturePath in
+                let _ = try await execute(
+                    ["--vv"],
+                    packagePath: fixturePath,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                )
+            }
+        } when: {
+            .windows == ProcessInfo.hostOperatingSystem
+            || ProcessInfo.processInfo.environment["SWIFTCI_EXHIBITS_GH_9524"] != nil
+        }
+    }
+
+    // MARK: - LLDB Flag Validation Tests
+
+    @Suite
+    struct LLDBTests {
+        @Test(arguments: SupportedBuildSystemOnAllPlatforms)
+        func lldbWithParallelThrowsError(buildSystem: BuildSystemProvider.Kind) async throws {
+            let args = args(["--debugger", "--parallel"], for: buildSystem)
+            let command = try #require(SwiftTestCommand.parseAsRoot(args) as? SwiftTestCommand)
+            let (state, outputStream) = try commandState()
+
+            let error = await #expect(throws: ExitCode.self) {
+                try await command.run(state)
+            }
+
+            #expect(error == ExitCode.failure, "Expected ExitCode.failure, got \(String(describing: error))")
+
+            // The output stream is written to asynchronously on a DispatchQueue and can
+            // receive output after the command has thrown.
+            let found = try await waitForOutputStreamToContain(outputStream, "--debugger cannot be used with --parallel")
+            #expect(
+                found,
+                "Expected error about incompatible flags, got: \(outputStream.bytes.description)"
+            )
+        }
+
+        @Test(arguments: SupportedBuildSystemOnAllPlatforms)
+        func lldbWithNumWorkersThrowsError(buildSystem: BuildSystemProvider.Kind) async throws {
+            let args = args(["--debugger", "--parallel", "--num-workers", "2"], for: buildSystem)
+            let command = try #require(SwiftTestCommand.parseAsRoot(args) as? SwiftTestCommand)
+            let (state, outputStream) = try commandState()
+
+            let error = await #expect(throws: ExitCode.self) {
+                try await command.run(state)
+            }
+
+            #expect(error == ExitCode.failure, "Expected ExitCode.failure, got \(String(describing: error))")
+
+            // Should hit the --parallel error first since validation is done in order
+            let found = try await waitForOutputStreamToContain(outputStream, "--debugger cannot be used with --parallel")
+            #expect(
+                found,
+                "Expected error about incompatible flags, got: \(outputStream.bytes.description)"
+            )
+        }
+
+        @Test(arguments: SupportedBuildSystemOnAllPlatforms)
+        func lldbWithNumWorkersOnlyThrowsError(buildSystem: BuildSystemProvider.Kind) async throws {
+            let args = args(["--debugger", "--num-workers", "2"], for: buildSystem)
+            let command = try #require(SwiftTestCommand.parseAsRoot(args) as? SwiftTestCommand)
+            let (state, outputStream) = try commandState()
+
+            let error = await #expect(throws: ExitCode.self) {
+                try await command.run(state)
+            }
+
+            #expect(error == ExitCode.failure, "Expected ExitCode.failure, got \(String(describing: error))")
+
+            let found = try await waitForOutputStreamToContain(outputStream, "--debugger cannot be used with --num-workers")
+            #expect(
+                found,
+                "Expected error about incompatible flags, got: \(outputStream.bytes.description)"
+            )
+        }
+
+        @Test(arguments: SupportedBuildSystemOnAllPlatforms)
+        func lldbWithListTestsThrowsError(buildSystem: BuildSystemProvider.Kind) async throws {
+            let args = args(["--debugger", "--list-tests"], for: buildSystem)
+            let command = try #require(SwiftTestCommand.parseAsRoot(args) as? SwiftTestCommand)
+            let (state, outputStream) = try commandState()
+
+            let error = await #expect(throws: ExitCode.self) {
+                try await command.run(state)
+            }
+
+            #expect(error == ExitCode.failure, "Expected ExitCode.failure, got \(String(describing: error))")
+
+            let found = try await waitForOutputStreamToContain(outputStream, "--debugger cannot be used with --list-tests")
+            #expect(
+                found,
+                "Expected error about incompatible flags, got: \(outputStream.bytes.description)"
+            )
+        }
+
+        @Test(arguments: SupportedBuildSystemOnAllPlatforms)
+        func lldbWithShowCodecovPathThrowsError(buildSystem: BuildSystemProvider.Kind) async throws {
+            let args = args(["--debugger", "--show-codecov-path"], for: buildSystem)
+            let command = try #require(SwiftTestCommand.parseAsRoot(args) as? SwiftTestCommand)
+            let (state, outputStream) = try commandState()
+
+            let error = await #expect(throws: ExitCode.self) {
+                try await command.run(state)
+            }
+
+            #expect(error == ExitCode.failure, "Expected ExitCode.failure, got \(String(describing: error))")
+
+            let found = try await waitForOutputStreamToContain(outputStream, "--debugger cannot be used with --show-codecov-path")
+            #expect(
+                found,
+                "Expected error about incompatible flags, got: \(outputStream.bytes.description)"
+            )
+        }
+
+        @Test(arguments: SupportedBuildSystemOnAllPlatforms)
+        func lldbWithReleaseConfigurationThrowsError(buildSystem: BuildSystemProvider.Kind) async throws {
+            let args = args(["--debugger"], for: buildSystem, buildConfiguration: .release)
+            let command = try #require(SwiftTestCommand.parseAsRoot(args) as? SwiftTestCommand)
+            let (state, outputStream) = try commandState()
+
+            let error = await #expect(throws: ExitCode.self) {
+                try await command.run(state)
+            }
+
+            #expect(error == ExitCode.failure, "Expected ExitCode.failure, got \(String(describing: error))")
+
+            let found = try await waitForOutputStreamToContain(outputStream, "--debugger cannot be used with release configuration")
+            #expect(
+                found,
+                "Expected error about incompatible flags, got: \(outputStream.bytes.description)"
+            )
+        }
+
+        @Test(
+            arguments: SupportedBuildSystemOnAllPlatforms,
         )
-        func testableExecutableWithEmbeddedResources(
-            buildSystem: BuildSystemProvider.Kind,
-            configuration: BuildConfiguration,
-        ) async throws {
-            try await withKnownIssue(isIntermittent: true) {
-                try await fixture(name: "Miscellaneous/TestableExeWithResources") { fixturePath in
-                    let result = try await execute(
-                        ["--vv"],
+        func debuggerFlagWithXCTestSuite(buildSystem: BuildSystemProvider.Kind) async throws {
+            try await withKnownIssue(
+                """
+                Windows: Missing LLDB DLLs w/ ARM64 toolchain
+                """
+            ) {
+                let configuration = BuildConfiguration.debug
+                try await fixture(name: "Miscellaneous/TestDebugging") { fixturePath in
+                    let (stdout, stderr) = try await execute(
+                        ["--debugger", "--disable-swift-testing", "--verbose"],
                         packagePath: fixturePath,
                         configuration: configuration,
                         buildSystem: buildSystem,
                     )
+
+                    #expect(
+                        !stderr.contains("error: --debugger cannot be used with"),
+                        "got stdout: \(stdout), stderr: \(stderr)",
+                    )
+
+                    #if os(macOS)
+                    let targetName = "xctest"
+                    #else
+                    let targetName = buildSystem == .swiftbuild ? "test-runner" : "xctest"
+                    #endif
+
+                    #expect(
+                        stdout.contains("target create") && stdout.contains(targetName),
+                        "Expected LLDB to target xctest binary, got stdout: \(stdout), stderr: \(stderr)",
+                    )
+
+                    #expect(
+                        stdout.contains("failbreak breakpoint set"),
+                        "Expected a failure breakpoint to be setup, got stdout: \(stdout), stderr: \(stderr)",
+                    )
                 }
             } when: {
-                .windows == ProcessInfo.hostOperatingSystem
-                || ProcessInfo.processInfo.environment["SWIFTCI_EXHIBITS_GH_9524"] != nil
+                ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSelfHostedPipeline
             }
-         }
+        }
 
+        @Test(
+            arguments: SupportedBuildSystemOnAllPlatforms
+        )
+        func debuggerFlagWithSwiftTestingSuite(buildSystem: BuildSystemProvider.Kind) async throws {
+            try await withKnownIssue(
+                """
+                Windows: Missing LLDB DLLs w/ ARM64 toolchain
+                """
+            ) {
+                let configuration = BuildConfiguration.debug
+                try await fixture(name: "Miscellaneous/TestDebugging") { fixturePath in
+                    let (stdout, stderr) = try await execute(
+                        ["--debugger", "--disable-xctest", "--verbose"],
+                        packagePath: fixturePath,
+                        configuration: configuration,
+                        buildSystem: buildSystem,
+                    )
+
+                    #expect(
+                        !stderr.contains("error: --debugger cannot be used with"),
+                        "got stdout: \(stdout), stderr: \(stderr)",
+                    )
+
+                    #if os(macOS)
+                    let targetName = "swiftpm-testing-helper"
+                    #else
+                    let targetName = buildSystem == .native ? "TestDebuggingPackageTests.xctest" : "TestDebuggingTests-test-runner"
+                    #endif
+
+                    #expect(
+                        stdout.contains("target create") && stdout.contains(targetName),
+                        "Expected LLDB to target swiftpm-testing-helper binary, got stdout: \(stdout), stderr: \(stderr)",
+                    )
+
+                    #expect(
+                        stdout.contains("failbreak breakpoint set"),
+                        "Expected Swift Testing failure breakpoint setup, got stdout: \(stdout), stderr: \(stderr)",
+                    )
+                }
+            } when: {
+                ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSelfHostedPipeline
+            }
+        }
+
+        @Test(
+            arguments: SupportedBuildSystemOnAllPlatforms
+        )
+        func debuggerFlagWithBothTestingSuites(buildSystem: BuildSystemProvider.Kind) async throws {
+            try await withKnownIssue(
+                """
+                Windows: Missing LLDB DLLs w/ ARM64 toolchain
+                """
+            ) {
+                let configuration = BuildConfiguration.debug
+                try await fixture(name: "Miscellaneous/TestDebugging") { fixturePath in
+                    let (stdout, stderr) = try await execute(
+                        ["--debugger", "--verbose"],
+                        packagePath: fixturePath,
+                        configuration: configuration,
+                        buildSystem: buildSystem,
+                    )
+
+                    #expect(
+                        !stderr.contains("error: --debugger cannot be used with"),
+                        "got stdout: \(stdout), stderr: \(stderr)",
+                    )
+
+                    #expect(
+                        stdout.contains("target create"),
+                        "Expected LLDB to create targets, got stdout: \(stdout), stderr: \(stderr)",
+                    )
+
+                    #expect(
+                        getNumberOfMatches(of: "breakpoint set", in: stdout) == 2,
+                        "Expected combined failure breakpoint setup, got stdout: \(stdout), stderr: \(stderr)",
+                    )
+
+                    #expect(
+                        stdout.contains("command script import"),
+                        "Expected Python script import for multi-target switching, got stdout: \(stdout), stderr: \(stderr)",
+                    )
+                }
+            } when: {
+                ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSelfHostedPipeline
+            }
+        }
+
+        func args(_ args: [String], for buildSystem: BuildSystemProvider.Kind, buildConfiguration: BuildConfiguration = .debug) -> [String] {
+            return args + buildConfiguration.buildArgs + getBuildSystemArgs(for: buildSystem)
+        }
+
+        func commandState() throws -> (SwiftCommandState, BufferedOutputByteStream) {
+            let outputStream = BufferedOutputByteStream()
+
+            let state = try SwiftCommandState(
+                outputStream: outputStream,
+                options: try GlobalOptions.parse([]),
+                toolWorkspaceConfiguration: .init(shouldInstallSignalHandlers: false),
+                workspaceDelegateProvider: {
+                    CommandWorkspaceDelegate(
+                        observabilityScope: $0,
+                        outputHandler: $1,
+                        progressHandler: $2,
+                        inputHandler: $3
+                    )
+                },
+                workspaceLoaderProvider: {
+                    XcodeWorkspaceLoader(
+                        fileSystem: $0,
+                        observabilityScope: $1
+                    )
+                },
+                createPackagePath: false
+            )
+            return (state, outputStream)
+        }
+    }
 }
+
