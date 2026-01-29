@@ -119,3 +119,4 @@ For more information on creating a binary target, see [Creating a multiplatform 
 - <doc:AddingSystemLibraryDependency>
 - <doc:ExampleSystemLibraryPkgConfig>
 - <doc:EditingDependencyPackage>
+- <doc:DependencyMirrors>
