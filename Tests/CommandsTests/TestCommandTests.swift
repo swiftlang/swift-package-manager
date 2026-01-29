@@ -828,13 +828,13 @@ struct TestCommandTests {
             case .some(false): args.append("--disable-swift-testing")
             }
 
-            let (_, stderr) = try await execute(
+            let (stdout, stderr) = try await execute(
                 args,
                 packagePath: fixturePath,
                 buildSystem: .native,
                 throwIfCommandFails: false,
             )
-            #expect(stderr.contains(SwiftTestCommand.xctestFailedNote) == arg.expectNote)
+            #expect(stderr.contains(SwiftTestCommand.xctestFailedNote) == arg.expectNote, "stdout: \(stdout), stderr: \(stderr)")
         }
     }
 
