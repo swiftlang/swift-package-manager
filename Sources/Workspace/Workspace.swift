@@ -1227,7 +1227,12 @@ extension Workspace {
                             } else {
                                 throw StringError("\(artifactPath) does not contain binary artifact")
                             }
-                        } else if let url = target.url.flatMap(URL.init(string:)) {
+                        } else if let urlString = target.url {
+                            // Apply mirroring to the URL
+                            let mappedURLString = self.identityResolver.mappedLocation(for: urlString)
+                            guard let url = URL(string: mappedURLString) else {
+                                throw StringError("Invalid URL after mirroring: \(mappedURLString)")
+                            }
                             let fakePath = try manifest.path.parentDirectory.appending(components: "remote", "archive")
                                 .appending(RelativePath(validating: url.lastPathComponent))
                             partial[target.name] = BinaryArtifact(
