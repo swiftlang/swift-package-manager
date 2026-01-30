@@ -199,7 +199,7 @@ extension ModulesGraph {
             nodes: Array(allNodes.values),
             identityResolver: identityResolver,
             manifestToPackage: manifestToPackage,
-            rootManifests: root.manifests,
+            root: root,
             unsafeAllowedPackages: unsafeAllowedPackages,
             prebuilts: prebuilts,
             platformRegistry: customPlatformsRegistry ?? .default,
@@ -377,7 +377,7 @@ private func createResolvedPackages(
     identityResolver: IdentityResolver,
     manifestToPackage: [Manifest: Package],
     // FIXME: This shouldn't be needed once <rdar://problem/33693433> is fixed.
-    rootManifests: [PackageIdentity: Manifest],
+    root: PackageGraphRoot,
     unsafeAllowedPackages: Set<PackageReference>,
     prebuilts: [PackageIdentity: [String: PrebuiltLibrary]],
     platformRegistry: PlatformRegistry,
@@ -394,7 +394,7 @@ private func createResolvedPackages(
         }
         let isAllowedToVendUnsafeProducts = unsafeAllowedPackages.contains { $0.identity == package.identity }
 
-        let allowedToOverride = rootManifests.values.contains(node.manifest)
+        let allowedToOverride = root.manifests.values.contains(node.manifest)
         return ResolvedPackageBuilder(
             package,
             productFilter: node.productFilter,
@@ -884,20 +884,20 @@ private func createResolvedPackages(
     }
 
     // Adjust the package graph for any prebuilts, removing any that are no longer needed.
-    handlePrebuilts(packageBuilders: packageBuilders)
+    handlePrebuilts(packageBuilders: packageBuilders, root: root)
 
     return try IdentifiableSet(packageBuilders.map { try $0.construct() })
 }
 
-// Adjust the graph to integrate prebuilts, returning any packages that can now be removed.
-private func handlePrebuilts(packageBuilders: [ResolvedPackageBuilder]) {
+// Adjust the graph to integrate prebuilts
+private func handlePrebuilts(packageBuilders: [ResolvedPackageBuilder], root: PackageGraphRoot) {
     // Skip this if there are no prebuilts. Modules are unconstrained by default.
     guard packageBuilders.contains(where: { $0.prebuilts != nil }) else {
         return
     }
 
     // First decorate the platform constraints from products in the root packages
-    for packageBuilder in packageBuilders where packageBuilder.package.manifest.packageKind.isRoot {
+    for packageBuilder in packageBuilders where root.isExporting(packageBuilder.package.identity) {
         for productBuilder in packageBuilder.products {
             for moduleBuilder in productBuilder.moduleBuilders {
                 func markExternal(_ depModule: ResolvedModuleBuilder) {
