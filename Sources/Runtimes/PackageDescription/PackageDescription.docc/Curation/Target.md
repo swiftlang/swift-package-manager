@@ -1,5 +1,11 @@
 #  ``PackageDescription/Target``
 
+### Test Libraries Targets
+
+Built-in testing libraries, such as Swift Testing and XCTest, are only available for use in certain runtime contexts.
+While you can use these within Swift libraries intended for testing, take care so that any such libraries only terminate in test targets, as targets that use Swift Testing or XCTest should never be distributed to end users.
+Including testing libraries as a dependency to an executable target, as either a direct or transitive dependency, can cause clients to encounter linking issues.
+
 ## Topics
 
 ### Naming the Target
