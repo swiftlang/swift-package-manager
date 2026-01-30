@@ -410,6 +410,23 @@ struct PackageCommandTests {
         }
     }
 
+    @Test(
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+    )
+    func lintSubcommand(
+        data: BuildData,
+    ) async throws {
+        try await fixture(name: "Miscellaneous/ExeTest") { fixturePath in
+            let (stdout, stderr) = try await execute(
+                ["lint"],
+                packagePath: fixturePath,
+                configuration: data.config,
+                buildSystem: data.buildSystem,
+            )
+            #expect((stdout + stderr).contains("error: unknown subcommand 'lint'; did you mean 'swift format lint'?"))
+        }
+    }
+
     @Suite(
         .tags(
             .Feature.Command.Package.Resolve,

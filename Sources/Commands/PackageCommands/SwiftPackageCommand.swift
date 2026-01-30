@@ -41,6 +41,7 @@ public struct SwiftPackageCommand: AsyncParsableCommand {
             Update.self,
             Describe.self,
             Init.self,
+            Lint.self,
             Format.self,
             Migrate.self,
 
