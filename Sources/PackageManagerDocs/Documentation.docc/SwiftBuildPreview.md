@@ -56,6 +56,7 @@ swift run --build-system swiftbuild
 #### Other
 
 - When targeting Apple platforms, `--build-system swiftbuild` supports building universal binaries. Example invocation: `swift build --build-system swiftbuild --arch arm64 --arch x86_64`
+- Swift Build build system outputs build artifacta to a different location.  Use the `swift build --show-bin-path <other build arguments>` to determine the build output location.
 
 ## Known issues
 
