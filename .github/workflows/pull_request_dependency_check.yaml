@@ -1,0 +1,16 @@
+on:
+  pull_request_target:
+    types: [opened, edited, reopened, labeled, unlabeled, synchronize]
+
+permissions:
+  issues: read
+  pull-requests: read
+
+jobs:
+  check_dependencies:
+    runs-on: ubuntu-latest
+    name: "Check PR Dependencies"
+    steps:
+      - uses: gregsdennis/dependencies-action@1.4.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
