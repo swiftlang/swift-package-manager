@@ -1,0 +1,11 @@
+on:
+  pull_request_target:
+    types: [opened, edited, reopened, labeled, unlabeled, synchronize]
+
+permissions:
+  issues: read
+  pull-requests: read
+
+jobs:
+  check_dependencies:
+    uses: bkhouri/github-workflows/.github/workflows/github_actions_dependencies.yml@t/main/pr_dependency-check
