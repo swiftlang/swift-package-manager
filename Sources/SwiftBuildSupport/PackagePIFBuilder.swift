@@ -198,10 +198,6 @@ public final class PackagePIFBuilder {
         UserDefaults.standard.bool(forKey: "SkipStaticAnalyzerForPackageDependencies", defaultValue: true)
     }
 
-    public static func computePackageProductFrameworkName(productName: String) -> String {
-        "\(productName)_\(String(productName.hash, radix: 16, uppercase: true))_PackageProduct"
-    }
-
     public init(
         modulesGraph: ModulesGraph,
         resolvedPackage: ResolvedPackage,
