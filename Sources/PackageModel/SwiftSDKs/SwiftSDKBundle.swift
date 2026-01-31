@@ -79,11 +79,13 @@ extension [SwiftSDKBundle] {
     /// - Parameters:
     ///   - selector: either an artifact ID or target triple to filter with.
     ///   - hostTriple: triple of the host building with these Swift SDKs.
+    ///   - targetTriple: target triple for compilation.
     ///   - observabilityScope: observability scope to log warnings about multiple matches.
     /// - Returns: ``SwiftSDK`` value matching `query` either by artifact ID or target triple, `nil` if none found.
     func selectSwiftSDK(
         matching selector: String,
         hostTriple: Triple,
+        targetTriple: Triple?,
         observabilityScope: ObservabilityScope
     ) -> SwiftSDK? {
         var matchedByID: (path: AbsolutePath, variant: SwiftSDKBundle.Variant, swiftSDK: SwiftSDK)?
@@ -95,7 +97,9 @@ extension [SwiftSDKBundle] {
                     guard variant.isSupporting(hostTriple: hostTriple) else { continue }
 
                     for swiftSDK in variant.swiftSDKs {
-                        if artifactID == selector {
+                        if artifactID == selector,
+                           targetTriple == nil || swiftSDK.targetTriple?.triple == targetTriple?.triple
+                        {
                             if let matchedByID {
                                 observabilityScope.emit(
                                     warning:
@@ -104,6 +108,8 @@ extension [SwiftSDKBundle] {
                                         hostTriple.tripleString
                                     ), selected one at \(
                                         matchedByID.path.appending(matchedByID.variant.metadata.path)
+                                    ) with target triple \(
+                                        matchedByID.swiftSDK.targetTriple?.description ?? "<unspecified>"
                                     )
                                     """
                                 )
@@ -126,6 +132,15 @@ extension [SwiftSDKBundle] {
                                 )
                             } else {
                                 matchedByTriple = (bundle.path, variant, swiftSDK)
+                                if targetTriple != nil {
+                                    observabilityScope.emit(
+                                        warning:
+                                        """
+                                        the provided --swift-sdk is a target triple, but --triple was \
+                                        also provided; ignoring --triple
+                                        """
+                                    )
+                                }
                             }
                         }
                     }
