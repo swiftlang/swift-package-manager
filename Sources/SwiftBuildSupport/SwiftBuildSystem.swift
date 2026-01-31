@@ -578,8 +578,13 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                         let workspaceInfo = try await session.workspaceInfo()
 
                         configuredTargets = try [pifTargetName].map { targetName in
-                            // TODO we filter dynamic targets until Swift Build doesn't give them to us anymore
-                            let infos = workspaceInfo.targetInfos.filter { $0.targetName == targetName && !TargetSuffix.dynamic.hasSuffix(id: GUID($0.guid)) }
+                            // TODO: we filter target variants until Swift Build doesn't give them to us anymore
+                            let infos = workspaceInfo.targetInfos.filter {
+                                let guid = GUID($0.guid)
+                                return $0.targetName == targetName &&
+                                    !guid.hasSuffix(.dynamic) &&
+                                    !guid.hasSuffix(.testable)
+                            }
                             switch infos.count {
                             case 0:
                                 self.observabilityScope.emit(error: "Could not find target named '\(targetName)'")
