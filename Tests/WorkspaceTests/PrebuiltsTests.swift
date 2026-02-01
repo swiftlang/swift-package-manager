@@ -150,10 +150,10 @@ final class PrebuiltsTests: XCTestCase {
         if usePrebuilt {
             let includes = try XCTUnwrap(target.buildSettings.assignments[.PREBUILT_INCLUDE_PATHS]).flatMap(\.values)
             XCTAssertEqual(includes.count, 2)
-            XCTAssertTrue(includes.contains("/tmp/ws/.build/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-macos_universal-MacroSupport/Modules".fixwin))
+            XCTAssertTrue(includes.contains("/tmp/ws/.build/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-MacroSupport/Modules".fixwin))
             XCTAssertTrue(includes.contains("/tmp/ws/.build/checkouts/swift-syntax/Sources/_SwiftSyntaxCShims/include".fixwin))
             let libPaths = try XCTUnwrap(target.buildSettings.assignments[.PREBUILT_LIBRARY_PATHS]).flatMap(\.values)
-            XCTAssertEqual(libPaths, ["/tmp/ws/.build/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-macos_universal-MacroSupport/lib".fixwin])
+            XCTAssertEqual(libPaths, ["/tmp/ws/.build/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-MacroSupport/lib".fixwin])
             let lib = try XCTUnwrap(target.buildSettings.assignments[.PREBUILT_LIBRARIES]).flatMap(\.values)
             XCTAssertEqual(lib, ["MacroSupport"])
         } else {
@@ -175,10 +175,10 @@ final class PrebuiltsTests: XCTestCase {
                     throw StringError("invalid request \(request.kind)")
                 }
 
-                if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-macos_universal.json" {
+                if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion).json" {
                     try fileSystem.writeFileContents(destination, data: manifestData)
                     return .okay()
-                } else if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-macos_universal-MacroSupport.zip" {
+                } else if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-MacroSupport.zip" {
                     try fileSystem.writeFileContents(destination, data: artifact)
                     return .okay()
                 } else {
@@ -188,8 +188,8 @@ final class PrebuiltsTests: XCTestCase {
             }
 
             let archiver = MockArchiver(handler: { _, archivePath, destination, completion in
-                XCTAssertEqual(archivePath, sandbox.appending(components: ".build", "prebuilts", "swift-syntax", "600.0.1", "\(self.swiftVersion)-macos_universal-MacroSupport.zip"))
-                XCTAssertEqual(destination, sandbox.appending(components: ".build", "prebuilts", "swift-syntax", "600.0.1", "\(self.swiftVersion)-macos_universal-MacroSupport"))
+                XCTAssertEqual(archivePath, sandbox.appending(components: ".build", "prebuilts", "swift-syntax", "600.0.1", "\(self.swiftVersion)-MacroSupport.zip"))
+                XCTAssertEqual(destination, sandbox.appending(components: ".build", "prebuilts", "swift-syntax", "600.0.1", "\(self.swiftVersion)-MacroSupport"))
                 completion(.success(()))
             })
 
@@ -235,25 +235,25 @@ final class PrebuiltsTests: XCTestCase {
                     throw StringError("invalid request \(request.kind)")
                 }
 
-                if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-macos_universal.json" {
+                if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion).json" {
                     try fileSystem.writeFileContents(destination, data: manifestData)
                     return .okay()
-                } else if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-macos_universal-MacroSupport.zip" {
+                } else if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-MacroSupport.zip" {
                     try fileSystem.writeFileContents(destination, data: artifact)
                     return .okay()
                 } else {
                     // make sure it's the updated one
                     XCTAssertEqual(
                         request.url,
-                        "https://download.swift.org/prebuilts/swift-syntax/601.0.0/\(self.swiftVersion)-macos_universal.json"
+                        "https://download.swift.org/prebuilts/swift-syntax/601.0.0/\(self.swiftVersion).json"
                     )
                     return .notFound()
                 }
             }
 
             let archiver = MockArchiver(handler: { _, archivePath, destination, completion in
-                XCTAssertEqual(archivePath, sandbox.appending(components: ".build", "prebuilts", "swift-syntax", "600.0.1", "\(self.swiftVersion)-macos_universal-MacroSupport.zip"))
-                XCTAssertEqual(destination, sandbox.appending(components: ".build", "prebuilts", "swift-syntax", "600.0.1", "\(self.swiftVersion)-macos_universal-MacroSupport"))
+                XCTAssertEqual(archivePath, sandbox.appending(components: ".build", "prebuilts", "swift-syntax", "600.0.1", "\(self.swiftVersion)-MacroSupport.zip"))
+                XCTAssertEqual(destination, sandbox.appending(components: ".build", "prebuilts", "swift-syntax", "600.0.1", "\(self.swiftVersion)-MacroSupport"))
                 completion(.success(()))
             })
 
@@ -344,10 +344,10 @@ final class PrebuiltsTests: XCTestCase {
                     throw StringError("invalid request \(request.kind)")
                 }
 
-                if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-macos_universal.json" {
+                if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion).json" {
                     try fileSystem.writeFileContents(destination, data: manifestData)
                     return .okay()
-                } else if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-macos_universal-MacroSupport.zip" {
+                } else if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-MacroSupport.zip" {
                     try fileSystem.writeFileContents(destination, data: artifact)
                     return .okay()
                 } else {
@@ -357,8 +357,8 @@ final class PrebuiltsTests: XCTestCase {
             }
 
             let archiver = MockArchiver(handler: { _, archivePath, destination, completion in
-                XCTAssertEqual(archivePath, sandbox.appending(components: ".build", "prebuilts", "swift-syntax", "600.0.1", "\(self.swiftVersion)-macos_universal-MacroSupport.zip"))
-                XCTAssertEqual(destination, sandbox.appending(components: ".build", "prebuilts", "swift-syntax", "600.0.1", "\(self.swiftVersion)-macos_universal-MacroSupport"))
+                XCTAssertEqual(archivePath, sandbox.appending(components: ".build", "prebuilts", "swift-syntax", "600.0.1", "\(self.swiftVersion)-MacroSupport.zip"))
+                XCTAssertEqual(destination, sandbox.appending(components: ".build", "prebuilts", "swift-syntax", "600.0.1", "\(self.swiftVersion)-MacroSupport"))
                 completion(.success(()))
             })
 
@@ -406,10 +406,10 @@ final class PrebuiltsTests: XCTestCase {
                     throw StringError("invalid request \(request.kind)")
                 }
 
-                if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-macos_universal.json" {
+                if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion).json" {
                     try fileSystem.writeFileContents(destination, data: manifestData)
                     return .okay()
-                } else if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-macos_universal-MacroSupport.zip" {
+                } else if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-MacroSupport.zip" {
                     try fileSystem.writeFileContents(destination, data: artifact)
                     return .okay()
                 } else {
@@ -419,8 +419,8 @@ final class PrebuiltsTests: XCTestCase {
             }
 
             let archiver = MockArchiver(handler: { _, archivePath, destination, completion in
-                XCTAssertEqual(archivePath, sandbox.appending(components: ".build", "prebuilts", "swift-syntax", "600.0.1", "\(self.swiftVersion)-macos_universal-MacroSupport.zip"))
-                XCTAssertEqual(destination, sandbox.appending(components: ".build", "prebuilts", "swift-syntax", "600.0.1", "\(self.swiftVersion)-macos_universal-MacroSupport"))
+                XCTAssertEqual(archivePath, sandbox.appending(components: ".build", "prebuilts", "swift-syntax", "600.0.1", "\(self.swiftVersion)-MacroSupport.zip"))
+                XCTAssertEqual(destination, sandbox.appending(components: ".build", "prebuilts", "swift-syntax", "600.0.1", "\(self.swiftVersion)-MacroSupport"))
                 completion(.success(()))
             })
 
@@ -456,7 +456,7 @@ final class PrebuiltsTests: XCTestCase {
         let sandbox = AbsolutePath("/tmp/ws")
         let fs = InMemoryFileSystem()
         let artifact = Data()
-        let cacheFile = try AbsolutePath(validating: "/home/user/caches/org.swift.swiftpm/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-macos_universal-MacroSupport.zip")
+        let cacheFile = try AbsolutePath(validating: "/home/user/caches/org.swift.swiftpm/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-MacroSupport.zip")
         try fs.writeFileContents(cacheFile, data: artifact)
 
         try await with(fileSystem: fs, artifact: artifact, swiftSyntaxVersion: "600.0.1") { manifest, rootCertPath, rootPackage, swiftSyntax in
@@ -467,10 +467,10 @@ final class PrebuiltsTests: XCTestCase {
                     throw StringError("invalid request \(request.kind)")
                 }
 
-                if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-macos_universal.json" {
+                if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion).json" {
                     try fileSystem.writeFileContents(destination, data: manifestData)
                     return .okay()
-                } else if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-macos_universal-MacroSupport.zip" {
+                } else if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-MacroSupport.zip" {
                     XCTFail("Unexpect download of archive")
                     try fileSystem.writeFileContents(destination, data: artifact)
                     return .okay()
@@ -481,8 +481,8 @@ final class PrebuiltsTests: XCTestCase {
             }
 
             let archiver = MockArchiver(handler: { _, archivePath, destination, completion in
-                XCTAssertEqual(archivePath, sandbox.appending(components: ".build", "prebuilts", "swift-syntax", "600.0.1", "\(self.swiftVersion)-macos_universal-MacroSupport.zip"))
-                XCTAssertEqual(destination, sandbox.appending(components: ".build", "prebuilts", "swift-syntax", "600.0.1", "\(self.swiftVersion)-macos_universal-MacroSupport"))
+                XCTAssertEqual(archivePath, sandbox.appending(components: ".build", "prebuilts", "swift-syntax", "600.0.1", "\(self.swiftVersion)-MacroSupport.zip"))
+                XCTAssertEqual(destination, sandbox.appending(components: ".build", "prebuilts", "swift-syntax", "600.0.1", "\(self.swiftVersion)-MacroSupport"))
                 completion(.success(()))
             })
 
@@ -524,7 +524,7 @@ final class PrebuiltsTests: XCTestCase {
             let secondFetch = SendableBox(false)
             
             let httpClient = HTTPClient { request, progressHandler in
-                if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.2/\(self.swiftVersion)-macos_universal.json" {
+                if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.2/\(self.swiftVersion).json" {
                     let secondFetch = await secondFetch.value
                     XCTAssertFalse(secondFetch, "unexpected second fetch")
                     return .notFound()
@@ -585,7 +585,7 @@ final class PrebuiltsTests: XCTestCase {
 
         try await with(fileSystem: fs, artifact: artifact, swiftSyntaxVersion: "600.0.1") { manifest, rootCertPath, rootPackage, swiftSyntax in
             let httpClient = HTTPClient { request, progressHandler in
-                if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-ubuntu_noble_x86_64.json" {
+                if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion).json" {
                     // Pretend it's not there.
                     return .notFound()
                 } else {
@@ -635,7 +635,7 @@ final class PrebuiltsTests: XCTestCase {
 
         try await with(fileSystem: fs, artifact: artifact, swiftSyntaxVersion: "600.0.1") { _, rootCertPath, rootPackage, swiftSyntax in
             let httpClient = HTTPClient { request, progressHandler in
-                if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-macos_universal.json" {
+                if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion).json" {
                     // Pretend it's a different swift version
                     return .notFound()
                 } else {
@@ -697,7 +697,7 @@ final class PrebuiltsTests: XCTestCase {
                     throw StringError("invalid request \(request.kind)")
                 }
 
-                if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-macos_universal.json" {
+                if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion).json" {
                     try fileSystem.writeFileContents(destination, data: manifestData)
                     return .okay()
                 } else {
@@ -756,10 +756,10 @@ final class PrebuiltsTests: XCTestCase {
                     throw StringError("invalid request \(request.kind)")
                 }
 
-                if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-macos_universal.json" {
+                if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion).json" {
                     try fileSystem.writeFileContents(destination, data: manifestData)
                     return .okay()
-                } else if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-macos_universal-MacroSupport.zip" {
+                } else if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-MacroSupport.zip" {
                     try fileSystem.writeFileContents(destination, data: fakeArtifact)
                     return .okay()
                 } else {
@@ -811,7 +811,7 @@ final class PrebuiltsTests: XCTestCase {
             let manifestData = try JSONEncoder().encode(manifest)
 
             let fakeArtifact = Data([56])
-            let cacheFile = try AbsolutePath(validating: "/home/user/caches/org.swift.swiftpm/prebuilts/swift-syntax/\(self.swiftVersion)-macos_universal-MacroSupport.zip")
+            let cacheFile = try AbsolutePath(validating: "/home/user/caches/org.swift.swiftpm/prebuilts/swift-syntax/\(self.swiftVersion)-MacroSupport.zip")
             try fs.writeFileContents(cacheFile, data: fakeArtifact)
 
             let httpClient = HTTPClient { request, progressHandler in
@@ -819,10 +819,10 @@ final class PrebuiltsTests: XCTestCase {
                     throw StringError("invalid request \(request.kind)")
                 }
 
-                if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-macos_universal.json" {
+                if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion).json" {
                     try fileSystem.writeFileContents(destination, data: manifestData)
                     return .okay()
-                } else if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-macos_universal-MacroSupport.zip" {
+                } else if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-MacroSupport.zip" {
                     try fileSystem.writeFileContents(destination, data: artifact)
                     return .okay()
                 } else {
@@ -832,8 +832,8 @@ final class PrebuiltsTests: XCTestCase {
             }
 
             let archiver = MockArchiver(handler: { _, archivePath, destination, completion in
-                XCTAssertEqual(archivePath, sandbox.appending(components: ".build", "prebuilts", "swift-syntax", "600.0.1", "\(self.swiftVersion)-macos_universal-MacroSupport.zip"))
-                XCTAssertEqual(destination, sandbox.appending(components: ".build", "prebuilts", "swift-syntax", "600.0.1", "\(self.swiftVersion)-macos_universal-MacroSupport"))
+                XCTAssertEqual(archivePath, sandbox.appending(components: ".build", "prebuilts", "swift-syntax", "600.0.1", "\(self.swiftVersion)-MacroSupport.zip"))
+                XCTAssertEqual(destination, sandbox.appending(components: ".build", "prebuilts", "swift-syntax", "600.0.1", "\(self.swiftVersion)-MacroSupport"))
                 completion(.success(()))
             })
 
@@ -879,7 +879,7 @@ final class PrebuiltsTests: XCTestCase {
                     throw StringError("invalid request \(request.kind)")
                 }
 
-                if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-macos_universal.json" {
+                if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion).json" {
                     let badManifestData = manifestData + Data("bad".utf8)
                     try fileSystem.writeFileContents(destination, data: badManifestData)
                     return .okay()
@@ -965,10 +965,10 @@ final class PrebuiltsTests: XCTestCase {
                     throw StringError("invalid request \(request.kind)")
                 }
 
-                if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-macos_universal.json" {
+                if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion).json" {
                     try fileSystem.writeFileContents(destination, data: manifestData)
                     return .okay()
-                } else if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-macos_universal-MacroSupport.zip" {
+                } else if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-MacroSupport.zip" {
                     try fileSystem.writeFileContents(destination, data: artifact)
                     return .okay()
                 } else {
@@ -978,8 +978,8 @@ final class PrebuiltsTests: XCTestCase {
             }
 
             let archiver = MockArchiver(handler: { _, archivePath, destination, completion in
-                XCTAssertEqual(archivePath, sandbox.appending(components: ".build", "prebuilts", "swift-syntax", "600.0.1", "\(self.swiftVersion)-macos_universal-MacroSupport.zip"))
-                XCTAssertEqual(destination, sandbox.appending(components: ".build", "prebuilts", "swift-syntax", "600.0.1", "\(self.swiftVersion)-macos_universal-MacroSupport"))
+                XCTAssertEqual(archivePath, sandbox.appending(components: ".build", "prebuilts", "swift-syntax", "600.0.1", "\(self.swiftVersion)-MacroSupport.zip"))
+                XCTAssertEqual(destination, sandbox.appending(components: ".build", "prebuilts", "swift-syntax", "600.0.1", "\(self.swiftVersion)-MacroSupport"))
                 completion(.success(()))
             })
 
@@ -1112,10 +1112,10 @@ final class PrebuiltsTests: XCTestCase {
                     throw StringError("invalid request \(request.kind)")
                 }
 
-                if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-macos_universal.json" {
+                if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion).json" {
                     try fileSystem.writeFileContents(destination, data: manifestData)
                     return .okay()
-                } else if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-macos_universal-MacroSupport.zip" {
+                } else if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-MacroSupport.zip" {
                     try fileSystem.writeFileContents(destination, data: artifact)
                     return .okay()
                 } else {
@@ -1125,8 +1125,8 @@ final class PrebuiltsTests: XCTestCase {
             }
 
             let archiver = MockArchiver(handler: { _, archivePath, destination, completion in
-                XCTAssertEqual(archivePath, sandbox.appending(components: ".build", "prebuilts", "swift-syntax", "600.0.1", "\(self.swiftVersion)-macos_universal-MacroSupport.zip"))
-                XCTAssertEqual(destination, sandbox.appending(components: ".build", "prebuilts", "swift-syntax", "600.0.1", "\(self.swiftVersion)-macos_universal-MacroSupport"))
+                XCTAssertEqual(archivePath, sandbox.appending(components: ".build", "prebuilts", "swift-syntax", "600.0.1", "\(self.swiftVersion)-MacroSupport.zip"))
+                XCTAssertEqual(destination, sandbox.appending(components: ".build", "prebuilts", "swift-syntax", "600.0.1", "\(self.swiftVersion)-MacroSupport"))
                 completion(.success(()))
             })
 

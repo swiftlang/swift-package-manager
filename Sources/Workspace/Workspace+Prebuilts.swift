@@ -228,7 +228,7 @@ extension Workspace {
 
         func prebuiltName(workspace: Workspace) throws -> String {
             if let customSwiftCompilerVersion {
-                return "\(customSwiftCompilerVersion)-\(hostPlatform)"
+                return "\(customSwiftCompilerVersion)"
             } else {
                 return try hostPlatform.prebuiltName(hostToolchain: workspace.hostToolchain)
             }
