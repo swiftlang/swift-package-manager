@@ -47,47 +47,30 @@ public protocol PrebuiltsManagerDelegate {
 
 extension Workspace {
     public struct PrebuiltsManifest: Codable {
-        public let version: Int
         public var libraries: [Library]
 
         public struct Library: Identifiable, Codable {
             public let name: String
+            public var checksum: String
             public var products: [String]
-            public var cModules: [String]?
             public var includePath: [String]?
-            public var artifacts: [Artifact]?
 
             public var id: String { name }
 
-            public struct Artifact: Identifiable, Codable {
-                public let platform: PrebuiltsPlatform
-                public var checksum: String
-
-                public var id: PrebuiltsPlatform { platform }
-
-                public init(platform: PrebuiltsPlatform, checksum: String) {
-                    self.platform = platform
-                    self.checksum = checksum
-                }
-            }
-
             public init(
                 name: String,
+                checksum: String,
                 products: [String] = [],
-                cModules: [String]? = nil,
-                includePath: [RelativePath]? = nil,
-                artifacts: [Artifact]? = nil
+                includePath: [RelativePath]? = nil
             ) {
                 self.name = name
+                self.checksum = checksum
                 self.products = products
-                self.cModules = cModules
                 self.includePath = includePath?.map({ $0.pathString.replacingOccurrences(of: "\\", with: "/") })
-                self.artifacts = artifacts
             }
         }
 
         public init(libraries: [Library] = []) {
-            self.version = 1
             self.libraries = libraries
         }
     }
@@ -243,17 +226,23 @@ extension Workspace {
             return prebuilts
         }
 
+        func prebuiltName(workspace: Workspace) throws -> String {
+            if let customSwiftCompilerVersion {
+                return "\(customSwiftCompilerVersion)-\(hostPlatform)"
+            } else {
+                return try hostPlatform.prebuiltName(hostToolchain: workspace.hostToolchain)
+            }
+
+        }
+
         func downloadManifest(
             workspace: Workspace,
             package: PrebuiltPackage,
             version: Version,
             observabilityScope: ObservabilityScope
         ) async throws -> PrebuiltsManifest? {
-            guard let swiftVersion = customSwiftCompilerVersion ?? workspace.hostToolchain.swiftCompilerVersion else {
-                return nil
-            }
-
-            let manifestFile = swiftVersion + "-manifest.json"
+            let prebuiltName = try prebuiltName(workspace: workspace)
+            let manifestFile = "\(prebuiltName).json"
             let manifestPath = try RelativePath(validating: "\(package.identity)/\(version)/\(manifestFile)")
             let destination = scratchPath.appending(manifestPath)
             let cacheDest = cachePath?.appending(manifestPath)
@@ -395,14 +384,10 @@ extension Workspace {
             package: PrebuiltPackage,
             version: Version,
             library: PrebuiltsManifest.Library,
-            artifact: PrebuiltsManifest.Library.Artifact,
             observabilityScope: ObservabilityScope
         ) async throws -> AbsolutePath? {
-            guard let swiftVersion = customSwiftCompilerVersion ?? workspace.hostToolchain.swiftCompilerVersion else {
-                return nil
-            }
-
-            let artifactName = "\(swiftVersion)-\(library.name)-\(artifact.platform.rawValue)"
+            let prebuiltName = try prebuiltName(workspace: workspace)
+            let artifactName = "\(prebuiltName)-\(library.name)"
             let scratchDir = scratchPath.appending(components: package.identity.description, version.description)
 
             let artifactDir = scratchDir.appending(artifactName)
@@ -415,10 +400,10 @@ extension Workspace {
             let cacheFile = cachePath?.appending(components: package.identity.description, version.description, artifactFile)
 
             let zipExists = fileSystem.exists(destination)
-            if try (!zipExists || !check(path: destination, checksum: artifact.checksum)) {
+            if try (!zipExists || !check(path: destination, checksum: library.checksum)) {
                 try fileSystem.createDirectory(destination.parentDirectory, recursive: true)
 
-                if let cacheFile, fileSystem.exists(cacheFile), try check(path: cacheFile, checksum: artifact.checksum) {
+                if let cacheFile, fileSystem.exists(cacheFile), try check(path: cacheFile, checksum: library.checksum) {
                     // Copy over the cached file
                     observabilityScope.emit(info: "Using cached \(artifactFile)")
                     try fileSystem.copy(from: cacheFile, to: destination)
@@ -501,7 +486,7 @@ extension Workspace {
                         }
 
                         // Check the checksum
-                        if try !check(path: destination, checksum: artifact.checksum) {
+                        if try !check(path: destination, checksum: library.checksum) {
                             let errorString =
                                 "Prebuilt artifact \(artifactFile) checksum mismatch"
                             observabilityScope.emit(info: errorString)
@@ -587,33 +572,30 @@ extension Workspace {
             let hostPlatform = prebuiltsManager.hostPlatform
 
             for library in prebuiltManifest.libraries {
-                for artifact in library.artifacts ?? [] where artifact.platform == hostPlatform {
-                    if let path = try await prebuiltsManager
-                        .downloadPrebuilt(
-                            workspace: self,
-                            package: prebuilt,
-                            version: packageVersion,
-                            library: library,
-                            artifact: artifact,
-                            observabilityScope: observabilityScope
-                        )
-                    {
-                        // Add to workspace state
-                        let checkoutPath = self.location.repositoriesCheckoutsDirectory
-                            .appending(component: prebuilt.identity.description)
-                        let managedPrebuilt = ManagedPrebuilt(
-                            identity: prebuilt.identity,
-                            version: packageVersion,
-                            libraryName: library.name,
-                            path: path,
-                            checkoutPath: checkoutPath,
-                            products: library.products,
-                            includePath: try library.includePath?.map({ try RelativePath(validating: $0) }),
-                            cModules: library.cModules ?? []
-                        )
-                        addedPrebuilts.add(managedPrebuilt)
-                        await self.state.prebuilts.add(managedPrebuilt)
-                    }
+                if let path = try await prebuiltsManager
+                    .downloadPrebuilt(
+                        workspace: self,
+                        package: prebuilt,
+                        version: packageVersion,
+                        library: library,
+                        observabilityScope: observabilityScope
+                    )
+                {
+                    // Add to workspace state
+                    let checkoutPath = self.location.repositoriesCheckoutsDirectory
+                        .appending(component: prebuilt.identity.description)
+                    let managedPrebuilt = ManagedPrebuilt(
+                        identity: prebuilt.identity,
+                        version: packageVersion,
+                        libraryName: library.name,
+                        path: path,
+                        checkoutPath: checkoutPath,
+                        products: library.products,
+                        includePath: try library.includePath?.map({ try RelativePath(validating: $0) }),
+                        cModules: []
+                    )
+                    addedPrebuilts.add(managedPrebuilt)
+                    await self.state.prebuilts.add(managedPrebuilt)
                 }
             }
         }
