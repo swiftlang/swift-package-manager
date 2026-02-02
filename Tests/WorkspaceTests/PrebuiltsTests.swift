@@ -1292,6 +1292,181 @@ final class PrebuiltsTests: XCTestCase {
         }
     }
 
+    // Test that if a library using prebuilts is exposed outside root dependencies that prebuilts are turned off
+    func testRootDependency() async throws {
+        let sandbox = AbsolutePath("/tmp/ws")
+        let fs = InMemoryFileSystem()
+        let artifact = Data()
+        let swiftSyntaxVersion = "600.0.1"
+
+        try await with(fileSystem: fs, artifact: artifact, swiftSyntaxVersion: swiftSyntaxVersion) { manifest, rootCertPath, _, swiftSyntax in
+            let manifestData = try JSONEncoder().encode(manifest)
+
+            let httpClient = HTTPClient { request, progressHandler in
+                guard case .download(let fileSystem, let destination) = request.kind else {
+                    throw StringError("invalid request \(request.kind)")
+                }
+
+                if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-manifest.json" {
+                    try fileSystem.writeFileContents(destination, data: manifestData)
+                    return .okay()
+                } else if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-MacroSupport-macos_aarch64.zip" {
+                    try fileSystem.writeFileContents(destination, data: artifact)
+                    return .okay()
+                } else {
+                    XCTFail("Unexpected URL \(request.url)")
+                    return .notFound()
+                }
+            }
+
+            let archiver = MockArchiver(handler: { _, archivePath, destination, completion in
+                XCTAssertEqual(archivePath, sandbox.appending(components: ".build", "prebuilts", "swift-syntax", "600.0.1", "\(self.swiftVersion)-MacroSupport-macos_aarch64.zip"))
+                XCTAssertEqual(destination, sandbox.appending(components: ".build", "prebuilts", "swift-syntax", "600.0.1", "\(self.swiftVersion)-MacroSupport-macos_aarch64"))
+                completion(.success(()))
+            })
+
+            let libraryURL = "https://github.com/swiftlang/Library"
+
+            let workspace = try await MockWorkspace(
+                sandbox: sandbox,
+                fileSystem: fs,
+                roots: [],
+                packages: [
+                    .init(
+                        name: "Foo",
+                        targets: [
+                            MockTarget(
+                                name: "FooMacros",
+                                dependencies: [
+                                    .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
+                                    .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
+                                    .product(name: "Intermediate", package: "Library"),
+                                ],
+                                type: .macro
+                            ),
+                            MockTarget(
+                                name: "Foo",
+                                dependencies: ["FooMacros"]
+                            ),
+                            MockTarget(
+                                name: "FooClient",
+                                dependencies: [
+                                    "Foo",
+                                    .product(name: "Plugin", package: "Library"),
+                                ],
+                                type: .executable
+                            ),
+                            MockTarget(
+                                name: "FooTests",
+                                dependencies: [
+                                    "FooMacros",
+                                    .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax"),
+                                ],
+                                type: .test
+                            ),
+                            MockTarget(
+                                name: "Leaking",
+                                dependencies: [
+                                    .product(name: "Intermediate", package: "Library"),
+                                ]
+                            )
+                        ],
+                        products: [
+                            MockProduct(
+                                name: "Library",
+                                modules: [
+                                    "Foo",
+                                    "Leaking"
+                                ]
+                            ),
+                        ],
+                        dependencies: [
+                            .sourceControl(
+                                url: "https://github.com/swiftlang/swift-syntax",
+                                requirement: .exact(try XCTUnwrap(Version("600.0.1")))
+                            ),
+                            .sourceControl(
+                                url: libraryURL,
+                                requirement: .exact(try XCTUnwrap(Version("1.0.0")))
+                            ),
+                        ],
+                        versions: [nil]
+                    ),
+                    MockPackage(
+                        name: "Library",
+                        url: libraryURL,
+                        targets: [
+                            MockTarget(
+                                name: "Base",
+                                dependencies: [
+                                    .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
+                                ]
+                            ),
+                            MockTarget(
+                                name: "Intermediate",
+                                dependencies: [
+                                    "Base",
+                                ]
+                            ),
+                            MockTarget(
+                                name: "Generator",
+                                dependencies: [
+                                    "Intermediate"
+                                ],
+                                type: .executable
+                            ),
+                            MockTarget(
+                                name: "Plugin",
+                                dependencies: [
+                                    "Generator"
+                                ],
+                                type: .plugin,
+                                pluginCapability: .buildTool
+                            )
+                        ],
+                        products: [
+                            MockProduct(
+                                name: "Intermediate",
+                                modules: [
+                                    "Intermediate"
+                                ]
+                            ),
+                            MockProduct(
+                                name: "Plugin",
+                                modules: [
+                                    "Plugin",
+                                ],
+                                type: .plugin
+                            ),
+                        ],
+                        dependencies: [
+                            .sourceControl(
+                                url: "https://github.com/swiftlang/swift-syntax",
+                                requirement: .exact(try XCTUnwrap(Version("600.0.1")))
+                            )
+                        ],
+                        versions: ["1.0.0"]
+                    ),
+                    swiftSyntax
+                ],
+                prebuiltsManager: .init(
+                    swiftVersion: swiftVersion,
+                    httpClient: httpClient,
+                    archiver: archiver,
+                    hostPlatform: .macos_aarch64,
+                    rootCertPath: rootCertPath
+                ),
+            )
+
+            let rootDep = PackageDependency.fileSystem(identity: .plain("Foo"), path: workspace.packagesDir.appending("Foo"))
+            try await workspace.checkPackageGraph(roots: [], dependencies: [rootDep]) { modulesGraph, diagnostics in
+                XCTAssertTrue(diagnostics.filter({ $0.severity == .error || $0.severity == .warning }).isEmpty)
+                let rootPackage = try XCTUnwrap(modulesGraph.package(for: rootDep.identity))
+                try checkSettings(rootPackage, "FooMacros", usePrebuilt: false)
+                try checkSettings(rootPackage, "Foo", usePrebuilt: false)
+            }
+        }
+    }
 }
 
 extension String {
