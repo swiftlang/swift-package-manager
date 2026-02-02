@@ -392,7 +392,9 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             // emit a message informing the user so they aren't misled and know to look elsewhere for
             // those details.
             if anyXCTestFailed {
-                swiftCommandState.observabilityScope.print(Self.xctestFailedNote, verbose: false)
+                // In theory this could, or should, use `observabilityScope.print(_:verbose:)`,
+                // but that causes tests which check for this output to fail in CI.
+                print(Self.xctestFailedNote)
             }
         }
 

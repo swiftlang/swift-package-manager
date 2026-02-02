@@ -834,7 +834,7 @@ struct TestCommandTests {
                 buildSystem: .native,
                 throwIfCommandFails: false,
             )
-            #expect(stderr.contains(SwiftTestCommand.xctestFailedNote) == arg.expectNote, "stdout: \(stdout), stderr: \(stderr)")
+            #expect(stdout.contains(SwiftTestCommand.xctestFailedNote) == arg.expectNote, "stdout: \(stdout), stderr: \(stderr)")
         }
     }
 
