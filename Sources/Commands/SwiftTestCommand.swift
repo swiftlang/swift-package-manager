@@ -368,7 +368,6 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         if options.testLibraryOptions.isEnabled(.swiftTesting, swiftCommandState: swiftCommandState) {
             // Determine whether any XCTest runs performed above failed, before Swift Testing runs.
             let anyXCTestFailed = results.reduce() == .failure
-            print("FIXME: Remove before landing. results: \(results)")
 
             lazy var testEntryPointPath = testProducts.lazy.compactMap(\.testEntryPointPath).first
             if options.testLibraryOptions.isExplicitlyEnabled(.swiftTesting, swiftCommandState: swiftCommandState) || testEntryPointPath == nil {
@@ -393,10 +392,8 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             // emit a message informing the user so they aren't misled and know to look elsewhere for
             // those details.
             if anyXCTestFailed {
-                print("FIXME: Remove before landing. Testing whether conditional Swift.print() is included in output.")
                 swiftCommandState.observabilityScope.print(Self.xctestFailedNote, verbose: false)
             }
-            swiftCommandState.observabilityScope.print("FIXME: Remove before landing. Checking whether unconditional observabilityScope.print() is included in output.", verbose: false)
         }
 
         switch results.reduce() {
