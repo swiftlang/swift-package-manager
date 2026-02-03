@@ -13,9 +13,11 @@
 import Basics
 import PackageModel
 import SourceControl
+import SPMBuildCore
 import _InternalTestSupport
 import Workspace
 import XCTest
+import Testing
 
 import class Basics.AsyncProcess
 import enum TSCUtility.Git
@@ -267,61 +269,6 @@ final class MiscellaneousTestCase: XCTestCase {
                 Xswiftc: ["-target", "\(hostTriple.archName)-apple-macosx41.0"],
                 buildSystem: .native,
             )
-        }
-    }
-
-    func testPkgConfigCFamilyTargets() async throws {
-        try XCTSkipOnWindows(because: "fails to build on windows (maybe not be supported?)")
-        try await fixtureXCTest(name: "Miscellaneous/PkgConfig") { fixturePath in
-            let systemModule = fixturePath.appending("SystemModule")
-            // Create a shared library.
-            let input = systemModule.appending(components: "Sources", "SystemModule.c")
-            let triple = try UserToolchain.default.targetTriple
-            let output = systemModule.appending("libSystemModule\(triple.dynamicLibraryExtension)")
-            try await AsyncProcess.checkNonZeroExit(args: executableName("clang"), "-shared", input.pathString, "-o", output.pathString)
-
-            let pcFile = fixturePath.appending("libSystemModule.pc")
-
-            try localFileSystem.writeFileContents(pcFile, string: """
-                prefix=\(systemModule.pathString)
-                exec_prefix=${prefix}
-                libdir=${exec_prefix}
-                includedir=${prefix}/Sources/include
-                Name: SystemModule
-                URL: http://127.0.0.1/
-                Description: The one and only SystemModule
-                Version: 1.10.0
-                Cflags: -I${includedir}
-                Libs: -L${libdir} -lSystemModule
-
-                """
-            )
-
-            let moduleUser = fixturePath.appending("SystemModuleUserClang")
-            let env: Environment = ["PKG_CONFIG_PATH": fixturePath.pathString]
-            _ = try await executeSwiftBuild(
-                moduleUser,
-                env: env,
-                buildSystem: .native,
-            )
-
-            XCTAssertFileExists(moduleUser.appending(components: ".build", triple.platformBuildPathComponent, "debug", "SystemModuleUserClang"))
-
-            // Clean up the build directory before re-running the build with
-            // different arguments.
-            _ = try await executeSwiftPackage(
-                moduleUser,
-                extraArgs: ["clean"],
-                buildSystem: .native,
-            )
-
-            _ = try await executeSwiftBuild(
-                moduleUser,
-                extraArgs: ["--pkg-config-path", fixturePath.pathString],
-                buildSystem: .native,
-            )
-
-            XCTAssertFileExists(moduleUser.appending(components: ".build", triple.platformBuildPathComponent, "debug", "SystemModuleUserClang"))
         }
     }
 
@@ -880,6 +827,60 @@ final class MiscellaneousTestCase: XCTestCase {
                 path,
                 env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"],
                 buildSystem: .swiftbuild,
+            )
+        }
+    }
+}
+
+@Suite
+struct MiscellaneousSwiftTestingTests {
+    @Test(.skipHostOS(.windows), arguments: SupportedBuildSystemOnAllPlatforms)
+    func pkgConfigCFamilyTargets(buildSystem: BuildSystemProvider.Kind) async throws {
+        try await fixture(name: "Miscellaneous/PkgConfig") { fixturePath in
+            let systemModule = fixturePath.appending("SystemModule")
+            // Create a shared library.
+            let input = systemModule.appending(components: "Sources", "SystemModule.c")
+            let triple = try UserToolchain.default.targetTriple
+            let output = systemModule.appending("libSystemModule\(triple.dynamicLibraryExtension)")
+            try await AsyncProcess.checkNonZeroExit(args: executableName("clang"), "-shared", input.pathString, "-o", output.pathString)
+
+            let pcFile = fixturePath.appending("libSystemModule.pc")
+
+            try localFileSystem.writeFileContents(pcFile, string: """
+                prefix=\(systemModule.pathString)
+                exec_prefix=${prefix}
+                libdir=${exec_prefix}
+                includedir=${prefix}/Sources/include
+                Name: SystemModule
+                URL: http://127.0.0.1/
+                Description: The one and only SystemModule
+                Version: 1.10.0
+                Cflags: -I${includedir}
+                Libs: -L${libdir} -lSystemModule
+                
+                """
+            )
+
+            let moduleUser = fixturePath.appending("SystemModuleUserClang")
+            let env: Environment = ["PKG_CONFIG_PATH": fixturePath.pathString]
+            _ = try await executeSwiftBuild(
+                moduleUser,
+                env: env,
+                buildSystem: buildSystem,
+            )
+
+            // Clean up the build directory before re-running the build with
+            // different arguments.
+            _ = try await executeSwiftPackage(
+                moduleUser,
+                extraArgs: ["clean"],
+                buildSystem: buildSystem,
+            )
+
+            _ = try await executeSwiftBuild(
+                moduleUser,
+                extraArgs: ["--pkg-config-path", fixturePath.pathString],
+                buildSystem: buildSystem,
             )
         }
     }
