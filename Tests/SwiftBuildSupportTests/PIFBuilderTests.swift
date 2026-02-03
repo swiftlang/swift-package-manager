@@ -122,7 +122,7 @@ extension SwiftBuildSupport.PIF.Project {
         }
         switch matchingTargets.count {
         case 0:
-            throw StringError("No target named \(name) in PIF project")
+            throw StringError("No target named \(name) in PIF project, other targets: [\(underlying.targets.map(\.common.name).joined(separator: ", "))]")
         case 1:
             return matchingTargets[0]
         case 2:
@@ -280,6 +280,59 @@ struct PIFBuilderTests {
                 $0.message.contains("found binary artifact")
             }
             #expect(binaryArtifactMessages.count > 0, "Expected to find binary artifact processing messages")
+        }
+    }
+
+    @Test(.tags(
+        .TestSize.medium,
+        .FunctionalArea.PIF
+    ))
+    func parseAsLibrary() async throws {
+        try await withGeneratedPIF(fromFixture: "Miscellaneous/AtMainSupport") { pif, observabilitySystem in
+            let errors = observabilitySystem.diagnostics.filter { $0.severity == .error }
+            #expect(errors.isEmpty, "Expected no errors during PIF generation, but got: \(errors)")
+
+            let project = try pif.workspace.project(named: "AtMainSupport")
+            for targetName in ["SwiftExecSingleFile", "SwiftExecMultiFile"] {
+                for config in BuildConfiguration.allCases {
+                    let targetConfig = try project.target(named: targetName).buildConfig(named: config)
+                    // These cases all use @main, so we should pass -parse-as-library.
+                    #expect(targetConfig.settings[.SWIFT_LIBRARIES_ONLY] == "YES")
+                    #expect(targetConfig.settings[.SWIFT_DISABLE_PARSE_AS_LIBRARY] == "NO")
+                }
+            }
+        }
+
+        try await withGeneratedPIF(fromFixture: "Miscellaneous/EchoExecutable") { pif, observabilitySystem in
+            let errors = observabilitySystem.diagnostics.filter { $0.severity == .error }
+            #expect(errors.isEmpty, "Expected no errors during PIF generation, but got: \(errors)")
+
+            let project = try pif.workspace.project(named: "EchoExecutable")
+            for config in BuildConfiguration.allCases {
+                // Executable target with no @main, do not pass -parse-as-library.
+                let targetConfig = try project.target(named: "secho-product").buildConfig(named: config)
+                #expect(targetConfig.settings[.SWIFT_LIBRARIES_ONLY] == "NO")
+                #expect(targetConfig.settings[.SWIFT_DISABLE_PARSE_AS_LIBRARY] == "YES")
+            }
+        }
+
+        try await withGeneratedPIF(fromFixture: "Miscellaneous/Plugins/PluginsAndSnippets") { pif, observabilitySystem in
+            let errors = observabilitySystem.diagnostics.filter { $0.severity == .error }
+            #expect(errors.isEmpty, "Expected no errors during PIF generation, but got: \(errors)")
+
+            let project = try pif.workspace.project(named: "PluginsAndSnippets")
+            for config in BuildConfiguration.allCases {
+                do {
+                    let targetConfig = try project.target(named: "ContainsMain-product").buildConfig(named: config)
+                    #expect(targetConfig.settings[.SWIFT_LIBRARIES_ONLY] == "YES")
+                    #expect(targetConfig.settings[.SWIFT_DISABLE_PARSE_AS_LIBRARY] == "NO")
+                }
+                do {
+                    let targetConfig = try project.target(named: "MySnippet-product").buildConfig(named: config)
+                    #expect(targetConfig.settings[.SWIFT_LIBRARIES_ONLY] == "NO")
+                    #expect(targetConfig.settings[.SWIFT_DISABLE_PARSE_AS_LIBRARY] == "YES")
+                }
+            }
         }
     }
 
