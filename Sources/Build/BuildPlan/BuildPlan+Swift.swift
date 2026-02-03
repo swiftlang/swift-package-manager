@@ -41,6 +41,9 @@ extension BuildPlan {
                     "-Xcc", "-fmodule-map-file=\(moduleMap.pathString)",
                     "-Xcc", "-I", "-Xcc", target.clangTarget.includeDir.pathString,
                 ]
+                swiftTarget.additionalFlags += target.pluginDerivedPublicHeaderPaths.flatMap {
+                    ["-Xcc", "-I", "-Xcc", $0.pathString]
+                }
             case let target as SwiftModule:
                 // Copy include paths over if needed
                 let targetPaths = Set(swiftTarget.target.underlying.buildSettings.assignments[.PREBUILT_INCLUDE_PATHS]?.flatMap(\.values) ?? [])
@@ -52,9 +55,6 @@ extension BuildPlan {
                         // Dedup the path
                         prebuiltPaths.insert(path)
                     }
-                }
-                swiftTarget.additionalFlags += target.pluginDerivedPublicHeaderPaths.flatMap {
-                    ["-Xcc", "-I", "-Xcc", $0.pathString]
                 }
             case let target as SystemLibraryModule:
                 swiftTarget.additionalFlags += ["-Xcc", "-fmodule-map-file=\(target.moduleMapPath.pathString)"]
@@ -76,6 +76,13 @@ extension BuildPlan {
                         }
 
                         swiftTarget.libraryBinaryPaths.insert(library.libraryPath)
+                    }
+                    if swiftTarget.buildParameters.triple.isWindows() {
+                        // Look for DLLs that need to be copied over with the library
+                        let executables = try self.parseExecutableArtifactsArchive(for: target, triple: swiftTarget.buildParameters.triple)
+                        for executable in executables where executable.executablePath.extension?.lowercased() == "dll" {
+                            swiftTarget.libraryBinaryPaths.insert(executable.executablePath)
+                        }
                     }
                 case .xcframework:
                     let libraries = try self.parseXCFramework(
