@@ -1435,7 +1435,7 @@ final class PrebuiltsTests: XCTestCase {
                     swiftVersion: swiftVersion,
                     httpClient: httpClient,
                     archiver: archiver,
-                    hostPlatform: .macos_aarch64,
+                    hostPlatform: .macos_universal,
                     rootCertPath: rootCertPath
                 ),
             )
