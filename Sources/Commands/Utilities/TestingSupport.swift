@@ -12,16 +12,41 @@
 
 import Basics
 import CoreCommands
+import Foundation
 import PackageModel
 import SPMBuildCore
 import TSCUtility
 import Workspace
+
+#if canImport(WinSDK)
+import WinSDK
+#elseif canImport(Darwin)
+import Darwin
+#elseif canImport(Glibc)
+import Glibc
+#endif
 
 import struct TSCBasic.FileSystemError
 import class Basics.AsyncProcess
 import var TSCBasic.stderrStream
 import var TSCBasic.stdoutStream
 import func TSCBasic.withTemporaryFile
+import func TSCBasic.exec
+
+struct DebuggableTestSession {
+    struct Target {
+        let library: TestingLibrary
+        let additionalArgs: [String]
+        let bundlePath: AbsolutePath
+    }
+
+    let targets: [Target]
+
+    /// Whether this is part of a multi-session sequence
+    var isMultiSession: Bool {
+        targets.count > 1
+    }
+}
 
 /// Internal helper functionality for the SwiftTestTool command and for the
 /// plugin support.
@@ -273,6 +298,488 @@ enum TestingSupport {
         env["DYLD_INSERT_LIBRARIES"] = runtimes.joined(separator: ":")
         return env
         #endif
+    }
+}
+
+/// A class to run tests under LLDB debugger.
+final class DebugTestRunner {
+    private let target: DebuggableTestSession
+    private let buildParameters: BuildParameters
+    private let toolchain: UserToolchain
+    private let testEnv: Environment
+    private let cancellator: Cancellator
+    private let fileSystem: FileSystem
+    private let observabilityScope: ObservabilityScope
+    private let verbose: Bool
+
+    /// Creates an instance of debug test runner.
+    init(
+        target: DebuggableTestSession,
+        buildParameters: BuildParameters,
+        toolchain: UserToolchain,
+        testEnv: Environment,
+        cancellator: Cancellator,
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope,
+        verbose: Bool = false
+    ) {
+        self.target = target
+        self.buildParameters = buildParameters
+        self.toolchain = toolchain
+        self.testEnv = testEnv
+        self.cancellator = cancellator
+        self.fileSystem = fileSystem
+        self.observabilityScope = observabilityScope
+        self.verbose = verbose
+    }
+
+    /// Launches the test binary under LLDB for interactive debugging.
+    ///
+    /// This method:
+    /// 1. Discovers LLDB using the toolchain
+    /// 2. Configures the environment for debugging
+    /// 3. Launches LLDB with the proper test runner as target
+    /// 4. Provides interactive debugging experience through appropriate process management
+    ///
+    /// **Implementation approach varies by testing library:**
+    /// - **XCTest**: Uses PTY (pseudo-terminal) via `runInPty()` to support LLDB's full-screen
+    ///   terminal features while maintaining parent process control for sequential execution
+    /// - **Swift Testing**: Uses `exec()` to replace the current process (works because Swift Testing
+    ///   is always the last library in the sequence, avoiding the need for sequential execution)
+    ///
+    /// The PTY approach is necessary for XCTest because LLDB requires advanced terminal features
+    /// (ANSI escape sequences, raw input mode, terminal sizing) that simple stdin/stdout redirection
+    /// cannot provide, while still allowing the parent process to show completion messages and
+    /// run multiple testing libraries sequentially.
+    ///
+    /// **Test Mode**: When running Swift Package Manager's own tests (detected via environment variables),
+    /// this method uses `AsyncProcess` instead of `exec()` to launch LLDB as a subprocess without stdin.
+    /// This allows the parent test process to capture LLDB's output for validation while ensuring LLDB
+    /// exits immediately due to lack of interactive input.
+    ///
+    /// - Throws: Various errors if LLDB cannot be found or launched
+    func run() throws {
+        let lldbPath: AbsolutePath
+        do {
+            lldbPath = try toolchain.getLLDB()
+        } catch {
+            observabilityScope.emit(error: "LLDB not found in toolchain: \(error)")
+            throw error
+        }
+
+        let lldbArgs = try prepareLLDBArguments(for: target)
+        observabilityScope.emit(info: "LLDB will run: \(lldbPath.pathString) \(lldbArgs.joined(separator: " "))")
+
+        // Set environment variables from testEnv on the current process
+        // so they are inherited by the exec'd LLDB process. Exec will replace
+        // this process.
+        for (key, value) in testEnv {
+            try Environment.set(key: key, value: value)
+        }
+
+        // Normal interactive mode - use exec to replace the current process with LLDB
+        // This avoids PTY issues that interfere with LLDB's command line editing
+        try exec(path: lldbPath.pathString, args: [lldbPath.pathString] + lldbArgs)
+    }
+
+    /// Returns the path to the Python script file.
+    private func pythonScriptFilePath() throws -> AbsolutePath {
+        let tempDir = try fileSystem.tempDirectory
+        return tempDir.appending("target_switcher.py")
+    }
+
+    /// Prepares LLDB arguments for debugging based on the testing library.
+    ///
+    /// This method creates a temporary LLDB command file with the necessary setup commands
+    /// for debugging tests, including target creation, argument configuration, and symbol loading.
+    ///
+    /// - Parameter library: The testing library being used (XCTest or Swift Testing)
+    /// - Returns: Array of LLDB command line arguments
+    /// - Throws: Various errors if required tools are not found or file operations fail
+    private func prepareLLDBArguments(for target: DebuggableTestSession) throws -> [String] {
+        let tempDir = try fileSystem.tempDirectory
+        let lldbCommandFile = tempDir.appending("lldb-commands.txt")
+
+        var lldbCommands: [String] = []
+        if target.isMultiSession {
+            try setupMultipleTargets(&lldbCommands)
+        } else if let library = target.targets.first {
+            try setupSingleTarget(&lldbCommands, for: library)
+        } else {
+            throw StringError("No testing libraries found for debugging")
+        }
+
+        // Clear the screen of all the previous commands to unclutter the users initial state.
+        // Skip clearing in verbose mode so startup commands remain visible
+        if !verbose {
+            lldbCommands.append("script print(\"\\033[H\\033[J\", end=\"\")")
+        }
+
+        let commandScript = lldbCommands.joined(separator: "\n")
+        try fileSystem.writeFileContents(lldbCommandFile, string: commandScript)
+
+        // Return script file arguments without batch mode to allow interactive debugging
+        return ["-s", lldbCommandFile.pathString]
+    }
+
+    /// Sets up multiple targets when both XCTest and Swift Testing are available
+    private func setupMultipleTargets(_ lldbCommands: inout [String]) throws {
+        var hasSwiftTesting = false
+        var hasXCTest = false
+
+        for testingLibrary in target.targets {
+            let (executable, args) = try getExecutableAndArgs(for: testingLibrary)
+            lldbCommands.append("target create \(executable.pathString)")
+            lldbCommands.append("settings clear target.run-args")
+
+            for arg in args {
+                lldbCommands.append("settings append target.run-args \"\(arg)\"")
+            }
+
+            let modulePath = getModulePath(for: testingLibrary)
+            lldbCommands.append("target modules add \"\(modulePath.pathString)\"")
+
+            if testingLibrary.library == .swiftTesting {
+                hasSwiftTesting = true
+            } else if testingLibrary.library == .xctest {
+                hasXCTest = true
+            }
+        }
+
+        setupCommandAliases(&lldbCommands, hasSwiftTesting: hasSwiftTesting, hasXCTest: hasXCTest)
+
+        // Create the target switching Python script
+        let scriptPath = try createTargetSwitchingScript()
+        lldbCommands.append("command script import \"\(scriptPath.pathString)\"")
+
+        // Select the first target and launch with pause on main
+        lldbCommands.append("target select 0")
+    }
+
+    /// Sets up a single target when only one testing library is available
+    private func setupSingleTarget(_ lldbCommands: inout [String], for target: DebuggableTestSession.Target) throws {
+        let (executable, args) = try getExecutableAndArgs(for: target)
+        // Create target
+        lldbCommands.append("target create \(executable.pathString)")
+        lldbCommands.append("settings clear target.run-args")
+
+        // Add arguments
+        for arg in args {
+            lldbCommands.append("settings append target.run-args \"\(arg)\"")
+        }
+
+        // Load symbols for the test bundle
+        let modulePath = getModulePath(for: target)
+        lldbCommands.append("target modules add \"\(modulePath.pathString)\"")
+
+        setupCommandAliases(&lldbCommands, hasSwiftTesting: target.library == .swiftTesting, hasXCTest: target.library == .xctest)
+    }
+
+    private func setupCommandAliases(_ lldbCommands: inout [String], hasSwiftTesting: Bool, hasXCTest: Bool) {
+        #if os(macOS)
+            let swiftTestingFailureBreakpoint = "-s Testing -n \"failureBreakpoint()\""
+            let xctestFailureBreakpoint = "-n \"_XCTFailureBreakpoint\""
+        #elseif os(Windows)
+            let swiftTestingFailureBreakpoint = "-s Testing.dll -n \"failureBreakpoint()\""
+            let xctestFailureBreakpoint = "-s XCTest.dll -n \"XCTest.XCTestCase.recordFailure\""
+        #else
+            let swiftTestingFailureBreakpoint = "-s libTesting.so -n \"Testing.failureBreakpoint\""
+            let xctestFailureBreakpoint = "-s libXCTest.so -n \"XCTest.XCTestCase.recordFailure\""
+        #endif
+
+        // Add failure breakpoint commands based on available libraries
+        if hasSwiftTesting && hasXCTest {
+            lldbCommands.append("command alias failbreak script lldb.debugger.HandleCommand('breakpoint set \(swiftTestingFailureBreakpoint)'); lldb.debugger.HandleCommand('breakpoint set \(xctestFailureBreakpoint)')")
+        } else if hasSwiftTesting {
+            lldbCommands.append("command alias failbreak breakpoint set \(swiftTestingFailureBreakpoint)")
+        } else if hasXCTest {
+            lldbCommands.append("command alias failbreak breakpoint set \(xctestFailureBreakpoint)")
+        }
+    }
+
+    /// Gets the executable path and arguments for a given testing library
+    private func getExecutableAndArgs(for target: DebuggableTestSession.Target) throws -> (AbsolutePath, [String]) {
+        switch target.library {
+        case .xctest:
+            #if os(macOS)
+            guard let xctestPath = toolchain.xctestPath else {
+                throw StringError("XCTest not found in toolchain")
+            }
+            return (xctestPath, [target.bundlePath.pathString] + target.additionalArgs)
+            #else
+            return (target.bundlePath, target.additionalArgs)
+            #endif
+        case .swiftTesting:
+            #if os(macOS)
+            let executable = try toolchain.getSwiftTestingHelper()
+            let args = ["--test-bundle-path", target.bundlePath.pathString] + target.additionalArgs
+            #else
+            let executable = target.bundlePath
+            let args = target.additionalArgs
+            #endif
+            return (executable, args)
+        }
+    }
+
+    /// Gets the module path for symbol loading
+    private func getModulePath(for target: DebuggableTestSession.Target) -> AbsolutePath {
+        var modulePath = target.bundlePath
+        if target.library == .xctest && buildParameters.triple.isDarwin() {
+            if let name = target.bundlePath.components.last?.replacing(".xctest", with: "") {
+                if let relativePath = try? RelativePath(validating: "Contents/MacOS/\(name)") {
+                    modulePath = target.bundlePath.appending(relativePath)
+                }
+            }
+        }
+        return modulePath
+    }
+
+    /// Creates a Python script that handles automatic target switching
+    private func createTargetSwitchingScript() throws -> AbsolutePath {
+        let scriptPath = try pythonScriptFilePath()
+
+        let pythonScript = """
+# target_switcher.py
+import lldb
+import threading
+import time
+import sys
+
+current_target_index = 0
+max_targets = 0
+debugger_ref = None
+known_breakpoints = set()
+sequence_active = True  # Start active by default
+
+def sync_breakpoints_to_target(source_target, dest_target):
+    \"\"\"Synchronize breakpoints from source target to destination target.\"\"\"
+    if not source_target or not dest_target:
+        return
+
+    def breakpoint_exists_in_target_by_spec(target, file_name, line_number, function_name):
+        \"\"\"Check if a breakpoint already exists in the target by specification.\"\"\"
+        for i in range(target.GetNumBreakpoints()):
+            existing_bp = target.GetBreakpointAtIndex(i)
+            if not existing_bp.IsValid():
+                continue
+
+            # Check function name breakpoints
+            if function_name:
+                # Get the breakpoint's function name specifications
+                names = lldb.SBStringList()
+                existing_bp.GetNames(names)
+
+                # Check names from GetNames()
+                for j in range(names.GetSize()):
+                    if names.GetStringAtIndex(j) == function_name:
+                        return True
+
+                # If no names found, check the description for pending breakpoints
+                if names.GetSize() == 0:
+                    bp_desc = str(existing_bp).strip()
+                    import re
+                    match = re.search(r"name = '([^']+)'", bp_desc)
+                    if match and match.group(1) == function_name:
+                        return True
+
+            # Check file/line breakpoints (only if resolved)
+            if file_name and line_number:
+                for j in range(existing_bp.GetNumLocations()):
+                    location = existing_bp.GetLocationAtIndex(j)
+                    if location.IsValid():
+                        addr = location.GetAddress()
+                        line_entry = addr.GetLineEntry()
+                        if line_entry.IsValid():
+                            existing_file_spec = line_entry.GetFileSpec()
+                            existing_line_number = line_entry.GetLine()
+                            if (existing_file_spec.GetFilename() == file_name and
+                                existing_line_number == line_number):
+                                return True
+        return False
+
+    # Get all breakpoints from source target
+    for i in range(source_target.GetNumBreakpoints()):
+        bp = source_target.GetBreakpointAtIndex(i)
+        if not bp.IsValid():
+            continue
+
+        # Handle breakpoints by their specifications, not just resolved locations
+        # First check if this is a function name breakpoint
+        names = lldb.SBStringList()
+        bp.GetNames(names)
+
+        # For pending breakpoints, GetNames() might be empty, so also check the description
+        bp_desc = str(bp).strip()
+
+        # Extract function name from description if names is empty
+        function_names_to_sync = []
+        if names.GetSize() > 0:
+            # Use the names from GetNames()
+            for j in range(names.GetSize()):
+                function_name = names.GetStringAtIndex(j)
+                if function_name:
+                    function_names_to_sync.append(function_name)
+        else:
+            # Parse function name from description for pending breakpoints
+            # Description format: "1: name = 'failureBreakpoint()', module = Testing, locations = 0 (pending)"
+            import re
+            match = re.search(r"name = '([^']+)'", bp_desc)
+            if match:
+                function_name = match.group(1)
+                function_names_to_sync.append(function_name)
+
+        # Sync the function name breakpoints
+        for function_name in function_names_to_sync:
+            if not breakpoint_exists_in_target_by_spec(dest_target, None, None, function_name):
+                new_bp = dest_target.BreakpointCreateByName(function_name)
+                if new_bp.IsValid():
+                    new_bp.SetEnabled(bp.IsEnabled())
+                    new_bp.SetCondition(bp.GetCondition())
+                    new_bp.SetIgnoreCount(bp.GetIgnoreCount())
+
+        # Handle resolved location-based breakpoints (file/line)
+        # Only process if the breakpoint has resolved locations
+        if bp.GetNumLocations() > 0:
+            for j in range(bp.GetNumLocations()):
+                location = bp.GetLocationAtIndex(j)
+                if not location.IsValid():
+                    continue
+
+                addr = location.GetAddress()
+                line_entry = addr.GetLineEntry()
+
+                if line_entry.IsValid():
+                    file_spec = line_entry.GetFileSpec()
+                    line_number = line_entry.GetLine()
+                    file_name = file_spec.GetFilename()
+
+                    # Check if this breakpoint already exists in destination target
+                    if breakpoint_exists_in_target_by_spec(dest_target, file_name, line_number, None):
+                        continue
+
+                    # Create the same breakpoint in the destination target
+                    new_bp = dest_target.BreakpointCreateByLocation(file_spec, line_number)
+                    if new_bp.IsValid():
+                        # Copy breakpoint properties
+                        new_bp.SetEnabled(bp.IsEnabled())
+                        new_bp.SetCondition(bp.GetCondition())
+                        new_bp.SetIgnoreCount(bp.GetIgnoreCount())
+
+def sync_breakpoints_to_all_targets():
+    \"\"\"Synchronize breakpoints from current target to all other targets.\"\"\"
+    global debugger_ref, max_targets
+
+    if not debugger_ref or max_targets <= 1:
+        return
+
+    current_target = debugger_ref.GetSelectedTarget()
+    if not current_target:
+        return
+
+    # Sync to all other targets
+    for i in range(max_targets):
+        target = debugger_ref.GetTargetAtIndex(i)
+        if target and target != current_target:
+            sync_breakpoints_to_target(current_target, target)
+
+def monitor_breakpoints():
+    \"\"\"Monitor breakpoint changes and sync them across targets.\"\"\"
+    global debugger_ref, known_breakpoints, max_targets
+
+    if max_targets <= 1:
+        return
+
+    last_breakpoint_count = 0
+
+    while True:  # Keep running forever, not just while current_target_index < max_targets
+        if debugger_ref:
+            current_target = debugger_ref.GetSelectedTarget()
+            if current_target:
+                current_bp_count = current_target.GetNumBreakpoints()
+
+                # If breakpoint count changed, sync to all targets
+                if current_bp_count != last_breakpoint_count:
+                    sync_breakpoints_to_all_targets()
+                    last_breakpoint_count = current_bp_count
+
+        time.sleep(0.5)  # Check every 500ms
+
+def check_process_status():
+    \"\"\"Periodically check if the current process has exited.\"\"\"
+    global current_target_index, max_targets, debugger_ref, sequence_active
+
+    while True:  # Keep running forever, don't exit
+        if debugger_ref:
+            target = debugger_ref.GetSelectedTarget()
+            if target:
+                process = target.GetProcess()
+                if process and process.GetState() == lldb.eStateExited:
+                    # Process has exited
+                    if sequence_active and current_target_index < max_targets:
+                        # We're in an active sequence, trigger switch
+                        current_target_index += 1
+
+                        if current_target_index < max_targets:
+                            # Switch to next target and launch immediately
+                            print("\\n")
+                            debugger_ref.HandleCommand(f'target select {current_target_index}')
+                            print(" ")
+
+                            # Get target name for user feedback
+                            new_target = debugger_ref.GetSelectedTarget()
+                            target_name = new_target.GetExecutable().GetFilename() if new_target else "Unknown"
+
+                            # Launch the next target immediately with pause on main
+                            debugger_ref.HandleCommand('process launch') # -m to pause on main
+                        else:
+                            # Reset to first target and deactivate sequence until user runs again
+                            current_target_index = 0
+                            sequence_active = False  # Pause automatic switching
+
+                            print("\\n")
+                            debugger_ref.HandleCommand('target select 0')
+                            print("\\nAll testing targets completed.")
+                            print("Type 'run' to restart the entire test sequence from the beginning.\\n")
+
+                            # Clear the current line and move cursor to start
+                            sys.stdout.write("\\033[2K\\r")
+                            # Reprint a fake prompt
+                            sys.stdout.write("(lldb) ")
+                            sys.stdout.flush()
+                elif process and process.GetState() in [lldb.eStateRunning, lldb.eStateLaunching]:
+                    # Process is running - if sequence was inactive, reactivate it
+                    if not sequence_active:
+                        sequence_active = True
+                        # Find which target is currently selected to set the correct index
+                        selected_target = debugger_ref.GetSelectedTarget()
+                        if selected_target:
+                            for i in range(max_targets):
+                                if debugger_ref.GetTargetAtIndex(i) == selected_target:
+                                    current_target_index = i
+                                    break
+
+        time.sleep(0.1)  # Check every second
+
+def __lldb_init_module(debugger, internal_dict):
+    global max_targets, debugger_ref
+
+    debugger_ref = debugger
+
+    # Count the number of targets
+    max_targets = debugger.GetNumTargets()
+
+    if max_targets > 1:
+        # Start the process status checker
+        status_thread = threading.Thread(target=check_process_status, daemon=True)
+        status_thread.start()
+
+        # Start the breakpoint monitor
+        bp_thread = threading.Thread(target=monitor_breakpoints, daemon=True)
+        bp_thread.start()
+"""
+
+        try fileSystem.writeFileContents(scriptPath, string: pythonScript)
+        return scriptPath
     }
 }
 

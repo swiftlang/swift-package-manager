@@ -223,6 +223,11 @@ struct TestCommandOptions: ParsableArguments {
           help: "Enable code coverage.")
     var enableCodeCoverage: Bool = false
 
+    /// Launch tests under LLDB debugger.
+    @Flag(name: .customLong("debugger"),
+          help: "Launch the tests in a debugger session.")
+    var shouldLaunchInLLDB: Bool = false
+
     /// Configure test output.
     @Option(help: ArgumentHelp("", visibility: .hidden))
     public var testOutput: TestOutput = .default
@@ -287,8 +292,17 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
 
         var results = [TestRunner.Result]()
 
+        if options.shouldLaunchInLLDB {
+            let result = try await runTestProductsWithLLDB(
+                testProducts,
+                productsBuildParameters: buildParameters,
+                swiftCommandState: swiftCommandState
+            )
+            results.append(result)
+        }
+
         // Run XCTest.
-        if options.testLibraryOptions.isEnabled(.xctest, swiftCommandState: swiftCommandState) {
+        if !options.shouldLaunchInLLDB && options.testLibraryOptions.isEnabled(.xctest, swiftCommandState: swiftCommandState) {
             // Validate XCTest is available on Darwin-based systems. If it's not available and we're hitting this code
             // path, that means the developer must have explicitly passed --enable-xctest (or the toolchain is
             // corrupt, I suppose.)
@@ -358,7 +372,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         }
 
         // Run Swift Testing (parallel or not, it has a single entry point.)
-        if options.testLibraryOptions.isEnabled(.swiftTesting, swiftCommandState: swiftCommandState) {
+        if !options.shouldLaunchInLLDB && options.testLibraryOptions.isEnabled(.swiftTesting, swiftCommandState: swiftCommandState) {
             lazy var testEntryPointPath = testProducts.lazy.compactMap(\.testEntryPointPath).first
             if options.testLibraryOptions.isExplicitlyEnabled(.swiftTesting, swiftCommandState: swiftCommandState) || testEntryPointPath == nil {
                 results.append(
@@ -479,6 +493,182 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                 try await processCodeCoverage(testProducts, swiftCommandState: swiftCommandState)
             }
         }
+    }
+
+    /// Runs test products under LLDB debugger for interactive debugging.
+    ///
+    /// This method handles debugging for enabled testing libraries:
+    /// 1. If both XCTest and Swift Testing are enabled, prompts user to choose or runs both in separate sessions
+    /// 2. Validates that exactly one test product is available for debugging
+    /// 3. Creates a DebugTestRunner and launches LLDB with the test binary
+    ///
+    /// - Parameters:
+    ///   - testProducts: The built test products
+    ///   - productsBuildParameters: Build parameters for the products
+    ///   - swiftCommandState: The Swift command state
+    /// - Returns: The test result (typically .success since LLDB takes over)
+    private func runTestProductsWithLLDB(
+        _ testProducts: [BuiltTestProduct],
+        productsBuildParameters: BuildParameters,
+        swiftCommandState: SwiftCommandState
+    ) async throws -> TestRunner.Result {
+        // Validate that we have exactly one test product for debugging
+        guard testProducts.count == 1 else {
+            if testProducts.isEmpty {
+                throw StringError("No test products found for debugging")
+            } else {
+                let productNames = testProducts.map { $0.productName }.joined(separator: ", ")
+                throw StringError("Multiple test products found (\(productNames)). Specify a single target with --filter when using --debugger")
+            }
+        }
+
+        let testProduct = testProducts[0]
+        let toolchain = try swiftCommandState.getTargetToolchain()
+
+        // Determine which testing libraries are enabled
+        let xctestEnabled = options.testLibraryOptions.isEnabled(.xctest, swiftCommandState: swiftCommandState)
+        let swiftTestingEnabled = options.testLibraryOptions.isEnabled(.swiftTesting, swiftCommandState: swiftCommandState) &&
+                                 (options.testLibraryOptions.isExplicitlyEnabled(.swiftTesting, swiftCommandState: swiftCommandState) ||
+                                  testProduct.testEntryPointPath == nil)
+
+        // Create a list of testing libraries to run in sequence, checking for actual tests
+        var librariesToRun: [TestingLibrary] = []
+        var skippedLibraries: [(TestingLibrary, String)] = []
+
+        // Only add XCTest if it's enabled AND has tests to run
+        if xctestEnabled {
+            // Always check for XCTest tests by getting test suites
+            let testSuites = try TestingSupport.getTestSuites(
+                in: testProducts,
+                swiftCommandState: swiftCommandState,
+                enableCodeCoverage: options.enableCodeCoverage,
+                shouldSkipBuilding: options.sharedOptions.shouldSkipBuilding,
+                experimentalTestOutput: options.enableExperimentalTestOutput,
+                sanitizers: globalOptions.build.sanitizers
+            )
+            let filteredTests = try testSuites
+                .filteredTests(specifier: options.testCaseSpecifier)
+                .skippedTests(specifier: options.skippedTests(fileSystem: swiftCommandState.fileSystem))
+
+            if !filteredTests.isEmpty {
+                librariesToRun.append(.xctest)
+            } else {
+                skippedLibraries.append((.xctest, "no XCTest tests found"))
+            }
+        }
+
+        if swiftTestingEnabled {
+            librariesToRun.append(.swiftTesting)
+        }
+
+        // Ensure we have at least one library to run
+        guard !librariesToRun.isEmpty else {
+            if !skippedLibraries.isEmpty {
+                let skippedMessages = skippedLibraries.map { library, reason in
+                    let libraryName = library == .xctest ? "XCTest" : "Swift Testing"
+                    return "\(libraryName): \(reason)"
+                }
+                throw StringError("No testing libraries have tests to debug. Skipped: \(skippedMessages.joined(separator: ", "))")
+            }
+            throw StringError("No testing libraries are enabled for debugging")
+        }
+
+        try await runTestLibrariesWithLLDB(
+            testProduct: testProduct,
+            target: DebuggableTestSession(
+                targets: librariesToRun.map {
+                    DebuggableTestSession.Target(
+                        library: $0,
+                        additionalArgs: try additionalLLDBArguments(for: $0, testProducts: testProducts, swiftCommandState: swiftCommandState),
+                        bundlePath: testBundlePath(for: $0, testProduct: testProduct)
+                    )
+                }
+            ),
+            testProducts: testProducts,
+            productsBuildParameters: productsBuildParameters,
+            swiftCommandState: swiftCommandState,
+            toolchain: toolchain
+        )
+
+        // Clean up Python script file after all sessions complete
+        // (Breakpoint file cleanup is handled by DebugTestRunner based on SessionState)
+        if librariesToRun.count > 1 {
+            let tempDir = try swiftCommandState.fileSystem.tempDirectory
+            let pythonScriptFile = tempDir.appending("save_breakpoints.py")
+
+            if swiftCommandState.fileSystem.exists(pythonScriptFile) {
+                try? swiftCommandState.fileSystem.removeFileTree(pythonScriptFile)
+            }
+        }
+
+        return .success
+    }
+
+    private func additionalLLDBArguments(for library: TestingLibrary, testProducts: [BuiltTestProduct], swiftCommandState: SwiftCommandState) throws -> [String] {
+        // Determine test binary path and arguments based on the testing library
+        switch library {
+        case .xctest:
+            let (xctestArgs, _) = try xctestArgs(for: testProducts, swiftCommandState: swiftCommandState)
+            return xctestArgs
+
+        case .swiftTesting:
+            let commandLineArguments = CommandLine.arguments.dropFirst()
+            var swiftTestingArgs = ["--testing-library", "swift-testing", "--enable-swift-testing"]
+
+            if let separatorIndex = commandLineArguments.firstIndex(of: "--") {
+                // Only pass arguments after the "--" separator
+                swiftTestingArgs += Array(commandLineArguments.dropFirst(separatorIndex + 1))
+            }
+            return  swiftTestingArgs
+        }
+    }
+
+    private func testBundlePath(for library: TestingLibrary, testProduct: BuiltTestProduct) -> AbsolutePath {
+        switch library {
+        case .xctest:
+            testProduct.bundlePath
+        case .swiftTesting:
+            testProduct.binaryPath
+        }
+    }
+
+    /// Runs a single testing library under LLDB debugger.
+    ///
+    /// - Parameters:
+    ///   - testProduct: The test product to debug
+    ///   - library: The testing library to run
+    ///   - testProducts: All built test products (for XCTest args generation)
+    ///   - productsBuildParameters: Build parameters for the products
+    ///   - swiftCommandState: The Swift command state
+    ///   - toolchain: The toolchain to use
+    ///   - sessionState: The debugging session state for breakpoint persistence
+    private func runTestLibrariesWithLLDB(
+        testProduct: BuiltTestProduct,
+        target: DebuggableTestSession,
+        testProducts: [BuiltTestProduct],
+        productsBuildParameters: BuildParameters,
+        swiftCommandState: SwiftCommandState,
+        toolchain: UserToolchain
+    ) async throws {
+        // Create and launch the debug test runner
+        let debugRunner = DebugTestRunner(
+            target: target,
+            buildParameters: productsBuildParameters,
+            toolchain: toolchain,
+            testEnv: try TestingSupport.constructTestEnvironment(
+                toolchain: toolchain,
+                destinationBuildParameters: productsBuildParameters,
+                sanitizers: globalOptions.build.sanitizers,
+                library: .xctest // TODO
+            ),
+            cancellator: swiftCommandState.cancellator,
+            fileSystem: swiftCommandState.fileSystem,
+            observabilityScope: swiftCommandState.observabilityScope,
+            verbose: globalOptions.logging.verbose
+        )
+
+        // Launch LLDB using AsyncProcess with proper input/output forwarding
+        try debugRunner.run()
     }
 
     private func runTestProducts(
@@ -683,6 +873,11 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
     ///
     /// - Throws: if a command argument is invalid
     private func validateArguments(swiftCommandState: SwiftCommandState) throws {
+        // Validation for --debugger first, since it affects other validations.
+        if options.shouldLaunchInLLDB {
+            try validateLLDBCompatibility(swiftCommandState: swiftCommandState)
+        }
+
         // Validation for --num-workers.
         if let workers = options.numberOfWorkers {
             // The --num-worker option should be called with --parallel. Since
@@ -703,6 +898,36 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
 
         if options._deprecated_shouldListTests {
             swiftCommandState.observabilityScope.emit(warning: "'--list-tests' option is deprecated; use 'swift test list' instead")
+        }
+    }
+
+    /// Validates that --debugger is compatible with other provided arguments
+    ///
+    /// - Throws: if --debugger is used with incompatible flags
+    private func validateLLDBCompatibility(swiftCommandState: SwiftCommandState) throws {
+        // --debugger cannot be used with release configuration
+        let configuration = options.globalOptions.build.configuration ?? swiftCommandState.preferredBuildConfiguration
+        if configuration == .release {
+            throw StringError("--debugger cannot be used with release configuration (debugging requires debug symbols)")
+        }
+
+        // --debugger cannot be used with parallel testing
+        if options.shouldRunInParallel {
+            throw StringError("--debugger cannot be used with --parallel (debugging requires sequential execution)")
+        }
+
+        // --debugger cannot be used with --num-workers (which requires --parallel anyway)
+        if options.numberOfWorkers != nil {
+            throw StringError("--debugger cannot be used with --num-workers (debugging requires sequential execution)")
+        }
+
+        // --debugger cannot be used with information-only modes that exit early
+        if options._deprecated_shouldListTests {
+            throw StringError("--debugger cannot be used with --list-tests (use 'swift test list' for listing tests)")
+        }
+
+        if options.shouldPrintCodeCovPath {
+            throw StringError("--debugger cannot be used with --show-codecov-path (debugging session cannot show paths)")
         }
     }
 
