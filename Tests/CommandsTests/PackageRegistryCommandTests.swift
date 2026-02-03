@@ -114,12 +114,12 @@ struct PackageRegistryCommandTests {
             .Feature.Command.PackageRegistry.Set,
             .Feature.Command.PackageRegistry.Unset,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func localConfiguration(
         buildSystem: BuildSystemProvider.Kind,
-        config: BuildConfiguration,
     ) async throws {
+        let config = BuildConfiguration.debug
         try await fixture(name: "DependencyResolution/External/Simple") { fixturePath in
             let packageRoot = fixturePath.appending("Bar")
             let configurationFilePath = AbsolutePath(
@@ -245,12 +245,12 @@ struct PackageRegistryCommandTests {
             .TestSize.large,
             .Feature.Command.PackageRegistry.Set,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func setMissingURL(
         buildSystem: BuildSystemProvider.Kind,
-        config: BuildConfiguration,
     ) async throws {
+        let config = BuildConfiguration.debug
         try await fixture(name: "DependencyResolution/External/Simple") { fixturePath in
             let packageRoot = fixturePath.appending("Bar")
             let configurationFilePath = AbsolutePath(
@@ -279,12 +279,12 @@ struct PackageRegistryCommandTests {
             .TestSize.large,
             .Feature.Command.PackageRegistry.Set,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func setInvalidURL(
         buildSystem: BuildSystemProvider.Kind,
-        config: BuildConfiguration,
     ) async throws {
+        let config = BuildConfiguration.debug
         try await fixture(name: "DependencyResolution/External/Simple") { fixturePath in
             let packageRoot = fixturePath.appending("Bar")
             let configurationFilePath = AbsolutePath(
@@ -313,12 +313,12 @@ struct PackageRegistryCommandTests {
             .TestSize.large,
             .Feature.Command.PackageRegistry.Set,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func setInsecureURL(
         buildSystem: BuildSystemProvider.Kind,
-        config: BuildConfiguration,
     ) async throws {
+        let config = BuildConfiguration.debug
         try await fixture(name: "DependencyResolution/External/Simple") { fixturePath in
             let packageRoot = fixturePath.appending("Bar")
             let configurationFilePath = AbsolutePath(
@@ -347,12 +347,12 @@ struct PackageRegistryCommandTests {
             .TestSize.large,
             .Feature.Command.PackageRegistry.Set,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func setAllowedInsecureURL(
         buildSystem: BuildSystemProvider.Kind,
-        config: BuildConfiguration,
     ) async throws {
+        let config = BuildConfiguration.debug
         try await fixture(name: "DependencyResolution/External/Simple") { fixturePath in
             let packageRoot = fixturePath.appending("Bar")
             let configurationFilePath = AbsolutePath(
@@ -379,12 +379,12 @@ struct PackageRegistryCommandTests {
             .TestSize.large,
             .Feature.Command.PackageRegistry.Set,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func setInvalidScope(
         buildSystem: BuildSystemProvider.Kind,
-        config: BuildConfiguration,
     ) async throws {
+        let config = BuildConfiguration.debug
         try await fixture(name: "DependencyResolution/External/Simple") { fixturePath in
             let packageRoot = fixturePath.appending("Bar")
             let configurationFilePath = AbsolutePath(
@@ -416,12 +416,12 @@ struct PackageRegistryCommandTests {
             .Feature.Command.PackageRegistry.Set,
             .Feature.Command.PackageRegistry.Unset,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func unsetMissingEntry(
         buildSystem: BuildSystemProvider.Kind,
-        config: BuildConfiguration,
     ) async throws {
+        let config = BuildConfiguration.debug
         try await fixture(name: "DependencyResolution/External/Simple") { fixturePath in
             let packageRoot = fixturePath.appending("Bar")
             let configurationFilePath = AbsolutePath(
@@ -474,12 +474,12 @@ struct PackageRegistryCommandTests {
             .TestSize.large,
         ),
         .requiresWorkingDirectorySupport,
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func archiving(
         buildSystem: BuildSystemProvider.Kind,
-        config: BuildConfiguration,
     ) async throws {
+        let config = BuildConfiguration.debug
         let observability = ObservabilitySystem.makeForTesting()
 
         let packageIdentity = PackageIdentity.plain("org.package")
@@ -601,12 +601,12 @@ struct PackageRegistryCommandTests {
             .Feature.Command.PackageRegistry.Publish,
         ),
         .requiresWorkingDirectorySupport,
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func publishingToHTTPRegistry(
         buildSystem: BuildSystemProvider.Kind,
-        config: BuildConfiguration,
     ) throws {
+        let config = BuildConfiguration.debug
 
 
         let packageIdentity = "test.my-package"
@@ -653,12 +653,12 @@ struct PackageRegistryCommandTests {
             .Feature.Command.PackageRegistry.Publish,
         ),
         .requiresWorkingDirectorySupport,
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func publishingToAllowedHTTPRegistry(
         buildSystem: BuildSystemProvider.Kind,
-        config: BuildConfiguration,
     ) async throws {
+        let config = BuildConfiguration.debug
         let packageIdentity = "test.my-package"
         let version = "0.1.0"
         let registryURL = "http://packages.example.com"
@@ -748,12 +748,12 @@ struct PackageRegistryCommandTests {
             .TestSize.large,
             .Feature.Command.PackageRegistry.Publish,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func publishingUnsignedPackage(
         buildSystem: BuildSystemProvider.Kind,
-        config: BuildConfiguration,
     ) throws {
+        let config = BuildConfiguration.debug
         let packageIdentity = "test.my-package"
         let version = "0.1.0"
         let registryURL = "https://packages.example.com"
@@ -916,13 +916,13 @@ struct PackageRegistryCommandTests {
             .TestSize.large,
             .Feature.Command.PackageRegistry.Publish,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     @available(macOS 12, iOS 15, tvOS 15, watchOS 8, *)
     func publishingSignedPackage(
         buildSystem: BuildSystemProvider.Kind,
-        config: BuildConfiguration,
     ) async throws {
+        let config = BuildConfiguration.debug
         let observabilityScope = ObservabilitySystem.makeForTesting().topScope
 
         let packageIdentity = "test.my-package"

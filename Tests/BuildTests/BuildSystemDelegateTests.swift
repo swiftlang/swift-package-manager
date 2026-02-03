@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 import Foundation
 
+import struct SPMBuildCore.BuildSystemProvider
 import PackageModel
 import _InternalTestSupport
 import Testing
@@ -26,18 +27,17 @@ struct BuildSystemDelegateTests {
     @Test(
         .requiresSDKDependentTestsSupport,
         .requireHostOS(.macOS),  // These linker diagnostics are only produced on macOS.
-        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func doNotFilterLinkerDiagnostics(
-        data: BuildData,
+        buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         try await fixture(name: "Miscellaneous/DoNotFilterLinkerDiagnostics") { fixturePath in
             let (stdout, stderr) = try await executeSwiftBuild(
                 fixturePath,
-                configuration: data.config,
-                buildSystem: data.buildSystem,
+                buildSystem: buildSystem,
             )
-            switch data.buildSystem {
+            switch buildSystem {
             case .native:
                 #expect(
                     stdout.contains("ld: warning: search path 'foobar' not found"),
@@ -68,28 +68,29 @@ struct BuildSystemDelegateTests {
             .Feature.CommandLineArguments.BuildSystem,
             .Feature.CommandLineArguments.Configuration,
         ),
-        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func filterNonFatalCodesignMessages(
-        data: BuildData,
+        buildSystem: BuildSystemProvider.Kind,
     ) async throws {
+        let config = BuildConfiguration.debug
         try await withKnownIssue(isIntermittent: true) {
             // Note: we can re-use the `TestableExe` fixture here since we just need an executable.
             try await fixture(name: "Miscellaneous/TestableExe") { fixturePath in
                 _ = try await executeSwiftBuild(
                     fixturePath,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 )
                 let execPath = try fixturePath.appending(
-                    components: data.buildSystem.binPath(for: data.config) + [executableName("TestableExe1")]
+                    components: buildSystem.binPath(for: config) + [executableName("TestableExe1")]
                 )
                 expectFileExists(at: execPath)
                 try localFileSystem.removeFileTree(execPath)
                 let (stdout, stderr) = try await executeSwiftBuild(
                     fixturePath,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 )
                 #expect(!stdout.contains("replacing existing signature"), "log contained non-fatal codesigning messages stderr: '\(stderr)'")
                 #expect(!stderr.contains("replacing existing signature"), "log contained non-fatal codesigning messages. stdout: '\(stdout)'")

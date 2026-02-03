@@ -24,11 +24,3 @@ public let buildDataUsingAllBuildSystemWithTags = TestBuildData(
         .Feature.CommandLineArguments.Configuration
     )
 )
-
-public let buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags = TestBuildData(
-    buildData: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
-    tags: .tags(
-        .Feature.CommandLineArguments.BuildSystem,
-        .Feature.CommandLineArguments.Configuration
-    )
-)

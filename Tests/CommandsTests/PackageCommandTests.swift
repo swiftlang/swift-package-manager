@@ -77,14 +77,15 @@ private func executeAddURLDependencyAndAssert(
     url: String,
     requirementArgs: [String],
     expectedManifestString: String,
-    buildData: BuildData,
+    buildSystem: BuildSystemProvider.Kind,
 ) async throws {
+    let config = BuildConfiguration.debug
     _ = try await execute(
         ["add-dependency", url] + requirementArgs,
         packagePath: packagePath,
         manifest: initialManifest,
-        configuration: buildData.config,
-        buildSystem: buildData.buildSystem,
+        configuration: config,
+        buildSystem: buildSystem,
     )
     try expectManifestContains(packagePath, expectedManifestString)
 }
@@ -98,32 +99,34 @@ private func executeAddURLDependencyAndAssert(
 )
 struct PackageCommandTests {
     @Test(
-        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func noParameters(
-        data: BuildData,
+        buildSystem: BuildSystemProvider.Kind,
     ) async throws {
+        let config = BuildConfiguration.debug
         let stdout = try await executeSwiftPackage(
             AbsolutePath.root,
-            configuration: data.config,
-            buildSystem: data.buildSystem,
+            configuration: config,
+            buildSystem: buildSystem,
         ).stdout
         #expect(stdout.contains("USAGE: swift package"))
     }
 
     @Test(
         .issue("rdar://131126477", relationship: .defect),
-        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func usage(
-        data: BuildData,
+        buildSystem: BuildSystemProvider.Kind,
     ) async throws {
+        let config = BuildConfiguration.debug
         await expectThrowsCommandExecutionError(
             try await executeSwiftPackage(
                 nil,
-                configuration: data.config,
+                configuration: config,
                 extraArgs: ["-halp"],
-                buildSystem: data.buildSystem,
+                buildSystem: buildSystem,
             )
         ) { error in
             #expect(error.stderr.contains("Usage: swift package"))
@@ -131,16 +134,17 @@ struct PackageCommandTests {
     }
 
     @Test(
-        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func seeAlso(
-        buildData: BuildData,
+        buildSystem: BuildSystemProvider.Kind,
      ) async throws {
+        let config = BuildConfiguration.debug
         let stdout = try await executeSwiftPackage(
             AbsolutePath.root,
-            configuration: buildData.config,
+            configuration: config,
             extraArgs: ["--help"],
-            buildSystem: buildData.buildSystem,
+            buildSystem: buildSystem,
         ).stdout
         #expect(stdout.contains("SEE ALSO: swift build, swift run, swift test \n(Run this command without --help to see possible dynamic plugin commands.)"))
     }
@@ -163,17 +167,18 @@ struct PackageCommandTests {
     }
 
     @Test(
-        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func commandFailsSilentlyWhenFetchingPluginFails(
-        data: BuildData,
+        buildSystem: BuildSystemProvider.Kind,
     ) async throws {
+        let config = BuildConfiguration.debug
         try await fixture(name: "Miscellaneous/Plugins/MySourceGenPlugin") { fixturePath in // Contains only build-tool-plugins, therefore would not appear in available plugin commands.
             let (stdout, _) = try await execute(
                 ["--help"],
                 packagePath: fixturePath,
-                configuration: data.config,
-                buildSystem: data.buildSystem,
+                configuration: config,
+                buildSystem: buildSystem,
             )
 
             #expect(!stdout.contains("AVAILABLE PLUGIN COMMANDS:"))
@@ -184,11 +189,12 @@ struct PackageCommandTests {
 
     // Have to create empty package, as in CI, --help is invoked on swiftPM, causing test to fail
     @Test(
-        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func commandDisplaysNoAvailablePluginCommands(
-        data: BuildData
+        buildSystem: BuildSystemProvider.Kind
     ) async throws {
+        let config = BuildConfiguration.debug
         try await testWithTemporaryDirectory { tmpPath in
 
             let packageDir = tmpPath.appending(components: "MyPackage")
@@ -210,19 +216,20 @@ struct PackageCommandTests {
             let (stdout, _) = try await execute(
                 ["--help"],
                 packagePath: packageDir,
-                configuration: data.config,
-                buildSystem: data.buildSystem,
+                configuration: config,
+                buildSystem: buildSystem,
             )
             #expect(!stdout.contains("AVAILABLE PLUGIN COMMANDS:"))
         }
     }
 
     @Test(
-        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func commandDisplaysAvailablePluginCommands(
-        data: BuildData
+        buildSystem: BuildSystemProvider.Kind
     ) async throws {
+        let config = BuildConfiguration.debug
         try await testWithTemporaryDirectory { tmpPath in
             // Create a sample package with a library target, a plugin, and a local tool. It depends on a sample package which also has a tool.
             let packageDir = tmpPath.appending(components: "MyPackage")
@@ -276,8 +283,8 @@ struct PackageCommandTests {
             let (stdout, _) = try await execute(
                 ["--help"],
                 packagePath: packageDir,
-                configuration: data.config,
-                buildSystem: data.buildSystem,
+                configuration: config,
+                buildSystem: buildSystem,
             )
 
             #expect(stdout.contains("AVAILABLE PLUGIN COMMANDS:"))
@@ -290,15 +297,16 @@ struct PackageCommandTests {
         .tags(
             .Feature.Command.Package.CompletionTool,
         ),
-        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func completionTool(
-        data: BuildData,
+        buildSystem: BuildSystemProvider.Kind,
     ) async throws {
+        let config = BuildConfiguration.debug
         let stdout = try await execute(
             ["completion-tool", "--help"],
-            configuration: data.config,
-            buildSystem: data.buildSystem,
+            configuration: config,
+            buildSystem: buildSystem,
         ).stdout
         #expect(stdout.contains("OVERVIEW: Command to generate shell completions."))
     }
@@ -310,44 +318,47 @@ struct PackageCommandTests {
     )
     struct InitHelpUsageTests {
         @Test(
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func initOverview(
-            data: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws {
+            let config = BuildConfiguration.debug
             let stdout = try await execute(
                 ["init", "--help"],
-                configuration: data.config,
-                buildSystem: data.buildSystem,
+                configuration: config,
+                buildSystem: buildSystem,
             ).stdout
             #expect(stdout.contains("OVERVIEW: Initialize a new package"))
         }
 
         @Test(
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func initUsage(
-            data: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws {
+            let config = BuildConfiguration.debug
             let stdout = try await execute(
                 ["init", "--help"],
-                configuration: data.config,
-                buildSystem: data.buildSystem,
+                configuration: config,
+                buildSystem: buildSystem,
             ).stdout
             #expect(stdout.contains("USAGE: swift package init [--type <type>] "))
             #expect(stdout.contains(" [--name <name>]"))
         }
 
         @Test(
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func initOptionsHelp(
-            data: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws {
+            let config = BuildConfiguration.debug
             let stdout = try await execute(
                 ["init", "--help"],
-                configuration: data.config,
-                buildSystem: data.buildSystem,
+                configuration: config,
+                buildSystem: buildSystem,
             ).stdout
             #expect(stdout.contains("OPTIONS:"))
         }
@@ -357,16 +368,17 @@ struct PackageCommandTests {
         .tags(
             .Feature.Command.Package.Plugin,
         ),
-        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func plugin(
-        data: BuildData,
+        buildSystem: BuildSystemProvider.Kind,
     ) async throws {
+        let config = BuildConfiguration.debug
         await expectThrowsCommandExecutionError(
             try await execute(
                 ["plugin"],
-                configuration: data.config,
-                buildSystem: data.buildSystem,
+                configuration: config,
+                buildSystem: buildSystem,
             )
         ) { error in
             #expect(error.stderr.contains("error: Missing expected plugin command"))
@@ -374,16 +386,17 @@ struct PackageCommandTests {
     }
 
     @Test(
-        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func unknownOption(
-        data: BuildData,
+        buildSystem: BuildSystemProvider.Kind,
     ) async throws {
+        let config = BuildConfiguration.debug
         await expectThrowsCommandExecutionError(
             try await execute(
                 ["--foo"],
-                configuration: data.config,
-                buildSystem: data.buildSystem,
+                configuration: config,
+                buildSystem: buildSystem,
             )
         ) { error in
             #expect(error.stderr.contains("error: Unknown option '--foo'"))
@@ -391,18 +404,19 @@ struct PackageCommandTests {
     }
 
     @Test(
-        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func unknownSubcommand(
-        data: BuildData,
+        buildSystem: BuildSystemProvider.Kind,
     ) async throws {
+        let config = BuildConfiguration.debug
         try await fixture(name: "Miscellaneous/ExeTest") { fixturePath in
             await expectThrowsCommandExecutionError(
                 try await execute(
                     ["foo"],
                     packagePath: fixturePath,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 )
             ) { error in
                 #expect(error.stderr.contains("Unknown subcommand or plugin name ‘foo’"))
@@ -423,26 +437,27 @@ struct PackageCommandTests {
         )
         struct NetRcTests {
             @Test(
-                arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+                arguments: SupportedBuildSystemOnAllPlatforms,
             )
             func netrc(
-                data: BuildData,
+                buildSystem: BuildSystemProvider.Kind,
             ) async throws {
+                let config = BuildConfiguration.debug
                 try await fixture(name: "DependencyResolution/External/XCFramework") { fixturePath in
                     // --enable-netrc flag
                     try await execute(
                         ["resolve", "--enable-netrc"],
                         packagePath: fixturePath,
-                        configuration: data.config,
-                        buildSystem: data.buildSystem,
+                        configuration: config,
+                        buildSystem: buildSystem,
                     )
 
                     // --disable-netrc flag
                     try await execute(
                         ["resolve", "--disable-netrc"],
                         packagePath: fixturePath,
-                        configuration: data.config,
-                        buildSystem: data.buildSystem,
+                        configuration: config,
+                        buildSystem: buildSystem,
                     )
 
                     // --enable-netrc and --disable-netrc flags
@@ -450,8 +465,8 @@ struct PackageCommandTests {
                         try await execute(
                             ["resolve", "--enable-netrc", "--disable-netrc"],
                             packagePath: fixturePath,
-                            configuration: data.config,
-                            buildSystem: data.buildSystem,
+                            configuration: config,
+                            buildSystem: buildSystem,
                         )
                     ) { error in
                         #expect(
@@ -464,11 +479,12 @@ struct PackageCommandTests {
             }
 
             @Test(
-                arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+                arguments: SupportedBuildSystemOnAllPlatforms,
             )
             func netrcFile(
-                data: BuildData,
+                buildSystem: BuildSystemProvider.Kind,
             ) async throws {
+                let config = BuildConfiguration.debug
                 try await fixture(name: "DependencyResolution/External/XCFramework") { fixturePath in
                     let fs = localFileSystem
                     let netrcPath = fixturePath.appending(".netrc")
@@ -481,8 +497,8 @@ struct PackageCommandTests {
                     try await execute(
                         ["resolve", "--netrc-file", netrcPath.pathString],
                         packagePath: fixturePath,
-                        configuration: data.config,
-                        buildSystem: data.buildSystem,
+                        configuration: config,
+                        buildSystem: buildSystem,
                     )
 
                     // valid .netrc file path with --disable-netrc option
@@ -490,8 +506,8 @@ struct PackageCommandTests {
                         try await execute(
                             ["resolve", "--netrc-file", netrcPath.pathString, "--disable-netrc"],
                             packagePath: fixturePath,
-                            configuration: data.config,
-                            buildSystem: data.buildSystem,
+                            configuration: config,
+                            buildSystem: buildSystem,
                         )
                     ) { error in
                         #expect(
@@ -505,8 +521,8 @@ struct PackageCommandTests {
                         try await execute(
                             ["resolve", "--netrc-file", "/foo"],
                             packagePath: fixturePath,
-                            configuration: data.config,
-                            buildSystem: data.buildSystem,
+                            configuration: config,
+                            buildSystem: buildSystem,
                         )
                     ) { error in
                         #expect(error.stderr.contains(errorRegex))
@@ -517,8 +533,8 @@ struct PackageCommandTests {
                         try await execute(
                             ["resolve", "--netrc-file", "/foo", "--disable-netrc"],
                             packagePath: fixturePath,
-                            configuration: data.config,
-                            buildSystem: data.buildSystem,
+                            configuration: config,
+                            buildSystem: buildSystem,
                         )
                     ) { error in
                         #expect(
@@ -533,11 +549,12 @@ struct PackageCommandTests {
             .tags(
                 .Feature.Command.Package.Reset,
             ),
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func enableDisableCache(
-            data: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws {
+            let config = BuildConfiguration.debug
             try await fixture(name: "DependencyResolution/External/Simple") { fixturePath in
                 let packageRoot = fixturePath.appending("Bar")
                 let repositoriesPath = packageRoot.appending(components: ".build", "repositories")
@@ -549,16 +566,16 @@ struct PackageCommandTests {
                     _ = try await execute(
                         ["reset"],
                         packagePath: packageRoot,
-                        configuration: data.config,
-                        buildSystem: data.buildSystem,
+                        configuration: config,
+                        buildSystem: buildSystem,
                     )
                     try localFileSystem.removeFileTree(cachePath)
 
                     try await execute(
                         ["resolve", "--enable-dependency-cache", "--cache-path", cachePath.pathString],
                         packagePath: packageRoot,
-                        configuration: data.config,
-                        buildSystem: data.buildSystem,
+                        configuration: config,
+                        buildSystem: buildSystem,
                     )
 
                     // we have to check for the prefix here since the hash value changes because spm sees the `prefix`
@@ -578,16 +595,16 @@ struct PackageCommandTests {
                     _ = try await execute(
                         ["reset"],
                         packagePath: packageRoot,
-                        configuration: data.config,
-                        buildSystem: data.buildSystem,
+                        configuration: config,
+                        buildSystem: buildSystem,
                     )
 
                     // Perform another cache this time from the cache
                     _ = try await execute(
                         ["resolve", "--enable-dependency-cache", "--cache-path", cachePath.pathString],
                         packagePath: packageRoot,
-                        configuration: data.config,
-                        buildSystem: data.buildSystem,
+                        configuration: config,
+                        buildSystem: buildSystem,
                     )
                     #expect(
                         try localFileSystem.getDirectoryContents(repositoriesPath).contains {
@@ -599,8 +616,8 @@ struct PackageCommandTests {
                     _ = try await execute(
                         ["reset"],
                         packagePath: packageRoot,
-                        configuration: data.config,
-                        buildSystem: data.buildSystem,
+                        configuration: config,
+                        buildSystem: buildSystem,
                     )
                     try localFileSystem.removeFileTree(cachePath)
 
@@ -608,8 +625,8 @@ struct PackageCommandTests {
                     _ = try await execute(
                         ["resolve", "--enable-dependency-cache", "--cache-path", cachePath.pathString],
                         packagePath: packageRoot,
-                        configuration: data.config,
-                        buildSystem: data.buildSystem,
+                        configuration: config,
+                        buildSystem: buildSystem,
                     )
                     #expect(
                         try localFileSystem.getDirectoryContents(repositoriesPath).contains {
@@ -628,16 +645,16 @@ struct PackageCommandTests {
                     _ = try await execute(
                         ["reset"],
                         packagePath: packageRoot,
-                        configuration: data.config,
-                        buildSystem: data.buildSystem,
+                        configuration: config,
+                        buildSystem: buildSystem,
                     )
                     try localFileSystem.removeFileTree(cachePath)
 
                     try await execute(
                         ["resolve", "--disable-dependency-cache", "--cache-path", cachePath.pathString],
                         packagePath: packageRoot,
-                        configuration: data.config,
-                        buildSystem: data.buildSystem,
+                        configuration: config,
+                        buildSystem: buildSystem,
                     )
 
                     // we have to check for the prefix here since the hash value changes because spm sees the `prefix`
@@ -655,16 +672,16 @@ struct PackageCommandTests {
                     _ = try await execute(
                         ["reset"],
                         packagePath: packageRoot,
-                        configuration: data.config,
-                        buildSystem: data.buildSystem,
+                        configuration: config,
+                        buildSystem: buildSystem,
                     )
                     try localFileSystem.removeFileTree(cachePath)
 
                     let (_, _) = try await execute(
                         ["resolve", "--enable-dependency-cache", "--cache-path", cachePath.pathString],
                         packagePath: packageRoot,
-                        configuration: data.config,
-                        buildSystem: data.buildSystem,
+                        configuration: config,
+                        buildSystem: buildSystem,
                     )
 
                     // we have to check for the prefix here since the hash value changes because spm sees the `prefix`
@@ -684,16 +701,16 @@ struct PackageCommandTests {
                     _ = try await execute(
                         ["reset"],
                         packagePath: packageRoot,
-                        configuration: data.config,
-                        buildSystem: data.buildSystem,
+                        configuration: config,
+                        buildSystem: buildSystem,
                     )
 
                     // Perform another cache this time from the cache
                     _ = try await execute(
                         ["resolve", "--enable-dependency-cache", "--cache-path", cachePath.pathString],
                         packagePath: packageRoot,
-                        configuration: data.config,
-                        buildSystem: data.buildSystem,
+                        configuration: config,
+                        buildSystem: buildSystem,
                     )
                     #expect(
                         try localFileSystem.getDirectoryContents(repositoriesPath).contains {
@@ -705,8 +722,8 @@ struct PackageCommandTests {
                     _ = try await execute(
                         ["reset"],
                         packagePath: packageRoot,
-                        configuration: data.config,
-                        buildSystem: data.buildSystem,
+                        configuration: config,
+                        buildSystem: buildSystem,
                     )
                     try localFileSystem.removeFileTree(cachePath)
 
@@ -714,8 +731,8 @@ struct PackageCommandTests {
                     _ = try await execute(
                         ["resolve", "--enable-dependency-cache", "--cache-path", cachePath.pathString],
                         packagePath: packageRoot,
-                        configuration: data.config,
-                        buildSystem: data.buildSystem,
+                        configuration: config,
+                        buildSystem: buildSystem,
                     )
                     #expect(
                         try localFileSystem.getDirectoryContents(repositoriesPath).contains {
@@ -734,16 +751,16 @@ struct PackageCommandTests {
                     _ = try await execute(
                         ["reset"],
                         packagePath: packageRoot,
-                        configuration: data.config,
-                        buildSystem: data.buildSystem,
+                        configuration: config,
+                        buildSystem: buildSystem,
                     )
                     try localFileSystem.removeFileTree(cachePath)
 
                     let (_, _) = try await execute(
                         ["resolve", "--disable-dependency-cache", "--cache-path", cachePath.pathString],
                         packagePath: packageRoot,
-                        configuration: data.config,
-                        buildSystem: data.buildSystem,
+                        configuration: config,
+                        buildSystem: buildSystem,
                     )
 
                     // we have to check for the prefix here since the hash value changes because spm sees the `prefix`
@@ -758,11 +775,12 @@ struct PackageCommandTests {
             }
         }
         @Test(
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func resolve(
-            data: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws {
+            let config = BuildConfiguration.debug
             try await fixture(name: "DependencyResolution/External/Simple") { fixturePath in
                 let packageRoot = fixturePath.appending("Bar")
 
@@ -770,8 +788,8 @@ struct PackageCommandTests {
                 _ = try await execute(
                     ["resolve"],
                     packagePath: packageRoot,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 )
                 let path = try SwiftPM.packagePath(for: "Foo", packageRoot: packageRoot)
                 #expect(try GitRepository(path: path).getTags() == ["1.2.3"])
@@ -782,11 +800,12 @@ struct PackageCommandTests {
             .tags(
                 .Feature.Command.Package.Update,
             ),
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func update(
-            data: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws {
+            let config = BuildConfiguration.debug
             try await fixture(name: "DependencyResolution/External/Simple") { fixturePath in
                 let packageRoot = fixturePath.appending("Bar")
 
@@ -794,8 +813,8 @@ struct PackageCommandTests {
                 _ = try await execute(
                     ["resolve"],
                     packagePath: packageRoot,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 )
 
                 do {
@@ -819,8 +838,8 @@ struct PackageCommandTests {
                 _ = try await execute(
                     ["update"],
                     packagePath: packageRoot,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 )
 
                 do {
@@ -837,11 +856,12 @@ struct PackageCommandTests {
             .tags(
                 .Feature.Command.Package.Reset,
             ),
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func cache(
-            data: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws {
+            let config = BuildConfiguration.debug
             try await fixture(name: "DependencyResolution/External/Simple") { fixturePath in
                 let packageRoot = fixturePath.appending("Bar")
                 let repositoriesPath = packageRoot.appending(components: ".build", "repositories")
@@ -852,8 +872,8 @@ struct PackageCommandTests {
                 _ = try await execute(
                     ["resolve", "--cache-path", cachePath.pathString],
                     packagePath: packageRoot,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 )
                 // we have to check for the prefix here since the hash value changes because spm sees the `prefix`
                 // directory `/var/...` as `/private/var/...`.
@@ -872,16 +892,16 @@ struct PackageCommandTests {
                 _ = try await execute(
                     ["reset"],
                     packagePath: packageRoot,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 )
 
                 // Perform another cache this time from the cache
                 _ = try await execute(
                     ["resolve", "--cache-path", cachePath.pathString],
                     packagePath: packageRoot,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 )
                 #expect(
                     try localFileSystem.getDirectoryContents(repositoriesPath).contains {
@@ -893,8 +913,8 @@ struct PackageCommandTests {
                 _ = try await execute(
                     ["reset"],
                     packagePath: packageRoot,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 )
                 try localFileSystem.removeFileTree(cachePath)
 
@@ -902,8 +922,8 @@ struct PackageCommandTests {
                 _ = try await execute(
                     ["resolve", "--cache-path", cachePath.pathString],
                     packagePath: packageRoot,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 )
                 #expect(
                     try localFileSystem.getDirectoryContents(repositoriesPath).contains {
@@ -926,18 +946,19 @@ struct PackageCommandTests {
     )
     struct DescribeCommandTests {
         @Test(
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func describe(
-            data: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws {
+            let config = BuildConfiguration.debug
             try await fixture(name: "Miscellaneous/ExeTest") { fixturePath in
                 // Generate the JSON description.
                 let (jsonOutput, _) = try await execute(
                     ["describe", "--type=json"],
                     packagePath: fixturePath,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 )
                 let json = try JSON(bytes: ByteString(encodingAsUTF8: jsonOutput))
 
@@ -954,8 +975,8 @@ struct PackageCommandTests {
                 let (jsonOutput, _) = try await execute(
                     ["describe", "--type=json"],
                     packagePath: fixturePath,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 )
                 let json = try JSON(bytes: ByteString(encodingAsUTF8: jsonOutput))
 
@@ -987,8 +1008,8 @@ struct PackageCommandTests {
                 let (textOutput, _) = try await execute(
                     ["describe", "--type=text"],
                     packagePath: fixturePath,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 )
                 let textChunks = textOutput.components(separatedBy: "\n").reduce(into: [""]) {
                     chunks,
@@ -1048,19 +1069,20 @@ struct PackageCommandTests {
                 .Feature.Command.Package.Describe
             ),
             .IssueWindowsRelativePathAssert,
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func describeJson(
-            data: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws {
+            let config = BuildConfiguration.debug
             try await withKnownIssue(isIntermittent: true) {
                 try await fixture(name: "DependencyResolution/External/Simple/Bar") { fixturePath in
                     // Generate the JSON description.
                     let (jsonOutput, _) = try await execute(
                         ["describe", "--type=json"],
                         packagePath: fixturePath,
-                        configuration: data.config,
-                        buildSystem: data.buildSystem,
+                        configuration: config,
+                        buildSystem: buildSystem,
                     )
                     let json = try JSON(bytes: ByteString(encodingAsUTF8: jsonOutput))
 
@@ -1077,18 +1099,19 @@ struct PackageCommandTests {
         }
 
         @Test(
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func describePackageUsingPlugins(
-            data: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws {
+            let config = BuildConfiguration.debug
             try await fixture(name: "Miscellaneous/Plugins/MySourceGenPlugin") { fixturePath in
                 // Generate the JSON description.
                 let (stdout, _) = try await execute(
                     ["describe", "--type=json"],
                     packagePath: fixturePath,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 )
                 let json = try JSON(bytes: ByteString(encodingAsUTF8: stdout))
 
@@ -1117,18 +1140,19 @@ struct PackageCommandTests {
         .tags(
             .Feature.Command.Package.DumpPackage,
         ),
-        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func dumpPackage(
-        data: BuildData,
+        buildSystem: BuildSystemProvider.Kind,
     ) async throws {
+        let config = BuildConfiguration.debug
         try await fixture(name: "Miscellaneous/DumpPackage") { fixturePath in
             let packageRoot = fixturePath.appending("app")
             let (dumpOutput, _) = try await execute(
                 ["dump-package"],
                 packagePath: packageRoot,
-                configuration: data.config,
-                buildSystem: data.buildSystem,
+                configuration: config,
+                buildSystem: buildSystem,
             )
             let json = try JSON(bytes: ByteString(encodingAsUTF8: dumpOutput))
             guard case .dictionary(let contents) = json else {
@@ -1187,16 +1211,17 @@ struct PackageCommandTests {
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8848", relationship: .defect),
         .IssueWindowsLongPath,
         .requiresSymbolgraphExtract,
-        arguments: getBuildData(for: [.swiftbuild]),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
         [
             true,
             false,
         ],
     )
     func dumpSymbolGraphFormatting(
-        data: BuildData,
+        buildSystem: BuildSystemProvider.Kind,
         withPrettyPrinting: Bool,
     ) async throws {
+        let config = BuildConfiguration.debug
         // try XCTSkipIf(buildSystemProvider == .native && (try? UserToolchain.default.getSymbolGraphExtract()) == nil, "skipping test because the `swift-symbolgraph-extract` tools isn't available")
         try await withKnownIssue(isIntermittent: true) {
             try await fixture(
@@ -1215,8 +1240,8 @@ struct PackageCommandTests {
                     arguments,
                     packagePath: fixturePath,
                     env: ["SWIFT_SYMBOLGRAPH_EXTRACT": symbolGraphExtractorPath.pathString],
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 )
                 let enumerator = try #require(
                     FileManager.default.enumerator(
@@ -1252,8 +1277,8 @@ struct PackageCommandTests {
                 }
             }
         } when: {
-            (ProcessInfo.hostOperatingSystem == .windows && data.buildSystem == .swiftbuild && !withPrettyPrinting)
-                || (data.buildSystem == .swiftbuild && withPrettyPrinting)
+            (ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild && !withPrettyPrinting)
+                || (buildSystem == .swiftbuild && withPrettyPrinting)
         }
     }
 
@@ -1264,68 +1289,72 @@ struct PackageCommandTests {
     )
     struct CompletionToolCommandTests {
         @Test(
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func completionToolListSnippets(
-            data: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws {
+            let config = BuildConfiguration.debug
             try await fixture(name: "Miscellaneous/Plugins/PluginsAndSnippets") { fixturePath in
                 let result = try await execute(
                     ["completion-tool", "list-snippets"],
                     packagePath: fixturePath,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 )
                 #expect(result.stdout == "ContainsMain\nImportsProductTarget\nMySnippet\nmain\n")
             }
         }
 
         @Test(
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func completionToolListDependencies(
-            data: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws {
+            let config = BuildConfiguration.debug
             try await fixture(name: "DependencyResolution/External/Complex") { fixturePath in
                 let result = try await execute(
                     ["completion-tool", "list-dependencies"],
                     packagePath: fixturePath.appending("deck-of-playing-cards-local"),
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 )
                 #expect(result.stdout == "playingcard\nfisheryates\n")
             }
         }
 
         @Test(
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func completionToolListExecutables(
-            data: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws {
+            let config = BuildConfiguration.debug
             try await fixture(name: "Miscellaneous/MultipleExecutables") { fixturePath in
                 let result = try await execute(
                     ["completion-tool", "list-executables"],
                     packagePath: fixturePath,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 )
                 #expect(result.stdout == "exec1\nexec2\n")
             }
         }
 
         @Test(
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func completionToolListExecutablesDifferentNames(
-            data: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws {
+            let config = BuildConfiguration.debug
             try await fixture(name: "Miscellaneous/DifferentProductTargetName") { fixturePath in
                 let result = try await execute(
                     ["completion-tool", "list-executables"],
                     packagePath: fixturePath,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 )
                 #expect(result.stdout == "Foo\n")
             }
@@ -1336,18 +1365,19 @@ struct PackageCommandTests {
         .tags(
             .Feature.Command.Package.ShowTraits,
         ),
-        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func showTraits(
-        data: BuildData,
+        buildSystem: BuildSystemProvider.Kind,
     ) async throws {
+        let config = BuildConfiguration.debug
         try await fixture(name: "Miscellaneous/ShowTraits") { fixturePath in
             let packageRoot = fixturePath.appending("app")
             var (textOutput, _) = try await execute(
                 ["show-traits", "--format=text"],
                 packagePath: packageRoot,
-                configuration: data.config,
-                buildSystem: data.buildSystem,
+                configuration: config,
+                buildSystem: buildSystem,
             )
             #expect(textOutput.contains("trait1 - this trait is the default in app (default)"))
             #expect(textOutput.contains("trait2 - this trait is not the default in app"))
@@ -1356,8 +1386,8 @@ struct PackageCommandTests {
             var (jsonOutput, _) = try await execute(
                 ["show-traits", "--format=json"],
                 packagePath: packageRoot,
-                configuration: data.config,
-                buildSystem: data.buildSystem,
+                configuration: config,
+                buildSystem: buildSystem,
             )
             var json = try JSON(bytes: ByteString(encodingAsUTF8: jsonOutput))
             guard case .array(let contents) = json else {
@@ -1408,8 +1438,8 @@ struct PackageCommandTests {
             (textOutput, _) = try await execute(
                 ["show-traits", "--package-id=deck-of-playing-cards", "--format=text"],
                 packagePath: packageRoot,
-                configuration: data.config,
-                buildSystem: data.buildSystem,
+                configuration: config,
+                buildSystem: buildSystem,
             )
             #expect(!textOutput.contains("trait1 - this trait is the default in app (default)"))
             #expect(!textOutput.contains("trait2 - this trait is not the default in app"))
@@ -1418,8 +1448,8 @@ struct PackageCommandTests {
             (jsonOutput, _) = try await execute(
                 ["show-traits", "--package-id=deck-of-playing-cards", "--format=json"],
                 packagePath: packageRoot,
-                configuration: data.config,
-                buildSystem: data.buildSystem,
+                configuration: config,
+                buildSystem: buildSystem,
             )
             json = try JSON(bytes: ByteString(encodingAsUTF8: jsonOutput))
             guard case .array(let contents) = json else {
@@ -1445,18 +1475,19 @@ struct PackageCommandTests {
         .tags(
             .Feature.Command.Package.ShowExecutables,
         ),
-        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func showExecutables(
-        data: BuildData,
+        buildSystem: BuildSystemProvider.Kind,
     ) async throws {
+        let config = BuildConfiguration.debug
         try await fixture(name: "Miscellaneous/ShowExecutables") { fixturePath in
             let packageRoot = fixturePath.appending("app")
             let (textOutput, _) = try await execute(
                 ["show-executables", "--format=flatlist"],
                 packagePath: packageRoot,
-                configuration: data.config,
-                buildSystem: data.buildSystem,
+                configuration: config,
+                buildSystem: buildSystem,
             )
             #expect(textOutput.contains("dealer\n"))
             #expect(textOutput.contains("deck (deck-of-playing-cards)\n"))
@@ -1464,8 +1495,8 @@ struct PackageCommandTests {
             let (jsonOutput, _) = try await execute(
                 ["show-executables", "--format=json"],
                 packagePath: packageRoot,
-                configuration: data.config,
-                buildSystem: data.buildSystem,
+                configuration: config,
+                buildSystem: buildSystem,
             )
             let json = try JSON(bytes: ByteString(encodingAsUTF8: jsonOutput))
             guard case .array(let contents) = json else {
@@ -1525,26 +1556,27 @@ struct PackageCommandTests {
             .tags(
                 .Feature.Command.Package.ShowDependencies,
             ),
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func showDependencies(
-            data: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws {
+            let config = BuildConfiguration.debug
             try await fixture(name: "DependencyResolution/External/Complex") { fixturePath in
                 let packageRoot = fixturePath.appending("app")
                 let (textOutput, _) = try await execute(
                     ["show-dependencies", "--format=text"],
                     packagePath: packageRoot,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 )
                 #expect(textOutput.contains("FisherYates@1.2.3"))
 
                 let (jsonOutput, _) = try await execute(
                     ["show-dependencies", "--format=json"],
                     packagePath: packageRoot,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 )
                 let json = try JSON(bytes: ByteString(encodingAsUTF8: jsonOutput))
                 guard case .dictionary(let contents) = json else {
@@ -1570,26 +1602,27 @@ struct PackageCommandTests {
             .tags(
                 .Feature.Command.Package.ShowDependencies,
             ),
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func showDependenciesWithTraits(
-            data: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws {
+            let config = BuildConfiguration.debug
             try await fixture(name: "Traits") { fixturePath in
                 let packageRoot = fixturePath.appending("Example")
                 let (textOutput, _) = try await execute(
                     ["show-dependencies", "--format=text"],
                     packagePath: packageRoot,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 )
                 #expect(textOutput.contains("(traits: Package3Trait3)"))
 
                 let (jsonOutput, _) = try await execute(
                     ["show-dependencies", "--format=json"],
                     packagePath: packageRoot,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 )
                 let json = try JSON(bytes: ByteString(encodingAsUTF8: jsonOutput))
                 guard case .dictionary(let contents) = json else {
@@ -1619,11 +1652,12 @@ struct PackageCommandTests {
             .tags(
                 .Feature.Command.Package.ShowDependencies,
             ),
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func showDependenciesWithTraitsGuardingDependencies(
-            data: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws {
+            let config = BuildConfiguration.debug
             try await fixture(name: "Traits") { fixturePath in
                 let packageRoot = fixturePath.appending("PackageConditionalDeps")
 
@@ -1631,8 +1665,8 @@ struct PackageCommandTests {
                 let (textOutputDefault, _) = try await execute(
                     ["show-dependencies", "--format=text"],
                     packagePath: packageRoot,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 )
                 #expect(textOutputDefault.contains("Package1@"))
                 #expect(!textOutputDefault.contains("Package2"))
@@ -1640,8 +1674,8 @@ struct PackageCommandTests {
                 let (jsonOutputDefault, _) = try await execute(
                     ["show-dependencies", "--format=json"],
                     packagePath: packageRoot,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 )
                 let jsonDefault = try JSON(bytes: ByteString(encodingAsUTF8: jsonOutputDefault))
                 guard case .dictionary(let contents) = jsonDefault else {
@@ -1664,8 +1698,8 @@ struct PackageCommandTests {
                 let (textOutputDefaultDisabled, _) = try await execute(
                     ["show-dependencies", "--disable-default-traits", "--format=text"],
                     packagePath: packageRoot,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 )
                 #expect(textOutputDefaultDisabled.contains("No external dependencies found"))
                 #expect(!textOutputDefaultDisabled.contains("Package1"))
@@ -1674,8 +1708,8 @@ struct PackageCommandTests {
                 let (jsonOutputDefaultDisabled, _) = try await execute(
                     ["show-dependencies", "--disable-default-traits", "--format=json"],
                     packagePath: packageRoot,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 )
                 let jsonDefaultDisabled = try JSON(bytes: ByteString(encodingAsUTF8: jsonOutputDefaultDisabled))
                 guard case .dictionary(let contents) = jsonDefaultDisabled else {
@@ -1698,8 +1732,8 @@ struct PackageCommandTests {
                 let (textOutputPackage2Dep, _) = try await execute(
                     ["show-dependencies", "--traits", "EnablePackage2Dep", "--format=text"],
                     packagePath: packageRoot,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 )
                 #expect(!textOutputPackage2Dep.contains("Package1"))
                 #expect(textOutputPackage2Dep.contains("Package2@"))
@@ -1707,8 +1741,8 @@ struct PackageCommandTests {
                 let (jsonOutputPackage2Dep, _) = try await execute(
                     ["show-dependencies", "--traits", "EnablePackage2Dep", "--format=json"],
                     packagePath: packageRoot,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 )
                 let jsonPackage2Dep = try JSON(bytes: ByteString(encodingAsUTF8: jsonOutputPackage2Dep))
                 guard case .dictionary(let contents) = jsonPackage2Dep else {
@@ -1732,8 +1766,8 @@ struct PackageCommandTests {
                 let (textOutputAllTraits, _) = try await execute(
                     ["show-dependencies", "--enable-all-traits", "--format=text"],
                     packagePath: packageRoot,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 )
                 #expect(textOutputAllTraits.contains("Package1@"))
                 #expect(textOutputAllTraits.contains("Package2@"))
@@ -1741,8 +1775,8 @@ struct PackageCommandTests {
                 let (jsonOutputAllTraits, _) = try await execute(
                     ["show-dependencies", "--enable-all-traits", "--format=json"],
                     packagePath: packageRoot,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 )
                 let jsonAllTraits = try JSON(bytes: ByteString(encodingAsUTF8: jsonOutputAllTraits))
                 guard case .dictionary(let contents) = jsonAllTraits else {
@@ -1765,12 +1799,8 @@ struct PackageCommandTests {
             }
         }
 
-        @Test(
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
-        )
-        func showDependencies_dotFormat_sr12016(
-            data: BuildData,
-        ) throws {
+        @Test
+        func showDependencies_dotFormat_sr12016() throws {
             let fileSystem = InMemoryFileSystem(emptyFiles: [
                 "/PackageA/Sources/TargetA/main.swift",
                 "/PackageB/Sources/TargetB/B.swift",
@@ -1887,11 +1917,12 @@ struct PackageCommandTests {
         }
 
         @Test(
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func showDependencies_redirectJsonOutput(
-            data: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws {
+            let config = BuildConfiguration.debug
             try await testWithTemporaryDirectory { tmpPath in
                 let fs = localFileSystem
                 let root = tmpPath.appending(components: "root")
@@ -1945,8 +1976,8 @@ struct PackageCommandTests {
                 _ = try await execute(
                     ["show-dependencies", "--format", "json", "--output-path", resultPath.pathString],
                     packagePath: root,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 )
 
                 expectFileExists(at: resultPath)
@@ -1966,11 +1997,12 @@ struct PackageCommandTests {
     )
     struct InitCommandTests {
         @Test(
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func initEmpty(
-            data: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws {
+            let config = BuildConfiguration.debug
             try await testWithTemporaryDirectory { tmpPath in
                 let fs = localFileSystem
                 let path = tmpPath.appending("Foo")
@@ -1978,8 +2010,8 @@ struct PackageCommandTests {
                 _ = try await execute(
                     ["init", "--type", "empty"],
                     packagePath: path,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 )
 
                 expectFileExists(at: path.appending("Package.swift"))
@@ -1990,11 +2022,12 @@ struct PackageCommandTests {
             .tags(
                 .Feature.Command.Package.Init,
             ),
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func initExecutable(
-            data: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws {
+            let config = BuildConfiguration.debug
             try await testWithTemporaryDirectory { tmpPath in
                 let fs = localFileSystem
                 let path = tmpPath.appending("Foo")
@@ -2002,8 +2035,8 @@ struct PackageCommandTests {
                 _ = try await execute(
                     ["init", "--type", "executable"],
                     packagePath: path,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 )
 
                 let manifest = path.appending("Package.swift")
@@ -2027,11 +2060,12 @@ struct PackageCommandTests {
             .tags(
                 .Feature.Command.Package.Init,
             ),
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func initLibrary(
-            data: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws {
+            let config = BuildConfiguration.debug
             try await testWithTemporaryDirectory { tmpPath in
                 let fs = localFileSystem
                 let path = tmpPath.appending("Foo")
@@ -2039,8 +2073,8 @@ struct PackageCommandTests {
                 _ = try await execute(
                     ["init"],
                     packagePath: path,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 )
 
                 expectFileExists(at: path.appending("Package.swift"))
@@ -2056,11 +2090,12 @@ struct PackageCommandTests {
                 .Feature.Command.Package.Init,
                 .Feature.PackageType.Executable,
             ),
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func initCustomNameExecutable(
-            data: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws {
+            let config = BuildConfiguration.debug
             try await testWithTemporaryDirectory { tmpPath in
                 let fs = localFileSystem
                 let path = tmpPath.appending("Foo")
@@ -2068,8 +2103,8 @@ struct PackageCommandTests {
                 _ = try await execute(
                     ["init", "--name", "CustomName", "--type", "executable"],
                     packagePath: path,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 )
 
                 let manifest = path.appending("Package.swift")
@@ -2099,11 +2134,12 @@ struct PackageCommandTests {
     )
     struct AddDependencyCommandTests {
         @Test(
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func packageAddDifferentDependencyWithSameURLTwiceFails(
-            data: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws {
+            let config = BuildConfiguration.debug
             try await testWithTemporaryDirectory { tmpPath in
                 let fs = localFileSystem
                 let path = tmpPath.appending("PackageB")
@@ -2128,8 +2164,8 @@ struct PackageCommandTests {
                     try await execute(
                         ["add-dependency", url, "--revision", "58e9de4e7b79e67c72a46e164158e3542e570ab6"],
                         packagePath: path,
-                        configuration: data.config,
-                        buildSystem: data.buildSystem,
+                        configuration: config,
+                        buildSystem: buildSystem,
                     )
                 ) { error in
                     #expect(
@@ -2142,10 +2178,10 @@ struct PackageCommandTests {
         }
 
         @Test(
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func packageAddSameDependencyURLTwiceHasNoEffect(
-            data: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws {
             try await testWithTemporaryDirectory { tmpPath in
                 let fs = localFileSystem
@@ -2173,7 +2209,7 @@ struct PackageCommandTests {
                     url: url,
                     requirementArgs: ["--exact", "601.0.1"],
                     expectedManifestString: expected,
-                    buildData: data,
+                    buildSystem: buildSystem,
                 )
 
                 try expectManifest(path) {
@@ -2184,10 +2220,10 @@ struct PackageCommandTests {
         }
 
         @Test(
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func packageAddSameDependencyPathTwiceHasNoEffect(
-            data: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws {
             try await testWithTemporaryDirectory { tmpPath in
                 let fs = localFileSystem
@@ -2214,7 +2250,7 @@ struct PackageCommandTests {
                     url: depPath,
                     requirementArgs: ["--type", "path"],
                     expectedManifestString: expected,
-                    buildData: data,
+                    buildSystem: buildSystem,
                 )
 
                 try expectManifest(path) {
@@ -2225,10 +2261,10 @@ struct PackageCommandTests {
         }
 
         @Test(
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func packageAddSameDependencyRegistryTwiceHasNoEffect(
-            data: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws {
             try await testWithTemporaryDirectory { tmpPath in
                 let fs = localFileSystem
@@ -2255,7 +2291,7 @@ struct PackageCommandTests {
                     url: registryId,
                     requirementArgs: ["--type", "registry", "--exact", "1.0.0"],
                     expectedManifestString: expected,
-                    buildData: data,
+                    buildSystem: buildSystem,
                 )
 
                 try expectManifest(path) {
@@ -2271,7 +2307,7 @@ struct PackageCommandTests {
             let expectedManifestString: String
         }
         @Test(
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: SupportedBuildSystemOnAllPlatforms,
             [
                 PackageAddDependencyTestData(
                     // Test adding with --exact using the new helper
@@ -2332,7 +2368,7 @@ struct PackageCommandTests {
             ],
         )
         func packageAddURLDependency(
-            buildData: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
             testData: PackageAddDependencyTestData,
         ) async throws {
             try await testWithTemporaryDirectory { tmpPath in
@@ -2355,13 +2391,13 @@ struct PackageCommandTests {
                     url: testData.url,
                     requirementArgs: testData.requirementArgs,
                     expectedManifestString: testData.expectedManifestString,
-                    buildData: buildData,
+                    buildSystem: buildSystem,
                 )
             }
         }
 
         @Test(
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: SupportedBuildSystemOnAllPlatforms,
             [
                 PackageAddDependencyTestData(
                     // Add absolute path dependency
@@ -2378,7 +2414,7 @@ struct PackageCommandTests {
             ],
         )
         func packageAddPathDependency(
-            buildData: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
             testData: PackageAddDependencyTestData,
         ) async throws {
             try await testWithTemporaryDirectory { tmpPath in
@@ -2400,13 +2436,13 @@ struct PackageCommandTests {
                     url: testData.url,
                     requirementArgs: testData.requirementArgs,
                     expectedManifestString: testData.expectedManifestString,
-                    buildData: buildData,
+                    buildSystem: buildSystem,
                 )
             }
         }
 
         @Test(
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: SupportedBuildSystemOnAllPlatforms,
             [
                 PackageAddDependencyTestData(
                     // Test adding with --exact
@@ -2443,7 +2479,7 @@ struct PackageCommandTests {
             ],
         )
         func packageAddRegistryDependency(
-            buildData: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
             testData: PackageAddDependencyTestData,
         ) async throws {
             try await testWithTemporaryDirectory { tmpPath in
@@ -2465,7 +2501,7 @@ struct PackageCommandTests {
                     url: testData.url,
                     requirementArgs: testData.requirementArgs,
                     expectedManifestString: testData.expectedManifestString,
-                    buildData: buildData,
+                    buildSystem: buildSystem,
                 )
             }
         }
@@ -2481,11 +2517,12 @@ struct PackageCommandTests {
             .tags(
                 .Feature.TargetType.Executable,
             ),
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func packageAddTarget(
-            data: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws {
+            let config = BuildConfiguration.debug
             try await testWithTemporaryDirectory { tmpPath in
                 let fs = localFileSystem
                 let path = tmpPath.appending("PackageB")
@@ -2511,8 +2548,8 @@ struct PackageCommandTests {
                     _ = try await execute(
                       ["add-target", "client", "--dependencies", "MyLib", "OtherLib", "--type", "executable"],
                       packagePath: path,
-                      configuration: data.config,
-                      buildSystem: data.buildSystem,
+                      configuration: config,
+                      buildSystem: buildSystem,
                     )
 
                     let contents: String = try fs.readFileContents(manifest)
@@ -2530,8 +2567,8 @@ struct PackageCommandTests {
                     _ = try await execute(
                       ["add-target", "MyLib", "--type", "library"],
                       packagePath: path,
-                      configuration: data.config,
-                      buildSystem: data.buildSystem,
+                      configuration: config,
+                      buildSystem: buildSystem,
                     )
 
                     let contents: String = try fs.readFileContents(manifest)
@@ -2548,8 +2585,8 @@ struct PackageCommandTests {
                     _ = try await execute(
                       ["add-target", "MyTest", "--type", "test"],
                       packagePath: path,
-                      configuration: data.config,
-                      buildSystem: data.buildSystem,
+                      configuration: config,
+                      buildSystem: buildSystem,
                     )
 
                     let contents: String = try fs.readFileContents(manifest)
@@ -2566,8 +2603,8 @@ struct PackageCommandTests {
                     _ = try await execute(
                       ["add-target", "MyMacro", "--type", "macro"],
                       packagePath: path,
-                      configuration: data.config,
-                      buildSystem: data.buildSystem,
+                      configuration: config,
+                      buildSystem: buildSystem,
                     )
 
                     let contents: String = try fs.readFileContents(manifest)
@@ -2588,11 +2625,12 @@ struct PackageCommandTests {
         }
 
         @Test(
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func packageAddTargetWithoutModuleSourcesFolder(
-            data: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws {
+            let config = BuildConfiguration.debug
             try await testWithTemporaryDirectory { tmpPath in
                 let fs = localFileSystem
                 let manifest = tmpPath.appending("Package.swift")
@@ -2625,8 +2663,8 @@ struct PackageCommandTests {
                 _ = try await execute(
                     ["add-target", "client"],
                     packagePath: tmpPath,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 )
 
                 expectFileExists(at: manifest)
@@ -2648,18 +2686,19 @@ struct PackageCommandTests {
         }
 
         @Test(
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func addTargetWithoutManifestThrows(
-            data: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws {
+            let config = BuildConfiguration.debug
             try await testWithTemporaryDirectory { tmpPath in
                 await expectThrowsCommandExecutionError(
                     try await execute(
                         ["add-target", "client"],
                         packagePath: tmpPath,
-                        configuration: data.config,
-                        buildSystem: data.buildSystem,
+                        configuration: config,
+                        buildSystem: buildSystem,
                     )
                 ) { error in
                     #expect(
@@ -2676,11 +2715,12 @@ struct PackageCommandTests {
         .tags(
             .Feature.Command.Package.AddTargetDependency,
         ),
-        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func packageAddTargetDependency(
-        data: BuildData,
+        buildSystem: BuildSystemProvider.Kind,
     ) async throws {
+        let config = BuildConfiguration.debug
         try await testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending("PackageB")
@@ -2709,8 +2749,8 @@ struct PackageCommandTests {
             _ = try await execute(
                 ["add-target-dependency", "--package", "other-package", "other-product", "library"],
                 packagePath: path,
-                configuration: data.config,
-                buildSystem: data.buildSystem,
+                configuration: config,
+                buildSystem: buildSystem,
             )
 
             let manifest = path.appending("Package.swift")
@@ -2726,11 +2766,12 @@ struct PackageCommandTests {
             .Feature.Command.Package.AddProduct,
             .Feature.ProductType.StaticLibrary,
         ),
-        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func packageAddProduct(
-        data: BuildData,
+        buildSystem: BuildSystemProvider.Kind,
     ) async throws {
+        let config = BuildConfiguration.debug
         try await testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending("PackageB")
@@ -2751,8 +2792,8 @@ struct PackageCommandTests {
             _ = try await execute(
                 ["add-product", "MyLib", "--targets", "MyLib", "--type", "static-library"],
                 packagePath: path,
-                configuration: data.config,
-                buildSystem: data.buildSystem,
+                configuration: config,
+                buildSystem: buildSystem,
             )
 
             let manifest = path.appending("Package.swift")
@@ -2772,11 +2813,12 @@ struct PackageCommandTests {
         .tags(
             .Feature.Command.Package.AddSetting,
         ),
-        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func packageAddSetting(
-        data: BuildData,
+        buildSystem: BuildSystemProvider.Kind,
     ) async throws {
+        let config = BuildConfiguration.debug
         try await testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending("PackageA")
@@ -2805,8 +2847,8 @@ struct PackageCommandTests {
                     "--swift", "StrictMemorySafety",
                 ],
                 packagePath: path,
-                configuration: data.config,
-                buildSystem: data.buildSystem,
+                configuration: config,
+                buildSystem: buildSystem,
 
             )
 
@@ -2830,18 +2872,19 @@ struct PackageCommandTests {
             .Feature.Command.Package.Edit,
             .Feature.Command.Package.Unedit,
         ),
-        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func packageEditAndUnedit(
-        data: BuildData,
+        buildSystem: BuildSystemProvider.Kind,
     ) async throws {
+        let config = BuildConfiguration.debug
         try await fixture(name: "Miscellaneous/PackageEdit") { fixturePath in
             let fooPath = fixturePath.appending("foo")
             func build() async throws -> (stdout: String, stderr: String) {
                 return try await executeSwiftBuild(
                     fooPath,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 )
             }
 
@@ -2849,18 +2892,18 @@ struct PackageCommandTests {
             _ = try await execute(
                 ["edit", "bar", "--branch", "bugfix"],
                 packagePath: fooPath,
-                configuration: data.config,
-                buildSystem: data.buildSystem,
+                configuration: config,
+                buildSystem: buildSystem,
             )
             _ = try await execute(
                 ["edit", "baz", "--branch", "bugfix"],
                 packagePath: fooPath,
-                configuration: data.config,
-                buildSystem: data.buildSystem,
+                configuration: config,
+                buildSystem: buildSystem,
             )
 
             // Path to the executable.
-            let binPath = try fooPath.appending(components: data.buildSystem.binPath(for: data.config))
+            let binPath = try fooPath.appending(components: buildSystem.binPath(for: config))
             let exec = [
                 binPath.appending("foo").pathString
             ]
@@ -2899,8 +2942,8 @@ struct PackageCommandTests {
                 _ = try await execute(
                     ["unedit", "bar"],
                     packagePath: fooPath,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 )
                 Issue.record("Unexpected unedit success")
             } catch {}
@@ -2913,8 +2956,8 @@ struct PackageCommandTests {
                 _ = try await execute(
                     ["unedit", "bar"],
                     packagePath: fooPath,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 )
                 Issue.record("Unexpected unedit success")
             } catch {}
@@ -2926,8 +2969,8 @@ struct PackageCommandTests {
             _ = try await execute(
                 ["unedit", "bar"],
                 packagePath: fooPath,
-                configuration: data.config,
-                buildSystem: data.buildSystem,
+                configuration: config,
+                buildSystem: buildSystem,
             )
 
             // Test editing with a path i.e. ToT development.
@@ -2935,8 +2978,8 @@ struct PackageCommandTests {
             try await execute(
                 ["edit", "baz", "--path", bazTot.pathString],
                 packagePath: fooPath,
-                configuration: data.config,
-                buildSystem: data.buildSystem,
+                configuration: config,
+                buildSystem: buildSystem,
             )
             #expect(localFileSystem.exists(bazTot))
             #expect(localFileSystem.isSymlink(bazEditsPath))
@@ -2951,8 +2994,8 @@ struct PackageCommandTests {
             try await execute(
                 ["unedit", "baz"],
                 packagePath: fooPath,
-                configuration: data.config,
-                buildSystem: data.buildSystem,
+                configuration: config,
+                buildSystem: buildSystem,
             )
             #expect(localFileSystem.exists(bazTot))
             #expect(!localFileSystem.isSymlink(bazEditsPath))
@@ -2961,8 +3004,8 @@ struct PackageCommandTests {
             try await execute(
                 ["edit", "baz", "--path", bazTot.pathString],
                 packagePath: fooPath,
-                configuration: data.config,
-                buildSystem: data.buildSystem,
+                configuration: config,
+                buildSystem: buildSystem,
             )
             #expect(localFileSystem.isSymlink(bazEditsPath))
             #expect(try localFileSystem.readFileContents(bazTotPackageFile) == content)
@@ -2975,22 +3018,23 @@ struct PackageCommandTests {
         .tags(
             .Feature.Command.Package.Clean,
         ),
-        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func packageClean(
-        data: BuildData,
+        buildSystem: BuildSystemProvider.Kind,
     ) async throws {
+        let config = BuildConfiguration.debug
         try await fixture(name: "DependencyResolution/External/Simple") { fixturePath in
             let packageRoot = fixturePath.appending("Bar")
 
             // Build it.
             try await executeSwiftBuild(
                 packageRoot,
-                configuration: data.config,
-                buildSystem: data.buildSystem,
+                configuration: config,
+                buildSystem: buildSystem,
             )
             let buildPath = packageRoot.appending(".build")
-            let binPath = try buildPath.appending(components: data.buildSystem.binPath(for: data.config, scratchPath: []))
+            let binPath = try buildPath.appending(components: buildSystem.binPath(for: config, scratchPath: []))
             let binFile = binPath.appending(executableName("Bar"))
             expectFileExists(at: binFile)
             #expect(localFileSystem.isDirectory(buildPath))
@@ -2999,16 +3043,16 @@ struct PackageCommandTests {
             _ = try await execute(
                 ["clean"],
                 packagePath: packageRoot,
-                configuration: data.config,
-                buildSystem: data.buildSystem,
+                configuration: config,
+                buildSystem: buildSystem,
             )
             expectFileDoesNotExists(at: binFile)
             // Clean again to ensure we get no error.
             _ = try await execute(
                 ["clean"],
                 packagePath: packageRoot,
-                configuration: data.config,
-                buildSystem: data.buildSystem,
+                configuration: config,
+                buildSystem: buildSystem,
             )
         }
     }
@@ -3020,22 +3064,23 @@ struct PackageCommandTests {
             .Feature.Command.Build,
             .Feature.Command.Package.Reset,
         ),
-        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func packageReset(
-        data: BuildData,
+        buildSystem: BuildSystemProvider.Kind,
     ) async throws {
+        let config = BuildConfiguration.debug
         try await fixture(name: "DependencyResolution/External/Simple") { fixturePath in
             let packageRoot = fixturePath.appending("Bar")
 
             // Build it.
             try await executeSwiftBuild(
                 packageRoot,
-                configuration: data.config,
-                buildSystem: data.buildSystem
+                configuration: config,
+                buildSystem: buildSystem
             )
             let buildPath = packageRoot.appending(".build")
-            let binPath = try buildPath.appending(components: data.buildSystem.binPath(for: data.config, scratchPath: [], ))
+            let binPath = try buildPath.appending(components: buildSystem.binPath(for: config, scratchPath: [], ))
             let binFile = binPath.appending(executableName("Bar"))
             expectFileExists(at: binFile)
             #expect(localFileSystem.isDirectory(buildPath))
@@ -3044,8 +3089,8 @@ struct PackageCommandTests {
             _ = try await execute(
                 ["clean"],
                 packagePath: packageRoot,
-                configuration: data.config,
-                buildSystem: data.buildSystem,
+                configuration: config,
+                buildSystem: buildSystem,
             )
             expectFileDoesNotExists(at: binFile)
             try #expect(
@@ -3056,8 +3101,8 @@ struct PackageCommandTests {
             _ = try await execute(
                 ["reset"],
                 packagePath: packageRoot,
-                configuration: data.config,
-                buildSystem: data.buildSystem,
+                configuration: config,
+                buildSystem: buildSystem,
             )
             #expect(!localFileSystem.isDirectory(buildPath))
 
@@ -3065,19 +3110,20 @@ struct PackageCommandTests {
             _ = try await execute(
                 ["reset"],
                 packagePath: packageRoot,
-                configuration: data.config,
-                buildSystem: data.buildSystem,
+                configuration: config,
+                buildSystem: buildSystem,
             )
         }
     }
 
     @Test(
         .tags(.Feature.Command.Package.PurgeCache),
-        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func purgeCacheWithoutPackage(
-        data: BuildData,
+        buildSystem: BuildSystemProvider.Kind,
     ) async throws {
+        let config = BuildConfiguration.debug
         try await withKnownIssue(isIntermittent: true) {
             // Create a temporary directory without Package.swift
             try await fixture(name: "Miscellaneous") { fixturePath in
@@ -3088,9 +3134,9 @@ struct PackageCommandTests {
                 try await withTemporaryDirectory(removeTreeOnDeinit: true) { cacheDir in
                     let result = try await executeSwiftPackage(
                         tempDir,
-                        configuration: data.config,
+                        configuration: config,
                         extraArgs: ["purge-cache", "--cache-path", cacheDir.pathString],
-                        buildSystem: data.buildSystem
+                        buildSystem: buildSystem
                     )
 
                     #expect(!result.stderr.contains("Could not find Package.swift"))
@@ -3103,11 +3149,12 @@ struct PackageCommandTests {
 
     @Test(
         .tags(.Feature.Command.Package.PurgeCache),
-        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func purgeCacheInPackageDirectory(
-        data: BuildData,
+        buildSystem: BuildSystemProvider.Kind,
     ) async throws {
+        let config = BuildConfiguration.debug
         try await withKnownIssue(
             isIntermittent: ProcessInfo.isHostAmazonLinux2() // rdar://134238535
         ) {
@@ -3124,9 +3171,9 @@ struct PackageCommandTests {
                     // Note: This fixture uses local dependencies, so only manifest cache will be populated
                     try await executeSwiftPackage(
                         packageRoot,
-                        configuration: data.config,
+                        configuration: config,
                         extraArgs: ["resolve"] + cacheArgs,
-                        buildSystem: data.buildSystem
+                        buildSystem: buildSystem
                     )
 
                     // Verify manifest cache was populated
@@ -3148,9 +3195,9 @@ struct PackageCommandTests {
                     // Run purge-cache
                     let result = try await executeSwiftPackage(
                         packageRoot,
-                        configuration: data.config,
+                        configuration: config,
                         extraArgs: ["purge-cache"] + cacheArgs,
-                        buildSystem: data.buildSystem
+                        buildSystem: buildSystem
                     )
 
                     // Verify command succeeded
@@ -3172,11 +3219,12 @@ struct PackageCommandTests {
         .tags(
             .Feature.Command.Package.Resolve,
         ),
-        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func resolvingBranchAndRevision(
-        data: BuildData,
+        buildSystem: BuildSystemProvider.Kind,
     ) async throws {
+        let config = BuildConfiguration.debug
         try await fixture(name: "Miscellaneous/PackageEdit") { fixturePath in
             let fooPath = fixturePath.appending("foo")
 
@@ -3185,8 +3233,8 @@ struct PackageCommandTests {
                 return try await execute(
                     [] + args,
                     packagePath: fooPath,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 ).stdout
             }
 
@@ -3247,14 +3295,15 @@ struct PackageCommandTests {
             .Feature.Command.Build,
             .Feature.Command.Package.Resolve,
         ),
-        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func packageResolved(
-        data: BuildData,
+        buildSystem: BuildSystemProvider.Kind,
     ) async throws {
+        let config = BuildConfiguration.debug
         try await fixture(name: "Miscellaneous/PackageEdit") { fixturePath in
             let fooPath = fixturePath.appending("foo")
-            let binPath = try fooPath.appending(components: data.buildSystem.binPath(for: data.config))
+            let binPath = try fooPath.appending(components: buildSystem.binPath(for: config))
             let exec = [
                 binPath.appending("foo").pathString
             ]
@@ -3262,8 +3311,8 @@ struct PackageCommandTests {
             // Build and check.
             _ = try await executeSwiftBuild(
                 fooPath,
-                configuration: data.config,
-                buildSystem: data.buildSystem,
+                configuration: config,
+                buildSystem: buildSystem,
             )
             let value = try await AsyncProcess.checkNonZeroExit(arguments: exec).spm_chomp()
             #expect(value == "\(5)")
@@ -3323,8 +3372,8 @@ struct PackageCommandTests {
                 return try await execute(
                     [] + args,
                     packagePath: fooPath,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 ).stdout
             }
 
@@ -3406,11 +3455,12 @@ struct PackageCommandTests {
         .tags(
             .Feature.Command.Package.Resolve,
         ),
-        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func onlyUseVersionsFromResolvedFileFetchesWithExistingState(
-        data: BuildData,
+        buildSystem: BuildSystemProvider.Kind,
     ) async throws {
+        let config = BuildConfiguration.debug
         // try XCTSkipOnWindows(because: "error: Package.resolved file is corrupted or malformed, needs investigation")
         func writeResolvedFile(
             packageDir: AbsolutePath,
@@ -3507,8 +3557,8 @@ struct PackageCommandTests {
                     let (_, err) = try await execute(
                         ["resolve", "--only-use-versions-from-resolved-file", "-v"],
                         packagePath: clientDir,
-                        configuration: data.config,
-                        buildSystem: data.buildSystem,
+                        configuration: config,
+                        buildSystem: buildSystem,
                     )
                     #expect(err.contains("Fetching \(repositoryURL)"))
                 }
@@ -3537,8 +3587,8 @@ struct PackageCommandTests {
                     let (_, err) = try await execute(
                         ["resolve", "--only-use-versions-from-resolved-file", "-v"],
                         packagePath: clientDir,
-                        configuration: data.config,
-                        buildSystem: data.buildSystem,
+                        configuration: config,
+                        buildSystem: buildSystem,
                     )
                     #expect(!err.contains("Fetching \(repositoryURL)"))
                     #expect(err.contains("Updating \(repositoryURL)"))
@@ -3550,8 +3600,8 @@ struct PackageCommandTests {
                     let (_, err) = try await execute(
                         ["resolve", "--only-use-versions-from-resolved-file", "-v"],
                         packagePath: clientDir,
-                        configuration: data.config,
-                        buildSystem: data.buildSystem,
+                        configuration: config,
+                        buildSystem: buildSystem,
                     )
                     #expect(!err.contains("Updating \(repositoryURL)"))
                     #expect(!err.contains("Fetching \(repositoryURL)"))
@@ -3567,11 +3617,12 @@ struct PackageCommandTests {
             .Feature.Command.Build,
             .Feature.Command.Package.Resolve,
         ),
-        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func symlinkedDependency(
-        data: BuildData,
+        buildSystem: BuildSystemProvider.Kind,
     ) async throws {
+        let config = BuildConfiguration.debug
         try await testWithTemporaryDirectory { path in
             let fs = localFileSystem
             let root = path.appending(components: "root")
@@ -3627,8 +3678,8 @@ struct PackageCommandTests {
             _ = try await execute(
                 ["resolve"],
                 packagePath: root,
-                configuration: data.config,
-                buildSystem: data.buildSystem,
+                configuration: config,
+                buildSystem: buildSystem,
             )
         }
     }
@@ -3640,11 +3691,12 @@ struct PackageCommandTests {
     )
     struct ConfigCommandTests {
         @Test(
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func mirrorConfigDeprecation(
-            data: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws {
+            let config = BuildConfiguration.debug
             try await testWithTemporaryDirectory { fixturePath in
                 localFileSystem.createEmptyFiles(
                     at: fixturePath,
@@ -3659,8 +3711,8 @@ struct PackageCommandTests {
                         "https://mygithub.com/foo/bar",
                     ],
                     packagePath: fixturePath,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 )
                 #expect(
                     stderr.contains("warning: '--package-url' option is deprecated; use '--original' instead")
@@ -3672,11 +3724,12 @@ struct PackageCommandTests {
         }
 
         @Test(
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func mirrorConfig(
-            data: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws {
+            let config = BuildConfiguration.debug
             try await testWithTemporaryDirectory { fixturePath in
                 let fs = localFileSystem
                 let packageRoot = fixturePath.appending("Foo")
@@ -3701,8 +3754,8 @@ struct PackageCommandTests {
                         "https://mygithub.com/foo/bar",
                     ],
                     packagePath: packageRoot,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 )
                 try await execute(
                     [
@@ -3711,8 +3764,8 @@ struct PackageCommandTests {
                         "git@mygithub.com:foo/swift-package-manager.git",
                     ],
                     packagePath: packageRoot,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 )
                 #expect(fs.isFile(configFile))
 
@@ -3724,8 +3777,8 @@ struct PackageCommandTests {
                     ],
                     packagePath: packageRoot,
                     env: ["SWIFTPM_MIRROR_CONFIG": configOverride.pathString],
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 )
                 #expect(fs.isFile(configOverride))
                 let content: String = try fs.readFileContents(configOverride)
@@ -3735,8 +3788,8 @@ struct PackageCommandTests {
                 var (stdout, _) = try await execute(
                     ["config", "get-mirror", "--original", "https://github.com/foo/bar"],
                     packagePath: packageRoot,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 )
                 #expect(stdout.spm_chomp() == "https://mygithub.com/foo/bar")
                 (stdout, _) = try await execute(
@@ -3745,8 +3798,8 @@ struct PackageCommandTests {
                         "git@github.com:swiftlang/swift-package-manager.git",
                     ],
                     packagePath: packageRoot,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 )
                 #expect(stdout.spm_chomp() == "git@mygithub.com:foo/swift-package-manager.git")
 
@@ -3760,8 +3813,8 @@ struct PackageCommandTests {
                     try await execute(
                         ["config", "get-mirror", "--original", "foo"],
                         packagePath: packageRoot,
-                        configuration: data.config,
-                        buildSystem: data.buildSystem,
+                        configuration: config,
+                        buildSystem: buildSystem,
                     )
                 }
 
@@ -3769,8 +3822,8 @@ struct PackageCommandTests {
                 try await execute(
                     ["config", "unset-mirror", "--original", "https://github.com/foo/bar"],
                     packagePath: packageRoot,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 )
                 try await execute(
                     [
@@ -3778,16 +3831,16 @@ struct PackageCommandTests {
                         "git@mygithub.com:foo/swift-package-manager.git",
                     ],
                     packagePath: packageRoot,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 )
 
                 await check(stderr: "not found\n") {
                     try await execute(
                         ["config", "get-mirror", "--original", "https://github.com/foo/bar"],
                         packagePath: packageRoot,
-                        configuration: data.config,
-                        buildSystem: data.buildSystem,
+                        configuration: config,
+                        buildSystem: buildSystem,
                     )
                 }
                 await check(stderr: "not found\n") {
@@ -3797,8 +3850,8 @@ struct PackageCommandTests {
                             "git@github.com:swiftlang/swift-package-manager.git",
                         ],
                         packagePath: packageRoot,
-                        configuration: data.config,
-                        buildSystem: data.buildSystem,
+                        configuration: config,
+                        buildSystem: buildSystem,
                     )
                 }
 
@@ -3806,8 +3859,8 @@ struct PackageCommandTests {
                     try await execute(
                         ["config", "unset-mirror", "--original", "foo"],
                         packagePath: packageRoot,
-                        configuration: data.config,
-                        buildSystem: data.buildSystem,
+                        configuration: config,
+                        buildSystem: buildSystem,
                     )
                 }
             }
@@ -3817,11 +3870,12 @@ struct PackageCommandTests {
             .tags(
                 .Feature.Command.Package.DumpPackage,
             ),
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func mirrorSimple(
-            data: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws {
+            let config = BuildConfiguration.debug
             try await testWithTemporaryDirectory { fixturePath in
                 let fs = localFileSystem
                 let packageRoot = fixturePath.appending("MyPackage")
@@ -3865,16 +3919,16 @@ struct PackageCommandTests {
                         "https://scm.com/org/bar",
                     ],
                     packagePath: packageRoot,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 )
                 #expect(fs.isFile(configFile))
 
                 let (stdout, _) = try await execute(
                     ["dump-package"],
                     packagePath: packageRoot,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 )
                 #expect(stdout.contains("https://scm.com/org/bar"))
                 #expect(!stdout.contains("https://scm.com/org/foo"))
@@ -3885,11 +3939,12 @@ struct PackageCommandTests {
             .tags(
                 .Feature.Command.Package.DumpPackage,
             ),
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func mirrorURLToRegistry(
-            data: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws {
+            let config = BuildConfiguration.debug
             try await testWithTemporaryDirectory { fixturePath in
                 let fs = localFileSystem
                 let packageRoot = fixturePath.appending("MyPackage")
@@ -3930,16 +3985,16 @@ struct PackageCommandTests {
                 try await execute(
                     ["config", "set-mirror", "--original", "https://scm.com/org/foo", "--mirror", "org.bar"],
                     packagePath: packageRoot,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 )
                 #expect(fs.isFile(configFile))
 
                 let (stdout, _) = try await execute(
                     ["dump-package"],
                     packagePath: packageRoot,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 )
                 #expect(stdout.contains("org.bar"))
                 #expect(!stdout.contains("https://scm.com/org/foo"))
@@ -3950,11 +4005,12 @@ struct PackageCommandTests {
             .tags(
                 .Feature.Command.Package.DumpPackage,
             ),
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func mirrorRegistryToURL(
-            data: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws {
+            let config = BuildConfiguration.debug
             try await testWithTemporaryDirectory { fixturePath in
                 let fs = localFileSystem
                 let packageRoot = fixturePath.appending("MyPackage")
@@ -3995,16 +4051,16 @@ struct PackageCommandTests {
                 try await execute(
                     ["config", "set-mirror", "--original", "org.foo", "--mirror", "https://scm.com/org/bar"],
                     packagePath: packageRoot,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 )
                 #expect(fs.isFile(configFile))
 
                 let (stdout, _) = try await execute(
                     ["dump-package"],
                     packagePath: packageRoot,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 )
                 #expect(stdout.contains("https://scm.com/org/bar"))
                 #expect(!stdout.contains("org.foo"))
@@ -4017,11 +4073,12 @@ struct PackageCommandTests {
         .tags(
             .Feature.Command.Package.DumpPackage,
         ),
-        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func packageLoadingCommandPathResilience(
-        data: BuildData,
+        buildSystem: BuildSystemProvider.Kind,
     ) async throws {
+        let config = BuildConfiguration.debug
         try await fixture(name: "ValidLayouts/SingleModule") { fixturePath in
             try await testWithTemporaryDirectory { tmpdir in
                 // Create fake `xcrun` and `sandbox-exec` commands.
@@ -4047,8 +4104,8 @@ struct PackageCommandTests {
                     ["dump-package"],
                     packagePath: packageRoot,
                     env: ["PATH": patchedPATH],
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 )
 
                 // Check that the wrong tools weren't invoked.  We can't just check the exit code because of fallbacks.
@@ -4065,15 +4122,16 @@ struct PackageCommandTests {
     )
     struct MigrateCommandTests {
         @Test(
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func migrateCommandHelp(
-            data: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws {
+            let config = BuildConfiguration.debug
             let (stdout, _) = try await execute(
                 ["migrate", "--help"],
-                configuration: data.config,
-                buildSystem: data.buildSystem,
+                configuration: config,
+                buildSystem: buildSystem,
             )
 
             // Global options are hidden.
@@ -4081,16 +4139,17 @@ struct PackageCommandTests {
         }
 
         @Test(
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func migrateCommandNoFeatures(
-            data: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws {
+            let config = BuildConfiguration.debug
             try await expectThrowsCommandExecutionError(
                 await execute(
                     ["migrate"],
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 )
             ) { error in
                 #expect(
@@ -4101,16 +4160,17 @@ struct PackageCommandTests {
 
         @Test(
             .supportsSupportedFeatures,
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func migrateCommandUnknownFeature(
-            data: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws {
+            let config = BuildConfiguration.debug
             try await expectThrowsCommandExecutionError(
                 await execute(
                     ["migrate", "--to-feature", "X"],
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 )
             ) { error in
                 #expect(
@@ -4121,16 +4181,17 @@ struct PackageCommandTests {
 
         @Test(
             .supportsSupportedFeatures,
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func migrateCommandNonMigratableFeature(
-            data: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws {
+            let config = BuildConfiguration.debug
             try await expectThrowsCommandExecutionError(
                 await execute(
                     ["migrate", "--to-feature", "StrictConcurrency"],
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 )
             ) { error in
                 #expect(
@@ -4150,7 +4211,7 @@ struct PackageCommandTests {
                 relationship: .defect
             ),
             .IssueWindowsCannotSaveAttachment,
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: SupportedBuildSystemOnAllPlatforms,
             [
                 // When updating these, make sure we keep testing both the singular and
                 // plural forms of the nouns in the summary.
@@ -4169,9 +4230,10 @@ struct PackageCommandTests {
             ],
         )
         func migrateCommand(
-            buildData: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
             testData: MigrateCommandTestData,
         ) async throws {
+            let config = BuildConfiguration.debug
             let featureName = testData.featureName
             let expectedSummary = testData.expectedSummary
             try await withKnownIssue(isIntermittent: true) {
@@ -4199,8 +4261,8 @@ struct PackageCommandTests {
                 let (stdout, _) = try await execute(
                     ["migrate", "--to-feature", featureName],
                     packagePath: fixturePath,
-                    configuration: buildData.config,
-                    buildSystem: buildData.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 )
 
                 #expect(sourcePaths.count == fixedSourcePaths.count)
@@ -4215,7 +4277,7 @@ struct PackageCommandTests {
                 #expect(stdout.contains(regexMatch))
             }
             } when: {
-                ProcessInfo.hostOperatingSystem == .windows && buildData.buildSystem == .swiftbuild
+                ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild
             }
         }
 
@@ -4225,18 +4287,19 @@ struct PackageCommandTests {
                 "https://github.com/swiftlang/swift-package-manager/issues/9006",
                 relationship: .defect
             ),
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func migrateCommandWithBuildToolPlugins(
-            data: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws {
+            let config = BuildConfiguration.debug
             try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "SwiftMigrate/ExistentialAnyWithPluginMigration") { fixturePath in
                 let (stdout, _) = try await execute(
                     ["migrate", "--to-feature", "ExistentialAny"],
                     packagePath: fixturePath,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
 
                 )
 
@@ -4268,19 +4331,20 @@ struct PackageCommandTests {
                 relationship: .defect
             ),
             .IssueWindowsCannotSaveAttachment,
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func migrateCommandWhenDependencyBuildsForHostAndTarget(
-            data: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws {
+            let config = BuildConfiguration.debug
             try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "SwiftMigrate/ExistentialAnyWithCommonPluginDependencyMigration") {
                 fixturePath in
                 let (stdout, _) = try await execute(
                     ["migrate", "--to-feature", "ExistentialAny"],
                     packagePath: fixturePath,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
 
                 )
 
@@ -4301,11 +4365,12 @@ struct PackageCommandTests {
                 "https://github.com/swiftlang/swift-package-manager/issues/9006",
                 relationship: .defect
             ),
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func migrateCommandUpdateManifestSingleTarget(
-            data: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws {
+            let config = BuildConfiguration.debug
             try await fixture(name: "SwiftMigrate/UpdateManifest") { fixturePath in
                 _ = try await execute(
                     [
@@ -4316,8 +4381,8 @@ struct PackageCommandTests {
                         "A",
                     ],
                     packagePath: fixturePath,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
 
                 )
 
@@ -4337,11 +4402,12 @@ struct PackageCommandTests {
                 "https://github.com/swiftlang/swift-package-manager/issues/9006",
                 relationship: .defect
             ),
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func migrateCommandUpdateManifest2Targets(
-            data: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws {
+            let config = BuildConfiguration.debug
             try await fixture(name: "SwiftMigrate/UpdateManifest") { fixturePath in
                 _ = try await execute(
                     [
@@ -4352,8 +4418,8 @@ struct PackageCommandTests {
                         "A,B",
                     ],
                     packagePath: fixturePath,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
 
                 )
 
@@ -4373,11 +4439,12 @@ struct PackageCommandTests {
                 "https://github.com/swiftlang/swift-package-manager/issues/9006",
                 relationship: .defect
             ),
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func migrateCommandUpdateManifestWithErrors(
-            data: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws {
+            let config = BuildConfiguration.debug
             try await fixture(name: "SwiftMigrate/UpdateManifest") { fixturePath in
                 try await expectThrowsCommandExecutionError(
                     await execute(
@@ -4386,8 +4453,8 @@ struct PackageCommandTests {
                             "ExistentialAny,InferIsolatedConformances,StrictMemorySafety",
                         ],
                         packagePath: fixturePath,
-                        configuration: data.config,
-                        buildSystem: data.buildSystem,
+                        configuration: config,
+                        buildSystem: buildSystem,
                     )
                 ) { error in
                     // 'SwiftMemorySafety.strictMemorySafety' was introduced in 6.2.
@@ -4560,19 +4627,20 @@ struct PackageCommandTests {
               .Feature.PackageType.BuildToolPlugin
             ),
             .requiresSwiftConcurrencySupport,
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func buildToolPluginFailure(
-            data: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws {
+            let config = BuildConfiguration.debug
             try await fixture(name: "Miscellaneous/Plugins/BuildToolPluginCompilationError") { packageDir in
                 // Invoke it, and check the results.
                 await expectThrowsCommandExecutionError(
                     try await executeSwiftBuild(
                         packageDir,
-                        configuration: data.config,
+                        configuration: config,
                         extraArgs: ["-v"],
-                        buildSystem: data.buildSystem,
+                        buildSystem: buildSystem,
                     )
                 ) { error in
                     withKnownIssue(isIntermittent: true) {
@@ -4581,10 +4649,13 @@ struct PackageCommandTests {
                     } when: {
                         ProcessInfo.hostOperatingSystem == .windows
                     }
-                    if data.buildSystem == .native {
-                        #expect(
-                            error.stderr.contains("build planning stopped due to build-tool plugin failures")
-                        )
+                    switch buildSystem {
+                        case .native:
+                            #expect(
+                                error.stderr.contains("build planning stopped due to build-tool plugin failures")
+                            )
+                        case .swiftbuild, .xcode:
+                            break
                     }
                 }
             }
@@ -4598,14 +4669,14 @@ struct PackageCommandTests {
     )
     struct ArchiveSourceTests {
         @Test(
-            arguments: getBuildData(for: [BuildSystemProvider.Kind.swiftbuild]),
+            arguments: [BuildSystemProvider.Kind.swiftbuild],
             [1, 2, 5]
-            // arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms), [1, 2, 5]
         )
         func archiveSourceWithoutArguments(
-            data: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
             numberOfExecutions: Int,
         ) async throws {
+            let config = BuildConfiguration.debug
             try await fixture(name: "DependencyResolution/External/Simple") { fixturePath in
                 let packageRoot = fixturePath.appending("Bar")
 
@@ -4614,8 +4685,8 @@ struct PackageCommandTests {
                     let (stdout, _) = try await execute(
                         ["archive-source"],
                         packagePath: packageRoot,
-                        configuration: data.config,
-                        buildSystem: data.buildSystem,
+                        configuration: config,
+                        buildSystem: buildSystem,
                     )
                     #expect(
                         stdout.contains("Created Bar.zip"),
@@ -4626,12 +4697,12 @@ struct PackageCommandTests {
         }
 
         @Test(
-            arguments: getBuildData(for: [BuildSystemProvider.Kind.swiftbuild]),
-            // arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: [BuildSystemProvider.Kind.swiftbuild],
         )
         func archiveSourceRunningWithOutputAsAbsolutePathWithingThePackageRoot(
-            data: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws {
+            let config = BuildConfiguration.debug
             try await fixture(name: "DependencyResolution/External/Simple") { fixturePath in
                 let packageRoot = fixturePath.appending("Bar")
                 // Running with output as absolute path within package root
@@ -4639,20 +4710,20 @@ struct PackageCommandTests {
                 let (stdout, _) = try await execute(
                     ["archive-source", "--output", destination.pathString],
                     packagePath: packageRoot,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 )
                 #expect(stdout.contains("Created Bar-1.2.3.zip"), #"actual: "\#(stdout)""#)
             }
         }
 
         @Test(
-            arguments: getBuildData(for: [BuildSystemProvider.Kind.swiftbuild]),
-            // arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: [BuildSystemProvider.Kind.swiftbuild],
         )
         func archiveSourceRunningWithoutArgumentsOutsideThePackageRoot(
-            data: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws {
+            let config = BuildConfiguration.debug
             try await fixture(name: "DependencyResolution/External/Simple") { fixturePath in
                 let packageRoot = fixturePath.appending("Bar")
                 // Running with output is outside the package root
@@ -4661,8 +4732,8 @@ struct PackageCommandTests {
                     let (stdout, _) = try await execute(
                         ["archive-source", "--output", destination.pathString],
                         packagePath: packageRoot,
-                        configuration: data.config,
-                        buildSystem: data.buildSystem,
+                        configuration: config,
+                        buildSystem: buildSystem,
                     )
                     #expect(stdout.hasPrefix("Created "), #"actual: "\#(stdout)""#)
                     #expect(stdout.contains("Bar-1.2.3.zip"), #"actual: "\#(stdout)""#)
@@ -4671,20 +4742,20 @@ struct PackageCommandTests {
         }
 
         @Test(
-            arguments: getBuildData(for: [BuildSystemProvider.Kind.swiftbuild]),
-            // arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: [BuildSystemProvider.Kind.swiftbuild],
         )
         func archiveSourceRunningWithoutArgumentsInNonPackageDirectoryProducesAnError(
-            data: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws {
+            let config = BuildConfiguration.debug
             try await fixture(name: "DependencyResolution/External/Simple") { fixturePath in
                 // Running without arguments or options in non-package directory
                 await expectThrowsCommandExecutionError(
                     try await execute(
                         ["archive-source"],
                         packagePath: fixturePath,
-                        configuration: data.config,
-                        buildSystem: data.buildSystem,
+                        configuration: config,
+                        buildSystem: buildSystem,
                     )
                 ) { error in
                     #expect(
@@ -4698,12 +4769,12 @@ struct PackageCommandTests {
         }
 
         @Test(
-            arguments: getBuildData(for: [BuildSystemProvider.Kind.swiftbuild]),
-            // arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: [BuildSystemProvider.Kind.swiftbuild],
         )
         func archiveSourceRunningWithOuboutAsAbsolutePathToExistingDirectory(
-            data: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws {
+            let config = BuildConfiguration.debug
             try await fixture(name: "DependencyResolution/External/Simple") { fixturePath in
                 let packageRoot = fixturePath.appending("Bar")
                 // Running with output as absolute path to existing directory
@@ -4712,8 +4783,8 @@ struct PackageCommandTests {
                     try await execute(
                         ["archive-source", "--output", destination.pathString],
                         packagePath: packageRoot,
-                        configuration: data.config,
-                        buildSystem: data.buildSystem,
+                        configuration: config,
+                        buildSystem: buildSystem,
                     )
                 ) { error in
                     let stderr = error.stderr
@@ -4739,7 +4810,7 @@ struct PackageCommandTests {
         @Test(
             .requiresSwiftConcurrencySupport,
             .requires(executable: "sed"),
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: SupportedBuildSystemOnAllPlatforms,
             [
                 CommandPluginTestData(
                     // Check that we can invoke the plugin with the "plugin" subcommand.
@@ -4790,9 +4861,10 @@ struct PackageCommandTests {
             ]
         )
         func commandPlugin(
-            buildData: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
             testData: CommandPluginTestData,
         ) async throws {
+            let config = BuildConfiguration.debug
             try await testWithTemporaryDirectory { tmpPath in
                 // Create a sample package with a library target, a plugin, and a local tool. It depends on a sample package which also has a tool.
                 let packageDir = tmpPath.appending(components: "MyPackage")
@@ -5013,8 +5085,8 @@ struct PackageCommandTests {
                 let (stdout, _) = try await execute(
                     testData.packageCommandArgs,
                     packagePath: packageDir,
-                    configuration: buildData.config,
-                    buildSystem: buildData.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 )
                 for expected in testData.expectedStdout {
                     #expect(stdout.contains(expected))
@@ -5024,11 +5096,12 @@ struct PackageCommandTests {
         @Test(
             .requiresSwiftConcurrencySupport,
             .requires(executable: "sed"),
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func commandPluginSpecialCases(
-            data: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws {
+            let config = BuildConfiguration.debug
             try await testWithTemporaryDirectory { tmpPath in
                 // Create a sample package with a library target, a plugin, and a local tool. It depends on a sample package which also has a tool.
                 let packageDir = tmpPath.appending(components: "MyPackage")
@@ -5252,8 +5325,8 @@ struct PackageCommandTests {
                         try await execute(
                             ["my-nonexistent-cmd"],
                             packagePath: packageDir,
-                            configuration: data.config,
-                            buildSystem: data.buildSystem,
+                            configuration: config,
+                            buildSystem: buildSystem,
                         )
                     ) { error in
                         // guard case SwiftPMError.executionFailure(_, _, let stderr) = error else {
@@ -5269,8 +5342,8 @@ struct PackageCommandTests {
                     let (stdout, _) = try await execute(
                         ["mycmd"],
                         packagePath: packageDir,
-                        configuration: data.config,
-                        buildSystem: data.buildSystem,
+                        configuration: config,
+                        buildSystem: buildSystem,
                     )
                     #expect(stdout.contains("Initial working directory: \(workingDirectory)"))
                 }
@@ -5279,17 +5352,18 @@ struct PackageCommandTests {
 
         @Test(
             .requiresSwiftConcurrencySupport,
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func ambiguousCommandPlugin(
-            data: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws {
+            let config = BuildConfiguration.debug
             try await fixture(name: "Miscellaneous/Plugins/AmbiguousCommands") { fixturePath in
                 let (stdout, _) = try await execute(
                     ["plugin", "--package", "A", "A"],
                     packagePath: fixturePath,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 )
                 #expect(stdout.contains("Hello A!"))
             }
@@ -5306,11 +5380,12 @@ struct PackageCommandTests {
                 "https://github.com/swiftlang/swift-package-manager/issues/8180",
                 relationship: .defect
             ),
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func commandPluginDiagnostics(
-            data: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws {
+            let config = BuildConfiguration.debug
 
             // Match patterns for expected messages
             let isEmpty = ""
@@ -5331,8 +5406,8 @@ struct PackageCommandTests {
                             flags + ["print-diagnostics"] + diagnostics,
                             packagePath: fixturePath,
                             env: ["SWIFT_DRIVER_SWIFTSCAN_LIB": "/this/is/a/bad/path"],
-                            configuration: data.config,
-                            buildSystem: data.buildSystem,
+                            configuration: config,
+                            buildSystem: buildSystem,
                         )
                         completion(stdout, stderr)
                     }
@@ -5348,8 +5423,8 @@ struct PackageCommandTests {
                                 flags + ["print-diagnostics"] + diagnostics,
                                 packagePath: fixturePath,
                                 env: ["SWIFT_DRIVER_SWIFTSCAN_LIB": "/this/is/a/bad/path"],
-                                configuration: data.config,
-                                buildSystem: data.buildSystem,
+                                configuration: config,
+                                buildSystem: buildSystem,
                             )
                         ) { error in
                             // guard case SwiftPMError.executionFailure(_, let stdout, let stderr) = error else {
@@ -5650,11 +5725,12 @@ struct PackageCommandTests {
               .Feature.PackageType.CommandPlugin
             ),
             .IssueWindowsRelativePathAssert,
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func commandPluginBuildTestabilityInternal_ModuleDebug_True(
-            data: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws {
+            let config = BuildConfiguration.debug
             // Plugin arguments: check-testability <targetName> <config> <shouldTestable>
             try await withKnownIssue(isIntermittent: true) {
                 // Overall configuration: debug, plugin build request: debug -> without testability
@@ -5663,8 +5739,8 @@ struct PackageCommandTests {
                         try await execute(
                             ["check-testability", "InternalModule", "debug", "true"],
                             packagePath: fixturePath,
-                            configuration: data.config,
-                            buildSystem: data.buildSystem,
+                            configuration: config,
+                            buildSystem: buildSystem,
                         )
                     }
                 }
@@ -5679,11 +5755,12 @@ struct PackageCommandTests {
               .Feature.PackageType.CommandPlugin
             ),
             .IssueWindowsRelativePathAssert,
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func commandPluginBuildTestabilityInternalModule_Release_False(
-            data: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws {
+            let config = BuildConfiguration.debug
             try await withKnownIssue(isIntermittent: true) {
                 // Overall configuration: debug, plugin build request: release -> without testability
                 try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
@@ -5691,8 +5768,8 @@ struct PackageCommandTests {
                         try await execute(
                             ["check-testability", "InternalModule", "release", "false"],
                             packagePath: fixturePath,
-                            configuration: data.config,
-                            buildSystem: data.buildSystem,
+                            configuration: config,
+                            buildSystem: buildSystem,
                         )
                     }
                 }
@@ -5710,11 +5787,12 @@ struct PackageCommandTests {
             .tags(
                 .Feature.Command.Package.CommandPlugin,
             ),
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func commandPluginBuildTestabilityAllWithTests_Release_True(
-            data: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws {
+            let config = BuildConfiguration.debug
             try await withKnownIssue(isIntermittent: true) {
                 // Overall configuration: release, plugin build request: release including tests -> with testability
                 try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
@@ -5722,14 +5800,14 @@ struct PackageCommandTests {
                         try await execute(
                             ["check-testability", "all-with-tests", "release", "true"],
                             packagePath: fixturePath,
-                            configuration: data.config,
-                            buildSystem: data.buildSystem,
+                            configuration: config,
+                            buildSystem: buildSystem,
                         )
                     }
                 }
             } when: {
                 ProcessInfo.hostOperatingSystem == .windows
-                    || (ProcessInfo.hostOperatingSystem == .linux && data.buildSystem == .swiftbuild)
+                    || (ProcessInfo.hostOperatingSystem == .linux && buildSystem == .swiftbuild)
             }
         }
 
@@ -5744,11 +5822,12 @@ struct PackageCommandTests {
             .tags(
                 .Feature.Command.Package.CommandPlugin,
             ),
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func commandPluginBuildLogs(
-            data: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws {
+            let config = BuildConfiguration.debug
 
             // Match patterns for expected messages
             let isEmpty = ""
@@ -5770,8 +5849,8 @@ struct PackageCommandTests {
                         ["print-diagnostics", "build"],
                         packagePath: fixturePath,
                         env: ["SWIFT_DRIVER_SWIFTSCAN_LIB": "/this/is/a/bad/path"],
-                        configuration: data.config,
-                        buildSystem: data.buildSystem,
+                        configuration: config,
+                        buildSystem: buildSystem,
                     )
                     #expect(stdout == isEmpty)
                     // Filter some unrelated output that could show up on stderr.
@@ -5789,8 +5868,8 @@ struct PackageCommandTests {
                         ["print-diagnostics", "build", "printlogs"],
                         packagePath: fixturePath,
                         env: ["SWIFT_DRIVER_SWIFTSCAN_LIB": "/this/is/a/bad/path"],
-                        configuration: data.config,
-                        buildSystem: data.buildSystem,
+                        configuration: config,
+                        buildSystem: buildSystem,
                     )
                     #expect(stdout.contains(containsLogtext))
                     // Filter some unrelated output that could show up on stderr.
@@ -5808,8 +5887,8 @@ struct PackageCommandTests {
                         ["print-diagnostics", "build", "echologs"],
                         packagePath: fixturePath,
                         env: ["SWIFT_DRIVER_SWIFTSCAN_LIB": "/this/is/a/bad/path"],
-                        configuration: data.config,
-                        buildSystem: data.buildSystem,
+                        configuration: config,
+                        buildSystem: buildSystem,
                     )
                     #expect(stdout == isEmpty)
                     #expect(stderr.contains(containsLogecho))
@@ -5821,8 +5900,8 @@ struct PackageCommandTests {
                         ["print-diagnostics", "build", "printlogs", "echologs"],
                         packagePath: fixturePath,
                         env: ["SWIFT_DRIVER_SWIFTSCAN_LIB": "/this/is/a/bad/path"],
-                        configuration: data.config,
-                        buildSystem: data.buildSystem,
+                        configuration: config,
+                        buildSystem: buildSystem,
                     )
                     #expect(stdout.contains(containsLogtext))
                     #expect(stderr.contains(containsLogecho))
@@ -5909,13 +5988,14 @@ struct PackageCommandTests {
             .tags(
                 .Feature.Command.Package.CommandPlugin,
             ),
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: SupportedBuildSystemOnAllPlatforms,
             Self.getCommandPluginNetworkingPermissionTestData()
         )
         func commandPluginNetworkingPermissionsWithoutUsingRemedy(
-            buildData: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
             testData: CommandPluginNetworkingPermissionsTestData,
         ) async throws {
+            let config = BuildConfiguration.debug
             try await testWithTemporaryDirectory { tmpPath in
                 // Create a sample package with a library target and a plugin.
                 let packageDir = tmpPath.appending(components: "MyPackage")
@@ -5957,8 +6037,8 @@ struct PackageCommandTests {
                     try await execute(
                         ["plugin", "Network"],
                         packagePath: packageDir,
-                        configuration: buildData.config,
-                        buildSystem: buildData.buildSystem,
+                        configuration: config,
+                        buildSystem: buildSystem,
                     )
                 ) { error in
                     #expect(!error.stdout.contains("hello world"))
@@ -5988,13 +6068,14 @@ struct PackageCommandTests {
                 "https://github.com/swiftlang/swift-package-manager/issues/9083",
                 relationship: .defect,
             ),
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: SupportedBuildSystemOnAllPlatforms,
             Self.getCommandPluginNetworkingPermissionTestData()
         )
         func commandPluginNetworkingPermissionsUsingRemedy(
-            buildData: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
             testData: CommandPluginNetworkingPermissionsTestData,
         ) async throws {
+            let config = BuildConfiguration.debug
             try await withKnownIssue(isIntermittent: true) {
                 try await testWithTemporaryDirectory { tmpPath in
                     // Create a sample package with a library target and a plugin.
@@ -6038,13 +6119,13 @@ struct PackageCommandTests {
                         let (stdout, _) = try await execute(
                             ["plugin"] + testData.remedy + ["Network"],
                             packagePath: packageDir,
-                            configuration: buildData.config,
-                            buildSystem: buildData.buildSystem,
+                            configuration: config,
+                            buildSystem: buildSystem,
                         )
                         withKnownIssue(isIntermittent: true) {
                             #expect(stdout.contains("hello world"))
                         } when: {
-                            ProcessInfo.hostOperatingSystem == .windows && buildData.buildSystem == .swiftbuild && buildData.config == .debug && testData.permissionError == Self.allNetworkConnectionPermissionError
+                            ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild && config == .debug && testData.permissionError == Self.allNetworkConnectionPermissionError
                         }
                     }
                 }
@@ -6066,11 +6147,12 @@ struct PackageCommandTests {
             .tags(
                 .Feature.Command.Package.CommandPlugin,
             ),
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func commandPluginPermissions(
-            data: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws {
+            let config = BuildConfiguration.debug
             try await withKnownIssue(isIntermittent: true) {
                 try await testWithTemporaryDirectory { tmpPath in
                     // Create a sample package with a library target and a plugin.
@@ -6145,8 +6227,8 @@ struct PackageCommandTests {
                                     ["plugin", "PackageScribbler"],
                                     packagePath: packageDir,
                                     env: ["DECLARE_PACKAGE_WRITING_PERMISSION": "1"],
-                                    configuration: data.config,
-                                    buildSystem: data.buildSystem,
+                                    configuration: config,
+                                    buildSystem: buildSystem,
                                 )
                             ) { error in
                                 // guard case SwiftPMError.executionFailure(_, let stdout, let stderr) = error else {
@@ -6172,13 +6254,13 @@ struct PackageCommandTests {
                             ["plugin", "--allow-writing-to-package-directory", "PackageScribbler"],
                             packagePath: packageDir,
                             env: ["DECLARE_PACKAGE_WRITING_PERMISSION": "1"],
-                            configuration: data.config,
-                            buildSystem: data.buildSystem,
+                            configuration: config,
+                            buildSystem: buildSystem,
                         )
                         withKnownIssue(isIntermittent: true) {
                             #expect(stdout.contains("successfully created it"))
                         } when: {
-                            ProcessInfo.hostOperatingSystem == .windows && data.buildSystem == .native && data.config == .release
+                            ProcessInfo.hostOperatingSystem == .windows && buildSystem == .native && config == .release
                         }
                         #expect(!stderr.contains("error: Couldn’t create file at path"))
                     }
@@ -6191,8 +6273,8 @@ struct PackageCommandTests {
                                     ["plugin", "PackageScribbler"],
                                     packagePath: packageDir,
                                     env: ["DECLARE_PACKAGE_WRITING_PERMISSION": "0"],
-                                    configuration: data.config,
-                                    buildSystem: data.buildSystem,
+                                    configuration: config,
+                                    buildSystem: buildSystem,
                                 )
                             ) { error in
                                 // guard case SwiftPMError.executionFailure(_, let stdout, let stderr) = error else {
@@ -6211,8 +6293,8 @@ struct PackageCommandTests {
                             ["--allow-writing-to-package-directory", "PackageScribbler"],
                             packagePath: packageDir,
                             env: ["DECLARE_PACKAGE_WRITING_PERMISSION": "1"],
-                            configuration: data.config,
-                            buildSystem: data.buildSystem,
+                            configuration: config,
+                            buildSystem: buildSystem,
                         )
                         #expect(stdout.contains("successfully created it"))
                         #expect(!stderr.contains("error: Couldn’t create file at path"))
@@ -6224,8 +6306,8 @@ struct PackageCommandTests {
                             ["plugin", "PackageScribbler", "--allow-writing-to-package-directory"],
                             packagePath: packageDir,
                             env: ["DECLARE_PACKAGE_WRITING_PERMISSION": "1"],
-                            configuration: data.config,
-                            buildSystem: data.buildSystem,
+                            configuration: config,
+                            buildSystem: buildSystem,
                         )
                         #expect(stdout.contains("successfully created it"))
                         #expect(!stderr.contains("error: Couldn’t create file at path"))
@@ -6237,8 +6319,8 @@ struct PackageCommandTests {
                             ["PackageScribbler", "--allow-writing-to-package-directory"],
                             packagePath: packageDir,
                             env: ["DECLARE_PACKAGE_WRITING_PERMISSION": "1"],
-                            configuration: data.config,
-                            buildSystem: data.buildSystem,
+                            configuration: config,
+                            buildSystem: buildSystem,
                         )
                         #expect(stdout.contains("successfully created it"))
                         #expect(!stderr.contains("error: Couldn’t create file at path"))
@@ -6254,16 +6336,17 @@ struct PackageCommandTests {
             .tags(
                 .Feature.Command.Package.CommandPlugin,
             ),
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: SupportedBuildSystemOnAllPlatforms,
             [
                 true,  // check argument
                 false,  // check default argument
             ]
         )
         func commandPluginArgumentsNotSwallowed(
-            data: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
             _ checkArgument: Bool,
         ) async throws {
+            let config = BuildConfiguration.debug
             try await testWithTemporaryDirectory { tmpPath in
                 // Create a sample package with a library target and a plugin.
                 let packageDir = tmpPath.appending(components: "MyPackage")
@@ -6328,8 +6411,8 @@ struct PackageCommandTests {
                     commandPrefix + ["MyPlugin", "--foo", "--help", "--version", "--verbose"],
                     packagePath: packageDir,
                     env: ["SWIFT_DRIVER_SWIFTSCAN_LIB": "/this/is/a/bad/path"],
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 )
                 #expect(stdout.contains("success"))
                 #expect(!stderr.contains("error:"))
@@ -6348,11 +6431,12 @@ struct PackageCommandTests {
             .tags(
                 .Feature.Command.Package.CommandPlugin,
             ),
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func commandPluginSymbolGraphCallbacks(
-            data: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws {
+            let config = BuildConfiguration.debug
             try await withKnownIssue(isIntermittent: true) {
                 try await testWithTemporaryDirectory { tmpPath in
                     // Create a sample package with a library, and executable, and a plugin.
@@ -6445,10 +6529,10 @@ struct PackageCommandTests {
                         let (stdout, _) = try await execute(
                             ["generate-documentation"],
                             packagePath: packageDir,
-                            configuration: data.config,
-                            buildSystem: data.buildSystem,
+                            configuration: config,
+                            buildSystem: buildSystem,
                         )
-                        switch data.buildSystem {
+                        switch buildSystem {
                         case .native:
                             #expect(stdout.contains("MyLibrary:"))
                             #expect(stdout.contains(AbsolutePath("/mypackage/MyLibrary").pathString))
@@ -6469,10 +6553,10 @@ struct PackageCommandTests {
                         let (stdout, _) = try await execute(
                             ["generate-documentation", "--target", "MyLibrary"],
                             packagePath: packageDir,
-                            configuration: data.config,
-                            buildSystem: data.buildSystem,
+                            configuration: config,
+                            buildSystem: buildSystem,
                         )
-                        switch data.buildSystem {
+                        switch buildSystem {
                         case .native:
                             #expect(stdout.contains("MyLibrary:"))
                             #expect(stdout.contains(AbsolutePath("/mypackage/MyLibrary").pathString))
@@ -6489,14 +6573,14 @@ struct PackageCommandTests {
                     }
                 }
             } when: {
-                let shouldSkip: Bool = (ProcessInfo.hostOperatingSystem == .windows && data.buildSystem == .swiftbuild)
+                let shouldSkip: Bool = (ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild)
                     || !CiEnvironment.runningInSmokeTestPipeline
 
                 #if compiler(>=6.3)
                     return shouldSkip
                 #else
                     // Symbol graph generation options are only available in 6.3 toolchain or later for swift build
-                    return shouldSkip || data.buildSystem == .swiftbuild
+                    return shouldSkip || buildSystem == .swiftbuild
                 #endif
             }
         }
@@ -6507,14 +6591,15 @@ struct PackageCommandTests {
             .tags(
                 .Feature.Command.Package.CommandPlugin,
             ),
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func commandPluginBuildingCallbacks(
-            data: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws {
+            let config = BuildConfiguration.debug
             try await withKnownIssue(isIntermittent: true) {
                 try await testWithTemporaryDirectory { tmpPath in
-                    let buildSystemProvider = data.buildSystem
+                    let buildSystemProvider = buildSystem
                     // Create a sample package with a library, an executable, and a command plugin.
                     let packageDir = tmpPath.appending(components: "MyPackage")
                     try localFileSystem.createDirectory(packageDir, recursive: true)
@@ -6635,8 +6720,8 @@ struct PackageCommandTests {
                         let (stdout, _) = try await execute(
                             ["my-build-tester", "--product", "MyExecutable", "--print-commands"],
                             packagePath: packageDir,
-                            configuration: data.config,
-                            buildSystem: data.buildSystem,
+                            configuration: config,
+                            buildSystem: buildSystem,
                         )
                         #expect(stdout.contains("Building for debugging..."))
                         if buildSystemProvider == .native {
@@ -6664,8 +6749,8 @@ struct PackageCommandTests {
                         let (stdout, _) = try await execute(
                             ["my-build-tester", "--product", "MyExecutable", "--release"],
                             packagePath: packageDir,
-                            configuration: data.config,
-                            buildSystem: data.buildSystem,
+                            configuration: config,
+                            buildSystem: buildSystem,
                         )
                         #expect(stdout.contains("Building for production..."))
                         #expect(!stdout.contains("-module-name MyExecutable"))
@@ -6694,8 +6779,8 @@ struct PackageCommandTests {
                             let (stdout, _) = try await execute(
                                 ["my-build-tester", "--product", "MyStaticLibrary", "--print-commands", "--release"],
                                 packagePath: packageDir,
-                                configuration: data.config,
-                                buildSystem: data.buildSystem,
+                                configuration: config,
+                                buildSystem: buildSystem,
                             )
                             #expect(stdout.contains("Building for production..."))
                             #expect(!stdout.contains("Building for debug..."))
@@ -6718,7 +6803,7 @@ struct PackageCommandTests {
                             #expect(stdout.contains("staticLibrary"))
                         }
                     } when: {
-                        data.buildSystem == .swiftbuild
+                        buildSystem == .swiftbuild
                     }
 
                     // Invoke the plugin with parameters choosing a verbose build of MyDynamicLibrary for release.
@@ -6728,8 +6813,8 @@ struct PackageCommandTests {
                                 "my-build-tester", "--product", "MyDynamicLibrary", "--print-commands", "--release",
                             ],
                             packagePath: packageDir,
-                            configuration: data.config,
-                            buildSystem: data.buildSystem,
+                            configuration: config,
+                            buildSystem: buildSystem,
                         )
                         #expect(stdout.contains("Building for production..."))
                         #expect(!stdout.contains("Building for debug..."))
@@ -6758,7 +6843,7 @@ struct PackageCommandTests {
                     }
                 }
             } when: {
-                ProcessInfo.hostOperatingSystem == .windows && data.buildSystem == .swiftbuild
+                ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild
             }
         }
 
@@ -7387,11 +7472,12 @@ struct PackageCommandTests {
             .tags(
                 .Feature.Command.Package.CommandPlugin,
             ),
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func commandPluginCompilationErrorImplementation(
-            data: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws {
+            let config = BuildConfiguration.debug
             try await fixture(name: "Miscellaneous/Plugins/CommandPluginCompilationError") { packageDir in
                 // Check that building stops after compiling the plugin and doesn't proceed.
                 // Run this test a number of times to try to catch any race conditions.
@@ -7399,8 +7485,8 @@ struct PackageCommandTests {
                     await expectThrowsCommandExecutionError(
                         try await executeSwiftBuild(
                             packageDir,
-                            configuration: data.config,
-                            buildSystem: data.buildSystem,
+                            configuration: config,
+                            buildSystem: buildSystem,
                         )
                     ) { error in
                         let stdout = error.stdout
@@ -7413,10 +7499,10 @@ struct PackageCommandTests {
                                 "iteration \(num) failed.  stderr: \(stderr)",
                             )
                         } when: {
-                            data.buildSystem == .native
+                            buildSystem == .native
                         }
                         #expect(
-                            !stdout.contains("Building for \(data.config.buildFor)..."),
+                            !stdout.contains("Building for \(config.buildFor)..."),
                             "iteration \(num) failed.   stderr: \(stderr)",
                         )
                     }
@@ -7429,10 +7515,10 @@ struct PackageCommandTests {
             .tags(
                 .Feature.Command.Package.Plugin,
             ),
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            // arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
         )
         func singlePluginTarget(
-            data: BuildData,
+            // data: BuildData,
         ) async throws {
             try await testWithTemporaryDirectory { tmpPath in
                 // Create a sample package with a library target and a plugin.

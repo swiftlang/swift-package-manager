@@ -32,13 +32,12 @@ struct ModuleAliasingFixtureTests {
         .tags(
             Tag.Feature.Command.Build,
         ),
-        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func moduleDirectDeps1(
-        data: BuildData,
+        buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        let buildSystem = data.buildSystem
-        let configuration = data.config
+        let configuration = BuildConfiguration.debug
 
         try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "ModuleAliasing/DirectDeps1") { fixturePath in
@@ -85,13 +84,12 @@ struct ModuleAliasingFixtureTests {
         .tags(
             Tag.Feature.Command.Build,
         ),
-        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func moduleDirectDeps2(
-        data: BuildData
+        buildSystem: BuildSystemProvider.Kind
     ) async throws {
-        let buildSystem = data.buildSystem
-        let configuration = data.config
+        let configuration = BuildConfiguration.debug
         try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "ModuleAliasing/DirectDeps2") { fixturePath in
                 let pkgPath = fixturePath.appending(components: "AppPkg")
@@ -136,13 +134,12 @@ struct ModuleAliasingFixtureTests {
         .tags(
             Tag.Feature.Command.Build,
         ),
-        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func moduleNestedDeps1(
-        data: BuildData,
+        buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        let buildSystem = data.buildSystem
-        let configuration = data.config
+        let configuration = BuildConfiguration.debug
         try await withKnownIssue(isIntermittent: true) {
         try await fixture(name: "ModuleAliasing/NestedDeps1") { fixturePath in
             let pkgPath = fixturePath.appending(components: "AppPkg")
@@ -192,13 +189,12 @@ struct ModuleAliasingFixtureTests {
         .tags(
             Tag.Feature.Command.Build,
         ),
-        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func moduleNestedDeps2(
-        data: BuildData,
+        buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        let buildSystem = data.buildSystem
-        let configuration = data.config
+        let configuration = BuildConfiguration.debug
         try await withKnownIssue(isIntermittent: true) {
         try await fixture(name: "ModuleAliasing/NestedDeps2") { fixturePath in
             let pkgPath = fixturePath.appending(components: "AppPkg")

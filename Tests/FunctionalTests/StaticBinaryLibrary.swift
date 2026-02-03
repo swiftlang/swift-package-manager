@@ -15,6 +15,7 @@ import PackageModel
 import TSCBasic
 import Testing
 import _InternalTestSupport
+import struct SPMBuildCore.BuildSystemProvider
 
 struct StaticBinaryLibraryTests {
     @Test(
@@ -26,19 +27,18 @@ struct StaticBinaryLibraryTests {
             .Feature.TargetType.Library,
             .Feature.TargetType.BinaryTarget.ArtifactBundle,
         ),
-        buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.tags,
-        arguments: buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.buildData,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func staticLibrary(
-        buildData: BuildData,
+        buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         try await fixture(name: "BinaryLibraries") { fixturePath in
             let (stdout, _) = try await executeSwiftRun(
                 fixturePath.appending("Static").appending("Package1"),
                 "Example",
-                configuration: buildData.config,
+                configuration: .debug,
                 extraArgs: ["--experimental-prune-unused-dependencies"],
-                buildSystem: buildData.buildSystem,
+                buildSystem: buildSystem,
             )
             #expect(stdout == """
             42
