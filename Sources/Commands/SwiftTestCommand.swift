@@ -279,6 +279,13 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
     @OptionGroup()
     var options: TestCommandOptions
 
+    /// The text of a note emitted after Swift Testing tests finish running if
+    /// at least one XCTest has failed, to inform the user.
+    ///
+    /// - Note: This is exposed as a property so it can be referenced by an
+    ///     accompanying test as well as the implementation.
+    public static let xctestFailedNote = "Note: One or more XCTests failed, see logging above for details."
+
     private func run(_ swiftCommandState: SwiftCommandState, buildParameters: BuildParameters, testProducts: [BuiltTestProduct]) async throws {
         // Remove test output from prior runs and validate priors.
         if self.options.enableExperimentalTestOutput && buildParameters.triple.supportsTestSummary {
@@ -359,6 +366,9 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
 
         // Run Swift Testing (parallel or not, it has a single entry point.)
         if options.testLibraryOptions.isEnabled(.swiftTesting, swiftCommandState: swiftCommandState) {
+            // Determine whether any XCTest runs performed above failed, before Swift Testing runs.
+            let anyXCTestFailed = results.reduce() == .failure
+
             lazy var testEntryPointPath = testProducts.lazy.compactMap(\.testEntryPointPath).first
             if options.testLibraryOptions.isExplicitlyEnabled(.swiftTesting, swiftCommandState: swiftCommandState) || testEntryPointPath == nil {
                 results.append(
@@ -376,6 +386,15 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                 swiftCommandState.observabilityScope.emit(
                     debug: "Skipping automatic Swift Testing invocation because a test entry point path is present: \(testEntryPointPath)"
                 )
+            }
+
+            // After running Swift Testing tests, if we determined that any XCTests failed earlier,
+            // emit a message informing the user so they aren't misled and know to look elsewhere for
+            // those details.
+            if anyXCTestFailed {
+                // In theory this could, or should, use `observabilityScope.print(_:verbose:)`,
+                // but that causes tests which check for this output to fail in CI.
+                print(Self.xctestFailedNote)
             }
         }
 
