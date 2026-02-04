@@ -414,6 +414,7 @@ public final class PIFBuilder {
                 materializeStaticArchiveProductsForRootPackages: self.parameters.materializeStaticArchiveProductsForRootPackages,
                 addLocalRpaths: self.parameters.addLocalRpaths,
                 packageDisplayVersion: package.manifest.displayName,
+                pkgConfigDirectories: self.parameters.pkgConfigDirectories,
                 fileSystem: self.fileSystem,
                 observabilityScope: self.observabilityScope
             )

@@ -713,6 +713,7 @@ extension SystemLibraryModule {
     /// Returns pkgConfig result for a system library target.
     func pkgConfig(
         package: PackageGraph.ResolvedPackage,
+        pkgConfigDirectories: [AbsolutePath],
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
     ) throws -> (cFlags: [String], libs: [String]) {
@@ -734,29 +735,33 @@ extension SystemLibraryModule {
             return packageMetadata
         }
 
-        let brewPath = if FileManager.default.fileExists(atPath: "/opt/brew") {
-            "/opt/brew" // Legacy path for Homebrew.
-        } else if FileManager.default.fileExists(atPath: "/opt/homebrew") {
-            "/opt/homebrew" // Default path for Homebrew on Apple Silicon.
+        let brewPrefix: AbsolutePath?
+        // Normally PIF should be independent of the host OS, but in this case
+        // we need to invoke a tool (pkg-config) installed on the host system by homebrew.
+        if ProcessInfo.hostOperatingSystem == .macOS {
+            let brewPath = if FileManager.default.fileExists(atPath: "/opt/brew") {
+                "/opt/brew" // Legacy path for Homebrew.
+            } else if FileManager.default.fileExists(atPath: "/opt/homebrew") {
+                "/opt/homebrew" // Default path for Homebrew on Apple Silicon.
+            } else {
+                "/usr/local" // Fallback to default path for Homebrew.
+            }
+
+            brewPrefix = try? AbsolutePath(
+                validating: UserDefaults.standard.string(forKey: "IDEHomebrewPrefixPath") ?? brewPath
+            )
         } else {
-            "/usr/local" // Fallback to default path for Homebrew.
+            brewPrefix = nil
         }
-
-        let emptyPkgConfig: (cFlags: [String], libs: [String]) = ([], [])
-
-        let brewPrefix = try? AbsolutePath(
-            validating: UserDefaults.standard.string(forKey: "IDEHomebrewPrefixPath") ?? brewPath
-        )
-        guard let brewPrefix else { return emptyPkgConfig }
 
         let pkgConfigResult = try? pkgConfigArgs(
             for: self,
-            pkgConfigDirectories: [],
+            pkgConfigDirectories: pkgConfigDirectories,
             brewPrefix: brewPrefix,
             fileSystem: fileSystem,
             observabilityScope: pkgConfigParsingScope
         )
-        guard let pkgConfigResult else { return emptyPkgConfig }
+        guard let pkgConfigResult else { return ([], []) }
 
         let pkgConfig = (
             cFlags: pkgConfigResult.flatMap(\.cFlags),
