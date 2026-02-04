@@ -13,6 +13,7 @@
 import Dispatch
 import Foundation
 
+import protocol TSCBasic.WritableByteStream
 import struct TSCBasic.Diagnostic
 import protocol TSCBasic.DiagnosticData
 import protocol TSCBasic.DiagnosticLocation
@@ -40,17 +41,19 @@ public class ObservabilitySystem {
     }
 
     /// Create an ObservabilitySystem with a single diagnostics handler.
-    public convenience init(_ handler: @escaping @Sendable (ObservabilityScope, Diagnostic) -> Void) {
-        self.init(SingleDiagnosticsHandler(handler))
+    public convenience init(_ handler: @escaping @Sendable (ObservabilityScope, Diagnostic) -> Void, outputStream: (any WritableByteStream)? = nil) {
+        self.init(SingleDiagnosticsHandler(handler, outputStream: outputStream))
     }
 
     private struct SingleDiagnosticsHandler: ObservabilityHandlerProvider, DiagnosticsHandler {
         var diagnosticsHandler: DiagnosticsHandler { self }
 
         let underlying: @Sendable (ObservabilityScope, Diagnostic) -> Void
+        let outputStream: (any WritableByteStream)?
 
-        init(_ underlying: @escaping @Sendable (ObservabilityScope, Diagnostic) -> Void) {
+        init(_ underlying: @escaping @Sendable (ObservabilityScope, Diagnostic) -> Void, outputStream: (any WritableByteStream)?) {
             self.underlying = underlying
+            self.outputStream = outputStream
         }
 
         func handleDiagnostic(scope: ObservabilityScope, diagnostic: Diagnostic) {
@@ -58,12 +61,12 @@ public class ObservabilitySystem {
         }
 
         func print(_ output: String, verbose: Bool) {
-            self.diagnosticsHandler.print(output, verbose: verbose)
+            outputStream?.write(output)
         }
     }
 
     public static var NOOP: ObservabilityScope {
-        ObservabilitySystem { _, _ in }.topScope
+        ObservabilitySystem({ _, _ in }, outputStream: nil).topScope
     }
 }
 
