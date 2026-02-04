@@ -175,7 +175,7 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
         do {
             let fileSystem = localFileSystem
 
-            let observabilityScope = ObservabilitySystem { _, diagnostics in
+            let observabilityScope = ObservabilitySystem({ _, diagnostics in
                 if diagnostics.severity >= logLevel {
                     print(diagnostics)
                 }

@@ -17,6 +17,7 @@
 import Basics
 import struct TSCBasic.SHA256
 import struct TSCBasic.ByteString
+import let TSCBasic.stdoutStream
 import struct TSCUtility.Version
 import PackageGraph
 import PackageModel

@@ -13,6 +13,7 @@
 import Dispatch
 import Foundation
 
+import protocol TSCBasic.WritableByteStream
 import struct TSCBasic.Diagnostic
 import protocol TSCBasic.DiagnosticData
 import protocol TSCBasic.DiagnosticLocation

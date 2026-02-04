@@ -724,7 +724,7 @@ extension SystemLibraryModule {
             }
         }
 
-        let pkgConfigParsingScope = ObservabilitySystem { _, diagnostic in
+        let pkgConfigParsingScope = ObservabilitySystem({ _, diagnostic in
             diagnostics.append(diagnostic)
         }, outputStream: nil, logLevel: .debug).topScope.makeChildScope(description: "PkgConfig") {
             var packageMetadata = ObservabilityMetadata.packageMetadata(

@@ -21,6 +21,7 @@ import Basics
 import Foundation
 import PackageModel
 import struct TSCBasic.ByteString
+import let TSCBasic.stdoutStream
 import struct TSCBasic.SHA256
 import Workspace
 
