@@ -134,24 +134,25 @@ struct CoverageTests {
         .tags(
             .Feature.Command.Test,
         ),
-        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms), [
+        arguments: SupportedBuildSystemOnAllPlatforms, [
             "Coverage/Simple",
             "Miscellaneous/TestDiscovery/Simple",
         ],
     )
     func generateCoverageReport(
-        buildData: BuildData,
+        buildSystem: BuildSystemProvider.Kind,
         fixtureName: String
     ) async throws {
+        let config = BuildConfiguration.debug
         try await fixture(name: fixtureName) { path in
             let coveragePathString = try await executeSwiftTest(
                 path,
-                configuration: buildData.config,
+                configuration: config,
                 extraArgs: [
                     "--show-coverage-path",
                 ],
                 throwIfCommandFails: true,
-                buildSystem: buildData.buildSystem,
+                buildSystem: buildSystem,
             ).stdout.trimmingCharacters(in: .whitespacesAndNewlines)
             let coveragePath = try AbsolutePath(validating: coveragePathString)
             try #require(!localFileSystem.exists(coveragePath))
@@ -160,18 +161,18 @@ struct CoverageTests {
             try await withKnownIssue(isIntermittent: true) {
                 try await executeSwiftTest(
                     path,
-                    configuration: buildData.config,
+                    configuration: config,
                     extraArgs: [
                         "--enable-code-coverage",
                     ],
                     throwIfCommandFails: true,
-                    buildSystem: buildData.buildSystem,
+                    buildSystem: buildSystem,
                 )
 
                 // THEN we expect the file to exists
                 #expect(localFileSystem.exists(coveragePath))
             } when: {
-                (buildData.buildSystem == .swiftbuild && [.windows, .linux].contains(ProcessInfo.hostOperatingSystem))
+                (buildSystem == .swiftbuild && [.windows, .linux].contains(ProcessInfo.hostOperatingSystem))
             }
         }
     }

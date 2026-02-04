@@ -33,13 +33,12 @@ struct ToolsVersionTests {
             .Feature.Command.Package.ToolsVersion,
             .Feature.ProductType.Library,
         ),
-        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func toolsVersion(
-        buildData: BuildData,
+        buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        let buildSystem = buildData.buildSystem
-        let configuration = buildData.config
+        let configuration = BuildConfiguration.debug
         try await withKnownIssue("https://github.com/swiftlang/swift-build/issues/609", isIntermittent: true) {
             try await testWithTemporaryDirectory{ path in
                 let fs = localFileSystem

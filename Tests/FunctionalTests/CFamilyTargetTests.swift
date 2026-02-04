@@ -53,8 +53,7 @@ struct CFamilyTargetTestCase {
             .Feature.Command.Build,
             .Feature.SpecialCharacters,
         ),
-        buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.tags,
-        arguments: buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.buildData,
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
     )
     func cLibraryWithSpaces(
         data: BuildData,
@@ -85,8 +84,7 @@ struct CFamilyTargetTestCase {
         .tags(
             .Feature.Command.Build,
         ),
-        buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.tags,
-        arguments: buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.buildData,
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
     )
     func cUsingCAndSwiftDep(
         data: BuildData,
@@ -121,8 +119,7 @@ struct CFamilyTargetTestCase {
         .tags(
             .Feature.Command.Build,
         ),
-        buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.tags,
-        arguments: buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.buildData,
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
     )
     func moduleMapGenerationCases(
         data: BuildData,
@@ -151,8 +148,7 @@ struct CFamilyTargetTestCase {
         .tags(
             .Feature.Command.Build,
         ),
-        buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.tags,
-        arguments: buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.buildData,
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
     )
     func noIncludeDirCheck(
         data: BuildData,
@@ -181,8 +177,7 @@ struct CFamilyTargetTestCase {
             .Feature.Command.Build,
             .Feature.CommandLineArguments.Xld,
         ),
-        buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.tags,
-        arguments: buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.buildData,
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
     )
     func canForwardExtraFlagsToClang(
         data: BuildData,
@@ -211,8 +206,7 @@ struct CFamilyTargetTestCase {
             .Feature.Command.Build,
             .Feature.Command.Test,
         ),
-        buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.tags,
-        arguments: buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.buildData,
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
     )
     func objectiveCPackageWithTestTarget(
         data: BuildData,
@@ -251,8 +245,7 @@ struct CFamilyTargetTestCase {
         .tags(
             .Feature.Command.Build,
         ),
-        buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.tags,
-        arguments: buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.buildData,
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
     )
     func canBuildRelativeHeaderSearchPaths(
         data: BuildData,

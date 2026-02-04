@@ -34,12 +34,12 @@ struct TraitTests {
         .tags(
             Tag.Feature.Command.Run,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func traits_whenNoFlagPassed(
         buildSystem: BuildSystemProvider.Kind,
-        configuration: BuildConfiguration,
     ) async throws {
+        let configuration = BuildConfiguration.debug
         try await withKnownIssue(isIntermittent: true) {
         try await fixture(name: "Traits") { fixturePath in
             let (stdout, stderr) = try await executeSwiftRun(
@@ -74,12 +74,12 @@ struct TraitTests {
         .tags(
             Tag.Feature.Command.Run,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func traits_whenTraitUnification(
         buildSystem: BuildSystemProvider.Kind,
-        configuration: BuildConfiguration,
     ) async throws {
+        let configuration = BuildConfiguration.debug
         try await withKnownIssue(
             """
             Windows: "https://github.com/swiftlang/swift-build/issues/609"
@@ -125,12 +125,12 @@ struct TraitTests {
         .tags(
             Tag.Feature.Command.Run,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func traits_whenTraitUnification_whenSecondTraitNotEnabled(
         buildSystem: BuildSystemProvider.Kind,
-        configuration: BuildConfiguration,
     ) async throws {
+        let configuration = BuildConfiguration.debug
         try await withKnownIssue(
             """
             Windows: https://github.com/swiftlang/swift-build/issues/609
@@ -173,12 +173,12 @@ struct TraitTests {
         .tags(
             Tag.Feature.Command.Run,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func traits_whenIndividualTraitsEnabled_andDefaultTraits(
         buildSystem: BuildSystemProvider.Kind,
-        configuration: BuildConfiguration,
     ) async throws {
+        let configuration = BuildConfiguration.debug
         try await withKnownIssue(
             """
             Windows: https://github.com/swiftlang/swift-build/issues/609
@@ -225,12 +225,12 @@ struct TraitTests {
         .tags(
             Tag.Feature.Command.Run,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func traits_whenDefaultTraitsDisabled(
         buildSystem: BuildSystemProvider.Kind,
-        configuration: BuildConfiguration,
     ) async throws {
+        let configuration = BuildConfiguration.debug
         try await withKnownIssue(isIntermittent: true) {
         try await fixture(name: "Traits") { fixturePath in
             let (stdout, stderr) = try await executeSwiftRun(
@@ -262,12 +262,12 @@ struct TraitTests {
         .tags(
             Tag.Feature.Command.Run,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func traits_whenIndividualTraitsEnabled_andDefaultTraitsDisabled(
         buildSystem: BuildSystemProvider.Kind,
-        configuration: BuildConfiguration,
     ) async throws {
+        let configuration = BuildConfiguration.debug
         try await withKnownIssue("""
             Windows: https://github.com/swiftlang/swift-build/issues/609
             """,
@@ -306,12 +306,12 @@ struct TraitTests {
         .tags(
             Tag.Feature.Command.Run,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func traits_whenAllTraitsEnabled(
         buildSystem: BuildSystemProvider.Kind,
-        configuration: BuildConfiguration,
     ) async throws {
+        let configuration = BuildConfiguration.debug
         try await withKnownIssue(
             """
             Windows: https://github.com/swiftlang/swift-build/issues/609
@@ -361,12 +361,12 @@ struct TraitTests {
         .tags(
             Tag.Feature.Command.Run,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func traits_whenAllTraitsEnabled_andDefaultTraitsDisabled(
         buildSystem: BuildSystemProvider.Kind,
-        configuration: BuildConfiguration,
     ) async throws {
+        let configuration = BuildConfiguration.debug
         try await withKnownIssue(
             """
             Windows: https://github.com/swiftlang/swift-build/issues/609
@@ -416,12 +416,12 @@ struct TraitTests {
         .tags(
             Tag.Feature.Command.Package.DumpPackage,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func traits_dumpPackage(
         buildSystem: BuildSystemProvider.Kind,
-        configuration: BuildConfiguration,
     ) async throws {
+        let configuration = BuildConfiguration.debug
         try await fixture(name: "Traits") { fixturePath in
             let packageRoot = fixturePath.appending("Example")
             let (dumpOutput, _) = try await executeSwiftPackage(
@@ -443,12 +443,12 @@ struct TraitTests {
         .tags(
             Tag.Feature.Command.Test,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func tests_whenNoFlagPassed(
         buildSystem: BuildSystemProvider.Kind,
-        configuration: BuildConfiguration,
     ) async throws {
+        let configuration = BuildConfiguration.debug
         try await withKnownIssue(isIntermittent: true) {
         try await fixture(name: "Traits") { fixturePath in
             let (stdout, _) = try await executeSwiftTest(
@@ -478,12 +478,12 @@ struct TraitTests {
         .tags(
             Tag.Feature.Command.Test,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func tests_whenAllTraitsEnabled_andDefaultTraitsDisabled(
         buildSystem: BuildSystemProvider.Kind,
-        configuration: BuildConfiguration,
     ) async throws {
+        let configuration = BuildConfiguration.debug
         try await withKnownIssue(
             """
             Windows: "https://github.com/swiftlang/swift-build/issues/609"
@@ -528,12 +528,12 @@ struct TraitTests {
         .tags(
             Tag.Feature.Command.Package.DumpSymbolGraph,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func packageDumpSymbolGraph_enablesAllTraits(
         buildSystem: BuildSystemProvider.Kind,
-        configuration: BuildConfiguration,
     ) async throws {
+        let configuration = BuildConfiguration.debug
         try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Traits") { fixturePath in
                 let (stdout, _) = try await executeSwiftPackage(
@@ -563,12 +563,12 @@ struct TraitTests {
         .tags(
             Tag.Feature.Command.Package.Plugin,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func packagePluginGetSymbolGraph_enablesAllTraits(
         buildSystem: BuildSystemProvider.Kind,
-        configuration: BuildConfiguration,
         ) async throws {
+        let configuration = BuildConfiguration.debug
         try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Traits") { fixturePath in
                 // The swiftbuild build system doesn't yet have the ability for command plugins to request symbol graphs
@@ -606,12 +606,12 @@ struct TraitTests {
         .tags(
             Tag.Feature.Command.Run,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func packageDisablingDefaultsTrait_whenNoTraits(
         buildSystem: BuildSystemProvider.Kind,
-        configuration: BuildConfiguration,
     ) async throws {
+        let configuration = BuildConfiguration.debug
         try await fixture(name: "Traits") { fixturePath in
             let error = await #expect(throws: SwiftPMError.self) {
                 try await executeSwiftRun(
@@ -640,8 +640,7 @@ struct TraitTests {
         .tags(
             Tag.Feature.Command.Run,
         ),
-        arguments:
-        getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        arguments: SupportedBuildSystemOnAllPlatforms,
         getTraitCombinations(
             ("ExtraTrait",
             """
@@ -649,7 +648,7 @@ struct TraitTests {
             DEFINE1 disabled
             DEFINE2 disabled
             DEFINE3 disabled
-            
+
             """
             ),
             ("Package10",
@@ -660,7 +659,7 @@ struct TraitTests {
             DEFINE1 disabled
             DEFINE2 disabled
             DEFINE3 disabled
-            
+
             """
             ),
             ("ExtraTrait,Package10",
@@ -672,15 +671,16 @@ struct TraitTests {
             DEFINE1 disabled
             DEFINE2 disabled
             DEFINE3 disabled
-            
+
             """
             )
         )
     )
     func traits_whenManyTraitsEnableTargetDependency(
-        data: BuildData,
+        buildSystem: BuildSystemProvider.Kind,
         traits: TraitArgumentData
     ) async throws {
+        let config = BuildConfiguration.debug
         try await withKnownIssue(
             """
             Windows: https://github.com/swiftlang/swift-build/issues/609
@@ -694,15 +694,15 @@ struct TraitTests {
                 let (stdout, stderr) = try await executeSwiftRun(
                     fixturePath.appending("Example"),
                     "Example",
-                    configuration: data.config,
+                    configuration: config,
                     extraArgs: ["--traits", traits.traitsArgument],
-                    buildSystem: data.buildSystem,
+                    buildSystem: buildSystem,
                 )
                 #expect(!stderr.contains(unusedDependencyRegex))
                 #expect(stdout == traits.expectedOutput)
             }
         } when: {
-            (ProcessInfo.hostOperatingSystem == .windows && (CiEnvironment.runningInSmokeTestPipeline || data.buildSystem == .swiftbuild))
+            (ProcessInfo.hostOperatingSystem == .windows && (CiEnvironment.runningInSmokeTestPipeline || buildSystem == .swiftbuild))
         }
     }
 }

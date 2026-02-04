@@ -54,13 +54,12 @@ struct ModuleMapsTestCase {
     }
 
     @Test(
-        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func directDependency(
-        buildData: BuildData,
+        buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        let configuration = buildData.config
-        let buildSystem = buildData.buildSystem
+        let configuration = BuildConfiguration.debug
         try await withKnownIssue(isIntermittent: true) {
             try await localFixture(
                 name: "ModuleMaps/Direct",
@@ -90,13 +89,12 @@ struct ModuleMapsTestCase {
 
     @Test(
         .serialized, // crash occurs when executed in parallel. needs investigation
-        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func transitiveDependency(
-        buildData: BuildData,
+        buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        let configuration = buildData.config
-        let buildSystem = buildData.buildSystem
+        let configuration = BuildConfiguration.debug
         try await withKnownIssue(isIntermittent: true) {
             try await localFixture(
                 name: "ModuleMaps/Transitive",

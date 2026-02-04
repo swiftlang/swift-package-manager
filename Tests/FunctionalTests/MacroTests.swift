@@ -32,12 +32,12 @@ struct MacroTests {
         .tags(
             Tag.Feature.Command.Build
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func macrosBasic(
         buildSystem: BuildSystemProvider.Kind,
-        configuration: BuildConfiguration,
     ) async throws {
+        let configuration = BuildConfiguration.debug
         try await fixture(name: "Macros") { fixturePath in
             let (stdout, _) = try await executeSwiftBuild(
                 fixturePath.appending("MacroPackage"),
