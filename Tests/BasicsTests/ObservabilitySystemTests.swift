@@ -310,7 +310,7 @@ struct ObservabilitySystemTest {
             self._diagnostics.append(diagnostic)
         }
 
-        func print(_ output: String, whenVerbose: Bool) {
+        func print(_ output: String, condition: OutputCondition) {
             Swift.print(output)
         }
     }

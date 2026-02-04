@@ -60,7 +60,7 @@ public class ObservabilitySystem {
             self.underlying(scope, diagnostic)
         }
 
-        func print(_ output: String, whenVerbose: Bool) {
+        func print(_ output: String, condition: OutputCondition) {
             outputStream?.write(output)
         }
     }
@@ -135,8 +135,8 @@ public final class ObservabilityScope: DiagnosticsEmitterProtocol, Sendable, Cus
         return parent?.errorsReportedInAnyScope ?? false
     }
 
-    public func print(_ output: String, whenVerbose: Bool) {
-        self.diagnosticsHandler.print(output, whenVerbose: whenVerbose)
+    public func print(_ output: String, condition: OutputCondition) {
+        self.diagnosticsHandler.print(output, condition: condition)
     }
 
     // DiagnosticsEmitterProtocol
@@ -161,8 +161,8 @@ public final class ObservabilityScope: DiagnosticsEmitterProtocol, Sendable, Cus
             self.underlying.handleDiagnostic(scope: scope, diagnostic: diagnostic)
         }
 
-        public func print(_ output: String, whenVerbose: Bool) {
-            self.underlying.print(output, whenVerbose: whenVerbose)
+        public func print(_ output: String, condition: OutputCondition) {
+            self.underlying.print(output, condition: condition)
         }
 
         var errorsReported: Bool {
@@ -171,12 +171,20 @@ public final class ObservabilityScope: DiagnosticsEmitterProtocol, Sendable, Cus
     }
 }
 
+// MARK: - OutputCondition
+
+/// Enum describing the condition in which some textual output should be emitted.
+public enum OutputCondition {
+    case onlyWhenVerbose
+    case always
+}
+
 // MARK: - Diagnostics
 
 public protocol DiagnosticsHandler: Sendable {
     func handleDiagnostic(scope: ObservabilityScope, diagnostic: Diagnostic)
 
-    func print(_ output: String, whenVerbose: Bool)
+    func print(_ output: String, condition: OutputCondition)
 }
 
 /// Helper protocol to share default behavior.

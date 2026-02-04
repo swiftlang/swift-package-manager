@@ -83,7 +83,7 @@ public struct ToolWorkspaceConfiguration {
 
 public typealias WorkspaceDelegateProvider = (
     _ observabilityScope: ObservabilityScope,
-    _ outputHandler: @escaping (String, Bool) -> Void,
+    _ outputHandler: @escaping (String, OutputCondition) -> Void,
     _ progressHandler: @escaping (Int64, Int64, String?) -> Void,
     _ inputHandler: @escaping (String, (String?) -> Void) -> Void
 ) -> WorkspaceDelegate

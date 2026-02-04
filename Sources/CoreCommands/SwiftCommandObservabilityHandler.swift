@@ -49,8 +49,8 @@ public struct SwiftCommandObservabilityHandler: ObservabilityHandlerProvider {
     }
 
     // for raw output reporting
-    func print(_ output: String, whenVerbose: Bool) {
-        self.outputHandler.print(output, whenVerbose: whenVerbose)
+    func print(_ output: String, condition: OutputCondition) {
+        self.outputHandler.print(output, condition: condition)
     }
 
     // for raw progress reporting
@@ -117,12 +117,12 @@ public struct SwiftCommandObservabilityHandler: ObservabilityHandlerProvider {
         }
 
         // for raw output reporting
-        func print(_ output: String, whenVerbose: Bool) {
+        func print(_ output: String, condition: OutputCondition) {
             self.queue.async(group: self.sync) {
-                guard !whenVerbose || self.logLevel.isVerbose else {
-                    return
+                if (condition == .onlyWhenVerbose && self.logLevel.isVerbose) ||
+                    condition == .always  {
+                    self.write(output)
                 }
-                self.write(output)
             }
         }
 

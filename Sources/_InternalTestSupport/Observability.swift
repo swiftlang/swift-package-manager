@@ -88,7 +88,7 @@ public struct TestingObservability {
             self.diagnostics.append(diagnostic)
         }
 
-        func print(_ output: String, whenVerbose: Bool) {
+        func print(_ output: String, condition: OutputCondition) {
             if verbose {
                 if let outputStream {
                     outputStream.write(output)

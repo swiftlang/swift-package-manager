@@ -95,7 +95,7 @@ public final class SwiftBuildSystemMessageHandler {
         }
     }
 
-    private func emitDiagnosticCompilerOutput(_ info: SwiftBuildMessage.TaskStartedInfo, whenVerbose: Bool) {
+    private func emitDiagnosticCompilerOutput(_ info: SwiftBuildMessage.TaskStartedInfo, condition: OutputCondition) {
         // Don't redundantly emit task output.
         guard !self.tasksEmitted.contains(info.taskSignature) else {
             return
@@ -109,7 +109,7 @@ public final class SwiftBuildSystemMessageHandler {
         let decodedOutput = String(decoding: buffer, as: UTF8.self)
 
         // Emit message.
-        observabilityScope.print(decodedOutput, whenVerbose: whenVerbose)
+        observabilityScope.print(decodedOutput, condition: condition)
 
         // Record that we've emitted the output for a given task.
         self.tasksEmitted.insert(info)
@@ -126,7 +126,7 @@ public final class SwiftBuildSystemMessageHandler {
             if logLevel.isVerbose {
                 self.outputStream.send(started)
             }
-            self.observabilityScope.print(started, whenVerbose: true)
+            self.observabilityScope.print(started, condition: .always)
         }
 
         guard info.result == .success else {
@@ -143,7 +143,7 @@ public final class SwiftBuildSystemMessageHandler {
         } else {
             // Emit diagnostics through textual compiler output.
             let isDiagnosticOutput = self.buildState.diagnosticDataBufferExists(for: info)
-            emitDiagnosticCompilerOutput(startedInfo, whenVerbose: isDiagnosticOutput)
+            emitDiagnosticCompilerOutput(startedInfo, condition: isDiagnosticOutput ? .always : .onlyWhenVerbose)
         }
 
         // Handle task backtraces, if applicable.
@@ -183,7 +183,7 @@ public final class SwiftBuildSystemMessageHandler {
         if !diagnosticsBuffer.isEmpty {
             diagnosticsBuffer.forEach({ emitInfoAsDiagnostic(info: $0) })
         } else {
-            emitDiagnosticCompilerOutput(startedInfo, whenVerbose: false)
+            emitDiagnosticCompilerOutput(startedInfo, condition: .always)
         }
 
         let message = "\(startedInfo.ruleInfo) failed with a nonzero exit code."
