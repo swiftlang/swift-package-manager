@@ -451,7 +451,7 @@ extension PackagePIFProjectBuilder {
 
             settings[.SWIFT_PACKAGE_NAME] = sourceModule.packageName
 
-            // This entrypoint is only used for the testable variant of executable targets. The primary PIF generation
+            // This entrypoint is only used for the testable variant of executable and macro targets. The primary PIF generation
             // for executables is in makeMainModuleProduct.
             if desiredModuleType == .executable {
                 // Tell the Swift compiler to produce an alternate entry point rather than the standard `_main` entry
@@ -626,6 +626,10 @@ extension PackagePIFProjectBuilder {
 
         if desiredModuleType == .macro {
             settings[.SWIFT_IMPLEMENTS_MACROS_FOR_MODULE_NAMES] = [sourceModule.c99name]
+
+            // Don't install the Swift module when building the macro executable, lest it conflict with the testable variant.
+            // The contents of the testable variant's module will exactly match the binary linked by dependencies (test targets).
+            settings[.SWIFT_INSTALL_MODULE] = "NO"
         }
         if sourceModule.type == .macro {
             settings[.SKIP_BUILDING_DOCUMENTATION] = "YES"

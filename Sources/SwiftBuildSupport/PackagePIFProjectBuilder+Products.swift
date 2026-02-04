@@ -119,7 +119,7 @@ extension PackagePIFProjectBuilder {
             // Don't install the Swift module of the executable product, lest it conflict with the testable variant.
             // The contents of the testable variant's module will exactly match the binary linked by dependencies (test targets).
             // Also, multiple executable products may incorporate sources from the same executable target, while the testable
-            // variant of an execuytable target's module will always be unique, so we avoid producing conflicting copies.
+            // variant of an executable target's module will always be unique, so we avoid producing conflicting copies.
             settings[.SWIFT_INSTALL_MODULE] = "NO"
         }
 
