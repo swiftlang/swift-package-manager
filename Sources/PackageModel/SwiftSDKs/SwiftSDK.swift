@@ -773,13 +773,13 @@ public struct SwiftSDK: Equatable {
             } else {
                 throw SwiftSDKError.noSwiftSDKDecoded(customDestination)
             }
-        } else if let targetTriple = customCompileTriple,
-                  let targetSwiftSDK = SwiftSDK.defaultSwiftSDK(for: targetTriple, hostSDK: hostSwiftSDK)
-        {
-            swiftSDK = targetSwiftSDK
         } else if let swiftSDKSelector {
             do {
-                swiftSDK = try store.selectBundle(matching: swiftSDKSelector, hostTriple: hostTriple)
+                swiftSDK = try store.selectBundle(
+                    matching: swiftSDKSelector,
+                    hostTriple: hostTriple,
+                    targetTriple: customCompileTriple
+                )
             } catch {
                 // If a user-installed bundle for the selector doesn't exist, check if the
                 // selector is recognized as a default SDK.
@@ -790,6 +790,10 @@ public struct SwiftSDK: Equatable {
                     throw error
                 }
             }
+        } else if let targetTriple = customCompileTriple,
+                  let targetSwiftSDK = SwiftSDK.defaultSwiftSDK(for: targetTriple, hostSDK: hostSwiftSDK)
+        {
+            swiftSDK = targetSwiftSDK
         } else {
             // Otherwise use the host toolchain.
             swiftSDK = hostSwiftSDK
