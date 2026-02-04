@@ -119,8 +119,11 @@ public struct SwiftCommandObservabilityHandler: ObservabilityHandlerProvider {
         // for raw output reporting
         func print(_ output: String, condition: OutputCondition) {
             self.queue.async(group: self.sync) {
-                if (condition == .onlyWhenVerbose && self.logLevel.isVerbose) ||
-                    condition == .always  {
+                switch condition {
+                case .always:
+                    self.write(output)
+                case .onlyWhenVerbose:
+                    guard self.logLevel.isVerbose else { return }
                     self.write(output)
                 }
             }

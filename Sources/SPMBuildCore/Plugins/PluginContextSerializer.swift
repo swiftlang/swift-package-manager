@@ -126,7 +126,7 @@ internal struct PluginContextSerializer {
             var cFlags: [String] = []
             var ldFlags: [String] = []
             // FIXME: What do we do with any diagnostics here?
-            let observabilityScope = ObservabilitySystem({ _, _ in }, outputStream: nil).topScope
+            let observabilityScope = ObservabilitySystem({ _, _ in }, outputStream: nil, logLevel: .debug).topScope
             for result in try pkgConfigArgs(
                 for: target,
                 pkgConfigDirectories: pkgConfigDirectories,

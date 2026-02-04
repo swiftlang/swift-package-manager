@@ -294,7 +294,12 @@ struct ObservabilitySystemTest {
     }
 
     struct Collector: ObservabilityHandlerProvider, DiagnosticsHandler {
+        public let verbose: Bool
         private let _diagnostics = ThreadSafeArrayStore<Diagnostic>()
+
+        public init(verbose: Bool = false) {
+            self.verbose = verbose
+        }
 
         var diagnosticsHandler: DiagnosticsHandler { self }
 
@@ -311,7 +316,13 @@ struct ObservabilitySystemTest {
         }
 
         func print(_ output: String, condition: OutputCondition) {
-            Swift.print(output)
+            switch condition {
+            case .always:
+                Swift.print(output)
+            case .onlyWhenVerbose:
+                guard self.verbose else { return }
+                Swift.print(output)
+            }
         }
     }
 }

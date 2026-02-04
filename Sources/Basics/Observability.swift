@@ -41,8 +41,18 @@ public class ObservabilitySystem {
     }
 
     /// Create an ObservabilitySystem with a single diagnostics handler.
-    public convenience init(_ handler: @escaping @Sendable (ObservabilityScope, Diagnostic) -> Void, outputStream: (any WritableByteStream)? = nil) {
-        self.init(SingleDiagnosticsHandler(handler, outputStream: outputStream))
+    public convenience init(
+        _ handler: @escaping @Sendable (ObservabilityScope, Diagnostic) -> Void,
+        outputStream: (any WritableByteStream)? = nil,
+        logLevel: Diagnostic.Severity
+    ) {
+        self.init(
+            SingleDiagnosticsHandler(
+                handler,
+                outputStream: outputStream,
+                logLevel: logLevel
+            )
+        )
     }
 
     private struct SingleDiagnosticsHandler: ObservabilityHandlerProvider, DiagnosticsHandler {
@@ -50,10 +60,16 @@ public class ObservabilitySystem {
 
         let underlying: @Sendable (ObservabilityScope, Diagnostic) -> Void
         let outputStream: (any WritableByteStream)?
+        let logLevel: Diagnostic.Severity
 
-        init(_ underlying: @escaping @Sendable (ObservabilityScope, Diagnostic) -> Void, outputStream: (any WritableByteStream)?) {
+        init(
+            _ underlying: @escaping @Sendable (ObservabilityScope, Diagnostic) -> Void,
+            outputStream: (any WritableByteStream)?,
+            logLevel: Diagnostic.Severity
+        ) {
             self.underlying = underlying
             self.outputStream = outputStream
+            self.logLevel = logLevel
         }
 
         func handleDiagnostic(scope: ObservabilityScope, diagnostic: Diagnostic) {
@@ -61,12 +77,18 @@ public class ObservabilitySystem {
         }
 
         func print(_ output: String, condition: OutputCondition) {
-            outputStream?.write(output)
+            switch condition {
+            case .always:
+                outputStream?.write(output)
+            case .onlyWhenVerbose:
+                guard self.logLevel.isVerbose else { return }
+                outputStream?.write(output)
+            }
         }
     }
 
     public static var NOOP: ObservabilityScope {
-        ObservabilitySystem({ _, _ in }, outputStream: nil).topScope
+        ObservabilitySystem({ _, _ in }, outputStream: nil, logLevel: .debug).topScope
     }
 }
 

@@ -79,22 +79,26 @@ public struct TestingObservability {
         // TODO: do something useful with scope
         func handleDiagnostic(scope: ObservabilityScope, diagnostic: Basics.Diagnostic) {
             if self.verbose {
-                if let outputStream {
-                    outputStream.write(diagnostic.description)
-                } else {
-                    Swift.print(diagnostic.description)
-                }
+                self.output(diagnostic.description)
             }
             self.diagnostics.append(diagnostic)
         }
 
         func print(_ output: String, condition: OutputCondition) {
-            if verbose {
-                if let outputStream {
-                    outputStream.write(output)
-                } else {
-                    Swift.print(output)
-                }
+            switch condition {
+            case .always:
+                self.output(output)
+            case .onlyWhenVerbose:
+                guard self.verbose else { return }
+                self.output(output)
+            }
+        }
+
+        private func output(_ output: String) {
+            if let outputStream {
+                outputStream.write(output)
+            } else {
+                Swift.print(output)
             }
         }
 
