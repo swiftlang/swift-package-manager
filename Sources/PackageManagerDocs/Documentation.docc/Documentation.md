@@ -16,7 +16,7 @@ The Swift Package Manager lets you share your code as a package, depend on and u
 
 ### Essentials
 
-- <doc:GettingStarted>      <!-- tutorial or article based walk through -->
+- <doc:GettingStarted>
 - <doc:IntroducingPackages>
 - <doc:PackageSecurity>
 
