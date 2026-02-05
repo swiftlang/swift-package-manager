@@ -370,7 +370,6 @@ public final class PIFBuilder {
                             arguments: buildCommand.configuration.arguments,
                             environment: .init(newEnv),
                             workingDir: package.path,
-                            pluginOutputDir: pluginOutputDir,
                             inputPaths: buildCommand.inputFiles,
                             outputPaths: buildCommand.outputFiles.map(\.pathString),
                             sandboxProfile:
