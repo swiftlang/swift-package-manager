@@ -639,7 +639,7 @@ extension ModulesGraph {
                 // Hardcoding as the default for now
                 let publicDir = result.pluginOutputDirectory.appending(ClangModule.defaultPublicHeadersComponent)
                 if files.headers.contains(where: { $0.isDescendantOfOrEqual(to: publicDir) }) {
-                    generatedFiles.publicHeaderPaths.insert(publicDir)
+                    generatedFiles.publicHeaderPaths.append(publicDir)
                 }
             }
         }
@@ -661,7 +661,7 @@ extension ModulesGraph {
                 for dir in outputDirs {
                     // If the output dir ends in the default public header dir, make it public (yuck)
                     if dir.basename == ClangModule.defaultPublicHeadersComponent {
-                        generatedFiles.publicHeaderPaths.insert(dir)
+                        generatedFiles.publicHeaderPaths.append(dir)
                     }
                 }
             }

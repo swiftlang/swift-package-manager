@@ -262,6 +262,9 @@ extension LLBuildManifestBuilder {
                     for object in try clangDescription.objects {
                         inputs.append(file: object)
                     }
+                    for interface in clangDescription.pluginDerivedInterfaceFiles {
+                        inputs.append(file: interface)
+                    }
                 }
             }
         }
