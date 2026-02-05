@@ -408,16 +408,16 @@ struct PackagePIFProjectBuilder {
 
             // Process all the paths of derived output paths using the same rules as for source.
             for command in pluginResult.buildCommands {
-                var result = self.process(
+                let result = self.process(
                     pluginGeneratedFilePaths: command.absoluteOutputPaths,
                     forModule: module,
                     toolsVersion: self.package.manifest.toolsVersion
                 )
 
-                generatedFiles.merge(result)
+                generatedFiles.add(result)
             }
 
-            generatedFiles.merge(self.process(
+            generatedFiles.add(self.process(
                 pluginGeneratedFilePaths: pluginResult.prebuildCommandOutputPaths,
                 forModule: module,
                 toolsVersion: self.package.manifest.toolsVersion))

@@ -626,7 +626,7 @@ public struct GeneratedFiles {
         self.resources = resources
     }
 
-    public mutating func merge(_ other: GeneratedFiles) {
+    public mutating func add(_ other: GeneratedFiles) {
         sources.append(contentsOf: other.sources)
         headers.append(contentsOf: other.headers)
         moduleMaps.append(contentsOf: other.moduleMaps)

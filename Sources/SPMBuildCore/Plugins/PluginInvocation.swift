@@ -633,7 +633,7 @@ extension ModulesGraph {
                 targetPath: target.underlying.path,
                 observabilityScope: observabilityScope
             )
-            generatedFiles.merge(files)
+            generatedFiles.add(files)
             if !files.headers.isEmpty {
                 // Capture the public include directory if there were header files generated there
                 // Hardcoding as the default for now
@@ -655,7 +655,7 @@ extension ModulesGraph {
                 targetPath: target.underlying.path,
                 observabilityScope: observabilityScope
             )
-            generatedFiles.merge(files)
+            generatedFiles.add(files)
             for header in files.headers {
                 let outputDirs = result.outputDirectories.filter { header.isDescendantOfOrEqual(to: $0) }
                 for dir in outputDirs {
