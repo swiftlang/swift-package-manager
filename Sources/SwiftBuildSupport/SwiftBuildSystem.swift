@@ -36,7 +36,7 @@ import var TSCBasic.stdoutStream
 import Foundation
 import SWBBuildService
 import SwiftBuild
-
+import enum SWBCore.SwiftAPIDigesterMode
 
 struct SessionFailedError: Error {
     var error: Error
@@ -1099,14 +1099,14 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         var settings: [String: String] = [:]
         switch digesterMode {
         case .generateBaselines(let baselinesDirectory, let modulesRequestingBaselines):
-            settings["SWIFT_API_DIGESTER_MODE"] = "api"
+            settings["SWIFT_API_DIGESTER_MODE"] = SwiftAPIDigesterMode.api.rawValue
             for module in modulesRequestingBaselines {
                 settings["RUN_SWIFT_ABI_GENERATION_TOOL_MODULE_\(module)"] = "YES"
             }
             settings["RUN_SWIFT_ABI_GENERATION_TOOL"] = "$(RUN_SWIFT_ABI_GENERATION_TOOL_MODULE_$(PRODUCT_MODULE_NAME))"
             settings["SWIFT_ABI_GENERATION_TOOL_OUTPUT_DIR"] = baselinesDirectory.appending(components: ["$(PRODUCT_MODULE_NAME)", "ABI"]).pathString
         case .compareToBaselines(let baselinesDirectory, let modulesToCompare, let breakageAllowListPath):
-            settings["SWIFT_API_DIGESTER_MODE"] = "api"
+            settings["SWIFT_API_DIGESTER_MODE"] = SwiftAPIDigesterMode.api.rawValue
             settings["SWIFT_ABI_CHECKER_DOWNGRADE_ERRORS"] = "YES"
             for module in modulesToCompare {
                 settings["RUN_SWIFT_ABI_CHECKER_TOOL_MODULE_\(module)"] = "YES"
