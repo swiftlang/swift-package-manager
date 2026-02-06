@@ -23,4 +23,3 @@ install(TARGETS PackageCollectionsModel
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin)
-set_property(GLOBAL APPEND PROPERTY SwiftPM_EXPORTS PackageCollectionsModel)
