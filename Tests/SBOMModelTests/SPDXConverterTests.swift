@@ -456,7 +456,6 @@ struct SPDXConverterTests {
         let commit = SBOMCommit(
             sha: "abc123",
             repository: "https://github.com/swiftlang/swift-package-manager",
-            url: "https://github.com/swiftlang/swift-package-manager/commit/abc123",
             authors: nil,
             message: "Initial commit"
         )
@@ -496,14 +495,12 @@ struct SPDXConverterTests {
         let commit1 = SBOMCommit(
             sha: "abc123",
             repository: "https://github.com/swiftlang/swift-package-manager",
-            url: nil,
             authors: nil,
             message: "First commit"
         )
         let commit2 = SBOMCommit(
             sha: "def456",
             repository: "https://github.com/swiftlang/swift-package-manager",
-            url: nil,
             authors: nil,
             message: "Second commit"
         )
@@ -545,7 +542,6 @@ struct SPDXConverterTests {
         let commit = SBOMCommit(
             sha: "abc123",
             repository: "https://github.com/swiftlang/swift-package-manager",
-            url: nil,
             authors: nil,
             message: "Shared commit"
         )
@@ -670,7 +666,6 @@ struct SPDXConverterTests {
         let commit1 = SBOMCommit(
             sha: "abc123",
             repository: "https://github.com/swiftlang/swift-package-manager",
-            url: nil,
             authors: nil,
             message: "First commit"
         )
@@ -896,7 +891,6 @@ struct SPDXConverterTests {
         let commit = SBOMCommit(
             sha: "abc123",
             repository: "https://github.com/swiftlang/swift-package-manager",
-            url: "https://github.com/swiftlang/swift-package-manager/commit/abc123",
             authors: nil,
             message: "Initial commit"
         )
