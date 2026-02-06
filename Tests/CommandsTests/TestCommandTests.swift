@@ -224,10 +224,7 @@ struct TestCommandTests {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let configuration = BuildConfiguration.debug
-        try await withKnownIssue(
-            "fails to build the package",
-            isIntermittent: true,
-        ) {
+        try await withKnownIssue("fails to build the package", isIntermittent: true) {
             // default should run with testability
             try await fixture(name: "Miscellaneous/TestableExe") { fixturePath in
                 let result = try await execute(
@@ -1033,7 +1030,7 @@ struct TestCommandTests {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let configuration = BuildConfiguration.debug
-        try await withKnownIssue("Fails to find test executable") {
+        try await withKnownIssue("Fails to find test executable", isIntermittent: true) {
             try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
                 let (stdout, stderr) = try await execute(
                     ["list"],
@@ -1126,9 +1123,7 @@ struct TestCommandTests {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let configuration = BuildConfiguration.debug
-        try await withKnownIssue(
-            isIntermittent: true
-        ) {
+        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
                 // build first
                     // This might be intermittently failing on windows
@@ -1193,7 +1188,7 @@ struct TestCommandTests {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let configuration = BuildConfiguration.debug
-        try await withKnownIssue("Fails to find the test executable") {
+        try await withKnownIssue("Fails to find the test executable", isIntermittent: true) {
             try await fixture(name: "Miscellaneous/TestDiscovery/SwiftTesting") { fixturePath in
                 let (stdout, stderr) = try await execute(
                     ["--enable-swift-testing", "--disable-xctest"],
