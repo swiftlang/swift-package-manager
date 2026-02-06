@@ -273,7 +273,7 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
             }
             print("SBOMs created  (\(formattedDuration))")
             if self.globalOptions.build.buildSystem != .swiftbuild {
-                swiftCommandState.observabilityScope.emit(warning: "generating SBOM(s) without --build-system swiftbuild flag creates SBOM(s) without build-time conditionals.")
+                swiftCommandState.observabilityScope.emit(warning: "generating SBOM(s) without `--build-system swiftbuild` flag creates SBOM(s) without build-time conditionals.")
             }
         } catch {
             if self.options.sbom.sbomWarningOnly {
