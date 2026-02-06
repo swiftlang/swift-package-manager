@@ -72,7 +72,7 @@ extension SwiftPackageCommand {
                 print("- created SBOM at \(sbomPath.pathString)")
             }
             print("SBOMs created  (\(formattedDuration))")
-            swiftCommandState.observabilityScope.emit(warning: "`generate-sbom` subcommand creates SBOM(s) based on modules graph only")
+            swiftCommandState.observabilityScope.emit(warning: "`generate-sbom` subcommand may be inaccurate as it does not contain build-time conditionals.")
         }
     }
 }
