@@ -20,7 +20,7 @@ internal struct SPDXConverter {
         return "urn:spdx:\(id)"
     }
 
-    private static func convertToSPDXPurpose(from category: SBOMComponent.Category) async -> SPDXPackage.Purpose {
+    private static func convertToPurpose(from category: SBOMComponent.Category) async -> SPDXPackage.Purpose {
         switch category {
         case .application:
             .application
@@ -33,7 +33,7 @@ internal struct SPDXConverter {
         }
     }
 
-    private static func convertToSPDXLicenseExpression(from license: SBOMLicense, creationInfoID: String) async -> SPDXLicenseExpression {
+    private static func convertToLicenseExpression(from license: SBOMLicense, creationInfoID: String) async -> SPDXLicenseExpression {
         let id = generateSPDXID(license.name)
         return SPDXLicenseExpression(
             id: id,
@@ -44,7 +44,7 @@ internal struct SPDXConverter {
     }
     
 
-    internal static func convertToSPDXAgent(from metadata: SBOMMetadata?) async -> [any SPDXObject] {
+    internal static func convertToAgent(from metadata: SBOMMetadata?) async -> [any SPDXObject] {
         guard let metadata,
               let creators = metadata.creators,
               !creators.isEmpty
@@ -71,7 +71,7 @@ internal struct SPDXConverter {
             )
             if let licenses = creator.licenses {
                 for license in licenses {
-                    let spdxLicense = await convertToSPDXLicenseExpression(from: license, creationInfoID: toolCreationInfoID)
+                    let spdxLicense = await convertToLicenseExpression(from: license, creationInfoID: toolCreationInfoID)
                     let relationship = SPDXRelationship(
                         id: generateSPDXID("\(creatorID)-hasDeclaredLicense-\(spdxLicense.id)"),
                         type: .Relationship,
@@ -91,7 +91,7 @@ internal struct SPDXConverter {
         return agents
     }
 
-    internal static func convertToSPDXDocument(
+    internal static func convertToDocument(
         from document: SBOMDocument,
         spec: SBOMSpec
     ) async throws -> [any SPDXObject] {
@@ -153,11 +153,11 @@ internal struct SPDXConverter {
         return elements
     }
 
-    internal static func convertToSPDXPackage(from component: SBOMComponent) async throws -> SPDXPackage {
+    internal static func convertToPackage(from component: SBOMComponent) async throws -> SPDXPackage {
         await SPDXPackage(
             id: self.generateSPDXID(component.id.value),
             type: .SoftwarePackage,
-            purpose: self.convertToSPDXPurpose(from: component.category),
+            purpose: self.convertToPurpose(from: component.category),
             purl: component.purl,
             name: component.name,
             version: component.version.revision,
@@ -167,7 +167,7 @@ internal struct SPDXConverter {
         )
     }
 
-    internal static func convertToSPDXExternalIdentifiers(from components: [SBOMComponent]?) async -> [any SPDXObject] {
+    internal static func convertToExternalIdentifiers(from components: [SBOMComponent]?) async -> [any SPDXObject] {
         guard let comps = components, !comps.isEmpty else {
             return []
         }
@@ -208,7 +208,7 @@ internal struct SPDXConverter {
         return externalIdentifiers
     }
 
-    internal static func convertToSPDXRelationships(from dependencies: SBOMDependencies?) async -> [any SPDXObject] {
+    internal static func convertToRelationships(from dependencies: SBOMDependencies?) async -> [any SPDXObject] {
         guard let dependencies else {
             return []
         }
@@ -273,22 +273,22 @@ internal struct SPDXConverter {
         return relationships
     }
 
-    internal static func convertToSPDXGraph(from document: SBOMDocument, spec: SBOMSpec) async throws -> SPDXGraph {
+    internal static func convertToGraph(from document: SBOMDocument, spec: SBOMSpec) async throws -> SPDXGraph {
         guard spec.supportsSPDX else {
             throw SBOMError.unexpectedSpecType(expected: "spdx", actual: spec)
         }
 
-        let agents = await convertToSPDXAgent(from: document.metadata)
-        let elements = try await convertToSPDXDocument(from: document, spec: spec)
+        let agents = await convertToAgent(from: document.metadata)
+        let elements = try await convertToDocument(from: document, spec: spec)
 
         var packages: [any SPDXObject] = []
         for comp in document.dependencies.components {
-            let p = try await convertToSPDXPackage(from: comp)
+            let p = try await convertToPackage(from: comp)
             packages.append(p)
         }
 
-        let relationships = await convertToSPDXRelationships(from: document.dependencies)
-        let commits = await convertToSPDXExternalIdentifiers(from: document.dependencies.components)
+        let relationships = await convertToRelationships(from: document.dependencies)
+        let commits = await convertToExternalIdentifiers(from: document.dependencies.components)
 
         return SPDXGraph(
             context: SPDXConstants.spdx3Context,
