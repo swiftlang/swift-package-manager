@@ -37,7 +37,7 @@ extension SwiftPackageCommand {
         var sbom: SBOMOptions
 
         func run(_ swiftCommandState: SwiftCommandState) async throws {
-            guard !sbom.sbomSpecs.isEmpty else {
+            guard try !sbom.sbomSpecs.isEmpty else {
                 throw SBOMModel.SBOMCommandError.noSpecArg
             }
             
@@ -54,9 +54,9 @@ extension SwiftPackageCommand {
                 modulesGraph: packageGraph,
                 dependencyGraph: nil,
                 store: resolvedPackagesStore,
-                filter: self.sbom.sbomFilter,
+                filter: try self.sbom.sbomFilter,
                 product: self.product,
-                specs: self.sbom.sbomSpecs,
+                specs: try self.sbom.sbomSpecs,
                 dir: await SBOMCreator.resolveSBOMDirectory(from: self.sbom.sbomDirectory, withDefault: try swiftCommandState.productsBuildParameters.buildPath),
                 observabilityScope: swiftCommandState.observabilityScope
             )
