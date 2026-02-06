@@ -34,7 +34,6 @@ struct CycloneDXConverterTests {
         let originator = SBOMOriginator(commits: [SBOMCommit(
             sha: "abc123",
             repository: "https://github.com/swiftlang/swift-package-manager",
-            url: "https://github.com/swiftlang/swift-package-manager/commit/abc123",
             authors: nil,
             message: "Initial commit"
         )])
@@ -56,7 +55,6 @@ struct CycloneDXConverterTests {
             SBOMCommit(
                 sha: "def456",
                 repository: "https://github.com/swiftlang/swift-package-manager",
-                url: "https://github.com/swiftlang/swift-package-manager/commit/def456",
                 authors: [SBOMPerson(
                     id: SBOMIdentifier(value: "author1"),
                     name: "John Doe",
@@ -97,14 +95,12 @@ struct CycloneDXConverterTests {
         let commit1 = SBOMCommit(
             sha: "abc123",
             repository: "https://github.com/swiftlang/swift-package-manager",
-            url: "https://github.com/swiftlang/swift-package-manager/commit/abc123",
             authors: [author1],
             message: "First commit"
         )
         let commit2 = SBOMCommit(
             sha: "def456",
             repository: "https://github.com/swiftlang/swift-package-manager",
-            url: nil,
             authors: [author2],
             message: "Second commit"
         )
@@ -147,7 +143,6 @@ struct CycloneDXConverterTests {
         let commit = SBOMCommit(
             sha: "abc123",
             repository: "https://github.com/swiftlang/swift-package-manager",
-            url: nil,
             authors: [author1, author2],
             message: "Commit with multiple authors"
         )
@@ -266,7 +261,6 @@ struct CycloneDXConverterTests {
             SBOMCommit(
                 sha: "abc123",
                 repository: "https://github.com/swiftlang/swift-package-manager",
-                url: "https://github.com/swiftlang/swift-package-manager/commit/abc123",
                 authors: [
                     SBOMPerson(
                         id: SBOMIdentifier(value: "author1"),
