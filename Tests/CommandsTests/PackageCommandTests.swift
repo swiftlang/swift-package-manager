@@ -4488,11 +4488,7 @@ struct PackageCommandTests {
         func buildToolPlugin(
             data: BuildData,
         ) async throws {
-            try await withKnownIssue(isIntermittent: true) {
-                try await testBuildToolPlugin(data: data, staticStdlib: false)
-            } when: {
-                ProcessInfo.hostOperatingSystem == .windows && data.buildSystem == .swiftbuild
-            }
+            try await testBuildToolPlugin(data: data, staticStdlib: false)
         }
 
         @Test(
@@ -4636,12 +4632,8 @@ struct PackageCommandTests {
                         buildSystem: buildSystem,
                     )
                 ) { error in
-                    withKnownIssue(isIntermittent: true) {
-                        #expect(error.stderr.contains("This is text from the plugin"))
-                        #expect(error.stderr.contains("error: This is an error from the plugin"))
-                    } when: {
-                        ProcessInfo.hostOperatingSystem == .windows
-                    }
+                    #expect(error.stderr.contains("This is text from the plugin"))
+                    #expect(error.stderr.contains("error: This is an error from the plugin"))
                     switch buildSystem {
                         case .native:
                             #expect(
@@ -6786,35 +6778,30 @@ struct PackageCommandTests {
         }
 
         @Test(
-            .IssueWindowsRelativePathAssert,
             arguments: [BuildSystemProvider.Kind.native, .swiftbuild],
         )
         func commandPluginBuildingCallbacksExcludeUnbuiltArtifacts(buildSystem: BuildSystemProvider.Kind) async throws {
-            try await withKnownIssue(isIntermittent: true) {
-                try await fixture(name: "PartiallyUnusedDependency") { fixturePath in
-                    let (stdout, _) = try await execute(
-                        ["dump-artifacts-plugin"],
-                        packagePath: fixturePath,
-                        configuration: .debug,
-                        buildSystem: buildSystem
-                    )
-                    // The build should succeed
-                    #expect(stdout.contains("succeeded: true"))
-                    // The artifacts corresponding to the executable and dylib we built should be reported
-                    #expect(stdout.contains(#/artifact-path: [^\n]+MyExecutable(.*)?\nartifact-kind: executable/#))
-                    #expect(stdout.contains(#/artifact-path: [^\n]+MyDynamicLibrary(.*)?\nartifact-kind: dynamicLibrary/#))
-                    // The not-built executable in the dependency should not be reported. The native build system fails to exclude it.
-                    switch buildSystem {
-                        case .native:
-                            #expect(stdout.contains("MySupportExecutable"))
-                        case .swiftbuild:
-                            #expect(!stdout.contains("MySupportExecutable"))
-                        case .xcode:
-                            Issue.record("unimplemented assertion for --build-system xcode")
-                    }
+            try await fixture(name: "PartiallyUnusedDependency") { fixturePath in
+                let (stdout, _) = try await execute(
+                    ["dump-artifacts-plugin"],
+                    packagePath: fixturePath,
+                    configuration: .debug,
+                    buildSystem: buildSystem
+                )
+                // The build should succeed
+                #expect(stdout.contains("succeeded: true"))
+                // The artifacts corresponding to the executable and dylib we built should be reported
+                #expect(stdout.contains(#/artifact-path: [^\n]+MyExecutable(.*)?\nartifact-kind: executable/#))
+                #expect(stdout.contains(#/artifact-path: [^\n]+MyDynamicLibrary(.*)?\nartifact-kind: dynamicLibrary/#))
+                // The not-built executable in the dependency should not be reported. The native build system fails to exclude it.
+                switch buildSystem {
+                    case .native:
+                        #expect(stdout.contains("MySupportExecutable"))
+                    case .swiftbuild:
+                        #expect(!stdout.contains("MySupportExecutable"))
+                    case .xcode:
+                        Issue.record("unimplemented assertion for --build-system xcode")
                 }
-            } when: {
-                buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows
             }
         }
 
@@ -6973,7 +6960,6 @@ struct PackageCommandTests {
         }
 
         @Test(
-            .IssueWindowsPathLastComponent,
             // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
             .requiresSwiftConcurrencySupport,
             .tags(
@@ -7034,222 +7020,218 @@ struct PackageCommandTests {
             buildData: BuildData,
             testData: PluginAPIsData
         ) async throws {
-            try await withKnownIssue(isIntermittent: true) {
-                try await testWithTemporaryDirectory { tmpPath in
-                    // Create a sample package with a plugin to test various parts of the API.
-                    let packageDir = tmpPath.appending(components: "MyPackage")
-                    try localFileSystem.createDirectory(packageDir, recursive: true)
-                    try localFileSystem.writeFileContents(
-                        packageDir.appending("Package.swift"),
-                        string: """
-                                // swift-tools-version: 5.9
-                                import PackageDescription
-                                let package = Package(
-                                    name: "MyPackage",
-                                    dependencies: [
-                                        .package(name: "HelperPackage", path: "VendoredDependencies/HelperPackage")
-                                    ],
-                                    targets: [
-                                        .target(
-                                            name: "FirstTarget",
-                                            dependencies: [
-                                            ]
-                                        ),
-                                        .target(
-                                            name: "SecondTarget",
-                                            dependencies: [
-                                                "FirstTarget",
-                                            ]
-                                        ),
-                                        .target(
-                                            name: "ThirdTarget",
-                                            dependencies: [
-                                                "FirstTarget",
-                                            ]
-                                        ),
-                                        .target(
-                                            name: "FourthTarget",
-                                            dependencies: [
-                                                "SecondTarget",
-                                                "ThirdTarget",
-                                                .product(name: "HelperLibrary", package: "HelperPackage"),
-                                            ]
-                                        ),
-                                        .executableTarget(
-                                            name: "FifthTarget",
-                                            dependencies: [
-                                                "FirstTarget",
-                                                "ThirdTarget",
-                                            ]
-                                        ),
-                                        .testTarget(
-                                            name: "TestTarget",
-                                            dependencies: [
-                                                "SecondTarget",
-                                            ]
-                                        ),
-                                        .plugin(
-                                            name: "PrintTargetDependencies",
-                                            capability: .command(
-                                                intent: .custom(verb: "print-target-dependencies", description: "Plugin that prints target dependencies; argument is name of target")
-                                            )
-                                        ),
-                                    ]
-                                )
-                            """
-                    )
-
-                    let firstTargetDir = packageDir.appending(components: "Sources", "FirstTarget")
-                    try localFileSystem.createDirectory(firstTargetDir, recursive: true)
-                    try localFileSystem.writeFileContents(
-                        firstTargetDir.appending("library.swift"),
-                        string: """
-                            public func FirstFunc() { }
-                            """
-                    )
-
-                    let secondTargetDir = packageDir.appending(components: "Sources", "SecondTarget")
-                    try localFileSystem.createDirectory(secondTargetDir, recursive: true)
-                    try localFileSystem.writeFileContents(
-                        secondTargetDir.appending("library.swift"),
-                        string: """
-                            public func SecondFunc() { }
-                            """
-                    )
-
-                    let thirdTargetDir = packageDir.appending(components: "Sources", "ThirdTarget")
-                    try localFileSystem.createDirectory(thirdTargetDir, recursive: true)
-                    try localFileSystem.writeFileContents(
-                        thirdTargetDir.appending("library.swift"),
-                        string: """
-                            public func ThirdFunc() { }
-                            """
-                    )
-
-                    let fourthTargetDir = packageDir.appending(components: "Sources", "FourthTarget")
-                    try localFileSystem.createDirectory(fourthTargetDir, recursive: true)
-                    try localFileSystem.writeFileContents(
-                        fourthTargetDir.appending("library.swift"),
-                        string: """
-                            public func FourthFunc() { }
-                            """
-                    )
-
-                    let fifthTargetDir = packageDir.appending(components: "Sources", "FifthTarget")
-                    try localFileSystem.createDirectory(fifthTargetDir, recursive: true)
-                    try localFileSystem.writeFileContents(
-                        fifthTargetDir.appending("main.swift"),
-                        string: """
-                            @main struct MyExec {
-                                func run() throws {}
-                            }
-                            """
-                    )
-
-                    let testTargetDir = packageDir.appending(components: "Tests", "TestTarget")
-                    try localFileSystem.createDirectory(testTargetDir, recursive: true)
-                    try localFileSystem.writeFileContents(
-                        testTargetDir.appending("tests.swift"),
-                        string: """
-                            import XCTest
-                            class MyTestCase: XCTestCase {
-                            }
-                            """
-                    )
-
-                    let pluginTargetTargetDir = packageDir.appending(
-                        components: "Plugins",
-                        "PrintTargetDependencies"
-                    )
-                    try localFileSystem.createDirectory(pluginTargetTargetDir, recursive: true)
-                    try localFileSystem.writeFileContents(
-                        pluginTargetTargetDir.appending("plugin.swift"),
-                        string: """
-                            import PackagePlugin
-                            @main struct PrintTargetDependencies: CommandPlugin {
-                                func performCommand(
-                                    context: PluginContext,
-                                    arguments: [String]
-                                ) throws {
-                                    // Print names of the recursive dependencies of the given target.
-                                    var argExtractor = ArgumentExtractor(arguments)
-                                    guard let targetName = argExtractor.extractOption(named: "target").first else {
-                                        throw "No target argument provided"
-                                    }
-                                    guard let target = try? context.package.targets(named: [targetName]).first else {
-                                        throw "No target found with the name '\\(targetName)'"
-                                    }
-                                    print("Recursive dependencies of '\\(target.name)': \\(target.recursiveTargetDependencies.map(\\.name))")
-
-                                    let execProducts = context.package.products(ofType: ExecutableProduct.self)
-                                    print("execProducts: \\(execProducts.map{ $0.name })")
-                                    let swiftTargets = context.package.targets(ofType: SwiftSourceModuleTarget.self)
-                                    print("swiftTargets: \\(swiftTargets.map{ $0.name }.sorted())")
-                                    let swiftSources = swiftTargets.flatMap{ $0.sourceFiles(withSuffix: ".swift") }
-                                    print("swiftSources: \\(swiftSources.map{ $0.path.lastComponent }.sorted())")
-
-                                    if let target = target.sourceModule {
-                                        print("Module kind of '\\(target.name)': \\(target.kind)")
-                                    }
-
-                                    var sourceModules = context.package.sourceModules
-                                    print("sourceModules in package: \\(sourceModules.map { $0.name })")
-                                    sourceModules = context.package.products.first?.sourceModules ?? []
-                                    print("sourceModules in first product: \\(sourceModules.map { $0.name })")
-                                }
-                            }
-                            extension String: Error {}
-                            """
-                    )
-
-                    // Create a separate vendored package so that we can test dependencies across products in other packages.
-                    let helperPackageDir = packageDir.appending(
-                        components: "VendoredDependencies",
-                        "HelperPackage"
-                    )
-                    try localFileSystem.createDirectory(helperPackageDir, recursive: true)
-                    try localFileSystem.writeFileContents(
-                        helperPackageDir.appending("Package.swift"),
-                        string: """
-                            // swift-tools-version: 5.6
+            try await testWithTemporaryDirectory { tmpPath in
+                // Create a sample package with a plugin to test various parts of the API.
+                let packageDir = tmpPath.appending(components: "MyPackage")
+                try localFileSystem.createDirectory(packageDir, recursive: true)
+                try localFileSystem.writeFileContents(
+                    packageDir.appending("Package.swift"),
+                    string: """
+                            // swift-tools-version: 5.9
                             import PackageDescription
                             let package = Package(
-                                name: "HelperPackage",
-                                products: [
-                                    .library(
-                                        name: "HelperLibrary",
-                                        targets: ["HelperLibrary"])
+                                name: "MyPackage",
+                                dependencies: [
+                                    .package(name: "HelperPackage", path: "VendoredDependencies/HelperPackage")
                                 ],
                                 targets: [
                                     .target(
-                                        name: "HelperLibrary",
-                                        path: ".")
+                                        name: "FirstTarget",
+                                        dependencies: [
+                                        ]
+                                    ),
+                                    .target(
+                                        name: "SecondTarget",
+                                        dependencies: [
+                                            "FirstTarget",
+                                        ]
+                                    ),
+                                    .target(
+                                        name: "ThirdTarget",
+                                        dependencies: [
+                                            "FirstTarget",
+                                        ]
+                                    ),
+                                    .target(
+                                        name: "FourthTarget",
+                                        dependencies: [
+                                            "SecondTarget",
+                                            "ThirdTarget",
+                                            .product(name: "HelperLibrary", package: "HelperPackage"),
+                                        ]
+                                    ),
+                                    .executableTarget(
+                                        name: "FifthTarget",
+                                        dependencies: [
+                                            "FirstTarget",
+                                            "ThirdTarget",
+                                        ]
+                                    ),
+                                    .testTarget(
+                                        name: "TestTarget",
+                                        dependencies: [
+                                            "SecondTarget",
+                                        ]
+                                    ),
+                                    .plugin(
+                                        name: "PrintTargetDependencies",
+                                        capability: .command(
+                                            intent: .custom(verb: "print-target-dependencies", description: "Plugin that prints target dependencies; argument is name of target")
+                                        )
+                                    ),
                                 ]
                             )
-                            """
-                    )
-                    try localFileSystem.writeFileContents(
-                        helperPackageDir.appending("library.swift"),
-                        string: """
-                            public func Foo() { }
-                            """
-                    )
+                        """
+                )
 
-                    let (stdout, stderr) = try await execute(
-                        testData.commandArgs,
-                        packagePath: packageDir,
-                        configuration: buildData.config,
-                        buildSystem: buildData.buildSystem,
-                    )
-                    for expected in testData.expectedStdout {
-                        #expect(stdout.contains(expected))
-                    }
-                    for expected in testData.expectedStderr {
-                        #expect(stderr.contains(expected))
-                    }
+                let firstTargetDir = packageDir.appending(components: "Sources", "FirstTarget")
+                try localFileSystem.createDirectory(firstTargetDir, recursive: true)
+                try localFileSystem.writeFileContents(
+                    firstTargetDir.appending("library.swift"),
+                    string: """
+                        public func FirstFunc() { }
+                        """
+                )
+
+                let secondTargetDir = packageDir.appending(components: "Sources", "SecondTarget")
+                try localFileSystem.createDirectory(secondTargetDir, recursive: true)
+                try localFileSystem.writeFileContents(
+                    secondTargetDir.appending("library.swift"),
+                    string: """
+                        public func SecondFunc() { }
+                        """
+                )
+
+                let thirdTargetDir = packageDir.appending(components: "Sources", "ThirdTarget")
+                try localFileSystem.createDirectory(thirdTargetDir, recursive: true)
+                try localFileSystem.writeFileContents(
+                    thirdTargetDir.appending("library.swift"),
+                    string: """
+                        public func ThirdFunc() { }
+                        """
+                )
+
+                let fourthTargetDir = packageDir.appending(components: "Sources", "FourthTarget")
+                try localFileSystem.createDirectory(fourthTargetDir, recursive: true)
+                try localFileSystem.writeFileContents(
+                    fourthTargetDir.appending("library.swift"),
+                    string: """
+                        public func FourthFunc() { }
+                        """
+                )
+
+                let fifthTargetDir = packageDir.appending(components: "Sources", "FifthTarget")
+                try localFileSystem.createDirectory(fifthTargetDir, recursive: true)
+                try localFileSystem.writeFileContents(
+                    fifthTargetDir.appending("main.swift"),
+                    string: """
+                        @main struct MyExec {
+                            func run() throws {}
+                        }
+                        """
+                )
+
+                let testTargetDir = packageDir.appending(components: "Tests", "TestTarget")
+                try localFileSystem.createDirectory(testTargetDir, recursive: true)
+                try localFileSystem.writeFileContents(
+                    testTargetDir.appending("tests.swift"),
+                    string: """
+                        import XCTest
+                        class MyTestCase: XCTestCase {
+                        }
+                        """
+                )
+
+                let pluginTargetTargetDir = packageDir.appending(
+                    components: "Plugins",
+                    "PrintTargetDependencies"
+                )
+                try localFileSystem.createDirectory(pluginTargetTargetDir, recursive: true)
+                try localFileSystem.writeFileContents(
+                    pluginTargetTargetDir.appending("plugin.swift"),
+                    string: """
+                        import PackagePlugin
+                        @main struct PrintTargetDependencies: CommandPlugin {
+                            func performCommand(
+                                context: PluginContext,
+                                arguments: [String]
+                            ) throws {
+                                // Print names of the recursive dependencies of the given target.
+                                var argExtractor = ArgumentExtractor(arguments)
+                                guard let targetName = argExtractor.extractOption(named: "target").first else {
+                                    throw "No target argument provided"
+                                }
+                                guard let target = try? context.package.targets(named: [targetName]).first else {
+                                    throw "No target found with the name '\\(targetName)'"
+                                }
+                                print("Recursive dependencies of '\\(target.name)': \\(target.recursiveTargetDependencies.map(\\.name))")
+
+                                let execProducts = context.package.products(ofType: ExecutableProduct.self)
+                                print("execProducts: \\(execProducts.map{ $0.name })")
+                                let swiftTargets = context.package.targets(ofType: SwiftSourceModuleTarget.self)
+                                print("swiftTargets: \\(swiftTargets.map{ $0.name }.sorted())")
+                                let swiftSources = swiftTargets.flatMap{ $0.sourceFiles(withSuffix: ".swift") }
+                                print("swiftSources: \\(swiftSources.map{ $0.path.lastComponent }.sorted())")
+
+                                if let target = target.sourceModule {
+                                    print("Module kind of '\\(target.name)': \\(target.kind)")
+                                }
+
+                                var sourceModules = context.package.sourceModules
+                                print("sourceModules in package: \\(sourceModules.map { $0.name })")
+                                sourceModules = context.package.products.first?.sourceModules ?? []
+                                print("sourceModules in first product: \\(sourceModules.map { $0.name })")
+                            }
+                        }
+                        extension String: Error {}
+                        """
+                )
+
+                // Create a separate vendored package so that we can test dependencies across products in other packages.
+                let helperPackageDir = packageDir.appending(
+                    components: "VendoredDependencies",
+                    "HelperPackage"
+                )
+                try localFileSystem.createDirectory(helperPackageDir, recursive: true)
+                try localFileSystem.writeFileContents(
+                    helperPackageDir.appending("Package.swift"),
+                    string: """
+                        // swift-tools-version: 5.6
+                        import PackageDescription
+                        let package = Package(
+                            name: "HelperPackage",
+                            products: [
+                                .library(
+                                    name: "HelperLibrary",
+                                    targets: ["HelperLibrary"])
+                            ],
+                            targets: [
+                                .target(
+                                    name: "HelperLibrary",
+                                    path: ".")
+                            ]
+                        )
+                        """
+                )
+                try localFileSystem.writeFileContents(
+                    helperPackageDir.appending("library.swift"),
+                    string: """
+                        public func Foo() { }
+                        """
+                )
+
+                let (stdout, stderr) = try await execute(
+                    testData.commandArgs,
+                    packagePath: packageDir,
+                    configuration: buildData.config,
+                    buildSystem: buildData.buildSystem,
+                )
+                for expected in testData.expectedStdout {
+                    #expect(stdout.contains(expected))
                 }
-            } when: {
-                ProcessInfo.hostOperatingSystem == .windows
+                for expected in testData.expectedStderr {
+                    #expect(stderr.contains(expected))
+                }
             }
         }
 

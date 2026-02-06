@@ -1117,7 +1117,7 @@ struct MiscellaneousTestCase {
         }when: {
             (buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .linux)
             || (buildSystem == .swiftbuild)
-            || (ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline)
+            || (ProcessInfo.hostOperatingSystem == .windows)
         }
     }
 
