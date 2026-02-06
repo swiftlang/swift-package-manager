@@ -1817,6 +1817,3 @@ extension Triple {
         }
     }
 }
-
-
-
