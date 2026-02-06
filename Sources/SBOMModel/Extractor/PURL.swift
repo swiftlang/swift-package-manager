@@ -15,7 +15,7 @@ import PackageGraph
 import PackageModel
 import TSCUtility
 
-internal struct PURL: Codable, Equatable, CustomStringConvertible {
+internal struct PURL: Codable, Equatable, Hashable, CustomStringConvertible {
     internal let scheme: String
     internal let type: String
     internal let namespace: String?

@@ -44,7 +44,7 @@ internal struct SBOMComponent: Codable, Equatable, Hashable {
 
     internal let category: Category
     internal let id: SBOMIdentifier
-    internal let purl: String
+    internal let purl: PURL
     internal let name: String
     internal let version: Version
     internal let originator: SBOMOriginator
@@ -56,7 +56,7 @@ internal struct SBOMComponent: Codable, Equatable, Hashable {
     internal init(
         category: Category,
         id: SBOMIdentifier,
-        purl: String,
+        purl: PURL,
         name: String,
         version: Version,
         originator: SBOMOriginator,
