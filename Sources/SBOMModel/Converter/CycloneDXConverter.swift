@@ -15,7 +15,7 @@ import Foundation
 internal struct CycloneDXConverter {
     private init() {}
 
-    private static func convertToCycloneDXScope(from scope: SBOMComponent.Scope) async -> CycloneDXComponent.Scope {
+    private static func convertToScope(from scope: SBOMComponent.Scope) async -> CycloneDXComponent.Scope {
         switch scope {
         case .runtime:
             .required
@@ -26,7 +26,7 @@ internal struct CycloneDXConverter {
         }
     }
 
-    private static func convertToCycloneDXCategory(from category: SBOMComponent.Category) async -> CycloneDXComponent
+    private static func convertToCategory(from category: SBOMComponent.Category) async -> CycloneDXComponent
         .Category
     {
         switch category {
@@ -41,7 +41,7 @@ internal struct CycloneDXConverter {
         }
     }
 
-    internal static func convertToCycloneDXLicense(from license: SBOMLicense) -> CycloneDXLicense {
+    internal static func convertToLicense(from license: SBOMLicense) -> CycloneDXLicense {
         return CycloneDXLicense(
             license: CycloneDXLicenseInfo(
                 id: license.name,
@@ -50,7 +50,7 @@ internal struct CycloneDXConverter {
         )
     }
 
-    internal static func convertToCycloneDXSchema(from spec: SBOMSpec) async throws -> String {
+    internal static func convertToSchema(from spec: SBOMSpec) async throws -> String {
         switch spec.concreteSpec {
         case .cyclonedx1:
             return CycloneDXConstants.cyclonedx1Schema
@@ -61,7 +61,7 @@ internal struct CycloneDXConverter {
         }
     }
 
-    internal static func convertToCycloneDXPedigree(from originator: SBOMOriginator) async throws -> CycloneDXPedigree {
+    internal static func convertToPedigree(from originator: SBOMOriginator) async throws -> CycloneDXPedigree {
         guard let sbomCommits = originator.commits else {
             return CycloneDXPedigree(commits: nil)
         }
@@ -85,22 +85,22 @@ internal struct CycloneDXConverter {
         return CycloneDXPedigree(commits: cyclonedxCommits)
     }
 
-    internal static func convertToCycloneDXComponent(from comp: SBOMComponent) async throws -> CycloneDXComponent {
+    internal static func convertToComponent(from comp: SBOMComponent) async throws -> CycloneDXComponent {
         try await CycloneDXComponent(
-            type: self.convertToCycloneDXCategory(from: comp.category),
+            type: self.convertToCategory(from: comp.category),
             bomRef: comp.id.value,
             name: comp.name,
             version: comp.version.revision,
-            scope: self.convertToCycloneDXScope(from: comp.scope ?? .runtime),
+            scope: self.convertToScope(from: comp.scope ?? .runtime),
             purl: comp.purl,
-            pedigree: self.convertToCycloneDXPedigree(from: comp.originator),
+            pedigree: self.convertToPedigree(from: comp.originator),
             properties: [CycloneDXProperty(name: "swift-entity", value: comp.entity.rawValue)]
         )
     }
 
-    private static func convertToCycloneDXComponent(from tool: SBOMTool) async throws -> CycloneDXComponent {
+    private static func convertToComponent(from tool: SBOMTool) async throws -> CycloneDXComponent {
         let licenses = tool.licenses?.map { license in
-            convertToCycloneDXLicense(from: license)
+            convertToLicense(from: license)
         }
         
         return CycloneDXComponent(
@@ -115,19 +115,19 @@ internal struct CycloneDXConverter {
         )
     }
 
-    internal static func convertToCycloneDXDependency(from dep: SBOMRelationship) async throws -> CycloneDXDependency {
+    internal static func convertToDependency(from dep: SBOMRelationship) async throws -> CycloneDXDependency {
         CycloneDXDependency(
             ref: dep.parentID.value,
             dependsOn: dep.childrenID.map(\.value)
         )
     }
 
-    internal static func convertToCycloneDXMetadata(from document: SBOMDocument) async throws -> CycloneDXMetadata {
+    internal static func convertToMetadata(from document: SBOMDocument) async throws -> CycloneDXMetadata {
         var tools: CycloneDXTools? = nil
         if let creators = document.metadata.creators, !creators.isEmpty {
             var toolsComponents: [CycloneDXComponent] = []
             for creator in creators {
-                let cyclonedxTool = try await convertToCycloneDXComponent(from: creator)
+                let cyclonedxTool = try await convertToComponent(from: creator)
                 toolsComponents.append(cyclonedxTool)
             }
             tools = CycloneDXTools(components: toolsComponents)
@@ -135,12 +135,12 @@ internal struct CycloneDXConverter {
 
         return try await CycloneDXMetadata(
             timestamp: document.metadata.timestamp,
-            component: self.convertToCycloneDXComponent(from: document.primaryComponent),
+            component: self.convertToComponent(from: document.primaryComponent),
             tools: tools
         )
     }
 
-    internal static func convertToCycloneDXDocument(
+    internal static func convertToDocument(
         from document: SBOMDocument,
         spec: SBOMSpec
     ) async throws -> CycloneDXDocument {
@@ -150,25 +150,25 @@ internal struct CycloneDXConverter {
 
         var components: [CycloneDXComponent] = []
         for sbomComp in document.dependencies.components {
-            let cyclonedxComp = try await convertToCycloneDXComponent(from: sbomComp)
+            let cyclonedxComp = try await convertToComponent(from: sbomComp)
             components.append(cyclonedxComp)
         }
 
         var dependencies: [CycloneDXDependency] = []
         if let documentDependencies = document.dependencies.relationships {
             for sbomDep in documentDependencies {
-                let cyclonedxDep = try await convertToCycloneDXDependency(from: sbomDep)
+                let cyclonedxDep = try await convertToDependency(from: sbomDep)
                 dependencies.append(cyclonedxDep)
             }
         }
 
         return try await CycloneDXDocument(
-            schema: self.convertToCycloneDXSchema(from: spec),
+            schema: self.convertToSchema(from: spec),
             bomFormat: "CycloneDX",
             specVersion: spec.versionString,
             serialNumber: document.id.value,
             version: 1,
-            metadata: self.convertToCycloneDXMetadata(from: document),
+            metadata: self.convertToMetadata(from: document),
             components: components,
             dependencies: dependencies
         )
