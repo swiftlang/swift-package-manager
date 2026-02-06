@@ -72,7 +72,8 @@ struct SBOMEncoderTests {
         let encoder = SBOMEncoder(sbom: sbom, observabilityScope: ObservabilitySystem.makeForTesting().topScope)
 
         let outputs = try await encoder.writeSBOMs(specs: [.cyclonedx, .spdx], outputDir: outputDir)
-
+        
+        try #require(!outputs.isEmpty, "Output paths should not be empty")
         let files = try localFileSystem.getDirectoryContents(outputDir)
         #expect(files.count == 2, "Should generate two files for two specs")
 
@@ -81,15 +82,19 @@ struct SBOMEncoderTests {
         let cycloneDXPattern = "cyclonedx1-1.7-MyApp-unknown-all-"
         let spdxPattern = "spdx3-3.0.1-MyApp-unknown-all-"
 
-        let cycloneDXFile = files.first { $0.hasPrefix(cycloneDXPattern) && $0.hasSuffix(".json") }
-        let spdxFile = files.first { $0.hasPrefix(spdxPattern) && $0.hasSuffix(".json") }
+        let cycloneDXFile = try #require(
+            files.first { $0.hasPrefix(cycloneDXPattern) && $0.hasSuffix(".json") },
+            "Should generate CycloneDX file",
+        )    
+        let spdxFile = try #require(
+            files.first { $0.hasPrefix(spdxPattern) && $0.hasSuffix(".json") },
+            "Should generate SPDX file",
+        )
 
-        #expect(cycloneDXFile != nil, "Should generate CycloneDX file")
-        #expect(spdxFile != nil, "Should generate SPDX file")
-        #expect(!outputs.isEmpty, "Output paths should not be empty")
 
-        try self.verifyJSONFile(at: outputDir.appending(component: cycloneDXFile!))
-        try self.verifyJSONFile(at: outputDir.appending(component: spdxFile!))
+
+        try self.verifyJSONFile(at: outputDir.appending(component: cycloneDXFile))
+        try self.verifyJSONFile(at: outputDir.appending(component: spdxFile))
     }
 
     @Test("writeSBOMs with duplicate specs generates single file")
