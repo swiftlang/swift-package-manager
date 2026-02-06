@@ -17,11 +17,12 @@ internal struct CycloneDXConstants: Codable, Equatable {
     }
     
     /// The JSON schema URL for CycloneDX v1.x
+    /// This is embedded as a field in the SBOM, and points to an official schema URL on the CycloneDX website
     internal static var cyclonedx1Schema: String {
         "http://cyclonedx.org/schema/bom-\(cyclonedx1SpecVersion).schema.json"
     }
     
-    /// The schema filename for CycloneDX v1.x (without .json extension)
+    /// The schema filename for CycloneDX v1.x (without .json extension) that's bundled as an internal resource with SwiftPM
     internal static var cyclonedx1SchemaFile: String {
         "cyclonedx-\(cyclonedx1SpecVersion).schema"
     }
