@@ -69,11 +69,9 @@ public struct SwiftPackageCommand: AsyncParsableCommand {
             CompletionCommand.self,
             PluginCommand.self,
 
-            GenerateSbom.self,
-
             DefaultCommand.self,
         ]
-        // TODO echeng3805: update environment variable to actual proposal number
+        // TODO echeng3805: remove the if block here once ready
         if ProcessInfo.processInfo.environment["SWIFTPM_EVOLUTION_PROPOSAL_0509"] == "1" {
             subcommands.append(GenerateSbom.self)
         }
