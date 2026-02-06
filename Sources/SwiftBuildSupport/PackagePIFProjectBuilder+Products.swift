@@ -172,10 +172,11 @@ extension PackagePIFProjectBuilder {
         settings[.XROS_DEPLOYMENT_TARGET] = mainTargetDeploymentTargets[.visionOS] ?? nil
 
         // If the main module includes C headers, then we need to set up the HEADER_SEARCH_PATHS setting appropriately.
-        var headerSearchPaths: Set<Basics.AbsolutePath> = []
+        var headerSearchPaths: [AbsolutePath] = []
         if let includeDirAbsolutePath = mainModule.includeDirAbsolutePath {
-            headerSearchPaths.insert(includeDirAbsolutePath)
+            headerSearchPaths.append(includeDirAbsolutePath)
         }
+        headerSearchPaths += generatedFiles.publicHeaderPaths
 
         if !headerSearchPaths.isEmpty {
             // Let the main module itself find its own headers.
