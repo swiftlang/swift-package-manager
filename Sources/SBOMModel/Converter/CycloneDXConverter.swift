@@ -109,13 +109,7 @@ internal struct CycloneDXConverter {
             name: tool.name,
             version: tool.version,
             scope: .excluded,
-            purl: PURL(
-                scheme: "pkg",
-                type: "swift",
-                namespace: "github.com/swiftlang",
-                name: tool.name,
-                version: tool.version
-            ).description,
+            purl: tool.purl,
             pedigree: nil,
             licenses: licenses
         )

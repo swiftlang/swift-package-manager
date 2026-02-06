@@ -48,6 +48,7 @@ struct SPDXConverterTests {
             id: SBOMIdentifier(value: "tool-1"),
             name: "SwiftPM",
             version: "3.0.1",
+            purl: "pkg:swift/github.com/swiftlang/SwiftPM@3.0.1",
             licenses: [license]
         )
         let metadata = SBOMMetadata(
@@ -97,12 +98,14 @@ struct SPDXConverterTests {
             id: SBOMIdentifier(value: "tool-1"),
             name: "SwiftPM",
             version: "3.0.1",
+            purl: "pkg:swift/github.com/swiftlang/SwiftPM@3.0.1",
             licenses: [license1]
         )
         let creator2 = SBOMTool(
             id: SBOMIdentifier(value: "tool-2"),
             name: "CustomTool",
             version: "1.0.0",
+            purl: "pkg:swift/github.com/swiftlang/CustomTool@1.0.0",
             licenses: [license2]
         )
         let metadata = SBOMMetadata(
@@ -165,7 +168,7 @@ struct SPDXConverterTests {
         let spec = SBOMSpec(spec: .spdx)
         let metadata = SBOMMetadata(
             timestamp: nil,
-            creators: [SBOMTool(id: SBOMIdentifier(value: "tool-1"), name: "SwiftPM", version: "3.0.1")]
+            creators: [SBOMTool(id: SBOMIdentifier(value: "tool-1"), name: "SwiftPM", version: "3.0.1", purl: "pkg:swift/github.com/swiftlang/SwiftPM@3.0.1")]
         )
         let primaryComponent = SBOMComponent(
             category: .application,
@@ -252,7 +255,8 @@ struct SPDXConverterTests {
         let creator = SBOMTool(
             id: SBOMIdentifier(value: "tool-1"),
             name: "SwiftPM",
-            version: "3.0.1"
+            version: "3.0.1",
+            purl: "pkg:swift/github.com/swiftlang/SwiftPM@3.0.1"
         )
         let spec = SBOMSpec(spec: .spdx)
         let metadata = SBOMMetadata(
@@ -732,7 +736,7 @@ struct SPDXConverterTests {
         let spec = SBOMSpec(spec: .cyclonedx)
         let metadata = SBOMMetadata(
             timestamp: "2025-01-01T00:00:00Z",
-            creators: [SBOMTool(id: SBOMIdentifier(value: "tool-1"), name: "SwiftPM", version: "3.0.1")]
+            creators: [SBOMTool(id: SBOMIdentifier(value: "tool-1"), name: "SwiftPM", version: "3.0.1", purl: "pkg:swift/github.com/swiftlang/SwiftPM@3.0.1")]
         )
         let primaryComponent = SBOMComponent(
             category: .application,
@@ -761,7 +765,8 @@ struct SPDXConverterTests {
         let creator = SBOMTool(
             id: SBOMIdentifier(value: "tool-1"),
             name: "SwiftPM",
-            version: "3.0.1"
+            version: "3.0.1",
+            purl: "pkg:swift/github.com/swiftlang/SwiftPM@3.0.1"
         )
         let spec = SBOMSpec(spec: .spdx)
         let metadata = SBOMMetadata(
@@ -798,7 +803,8 @@ struct SPDXConverterTests {
         let creator = SBOMTool(
             id: SBOMIdentifier(value: "tool-1"),
             name: "SwiftPM",
-            version: "3.0.1"
+            version: "3.0.1",
+            purl: "pkg:swift/github.com/swiftlang/SwiftPM@3.0.1"
         )
         let spec = SBOMSpec(spec: .spdx3)
         let metadata = SBOMMetadata(
@@ -869,7 +875,8 @@ struct SPDXConverterTests {
         let creator = SBOMTool(
             id: SBOMIdentifier(value: "tool-1"),
             name: "SwiftPM",
-            version: "3.0.1"
+            version: "3.0.1",
+            purl: "pkg:swift/github.com/swiftlang/SwiftPM@3.0.1"
         )
         let spec = SBOMSpec(spec: .spdx)
         let metadata = SBOMMetadata(
