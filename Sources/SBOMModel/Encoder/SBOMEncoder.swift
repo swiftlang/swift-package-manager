@@ -48,7 +48,7 @@ internal struct SBOMEncoder {
     internal func encodeSBOMData(spec: SBOMSpec) async throws -> Data {
         let data: any Encodable = switch spec.concreteSpec {
         case .cyclonedx1:
-            try await CycloneDXConverter.convertToCycloneDXDocument(from: self.sbom, spec: spec)
+            try await CycloneDXConverter.convertToDocument(from: self.sbom, spec: spec)
         case .spdx3:
             try await SPDXConverter.convertToSPDXGraph(from: self.sbom, spec: spec)
             // case .cyclonedx, .cyclonedx2:
