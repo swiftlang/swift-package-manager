@@ -228,6 +228,7 @@ struct BuildCommandTestCases {
         .tags(
             .Feature.CommandLineArguments.ExplicitTargetDependencyImportCheck,
         ),
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/9620", relationship: .defect),
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func importOfMissedDepWarning(
@@ -264,6 +265,7 @@ struct BuildCommandTestCases {
         .tags(
             .Feature.CommandLineArguments.ExplicitTargetDependencyImportCheck,
         ),
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/9620", relationship: .defect),
         arguments: SupportedBuildSystemOnPlatform,
     )
     func importOfMissedDepWarningVerifyingErrorFlow(
