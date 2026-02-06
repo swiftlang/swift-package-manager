@@ -50,7 +50,7 @@ internal struct SBOMEncoder {
         case .cyclonedx1:
             try await CycloneDXConverter.convertToDocument(from: self.sbom, spec: spec)
         case .spdx3:
-            try await SPDXConverter.convertToSPDXGraph(from: self.sbom, spec: spec)
+            try await SPDXConverter.convertToGraph(from: self.sbom, spec: spec)
             // case .cyclonedx, .cyclonedx2:
             //     data = try await convertToCycloneDX2Document(from: sbom, spec: spec)
             // case .spdx, .spdx4:

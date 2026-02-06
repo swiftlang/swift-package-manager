@@ -15,34 +15,34 @@ import Foundation
 import Testing
 
 struct SPDXConverterTests {
-    @Test("convertToSPDXAgent with nil metadata")
-    func convertToSPDXAgentWithNilMetadata() async throws {
-        let result = await SPDXConverter.convertToSPDXAgent(from: nil)
+    @Test("convertToAgent with nil metadata")
+    func convertToAgentWithNilMetadata() async throws {
+        let result = await SPDXConverter.convertToAgent(from: nil)
         #expect(result.isEmpty)
     }
 
-    @Test("convertToSPDXAgent with nil creators")
-    func convertToSPDXAgentWithNilCreators() async throws {
+    @Test("convertToAgent with nil creators")
+    func convertToAgentWithNilCreators() async throws {
         let metadata = SBOMMetadata(
             timestamp: "1970-01-01T00:00:00Z",
             creators: nil
         )
-        let result = await SPDXConverter.convertToSPDXAgent(from: metadata)
+        let result = await SPDXConverter.convertToAgent(from: metadata)
         #expect(result.isEmpty)
     }
 
-    @Test("convertToSPDXAgent with empty creators")
-    func convertToSPDXAgentWithEmptyCreators() async throws {
+    @Test("convertToAgent with empty creators")
+    func convertToAgentWithEmptyCreators() async throws {
         let metadata = SBOMMetadata(
             timestamp: "2025-01-01T00:00:00Z",
             creators: []
         )
-        let result = await SPDXConverter.convertToSPDXAgent(from: metadata)
+        let result = await SPDXConverter.convertToAgent(from: metadata)
         #expect(result.isEmpty)
     }
 
-    @Test("convertToSPDXAgent with single creator")
-    func convertToSPDXAgentWithSingleCreator() async throws {
+    @Test("convertToAgent with single creator")
+    func convertToAgentWithSingleCreator() async throws {
         let license = SBOMLicense(name: "Apache-2.0", url: "https://www.apache.org/licenses/LICENSE-2.0")
         let creator = SBOMTool(
             id: SBOMIdentifier(value: "tool-1"),
@@ -56,7 +56,7 @@ struct SPDXConverterTests {
             creators: [creator]
         )
 
-        let result = await SPDXConverter.convertToSPDXAgent(from: metadata)
+        let result = await SPDXConverter.convertToAgent(from: metadata)
         #expect(result.count == 4) // CreationInfo + Agent + LicenseExpression + Relationship
 
         let relationship = result[0] as? SPDXRelationship
@@ -90,8 +90,8 @@ struct SPDXConverterTests {
         #expect(agentUnwrapped.creationInfoID == "urn:spdx:tool-1:creationInfo")
     }
 
-    @Test("convertToSPDXAgent with multiple creators")
-    func convertToSPDXAgentWithMultipleCreators() async throws {
+    @Test("convertToAgent with multiple creators")
+    func convertToAgentWithMultipleCreators() async throws {
         let license1 = SBOMLicense(name: "Apache-2.0", url: "https://www.apache.org/licenses/LICENSE-2.0")
         let license2 = SBOMLicense(name: "MIT", url: nil)
         let creator1 = SBOMTool(
@@ -113,7 +113,7 @@ struct SPDXConverterTests {
             creators: [creator1, creator2]
         )
 
-        let result = await SPDXConverter.convertToSPDXAgent(from: metadata)
+        let result = await SPDXConverter.convertToAgent(from: metadata)
         #expect(result.count == 8) // 2 * (Relationship + LicenseExpression + CreationInfo + Agent)
 
         // First creator's license relationship
@@ -163,8 +163,8 @@ struct SPDXConverterTests {
         #expect(agent2Unwrapped.name == "CustomTool")
     }
 
-    @Test("convertToSPDXDocument with missing timestamp throws error")
-    func convertToSPDXDocumentWithMissingTimestamp() async throws {
+    @Test("convertToDocument with missing timestamp throws error")
+    func convertToDocumentWithMissingTimestamp() async throws {
         let spec = SBOMSpec(spec: .spdx)
         let metadata = SBOMMetadata(
             timestamp: nil,
@@ -188,12 +188,12 @@ struct SPDXConverterTests {
         )
 
         await #expect(throws: Error.self) {
-            try await SPDXConverter.convertToSPDXDocument(from: document, spec: spec)
+            try await SPDXConverter.convertToDocument(from: document, spec: spec)
         }
     }
 
-    @Test("convertToSPDXDocument with missing creators throws error")
-    func convertToSPDXDocumentWithMissingCreators() async throws {
+    @Test("convertToDocument with missing creators throws error")
+    func convertToDocumentWithMissingCreators() async throws {
         let spec = SBOMSpec(spec: .spdx)
         let metadata = SBOMMetadata(
             timestamp: "2025-01-01T00:00:00Z",
@@ -217,12 +217,12 @@ struct SPDXConverterTests {
         )
 
         await #expect(throws: Error.self) {
-            try await SPDXConverter.convertToSPDXDocument(from: document, spec: spec)
+            try await SPDXConverter.convertToDocument(from: document, spec: spec)
         }
     }
 
-    @Test("convertToSPDXDocument with empty creators throws error")
-    func convertToSPDXDocumentWithEmptyCreators() async throws {
+    @Test("convertToDocument with empty creators throws error")
+    func convertToDocumentWithEmptyCreators() async throws {
         let spec = SBOMSpec(spec: .spdx)
         let metadata = SBOMMetadata(
             timestamp: "2025-01-01T00:00:00Z",
@@ -246,12 +246,12 @@ struct SPDXConverterTests {
         )
 
         await #expect(throws: Error.self) {
-            try await SPDXConverter.convertToSPDXDocument(from: document, spec: spec)
+            try await SPDXConverter.convertToDocument(from: document, spec: spec)
         }
     }
 
-    @Test("convertToSPDXDocument with valid data")
-    func convertToSPDXDocumentWithValidData() async throws {
+    @Test("convertToDocument with valid data")
+    func convertToDocumentWithValidData() async throws {
         let creator = SBOMTool(
             id: SBOMIdentifier(value: "tool-1"),
             name: "SwiftPM",
@@ -280,7 +280,7 @@ struct SPDXConverterTests {
             dependencies: SBOMDependencies(components: [], relationships: nil)
         )
 
-        let result = try await SPDXConverter.convertToSPDXDocument(from: document, spec: spec)
+        let result = try await SPDXConverter.convertToDocument(from: document, spec: spec)
         #expect(result.count == 4)
 
         let creationInfo = result[0] as? SPDXCreationInfo
@@ -315,8 +315,8 @@ struct SPDXConverterTests {
         #expect(documentUnwrapped.rootElementIDs == [sbomUnwrapped.id])
     }
 
-    @Test("convertToSPDXPackage with all categories")
-    func convertToSPDXPackageWithAllCategories() async throws {
+    @Test("convertToPackage with all categories")
+    func convertToPackageWithAllCategories() async throws {
         let categories: [(SBOMComponent.Category, SPDXPackage.Purpose)] = [
             (.application, .application),
             (.framework, .framework),
@@ -337,7 +337,7 @@ struct SPDXConverterTests {
                 entity: .product
             )
 
-            let result = try await SPDXConverter.convertToSPDXPackage(from: component)
+            let result = try await SPDXConverter.convertToPackage(from: component)
 
             #expect(result.id == "urn:spdx:test-id")
             #expect(result.type == .SoftwarePackage)
@@ -350,8 +350,8 @@ struct SPDXConverterTests {
         }
     }
 
-    @Test("convertToSPDXPackage with all entites")
-    func convertToSPDXPackageWithAllEntities() async throws {
+    @Test("convertToPackage with all entites")
+    func convertToPackageWithAllEntities() async throws {
         let entities: [(SBOMComponent.Entity, String)] = [
             (.package, SBOMComponent.Entity.package.rawValue),
             (.product, SBOMComponent.Entity.product.rawValue),
@@ -370,7 +370,7 @@ struct SPDXConverterTests {
                 entity: sbomEntity
             )
 
-            let result = try await SPDXConverter.convertToSPDXPackage(from: component)
+            let result = try await SPDXConverter.convertToPackage(from: component)
 
             #expect(result.id == "urn:spdx:test-id")
             #expect(result.type == .SoftwarePackage)
@@ -384,8 +384,8 @@ struct SPDXConverterTests {
         }
     }
 
-    @Test("convertToSPDXPackage with nil description")
-    func convertToSPDXPackageWithNilDescription() async throws {
+    @Test("convertToPackage with nil description")
+    func convertToPackageWithNilDescription() async throws {
         let component = SBOMComponent(
             category: .library,
             id: SBOMIdentifier(value: "urn:spdx:test-id"),
@@ -398,7 +398,7 @@ struct SPDXConverterTests {
             entity: .product
         )
 
-        let result = try await SPDXConverter.convertToSPDXPackage(from: component)
+        let result = try await SPDXConverter.convertToPackage(from: component)
 
         #expect(result.id == "urn:spdx:test-id")
         #expect(result.type == .SoftwarePackage)
@@ -406,20 +406,20 @@ struct SPDXConverterTests {
         #expect(result.description == nil)
     }
 
-    @Test("convertToSPDXExternalIdentifiers with nil components")
-    func convertToSPDXExternalIdentifiersWithNilComponents() async throws {
-        let result = await SPDXConverter.convertToSPDXExternalIdentifiers(from: nil)
+    @Test("convertToExternalIdentifiers with nil components")
+    func convertToExternalIdentifiersWithNilComponents() async throws {
+        let result = await SPDXConverter.convertToExternalIdentifiers(from: nil)
         #expect(result.isEmpty)
     }
 
-    @Test("convertToSPDXExternalIdentifiers with empty components")
-    func convertToSPDXExternalIdentifiersWithEmptyComponents() async throws {
-        let result = await SPDXConverter.convertToSPDXExternalIdentifiers(from: [])
+    @Test("convertToExternalIdentifiers with empty components")
+    func convertToExternalIdentifiersWithEmptyComponents() async throws {
+        let result = await SPDXConverter.convertToExternalIdentifiers(from: [])
         #expect(result.isEmpty)
     }
 
-    @Test("convertToSPDXExternalIdentifiers with components without commits")
-    func convertToSPDXExternalIdentifiersWithComponentsWithoutCommits() async throws {
+    @Test("convertToExternalIdentifiers with components without commits")
+    func convertToExternalIdentifiersWithComponentsWithoutCommits() async throws {
         let component = SBOMComponent(
             category: .library,
             id: SBOMIdentifier(value: "test-id"),
@@ -431,12 +431,12 @@ struct SPDXConverterTests {
             entity: .product
         )
 
-        let result = await SPDXConverter.convertToSPDXExternalIdentifiers(from: [component])
+        let result = await SPDXConverter.convertToExternalIdentifiers(from: [component])
         #expect(result.isEmpty)
     }
 
-    @Test("convertToSPDXExternalIdentifiers with components with empty commits")
-    func convertToSPDXExternalIdentifiersWithComponentsWithEmptyCommits() async throws {
+    @Test("convertToExternalIdentifiers with components with empty commits")
+    func convertToExternalIdentifiersWithComponentsWithEmptyCommits() async throws {
         let component = SBOMComponent(
             category: .library,
             id: SBOMIdentifier(value: "test-id"),
@@ -447,12 +447,12 @@ struct SPDXConverterTests {
             scope: .runtime,
             entity: .product
         )
-        let result = await SPDXConverter.convertToSPDXExternalIdentifiers(from: [component])
+        let result = await SPDXConverter.convertToExternalIdentifiers(from: [component])
         #expect(result.isEmpty)
     }
 
-    @Test("convertToSPDXExternalIdentifiers with single commit")
-    func convertToSPDXExternalIdentifiersWithSingleCommit() async throws {
+    @Test("convertToExternalIdentifiers with single commit")
+    func convertToExternalIdentifiersWithSingleCommit() async throws {
         let commit = SBOMCommit(
             sha: "abc123",
             repository: "https://github.com/swiftlang/swift-package-manager",
@@ -471,7 +471,7 @@ struct SPDXConverterTests {
             entity: .product
         )
 
-        let result = await SPDXConverter.convertToSPDXExternalIdentifiers(from: [component])
+        let result = await SPDXConverter.convertToExternalIdentifiers(from: [component])
         #expect(result.count == 2)
 
         let externalIdentifier = result[0] as? SPDXExternalIdentifier
@@ -491,8 +491,8 @@ struct SPDXConverterTests {
         #expect(relationshipUnwrapped.childrenID == ["urn:spdx:test-id"])
     }
 
-    @Test("convertToSPDXExternalIdentifiers with multiple commits")
-    func convertToSPDXExternalIdentifiersWithMultipleCommits() async throws {
+    @Test("convertToExternalIdentifiers with multiple commits")
+    func convertToExternalIdentifiersWithMultipleCommits() async throws {
         let commit1 = SBOMCommit(
             sha: "abc123",
             repository: "https://github.com/swiftlang/swift-package-manager",
@@ -518,7 +518,7 @@ struct SPDXConverterTests {
             entity: .product
         )
 
-        let result = await SPDXConverter.convertToSPDXExternalIdentifiers(from: [component])
+        let result = await SPDXConverter.convertToExternalIdentifiers(from: [component])
         #expect(result.count == 4) // 2 ExternalIdentifiers and 2 Relationships
 
         let externalIdentifiers = result.compactMap { $0 as? SPDXExternalIdentifier }
@@ -540,8 +540,8 @@ struct SPDXConverterTests {
         }
     }
 
-    @Test("convertToSPDXExternalIdentifiers with multiple components sharing same commit")
-    func convertToSPDXExternalIdentifiersWithMultipleComponentsSharingSameCommit() async throws {
+    @Test("convertToExternalIdentifiers with multiple components sharing same commit")
+    func convertToExternalIdentifiersWithMultipleComponentsSharingSameCommit() async throws {
         let commit = SBOMCommit(
             sha: "abc123",
             repository: "https://github.com/swiftlang/swift-package-manager",
@@ -570,7 +570,7 @@ struct SPDXConverterTests {
             entity: .product
         )
 
-        let result = await SPDXConverter.convertToSPDXExternalIdentifiers(from: [component1, component2])
+        let result = await SPDXConverter.convertToExternalIdentifiers(from: [component1, component2])
         #expect(result.count == 2) // 1 ExternalIdentifier and 1 Relationship
 
         let externalIdentifier = result[0] as? SPDXExternalIdentifier
@@ -592,30 +592,30 @@ struct SPDXConverterTests {
         #expect(relationshipUnwrapped.childrenID.contains("urn:spdx:test-id-2"))
     }
 
-    @Test("convertToSPDXRelationships with nil dependencies")
-    func convertToSPDXRelationshipsWithNilDependencies() async throws {
-        let result = await SPDXConverter.convertToSPDXRelationships(from: nil)
+    @Test("convertToRelationships with nil dependencies")
+    func convertToRelationshipsWithNilDependencies() async throws {
+        let result = await SPDXConverter.convertToRelationships(from: nil)
         #expect(result.isEmpty)
     }
 
-    @Test("convertToSPDXRelationships with empty dependencies")
-    func convertToSPDXRelationshipsWithEmptyDependencies() async throws {
-        let result = await SPDXConverter.convertToSPDXRelationships(from: SBOMDependencies(
+    @Test("convertToRelationships with empty dependencies")
+    func convertToRelationshipsWithEmptyDependencies() async throws {
+        let result = await SPDXConverter.convertToRelationships(from: SBOMDependencies(
             components: [],
             relationships: []
         ))
         #expect(result.isEmpty)
     }
 
-    @Test("convertToSPDXRelationships with single dependency")
-    func convertToSPDXRelationshipsWithSingleDependency() async throws {
+    @Test("convertToRelationships with single dependency")
+    func convertToRelationshipsWithSingleDependency() async throws {
         let dependency = SBOMRelationship(
             id: SBOMIdentifier(value: "dep-1"),
             parentID: SBOMIdentifier(value: "parent-component"),
             childrenID: [SBOMIdentifier(value: "child1"), SBOMIdentifier(value: "child2")]
         )
 
-        let result = await SPDXConverter.convertToSPDXRelationships(from: SBOMDependencies(
+        let result = await SPDXConverter.convertToRelationships(from: SBOMDependencies(
             components: [],
             relationships: [dependency]
         ))
@@ -631,8 +631,8 @@ struct SPDXConverterTests {
         #expect(relationshipUnwrapped.childrenID == ["urn:spdx:child1", "urn:spdx:child2"])
     }
 
-    @Test("convertToSPDXRelationships with multiple dependencies")
-    func convertToSPDXRelationshipsWithMultipleDependencies() async throws {
+    @Test("convertToRelationships with multiple dependencies")
+    func convertToRelationshipsWithMultipleDependencies() async throws {
         let dependency1 = SBOMRelationship(
             id: SBOMIdentifier(value: "dep-1"),
             parentID: SBOMIdentifier(value: "parent1"),
@@ -644,7 +644,7 @@ struct SPDXConverterTests {
             childrenID: [SBOMIdentifier(value: "child2"), SBOMIdentifier(value: "child3")]
         )
 
-        let result = await SPDXConverter.convertToSPDXRelationships(from: SBOMDependencies(
+        let result = await SPDXConverter.convertToRelationships(from: SBOMDependencies(
             components: [],
             relationships: [dependency1, dependency2]
         ))
@@ -665,8 +665,8 @@ struct SPDXConverterTests {
         #expect(relationship2Unwrapped.category == SPDXRelationship.Category.dependsOn)
     }
 
-    @Test("convertToSPDXRelationships with test and optional relationships")
-    func convertToSPDXRelationshipsWithTestAndOptionalRelationships() async throws {
+    @Test("convertToRelationships with test and optional relationships")
+    func convertToRelationshipsWithTestAndOptionalRelationships() async throws {
         let commit1 = SBOMCommit(
             sha: "abc123",
             repository: "https://github.com/swiftlang/swift-package-manager",
@@ -710,7 +710,7 @@ struct SPDXConverterTests {
             childrenID: [SBOMIdentifier(value: "test-id"), SBOMIdentifier(value: "test-id2")]
         )
 
-        let result = await SPDXConverter.convertToSPDXRelationships(from: SBOMDependencies(
+        let result = await SPDXConverter.convertToRelationships(from: SBOMDependencies(
             components: [parent, component, component2],
             relationships: [dependency1]
         ))
@@ -731,8 +731,8 @@ struct SPDXConverterTests {
         #expect(relationship1Unwrapped.category == SPDXRelationship.Category.hasTest)
     }
 
-    @Test("convertToSPDXGraph with non-SPDX spec throws error")
-    func convertToSPDXGraphWithNonSPDXSpec() async throws {
+    @Test("convertToGraph with non-SPDX spec throws error")
+    func convertToGraphWithNonSPDXSpec() async throws {
         let spec = SBOMSpec(spec: .cyclonedx)
         let metadata = SBOMMetadata(
             timestamp: "2025-01-01T00:00:00Z",
@@ -756,12 +756,12 @@ struct SPDXConverterTests {
         )
 
         await #expect(throws: Error.self) {
-            try await SPDXConverter.convertToSPDXGraph(from: document, spec: spec)
+            try await SPDXConverter.convertToGraph(from: document, spec: spec)
         }
     }
 
-    @Test("convertToSPDXGraph with minimal SPDX document")
-    func convertToSPDXGraphWithMinimalSPDXDocument() async throws {
+    @Test("convertToGraph with minimal SPDX document")
+    func convertToGraphWithMinimalSPDXDocument() async throws {
         let creator = SBOMTool(
             id: SBOMIdentifier(value: "tool-1"),
             name: "SwiftPM",
@@ -790,7 +790,7 @@ struct SPDXConverterTests {
             dependencies: SBOMDependencies(components: [], relationships: [])
         )
 
-        let result = try await SPDXConverter.convertToSPDXGraph(from: document, spec: spec)
+        let result = try await SPDXConverter.convertToGraph(from: document, spec: spec)
 
         #expect(result.context == SPDXConstants.spdx3Context)
         #expect(result.graph
@@ -798,8 +798,8 @@ struct SPDXConverterTests {
             6) // 1 agent CreationInfo + 1 agent + 4 document elements + 0 packages + 0 relationships + 0 commits
     }
 
-    @Test("convertToSPDXGraph with components and dependencies")
-    func convertToSPDXGraphWithComponentsAndDependencies() async throws {
+    @Test("convertToGraph with components and dependencies")
+    func convertToGraphWithComponentsAndDependencies() async throws {
         let creator = SBOMTool(
             id: SBOMIdentifier(value: "tool-1"),
             name: "SwiftPM",
@@ -843,7 +843,7 @@ struct SPDXConverterTests {
             dependencies: SBOMDependencies(components: [component1], relationships: [dependency])
         )
 
-        let result = try await SPDXConverter.convertToSPDXGraph(from: document, spec: spec)
+        let result = try await SPDXConverter.convertToGraph(from: document, spec: spec)
 
         #expect(result.context == SPDXConstants.spdx3Context)
         #expect(result.graph
@@ -870,8 +870,8 @@ struct SPDXConverterTests {
         #expect(documents.count == 1)
     }
 
-    @Test("convertToSPDXGraph with components containing commits")
-    func convertToSPDXGraphWithComponentsContainingCommits() async throws {
+    @Test("convertToGraph with components containing commits")
+    func convertToGraphWithComponentsContainingCommits() async throws {
         let creator = SBOMTool(
             id: SBOMIdentifier(value: "tool-1"),
             name: "SwiftPM",
@@ -917,7 +917,7 @@ struct SPDXConverterTests {
             dependencies: SBOMDependencies(components: [component1], relationships: nil)
         )
 
-        let result = try await SPDXConverter.convertToSPDXGraph(from: document, spec: spec)
+        let result = try await SPDXConverter.convertToGraph(from: document, spec: spec)
 
         #expect(result.context == SPDXConstants.spdx3Context)
 
