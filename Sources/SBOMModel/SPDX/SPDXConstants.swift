@@ -17,11 +17,12 @@ internal struct SPDXConstants: Codable, Equatable {
     }
     
     /// The JSON-LD context URL for SPDX v3.x
+    /// This is embedded as a field in the SBOM, and points to an official schema URL on the SPDX website
     internal static var spdx3Context: String {
         "https://spdx.org/rdf/\(spdx3SpecVersion)/spdx-context.jsonld"
     }
     
-    /// The schema filename for SPDX v3.x (without .json extension)
+    /// The schema filename for SPDX v3.x (without .json extension) that's bundled as an internal resource with SwiftPM
     internal static var spdx3SchemaFile: String {
         "spdx-\(spdx3SpecVersion).schema"
     }
