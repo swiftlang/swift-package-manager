@@ -814,7 +814,11 @@ public struct SBOMOptions: ParsableArguments {
             return cmdLineDir
         }
         if let envDir = ProcessInfo.processInfo.environment["SWIFTPM_BUILD_SBOM_OUTPUT_DIR"] {
-            return AbsolutePath(argument: envDir)
+            // Use optional binding to safely handle both absolute and relative paths
+            guard let path = AbsolutePath(argument: envDir) else {
+                return nil
+            }
+            return path
         }
         return nil
     }
