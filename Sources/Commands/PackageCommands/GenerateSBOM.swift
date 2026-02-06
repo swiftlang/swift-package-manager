@@ -33,8 +33,11 @@ extension SwiftPackageCommand {
         @Option(help: "The product to generate an SBOM for.")
         var product: String?
 
+        @OptionGroup(title: "SBOM")
+        var sbom: SBOMOptions
+
         func run(_ swiftCommandState: SwiftCommandState) async throws {
-            guard !globalOptions.sbom.sbomSpecs.isEmpty else {
+            guard !sbom.sbomSpecs.isEmpty else {
                 throw SBOMModel.SBOMCommandError.noSpecArg
             }
             
@@ -51,10 +54,10 @@ extension SwiftPackageCommand {
                 modulesGraph: packageGraph,
                 dependencyGraph: nil,
                 store: resolvedPackagesStore,
-                filter: self.globalOptions.sbom.sbomFilter,
+                filter: self.sbom.sbomFilter,
                 product: self.product,
-                specs: self.globalOptions.sbom.sbomSpecs,
-                dir: await SBOMCreator.resolveSBOMDirectory(from: self.globalOptions.sbom.sbomDirectory, withDefault: try swiftCommandState.productsBuildParameters.buildPath),
+                specs: self.sbom.sbomSpecs,
+                dir: await SBOMCreator.resolveSBOMDirectory(from: self.sbom.sbomDirectory, withDefault: try swiftCommandState.productsBuildParameters.buildPath),
                 observabilityScope: swiftCommandState.observabilityScope
             )
 

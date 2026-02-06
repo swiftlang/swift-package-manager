@@ -117,6 +117,9 @@ struct BuildCommandOptions: ParsableArguments {
     /// If should link the Swift stdlib statically.
     @Flag(name: .customLong("static-swift-stdlib"), inversion: .prefixedNo, help: "Link Swift stdlib statically.")
     public var shouldLinkStaticSwiftStdlib: Bool = false
+
+    @OptionGroup(title: "SBOM")
+    var sbom: SBOMOptions
 }
 
 /// swift-build command namespace
@@ -220,13 +223,13 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
     }
 
     private func getBuildOutputs() async -> [BuildOutput] {
-        return self.globalOptions.sbom.sbomSpecs.isEmpty ? [] : [.dependencyGraph]
+        return self.options.sbom.sbomSpecs.isEmpty ? [] : [.dependencyGraph]
     }
 
     private func processBuildResult(
         _ swiftCommandState: SwiftCommandState,
         buildResult: BuildResult) async throws {
-        if !self.globalOptions.sbom.sbomSpecs.isEmpty {
+        if !self.options.sbom.sbomSpecs.isEmpty {
             try await generateSBOMs(swiftCommandState, buildResult)
         }
     }
@@ -236,7 +239,7 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
         _ buildResult: BuildResult) async throws {
 
         do {
-            guard self.globalOptions.sbom.sbomSpecs.isEmpty || options.target == nil else {
+            guard self.options.sbom.sbomSpecs.isEmpty || options.target == nil else {
                 throw SBOMModel.SBOMCommandError.targetFlagNotSupported
             }
             let workspace = try swiftCommandState.getActiveWorkspace()
@@ -251,10 +254,10 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
                 modulesGraph: packageGraph,
                 dependencyGraph: buildResult.dependencyGraph,
                 store: resolvedPackagesStore,
-                filter: self.globalOptions.sbom.sbomFilter,
+                filter: self.options.sbom.sbomFilter,
                 product: options.product,
-                specs: self.globalOptions.sbom.sbomSpecs,
-                dir: await SBOMCreator.resolveSBOMDirectory(from: self.globalOptions.sbom.sbomDirectory, withDefault: try swiftCommandState.productsBuildParameters.buildPath),
+                specs: self.options.sbom.sbomSpecs,
+                dir: await SBOMCreator.resolveSBOMDirectory(from: self.options.sbom.sbomDirectory, withDefault: try swiftCommandState.productsBuildParameters.buildPath),
                 observabilityScope: swiftCommandState.observabilityScope
             )
 
@@ -273,7 +276,7 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
                 swiftCommandState.observabilityScope.emit(warning: "generating SBOM(s) without --build-system swiftbuild flag creates SBOM(s) based on modules graph only")
             }
         } catch {
-            if self.globalOptions.sbom.sbomWarningOnly {
+            if self.options.sbom.sbomWarningOnly {
                 swiftCommandState.observabilityScope.emit(warning: "SBOM generation failed: \(error.localizedDescription)")
             } else {
                 throw error
