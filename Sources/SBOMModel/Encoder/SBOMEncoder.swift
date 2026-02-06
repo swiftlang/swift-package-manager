@@ -76,7 +76,7 @@ internal struct SBOMEncoder {
         for spec in specs {
             await result.insert(self.getSpec(from: spec))
         }
-        return Array(result)
+        return Array(result).sorted()
     }
 
     internal func validateSBOM(from encoded: Foundation.Data, spec: SBOMSpec, bundleName: String = "SwiftPM_SBOMModel") async throws {
