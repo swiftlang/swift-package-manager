@@ -158,7 +158,7 @@ internal struct SPDXConverter {
             id: self.generateSPDXID(component.id.value),
             type: .SoftwarePackage,
             purpose: self.convertToPurpose(from: component.category),
-            purl: component.purl,
+            purl: component.purl.description,
             name: component.name,
             version: component.version.revision,
             creationInfoID: SPDXConstants.spdxRootCreationInfoID,

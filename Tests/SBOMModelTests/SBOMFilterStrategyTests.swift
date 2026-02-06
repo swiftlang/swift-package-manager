@@ -27,7 +27,7 @@ struct SBOMFilterStrategyTests {
         return SBOMComponent(
             category: .library,
             id: SBOMIdentifier(value: id),
-            purl: "pkg:swift/\(name)",
+            purl: PURL(scheme: "pkg", type: "swift", name: name),
             name: name,
             version: SBOMComponent.Version(revision: "1.0.0"),
             originator: SBOMOriginator(),

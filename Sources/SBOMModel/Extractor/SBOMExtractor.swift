@@ -62,7 +62,7 @@ internal struct SBOMExtractor {
                         namespace: "github.com/swiftlang",
                         name: "swift-package-manager",
                         version: SwiftVersion.current.displayString
-                    ).description,
+                    ),
                     licenses: [
                         SBOMLicense( // TODO: echeng3805: better way to get license without hard-coding and without network call?
                         // can't read the license in the root directory bc SBOM generation isn't always running in swift-package-manager
@@ -215,7 +215,7 @@ internal struct SBOMExtractor {
         let component = try await SBOMComponent(
             category: Self.extractCategory(from: package),
             id: Self.extractComponentID(from: package),
-            purl: PURL.from(package: package, version: gitInfo.version).description,
+            purl: PURL.from(package: package, version: gitInfo.version),
             name: package.identity.description,
             version: gitInfo.version,
             originator: gitInfo.originator,
@@ -239,7 +239,7 @@ internal struct SBOMExtractor {
         let component = try await SBOMComponent(
             category: Self.extractCategory(from: product),
             id: Self.extractComponentID(from: product),
-            purl: PURL.from(product: product, version: gitInfo.version).description,
+            purl: PURL.from(product: product, version: gitInfo.version),
             name: product.name,
             version: gitInfo.version,
             originator: gitInfo.originator,
