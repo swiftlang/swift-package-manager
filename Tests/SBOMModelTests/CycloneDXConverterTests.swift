@@ -170,7 +170,7 @@ struct CycloneDXConverterTests {
             let component = SBOMComponent(
                 category: sbomCategory,
                 id: SBOMIdentifier(value: "test-id"),
-                purl: "pkg:swift/test@1.0.0",
+                purl: PURL(scheme: "pkg", type: "swift", name: "test", version: "1.0.0"),
                 name: "TestComponent",
                 version: SBOMComponent.Version(revision: "1.0.0"),
                 originator: SBOMOriginator(commits: nil),
@@ -200,7 +200,7 @@ struct CycloneDXConverterTests {
             let component = SBOMComponent(
                 category: .library,
                 id: SBOMIdentifier(value: "test-id"),
-                purl: "pkg:swift/test@1.0.0",
+                purl: PURL(scheme: "pkg", type: "swift", name: "test", version: "1.0.0"),
                 name: "TestComponent",
                 version: SBOMComponent.Version(revision: "1.0.0"),
                 originator: SBOMOriginator(commits: nil),
@@ -236,7 +236,7 @@ struct CycloneDXConverterTests {
             let component = SBOMComponent(
                 category: .library,
                 id: SBOMIdentifier(value: "test-id"),
-                purl: "pkg:swift/test@1.0.0",
+                purl: PURL(scheme: "pkg", type: "swift", name: "test", version: "1.0.0"),
                 name: "TestComponent",
                 version: SBOMComponent.Version(revision: "1.0.0"),
                 originator: SBOMOriginator(commits: nil),
@@ -275,7 +275,7 @@ struct CycloneDXConverterTests {
         let component = SBOMComponent(
             category: .library,
             id: SBOMIdentifier(value: "test-id"),
-            purl: "pkg:swift/test@1.0.0",
+            purl: PURL(scheme: "pkg", type: "swift", name: "test", version: "1.0.0"),
             name: "TestComponent",
             version: SBOMComponent.Version(revision: "1.0.0"),
             originator: originator,
@@ -342,7 +342,7 @@ struct CycloneDXConverterTests {
         let primaryComponent = SBOMComponent(
             category: .application,
             id: SBOMIdentifier(value: "primary-id"),
-            purl: "pkg:swift/primary@1.0.0",
+            purl: PURL(scheme: "pkg", type: "swift", name: "primary", version: "1.0.0"),
             name: "PrimaryApp",
             version: SBOMComponent.Version(revision: "1.0.0"),
             originator: SBOMOriginator(commits: nil),
@@ -377,7 +377,7 @@ struct CycloneDXConverterTests {
         let primaryComponent = SBOMComponent(
             category: .framework,
             id: SBOMIdentifier(value: "primary-id"),
-            purl: "pkg:swift/primary@2.0.0",
+            purl: PURL(scheme: "pkg", type: "swift", name: "primary", version: "2.0.0"),
             name: "PrimaryFramework",
             version: SBOMComponent.Version(revision: "2.0.0"),
             originator: SBOMOriginator(commits: nil),
@@ -413,7 +413,7 @@ struct CycloneDXConverterTests {
         let primaryComponent = SBOMComponent(
             category: .application,
             id: SBOMIdentifier(value: "primary-id"),
-            purl: "pkg:swift/primary@1.0.0",
+            purl: PURL(scheme: "pkg", type: "swift", name: "primary", version: "1.0.0"),
             name: "PrimaryApp",
             version: SBOMComponent.Version(revision: "1.0.0"),
             originator: SBOMOriginator(commits: nil),
@@ -449,7 +449,7 @@ struct CycloneDXConverterTests {
         let primaryComponent = SBOMComponent(
             category: .application,
             id: SBOMIdentifier(value: "primary-id"),
-            purl: "pkg:swift/primary@1.0.0",
+            purl: PURL(scheme: "pkg", type: "swift", name: "primary", version: "1.0.0"),
             name: "PrimaryApp",
             version: SBOMComponent.Version(revision: "1.0.0"),
             originator: SBOMOriginator(commits: nil),
@@ -459,7 +459,7 @@ struct CycloneDXConverterTests {
         let component1 = SBOMComponent(
             category: .library,
             id: SBOMIdentifier(value: "lib1-id"),
-            purl: "pkg:swift/lib1@1.0.0",
+            purl: PURL(scheme: "pkg", type: "swift", name: "lib1", version: "1.0.0"),
             name: "Library1",
             version: SBOMComponent.Version(revision: "1.0.0"),
             originator: SBOMOriginator(commits: nil),
@@ -469,7 +469,7 @@ struct CycloneDXConverterTests {
         let component2 = SBOMComponent(
             category: .framework,
             id: SBOMIdentifier(value: "framework1-id"),
-            purl: "pkg:swift/framework1@2.0.0",
+            purl: PURL(scheme: "pkg", type: "swift", name: "framework1", version: "2.0.0"),
             name: "Framework1",
             version: SBOMComponent.Version(revision: "2.0.0"),
             originator: SBOMOriginator(commits: nil),
@@ -545,7 +545,7 @@ struct CycloneDXConverterTests {
         let primaryComponent = SBOMComponent(
             category: .application,
             id: SBOMIdentifier(value: "primary-id"),
-            purl: "pkg:swift/primary@1.0.0",
+            purl: PURL(scheme: "pkg", type: "swift", name: "primary", version: "1.0.0"),
             name: "PrimaryApp",
             version: SBOMComponent.Version(revision: "1.0.0"),
             originator: SBOMOriginator(commits: nil),
@@ -580,14 +580,14 @@ struct CycloneDXConverterTests {
             id: SBOMIdentifier(value: "tool-1"),
             name: "SwiftPM",
             version: "6.0.0",
-            purl: "pkg:swift/github.com/swiftlang/SwiftPM@6.0.0",
+            purl: PURL(scheme: "pkg", type: "swift", namespace: "github.com/swiftlang", name: "SwiftPM", version: "6.0.0"),
             licenses: [license1]
         )
         let tool2 = SBOMTool(
             id: SBOMIdentifier(value: "tool-2"),
             name: "Swift",
             version: "5.9.0",
-            purl: "pkg:swift/github.com/swiftlang/Swift@5.9.0",
+            purl: PURL(scheme: "pkg", type: "swift", namespace: "github.com/swiftlang", name: "Swift", version: "5.9.0"),
             licenses: [license2]
         )
         let metadata = SBOMMetadata(
@@ -597,7 +597,7 @@ struct CycloneDXConverterTests {
         let primaryComponent = SBOMComponent(
             category: .application,
             id: SBOMIdentifier(value: "primary-id"),
-            purl: "pkg:swift/primary@1.0.0",
+            purl: PURL(scheme: "pkg", type: "swift", name: "primary", version: "1.0.0"),
             name: "PrimaryApp",
             version: SBOMComponent.Version(revision: "1.0.0"),
             originator: SBOMOriginator(commits: nil),
@@ -656,7 +656,7 @@ struct CycloneDXConverterTests {
         let primaryComponent = SBOMComponent(
             category: .application,
             id: SBOMIdentifier(value: "primary-id"),
-            purl: "pkg:swift/primary@1.0.0",
+            purl: PURL(scheme: "pkg", type: "swift", name: "primary", version: "1.0.0"),
             name: "PrimaryApp",
             version: SBOMComponent.Version(revision: "1.0.0"),
             originator: SBOMOriginator(commits: nil),

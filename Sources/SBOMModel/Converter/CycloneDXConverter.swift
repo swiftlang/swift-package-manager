@@ -92,7 +92,7 @@ internal struct CycloneDXConverter {
             name: comp.name,
             version: comp.version.revision,
             scope: self.convertToScope(from: comp.scope ?? .runtime),
-            purl: comp.purl,
+            purl: comp.purl.description,
             pedigree: self.convertToPedigree(from: comp.originator),
             properties: [CycloneDXProperty(name: "swift-entity", value: comp.entity.rawValue)]
         )
@@ -109,7 +109,7 @@ internal struct CycloneDXConverter {
             name: tool.name,
             version: tool.version,
             scope: .excluded,
-            purl: tool.purl,
+            purl: tool.purl.description,
             pedigree: nil,
             licenses: licenses
         )

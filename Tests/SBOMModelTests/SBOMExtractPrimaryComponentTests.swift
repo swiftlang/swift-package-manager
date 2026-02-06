@@ -38,7 +38,7 @@ struct SBOMExtractPrimaryComponentTests {
         #expect(component.category == .application)
         #expect(component.name == rootPackage.identity.description)
         #expect(component.id.value == rootPackage.identity.description)
-        #expect(component.purl == "pkg:swift/github.com/swiftlang/swift-package-manager@\(expectedRevision)")
+        #expect(component.purl.description == "pkg:swift/github.com/swiftlang/swift-package-manager@\(expectedRevision)")
         #expect(component.version.revision == expectedRevision)
         #expect(component.version.commit?.sha == expectedRevision)
         #expect(component.version.commit?.repository == SBOMTestStore.swiftPMURL)
@@ -70,7 +70,7 @@ struct SBOMExtractPrimaryComponentTests {
         #expect(component.category == SBOMComponent.Category.application)
         #expect(component.name == rootPackage.identity.description)
         #expect(component.id.value == rootPackage.identity.description)
-        #expect(component.purl == "pkg:swift/github.com/swiftlang/swiftly@v1.0.0")
+        #expect(component.purl.description == "pkg:swift/github.com/swiftlang/swiftly@v1.0.0")
         #expect(component.version.revision == "v1.0.0")
         #expect(component.version.commit?.sha == expectedRevision)
         #expect(component.version.commit?.repository == SBOMTestStore.swiftlyURL)
@@ -105,7 +105,7 @@ struct SBOMExtractPrimaryComponentTests {
         #expect(component.id.value == "swift-package-manager:SwiftPMDataModel")
         #expect(component.version.revision == actualRevision)
         #expect(component.scope == .runtime)
-        #expect(component.purl
+        #expect(component.purl.description
             .contains("pkg:swift/github.com/swiftlang/swift-package-manager:SwiftPMDataModel@\(actualRevision)"))
         #expect(component.description == nil)
         let commits = try #require(component.originator.commits)
@@ -137,7 +137,7 @@ struct SBOMExtractPrimaryComponentTests {
         #expect(component.id.value == "swiftly:swiftly")
         #expect(component.version.revision == "v1.0.0")
         #expect(component.scope == .runtime)
-        #expect(component.purl.contains("pkg:swift/github.com/swiftlang/swiftly:swiftly@v1.0.0"))
+        #expect(component.purl.description.contains("pkg:swift/github.com/swiftlang/swiftly:swiftly@v1.0.0"))
         #expect(component.description == nil)
 
         let commits = try #require(component.originator.commits)
@@ -340,8 +340,8 @@ struct SBOMExtractPrimaryComponentTests {
             store: store
         ); return try await extractor.extractComponent(package: rootPackage) }()
 
-        #expect(component.purl.hasPrefix("pkg:swift/github.com/swiftlang/swift-package-manager@"))
-        #expect(component.purl.contains("github.com/swiftlang/swift-package-manager"))
+        #expect(component.purl.description.hasPrefix("pkg:swift/github.com/swiftlang/swift-package-manager@"))
+        #expect(component.purl.description.contains("github.com/swiftlang/swift-package-manager"))
     }
 
     @Test("extractComponent from product sets correct PURL with subpath")
@@ -360,9 +360,9 @@ struct SBOMExtractPrimaryComponentTests {
             store: store
         ); return try await extractor.extractComponent(product: product) }()
 
-        #expect(component.purl
+        #expect(component.purl.description
             .contains("pkg:swift/github.com/swiftlang/swift-package-manager:SwiftPMPackageCollections@"))
-        #expect(component.purl.contains(":SwiftPMPackageCollections@"))
+        #expect(component.purl.description.contains(":SwiftPMPackageCollections@"))
     }
 
     @Test("extractComponent from package includes originator with commit info")
@@ -478,7 +478,7 @@ struct SBOMExtractPrimaryComponentTests {
             #expect(versionCommit.sha == expectedRevision)
             #expect(productComponent.scope == .runtime || productComponent.scope == .test)
             #expect(productComponent.description == nil)
-            #expect(productComponent.purl.contains(":\(product.name)@"))
+            #expect(productComponent.purl.description.contains(":\(product.name)@"))
         }
     }
 

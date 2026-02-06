@@ -173,7 +173,7 @@ struct SBOMExtractComponentsTests {
         for component in components {
             #expect(!component.id.value.isEmpty, "Component ID should not be empty")
             #expect(!component.name.isEmpty, "Component name should not be empty")
-            #expect(!component.purl.isEmpty, "Component PURL should not be empty")
+            #expect(!component.purl.description.isEmpty, "Component PURL should not be empty")
             #expect(!component.version.revision.isEmpty, "Component version should not be empty")
             #expect(
                 component.category == .application || component.category == .library,

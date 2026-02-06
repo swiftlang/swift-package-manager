@@ -14,14 +14,14 @@ internal struct SBOMTool: Codable, Equatable {
     internal let id: SBOMIdentifier
     internal let name: String
     internal let version: String
-    internal let purl: String
+    internal let purl: PURL
     internal let licenses: [SBOMLicense]?
 
     internal init(
         id: SBOMIdentifier,
         name: String,
         version: String,
-        purl: String,
+        purl: PURL,
         licenses: [SBOMLicense]? = nil
     ) {
         self.id = id

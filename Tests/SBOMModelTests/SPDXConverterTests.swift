@@ -48,7 +48,7 @@ struct SPDXConverterTests {
             id: SBOMIdentifier(value: "tool-1"),
             name: "SwiftPM",
             version: "3.0.1",
-            purl: "pkg:swift/github.com/swiftlang/SwiftPM@3.0.1",
+            purl: PURL(scheme: "pkg", type: "swift", namespace: "github.com/swiftlang", name: "SwiftPM", version: "3.0.1"),
             licenses: [license]
         )
         let metadata = SBOMMetadata(
@@ -98,14 +98,14 @@ struct SPDXConverterTests {
             id: SBOMIdentifier(value: "tool-1"),
             name: "SwiftPM",
             version: "3.0.1",
-            purl: "pkg:swift/github.com/swiftlang/SwiftPM@3.0.1",
+            purl: PURL(scheme: "pkg", type: "swift", namespace: "github.com/swiftlang", name: "SwiftPM", version: "3.0.1"),
             licenses: [license1]
         )
         let creator2 = SBOMTool(
             id: SBOMIdentifier(value: "tool-2"),
             name: "CustomTool",
             version: "1.0.0",
-            purl: "pkg:swift/github.com/swiftlang/CustomTool@1.0.0",
+            purl: PURL(scheme: "pkg", type: "swift", namespace: "github.com/swiftlang", name: "CustomTool", version: "1.0.0"),
             licenses: [license2]
         )
         let metadata = SBOMMetadata(
@@ -168,12 +168,12 @@ struct SPDXConverterTests {
         let spec = SBOMSpec(spec: .spdx)
         let metadata = SBOMMetadata(
             timestamp: nil,
-            creators: [SBOMTool(id: SBOMIdentifier(value: "tool-1"), name: "SwiftPM", version: "3.0.1", purl: "pkg:swift/github.com/swiftlang/SwiftPM@3.0.1")]
+            creators: [SBOMTool(id: SBOMIdentifier(value: "tool-1"), name: "SwiftPM", version: "3.0.1", purl: PURL(scheme: "pkg", type: "swift", namespace: "github.com/swiftlang", name: "SwiftPM", version: "3.0.1"))]
         )
         let primaryComponent = SBOMComponent(
             category: .application,
             id: SBOMIdentifier(value: "primary-id"),
-            purl: "pkg:swift/primary@1.0.0",
+            purl: PURL(scheme: "pkg", type: "swift", name: "primary", version: "1.0.0"),
             name: "PrimaryApp",
             version: SBOMComponent.Version(revision: "1.0.0"),
             originator: SBOMOriginator(commits: nil),
@@ -202,7 +202,7 @@ struct SPDXConverterTests {
         let primaryComponent = SBOMComponent(
             category: .application,
             id: SBOMIdentifier(value: "primary-id"),
-            purl: "pkg:swift/primary@1.0.0",
+            purl: PURL(scheme: "pkg", type: "swift", name: "primary", version: "1.0.0"),
             name: "PrimaryApp",
             version: SBOMComponent.Version(revision: "1.0.0"),
             originator: SBOMOriginator(commits: nil),
@@ -231,7 +231,7 @@ struct SPDXConverterTests {
         let primaryComponent = SBOMComponent(
             category: .application,
             id: SBOMIdentifier(value: "primary-id"),
-            purl: "pkg:swift/primary@1.0.0",
+            purl: PURL(scheme: "pkg", type: "swift", name: "primary", version: "1.0.0"),
             name: "PrimaryApp",
             version: SBOMComponent.Version(revision: "1.0.0"),
             originator: SBOMOriginator(commits: nil),
@@ -256,7 +256,7 @@ struct SPDXConverterTests {
             id: SBOMIdentifier(value: "tool-1"),
             name: "SwiftPM",
             version: "3.0.1",
-            purl: "pkg:swift/github.com/swiftlang/SwiftPM@3.0.1"
+            purl: PURL(scheme: "pkg", type: "swift", namespace: "github.com/swiftlang", name: "SwiftPM", version: "3.0.1")
         )
         let spec = SBOMSpec(spec: .spdx)
         let metadata = SBOMMetadata(
@@ -266,7 +266,7 @@ struct SPDXConverterTests {
         let primaryComponent = SBOMComponent(
             category: .application,
             id: SBOMIdentifier(value: "primary-id"),
-            purl: "pkg:swift/primary@1.0.0",
+            purl: PURL(scheme: "pkg", type: "swift", name: "primary", version: "1.0.0"),
             name: "PrimaryApp",
             version: SBOMComponent.Version(revision: "1.0.0"),
             originator: SBOMOriginator(commits: nil),
@@ -328,7 +328,7 @@ struct SPDXConverterTests {
             let component = SBOMComponent(
                 category: sbomCategory,
                 id: SBOMIdentifier(value: "test-id"),
-                purl: "pkg:swift/test@1.0.0",
+                purl: PURL(scheme: "pkg", type: "swift", name: "test", version: "1.0.0"),
                 name: "TestComponent",
                 version: SBOMComponent.Version(revision: "1.0.0"),
                 originator: SBOMOriginator(commits: nil),
@@ -361,7 +361,7 @@ struct SPDXConverterTests {
             let component = SBOMComponent(
                 category: .application,
                 id: SBOMIdentifier(value: "test-id"),
-                purl: "pkg:swift/test@1.0.0",
+                purl: PURL(scheme: "pkg", type: "swift", name: "test", version: "1.0.0"),
                 name: "TestComponent",
                 version: SBOMComponent.Version(revision: "1.0.0"),
                 originator: SBOMOriginator(commits: nil),
@@ -389,7 +389,7 @@ struct SPDXConverterTests {
         let component = SBOMComponent(
             category: .library,
             id: SBOMIdentifier(value: "urn:spdx:test-id"),
-            purl: "pkg:swift/test@1.0.0",
+            purl: PURL(scheme: "pkg", type: "swift", name: "test", version: "1.0.0"),
             name: "TestComponent",
             version: SBOMComponent.Version(revision: "1.0.0"),
             originator: SBOMOriginator(commits: nil),
@@ -423,7 +423,7 @@ struct SPDXConverterTests {
         let component = SBOMComponent(
             category: .library,
             id: SBOMIdentifier(value: "test-id"),
-            purl: "pkg:swift/test@1.0.0",
+            purl: PURL(scheme: "pkg", type: "swift", name: "test", version: "1.0.0"),
             name: "TestComponent",
             version: SBOMComponent.Version(revision: "1.0.0"),
             originator: SBOMOriginator(commits: nil),
@@ -440,7 +440,7 @@ struct SPDXConverterTests {
         let component = SBOMComponent(
             category: .library,
             id: SBOMIdentifier(value: "test-id"),
-            purl: "pkg:swift/test@1.0.0",
+            purl: PURL(scheme: "pkg", type: "swift", name: "test", version: "1.0.0"),
             name: "TestComponent",
             version: SBOMComponent.Version(revision: "1.0.0"),
             originator: SBOMOriginator(commits: []),
@@ -462,7 +462,7 @@ struct SPDXConverterTests {
         let component = SBOMComponent(
             category: .library,
             id: SBOMIdentifier(value: "test-id"),
-            purl: "pkg:swift/test@1.0.0",
+            purl: PURL(scheme: "pkg", type: "swift", name: "test", version: "1.0.0"),
             name: "TestComponent",
             version: SBOMComponent.Version(revision: "1.0.0"),
             originator: SBOMOriginator(commits: [commit]),
@@ -507,7 +507,7 @@ struct SPDXConverterTests {
         let component = SBOMComponent(
             category: .library,
             id: SBOMIdentifier(value: "test-id"),
-            purl: "pkg:swift/test@1.0.0",
+            purl: PURL(scheme: "pkg", type: "swift", name: "test", version: "1.0.0"),
             name: "TestComponent",
             version: SBOMComponent.Version(revision: "1.0.0"),
             originator: SBOMOriginator(commits: [commit1, commit2]),
@@ -548,7 +548,7 @@ struct SPDXConverterTests {
         let component1 = SBOMComponent(
             category: .library,
             id: SBOMIdentifier(value: "test-id-1"),
-            purl: "pkg:swift/test1@1.0.0",
+            purl: PURL(scheme: "pkg", type: "swift", name: "test1", version: "1.0.0"),
             name: "TestComponent1",
             version: SBOMComponent.Version(revision: "1.0.0"),
             originator: SBOMOriginator(commits: [commit]),
@@ -558,7 +558,7 @@ struct SPDXConverterTests {
         let component2 = SBOMComponent(
             category: .library,
             id: SBOMIdentifier(value: "test-id-2"),
-            purl: "pkg:swift/test2@1.0.0",
+            purl: PURL(scheme: "pkg", type: "swift", name: "test2", version: "1.0.0"),
             name: "TestComponent2",
             version: SBOMComponent.Version(revision: "1.0.0"),
             originator: SBOMOriginator(commits: [commit]),
@@ -672,7 +672,7 @@ struct SPDXConverterTests {
         let parent = SBOMComponent(
             category: .library,
             id: SBOMIdentifier(value: "parent-id"),
-            purl: "pkg:swift/test3@1.0.0",
+            purl: PURL(scheme: "pkg", type: "swift", name: "test3", version: "1.0.0"),
             name: "TestComponent3",
             version: SBOMComponent.Version(revision: "1.0.0"),
             originator: SBOMOriginator(commits: [commit1]),
@@ -682,7 +682,7 @@ struct SPDXConverterTests {
         let component = SBOMComponent(
             category: .library,
             id: SBOMIdentifier(value: "test-id"),
-            purl: "pkg:swift/test@1.0.0",
+            purl: PURL(scheme: "pkg", type: "swift", name: "test", version: "1.0.0"),
             name: "TestComponent",
             version: SBOMComponent.Version(revision: "1.0.0"),
             originator: SBOMOriginator(commits: [commit1]),
@@ -692,7 +692,7 @@ struct SPDXConverterTests {
         let component2 = SBOMComponent(
             category: .library,
             id: SBOMIdentifier(value: "test-id2"),
-            purl: "pkg:swift/test2@1.0.0",
+            purl: PURL(scheme: "pkg", type: "swift", name: "test2", version: "2.0.0"),
             name: "TestComponent2",
             version: SBOMComponent.Version(revision: "2.0.0"),
             originator: SBOMOriginator(commits: [commit1]),
@@ -731,12 +731,12 @@ struct SPDXConverterTests {
         let spec = SBOMSpec(spec: .cyclonedx)
         let metadata = SBOMMetadata(
             timestamp: "2025-01-01T00:00:00Z",
-            creators: [SBOMTool(id: SBOMIdentifier(value: "tool-1"), name: "SwiftPM", version: "3.0.1", purl: "pkg:swift/github.com/swiftlang/SwiftPM@3.0.1")]
+            creators: [SBOMTool(id: SBOMIdentifier(value: "tool-1"), name: "SwiftPM", version: "3.0.1", purl: PURL(scheme: "pkg", type: "swift", namespace: "github.com/swiftlang", name: "SwiftPM", version: "3.0.1"))]
         )
         let primaryComponent = SBOMComponent(
             category: .application,
             id: SBOMIdentifier(value: "primary-id"),
-            purl: "pkg:swift/primary@1.0.0",
+            purl: PURL(scheme: "pkg", type: "swift", name: "primary", version: "1.0.0"),
             name: "PrimaryApp",
             version: SBOMComponent.Version(revision: "1.0.0"),
             originator: SBOMOriginator(commits: nil),
@@ -761,7 +761,7 @@ struct SPDXConverterTests {
             id: SBOMIdentifier(value: "tool-1"),
             name: "SwiftPM",
             version: "3.0.1",
-            purl: "pkg:swift/github.com/swiftlang/SwiftPM@3.0.1"
+            purl: PURL(scheme: "pkg", type: "swift", namespace: "github.com/swiftlang", name: "SwiftPM", version: "3.0.1")
         )
         let spec = SBOMSpec(spec: .spdx)
         let metadata = SBOMMetadata(
@@ -771,7 +771,7 @@ struct SPDXConverterTests {
         let primaryComponent = SBOMComponent(
             category: .application,
             id: SBOMIdentifier(value: "primary-id"),
-            purl: "pkg:swift/primary@1.0.0",
+            purl: PURL(scheme: "pkg", type: "swift", name: "primary", version: "1.0.0"),
             name: "PrimaryApp",
             version: SBOMComponent.Version(revision: "1.0.0"),
             originator: SBOMOriginator(commits: nil),
@@ -799,7 +799,7 @@ struct SPDXConverterTests {
             id: SBOMIdentifier(value: "tool-1"),
             name: "SwiftPM",
             version: "3.0.1",
-            purl: "pkg:swift/github.com/swiftlang/SwiftPM@3.0.1"
+            purl: PURL(scheme: "pkg", type: "swift", namespace: "github.com/swiftlang", name: "SwiftPM", version: "3.0.1")
         )
         let spec = SBOMSpec(spec: .spdx3)
         let metadata = SBOMMetadata(
@@ -809,7 +809,7 @@ struct SPDXConverterTests {
         let primaryComponent = SBOMComponent(
             category: .application,
             id: SBOMIdentifier(value: "primary-id"),
-            purl: "pkg:swift/primary@1.0.0",
+            purl: PURL(scheme: "pkg", type: "swift", name: "primary", version: "1.0.0"),
             name: "PrimaryApp",
             version: SBOMComponent.Version(revision: "1.0.0"),
             originator: SBOMOriginator(commits: nil),
@@ -819,7 +819,7 @@ struct SPDXConverterTests {
         let component1 = SBOMComponent(
             category: .library,
             id: SBOMIdentifier(value: "lib1-id"),
-            purl: "pkg:swift/lib1@1.0.0",
+            purl: PURL(scheme: "pkg", type: "swift", name: "lib1", version: "1.0.0"),
             name: "Library1",
             version: SBOMComponent.Version(revision: "1.0.0"),
             originator: SBOMOriginator(commits: nil),
@@ -871,7 +871,7 @@ struct SPDXConverterTests {
             id: SBOMIdentifier(value: "tool-1"),
             name: "SwiftPM",
             version: "3.0.1",
-            purl: "pkg:swift/github.com/swiftlang/SwiftPM@3.0.1"
+            purl: PURL(scheme: "pkg", type: "swift", namespace: "github.com/swiftlang", name: "SwiftPM", version: "3.0.1")
         )
         let spec = SBOMSpec(spec: .spdx)
         let metadata = SBOMMetadata(
@@ -881,7 +881,7 @@ struct SPDXConverterTests {
         let primaryComponent = SBOMComponent(
             category: .application,
             id: SBOMIdentifier(value: "primary-id"),
-            purl: "pkg:swift/primary@1.0.0",
+            purl: PURL(scheme: "pkg", type: "swift", name: "primary", version: "1.0.0"),
             name: "PrimaryApp",
             version: SBOMComponent.Version(revision: "1.0.0"),
             originator: SBOMOriginator(commits: nil),
@@ -897,7 +897,7 @@ struct SPDXConverterTests {
         let component1 = SBOMComponent(
             category: .library,
             id: SBOMIdentifier(value: "lib1-id"),
-            purl: "pkg:swift/lib1@1.0.0",
+            purl: PURL(scheme: "pkg", type: "swift", name: "lib1", version: "1.0.0"),
             name: "Library1",
             version: SBOMComponent.Version(revision: "1.0.0"),
             originator: SBOMOriginator(commits: [commit]),
