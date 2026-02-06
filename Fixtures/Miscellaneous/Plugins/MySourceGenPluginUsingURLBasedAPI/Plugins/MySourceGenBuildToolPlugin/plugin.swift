@@ -1,4 +1,5 @@
 import PackagePlugin
+import Foundation
 
 @main
 struct MyPlugin: BuildToolPlugin {
@@ -11,21 +12,21 @@ struct MyPlugin: BuildToolPlugin {
     func createBuildCommands(context: PluginContext, target: Target) throws -> [Command] {
         print("Hello from the Build Tool Plugin!")
         guard let target = target as? SourceModuleTarget else { return [] }
-        return try target.sourceFiles.map{ $0.url }.compactMap {
-            guard $0.pathExtension == "dat" else { return .none }
-            let outputName = $0.deletingPathExtension().lastPathComponent + ".swift"
+        return try target.sourceFiles.map{ $0.url }.compactMap { (url: URL) -> Command? in
+            guard url.pathExtension == "dat" else { return nil }
+            let outputName = url.deletingPathExtension().appendingPathExtension("swift").lastPathComponent
             let outputPath = context.pluginWorkDirectoryURL.appendingPathComponent(outputName)
             return .buildCommand(
                 displayName:
-                    "\(verb) \(outputName) from \($0.lastPathComponent)",
+                    "\(verb) \(outputName) from \(url.lastPathComponent)",
                 executable:
                     try context.tool(named: "MySourceGenBuildTool").url,
                 arguments: [
-                    "\($0)",
-                    "\(outputPath.path)"
+                    url.path,
+                    outputPath.path
                 ],
                 inputFiles: [
-                    $0,
+                    url,
                 ],
                 outputFiles: [
                     outputPath
