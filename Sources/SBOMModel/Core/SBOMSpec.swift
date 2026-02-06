@@ -59,7 +59,7 @@ package enum Spec: String, Codable, Equatable, CaseIterable, ExpressibleByArgume
 }
 
 /// Internal representation of a concrete SBOM specification.
-internal struct SBOMSpec: Codable, Equatable, Hashable {
+internal struct SBOMSpec: Codable, Equatable, Hashable, Comparable {
 
     internal enum ConcreteSpec: String, Codable, Equatable, CaseIterable, Comparable {
         case cyclonedx1
@@ -101,9 +101,13 @@ internal struct SBOMSpec: Codable, Equatable, Hashable {
     internal init(spec: Spec) {
         switch spec {
             case .cyclonedx, .cyclonedx1:
-                self.concreteSpec = .cyclonedx1 
+                self.concreteSpec = .cyclonedx1
             case .spdx, .spdx3:
                 self.concreteSpec = .spdx3
         }
+    }
+
+    internal static func < (lhs: SBOMSpec, rhs: SBOMSpec) -> Bool {
+        lhs.concreteSpec < rhs.concreteSpec
     }
 }
