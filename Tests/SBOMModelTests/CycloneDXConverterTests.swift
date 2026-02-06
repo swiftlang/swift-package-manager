@@ -586,12 +586,14 @@ struct CycloneDXConverterTests {
             id: SBOMIdentifier(value: "tool-1"),
             name: "SwiftPM",
             version: "6.0.0",
+            purl: "pkg:swift/github.com/swiftlang/SwiftPM@6.0.0",
             licenses: [license1]
         )
         let tool2 = SBOMTool(
             id: SBOMIdentifier(value: "tool-2"),
             name: "Swift",
             version: "5.9.0",
+            purl: "pkg:swift/github.com/swiftlang/Swift@5.9.0",
             licenses: [license2]
         )
         let metadata = SBOMMetadata(

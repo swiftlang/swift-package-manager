@@ -56,6 +56,13 @@ internal struct SBOMExtractor {
                     id: SBOMIdentifier.generate(),
                     name: "swift-package-manager",
                     version: SwiftVersion.current.displayString,
+                    purl: PURL(
+                        scheme: "pkg",
+                        type: "swift",
+                        namespace: "github.com/swiftlang",
+                        name: "swift-package-manager",
+                        version: SwiftVersion.current.displayString
+                    ).description,
                     licenses: [
                         SBOMLicense( // TODO: echeng3805: better way to get license without hard-coding and without network call?
                         // can't read the license in the root directory bc SBOM generation isn't always running in swift-package-manager
