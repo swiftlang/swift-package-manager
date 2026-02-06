@@ -65,7 +65,7 @@ public class ObservabilitySystem {
         init(
             _ underlying: @escaping @Sendable (ObservabilityScope, Diagnostic) -> Void,
             outputStream: (any WritableByteStream)?,
-            logLevel: Diagnostic.Severity
+            logLevel: Diagnostic.Severity = .error
         ) {
             self.underlying = underlying
             self.outputStream = outputStream
