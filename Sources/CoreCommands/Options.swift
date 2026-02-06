@@ -766,14 +766,14 @@ public struct SBOMOptions: ParsableArguments {
     /// SBOM specification(s) to generate.
     @Option(
         name: .customLong("sbom-spec"),
-        help: ArgumentHelp("Set the SBOM specification(s) and generate SBOM(s).")
+        help: ArgumentHelp("Set the SBOM specification(s) and generate SBOM(s).", visibility: .hidden)
     )
     package var _sbomSpecs: [SBOMModel.Spec] = []
 
     /// Directory path to generate SBOM(s) in.
     @Option(
         name: .customLong("sbom-output-dir"),
-        help: ArgumentHelp("The absolute or relative directory path to generate the SBOM(s) in. Must be used with --sbom-spec. (default: <scratch_path>/sboms)."),
+        help: ArgumentHelp("The absolute or relative directory path to generate the SBOM(s) in. Must be used with --sbom-spec. (default: <scratch_path>/sboms).", visibility: .hidden),
         completion: .directory
     )
     package var _sbomDirectory: AbsolutePath?
@@ -781,14 +781,14 @@ public struct SBOMOptions: ParsableArguments {
     /// Filter SBOM components and dependencies by entity.
     @Option(
         name: .customLong("sbom-filter"),
-        help: ArgumentHelp("Filter the SBOM components and dependencies by products and/or packages. Must be used with --sbom-spec.")
+        help: ArgumentHelp("Filter the SBOM components and dependencies by products and/or packages. Must be used with --sbom-spec.", visibility: .hidden)
     )
     package var _sbomFilter: SBOMModel.Filter? = nil
 
     /// Whether to treat SBOM generation errors as warnings
     @Flag(
         name: .customLong("sbom-warning-only"),
-        help: ArgumentHelp("Treat SBOM generation errors as warnings. Must be used with --sbom-spec. (default: false).")
+        help: ArgumentHelp("Treat SBOM generation errors as warnings. Must be used with --sbom-spec. (default: false).", visibility: .hidden)
     )
     package var _sbomWarningOnly: Bool = false
 
