@@ -838,7 +838,7 @@ public struct SBOMOptions: ParsableArguments {
         }
         if let envWarningOnly = ProcessInfo.processInfo.environment["SWIFTPM_BUILD_SBOM_WARNING_ONLY"] {
             let lowercased = envWarningOnly.lowercased()
-            return lowercased == "true" || lowercased == "1"
+            return !["false", "0", "no"].contains(lowercased)
         }
         return false
     }
