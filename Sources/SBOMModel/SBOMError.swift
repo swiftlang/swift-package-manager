@@ -41,13 +41,21 @@ internal enum SBOMError: Error, LocalizedError, CustomStringConvertible {
 package enum SBOMCommandError: Error, LocalizedError {
     case noSpecArg
     case targetFlagNotSupported
+    case invalidFilterValue(value: String)
+    case invalidSpecValue(value: String)
     
     public var errorDescription: String? {
         switch self {
         case .noSpecArg:
-            return "No SBOM specification argument provided. Use --sbom-spec to specify the SBOM format."
+            return "No SBOM specification argument provided. Use --sbom-spec or SWIFTPM_BUILD_SBOM_SPEC to specify the SBOM format."
         case .targetFlagNotSupported:
-            return "--sbom-spec cannot be used with --target flag"
+            return "--sbom-spec or SWIFTPM_BUILD_SBOM_SPEC cannot be used with --target flag"
+        case .invalidFilterValue(let value):
+            let validValues = Filter.allCases.map(\.rawValue).joined(separator: ", ")
+            return "Invalid SBOM filter value '\(value)' in environment variable SWIFTPM_BUILD_SBOM_FILTER. Valid values are: \(validValues)"
+        case .invalidSpecValue(let value):
+            let validValues = Spec.allCases.map(\.rawValue).joined(separator: ", ")
+            return "Invalid SBOM spec value '\(value)' in environment variable SWIFTPM_BUILD_SBOM_SPEC. Valid values are \(validValues). Specify multiple specs by separating valid values with commas"
         }
     }
 }
