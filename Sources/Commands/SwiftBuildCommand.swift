@@ -222,14 +222,14 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
         }
     }
 
-    private func getBuildOutputs() async -> [BuildOutput] {
-        return self.options.sbom.sbomSpecs.isEmpty ? [] : [.dependencyGraph]
+    private func getBuildOutputs() async throws -> [BuildOutput] {
+        return try self.options.sbom.sbomSpecs.isEmpty ? [] : [.dependencyGraph]
     }
 
     private func processBuildResult(
         _ swiftCommandState: SwiftCommandState,
         buildResult: BuildResult) async throws {
-        if !self.options.sbom.sbomSpecs.isEmpty {
+        if try !self.options.sbom.sbomSpecs.isEmpty {
             try await generateSBOMs(swiftCommandState, buildResult)
         }
     }
@@ -239,7 +239,7 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
         _ buildResult: BuildResult) async throws {
 
         do {
-            guard self.options.sbom.sbomSpecs.isEmpty || options.target == nil else {
+            guard try self.options.sbom.sbomSpecs.isEmpty || options.target == nil else {
                 throw SBOMModel.SBOMCommandError.targetFlagNotSupported
             }
             let workspace = try swiftCommandState.getActiveWorkspace()
@@ -254,9 +254,9 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
                 modulesGraph: packageGraph,
                 dependencyGraph: buildResult.dependencyGraph,
                 store: resolvedPackagesStore,
-                filter: self.options.sbom.sbomFilter,
+                filter: try self.options.sbom.sbomFilter,
                 product: options.product,
-                specs: self.options.sbom.sbomSpecs,
+                specs: try self.options.sbom.sbomSpecs,
                 dir: await SBOMCreator.resolveSBOMDirectory(from: self.options.sbom.sbomDirectory, withDefault: try swiftCommandState.productsBuildParameters.buildPath),
                 observabilityScope: swiftCommandState.observabilityScope
             )

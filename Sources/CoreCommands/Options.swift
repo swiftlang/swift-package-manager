@@ -31,6 +31,7 @@ import enum PackageModel.TraitConfiguration
 
 import enum SBOMModel.Filter
 import enum SBOMModel.Spec
+import enum SBOMModel.SBOMCommandError
 
 import struct SPMBuildCore.BuildParameters
 import struct SPMBuildCore.BuildSystemProvider
@@ -782,7 +783,7 @@ public struct SBOMOptions: ParsableArguments {
         name: .customLong("sbom-filter"),
         help: ArgumentHelp("Filter the SBOM components and dependencies by products and/or packages. Must be used with --sbom-spec.")
     )
-    package var _sbomFilter: SBOMModel.Filter = .all
+    package var _sbomFilter: SBOMModel.Filter? = nil
 
     /// Whether to treat SBOM generation errors as warnings
     @Flag(
@@ -794,18 +795,27 @@ public struct SBOMOptions: ParsableArguments {
     // MARK: - Computed properties with environment variable support
 
     /// SBOM specifications with environment variable fallback. CLI flag takes precedence.
+    /// Throws an error if the environment variable contains an invalid value.
     package var sbomSpecs: [SBOMModel.Spec] {
-        if !_sbomSpecs.isEmpty {
-            return _sbomSpecs
-        }
-        if let envSpecs = ProcessInfo.processInfo.environment["SWIFTPM_BUILD_SBOM_SPEC"] {
-            let specStrings = envSpecs.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
-            let specs = specStrings.compactMap { SBOMModel.Spec(rawValue: $0) }
-            if !specs.isEmpty {
-                return specs
+        get throws {
+            if !_sbomSpecs.isEmpty {
+                return _sbomSpecs
             }
+            if let envSpecs = ProcessInfo.processInfo.environment["SWIFTPM_BUILD_SBOM_SPEC"] {
+                let specStrings = envSpecs.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
+                var specs: [SBOMModel.Spec] = []
+                for specString in specStrings {
+                    guard let spec = SBOMModel.Spec(rawValue: specString) else {
+                        throw SBOMModel.SBOMCommandError.invalidSpecValue(value: specString)
+                    }
+                    specs.append(spec)
+                }
+                if !specs.isEmpty {
+                    return specs
+                }
+            }
+            return []
         }
-        return []
     }
 
     /// SBOM directory with environment variable fallback. CLI flag takes precedence.
@@ -814,7 +824,6 @@ public struct SBOMOptions: ParsableArguments {
             return cmdLineDir
         }
         if let envDir = ProcessInfo.processInfo.environment["SWIFTPM_BUILD_SBOM_OUTPUT_DIR"] {
-            // Use optional binding to safely handle both absolute and relative paths
             guard let path = AbsolutePath(argument: envDir) else {
                 return nil
             }
@@ -824,15 +833,20 @@ public struct SBOMOptions: ParsableArguments {
     }
 
     /// SBOM filter with environment variable fallback. CLI flag takes precedence.
+    /// Throws an error if the environment variable contains an invalid value.
     package var sbomFilter: SBOMModel.Filter {
-        if _sbomFilter != .all {
-            return _sbomFilter
+        get throws {
+            if let cliFilter = _sbomFilter {
+                return cliFilter
+            }
+            if let envFilter = ProcessInfo.processInfo.environment["SWIFTPM_BUILD_SBOM_FILTER"] {
+                guard let filter = SBOMModel.Filter(rawValue: envFilter) else {
+                    throw SBOMModel.SBOMCommandError.invalidFilterValue(value: envFilter)
+                }
+                return filter
+            }
+            return .all
         }
-        if let envFilter = ProcessInfo.processInfo.environment["SWIFTPM_BUILD_SBOM_FILTER"],
-           let filter = SBOMModel.Filter(rawValue: envFilter) {
-            return filter
-        }
-        return _sbomFilter
     }
 
     /// SBOM warning-only mode with environment variable fallback. CLI flag takes precedence.

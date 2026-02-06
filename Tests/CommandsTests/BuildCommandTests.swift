@@ -2138,5 +2138,98 @@ struct BuildSBOMCommandTests {
             )
         }
     }
+
+    @Test(
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+    )
+    func buildWithInvalidSBOMFilterFromEnvironment(
+        data: BuildData,
+    ) async throws {
+        try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
+            await expectThrowsCommandExecutionError(
+                try await executeSwiftBuild(
+                    fixturePath,
+                    configuration: data.config,
+                    extraArgs: [],
+                    env: [
+                        "SWIFTPM_BUILD_SBOM_SPEC": "cyclonedx",
+                        "SWIFTPM_BUILD_SBOM_FILTER": "invalid_filter"
+                    ],
+                    buildSystem: data.buildSystem,
+                )
+            ) { error in
+                #expect(error.stderr.contains("Invalid SBOM filter value 'invalid_filter'"))
+                #expect(error.stderr.contains("Valid values are: all, product, package"))
+            }
+        }
+    }
+
+    @Test(
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+    )
+    func buildWithInvalidSBOMSpecFromEnvironment(
+        data: BuildData,
+    ) async throws {
+        try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
+            await expectThrowsCommandExecutionError(
+                try await executeSwiftBuild(
+                    fixturePath,
+                    configuration: data.config,
+                    extraArgs: [],
+                    env: ["SWIFTPM_BUILD_SBOM_SPEC": "invalid_spec"],
+                    buildSystem: data.buildSystem,
+                )
+            ) { error in
+                #expect(error.stderr.contains("Invalid SBOM spec value 'invalid_spec'"))
+                #expect(error.stderr.contains("Valid values are"))
+            }
+        }
+    }
+
+    @Test(
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+    )
+    func buildWithPartiallyInvalidSBOMSpecsFromEnvironment(
+        data: BuildData,
+    ) async throws {
+        try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
+            await expectThrowsCommandExecutionError(
+                try await executeSwiftBuild(
+                    fixturePath,
+                    configuration: data.config,
+                    extraArgs: [],
+                    env: ["SWIFTPM_BUILD_SBOM_SPEC": "cyclonedx,invalid_spec,spdx"],
+                    buildSystem: data.buildSystem,
+                )
+            ) { error in
+                #expect(error.stderr.contains("Invalid SBOM spec value 'invalid_spec'"))
+                #expect(error.stderr.contains("Valid values are"))
+            }
+        }
+    }
+
+    @Test(
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+    )
+    func commandLineFlagOverridesInvalidEnvironmentVariable(
+        data: BuildData,
+    ) async throws {
+        try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
+            // Valid CLI flag should override invalid environment variable
+            let (stdout, _) = try await executeSwiftBuild(
+                fixturePath,
+                configuration: data.config,
+                extraArgs: ["--sbom-spec", "cyclonedx", "--sbom-filter", "product"],
+                env: [
+                    "SWIFTPM_BUILD_SBOM_SPEC": "invalid_spec",
+                    "SWIFTPM_BUILD_SBOM_FILTER": "invalid_filter"
+                ],
+                buildSystem: data.buildSystem,
+            )
+            
+            #expect(stdout.contains("SBOMs created"))
+            try verifySBOMCreated(in: stdout, message: "should produce SBOM despite invalid environment variables")
+        }
+    }
 }
 
