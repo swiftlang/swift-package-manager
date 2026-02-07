@@ -34,7 +34,7 @@ struct RunCommandTests {
 
     private func execute(
         _ args: [String] = [],
-        _ executable: String? = nil,
+        // _ executable: String? = nil,
         packagePath: AbsolutePath? = nil,
         buildSystem: BuildSystemProvider.Kind
     ) async throws -> (stdout: String, stderr: String) {
@@ -101,7 +101,7 @@ struct RunCommandTests {
             .Feature.CommandLineArguments.BuildSystem,
             .Feature.CommandLineArguments.Configuration,
         ),
-        arguments: SupportedBuildSystemOnPlatform,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func toolsetDebugger(
         buildSystem: BuildSystemProvider.Kind,
@@ -123,15 +123,14 @@ struct RunCommandTests {
             #expect(stdout.contains("sentinel"))
 
             // swift-build-tool output should go to stderr.
-            withKnownIssue {
-                #expect(stderr.contains("Compiling"))
-            } when: {
-                buildSystem == .swiftbuild
-            }
-            withKnownIssue {
-                #expect(stderr.contains("Linking"))
-            } when: {
-                buildSystem == .swiftbuild
+            switch buildSystem {
+                case .native:
+                    #expect(stderr.contains("Compiling"))
+                    #expect(stderr.contains("Linking"))
+                case .swiftbuild:
+                    break
+                case .xcode:
+                    Issue.record("Test expectations have not been implemented")
             }
         }
     }
@@ -142,7 +141,7 @@ struct RunCommandTests {
         ),
         .IssueWindowsPathTestsFailures,
         .IssueWindowsRelativePathAssert,
-        arguments: SupportedBuildSystemOnPlatform,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func productArgumentPassing(
         buildSystem: BuildSystemProvider.Kind,
@@ -160,15 +159,14 @@ struct RunCommandTests {
                 """))
 
             // swift-build-tool output should go to stderr.
-            withKnownIssue {
-                #expect(stderr.contains("Compiling"))
-            } when: {
-                buildSystem == .swiftbuild
-            }
-            withKnownIssue {
-                #expect(stderr.contains("Linking"))
-            } when: {
-                buildSystem == .swiftbuild
+            switch buildSystem {
+                case .native:
+                    #expect(stderr.contains("Compiling"))
+                    #expect(stderr.contains("Linking"))
+                case .swiftbuild:
+                    break
+                case .xcode:
+                    Issue.record("Test expectations have not been implemented")
             }
         }
     }

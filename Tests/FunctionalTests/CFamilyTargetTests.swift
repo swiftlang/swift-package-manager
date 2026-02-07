@@ -23,22 +23,6 @@ import Testing
 
 import class Basics.AsyncProcess
 
-/// Expects a directory (recursively) contains a file.
-fileprivate func expectDirectoryContainsFile(
-    dir: AbsolutePath,
-    filename: String,
-    sourceLocation: SourceLocation = #_sourceLocation,
-) {
-    do {
-        for entry in try walk(dir) {
-            if entry.basename == filename { return }
-        }
-    } catch {
-        Issue.record("Failed with error \(error)", sourceLocation: sourceLocation)
-    }
-    Issue.record("Directory \(dir) does not contain \(filename)", sourceLocation: sourceLocation)
-}
-
 @Suite(
     .serializedIfOnWindows,
     .tags(
@@ -48,7 +32,8 @@ fileprivate func expectDirectoryContainsFile(
 )
 struct CFamilyTargetTestCase {
     @Test(
-        .issue("https://github.com/swiftlang/swift-build/issues/333", relationship: .defect),
+        .serialized,  // running tests in parallel causes a stack dump to occur. Needs investigation.
+        // .issue("https://github.com/swiftlang/swift-build/issues/333", relationship: .defect),
         .tags(
             .Feature.Command.Build,
             .Feature.SpecialCharacters,
@@ -58,29 +43,34 @@ struct CFamilyTargetTestCase {
     func cLibraryWithSpaces(
         data: BuildData,
     ) async throws {
-        try await withKnownIssue(isIntermittent: true) {
+        // try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "CFamilyTargets/CLibraryWithSpaces") { fixturePath in
                 try await executeSwiftBuild(
                     fixturePath,
                     configuration: data.config,
                     buildSystem: data.buildSystem,
                 )
-                if data.buildSystem == .native {
+                switch data.buildSystem {
+                case .native:
                     let binPath = try fixturePath.appending(components: data.buildSystem.binPath(for: data.config))
                     expectDirectoryContainsFile(dir: binPath, filename: "Bar.c.o")
                     expectDirectoryContainsFile(dir: binPath, filename: "Foo.c.o")
+                case .swiftbuild:
+                    break
+                case .xcode:
+                    Issue.record("Test expectations have not been implemented.")
                 }
             }
-        } when: {
-            data.buildSystem == .swiftbuild
-        }
+        // } when: {
+        //     data.buildSystem == .swiftbuild
+        // }
     }
 
     @Test(
-        .IssueWindowsLongPath,
-        .IssueWindowsPathLastComponent,
-        .IssueWindowsRelativePathAssert,
-        .IssueWindowsCannotSaveAttachment,
+        // .IssueWindowsLongPath,
+        // .IssueWindowsPathLastComponent,
+        // .IssueWindowsRelativePathAssert,
+        // .IssueWindowsCannotSaveAttachment,
         .tags(
             .Feature.Command.Build,
         ),
@@ -89,7 +79,7 @@ struct CFamilyTargetTestCase {
     func cUsingCAndSwiftDep(
         data: BuildData,
     ) async throws {
-        try await withKnownIssue(isIntermittent: true) {
+        // try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "DependencyResolution/External/CUsingCDep") { fixturePath in
                 let packageRoot = fixturePath.appending("Bar")
                 try await executeSwiftBuild(
@@ -97,25 +87,30 @@ struct CFamilyTargetTestCase {
                     configuration: data.config,
                     buildSystem: data.buildSystem,
                 )
-                if data.buildSystem == .native {
+                switch data.buildSystem {
+                case .native:
                     let binPath = try packageRoot.appending(components: data.buildSystem.binPath(for: data.config))
                     expectDirectoryContainsFile(dir: binPath, filename: "Sea.c.o")
                     expectDirectoryContainsFile(dir: binPath, filename: "Foo.c.o")
+                case .swiftbuild:
+                    break
+                case .xcode:
+                    Issue.record("Test expectation have not been implemented.")
                 }
                 let path = try SwiftPM.packagePath(for: "Foo", packageRoot: packageRoot)
                 let actualTags = try GitRepository(path: path).getTags()
                 #expect(actualTags == ["1.2.3"])
             }
-        } when: {
-            ProcessInfo.hostOperatingSystem == .windows && data.buildSystem == .swiftbuild
-        }
+        // } when: {
+        //     ProcessInfo.hostOperatingSystem == .windows && data.buildSystem == .swiftbuild
+        // }
     }
 
     @Test(
-        .IssueWindowsLongPath,
-        .IssueWindowsPathLastComponent,
-        .IssueWindowsRelativePathAssert,
-        .IssueWindowsCannotSaveAttachment,
+        // .IssueWindowsLongPath,
+        // .IssueWindowsPathLastComponent,
+        // .IssueWindowsRelativePathAssert,
+        // .IssueWindowsCannotSaveAttachment,
         .tags(
             .Feature.Command.Build,
         ),
@@ -124,24 +119,29 @@ struct CFamilyTargetTestCase {
     func moduleMapGenerationCases(
         data: BuildData,
     ) async throws {
-        try await withKnownIssue(isIntermittent: true) {
+        // try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "CFamilyTargets/ModuleMapGenerationCases") { fixturePath in
                 try await executeSwiftBuild(
                     fixturePath,
                     configuration: data.config,
                     buildSystem: data.buildSystem,
                 )
-                if data.buildSystem == .native {
+                switch data.buildSystem {
+                case .native:
                     let binPath = try fixturePath.appending(components: data.buildSystem.binPath(for: data.config))
                     expectDirectoryContainsFile(dir: binPath, filename: "Jaz.c.o")
                     expectDirectoryContainsFile(dir: binPath, filename: "main.swift.o")
                     expectDirectoryContainsFile(dir: binPath, filename: "FlatInclude.c.o")
                     expectDirectoryContainsFile(dir: binPath, filename: "UmbrellaHeader.c.o")
+                case .swiftbuild:
+                    break
+                case .xcode:
+                    Issue.record("Test expectation have not been implemented.")
                 }
             }
-        } when: {
-            ProcessInfo.hostOperatingSystem == .windows && data.buildSystem == .swiftbuild
-        }
+        // } when: {
+        //     ProcessInfo.hostOperatingSystem == .windows && data.buildSystem == .swiftbuild
+        // }
     }
 
     @Test(
@@ -169,10 +169,10 @@ struct CFamilyTargetTestCase {
     }
 
     @Test(
-        .IssueWindowsLongPath,
-        .IssueWindowsPathLastComponent,
-        .IssueWindowsRelativePathAssert,
-        .IssueWindowsCannotSaveAttachment,
+        // .IssueWindowsLongPath,
+        // .IssueWindowsPathLastComponent,
+        // .IssueWindowsRelativePathAssert,
+        // .IssueWindowsCannotSaveAttachment,
         .tags(
             .Feature.Command.Build,
             .Feature.CommandLineArguments.Xld,
@@ -182,7 +182,7 @@ struct CFamilyTargetTestCase {
     func canForwardExtraFlagsToClang(
         data: BuildData,
     ) async throws {
-        try await withKnownIssue(isIntermittent: true) {
+        // try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "CFamilyTargets/CDynamicLookup") { fixturePath in
                 try await executeSwiftBuild(
                     fixturePath,
@@ -190,14 +190,19 @@ struct CFamilyTargetTestCase {
                     Xld: ["-undefined", "dynamic_lookup"],
                     buildSystem: data.buildSystem,
                 )
-                if data.buildSystem == .native {
+                switch data.buildSystem {
+                case .native:
                     let binPath = try fixturePath.appending(components: data.buildSystem.binPath(for: data.config))
                     expectDirectoryContainsFile(dir: binPath, filename: "Foo.c.o")
+                case .swiftbuild:
+                    break
+                case .xcode:
+                    Issue.record("Test expectation ahve not been implemented.")
                 }
             }
-        } when: {
-            ProcessInfo.hostOperatingSystem == .windows && data.buildSystem == .swiftbuild
-        }
+        // } when: {
+        //     ProcessInfo.hostOperatingSystem == .windows && data.buildSystem == .swiftbuild
+        // }
     }
 
     @Test(
@@ -238,10 +243,10 @@ struct CFamilyTargetTestCase {
     }
 
     @Test(
-        .IssueWindowsLongPath,
-        .IssueWindowsPathLastComponent,
-        .IssueWindowsRelativePathAssert,
-        .IssueWindowsCannotSaveAttachment,
+        // .IssueWindowsLongPath,
+        // .IssueWindowsPathLastComponent,
+        // .IssueWindowsRelativePathAssert,
+        // .IssueWindowsCannotSaveAttachment,
         .tags(
             .Feature.Command.Build,
         ),
@@ -251,7 +256,7 @@ struct CFamilyTargetTestCase {
         data: BuildData,
 
     ) async throws {
-        try await withKnownIssue(isIntermittent: true) {
+        // try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "CFamilyTargets/CLibraryParentSearchPath") { fixturePath in
                 try await executeSwiftBuild(
                     fixturePath,
@@ -267,8 +272,8 @@ struct CFamilyTargetTestCase {
                     break
                 }
             }
-        } when: {
-            ProcessInfo.hostOperatingSystem == .windows && data.buildSystem == .swiftbuild
-        }
+        // } when: {
+        //     ProcessInfo.hostOperatingSystem == .windows && data.buildSystem == .swiftbuild
+        // }
     }
 }
