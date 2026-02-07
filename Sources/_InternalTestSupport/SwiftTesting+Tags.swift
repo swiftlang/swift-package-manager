@@ -147,6 +147,7 @@ extension Tag.Feature.Command.Package {
     @Tag public static var DumpPackage: Tag
     @Tag public static var DumpSymbolGraph: Tag
     @Tag public static var Edit: Tag
+    @Tag public static var GenerateSBOM: Tag
     @Tag public static var Init: Tag
     @Tag public static var Migrate: Tag
     @Tag public static var Plugin: Tag
