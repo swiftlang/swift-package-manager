@@ -57,8 +57,8 @@ struct CoverageTests {
                             "--skip-build",
                             "--enable-code-coverage",
                         ],
-                        throwIfCommandFails: true,
                         buildSystem: buildSystem,
+                        throwIfCommandFails: true,
                     )
                 }
             }
@@ -89,8 +89,8 @@ struct CoverageTests {
                 extraArgs: [
                     "--show-coverage-path",
                 ],
-                throwIfCommandFails: true,
                 buildSystem: buildSystem,
+                throwIfCommandFails: true,
             ).stdout.trimmingCharacters(in: .whitespacesAndNewlines)
 
             let codeCovPath = try AbsolutePath(validating: codeCovPathString)
@@ -151,8 +151,8 @@ struct CoverageTests {
                 extraArgs: [
                     "--show-coverage-path",
                 ],
-                throwIfCommandFails: true,
                 buildSystem: buildSystem,
+                throwIfCommandFails: true,
             ).stdout.trimmingCharacters(in: .whitespacesAndNewlines)
             let coveragePath = try AbsolutePath(validating: coveragePathString)
             try #require(!localFileSystem.exists(coveragePath))
@@ -165,8 +165,8 @@ struct CoverageTests {
                     extraArgs: [
                         "--enable-code-coverage",
                     ],
-                    throwIfCommandFails: true,
                     buildSystem: buildSystem,
+                    throwIfCommandFails: true,
                 )
 
                 // THEN we expect the file to exists
