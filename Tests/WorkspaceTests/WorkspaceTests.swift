@@ -9112,6 +9112,556 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    // MARK: - Binary Artifact Mirroring Tests
+
+    func testRemoteBinaryArtifactMirroring() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+        let downloads = ThreadSafeKeyValueStore<URL, AbsolutePath>()
+
+        // Setup mirrors
+        let mirrors = try DependencyMirrors()
+        try mirrors.set(mirror: "https://mirror.example.com/artifacts/a.zip", for: "https://a.com/a.zip")
+        try mirrors.set(mirror: "https://mirror.example.com/artifacts/b.zip", for: "https://b.com/b.zip")
+
+        // HTTP client that tracks which URLs were actually requested
+        let httpClient = HTTPClient { request, _ in
+            guard case .download(let fileSystem, let destination) = request.kind else {
+                throw StringError("invalid request \(request.kind)")
+            }
+
+            let contents: [UInt8]
+            switch request.url.absoluteString {
+            case "https://mirror.example.com/artifacts/a.zip":
+                contents = [0xA1]
+            case "https://mirror.example.com/artifacts/b.zip":
+                contents = [0xB0]
+            default:
+                throw StringError("unexpected url \(request.url.absoluteString)")
+            }
+
+            try fileSystem.writeFileContents(
+                destination,
+                bytes: ByteString(contents),
+                atomically: true
+            )
+
+            downloads[request.url] = destination
+            return .okay()
+        }
+
+        // Create dummy xcframework directories
+        let archiver = MockArchiver(handler: { archiver, archivePath, destinationPath, completion in
+            do {
+                let name: String
+                switch archivePath.basename {
+                case "a.zip":
+                    name = "A"
+                case "b.zip":
+                    name = "B"
+                default:
+                    throw StringError("unexpected archivePath \(archivePath)")
+                }
+                try createDummyXCFramework(fileSystem: fs, path: destinationPath, name: name)
+                archiver.extractions
+                    .append(MockArchiver.Extraction(archivePath: archivePath, destinationPath: destinationPath))
+                completion(.success(()))
+            } catch {
+                completion(.failure(error))
+            }
+        })
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(name: "RootTarget", dependencies: [
+                            .product(name: "A", package: "A"),
+                            "B",
+                        ]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .sourceControl(path: "./A", requirement: .exact("1.0.0")),
+                        .sourceControl(path: "./B", requirement: .exact("1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "A",
+                    targets: [
+                        MockTarget(
+                            name: "A",
+                            type: .binary,
+                            url: "https://a.com/a.zip",
+                            checksum: "a1"
+                        ),
+                    ],
+                    products: [
+                        MockProduct(name: "A", modules: ["A"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "B",
+                    targets: [
+                        MockTarget(
+                            name: "B",
+                            type: .binary,
+                            url: "https://b.com/b.zip",
+                            checksum: "b0"
+                        ),
+                    ],
+                    products: [
+                        MockProduct(name: "B", modules: ["B"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+            ],
+            mirrors: mirrors,
+            binaryArtifactsManager: .init(
+                httpClient: httpClient,
+                archiver: archiver,
+                useCache: false // disable cache
+            )
+        )
+
+        try await workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+
+        // Verify that mirrored URLs were used for downloads
+        let downloadedURLs = downloads.map(\.key.absoluteString).sorted()
+        XCTAssertEqual(downloadedURLs, [
+            "https://mirror.example.com/artifacts/a.zip",
+            "https://mirror.example.com/artifacts/b.zip",
+        ])
+
+        // Verify managed artifacts store the mirrored URLs
+        await workspace.checkManagedArtifacts { result in
+            result.check(
+                packageIdentity: .plain("a"),
+                targetName: "A",
+                source: .remote(
+                    url: "https://mirror.example.com/artifacts/a.zip",
+                    checksum: "a1"
+                ),
+                path: workspace.artifactsDir.appending(components: "a", "A", "A.xcframework")
+            )
+            result.check(
+                packageIdentity: .plain("b"),
+                targetName: "B",
+                source: .remote(
+                    url: "https://mirror.example.com/artifacts/b.zip",
+                    checksum: "b0"
+                ),
+                path: workspace.artifactsDir.appending(components: "b", "B", "B.xcframework")
+            )
+        }
+
+        // Verify delegate events use mirrored URLs
+        XCTAssertMatch(workspace.delegate.events, ["downloading binary artifact package: https://mirror.example.com/artifacts/a.zip"])
+        XCTAssertMatch(workspace.delegate.events, ["downloading binary artifact package: https://mirror.example.com/artifacts/b.zip"])
+    }
+
+    func testRemoteBinaryArtifactNoMirroring() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+        let downloads = ThreadSafeKeyValueStore<URL, AbsolutePath>()
+
+        // No mirrors configured
+        let mirrors = try DependencyMirrors()
+
+        // HTTP client that tracks which URLs were actually requested
+        let httpClient = HTTPClient { request, _ in
+            guard case .download(let fileSystem, let destination) = request.kind else {
+                throw StringError("invalid request \(request.kind)")
+            }
+
+            let contents: [UInt8]
+            switch request.url.absoluteString {
+            case "https://a.com/a.zip":
+                contents = [0xA1]
+            default:
+                throw StringError("unexpected url \(request.url.absoluteString)")
+            }
+
+            try fileSystem.writeFileContents(
+                destination,
+                bytes: ByteString(contents),
+                atomically: true
+            )
+
+            downloads[request.url] = destination
+            return .okay()
+        }
+
+        // Create dummy xcframework directory
+        let archiver = MockArchiver(handler: { archiver, archivePath, destinationPath, completion in
+            do {
+                try createDummyXCFramework(fileSystem: fs, path: destinationPath, name: "A")
+                archiver.extractions
+                    .append(MockArchiver.Extraction(archivePath: archivePath, destinationPath: destinationPath))
+                completion(.success(()))
+            } catch {
+                completion(.failure(error))
+            }
+        })
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(name: "RootTarget", dependencies: [
+                            .product(name: "A", package: "A"),
+                        ]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .sourceControl(path: "./A", requirement: .exact("1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "A",
+                    targets: [
+                        MockTarget(
+                            name: "A",
+                            type: .binary,
+                            url: "https://a.com/a.zip",
+                            checksum: "a1"
+                        ),
+                    ],
+                    products: [
+                        MockProduct(name: "A", modules: ["A"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+            ],
+            mirrors: mirrors,
+            binaryArtifactsManager: .init(
+                httpClient: httpClient,
+                archiver: archiver,
+                useCache: false
+            )
+        )
+
+        try await workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+
+        // Verify that original URLs were used when no mirror is configured
+        let downloadedURLs = downloads.map(\.key.absoluteString)
+        XCTAssertEqual(downloadedURLs, ["https://a.com/a.zip"])
+
+        // Verify managed artifacts store the original URLs
+        await workspace.checkManagedArtifacts { result in
+            result.check(
+                packageIdentity: .plain("a"),
+                targetName: "A",
+                source: .remote(
+                    url: "https://a.com/a.zip",
+                    checksum: "a1"
+                ),
+                path: workspace.artifactsDir.appending(components: "a", "A", "A.xcframework")
+            )
+        }
+    }
+
+    func testRemoteBinaryArtifactMirroringWithArtifactBundleIndex() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+        try fs.createMockToolchain()
+        let downloads = ThreadSafeKeyValueStore<URL, AbsolutePath>()
+        let hostToolchain = try UserToolchain.mockHostToolchain(fs)
+
+        // Setup mirrors
+        let mirrors = try DependencyMirrors()
+        try mirrors.set(mirror: "https://mirror.example.com/artifacts/index.artifactbundleindex", for: "https://a.com/index.artifactbundleindex")
+
+        // Prepare artifact bundle index JSON
+        let indexJSON = """
+        {
+          "schemaVersion": "1.0",
+          "archives": [
+            {
+              "fileName": "a.zip",
+              "checksum": "a1",
+              "supportedTriples": ["\(hostToolchain.targetTriple.tripleString)"]
+            }
+          ]
+        }
+        """
+
+        // Calculate checksum for the index file
+        let checksumAlgorithm = MockHashAlgorithm()
+        let indexFileChecksum = checksumAlgorithm.hash(ByteString(Array(indexJSON.utf8))).hexadecimalRepresentation
+
+        // HTTP client that handles both index file and archive downloads
+        let httpClient = HTTPClient { request, _ in
+            switch request.kind {
+            case .generic:
+                switch request.url.absoluteString {
+                case "https://mirror.example.com/artifacts/index.artifactbundleindex":
+                    return .okay(body: indexJSON)
+                default:
+                    throw StringError("unexpected url \(request.url.absoluteString)")
+                }
+
+            case .download(let fileSystem, let destination):
+                switch request.url.absoluteString {
+                case "https://mirror.example.com/artifacts/a.zip":
+                    // Return the actual archive
+                    try fileSystem.writeFileContents(
+                        destination,
+                        bytes: ByteString([0xA1]),
+                        atomically: true
+                    )
+                default:
+                    throw StringError("unexpected url \(request.url.absoluteString)")
+                }
+                downloads[request.url] = destination
+                return .okay()
+            }
+        }
+
+        // Create dummy xcframework directory
+        let archiver = MockArchiver(handler: { archiver, archivePath, destinationPath, completion in
+            do {
+                try createDummyXCFramework(fileSystem: fs, path: destinationPath, name: "A")
+                archiver.extractions
+                    .append(MockArchiver.Extraction(archivePath: archivePath, destinationPath: destinationPath))
+                completion(.success(()))
+            } catch {
+                completion(.failure(error))
+            }
+        })
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(name: "RootTarget", dependencies: [
+                            .product(name: "A", package: "A"),
+                        ]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .sourceControl(path: "./A", requirement: .exact("1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "A",
+                    targets: [
+                        MockTarget(
+                            name: "A",
+                            type: .binary,
+                            url: "https://a.com/index.artifactbundleindex",
+                            checksum: indexFileChecksum
+                        ),
+                    ],
+                    products: [
+                        MockProduct(name: "A", modules: ["A"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+            ],
+            mirrors: mirrors,
+            binaryArtifactsManager: .init(
+                httpClient: httpClient,
+                archiver: archiver,
+                useCache: false
+            ), checksumAlgorithm: checksumAlgorithm
+        )
+
+        try await workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+
+        // Verify that mirrored URLs were used for both index and archive downloads
+        // Note: The index file is downloaded via .generic request, not .download, so it won't appear in downloads
+        let downloadedURLs = downloads.map(\.key.absoluteString).sorted()
+        XCTAssertEqual(downloadedURLs, [
+            "https://mirror.example.com/artifacts/a.zip",
+        ])
+
+        // Verify managed artifacts store the mirrored archive URL
+        await workspace.checkManagedArtifacts { result in
+            result.check(
+                packageIdentity: .plain("a"),
+                targetName: "A",
+                source: .remote(
+                    url: "https://mirror.example.com/artifacts/a.zip",
+                    checksum: "a1"
+                ),
+                path: workspace.artifactsDir.appending(components: "a", "A", "A.xcframework")
+            )
+        }
+    }
+
+    func testRemoteBinaryArtifactPartialMirroring() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+        let downloads = ThreadSafeKeyValueStore<URL, AbsolutePath>()
+
+        // Setup mirrors for only one artifact
+        let mirrors = try DependencyMirrors()
+        try mirrors.set(mirror: "https://mirror.example.com/artifacts/a.zip", for: "https://a.com/a.zip")
+        // No mirror for b.com/b.zip
+
+        // HTTP client that handles both mirrored and non-mirrored URLs
+        let httpClient = HTTPClient { request, _ in
+            guard case .download(let fileSystem, let destination) = request.kind else {
+                throw StringError("invalid request \(request.kind)")
+            }
+
+            let contents: [UInt8]
+            switch request.url.absoluteString {
+            case "https://mirror.example.com/artifacts/a.zip":
+                contents = [0xA1]
+            case "https://b.com/b.zip":
+                contents = [0xB0]
+            default:
+                throw StringError("unexpected url \(request.url.absoluteString)")
+            }
+
+            try fileSystem.writeFileContents(
+                destination,
+                bytes: ByteString(contents),
+                atomically: true
+            )
+
+            downloads[request.url] = destination
+            return .okay()
+        }
+
+        // Create dummy xcframework directories
+        let archiver = MockArchiver(handler: { archiver, archivePath, destinationPath, completion in
+            do {
+                let name: String
+                switch archivePath.basename {
+                case "a.zip":
+                    name = "A"
+                case "b.zip":
+                    name = "B"
+                default:
+                    throw StringError("unexpected archivePath \(archivePath)")
+                }
+                try createDummyXCFramework(fileSystem: fs, path: destinationPath, name: name)
+                archiver.extractions
+                    .append(MockArchiver.Extraction(archivePath: archivePath, destinationPath: destinationPath))
+                completion(.success(()))
+            } catch {
+                completion(.failure(error))
+            }
+        })
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(name: "RootTarget", dependencies: [
+                            .product(name: "A", package: "A"),
+                            "B",
+                        ]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .sourceControl(path: "./A", requirement: .exact("1.0.0")),
+                        .sourceControl(path: "./B", requirement: .exact("1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "A",
+                    targets: [
+                        MockTarget(
+                            name: "A",
+                            type: .binary,
+                            url: "https://a.com/a.zip",
+                            checksum: "a1"
+                        ),
+                    ],
+                    products: [
+                        MockProduct(name: "A", modules: ["A"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "B",
+                    targets: [
+                        MockTarget(
+                            name: "B",
+                            type: .binary,
+                            url: "https://b.com/b.zip",
+                            checksum: "b0"
+                        ),
+                    ],
+                    products: [
+                        MockProduct(name: "B", modules: ["B"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+            ],
+            mirrors: mirrors,
+            binaryArtifactsManager: .init(
+                httpClient: httpClient,
+                archiver: archiver,
+                useCache: false
+            )
+        )
+
+        try await workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+
+        // Verify that mirrored URL was used for A, original URL for B
+        let downloadedURLs = downloads.map(\.key.absoluteString).sorted()
+        XCTAssertEqual(downloadedURLs, [
+            "https://b.com/b.zip",
+            "https://mirror.example.com/artifacts/a.zip",
+        ])
+
+        // Verify managed artifacts store the correct URLs
+        await workspace.checkManagedArtifacts { result in
+            result.check(
+                packageIdentity: .plain("a"),
+                targetName: "A",
+                source: .remote(
+                    url: "https://mirror.example.com/artifacts/a.zip",
+                    checksum: "a1"
+                ),
+                path: workspace.artifactsDir.appending(components: "a", "A", "A.xcframework")
+            )
+            result.check(
+                packageIdentity: .plain("b"),
+                targetName: "B",
+                source: .remote(
+                    url: "https://b.com/b.zip",
+                    checksum: "b0"
+                ),
+                path: workspace.artifactsDir.appending(components: "b", "B", "B.xcframework")
+            )
+        }
+    }
+
     func testArtifactMultipleExtensions() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs: InMemoryFileSystem = InMemoryFileSystem()
