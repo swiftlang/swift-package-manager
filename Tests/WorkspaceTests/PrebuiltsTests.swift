@@ -74,7 +74,7 @@ final class PrebuiltsTests: XCTestCase {
 
             let signer = ManifestSigning(
                 trustedRootCertsDir: trustDir,
-                observabilityScope: ObservabilitySystem({ _, diagnostic in print(diagnostic) }, outputStream: stdoutStream).topScope
+                observabilityScope: ObservabilitySystem({ _, diagnostic in print(diagnostic) }, outputStream: stdoutStream, logLevel: .debug).topScope
             )
 
             let signature = try await signer.sign(

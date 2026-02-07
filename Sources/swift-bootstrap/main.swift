@@ -179,7 +179,7 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
                 if diagnostics.severity >= logLevel {
                     print(diagnostics)
                 }
-            }, outputStream: stdoutStream).topScope
+            }, outputStream: stdoutStream, logLevel: .debug).topScope
 
             guard let cwd: AbsolutePath = fileSystem.currentWorkingDirectory else {
                 observabilityScope.emit(error: "couldn't determine the current working directory")

@@ -45,13 +45,13 @@ final class CommandWorkspaceDelegate: WorkspaceDelegate {
 
     private let observabilityScope: ObservabilityScope
 
-    private let outputHandler: (String, Bool) -> Void
+    private let outputHandler: (String, OutputCondition) -> Void
     private let progressHandler: (Int64, Int64, String?) -> Void
     private let inputHandler: (String, (String?) -> Void) -> Void
 
     init(
         observabilityScope: ObservabilityScope,
-        outputHandler: @escaping (String, Bool) -> Void,
+        outputHandler: @escaping (String, OutputCondition) -> Void,
         progressHandler: @escaping (Int64, Int64, String?) -> Void,
         inputHandler: @escaping (String, (String?) -> Void) -> Void
     ) {
@@ -62,7 +62,7 @@ final class CommandWorkspaceDelegate: WorkspaceDelegate {
     }
 
     func willFetchPackage(package: PackageIdentity, packageLocation: String?, fetchDetails: PackageFetchDetails) {
-        self.outputHandler("Fetching \(packageLocation ?? package.description)\(fetchDetails.fromCache ? " from cache" : "")", false)
+        self.outputHandler("Fetching \(packageLocation ?? package.description)\(fetchDetails.fromCache ? " from cache" : "")", .always)
     }
 
     func didFetchPackage(package: PackageIdentity, packageLocation: String?, result: Result<PackageFetchDetails, Error>, duration: DispatchTimeInterval) {
@@ -81,7 +81,7 @@ final class CommandWorkspaceDelegate: WorkspaceDelegate {
             }
         }
 
-        self.outputHandler("Fetched \(packageLocation ?? package.description) from cache (\(duration.descriptionInSeconds))", false)
+        self.outputHandler("Fetched \(packageLocation ?? package.description) from cache (\(duration.descriptionInSeconds))", .always)
     }
 
     func fetchingPackage(package: PackageIdentity, packageLocation: String?, progress: Int64, total: Int64?) {
@@ -100,46 +100,46 @@ final class CommandWorkspaceDelegate: WorkspaceDelegate {
     }
 
     func willUpdateRepository(package: PackageIdentity, repository url: String) {
-        self.outputHandler("Updating \(url)", false)
+        self.outputHandler("Updating \(url)", .always)
     }
 
     func didUpdateRepository(package: PackageIdentity, repository url: String, duration: DispatchTimeInterval) {
-        self.outputHandler("Updated \(url) (\(duration.descriptionInSeconds))", false)
+        self.outputHandler("Updated \(url) (\(duration.descriptionInSeconds))", .always)
     }
 
     func dependenciesUpToDate() {
-        self.outputHandler("Everything is already up-to-date", false)
+        self.outputHandler("Everything is already up-to-date", .always)
     }
 
     func willCreateWorkingCopy(package: PackageIdentity, repository url: String, at path: AbsolutePath) {
-        self.outputHandler("Creating working copy for \(url)", false)
+        self.outputHandler("Creating working copy for \(url)", .always)
     }
 
     func didCheckOut(package: PackageIdentity, repository url: String, revision: String, at path: AbsolutePath, duration: DispatchTimeInterval) {
-        self.outputHandler("Working copy of \(url) resolved at \(revision)", false)
+        self.outputHandler("Working copy of \(url) resolved at \(revision)", .always)
     }
 
     func removing(package: PackageIdentity, packageLocation: String?) {
-        self.outputHandler("Removing \(packageLocation ?? package.description)", false)
+        self.outputHandler("Removing \(packageLocation ?? package.description)", .always)
     }
 
     func willResolveDependencies(reason: WorkspaceResolveReason) {
-        self.outputHandler(Workspace.format(workspaceResolveReason: reason), true)
+        self.outputHandler(Workspace.format(workspaceResolveReason: reason), .onlyWhenVerbose)
     }
 
     func willComputeVersion(package: PackageIdentity, location: String) {
-        self.outputHandler("Computing version for \(location)", false)
+        self.outputHandler("Computing version for \(location)", .always)
     }
 
     func didComputeVersion(package: PackageIdentity, location: String, version: String, duration: DispatchTimeInterval) {
-        self.outputHandler("Computed \(location) at \(version) (\(duration.descriptionInSeconds))", true)
+        self.outputHandler("Computed \(location) at \(version) (\(duration.descriptionInSeconds))", .always)
     }
 
     func willDownloadBinaryArtifact(from url: String, fromCache: Bool) {
         if fromCache {
-            self.outputHandler("Fetching binary artifact \(url) from cache", false)
+            self.outputHandler("Fetching binary artifact \(url) from cache", .always)
         } else {
-            self.outputHandler("Downloading binary artifact \(url)", false)
+            self.outputHandler("Downloading binary artifact \(url)", .always)
         }
     }
 
@@ -160,9 +160,9 @@ final class CommandWorkspaceDelegate: WorkspaceDelegate {
         }
 
         if fetchDetails.fromCache {
-            self.outputHandler("Fetched \(url) from cache (\(duration.descriptionInSeconds))", false)
+            self.outputHandler("Fetched \(url) from cache (\(duration.descriptionInSeconds))", .always)
         } else {
-            self.outputHandler("Downloaded \(url) (\(duration.descriptionInSeconds))", false)
+            self.outputHandler("Downloaded \(url) (\(duration.descriptionInSeconds))", .always)
         }
     }
 
@@ -185,9 +185,9 @@ final class CommandWorkspaceDelegate: WorkspaceDelegate {
     /// The workspace has started downloading a binary artifact.
     func willDownloadPrebuilt(package: PackageIdentity, from url: String, fromCache: Bool) {
         if fromCache {
-            self.outputHandler("Fetching package prebuilt \(url) from cache", false)
+            self.outputHandler("Fetching package prebuilt \(url) from cache", .always)
         } else {
-            self.outputHandler("Downloading package prebuilt \(url)", false)
+            self.outputHandler("Downloading package prebuilt \(url)", .always)
         }
     }
 
@@ -203,9 +203,9 @@ final class CommandWorkspaceDelegate: WorkspaceDelegate {
         }
 
         if fetchDetails.fromCache {
-            self.outputHandler("Fetched \(url) from cache (\(duration.descriptionInSeconds))", false)
+            self.outputHandler("Fetched \(url) from cache (\(duration.descriptionInSeconds))", .always)
         } else {
-            self.outputHandler("Downloaded \(url) (\(duration.descriptionInSeconds))", false)
+            self.outputHandler("Downloaded \(url) (\(duration.descriptionInSeconds))", .always)
         }
     }
 
@@ -229,7 +229,7 @@ final class CommandWorkspaceDelegate: WorkspaceDelegate {
             case "no":
                 completion(false) // stop resolution
             default:
-                self.outputHandler("invalid response: '\(response ?? "")'", false)
+                self.outputHandler("invalid response: '\(response ?? "")'", .always)
                 completion(false)
             }
         }
@@ -243,7 +243,7 @@ final class CommandWorkspaceDelegate: WorkspaceDelegate {
             case "no":
                 completion(false) // stop resolution
             default:
-                self.outputHandler("invalid response: '\(response ?? "")'", false)
+                self.outputHandler("invalid response: '\(response ?? "")'", .always)
                 completion(false)
             }
         }

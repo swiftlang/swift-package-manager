@@ -792,7 +792,7 @@ extension BuildPlan {
             if package.manifest.toolsVersion >= .v6_0 {
                 // Set up dummy observability because we don't want to emit diagnostics for this before the actual
                 // build.
-                let observability = ObservabilitySystem({ _, _ in }, outputStream: nil)
+                let observability = ObservabilitySystem({ _, _ in }, outputStream: nil, logLevel: .debug)
                 // Compute the generated files based on all results we have computed so far.
                 (pluginDerivedSources, pluginDerivedResources) = ModulesGraph.computePluginGeneratedFiles(
                     target: module,
