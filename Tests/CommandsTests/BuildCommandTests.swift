@@ -235,29 +235,39 @@ struct BuildCommandTestCases {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let configuration = BuildConfiguration.debug
-        try await withKnownIssue("SWBINTTODO: Test/ fails because the warning message regarding missing imports is expected to be more verbose and actionable at the SwiftPM level with mention of the involved targets. This needs to be investigated. See case targetDiagnostic(TargetDiagnosticInfo) as a message type that may help.") {
-            try await fixture(name: "Miscellaneous/ImportOfMissingDependency") { path in
-                let fullPath = try resolveSymlinks(path)
-                let error = await #expect(throws: SwiftPMError.self ) {
-                    try await build(
-                        ["--explicit-target-dependency-import-check=warn"],
-                        packagePath: fullPath,
-                        configuration: configuration,
-                        buildSystem: buildSystem,
-                    )
-                }
-                guard case SwiftPMError.executionFailure(_, let stdout, let stderr) = try #require(error) else {
-                    Issue.record("Incorrect error was raised.")
-                    return
-                }
-
-                #expect(
-                    stderr.contains("warning: Target A imports another target (B) in the package without declaring it a dependency."),
-                    "got stdout: \(stdout), stderr: \(stderr)",
+        try await fixture(name: "Miscellaneous/ImportOfMissingDependency") { path in
+            let fullPath = try resolveSymlinks(path)
+            let error = await #expect(throws: SwiftPMError.self ) {
+                try await build(
+                    ["--explicit-target-dependency-import-check=warn"],
+                    packagePath: fullPath,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
                 )
             }
-        } when: {
-            [.swiftbuild, .xcode].contains(buildSystem)
+
+            guard case SwiftPMError.executionFailure(_, let stdout, let stderr) = try #require(error) else {
+                Issue.record("Incorrect error was raised.")
+                return
+            }
+
+            switch buildSystem {
+                case .native:
+                    #expect(
+                        stderr.contains("warning: Target A imports another target (B) in the package without declaring it a dependency."),
+                        "got stdout: \(stdout), stderr: \(stderr)",
+                    )
+                case .swiftbuild:
+                    withKnownIssue {
+                        #expect(
+                            stderr.contains("warning: a dependency of main module 'A'"),
+                            "got stdout: \(stdout), stderr: \(stderr)",
+                        )
+                    }
+                case .xcode:
+                    Issue.record("Test expectation have not been implemented")
+                    break
+            }
         }
     }
 
@@ -272,33 +282,42 @@ struct BuildCommandTestCases {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let config = BuildConfiguration.debug
-        try await withKnownIssue("SWBINTTODO: Test fails because the warning message regarding missing imports is expected to be more verbose and actionable at the SwiftPM level with mention of the involved targets. This needs to be investigated. See case targetDiagnostic(TargetDiagnosticInfo) as a message type that may help.") {
-            try await fixture(name: "Miscellaneous/ImportOfMissingDependency") { path in
-                let fullPath = try resolveSymlinks(path)
-                let error = await #expect(throws: SwiftPMError.self ) {
-                    try await build(
-                        ["--explicit-target-dependency-import-check=error"],
-                        packagePath: fullPath,
-                        configuration: config,
-                        buildSystem: buildSystem,
-                    )
-                }
-                guard case SwiftPMError.executionFailure(_, _, let stderr) = try #require(error) else {
-                    Issue.record("Expected error did not occur")
-                    return
-                }
-
-                #expect(
-                    stderr.contains("error: Target A imports another target (B) in the package without declaring it a dependency."),
-                    "got stdout: \(String(describing: stdout)), stderr: \(String(describing: stderr))",
+        try await fixture(name: "Miscellaneous/ImportOfMissingDependency") { path in
+            let fullPath = try resolveSymlinks(path)
+            let error = await #expect(throws: SwiftPMError.self ) {
+                try await build(
+                    ["--explicit-target-dependency-import-check=error"],
+                    packagePath: fullPath,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 )
             }
-        } when: {
-            [.swiftbuild, .xcode].contains(buildSystem)
+            guard case SwiftPMError.executionFailure(_, let stdout, let stderr) = try #require(error) else {
+                Issue.record("Expected error did not occur")
+                return
+            }
+
+            switch buildSystem {
+                case .native:
+                    #expect(
+                        stderr.contains("error: Target A imports another target (B) in the package without declaring it a dependency."),
+                        "got stdout: \(stdout), stderr: \(stderr)",
+                    )
+                case .swiftbuild:
+                    withKnownIssue {
+                        #expect(
+                            stderr.contains("error: a dependency of main module 'A'"),
+                            "got stdout: \(stdout), stderr: \(stderr)",
+                        )
+                    }
+                case .xcode:
+                    Issue.record("Test expectatation have not been implemented.")
+            }
         }
     }
 
     @Test(
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/9620", relationship: .defect),
         arguments: SupportedBuildSystemOnPlatform,
     )
     func importOfMissedDepWarningVerifyingDefaultDoesNotRunTheCheck(
@@ -315,14 +334,22 @@ struct BuildCommandTestCases {
                     buildSystem: buildSystem,
                 )
             }
-            guard case SwiftPMError.executionFailure(_, _, let stderr) = try #require(error) else {
+            guard case SwiftPMError.executionFailure(_, let stdout, let stderr) = try #require(error) else {
                 Issue.record("Expected error did not occur")
                 return
             }
-            #expect(
-                !stderr.contains("warning: Target A imports another target (B) in the package without declaring it a dependency."),
-                "got stdout: \(String(describing: stdout)), stderr: \(String(describing: stderr))",
-            )
+            let mustNotBeMatches: String
+            switch buildSystem {
+                case .native:
+                    mustNotBeMatches = "warning: Target A imports another target (B) in the package without declaring it a dependency."
+                case .swiftbuild:
+                    mustNotBeMatches = "warning: a dependency of main module 'A'"
+                case .xcode:
+                    mustNotBeMatches = "make compiler happy"
+                    Issue.record("Test expectation has not been implemented")
+            }
+            #expect(!stderr.contains(mustNotBeMatches))
+            #expect(!stdout.contains(mustNotBeMatches))
         }
     }
 
