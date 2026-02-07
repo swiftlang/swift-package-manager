@@ -29,47 +29,46 @@ import Testing
 )
 struct CoverageTests {
     @Test(
-        .SWBINTTODO("Test failed because of missing plugin support in the PIF builder. This can be reinvestigated after the support is there."),
         .tags(
             .Feature.Command.Build,
             .Feature.Command.Test,
             .Feature.CommandLineArguments.BuildTests,
         ),
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/9600", relationship: .defect),
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func executingTestsWithCoverageWithoutCodeBuiltWithCoverageGeneratesAFailure(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let config = BuildConfiguration.debug
-        try await withKnownIssue(isIntermittent: true) {
-            try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { path in
-                _ = try await executeSwiftBuild(
+        try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { path in
+            _ = try await executeSwiftBuild(
+                path,
+                configuration: config,
+                extraArgs: ["--build-tests"],
+                buildSystem: buildSystem,
+            )
+            try await withKnownIssue(isIntermittent: true) {
+            await #expect(throws: (any Error).self ) {
+                try await executeSwiftTest(
                     path,
                     configuration: config,
-                    extraArgs: ["--build-tests"],
+                    extraArgs: [
+                        "--skip-build",
+                        "--enable-code-coverage",
+                    ],
+                    throwIfCommandFails: true,
                     buildSystem: buildSystem,
                 )
-                await #expect(throws: (any Error).self ) {
-                    try await executeSwiftTest(
-                        path,
-                        configuration: config,
-                        extraArgs: [
-                            "--skip-build",
-                            "--enable-code-coverage",
-                        ],
-                        throwIfCommandFails: true,
-                        buildSystem: buildSystem,
-                    )
-                }
             }
-        } when: {
-            buildSystem == .swiftbuild && [.linux, .windows].contains(ProcessInfo.hostOperatingSystem)
+            } when: {
+                ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild
+            }
         }
     }
 
     @Test(
-        .SWBINTTODO("Test failed because of missing plugin support in the PIF builder. This can be reinvestigated after the support is there."),
-        .IssueWindowsCannotSaveAttachment,
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/9588", relationship: .defect),
         .tags(
             .Feature.Command.Test,
             .Feature.CommandLineArguments.BuildTests,
@@ -83,50 +82,41 @@ struct CoverageTests {
         // Test that enabling code coverage during building produces the expected folder.
         try await withKnownIssue(isIntermittent: true) {
         try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { path in
-            let codeCovPathString = try await executeSwiftTest(
+            let codeCovPathString = try await getCoveragePath(
                 path,
-                configuration: config,
-                extraArgs: [
-                    "--show-coverage-path",
-                ],
-                throwIfCommandFails: true,
-                buildSystem: buildSystem,
-            ).stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+                with: BuildData(buildSystem: buildSystem, config: config),
+            )
 
             let codeCovPath = try AbsolutePath(validating: codeCovPathString)
 
             // WHEN we build with coverage enabled
-            try await withKnownIssue(isIntermittent: true) {
-                try await executeSwiftBuild(
-                    path,
-                    configuration: config,
-                    extraArgs: ["--build-tests", "--enable-code-coverage"],
-                    buildSystem: buildSystem,
-                )
+            try await executeSwiftBuild(
+                path,
+                configuration: config,
+                extraArgs: ["--build-tests", "--enable-code-coverage"],
+                buildSystem: buildSystem,
+            )
 
-                // AND we test with coverag enabled and skip the build
-                try await executeSwiftTest(
-                    path,
-                    configuration: config,
-                    extraArgs: [
-                        "--skip-build",
-                        "--enable-code-coverage",
-                    ],
-                    buildSystem: buildSystem,
-                )
+            // AND we test with coverag enabled and skip the build
+            try await executeSwiftTest(
+                path,
+                configuration: config,
+                extraArgs: [
+                    "--skip-build",
+                    "--enable-code-coverage",
+                ],
+                buildSystem: buildSystem,
+            )
 
-                // THEN we expect the file to exists
-                expectFileExists(at: codeCovPath)
+            // THEN we expect the file to exists
+            expectFileExists(at: codeCovPath)
 
-                // AND the parent directory is non empty
-                let codeCovFiles = try localFileSystem.getDirectoryContents(codeCovPath.parentDirectory)
-                #expect(codeCovFiles.count > 0)
-            } when: {
-                ProcessInfo.hostOperatingSystem == .linux && buildSystem == .swiftbuild
-            }
+            // AND the parent directory is non empty
+            let codeCovFiles = try localFileSystem.getDirectoryContents(codeCovPath.parentDirectory)
+            #expect(codeCovFiles.count > 0)
         }
         } when: {
-            ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild
+            ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild // This was no longer an issue when I tested at-desk
         }
     }
 
@@ -134,6 +124,7 @@ struct CoverageTests {
         .tags(
             .Feature.Command.Test,
         ),
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/9588", relationship: .defect),
         arguments: SupportedBuildSystemOnAllPlatforms, [
             "Coverage/Simple",
             "Miscellaneous/TestDiscovery/Simple",
@@ -145,15 +136,10 @@ struct CoverageTests {
     ) async throws {
         let config = BuildConfiguration.debug
         try await fixture(name: fixtureName) { path in
-            let coveragePathString = try await executeSwiftTest(
+            let coveragePathString = try await getCoveragePath(
                 path,
-                configuration: config,
-                extraArgs: [
-                    "--show-coverage-path",
-                ],
-                throwIfCommandFails: true,
-                buildSystem: buildSystem,
-            ).stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+                with: BuildData(buildSystem: buildSystem, config: config),
+            )
             let coveragePath = try AbsolutePath(validating: coveragePathString)
             try #require(!localFileSystem.exists(coveragePath))
 
@@ -172,8 +158,9 @@ struct CoverageTests {
                 // THEN we expect the file to exists
                 #expect(localFileSystem.exists(coveragePath))
             } when: {
-                (buildSystem == .swiftbuild && [.windows, .linux].contains(ProcessInfo.hostOperatingSystem))
+                (ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild)
             }
         }
     }
+
 }
