@@ -874,23 +874,35 @@ extension PackageGraph.ResolvedModule {
     }
 
     func addParseAsLibrarySettings(to settings: inout BuildSettings, toolsVersion: ToolsVersion, fileSystem: FileSystem) {
-        if toolsVersion > .v5_5 && [.executable, .snippet, .macro].contains(self.type) {
-            let usesAtMainAttr = self.sources.paths.contains { sourcePath in
-                (try? containsAtMain(fileSystem: fileSystem, path: sourcePath)) ?? false
+        let needsParseAsLibrary: Bool
+        if toolsVersion >= .v5_5 {
+            switch self.type {
+            case .executable, .snippet, .macro:
+                // If @main is used, we must pass -parse-as-library
+                needsParseAsLibrary = self.sources.paths.contains { sourcePath in
+                    (try? containsAtMain(fileSystem: fileSystem, path: sourcePath)) ?? false
+                }
+            case .library, .test:
+                needsParseAsLibrary = true
+            case .systemModule, .binary, .plugin:
+                needsParseAsLibrary = false
             }
-            if usesAtMainAttr {
-                // Always pass -parse-as-library if @main is used
-                settings[.SWIFT_LIBRARIES_ONLY] = "YES"
-                settings[.SWIFT_DISABLE_PARSE_AS_LIBRARY] = "NO"
-            } else {
-                // Never pass -parse-as-library if @main isn't used, fall back to compiler heuristics
-                settings[.SWIFT_LIBRARIES_ONLY] = "NO"
-                settings[.SWIFT_DISABLE_PARSE_AS_LIBRARY] = "YES"
+        } else {
+            switch self.type {
+            case .executable, .snippet, .macro:
+                needsParseAsLibrary = false
+            case .library, .test:
+                needsParseAsLibrary = true
+            case .systemModule, .binary, .plugin:
+                needsParseAsLibrary = false
             }
-        } else if [.library, .test].contains(self.type) {
-            // Always pass -parse-as-library for libraries and tests
+        }
+        if needsParseAsLibrary {
             settings[.SWIFT_LIBRARIES_ONLY] = "YES"
             settings[.SWIFT_DISABLE_PARSE_AS_LIBRARY] = "NO"
+        } else {
+            settings[.SWIFT_LIBRARIES_ONLY] = "NO"
+            settings[.SWIFT_DISABLE_PARSE_AS_LIBRARY] = "YES"
         }
     }
 }
