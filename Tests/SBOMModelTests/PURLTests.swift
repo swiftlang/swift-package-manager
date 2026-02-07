@@ -480,8 +480,8 @@ struct PURLTests {
 
     @Test("Extract namespace", arguments: packageNamespaceTestCases)
     func extractNamespaceFromLocation(testCase: PURLNamespaceTestCase) async throws {
-        #expect(await PURL.extractNamespace(from: SBOMCommit(sha: "sha", repository: testCase.location)) == testCase
-            .expectedNamespace)
+        let actual = await PURL.extractNamespace(from: SBOMCommit(sha: "sha", repository: testCase.location))
+        #expect(actual == testCase.expectedNamespace)
     }
 
     @Test("Create PURL from ResolvedPackage")
@@ -536,9 +536,8 @@ struct PURLTests {
         #expect(purl.namespace == nil) // No namespace for local paths
         #expect(purl.version == "1.0.0")
         #expect(purl.qualifiers == ["path": localPath])
-        #expect(purl
-            .description ==
-            "pkg:swift/swift-package-manager:SwiftPMDataModel@1.0.0?path=/Users/someuser/myCode/SwiftPM/")
+        let actualDescription = purl.description
+        #expect(actualDescription == "pkg:swift/swift-package-manager:SwiftPMDataModel@1.0.0?path=/Users/someuser/myCode/SwiftPM/")
     }
 
     @Test("Create PURL from ResolvedProduct with SSH URL")
