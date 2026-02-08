@@ -24,8 +24,8 @@
 
 # The following lines are used by GitHub to automatically recommend reviewers.
 
-* @jakepetroules @dschaefer2 @bripeticca @plemarquand @owenv @bkhouri @cmcgee1024 @daveyc123 @rconnell9
+* @jakepetroules @dschaefer2 @bripeticca @plemarquand @owenv @bkhouri @cmcgee1024 @daveyc123 @rconnell9 @daveinglis
 
-Sources/Commands/PackageCommands/Migrate.swift @AnthonyLatsis @xedin @jakepetroules @dschaefer2 @bripeticca @plemarquand @owenv @bkhouri @cmcgee1024 @daveyc123 @rconnell9
-Sources/SwiftFixIt/* @AnthonyLatsis @xedin @jakepetroules @dschaefer2 @bripeticca @plemarquand @owenv @bkhouri @cmcgee1024 @daveyc123 @rconnell9
-Tests/SwiftFixItTests/* @AnthonyLatsis @xedin @jakepetroules @dschaefer2 @bripeticca @plemarquand @owenv @bkhouri @cmcgee1024 @daveyc123 @rconnell9
+Sources/Commands/PackageCommands/Migrate.swift @AnthonyLatsis @xedin @jakepetroules @dschaefer2 @bripeticca @plemarquand @owenv @bkhouri @cmcgee1024 @daveyc123 @rconnell9 @daveinglis
+Sources/SwiftFixIt/* @AnthonyLatsis @xedin @jakepetroules @dschaefer2 @bripeticca @plemarquand @owenv @bkhouri @cmcgee1024 @daveyc123 @rconnell9 @daveinglis
+Tests/SwiftFixItTests/* @AnthonyLatsis @xedin @jakepetroules @dschaefer2 @bripeticca @plemarquand @owenv @bkhouri @cmcgee1024 @daveyc123 @rconnell9 @daveinglis
