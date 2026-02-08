@@ -310,7 +310,8 @@ struct LLBuildManifestBuilderTests {
         let windowsLinkTool = try #require(windowsLink.tool as? ShellTool)
         #expect(windowsLinkTool.arguments.contains("-lMyBinaryLib"))
 
-        let windowsDLLCopy = try #require(windowsManifest.commands["/path/to/build/x86_64-unknown-windows-msvc/debug/MyBinaryLib.dll"])
+        let dll: AbsolutePath = "/path/to/build/x86_64-unknown-windows-msvc/debug/MyBinaryLib.dll"
+        let windowsDLLCopy = try #require(windowsManifest.commands[dll.pathString])
         let windowsDLLCopyTool = try #require(windowsDLLCopy.tool as? CopyTool)
         #expect(
             windowsDLLCopyTool.inputs == [.file("/MyPkg/my.artifactbundle/x86_64-unknown-windows-msvc/MyBinaryLib.dll")]

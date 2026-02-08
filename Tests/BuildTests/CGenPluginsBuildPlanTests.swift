@@ -31,6 +31,14 @@ import Build
         case swiftModule
     }
 
+    let pluginOutputDir: Basics.AbsolutePath = "/PluginOut/outputs/mypkg/MyModule/destination/MyPlugin"
+    var pluginIncludeDir: Basics.AbsolutePath { pluginOutputDir.appending("include") }
+    var pluginModuleMapFile: Basics.AbsolutePath { pluginIncludeDir.appending("module.modulemap") }
+    var pluginModuleMapArg: String { "-fmodule-map-file=\(pluginModuleMapFile.pathString)" }
+    var pluginAPINotesFile: Basics.AbsolutePath { pluginIncludeDir.appending("Gened.apinotes")}
+    var pluginHeaderFile: Basics.AbsolutePath { pluginIncludeDir.appending("Gened.h")}
+    var pluginSourceFile: Basics.AbsolutePath { pluginOutputDir.appending("Gened.c") }
+
     func setup(
         kind: Kind = .cModule,
         gened: [RelativePath],
@@ -262,10 +270,10 @@ import Build
 
         let warnings = observability.warnings.map(\.message)
         let messages: [String] = [
-            "Only C modules support plugin generated C header files: /PluginOut/outputs/mypkg/MyModule/destination/MyPlugin/include/Gened.h",
-            "Only C modules support plugin generated module map files: /PluginOut/outputs/mypkg/MyModule/destination/MyPlugin/include/module.modulemap",
-            "Only C modules support plugin generated API notes files: /PluginOut/outputs/mypkg/MyModule/destination/MyPlugin/include/Gened.apinotes",
-            "Only C modules support plugin generated C source files: /PluginOut/outputs/mypkg/MyModule/destination/MyPlugin/Gened.c",
+            "Only C modules support plugin generated C header files: \(pluginHeaderFile.pathString)",
+            "Only C modules support plugin generated module map files: \(pluginModuleMapFile.pathString)",
+            "Only C modules support plugin generated API notes files: \(pluginAPINotesFile.pathString)",
+            "Only C modules support plugin generated C source files: \(pluginSourceFile.pathString)",
         ]
 
         #expect(warnings.count == messages.count)
@@ -290,10 +298,10 @@ import Build
         )
         let warnings = observability.warnings.map(\.message)
         let messages: [String] = [
-            "C header file generation requires tools version >= 6.3: /PluginOut/outputs/mypkg/MyModule/destination/MyPlugin/include/Gened.h",
-            "Module map generation requires tools version >= 6.3: /PluginOut/outputs/mypkg/MyModule/destination/MyPlugin/include/module.modulemap",
-            "API notes generation requires tools version >= 6.3: /PluginOut/outputs/mypkg/MyModule/destination/MyPlugin/include/Gened.apinotes",
-            "C source file generation requires tools version >= 6.3: /PluginOut/outputs/mypkg/MyModule/destination/MyPlugin/Gened.c",
+            "C header file generation requires tools version >= 6.3: \(pluginHeaderFile.pathString)",
+            "Module map generation requires tools version >= 6.3: \(pluginModuleMapFile.pathString)",
+            "API notes generation requires tools version >= 6.3: \(pluginAPINotesFile.pathString)",
+            "C source file generation requires tools version >= 6.3: \(pluginSourceFile.pathString)",
         ]
 
         #expect(warnings.count == messages.count)

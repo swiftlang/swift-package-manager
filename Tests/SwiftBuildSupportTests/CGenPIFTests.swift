@@ -29,6 +29,14 @@ import SwiftBuild
         case swiftModule
     }
 
+    let pluginOutputDir: Basics.AbsolutePath = "/plugin-working-dir/outputs/mypkg/MyModule/tools/MyPlugin"
+    var pluginIncludeDir: Basics.AbsolutePath { pluginOutputDir.appending("include") }
+    var pluginModuleMapFile: Basics.AbsolutePath { pluginIncludeDir.appending("module.modulemap") }
+    var pluginModuleMapArg: String { "-fmodule-map-file=\(pluginModuleMapFile.pathString)" }
+    var pluginAPINotesFile: Basics.AbsolutePath { pluginIncludeDir.appending("Gened.apinotes")}
+    var pluginHeaderFile: Basics.AbsolutePath { pluginIncludeDir.appending("Gened.h")}
+    var pluginSourceFile: Basics.AbsolutePath { pluginOutputDir.appending("Gened.c") }
+
     func setup(
         kind: Kind = .cModule,
         gened: [RelativePath],
@@ -209,12 +217,6 @@ import SwiftBuild
         )
         #expect(!observability.hasErrorDiagnostics && !observability.hasWarningDiagnostics)
 
-        let pluginOutputDir: Basics.AbsolutePath = "/plugin-working-dir/outputs/mypkg/MyModule/tools/MyPlugin"
-        let pluginIncludeDir = pluginOutputDir.appending("include")
-        let pluginModuleMap = pluginIncludeDir.appending("module.modulemap")
-        let pluginModuleMapFile = "-fmodule-map-file=\(pluginModuleMap.pathString)"
-        let pluginSourceFile = pluginOutputDir.appending("Gened.c")
-
         let project = try #require(pif.workspace.projects.filter({ $0.underlying.name == "MyPkg" }).only)
         let modules = project.underlying.targets.filter({ $0.common.name == "MyModule" })
         for module in modules {
@@ -225,9 +227,9 @@ import SwiftBuild
                 #expect(impartedHeaderPaths.contains(pluginIncludeDir.pathString))
 
                 let impartedCFlags = try #require(config.impartedBuildProperties.settings[.OTHER_CFLAGS])
-                #expect(impartedCFlags.contains(pluginModuleMapFile))
+                #expect(impartedCFlags.contains(pluginModuleMapArg))
                 let impartedSwiftFlags = try #require(config.impartedBuildProperties.settings[.OTHER_SWIFT_FLAGS])
-                #expect(impartedSwiftFlags.contains(pluginModuleMapFile))
+                #expect(impartedSwiftFlags.contains(pluginModuleMapArg))
             }
 
             // Make sure our generated source is included
@@ -264,10 +266,10 @@ import SwiftBuild
 
         let warnings = observability.warnings.map(\.message)
         let messages: [String] = [
-            "Only C modules support plugin generated C header files: /plugin-working-dir/outputs/mypkg/MyModule/tools/MyPlugin/include/Gened.h",
-            "Only C modules support plugin generated module map files: /plugin-working-dir/outputs/mypkg/MyModule/tools/MyPlugin/include/module.modulemap",
-            "Only C modules support plugin generated API notes files: /plugin-working-dir/outputs/mypkg/MyModule/tools/MyPlugin/include/Gened.apinotes",
-            "Only C modules support plugin generated C source files: /plugin-working-dir/outputs/mypkg/MyModule/tools/MyPlugin/Gened.c",
+            "Only C modules support plugin generated C header files: \(pluginHeaderFile.pathString)",
+            "Only C modules support plugin generated module map files: \(pluginModuleMapFile.pathString)",
+            "Only C modules support plugin generated API notes files: \(pluginAPINotesFile.pathString)",
+            "Only C modules support plugin generated C source files: \(pluginSourceFile.pathString)",
         ]
 
         for message in messages {
@@ -290,10 +292,10 @@ import SwiftBuild
         )
         let warnings = observability.warnings.map(\.message)
         let messages: [String] = [
-            "C header file generation requires tools version >= 6.3: /plugin-working-dir/outputs/mypkg/MyModule/tools/MyPlugin/include/Gened.h",
-            "Module map generation requires tools version >= 6.3: /plugin-working-dir/outputs/mypkg/MyModule/tools/MyPlugin/include/module.modulemap",
-            "API notes generation requires tools version >= 6.3: /plugin-working-dir/outputs/mypkg/MyModule/tools/MyPlugin/include/Gened.apinotes",
-            "C source file generation requires tools version >= 6.3: /plugin-working-dir/outputs/mypkg/MyModule/tools/MyPlugin/Gened.c",
+            "C header file generation requires tools version >= 6.3: \(pluginHeaderFile.pathString)",
+            "Module map generation requires tools version >= 6.3: \(pluginModuleMapFile.pathString)",
+            "API notes generation requires tools version >= 6.3: \(pluginAPINotesFile.pathString)",
+            "C source file generation requires tools version >= 6.3: \(pluginSourceFile.pathString)",
         ]
 
         for message in messages {
