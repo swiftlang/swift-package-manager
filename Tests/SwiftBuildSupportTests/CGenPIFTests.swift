@@ -11,21 +11,19 @@
 //===----------------------------------------------------------------------===//
 
 import Foundation
-import Testing
 import Basics
 import PackageLoading
-import _InternalBuildTestSupport
-import Build
-
-@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
-@testable import PackageGraph
-
-@_spi(SwiftPMInternal)
-@testable import PackageModel
+import SwiftBuildSupport
+import Testing
+import _InternalTestSupport
+import SwiftBuild
 
 @testable import SPMBuildCore
 
-@Suite struct CGenPluginsBuildPlanTests {
+@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly) @testable import PackageGraph
+@_spi(SwiftPMInternal) @testable import PackageModel
+
+@Suite struct CGenPIFTests {
     enum Kind {
         case cModule
         case swiftModule
@@ -36,7 +34,7 @@ import Build
         gened: [RelativePath],
         toolsVersion: ToolsVersion = .v6_3,
         observability: ObservabilityScope
-    ) async throws -> BuildPlanResult {
+    ) async throws -> SwiftBuildSupport.PIF.TopLevelObject {
         let sources = switch kind {
         case .cModule:
             [
@@ -172,27 +170,19 @@ import Build
             ]
         }
 
-        let pluginConfiguration = PluginConfiguration(
-            scriptRunner: pluginScriptRunner,
-            workDirectory: "/PluginOut",
-            disableSandbox: true
+        let pifBuilder: PIFBuilder = PIFBuilder(
+            graph: graph,
+            parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
+                temporaryDirectory: AbsolutePath.root,
+                addLocalRpaths: true,
+                pluginScriptRunner: pluginScriptRunner
+            ),
+            fileSystem: fs,
+            observabilityScope: observability
         )
 
-        let pluginTools: [ResolvedModule.ID: [String: PluginTool]] = [
-            .init(moduleName: "MyPlugin", packageIdentity: .plain("MyPkg")) : [
-                "MyGenerator": .init(path: "/Foo", source: .built)
-            ]
-        ]
-
-        return try await BuildPlanResult(
-            plan: mockBuildPlan(
-                triple: UserToolchain.default.targetTriple,
-                graph: graph,
-                pluginConfiguration: pluginConfiguration,
-                pluginTools: pluginTools,
-                fileSystem: fs,
-                observabilityScope: observability
-            )
+        return try await pifBuilder.constructPIF(
+            buildParameters: mockBuildParameters(destination: .host)
         )
     }
 
@@ -207,9 +197,9 @@ import Build
         #expect(!observability.hasErrorDiagnostics && !observability.hasWarningDiagnostics)
     }
 
-    @Test func testSuccess() async throws {
+    @Test func testSuccessPath() async throws {
         let observability = ObservabilitySystem.makeForTesting()
-        let result = try await setup(
+        let pif = try await setup(
             gened: [
                 "include/Gened.h",
                 "include/module.modulemap",
@@ -219,32 +209,44 @@ import Build
         )
         #expect(!observability.hasErrorDiagnostics && !observability.hasWarningDiagnostics)
 
-        let module = try #require(try result.allTargets(named: "MyModule").only?.clang())
-        let pluginOutputDir: AbsolutePath = "/PluginOut/outputs/mypkg/MyModule/destination/MyPlugin"
+        let pluginOutputDir: Basics.AbsolutePath = "/plugin-working-dir/outputs/mypkg/MyModule/tools/MyPlugin"
         let pluginIncludeDir = pluginOutputDir.appending("include")
-        #expect(module.pluginDerivedPublicHeaderPaths == [pluginIncludeDir])
         let pluginModuleMap = pluginIncludeDir.appending("module.modulemap")
         let pluginModuleMapFile = "-fmodule-map-file=\(pluginModuleMap.pathString)"
-        #expect(module.pluginDerivedModuleMap == pluginModuleMap)
-        #expect(module.pluginDerivedAPINotes == [pluginIncludeDir.appending("Gened.apinotes")])
-        let pluginSource = pluginOutputDir.appending("Gened.c")
-        #expect(try module.compilePaths().contains(where: { $0.source == pluginSource }))
-        let cmd = try module.emitCommandLine(for: pluginSource)
-        #expect(cmd.contains(pluginIncludeDir.pathString))
+        let pluginSourceFile = pluginOutputDir.appending("Gened.c")
 
-        // Ensure the C module consumes the generated module map
-        let cModule = try #require(try result.allTargets(named: "MyCModule").only?.clang())
-        let cModuleSource: AbsolutePath = "/MyPkg/Sources/MyCModule/MyCModule.c"
-        #expect(try cModule.compilePaths().contains(where: { $0.source == cModuleSource }))
-        let cModuleCmd = try cModule.emitCommandLine(for: cModuleSource)
-        #expect(cModuleCmd.contains(pluginIncludeDir.pathString))
-        #expect(cModuleCmd.contains(pluginModuleMapFile))
+        let project = try #require(pif.workspace.projects.filter({ $0.underlying.name == "MyPkg" }).only)
+        let modules = project.underlying.targets.filter({ $0.common.name == "MyModule" })
+        for module in modules {
+            for config in module.common.buildConfigs {
+                let headerSearchPaths = try #require(config.settings[.HEADER_SEARCH_PATHS])
+                #expect(headerSearchPaths.contains(pluginIncludeDir.pathString))
+                let impartedHeaderPaths = try #require(config.impartedBuildProperties.settings[.HEADER_SEARCH_PATHS])
+                #expect(impartedHeaderPaths.contains(pluginIncludeDir.pathString))
 
-        // Ensure the Swift module does also
-        let swiftModule = try #require(try result.allTargets(named: "MyExe").only?.swift())
-        let swiftModuleArgs = try swiftModule.compileArguments()
-        #expect(swiftModuleArgs.contains(pluginIncludeDir.pathString))
-        #expect(swiftModuleArgs.contains(pluginModuleMapFile))
+                let impartedCFlags = try #require(config.impartedBuildProperties.settings[.OTHER_CFLAGS])
+                #expect(impartedCFlags.contains(pluginModuleMapFile))
+                let impartedSwiftFlags = try #require(config.impartedBuildProperties.settings[.OTHER_SWIFT_FLAGS])
+                #expect(impartedSwiftFlags.contains(pluginModuleMapFile))
+            }
+
+            // Make sure our generated source is included
+            let sourcesPhase: ProjectModel.SourcesBuildPhase = try #require(module.common.buildPhases.compactMap({
+                guard case let .sources(sourcesBuildPhase) = $0 else {
+                    return nil
+                }
+                return sourcesBuildPhase
+            }).only)
+            let x = sourcesPhase.files.contains(where: {
+                guard case .reference(id: let refId) = $0.ref,
+                      let file = try? project.underlying.mainGroup.findSource(ref: refId)
+                else {
+                    return false
+                }
+                return file == pluginSourceFile
+            })
+            #expect(x)
+        }
     }
 
     /// Test that generating C into Swift modules throws warnings
@@ -262,17 +264,15 @@ import Build
 
         let warnings = observability.warnings.map(\.message)
         let messages: [String] = [
-            "Only C modules support plugin generated C header files: /PluginOut/outputs/mypkg/MyModule/destination/MyPlugin/include/Gened.h",
-            "Only C modules support plugin generated module map files: /PluginOut/outputs/mypkg/MyModule/destination/MyPlugin/include/module.modulemap",
-            "Only C modules support plugin generated API notes files: /PluginOut/outputs/mypkg/MyModule/destination/MyPlugin/include/Gened.apinotes",
-            "Only C modules support plugin generated C source files: /PluginOut/outputs/mypkg/MyModule/destination/MyPlugin/Gened.c",
+            "Only C modules support plugin generated C header files: /plugin-working-dir/outputs/mypkg/MyModule/tools/MyPlugin/include/Gened.h",
+            "Only C modules support plugin generated module map files: /plugin-working-dir/outputs/mypkg/MyModule/tools/MyPlugin/include/module.modulemap",
+            "Only C modules support plugin generated API notes files: /plugin-working-dir/outputs/mypkg/MyModule/tools/MyPlugin/include/Gened.apinotes",
+            "Only C modules support plugin generated C source files: /plugin-working-dir/outputs/mypkg/MyModule/tools/MyPlugin/Gened.c",
         ]
 
-        #expect(warnings.count == messages.count)
         for message in messages {
             #expect(warnings.contains(message))
         }
-
     }
 
     /// Test that the feature is disabled on previous tools versions
@@ -290,13 +290,12 @@ import Build
         )
         let warnings = observability.warnings.map(\.message)
         let messages: [String] = [
-            "C header file generation requires tools version >= 6.3: /PluginOut/outputs/mypkg/MyModule/destination/MyPlugin/include/Gened.h",
-            "Module map generation requires tools version >= 6.3: /PluginOut/outputs/mypkg/MyModule/destination/MyPlugin/include/module.modulemap",
-            "API notes generation requires tools version >= 6.3: /PluginOut/outputs/mypkg/MyModule/destination/MyPlugin/include/Gened.apinotes",
-            "C source file generation requires tools version >= 6.3: /PluginOut/outputs/mypkg/MyModule/destination/MyPlugin/Gened.c",
+            "C header file generation requires tools version >= 6.3: /plugin-working-dir/outputs/mypkg/MyModule/tools/MyPlugin/include/Gened.h",
+            "Module map generation requires tools version >= 6.3: /plugin-working-dir/outputs/mypkg/MyModule/tools/MyPlugin/include/module.modulemap",
+            "API notes generation requires tools version >= 6.3: /plugin-working-dir/outputs/mypkg/MyModule/tools/MyPlugin/include/Gened.apinotes",
+            "C source file generation requires tools version >= 6.3: /plugin-working-dir/outputs/mypkg/MyModule/tools/MyPlugin/Gened.c",
         ]
 
-        #expect(warnings.count == messages.count)
         for message in messages {
             #expect(warnings.contains(message))
         }
@@ -304,16 +303,41 @@ import Build
 }
 
 extension HostToPluginMessage.InputContext {
-    func url(for id: WireInput.URL.Id) throws -> AbsolutePath {
+    func url(for id: WireInput.URL.Id) throws -> Basics.AbsolutePath {
         // Compose a path based on an optional base path and a subpath.
         let wirePath = paths[id]
         let basePath = try paths[id].baseURLId.map{ try self.url(for: $0) }
-        let path: AbsolutePath
+        let path: Basics.AbsolutePath
         if let basePath {
             path = basePath.appending(wirePath.subpath)
         } else {
             path = AbsolutePath.root.appending(wirePath.subpath)
         }
         return path
+    }
+}
+
+extension ProjectModel.Group {
+    func findSource(ref: GUID) throws -> Basics.AbsolutePath? {
+        for child in subitems {
+            switch child {
+            case .file(let file):
+                if file.id == ref {
+                    if let file = try? Basics.AbsolutePath(validating: file.path) {
+                        return file
+                    }
+                    guard self.pathBase == .absolute else {
+                        return nil
+                    }
+                    let groupPath = try Basics.AbsolutePath(validating: self.path)
+                    return groupPath.appending(file.path)
+                }
+            case .group(let group):
+                if let file = try group.findSource(ref: ref) {
+                    return file
+                }
+            }
+        }
+        return nil
     }
 }

@@ -18,6 +18,7 @@ import struct Basics.Diagnostic
 import class Basics.ObservabilitySystem
 import struct Basics.SourceControlURL
 
+import class PackageModel.ClangModule
 import class PackageModel.Manifest
 import struct PackageModel.Platform
 import class PackageModel.Product
@@ -408,19 +409,28 @@ struct PackagePIFProjectBuilder {
 
             // Process all the paths of derived output paths using the same rules as for source.
             for command in pluginResult.buildCommands {
-                let result = self.process(
+                let files = self.process(
                     pluginGeneratedFilePaths: command.absoluteOutputPaths,
                     forModule: module,
                     toolsVersion: self.package.manifest.toolsVersion
                 )
 
-                generatedFiles.add(result)
+                generatedFiles.add(files)
+                if !files.headers.isEmpty {
+                    // Capture the public include directory if there were header files generated there
+                    // Hardcoding as the default for now
+                    let publicDir = command.pluginOutputDir.appending(ClangModule.defaultPublicHeadersComponent)
+                    if files.headers.contains(where: { $0.isDescendantOfOrEqual(to: publicDir) }) {
+                        generatedFiles.publicHeaderPaths.append(publicDir)
+                    }
+                }
             }
 
-            generatedFiles.add(self.process(
+            let files = self.process(
                 pluginGeneratedFilePaths: pluginResult.prebuildCommandOutputPaths,
                 forModule: module,
-                toolsVersion: self.package.manifest.toolsVersion))
+                toolsVersion: self.package.manifest.toolsVersion)
+            generatedFiles.add(files)
         }
 
         return generatedFiles
@@ -512,9 +522,6 @@ struct PackagePIFProjectBuilder {
             return GeneratedFiles()
         }
 
-        // FIXME: Will be fixed by <rdar://144802163> (SwiftPM PIFBuilder — adopt ObservabilityScope as the logging API).
-        let observabilityScope = ObservabilitySystem.NOOP
-
         // Use the `TargetSourcesBuilder` from libSwiftPM to split the generated files into sources and resources.
         return TargetSourcesBuilder.computeContents(
             for: pluginGeneratedFilePaths,
@@ -522,7 +529,7 @@ struct PackagePIFProjectBuilder {
             additionalFileRules: Self.additionalFileRules,
             defaultLocalization: module.defaultLocalization,
             module: module.underlying,
-            observabilityScope: observabilityScope
+            observabilityScope: pifBuilder.observabilityScope
         )
     }
 
