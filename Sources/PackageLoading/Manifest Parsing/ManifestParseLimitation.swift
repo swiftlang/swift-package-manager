@@ -38,6 +38,9 @@ public enum ManifestParseLimitation {
 
     /// A call argument that is unknown/unsupported.
     case unsupportedArgument(LabeledExprSyntax, callee: String)
+
+    /// An invalid Swift language version value.
+    case invalidSwiftLanguageVersion(ExprSyntax, value: String)
 }
 
 extension ManifestParseLimitation: CustomStringConvertible {
@@ -64,6 +67,8 @@ extension ManifestParseLimitation {
             return Syntax(expr)
         case .unsupportedArgument(let arg, callee: _):
             return Syntax(arg)
+        case .invalidSwiftLanguageVersion(let expr, _):
+            return Syntax(expr)
         }
     }
 
@@ -91,6 +96,8 @@ extension ManifestParseLimitation: DiagnosticMessage {
                 return "Unhandled argument '\(label.name)' in call to '\(callee)"
             }
             return "Unhandled argument in call to '\(callee)'"
+        case .invalidSwiftLanguageVersion(_, value: let value):
+            return "Invalid Swift language version '\(value)'; expected format is major[.minor[.patch]]"
         }
     }
 
@@ -102,6 +109,7 @@ extension ManifestParseLimitation: DiagnosticMessage {
         case .unsupportedVariableForm: "unsupported-variable-form"
         case .unsupportedExpression: "unsupported-expression"
         case .unsupportedArgument: "unsupported-argument"
+        case .invalidSwiftLanguageVersion: "invalid-swift-language-version"
         }
 
         return MessageID(domain: "manifest-parse-limitation", id: id)

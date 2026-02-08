@@ -88,7 +88,7 @@ final class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
         XCTAssertEqual(fooProduct.targets, ["foo"])
     }
 
-    func testSwiftLanguageVersions() async throws {
+    func testSwiftLanguageVersionsDiagnostics() async throws {
         // Ensure integer values are not accepted.
         do {
             let content = """
@@ -114,61 +114,81 @@ final class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                 }
             }
         }
+    }
 
-        // Check when Swift language versions is empty.
-        do {
-            let content = """
-                import PackageDescription
-                let package = Package(
-                   name: "Foo",
-                   swiftLanguageVersions: []
+    func testSwiftLanguageVersionsNew() async throws {
+        for loader in self.testManifestLoaders {
+            // Check when Swift language versions is empty.
+            do {
+                let content = """
+                    import PackageDescription
+                    let package = Package(
+                       name: "Foo",
+                       swiftLanguageVersions: []
+                    )
+                    """
+
+                let observability = ObservabilitySystem.makeForTesting()
+                let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                    content,
+                    customManifestLoader: loader,
+                    observabilityScope: observability.topScope
                 )
-                """
+                XCTAssertNoDiagnostics(observability.diagnostics)
+                XCTAssertNoDiagnostics(validationDiagnostics)
 
-            let observability = ObservabilitySystem.makeForTesting()
-            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
-            XCTAssertNoDiagnostics(observability.diagnostics)
-            XCTAssertNoDiagnostics(validationDiagnostics)
+                XCTAssertEqual(manifest.swiftLanguageVersions, [])
+            }
 
-            XCTAssertEqual(manifest.swiftLanguageVersions, [])
-        }
+            do {
+                let content = """
+                    import PackageDescription
+                    let package = Package(
+                       name: "Foo",
+                       swiftLanguageVersions: [.v3, .v4, .v4_2, .version("5")]
+                    )
+                    """
 
-        do {
-            let content = """
-                import PackageDescription
-                let package = Package(
-                   name: "Foo",
-                   swiftLanguageVersions: [.v3, .v4, .v4_2, .version("5")]
+                let observability = ObservabilitySystem.makeForTesting()
+                let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                    content,
+                    customManifestLoader: loader,
+                    observabilityScope: observability.topScope
                 )
-                """
+                XCTAssertNoDiagnostics(observability.diagnostics)
+                XCTAssertNoDiagnostics(validationDiagnostics)
 
-            let observability = ObservabilitySystem.makeForTesting()
-            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
-            XCTAssertNoDiagnostics(observability.diagnostics)
-            XCTAssertNoDiagnostics(validationDiagnostics)
-
-            XCTAssertEqual(
-                manifest.swiftLanguageVersions,
-                [.v3, .v4, .v4_2, SwiftLanguageVersion(string: "5")!]
-            )
-        }
-
-        do {
-            let content = """
-                import PackageDescription
-                let package = Package(
-                   name: "Foo",
-                   swiftLanguageVersions: [.v5]
+                XCTAssertEqual(
+                    manifest.swiftLanguageVersions,
+                    [.v3, .v4, .v4_2, SwiftLanguageVersion(string: "5")!]
                 )
-                """
+            }
 
-            let observability = ObservabilitySystem.makeForTesting()
-            await XCTAssertAsyncThrowsError(try await loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") { error in
-                if case ManifestParseError.invalidManifestFormat(let message, _, _) = error {
-                    XCTAssertMatch(message, .contains("is unavailable"))
-                    XCTAssertMatch(message, .contains("was introduced in PackageDescription 5"))
-                } else {
-                    XCTFail("unexpected error: \(error)")
+            // The third test case checks that .v5 is unavailable in PackageDescription 4.2
+            // This only applies to the compilation-based manifest loader, not the parsing loader
+            if loader == nil {
+                do {
+                    let content = """
+                        import PackageDescription
+                        let package = Package(
+                           name: "Foo",
+                           swiftLanguageVersions: [.v5]
+                        )
+                        """
+
+                    let observability = ObservabilitySystem.makeForTesting()
+                    await XCTAssertAsyncThrowsError(try await loadAndValidateManifest(
+                        content,
+                        customManifestLoader: loader,
+                        observabilityScope: observability.topScope
+                    ), "expected error") { error in
+                        if case ManifestParseError.invalidManifestFormat(let message, _, _) = error {
+                            XCTAssertMatch(message, .contains("is unavailable"))
+                            XCTAssertMatch(message, .contains("was introduced in PackageDescription 5"))
+                        } else {
+                            XCTFail("unexpected error: \(error)")
+                        }
+                    }
                 }
             }
         }

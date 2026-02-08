@@ -65,73 +65,93 @@ final class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        let observability = ObservabilitySystem.makeForTesting()
-        let (manifest, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
-        XCTAssertNoDiagnostics(observability.diagnostics)
-        XCTAssertNoDiagnostics(validationDiagnostics)
+        for loader in self.testManifestLoaders {
+            let observability = ObservabilitySystem.makeForTesting()
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                content,
+                customManifestLoader: loader,
+                observabilityScope: observability.topScope
+            )
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertNoDiagnostics(validationDiagnostics)
 
-        XCTAssertEqual(manifest.displayName, "Trivial")
-        let foo = manifest.targetMap["foo"]!
-        XCTAssertEqual(foo.name, "foo")
-        XCTAssertFalse(foo.isTest)
+            XCTAssertEqual(manifest.displayName, "Trivial")
+            let foo = manifest.targetMap["foo"]!
+            XCTAssertEqual(foo.name, "foo")
+            XCTAssertFalse(foo.isTest)
 
-        let expectedDependencies: [TargetDescription.Dependency]
-        expectedDependencies = [
-            "dep1",
-            .target(name: "dep2"),
-            .product(name: "dep3", package: "Pkg"),
-            .product(name: "dep4"),
-        ]
-        XCTAssertEqual(foo.dependencies, expectedDependencies)
+            let expectedDependencies: [TargetDescription.Dependency]
+            expectedDependencies = [
+                "dep1",
+                .target(name: "dep2"),
+                .product(name: "dep3", package: "Pkg"),
+                .product(name: "dep4"),
+            ]
+            XCTAssertEqual(foo.dependencies, expectedDependencies)
 
-        let bar = manifest.targetMap["bar"]!
-        XCTAssertEqual(bar.name, "bar")
-        XCTAssertTrue(bar.isTest)
-        XCTAssertEqual(bar.dependencies, ["foo"])
+            let bar = manifest.targetMap["bar"]!
+            XCTAssertEqual(bar.name, "bar")
+            XCTAssertTrue(bar.isTest)
+            XCTAssertEqual(bar.dependencies, ["foo"])
+        }
     }
 
     func testCompatibleSwiftVersions() async throws {
-        do {
-            let content = """
-                import PackageDescription
-                let package = Package(
-                   name: "Foo",
-                   swiftLanguageVersions: [3, 4]
+        for loader in self.testManifestLoaders {
+            do {
+                let content = """
+                    import PackageDescription
+                    let package = Package(
+                       name: "Foo",
+                       swiftLanguageVersions: [3, 4]
+                    )
+                    """
+                let observability = ObservabilitySystem.makeForTesting()
+                let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                    content,
+                    customManifestLoader: loader,
+                    observabilityScope: observability.topScope
                 )
-                """
-            let observability = ObservabilitySystem.makeForTesting()
-            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
-            XCTAssertNoDiagnostics(observability.diagnostics)
-            XCTAssertNoDiagnostics(validationDiagnostics)
-            XCTAssertEqual(manifest.swiftLanguageVersions?.map({$0.rawValue}), ["3", "4"])
-        }
+                XCTAssertNoDiagnostics(observability.diagnostics)
+                XCTAssertNoDiagnostics(validationDiagnostics)
+                XCTAssertEqual(manifest.swiftLanguageVersions?.map({$0.rawValue}), ["3", "4"])
+            }
 
-        do {
-            let content = """
-                import PackageDescription
-                let package = Package(
-                   name: "Foo",
-                   swiftLanguageVersions: []
+            do {
+                let content = """
+                    import PackageDescription
+                    let package = Package(
+                       name: "Foo",
+                       swiftLanguageVersions: []
+                    )
+                    """
+                let observability = ObservabilitySystem.makeForTesting()
+                let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                    content,
+                    customManifestLoader: loader,
+                    observabilityScope: observability.topScope
                 )
-                """
-            let observability = ObservabilitySystem.makeForTesting()
-            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
-            XCTAssertNoDiagnostics(observability.diagnostics)
-            XCTAssertNoDiagnostics(validationDiagnostics)
-            XCTAssertEqual(manifest.swiftLanguageVersions, [])
-        }
+                XCTAssertNoDiagnostics(observability.diagnostics)
+                XCTAssertNoDiagnostics(validationDiagnostics)
+                XCTAssertEqual(manifest.swiftLanguageVersions, [])
+            }
 
-        do {
-            let content = """
-                import PackageDescription
-                let package = Package(
-                   name: "Foo")
-                """
-            let observability = ObservabilitySystem.makeForTesting()
-            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
-            XCTAssertNoDiagnostics(observability.diagnostics)
-            XCTAssertNoDiagnostics(validationDiagnostics)
-            XCTAssertEqual(manifest.swiftLanguageVersions, nil)
+            do {
+                let content = """
+                    import PackageDescription
+                    let package = Package(
+                       name: "Foo")
+                    """
+                let observability = ObservabilitySystem.makeForTesting()
+                let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                    content,
+                    customManifestLoader: loader,
+                    observabilityScope: observability.topScope
+                )
+                XCTAssertNoDiagnostics(observability.diagnostics)
+                XCTAssertNoDiagnostics(validationDiagnostics)
+                XCTAssertEqual(manifest.swiftLanguageVersions, nil)
+            }
         }
     }
 
@@ -182,27 +202,33 @@ final class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        let observability = ObservabilitySystem.makeForTesting()
-        let (manifest, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
-        XCTAssertNoDiagnostics(observability.diagnostics)
-        XCTAssertNoDiagnostics(validationDiagnostics)
+        for loader in self.testManifestLoaders {
+            let observability = ObservabilitySystem.makeForTesting()
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                content,
+                customManifestLoader: loader,
+                observabilityScope: observability.topScope
+            )
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertNoDiagnostics(validationDiagnostics)
 
-        let products = Dictionary(uniqueKeysWithValues: manifest.products.map{ ($0.name, $0) })
-        // Check tool.
-        let tool = products["tool"]!
-        XCTAssertEqual(tool.name, "tool")
-        XCTAssertEqual(tool.targets, ["tool"])
-        XCTAssertEqual(tool.type, .executable)
-        // Check Foo.
-        let foo = products["Foo"]!
-        XCTAssertEqual(foo.name, "Foo")
-        XCTAssertEqual(foo.type, .library(.automatic))
-        XCTAssertEqual(foo.targets, ["Foo"])
-        // Check FooDy.
-        let fooDy = products["FooDy"]!
-        XCTAssertEqual(fooDy.name, "FooDy")
-        XCTAssertEqual(fooDy.type, .library(.dynamic))
-        XCTAssertEqual(fooDy.targets, ["Foo"])
+            let products = Dictionary(uniqueKeysWithValues: manifest.products.map{ ($0.name, $0) })
+            // Check tool.
+            let tool = products["tool"]!
+            XCTAssertEqual(tool.name, "tool")
+            XCTAssertEqual(tool.targets, ["tool"])
+            XCTAssertEqual(tool.type, .executable)
+            // Check Foo.
+            let foo = products["Foo"]!
+            XCTAssertEqual(foo.name, "Foo")
+            XCTAssertEqual(foo.type, .library(.automatic))
+            XCTAssertEqual(foo.targets, ["Foo"])
+            // Check FooDy.
+            let fooDy = products["FooDy"]!
+            XCTAssertEqual(fooDy.name, "FooDy")
+            XCTAssertEqual(fooDy.type, .library(.dynamic))
+            XCTAssertEqual(fooDy.targets, ["Foo"])
+        }
     }
 
     func testSystemPackage() async throws {
@@ -218,17 +244,23 @@ final class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        let observability = ObservabilitySystem.makeForTesting()
-        let (manifest, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
-        XCTAssertNoDiagnostics(observability.diagnostics)
-        XCTAssertNoDiagnostics(validationDiagnostics)
+        for loader in self.testManifestLoaders {
+            let observability = ObservabilitySystem.makeForTesting()
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                content,
+                customManifestLoader: loader,
+                observabilityScope: observability.topScope
+            )
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertNoDiagnostics(validationDiagnostics)
 
-        XCTAssertEqual(manifest.displayName, "Copenssl")
-        XCTAssertEqual(manifest.pkgConfig, "openssl")
-        XCTAssertEqual(manifest.providers, [
-            .brew(["openssl"]),
-            .apt(["openssl", "libssl-dev"]),
-        ])
+            XCTAssertEqual(manifest.displayName, "Copenssl")
+            XCTAssertEqual(manifest.pkgConfig, "openssl")
+            XCTAssertEqual(manifest.providers, [
+                .brew(["openssl"]),
+                .apt(["openssl", "libssl-dev"]),
+            ])
+        }
     }
 
     func testCTarget() async throws {
@@ -246,16 +278,22 @@ final class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        let observability = ObservabilitySystem.makeForTesting()
-        let (manifest, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
-        XCTAssertNoDiagnostics(observability.diagnostics)
-        XCTAssertNoDiagnostics(validationDiagnostics)
+        for loader in self.testManifestLoaders {
+            let observability = ObservabilitySystem.makeForTesting()
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                content,
+                customManifestLoader: loader,
+                observabilityScope: observability.topScope
+            )
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertNoDiagnostics(validationDiagnostics)
 
-        let foo = manifest.targetMap["Foo"]!
-        XCTAssertEqual(foo.publicHeadersPath, "inc")
+            let foo = manifest.targetMap["Foo"]!
+            XCTAssertEqual(foo.publicHeadersPath, "inc")
 
-        let bar = manifest.targetMap["Bar"]!
-        XCTAssertEqual(bar.publicHeadersPath, nil)
+            let bar = manifest.targetMap["Bar"]!
+            XCTAssertEqual(bar.publicHeadersPath, nil)
+        }
     }
 
     func testTargetProperties() async throws {
@@ -276,22 +314,28 @@ final class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        let observability = ObservabilitySystem.makeForTesting()
-        let (manifest, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
-        XCTAssertNoDiagnostics(observability.diagnostics)
-        XCTAssertNoDiagnostics(validationDiagnostics)
+        for loader in self.testManifestLoaders {
+            let observability = ObservabilitySystem.makeForTesting()
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                content,
+                customManifestLoader: loader,
+                observabilityScope: observability.topScope
+            )
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertNoDiagnostics(validationDiagnostics)
 
-        let foo = manifest.targetMap["Foo"]!
-        XCTAssertEqual(foo.publicHeadersPath, "inc")
-        XCTAssertEqual(foo.path, "foo/z")
-        XCTAssertEqual(foo.exclude, ["bar"])
-        XCTAssertEqual(foo.sources ?? [], ["bar.swift"])
+            let foo = manifest.targetMap["Foo"]!
+            XCTAssertEqual(foo.publicHeadersPath, "inc")
+            XCTAssertEqual(foo.path, "foo/z")
+            XCTAssertEqual(foo.exclude, ["bar"])
+            XCTAssertEqual(foo.sources ?? [], ["bar.swift"])
 
-        let bar = manifest.targetMap["Bar"]!
-        XCTAssertEqual(bar.publicHeadersPath, nil)
-        XCTAssertEqual(bar.path, nil)
-        XCTAssertEqual(bar.exclude, [])
-        XCTAssert(bar.sources == nil)
+            let bar = manifest.targetMap["Bar"]!
+            XCTAssertEqual(bar.publicHeadersPath, nil)
+            XCTAssertEqual(bar.path, nil)
+            XCTAssertEqual(bar.exclude, [])
+            XCTAssert(bar.sources == nil)
+        }
     }
 
     func testUnavailableAPIs() async throws {
@@ -332,14 +376,20 @@ final class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
             )
         """
 
-        let observability = ObservabilitySystem.makeForTesting()
-        let (manifest, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
-        XCTAssertNoDiagnostics(observability.diagnostics)
-        XCTAssertNoDiagnostics(validationDiagnostics)
+        for loader in self.testManifestLoaders {
+            let observability = ObservabilitySystem.makeForTesting()
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                content,
+                customManifestLoader: loader,
+                observabilityScope: observability.topScope
+            )
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertNoDiagnostics(validationDiagnostics)
 
-        XCTAssertEqual(manifest.displayName, "testPackage")
-        XCTAssertEqual(manifest.cLanguageStandard, "iso9899:199409")
-        XCTAssertEqual(manifest.cxxLanguageStandard, "gnu++14")
+            XCTAssertEqual(manifest.displayName, "testPackage")
+            XCTAssertEqual(manifest.cLanguageStandard, "iso9899:199409")
+            XCTAssertEqual(manifest.cxxLanguageStandard, "gnu++14")
+        }
     }
 
     func testManifestWithWarnings() async throws {
