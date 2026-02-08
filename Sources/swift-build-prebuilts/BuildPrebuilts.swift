@@ -151,11 +151,13 @@ struct BuildPrebuilts: AsyncParsableCommand {
 
             // Build
             let cModules = libraryTargets.compactMap({ $0 as? ClangModule })
-            let lib = "lib\(libraryName).a"
 
             for platform in hostPlatform.supportedPlatforms {
                 try fileSystem.createDirectory(libDir, recursive: true)
                 try fileSystem.createDirectory(modulesDir, recursive: true)
+
+                let lib = "lib\(libraryName).a"
+                let destLib = platform.os == .windows ? "\(libraryName).lib" : lib
 
                 // Clean out the scratch dir
                 if fileSystem.exists(scratchDir) {
@@ -217,7 +219,7 @@ struct BuildPrebuilts: AsyncParsableCommand {
                     }
 
                     // Copy the library to staging
-                    try fileSystem.copy(from: buildDir.appending(lib), to: libDir.appending(lib))
+                    try fileSystem.copy(from: buildDir.appending(lib), to: libDir.appending(destLib))
                 }
 
                 // Name of the prebuilt
