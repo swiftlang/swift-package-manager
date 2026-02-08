@@ -521,8 +521,7 @@ struct PackagePIFProjectBuilder {
             toolsVersion: toolsVersion,
             additionalFileRules: Self.additionalFileRules,
             defaultLocalization: module.defaultLocalization,
-            targetName: module.name,
-            targetPath: module.path,
+            module: module.underlying,
             observabilityScope: observabilityScope
         )
     }

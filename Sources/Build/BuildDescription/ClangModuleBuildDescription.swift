@@ -272,6 +272,9 @@ public final class ClangModuleBuildDescription {
             args += ["-Xcc", "-std=\(cxxLanguageStandard)"]
         }
         args += ["-I", self.clangTarget.includeDir.pathString]
+        for path in pluginDerivedPublicHeaderPaths {
+            args += ["-I", path.pathString]
+        }
         args += self.additionalFlags.asSwiftcCCompilerFlags()
         // Unconditionally use clang modules with swift tools.
         args += try self.clangModuleArguments().asSwiftcCCompilerFlags()
@@ -331,6 +334,10 @@ public final class ClangModuleBuildDescription {
         }
 
         args += ["-I", clangTarget.includeDir.pathString]
+        for path in pluginDerivedPublicHeaderPaths {
+            args += ["-I", path.pathString]
+        }
+
         args += additionalFlags
 
         args += buildParameters.sanitizers.compileCFlags()

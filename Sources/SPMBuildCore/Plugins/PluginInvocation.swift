@@ -629,8 +629,7 @@ extension ModulesGraph {
                 toolsVersion: toolsVersion,
                 additionalFileRules: additionalFileRules,
                 defaultLocalization: target.defaultLocalization,
-                targetName: target.name,
-                targetPath: target.underlying.path,
+                module: target.underlying,
                 observabilityScope: observabilityScope
             )
             generatedFiles.add(files)
@@ -651,8 +650,7 @@ extension ModulesGraph {
                 toolsVersion: toolsVersion,
                 additionalFileRules: additionalFileRules,
                 defaultLocalization: target.defaultLocalization,
-                targetName: target.name,
-                targetPath: target.underlying.path,
+                module: target.underlying,
                 observabilityScope: observabilityScope
             )
             generatedFiles.add(files)
