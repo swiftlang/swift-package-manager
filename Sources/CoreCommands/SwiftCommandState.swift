@@ -848,7 +848,7 @@ public final class SwiftCommandState {
         return rootManifests.values.map { $0.toolsVersion }.min()
     }
 
-    func getManifestLoader() throws -> ManifestLoader {
+    func getManifestLoader() throws -> any ManifestLoaderProtocol {
         try self._manifestLoader.get()
     }
 
@@ -1113,7 +1113,16 @@ public final class SwiftCommandState {
         )
     })
 
-    private lazy var _manifestLoader: Result<ManifestLoader, Swift.Error> = Result(catching: {
+    private func createParsingManifestLoader() throws -> ParsingManifestLoader {
+        return try ParsingManifestLoader(
+            toolchain: self.getHostToolchain(),
+            pruneDependencies: self.options.resolver.pruneDependencies,
+            extraManifestFlags: self.options.build.manifestFlags,
+            environment: nil
+        )
+    }
+
+    private func createExecutingManifestLoader() throws -> ManifestLoader {
         let cachePath: AbsolutePath? = switch (
             self.options.caching.shouldDisableManifestCaching,
             self.options.caching.manifestCachingMode
@@ -1143,6 +1152,21 @@ public final class SwiftCommandState {
             importRestrictions: .none,
             pruneDependencies: self.options.resolver.pruneDependencies
         )
+    }
+
+    private lazy var _manifestLoader: Result<any ManifestLoaderProtocol, Swift.Error> = Result(
+        catching: {
+            switch self.options.manifest.manifestProcessingMode {
+            case .onlyParsed: try createParsingManifestLoader()
+            case .onlyExecuted: try createExecutingManifestLoader()
+            case .crosscheck, .parsedWithFallback:
+                ChainedParsingManifestLoader(
+                    parsingLoader: try createParsingManifestLoader(),
+                    executingLoader: try createExecutingManifestLoader(),
+                    showLimitations: self.options.manifest.showManifestParserLimitations,
+                    crosscheck: self.options.manifest.manifestProcessingMode == .crosscheck
+                )
+        }
     })
 
     /// An enum indicating the execution status of run commands.
