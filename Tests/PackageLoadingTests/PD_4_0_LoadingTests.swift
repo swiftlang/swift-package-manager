@@ -29,15 +29,21 @@ final class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        let observability = ObservabilitySystem.makeForTesting()
-        let (manifest, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
-        XCTAssertNoDiagnostics(observability.diagnostics)
-        XCTAssertNoDiagnostics(validationDiagnostics)
+        for loader in self.testManifestLoaders {
+            let observability = ObservabilitySystem.makeForTesting()
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                content,
+                customManifestLoader: loader,
+                observabilityScope: observability.topScope
+            )
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertNoDiagnostics(validationDiagnostics)
 
-        XCTAssertEqual(manifest.displayName, "Trivial")
-        XCTAssertEqual(manifest.toolsVersion, .v4)
-        XCTAssertEqual(manifest.targets, [])
-        XCTAssertEqual(manifest.dependencies, [])
+            XCTAssertEqual(manifest.displayName, "Trivial")
+            XCTAssertEqual(manifest.toolsVersion, .v4)
+            XCTAssertEqual(manifest.targets, [])
+            XCTAssertEqual(manifest.dependencies, [])
+        }
     }
 
     func testTargetDependencies() async throws {
