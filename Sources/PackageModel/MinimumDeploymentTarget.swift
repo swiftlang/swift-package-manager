@@ -58,6 +58,24 @@ public struct MinimumDeploymentTarget {
         return nil
     }
 
+    /// Temporary hard-coded minimum deployment targets for test targets.
+    static func absoluteXCTestMinimumDeploymentTarget(platform: PackageModel.Platform) -> PlatformVersion? {
+        switch platform {
+        case .macOS:
+            PlatformVersion("14.0")
+        case .iOS:
+            PlatformVersion("17.0")
+        case .watchOS:
+            PlatformVersion("10.0")
+        case .tvOS:
+            PlatformVersion("17.0")
+        case .visionOS:
+            PlatformVersion("1.0")
+        default:
+            nil
+        }
+    }
+
     static func computeXCTestMinimumDeploymentTarget(with runResult: AsyncProcessResult, platform: PackageModel.Platform) throws -> PlatformVersion? {
         guard let output = try runResult.utf8Output().spm_chuzzle() else { return nil }
         let sdkPath = try Basics.AbsolutePath(validating: output)
@@ -66,6 +84,7 @@ public struct MinimumDeploymentTarget {
         let targets = [
             try computeMinimumDeploymentTarget(of: xcTestPath, platform: platform),
             try computeMinimumDeploymentTarget(of: swiftTestingPath, platform: platform),
+            absoluteXCTestMinimumDeploymentTarget(platform: platform),
         ]
         return targets.compactMap(\.self).max()
     }
@@ -75,7 +94,7 @@ public struct MinimumDeploymentTarget {
             return platform.oldestSupportedVersion
         }
 
-        // On macOS, we are determining the deployment target by looking at the XCTest binary.
+        // On macOS, we are determining the deployment target by looking at the XCTest and Swift Testing binaries.
         #if os(macOS)
         do {
             let runResult = try AsyncProcess.popen(arguments: ["/usr/bin/xcrun", "--sdk", sdkName, "--show-sdk-platform-path"])
