@@ -206,4 +206,135 @@ struct LLBuildManifestBuilderTests {
         // Ensure that Objects.LinkFileList is -tool suffixed.
         #expect(manifest.commands[AbsolutePath("/path/to/build/aarch64-unknown-linux-gnu/debug/MMIOMacros-tool.product/Objects.LinkFileList").pathString] != nil)
     }
+
+    /// Verifies the DLLs in an artifact bundle are copied to the output directory on Windows only
+    @Test
+    func windowsDLLsInArtifactBundle() async throws {
+        let fs = InMemoryFileSystem(
+            emptyFiles: [
+                "/MyPkg/Sources/MyExe/MyExe.swift"
+            ]
+        )
+
+        try fs.writeFileContents("/MyPkg/my.artifactbundle/info.json", string: """
+            {
+              "schemaVersion": "1.0",
+              "artifacts": {
+                "MyBinaryLib": {
+                  "version": "1",
+                  "type": "staticLibrary",
+                  "variants": [
+                    {
+                      "path": "x86_64-unknown-windows-msvc/MyBinaryLib.lib",
+                      "staticLibraryMetadata": {
+                        "headerPaths": [
+                          "include"
+                        ]
+                      },
+                      "supportedTriples": [
+                        "x86_64-unknown-windows-msvc"
+                      ]
+                    },
+                    {
+                      "path": "arm64-apple-macosx/libMyBinaryLib.a",
+                      "staticLibraryMetadata": {
+                        "headerPaths": [
+                          "include"
+                        ]
+                      },
+                      "supportedTriples": [
+                        "arm64-apple-macosx"
+                      ]
+                    },
+                  ]
+                },
+                "MyBinaryLib.DLL": {
+                  "type": "executable",
+                  "version": "1.0.0",
+                  "variants": [
+                    {
+                      "path": "x86_64-unknown-windows-msvc/MyBinaryLib.dll",
+                      "supportedTriples": [
+                        "x86_64-unknown-windows-msvc"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+            """)
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                .createRootManifest(
+                    displayName: "MyPkg",
+                    path: "/MyPkg",
+                    products: [
+                        .init(name: "MyExe", type: .executable, targets: ["MyExe"])
+                    ],
+                    targets: [
+                        .init(name: "MyBinaryLib", path: "dist", type: .binary),
+                        .init(name: "MyExe", dependencies: ["MyBinaryLib"], type: .executable),
+                    ]
+                )
+            ],
+            binaryArtifacts: [
+                .plain("MyPkg"): [
+                    "MyBinaryLib": .init(
+                        kind: .artifactsArchive(types: [
+                            .staticLibrary,
+                            .executable,
+                        ]),
+                        originURL: nil, path: "/MyPkg/my.artifactbundle")
+                ]
+            ],
+            observabilityScope: observability.topScope
+        )
+        #expect(!observability.hasErrorDiagnostics)
+
+        let windowsPlan = try await mockBuildPlan(
+            triple: .x86_64Windows,
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+        #expect(!observability.hasErrorDiagnostics)
+
+        let windowsBuild = LLBuildManifestBuilder(windowsPlan, fileSystem: fs, observabilityScope: observability.topScope)
+        #expect(!observability.hasErrorDiagnostics)
+        let windowsManifest = try windowsBuild.generateManifest(at: "/windows.manifest")
+
+        let windowsLink = try #require(windowsManifest.commands["C.MyExe-x86_64-unknown-windows-msvc-debug.exe"])
+        let windowsLinkTool = try #require(windowsLink.tool as? ShellTool)
+        #expect(windowsLinkTool.arguments.contains("-lMyBinaryLib"))
+
+        let windowsDLLCopy = try #require(windowsManifest.commands["/path/to/build/x86_64-unknown-windows-msvc/debug/MyBinaryLib.dll"])
+        let windowsDLLCopyTool = try #require(windowsDLLCopy.tool as? CopyTool)
+        #expect(
+            windowsDLLCopyTool.inputs == [.file("/MyPkg/my.artifactbundle/x86_64-unknown-windows-msvc/MyBinaryLib.dll")]
+            && windowsDLLCopyTool.outputs == [.file("/path/to/build/x86_64-unknown-windows-msvc/debug/MyBinaryLib.dll")]
+        )
+
+        let macosPlan = try await mockBuildPlan(
+            triple: .arm64MacOS,
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+        #expect(!observability.hasErrorDiagnostics)
+
+        let macosBuild = LLBuildManifestBuilder(macosPlan, fileSystem: fs, observabilityScope: observability.topScope)
+        #expect(!observability.hasErrorDiagnostics)
+        let macosManifest = try macosBuild.generateManifest(at: "/macos.manifest")
+
+        let macosLink = try #require(macosManifest.commands["C.MyExe-arm64-apple-macosx-debug.exe"])
+        let macosLinkTool = try #require(macosLink.tool as? ShellTool)
+        #expect(macosLinkTool.arguments.contains("-lMyBinaryLib"))
+
+        #expect(!macosManifest.commands.contains(where: {
+            $0.value.tool.inputs.contains(.file("/MyPkg/my.artifactbundle/x86_64-unknown-windows-msvc/MyBinaryLib.dll"))
+        }))
+    }
 }
