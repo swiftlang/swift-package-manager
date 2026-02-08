@@ -205,9 +205,6 @@ fileprivate extension SourceCodeFragment {
                 traits.allSatisfy(\.isDefaultsCase)
 
             if !isDefault {
-                let traits = traits.sorted { a, b in
-                    PackageDependency.Trait.precedes(a, b)
-                }
                 params.append(
                     SourceCodeFragment(
                         key: "traits",
@@ -249,7 +246,7 @@ fileprivate extension SourceCodeFragment {
             params.append(
                 SourceCodeFragment(
                     key: "traits",
-                    subnodes: trait.sorted().map {
+                    subnodes: trait.map {
                         SourceCodeFragment(string: $0)
                     }
                 )
@@ -328,7 +325,7 @@ fileprivate extension SourceCodeFragment {
     init(from trait: TraitDescription) {
         let enabledTraitsNode = SourceCodeFragment(
             key: "enabledTraits",
-            subnodes: trait.enabledTraits.sorted().map {
+            subnodes: trait.enabledTraits.map {
                 SourceCodeFragment(string: $0)
             }
         )
@@ -529,7 +526,7 @@ fileprivate extension SourceCodeFragment {
         }
         if let traits = condition.traits {
             params.append(
-                SourceCodeFragment(key: "traits", subnodes: traits.sorted().map { trait in
+                SourceCodeFragment(key: "traits", subnodes: traits.map { trait in
                     SourceCodeFragment(string: trait)
                 })
             )
