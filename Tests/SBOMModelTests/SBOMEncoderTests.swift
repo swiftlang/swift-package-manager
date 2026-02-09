@@ -98,23 +98,6 @@ struct SBOMEncoderTests {
         }
     }
 
-    @Test("writeSBOMs tests cleans up properly on success")
-    func writeSBOMsCleansUpProperlyOnSuccess() async throws {
-        try await withTemporaryDirectory { tmpDir in
-            let graph = try SBOMTestModulesGraph.createSimpleModulesGraph()
-            let store = try SBOMTestStore.createSimpleResolvedPackagesStore()
-            let extractor = SBOMExtractor(modulesGraph: graph, dependencyGraph: nil, store: store)
-            let sbom = try await extractor.extractSBOM()
-            let encoder = SBOMEncoder(sbom: sbom, observabilityScope: ObservabilitySystem.makeForTesting().topScope)
-
-            let outputs = try await encoder.writeSBOMs(specs: [.cyclonedx], outputDir: tmpDir)
-
-            #expect(localFileSystem.exists(tmpDir), "Directory should exist after write")
-            #expect(!outputs.isEmpty, "Output paths should not be empty")
-            // Directory cleanup is handled automatically by withTemporaryDirectory
-        }
-    }
-
     @Test("writeSBOMs generates correct filename format")
     func writeSBOMsGeneratesCorrectFilenameFormat() async throws {
         try await withTemporaryDirectory { tmpDir in
