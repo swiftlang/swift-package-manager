@@ -7905,7 +7905,7 @@ struct PackageCommandTests {
                 )
                 #expect(stderr.contains("SBOMs created"))
 
-                let prefix = "created SBOM at "
+                let prefix = " SBOM at "
                 let range = try #require(stderr.range(of: prefix), "Could not find '\(prefix)' in output")
                 let endRange = try #require(stderr[range.upperBound...].range(of: ".json"), "Could not find '.json' in output")
                 let pathString = String(stderr[range.upperBound..<endRange.upperBound])
@@ -7933,7 +7933,7 @@ struct PackageCommandTests {
 
                 #expect(stderr.contains("SBOMs created"))
 
-                let prefix = "created SBOM at "
+                let prefix = " SBOM at "
                 let range = try #require(stderr.range(of: prefix), "Could not find '\(prefix)' in output")
                 let endRange = try #require(stderr[range.upperBound...].range(of: ".json"), "Could not find '.json' in output")
                 let pathString = String(stderr[range.upperBound..<endRange.upperBound])
@@ -7983,7 +7983,7 @@ struct PackageCommandTests {
                 )
                 #expect(stderr.contains("SBOMs created"))
 
-                let prefix = "created SBOM at "
+                let prefix = " SBOM at "
                 let range = try #require(stderr.range(of: prefix), "Could not find '\(prefix)' in output")
                 let endRange = try #require(stderr[range.upperBound...].range(of: ".json"), "Could not find '.json' in output")
                 let pathString = String(stderr[range.upperBound..<endRange.upperBound])
@@ -8030,7 +8030,7 @@ struct PackageCommandTests {
                 )
                 #expect(stderr.contains("SBOMs created"))
 
-                let prefix = "created SBOM at "
+                let prefix = " SBOM at "
                 let range = try #require(stderr.range(of: prefix), "Could not find '\(prefix)' in output")
                 let endRange = try #require(stderr[range.upperBound...].range(of: ".json"), "Could not find '.json' in output")
                 let pathString = String(stderr[range.upperBound..<endRange.upperBound])
