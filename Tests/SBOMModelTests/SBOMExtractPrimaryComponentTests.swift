@@ -19,6 +19,11 @@ import SourceControl
 import Testing
 import class TSCBasic.Process
 
+@Suite(
+    .tags(
+        .Feature.SBOM
+    )
+)
 struct SBOMExtractPrimaryComponentTests {
     @Test("extractPrimaryComponent from sample SwiftPM ModulesGraph")
     func extractPrimaryComponentFromSPMModulesGraph() async throws {

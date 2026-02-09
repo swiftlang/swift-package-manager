@@ -14,6 +14,11 @@ import Foundation
 @testable import SBOMModel
 import Testing
 
+@Suite(
+    .tags(
+        .Feature.SBOM
+    )
+)
 struct SPDXConverterTests {
     @Test("convertToAgent with nil metadata")
     func convertToAgentWithNilMetadata() async throws {

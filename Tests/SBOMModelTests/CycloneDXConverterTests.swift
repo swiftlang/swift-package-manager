@@ -14,6 +14,11 @@ import Foundation
 @testable import SBOMModel
 import Testing
 
+@Suite(
+    .tags(
+        .Feature.SBOM
+    )
+)
 struct CycloneDXConverterTests {
     @Test("convertToPedigree with nil commits")
     func convertToPedigreeWithNilCommits() async throws {

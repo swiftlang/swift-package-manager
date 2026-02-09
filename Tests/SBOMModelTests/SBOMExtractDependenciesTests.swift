@@ -16,6 +16,11 @@ import PackageGraph
 @testable import SBOMModel
 import Testing
 
+@Suite(
+    .tags(
+        .Feature.SBOM
+    )
+)
 struct SBOMExtractDependenciesTests {
 
     // MARK: - Helper Methods for Validation

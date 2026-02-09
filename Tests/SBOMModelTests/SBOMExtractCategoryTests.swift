@@ -18,6 +18,11 @@ import PackageModel
 @testable import SBOMModel
 import Testing
 
+@Suite(
+    .tags(
+        .Feature.SBOM
+    )
+)
 struct SBOMExtractCategoryTests {
     // MARK: - Product Category Tests
 

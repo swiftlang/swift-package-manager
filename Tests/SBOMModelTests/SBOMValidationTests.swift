@@ -17,6 +17,11 @@ import PackageGraph
 @testable import SBOMModel
 import Testing
 
+@Suite(
+    .tags(
+        .Feature.SBOM
+    )
+)
 struct SBOMValidationTests {
     struct ValidateGraphSBOMTestCase: CustomStringConvertible {
         let graphName: String
