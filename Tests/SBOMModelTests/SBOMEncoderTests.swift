@@ -18,10 +18,10 @@ import PackageGraph
 import Testing
 
 struct SBOMEncoderTests {
-    private func verifyJSONFile(at path: AbsolutePath) throws {
-        #expect(localFileSystem.exists(path), "File should exist at \(path)")
+    private func verifyJSONFile(at path: AbsolutePath, fileSystem: any FileSystem = localFileSystem) throws {
+        #expect(fileSystem.exists(path), "File should exist at \(path)")
 
-        let data = try localFileSystem.readFileContents(path)
+        let data = try fileSystem.readFileContents(path)
         let jsonObject = try JSONSerialization.jsonObject(with: Data(data.contents))
         #expect(jsonObject is [String: Any], "File should contain valid JSON object")
     }
@@ -199,5 +199,116 @@ struct SBOMEncoderTests {
                 try self.verifyJSONFile(at: filePath)
             }
         }
+    }
+}
+
+// MARK: - InMemoryFileSystem Tests
+extension SBOMEncoderTests {
+    @Test("writeSBOMs with InMemoryFileSystem creates directory")
+    func writeSBOMsWithInMemoryFileSystemCreatesDirectory() async throws {
+        let fs = InMemoryFileSystem()
+        let outputDir = try AbsolutePath(validating: "/output")
+        
+        let graph = try SBOMTestModulesGraph.createSimpleModulesGraph()
+        let store = try SBOMTestStore.createSimpleResolvedPackagesStore()
+        let extractor = SBOMExtractor(modulesGraph: graph, dependencyGraph: nil, store: store)
+        let sbom = try await extractor.extractSBOM()
+        let encoder = SBOMEncoder(sbom: sbom, observabilityScope: ObservabilitySystem.makeForTesting().topScope)
+
+        let outputs = try await encoder.writeSBOMs(specs: [.cyclonedx], outputDir: outputDir, fileSystem: fs)
+
+        #expect(fs.exists(outputDir), "Output directory should be created in InMemoryFileSystem")
+        #expect(!outputs.isEmpty, "Output paths should not be empty")
+        
+        // Verify file was written to in-memory filesystem
+        let files = try fs.getDirectoryContents(outputDir)
+        #expect(files.count == 1, "Should write exactly one file")
+    }
+
+    @Test("writeSBOMs with InMemoryFileSystem writes valid JSON")
+    func writeSBOMsWithInMemoryFileSystemWritesValidJSON() async throws {
+        let fs = InMemoryFileSystem()
+        let outputDir = try AbsolutePath(validating: "/output")
+        
+        let graph = try SBOMTestModulesGraph.createSimpleModulesGraph()
+        let store = try SBOMTestStore.createSimpleResolvedPackagesStore()
+        let extractor = SBOMExtractor(modulesGraph: graph, dependencyGraph: nil, store: store)
+        let sbom = try await extractor.extractSBOM()
+        let encoder = SBOMEncoder(sbom: sbom, observabilityScope: ObservabilitySystem.makeForTesting().topScope)
+
+        let outputs = try await encoder.writeSBOMs(specs: [.cyclonedx], outputDir: outputDir, fileSystem: fs)
+
+        #expect(!outputs.isEmpty, "Output paths should not be empty")
+        
+        // Verify the file content is valid JSON
+        let outputPath = outputs[0]
+        try self.verifyJSONFile(at: outputPath, fileSystem: fs)
+    }
+
+    @Test("writeSBOMs with InMemoryFileSystem handles multiple specs")
+    func writeSBOMsWithInMemoryFileSystemHandlesMultipleSpecs() async throws {
+        let fs = InMemoryFileSystem()
+        let outputDir = try AbsolutePath(validating: "/output")
+        
+        let graph = try SBOMTestModulesGraph.createSimpleModulesGraph()
+        let store = try SBOMTestStore.createSimpleResolvedPackagesStore()
+        let extractor = SBOMExtractor(modulesGraph: graph, dependencyGraph: nil, store: store)
+        let sbom = try await extractor.extractSBOM()
+        let encoder = SBOMEncoder(sbom: sbom, observabilityScope: ObservabilitySystem.makeForTesting().topScope)
+
+        let outputs = try await encoder.writeSBOMs(specs: [.cyclonedx, .spdx], outputDir: outputDir, fileSystem: fs)
+
+        #expect(outputs.count == 2, "Should generate two output paths")
+        
+        let files = try fs.getDirectoryContents(outputDir)
+        #expect(files.count == 2, "Should write two files to InMemoryFileSystem")
+        
+        // Verify both files are valid JSON
+        for outputPath in outputs {
+            try self.verifyJSONFile(at: outputPath, fileSystem: fs)
+        }
+    }
+
+    @Test("encodeSBOM with InMemoryFileSystem writes file")
+    func encodeSBOMWithInMemoryFileSystemWritesFile() async throws {
+        let fs = InMemoryFileSystem()
+        let outputDir = try AbsolutePath(validating: "/output")
+        
+        let graph = try SBOMTestModulesGraph.createSimpleModulesGraph()
+        let store = try SBOMTestStore.createSimpleResolvedPackagesStore()
+        let extractor = SBOMExtractor(modulesGraph: graph, dependencyGraph: nil, store: store)
+        let sbom = try await extractor.extractSBOM()
+        let encoder = SBOMEncoder(sbom: sbom, observabilityScope: ObservabilitySystem.makeForTesting().topScope)
+        let spec = SBOMSpec(spec: .cyclonedx1)
+
+        let outputPath = try await encoder.encodeSBOM(spec: spec, outputDir: outputDir, fileSystem: fs)
+
+        #expect(fs.exists(outputPath), "File should exist in InMemoryFileSystem")
+        try self.verifyJSONFile(at: outputPath, fileSystem: fs)
+    }
+
+    @Test("writeSBOMs with InMemoryFileSystem isolates test from filesystem")
+    func writeSBOMsWithInMemoryFileSystemIsolatesTestFromFilesystem() async throws {
+        let fs = InMemoryFileSystem()
+        let outputDir = try AbsolutePath(validating: "/isolated-test-output")
+        
+        let graph = try SBOMTestModulesGraph.createSimpleModulesGraph()
+        let store = try SBOMTestStore.createSimpleResolvedPackagesStore()
+        let extractor = SBOMExtractor(modulesGraph: graph, dependencyGraph: nil, store: store)
+        let sbom = try await extractor.extractSBOM()
+        let encoder = SBOMEncoder(sbom: sbom, observabilityScope: ObservabilitySystem.makeForTesting().topScope)
+
+        let outputs = try await encoder.writeSBOMs(specs: [.cyclonedx, .spdx], outputDir: outputDir, fileSystem: fs)
+
+        // Verify files exist in InMemoryFileSystem
+        #expect(fs.exists(outputDir), "Directory should exist in InMemoryFileSystem")
+        #expect(outputs.count == 2, "Should generate two files")
+        
+        // Verify files do NOT exist on actual filesystem
+        #expect(!localFileSystem.exists(outputDir), "Directory should NOT exist on actual filesystem")
+        
+        // Verify we can read from InMemoryFileSystem
+        let files = try fs.getDirectoryContents(outputDir)
+        #expect(files.count == 2, "Should have two files in InMemoryFileSystem")
     }
 }
