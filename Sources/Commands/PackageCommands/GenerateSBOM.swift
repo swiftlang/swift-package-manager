@@ -61,16 +61,16 @@ extension SwiftPackageCommand {
                 observabilityScope: swiftCommandState.observabilityScope
             )
 
-            swiftCommandState.observabilityScope.emit(info: "Creating SBOMs...")
+            swiftCommandState.observabilityScope.print("Creating SBOMs...", verbose: true)
             let sbomStartTime = ContinuousClock.Instant.now
             let creator = SBOMCreator(input: input)
             let sbomPaths = try await creator.createSBOMs()
             let duration = ContinuousClock.Instant.now - sbomStartTime
             let formattedDuration = duration.formatted(.units(allowed: [.seconds], fractionalPart: .show(length: 2, rounded: .up)))
             for sbomPath in sbomPaths {
-                swiftCommandState.observabilityScope.emit(info: "- created SBOM at \(sbomPath.pathString)")
+                swiftCommandState.observabilityScope.print("- created SBOM at \(sbomPath.pathString)", verbose: true)
             }
-            swiftCommandState.observabilityScope.emit(info: "SBOMs created  (\(formattedDuration))")
+            swiftCommandState.observabilityScope.print("SBOMs created  (\(formattedDuration))", verbose: true)
             swiftCommandState.observabilityScope.emit(warning: "`generate-sbom` subcommand may be inaccurate as it does not contain build-time conditionals.")
         }
     }
