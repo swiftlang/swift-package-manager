@@ -33,7 +33,7 @@ internal struct SBOMEncoder {
             let outputPath = try await self.encodeSBOM(spec: spec, outputDir: outputDir, filter: filter, fileSystem: fileSystem)
             outputPaths.append(outputPath)
         }
-        return outputPaths
+        return outputPaths.sorted()
     }
 
     internal func encodeSBOM(spec: SBOMSpec, outputDir: AbsolutePath, filter: Filter = .all, fileSystem: any FileSystem = localFileSystem) async throws -> AbsolutePath {
