@@ -78,7 +78,21 @@ internal struct SBOMSpec: Codable, Equatable, Hashable, Comparable {
         SBOMVersionRegistry.getLatestVersion(for: self)
     }
 
-        /// Returns `true` if this spec type supports CycloneDX format.
+    /// Returns the schema filename (without .json extension) for this spec type
+    internal var schemaFilename: String {
+        switch self.concreteSpec {
+        case .cyclonedx1:
+            CycloneDXConstants.cyclonedx1SchemaFile
+        case .spdx3:
+            SPDXConstants.spdx3SchemaFile
+            // case .cyclonedx2:
+            //     CycloneDXConstants.cyclonedx2SchemaFile
+            // case .spdx4:
+            //     SPDXConstants.spdx4SchemaFile
+        }
+    }
+
+    /// Returns `true` if this spec type supports CycloneDX format.
     internal var supportsCycloneDX: Bool {
         switch self.concreteSpec {
         case .cyclonedx1: // .cyclonedx2

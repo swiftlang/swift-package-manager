@@ -67,7 +67,8 @@ private extension Bundle {
 internal struct SBOMSchema {
     private let schema: [String: Any]
 
-    internal init(from schemaFilename: String, bundleName: String = "SwiftPM_SBOMModel") async throws {
+    internal init(spec: SBOMSpec, bundleName: String = "SwiftPM_SBOMModel") async throws {
+        let schemaFilename = spec.schemaFilename
         if let foundBundle = await Bundle.findBundle(named: bundleName),
            let schemaURL = foundBundle.url(forResource: schemaFilename, withExtension: "json") {
             let schemaData = try Data(contentsOf: schemaURL)
