@@ -28,8 +28,15 @@ package func containsAtMain(fileSystem: FileSystem, path: AbsolutePath) throws -
         if line.hasPrefix("/*") {
             multilineComment = true
         }
-        if line.hasSuffix("*/") {
+        if line.contains("*/") {
             multilineComment = false
+            // Comment may end mid-line; check remainder for @main (e.g. "*/ @main")
+            if let endIndex = line.range(of: "*/")?.upperBound, endIndex < line.endIndex {
+                let afterComment = line[endIndex...].trimmingCharacters(in: .whitespaces)
+                if afterComment.hasPrefix("@main") {
+                    return true
+                }
+            }
         }
         if multilineComment {
             continue
