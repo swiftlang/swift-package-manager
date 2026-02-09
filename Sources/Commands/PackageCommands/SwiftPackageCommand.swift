@@ -60,6 +60,8 @@ public struct SwiftPackageCommand: AsyncParsableCommand {
             Resolve.self,
             Fetch.self,
 
+            GenerateSbom.self, 
+            
             ShowDependencies.self,
             ShowExecutables.self,
             ShowTraits.self,
@@ -71,10 +73,6 @@ public struct SwiftPackageCommand: AsyncParsableCommand {
 
             DefaultCommand.self,
         ]
-        // TODO echeng3805: remove the if block here once ready
-        if ProcessInfo.processInfo.environment["SWIFTPM_EVOLUTION_PROPOSAL_0509"] == "1" {
-            subcommands.append(GenerateSbom.self)
-        }
         if ProcessInfo.processInfo.environment["SWIFTPM_ENABLE_SNIPPETS"] == "1" {
             subcommands.append(Learn.self)
         }
