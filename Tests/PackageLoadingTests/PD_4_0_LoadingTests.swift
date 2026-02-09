@@ -29,7 +29,7 @@ final class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        for loader in self.testManifestLoaders {
+        try await forEachManifestLoader { loader in
             let observability = ObservabilitySystem.makeForTesting()
             let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
                 content,
@@ -43,6 +43,8 @@ final class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
             XCTAssertEqual(manifest.toolsVersion, .v4)
             XCTAssertEqual(manifest.targets, [])
             XCTAssertEqual(manifest.dependencies, [])
+
+            return manifest
         }
     }
 
@@ -65,7 +67,7 @@ final class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        for loader in self.testManifestLoaders {
+        try await forEachManifestLoader { loader in
             let observability = ObservabilitySystem.makeForTesting()
             let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
                 content,
@@ -93,19 +95,21 @@ final class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
             XCTAssertEqual(bar.name, "bar")
             XCTAssertTrue(bar.isTest)
             XCTAssertEqual(bar.dependencies, ["foo"])
+            
+            return manifest
         }
     }
 
     func testCompatibleSwiftVersions() async throws {
-        for loader in self.testManifestLoaders {
-            do {
-                let content = """
-                    import PackageDescription
-                    let package = Package(
-                       name: "Foo",
-                       swiftLanguageVersions: [3, 4]
-                    )
-                    """
+        do {
+            let content = """
+                import PackageDescription
+                let package = Package(
+                   name: "Foo",
+                   swiftLanguageVersions: [3, 4]
+                )
+                """
+            try await forEachManifestLoader { loader in
                 let observability = ObservabilitySystem.makeForTesting()
                 let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
                     content,
@@ -115,16 +119,19 @@ final class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
                 XCTAssertNoDiagnostics(observability.diagnostics)
                 XCTAssertNoDiagnostics(validationDiagnostics)
                 XCTAssertEqual(manifest.swiftLanguageVersions?.map({$0.rawValue}), ["3", "4"])
+                return manifest
             }
+        }
 
-            do {
-                let content = """
-                    import PackageDescription
-                    let package = Package(
-                       name: "Foo",
-                       swiftLanguageVersions: []
-                    )
-                    """
+        do {
+            let content = """
+                import PackageDescription
+                let package = Package(
+                   name: "Foo",
+                   swiftLanguageVersions: []
+                )
+                """
+            try await forEachManifestLoader { loader in
                 let observability = ObservabilitySystem.makeForTesting()
                 let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
                     content,
@@ -134,14 +141,17 @@ final class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
                 XCTAssertNoDiagnostics(observability.diagnostics)
                 XCTAssertNoDiagnostics(validationDiagnostics)
                 XCTAssertEqual(manifest.swiftLanguageVersions, [])
+                return manifest
             }
+        }
 
-            do {
-                let content = """
-                    import PackageDescription
-                    let package = Package(
-                       name: "Foo")
-                    """
+        do {
+            let content = """
+                import PackageDescription
+                let package = Package(
+                   name: "Foo")
+                """
+            try await forEachManifestLoader { loader in
                 let observability = ObservabilitySystem.makeForTesting()
                 let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
                     content,
@@ -151,6 +161,7 @@ final class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
                 XCTAssertNoDiagnostics(observability.diagnostics)
                 XCTAssertNoDiagnostics(validationDiagnostics)
                 XCTAssertEqual(manifest.swiftLanguageVersions, nil)
+                return manifest
             }
         }
     }
@@ -202,7 +213,7 @@ final class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        for loader in self.testManifestLoaders {
+        try await forEachManifestLoader { loader in
             let observability = ObservabilitySystem.makeForTesting()
             let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
                 content,
@@ -228,6 +239,8 @@ final class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
             XCTAssertEqual(fooDy.name, "FooDy")
             XCTAssertEqual(fooDy.type, .library(.dynamic))
             XCTAssertEqual(fooDy.targets, ["Foo"])
+            
+            return manifest
         }
     }
 
@@ -244,7 +257,7 @@ final class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        for loader in self.testManifestLoaders {
+        try await forEachManifestLoader { loader in
             let observability = ObservabilitySystem.makeForTesting()
             let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
                 content,
@@ -260,6 +273,8 @@ final class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
                 .brew(["openssl"]),
                 .apt(["openssl", "libssl-dev"]),
             ])
+            
+            return manifest
         }
     }
 
@@ -278,7 +293,7 @@ final class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        for loader in self.testManifestLoaders {
+        try await forEachManifestLoader { loader in
             let observability = ObservabilitySystem.makeForTesting()
             let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
                 content,
@@ -293,6 +308,8 @@ final class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
 
             let bar = manifest.targetMap["Bar"]!
             XCTAssertEqual(bar.publicHeadersPath, nil)
+            
+            return manifest
         }
     }
 
@@ -314,7 +331,7 @@ final class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        for loader in self.testManifestLoaders {
+        try await forEachManifestLoader { loader in
             let observability = ObservabilitySystem.makeForTesting()
             let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
                 content,
@@ -335,6 +352,8 @@ final class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
             XCTAssertEqual(bar.path, nil)
             XCTAssertEqual(bar.exclude, [])
             XCTAssert(bar.sources == nil)
+            
+            return manifest
         }
     }
 
@@ -376,7 +395,7 @@ final class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
             )
         """
 
-        for loader in self.testManifestLoaders {
+        try await forEachManifestLoader { loader in
             let observability = ObservabilitySystem.makeForTesting()
             let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
                 content,
@@ -389,6 +408,8 @@ final class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
             XCTAssertEqual(manifest.displayName, "testPackage")
             XCTAssertEqual(manifest.cLanguageStandard, "iso9899:199409")
             XCTAssertEqual(manifest.cxxLanguageStandard, "gnu++14")
+            
+            return manifest
         }
     }
 

@@ -117,17 +117,17 @@ final class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testSwiftLanguageVersionsNew() async throws {
-        for loader in self.testManifestLoaders {
-            // Check when Swift language versions is empty.
-            do {
-                let content = """
-                    import PackageDescription
-                    let package = Package(
-                       name: "Foo",
-                       swiftLanguageVersions: []
-                    )
-                    """
+        // Check when Swift language versions is empty.
+        do {
+            let content = """
+                import PackageDescription
+                let package = Package(
+                   name: "Foo",
+                   swiftLanguageVersions: []
+                )
+                """
 
+            try await forEachManifestLoader { loader in
                 let observability = ObservabilitySystem.makeForTesting()
                 let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
                     content,
@@ -138,17 +138,21 @@ final class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                 XCTAssertNoDiagnostics(validationDiagnostics)
 
                 XCTAssertEqual(manifest.swiftLanguageVersions, [])
+                
+                return manifest
             }
+        }
 
-            do {
-                let content = """
-                    import PackageDescription
-                    let package = Package(
-                       name: "Foo",
-                       swiftLanguageVersions: [.v3, .v4, .v4_2, .version("5")]
-                    )
-                    """
+        do {
+            let content = """
+                import PackageDescription
+                let package = Package(
+                   name: "Foo",
+                   swiftLanguageVersions: [.v3, .v4, .v4_2, .version("5")]
+                )
+                """
 
+            try await forEachManifestLoader { loader in
                 let observability = ObservabilitySystem.makeForTesting()
                 let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
                     content,
@@ -162,33 +166,33 @@ final class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                     manifest.swiftLanguageVersions,
                     [.v3, .v4, .v4_2, SwiftLanguageVersion(string: "5")!]
                 )
+                
+                return manifest
             }
+        }
 
-            // The third test case checks that .v5 is unavailable in PackageDescription 4.2
-            // This only applies to the compilation-based manifest loader, not the parsing loader
-            if loader == nil {
-                do {
-                    let content = """
-                        import PackageDescription
-                        let package = Package(
-                           name: "Foo",
-                           swiftLanguageVersions: [.v5]
-                        )
-                        """
+        // The third test case checks that .v5 is unavailable in PackageDescription 4.2
+        // This only applies to the compilation-based manifest loader, not the parsing loader
+        do {
+            let content = """
+                import PackageDescription
+                let package = Package(
+                   name: "Foo",
+                   swiftLanguageVersions: [.v5]
+                )
+                """
 
-                    let observability = ObservabilitySystem.makeForTesting()
-                    await XCTAssertAsyncThrowsError(try await loadAndValidateManifest(
-                        content,
-                        customManifestLoader: loader,
-                        observabilityScope: observability.topScope
-                    ), "expected error") { error in
-                        if case ManifestParseError.invalidManifestFormat(let message, _, _) = error {
-                            XCTAssertMatch(message, .contains("is unavailable"))
-                            XCTAssertMatch(message, .contains("was introduced in PackageDescription 5"))
-                        } else {
-                            XCTFail("unexpected error: \(error)")
-                        }
-                    }
+            let observability = ObservabilitySystem.makeForTesting()
+            await XCTAssertAsyncThrowsError(try await loadAndValidateManifest(
+                content,
+                customManifestLoader: nil,
+                observabilityScope: observability.topScope
+            ), "expected error") { error in
+                if case ManifestParseError.invalidManifestFormat(let message, _, _) = error {
+                    XCTAssertMatch(message, .contains("is unavailable"))
+                    XCTAssertMatch(message, .contains("was introduced in PackageDescription 5"))
+                } else {
+                    XCTFail("unexpected error: \(error)")
                 }
             }
         }

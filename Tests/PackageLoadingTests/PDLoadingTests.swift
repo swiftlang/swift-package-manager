@@ -62,6 +62,29 @@ class PackageDescriptionLoadingTests: XCTestCase, ManifestLoaderDelegate {
         fatalError("implement in subclass")
     }
 
+    /// Run the given closure for each manifest loader, comparing the
+    /// resulting manifests to ensure that they match.
+    func forEachManifestLoader(
+        _ body: ((any ManifestLoaderProtocol)?) async throws -> Manifest,
+        file: StaticString = #file, line: UInt = #line
+    ) async rethrows {
+        var currentManifest: Manifest? = nil
+        for loader in self.testManifestLoaders {
+            let newManifest = try await body(loader)
+
+            if let currentManifest {
+                XCTAssertEqual(
+                    currentManifest.toJSON(),
+                    newManifest.toJSON(),
+                    file: file,
+                    line: line
+                )
+            } else {
+                currentManifest = newManifest
+            }
+        }
+    }
+
     func loadAndValidateManifest(
         _ content: String,
         toolsVersion: ToolsVersion? = nil,
@@ -181,5 +204,14 @@ final class ManifestTestDelegate: ManifestLoaderDelegate {
 fileprivate struct NOOPManifestSourceControlValidator: ManifestSourceControlValidator {
     func isValidDirectory(_ path: AbsolutePath) throws -> Bool {
         true
+    }
+}
+
+extension Manifest {
+    fileprivate func toJSON() -> String {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [ .prettyPrinted, .sortedKeys ]
+        let data = try! encoder.encode(self)
+        return String(data: data, encoding: .utf8)!
     }
 }

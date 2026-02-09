@@ -581,7 +581,8 @@ extension ManifestParseVisitor {
                 sources: sources,
                 resources: [],
                 publicHeadersPath: publicHeadersPath,
-                type: targetType
+                type: targetType,
+                packageAccess: false
             )
         } catch {
             // If TargetDescription initialization fails (e.g., invalid property combinations),
