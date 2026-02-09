@@ -1864,7 +1864,8 @@ struct BuildSBOMCommandTests {
                 extraArgs: ["--sbom-spec", "cyclonedx"],
                 buildSystem: data.buildSystem,
             )
-            #expect(stdout.contains("Build complete!") && stderr.contains("SBOMs created"))
+            #expect(stdout.contains("Build complete!"))
+            #expect(stderr.contains("SBOMs created"))
             try verifySBOMCreated(in: stderr, message: "should produce at least 1 CycloneDX SBOM")
         }
     }
@@ -1882,7 +1883,8 @@ struct BuildSBOMCommandTests {
                 extraArgs: ["--sbom-spec", "spdx"],
                 buildSystem: data.buildSystem,
             )
-            #expect(stdout.contains("Build complete!") && stderr.contains("SBOMs created"))
+            #expect(stdout.contains("Build complete!"))
+            #expect(stderr.contains("SBOMs created"))
             try verifySBOMCreated(in: stderr, message: "should produce at least 1 SPDX SBOM")
         }
     }
@@ -1938,7 +1940,8 @@ struct BuildSBOMCommandTests {
                 extraArgs: ["--sbom-spec", "cyclonedx", "--sbom-spec", "spdx"],
                 buildSystem: data.buildSystem,
             )
-            #expect(stdout.contains("Build complete!") && stderr.contains("SBOMs created"))
+            #expect(stdout.contains("Build complete!"))
+            #expect(stderr.contains("SBOMs created"))
             try verifySBOMCreated(in: stderr, message: "should produce at least 2 SBOMs")
         }
     }
@@ -1957,7 +1960,8 @@ struct BuildSBOMCommandTests {
                 env: ["SWIFTPM_BUILD_SBOM_SPEC": "cyclonedx"],
                 buildSystem: data.buildSystem,
             )
-            #expect(stdout.contains("Build complete!") && stderr.contains("SBOMs created"))
+            #expect(stdout.contains("Build complete!"))
+            #expect(stderr.contains("SBOMs created"))
             try verifySBOMCreated(in: stderr, message: "should produce at least 1 SBOM from environment variable")
         }
     }
@@ -1977,7 +1981,8 @@ struct BuildSBOMCommandTests {
                 buildSystem: data.buildSystem,
             )
             
-            #expect(stdout.contains("Build complete!") && stderr.contains("SBOMs created"))
+            #expect(stdout.contains("Build complete!"))
+            #expect(stderr.contains("SBOMs created"))
             try verifySBOMCreated(in: stderr, message: "should produce at least 2 SBOMs from environment variable")
         }
     }
