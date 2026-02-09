@@ -23,7 +23,7 @@ import Testing
     )
 )
 struct SBOMEncoderTests {
-    private func verifyJSONFile(at path: AbsolutePath, fileSystem: any FileSystem = localFileSystem) throws {
+    private func verifyJsonContentIsValid(at path: AbsolutePath, fileSystem: any FileSystem = localFileSystem) throws {
         #expect(fileSystem.exists(path), "File should exist at \(path)")
 
         let data = try fileSystem.readFileContents(path)
@@ -81,8 +81,8 @@ struct SBOMEncoderTests {
                 "Should generate SPDX file",
             )
 
-            try self.verifyJSONFile(at: tmpDir.appending(component: cycloneDXFile))
-            try self.verifyJSONFile(at: tmpDir.appending(component: spdxFile))
+            try self.verifyJsonContentIsValid(at: tmpDir.appending(component: cycloneDXFile))
+            try self.verifyJsonContentIsValid(at: tmpDir.appending(component: spdxFile))
         }
     }
 
@@ -162,7 +162,7 @@ struct SBOMEncoderTests {
             // Verify both files are valid
             for filename in files {
                 let filePath = tmpDir.appending(component: filename)
-                try self.verifyJSONFile(at: filePath)
+                try self.verifyJsonContentIsValid(at: filePath)
             }
         }
     }
@@ -184,7 +184,7 @@ struct SBOMEncoderTests {
             // Verify both files are valid
             for filename in files {
                 let filePath = tmpDir.appending(component: filename)
-                try self.verifyJSONFile(at: filePath)
+                try self.verifyJsonContentIsValid(at: filePath)
             }
         }
     }
@@ -230,7 +230,7 @@ extension SBOMEncoderTests {
         
         // Verify the file content is valid JSON
         let outputPath = outputs[0]
-        try self.verifyJSONFile(at: outputPath, fileSystem: fs)
+        try self.verifyJsonContentIsValid(at: outputPath, fileSystem: fs)
     }
 
     @Test("writeSBOMs with InMemoryFileSystem handles multiple specs")
@@ -253,7 +253,7 @@ extension SBOMEncoderTests {
         
         // Verify both files are valid JSON
         for outputPath in outputs {
-            try self.verifyJSONFile(at: outputPath, fileSystem: fs)
+            try self.verifyJsonContentIsValid(at: outputPath, fileSystem: fs)
         }
     }
 
@@ -272,7 +272,7 @@ extension SBOMEncoderTests {
         let outputPath = try await encoder.encodeSBOM(spec: spec, outputDir: outputDir, fileSystem: fs)
 
         #expect(fs.exists(outputPath), "File should exist in InMemoryFileSystem")
-        try self.verifyJSONFile(at: outputPath, fileSystem: fs)
+        try self.verifyJsonContentIsValid(at: outputPath, fileSystem: fs)
     }
 
     @Test("writeSBOMs with InMemoryFileSystem isolates test from filesystem")
