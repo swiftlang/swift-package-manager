@@ -7773,6 +7773,7 @@ struct PackageCommandTests {
     @Suite(
         .tags(
             .Feature.Command.Package.GenerateSBOM,
+            .Feature.SBOM,
         ),
     )
 
@@ -7830,12 +7831,12 @@ struct PackageCommandTests {
                     configuration: data.config,
                     buildSystem: data.buildSystem,
                 )
-                #expect(stdout.contains("SBOMs created"))
+                #expect(stderr.contains("SBOMs created"))
 
                 let prefix = "created SBOM at "
-                let range = try #require(stdout.range(of: prefix), "Could not find '\(prefix)' in output")
-                let endRange = try #require(stdout[range.upperBound...].range(of: ".json"), "Could not find '.json' in output")
-                let pathString = String(stdout[range.upperBound..<endRange.upperBound])
+                let range = try #require(stderr.range(of: prefix), "Could not find '\(prefix)' in output")
+                let endRange = try #require(stderr[range.upperBound...].range(of: ".json"), "Could not find '.json' in output")
+                let pathString = String(stderr[range.upperBound..<endRange.upperBound])
                 let sbomPath = try AbsolutePath(validating: pathString)
                 
                 #expect(localFileSystem.exists(sbomPath))
@@ -7858,12 +7859,12 @@ struct PackageCommandTests {
                     buildSystem: data.buildSystem,
                 )
 
-                #expect(stdout.contains("SBOMs created"))
+                #expect(stderr.contains("SBOMs created"))
 
                 let prefix = "created SBOM at "
-                let range = try #require(stdout.range(of: prefix), "Could not find '\(prefix)' in output")
-                let endRange = try #require(stdout[range.upperBound...].range(of: ".json"), "Could not find '.json' in output")
-                let pathString = String(stdout[range.upperBound..<endRange.upperBound])
+                let range = try #require(stderr.range(of: prefix), "Could not find '\(prefix)' in output")
+                let endRange = try #require(stderr[range.upperBound...].range(of: ".json"), "Could not find '.json' in output")
+                let pathString = String(stderr[range.upperBound..<endRange.upperBound])
                 let sbomPath = try AbsolutePath(validating: pathString)
                 
                 #expect(localFileSystem.exists(sbomPath))
@@ -7881,13 +7882,13 @@ struct PackageCommandTests {
             try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
                 let customSBOMDir = fixturePath.appending("custom-sboms")
                 
-                let (stdout, _) = try await execute(
+                let (stdout, stderr) = try await execute(
                     ["generate-sbom", "--sbom-spec", "cyclonedx", "--sbom-output-dir", customSBOMDir.pathString],
                     packagePath: fixturePath,
                     configuration: data.config,
                     buildSystem: data.buildSystem,
                 )
-                #expect(stdout.contains("SBOMs created"))
+                #expect(stderr.contains("SBOMs created"))
                 
                 #expect(localFileSystem.isDirectory(customSBOMDir))
                 let files = try localFileSystem.getDirectoryContents(customSBOMDir)
@@ -7902,18 +7903,18 @@ struct PackageCommandTests {
             data: BuildData,
         ) async throws {
             try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
-                let (stdout, _) = try await execute(
+                let (stdout, stderr) = try await execute(
                     ["generate-sbom", "--sbom-spec", "cyclonedx", "--product", "Foo"],
                     packagePath: fixturePath,
                     configuration: data.config,
                     buildSystem: data.buildSystem,
                 )
-                #expect(stdout.contains("SBOMs created"))
+                #expect(stderr.contains("SBOMs created"))
 
                 let prefix = "created SBOM at "
-                let range = try #require(stdout.range(of: prefix), "Could not find '\(prefix)' in output")
-                let endRange = try #require(stdout[range.upperBound...].range(of: ".json"), "Could not find '.json' in output")
-                let pathString = String(stdout[range.upperBound..<endRange.upperBound])
+                let range = try #require(stderr.range(of: prefix), "Could not find '\(prefix)' in output")
+                let endRange = try #require(stderr[range.upperBound...].range(of: ".json"), "Could not find '.json' in output")
+                let pathString = String(stderr[range.upperBound..<endRange.upperBound])
                 let sbomPath = try AbsolutePath(validating: pathString)
                 
                 #expect(localFileSystem.exists(sbomPath))
@@ -7949,18 +7950,18 @@ struct PackageCommandTests {
             data: BuildData,
         ) async throws {
             try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
-                let (stdout, _) = try await execute(
+                let (stdout, stderr) = try await execute(
                     ["generate-sbom", "--sbom-spec", "spdx", "--product", "Foo"],
                     packagePath: fixturePath,
                     configuration: data.config,
                     buildSystem: data.buildSystem,
                 )
-                #expect(stdout.contains("SBOMs created"))
+                #expect(stderr.contains("SBOMs created"))
 
                 let prefix = "created SBOM at "
-                let range = try #require(stdout.range(of: prefix), "Could not find '\(prefix)' in output")
-                let endRange = try #require(stdout[range.upperBound...].range(of: ".json"), "Could not find '.json' in output")
-                let pathString = String(stdout[range.upperBound..<endRange.upperBound])
+                let range = try #require(stderr.range(of: prefix), "Could not find '\(prefix)' in output")
+                let endRange = try #require(stderr[range.upperBound...].range(of: ".json"), "Could not find '.json' in output")
+                let pathString = String(stderr[range.upperBound..<endRange.upperBound])
                 let sbomPath = try AbsolutePath(validating: pathString)
                 
                 #expect(localFileSystem.exists(sbomPath))
@@ -7998,14 +7999,14 @@ struct PackageCommandTests {
             try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
                 let customSBOMDir = fixturePath.appending("custom-sboms")
                 
-                let (stdout, _) = try await execute(
+                let (stdout, stderr) = try await execute(
                     ["generate-sbom", "--sbom-spec", "cyclonedx", "--sbom-spec", "spdx", "--sbom-output-dir", customSBOMDir.pathString],
                     packagePath: fixturePath,
                     configuration: data.config,
                     buildSystem: data.buildSystem,
                 )
 
-                #expect(stdout.contains("SBOMs created"))
+                #expect(stderr.contains("SBOMs created"))
                 #expect(localFileSystem.isDirectory(customSBOMDir))
                 let files = try localFileSystem.getDirectoryContents(customSBOMDir)
                 #expect(files.count == 2)
