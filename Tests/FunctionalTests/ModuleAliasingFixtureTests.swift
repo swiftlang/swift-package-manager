@@ -21,6 +21,7 @@ import Testing
 
 @Suite(
     .serializedIfOnWindows,
+    .issue("https://github.com/swiftlang/swift-package-manager/issues/8987", relationship: .verifies),
     .tags(
         .TestSize.large,
         .Feature.ModuleAliasing,
@@ -28,7 +29,6 @@ import Testing
 )
 struct ModuleAliasingFixtureTests {
     @Test(
-        .issue("https://github.com/swiftlang/swift-build/issues/609", relationship: .defect),
         .tags(
             Tag.Feature.Command.Build,
         ),
@@ -38,8 +38,6 @@ struct ModuleAliasingFixtureTests {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let configuration = BuildConfiguration.debug
-
-        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "ModuleAliasing/DirectDeps1") { fixturePath in
                 let pkgPath = fixturePath.appending(components: "AppPkg")
                 let buildPath = try pkgPath.appending(components: buildSystem.binPath(for: configuration))
@@ -71,13 +69,9 @@ struct ModuleAliasingFixtureTests {
                     buildSystem: buildSystem,
                 )
             }
-        } when: {
-            ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild
-        }
     }
 
     @Test(
-        .issue("https://github.com/swiftlang/swift-package-manager/issues/8987", relationship: .defect),
         .issue("https://github.com/swiftlang/swift-package-manager/pull/9130", relationship: .fixedBy),
         .IssueWindowsLongPath,
         .IssueWindowsCannotSaveAttachment,
@@ -127,10 +121,7 @@ struct ModuleAliasingFixtureTests {
     }
 
     @Test(
-        .issue("https://github.com/swiftlang/swift-package-manager/issues/8987", relationship: .defect),
         .issue("https://github.com/swiftlang/swift-package-manager/pull/9130", relationship: .fixedBy),
-        .IssueWindowsLongPath,
-        .IssueWindowsCannotSaveAttachment,
         .tags(
             Tag.Feature.Command.Build,
         ),
@@ -140,7 +131,6 @@ struct ModuleAliasingFixtureTests {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let configuration = BuildConfiguration.debug
-        try await withKnownIssue(isIntermittent: true) {
         try await fixture(name: "ModuleAliasing/NestedDeps1") { fixturePath in
             let pkgPath = fixturePath.appending(components: "AppPkg")
             let buildPath = try pkgPath.appending(components: buildSystem.binPath(for: configuration))
@@ -176,13 +166,9 @@ struct ModuleAliasingFixtureTests {
                 buildSystem: buildSystem,
             )
         }
-        } when: {
-            ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild
-        }
     }
 
     @Test(
-        .issue("https://github.com/swiftlang/swift-package-manager/issues/8987", relationship: .defect),
         .issue("https://github.com/swiftlang/swift-package-manager/pull/9130", relationship: .fixedBy),
         .IssueWindowsLongPath,
         .IssueWindowsCannotSaveAttachment,
@@ -195,7 +181,6 @@ struct ModuleAliasingFixtureTests {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let configuration = BuildConfiguration.debug
-        try await withKnownIssue(isIntermittent: true) {
         try await fixture(name: "ModuleAliasing/NestedDeps2") { fixturePath in
             let pkgPath = fixturePath.appending(components: "AppPkg")
             let buildPath = try pkgPath.appending(components: buildSystem.binPath(for: configuration))
@@ -227,9 +212,6 @@ struct ModuleAliasingFixtureTests {
                 configuration: configuration,
                 buildSystem: buildSystem,
             )
-        }
-        } when: {
-            ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild
         }
     }
 }

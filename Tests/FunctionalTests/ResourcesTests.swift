@@ -278,14 +278,12 @@ struct ResourcesTests{
         .tags(
             .Feature.Command.Test,
         ),
-        // .issue("", relationship: .defect),  TODO: Create GitHub issue
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func resourcesOutsideOfTargetCanBeIncluded(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let configuration = BuildConfiguration.debug
-        try await withKnownIssue {
             try await testWithTemporaryDirectory { tmpPath in
                 let packageDir = tmpPath.appending(components: "MyPackage")
 
@@ -315,6 +313,7 @@ struct ResourcesTests{
                 let resource = packageDir.appending(components: "Sources", "resources", "best.txt")
                 try localFileSystem.createDirectory(resource.parentDirectory, recursive: true)
                 try localFileSystem.writeFileContents(resource, string: "best")
+                try requireFileExists(at: resource)
 
                 let (_, stderr) = try await executeSwiftBuild(
                     packageDir,
@@ -329,14 +328,23 @@ struct ResourcesTests{
 
                 let builtProductsDir = try packageDir.appending(components: buildSystem.binPath(for: configuration))
                 // On Apple platforms, it's going to be `.bundle` and elsewhere `.resources`.
+                try requireDirectoryExists(at: builtProductsDir)
                 let potentialResourceBundleName = try #require(localFileSystem.getDirectoryContents(builtProductsDir).filter { $0.hasPrefix("MyPackage_exec.") }.first)
-                let resourcePath = builtProductsDir.appending(components: [potentialResourceBundleName, "resources", "best.txt"])
-                #expect(localFileSystem.exists(resourcePath), "resource file wasn't copied by the build")
+
+                let additionalComponents: [String]
+                #if os(macOS)
+                    additionalComponents = switch buildSystem {
+                        case .native: []
+                        case .swiftbuild: ["Contents", "Resources"]
+                        case .xcode: [] // This test expectation was not validated
+                    }
+                #else
+                    additionalComponents = []
+                #endif
+                let resourcePath = builtProductsDir.appending(components: [potentialResourceBundleName] + additionalComponents +  ["resources", "best.txt"])
+                try requireFileExists(at: resourcePath, "resource file wasn't copied by the build")
                 let contents = try String(contentsOfFile: resourcePath.pathString)
                 #expect(contents == "best", "unexpected resource contents: \(contents)")
             }
-        } when: {
-            buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .macOS
-        }
     }
 }
