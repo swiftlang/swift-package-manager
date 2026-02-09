@@ -86,7 +86,7 @@ internal struct SBOMEncoder {
         }
 
         do {
-            let schema = try await SBOMSchema(from: self.getSchemaFilename(from: spec), bundleName: bundleName)
+            let schema = try await SBOMSchema(spec: spec, bundleName: bundleName)
             try await schema.validate(json: sbomJSONObject, spec: spec)
         } catch let error as SBOMSchemaError {
             if case .bundleNotFound(_) = error {
@@ -94,19 +94,6 @@ internal struct SBOMEncoder {
                 return
             }
             throw error
-        }
-    }
-
-    private func getSchemaFilename(from spec: SBOMSpec) throws -> String {
-        switch spec.concreteSpec {
-        case .cyclonedx1:
-            CycloneDXConstants.cyclonedx1SchemaFile
-        case .spdx3:
-            SPDXConstants.spdx3SchemaFile
-            // case .cyclonedx2:
-            //     return CycloneDXConstants.cyclonedx2SchemaFile
-            // case .spdx4:
-            //     return SPDXConstants.spdx4SchemaFile
         }
     }
 }
