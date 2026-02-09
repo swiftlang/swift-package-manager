@@ -8013,5 +8013,23 @@ struct PackageCommandTests {
                 #expect(files.count == 2)
             }
         }
+
+        @Test(
+            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        )
+        func generateSBOMEmitsWarningAboutBuildTimeConditionals(
+            data: BuildData,
+        ) async throws {
+            try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
+                let (stdout, stderr) = try await execute(
+                    ["generate-sbom", "--sbom-spec", "cyclonedx"],
+                    packagePath: fixturePath,
+                    configuration: data.config,
+                    buildSystem: data.buildSystem,
+                )
+                
+                #expect(stderr.contains("warning: `generate-sbom` subcommand may be inaccurate as it does not contain build-time conditionals."))
+            }
+        }
     }
 }

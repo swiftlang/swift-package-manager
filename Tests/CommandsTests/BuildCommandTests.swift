@@ -2241,5 +2241,27 @@ struct BuildSBOMCommandTests {
             try verifySBOMCreated(in: stderr, message: "should produce SBOM despite invalid environment variables")
         }
     }
+
+    @Test(
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+    )
+    func buildWithSBOMSpecEmitsWarningForNonSwiftBuild(
+        data: BuildData,
+    ) async throws {
+        try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
+            let (stdout, stderr) = try await executeSwiftBuild(
+                fixturePath,
+                configuration: data.config,
+                extraArgs: ["--sbom-spec", "cyclonedx"],
+                buildSystem: data.buildSystem,
+            )
+            
+            if data.buildSystem != .swiftbuild {
+                #expect(stderr.contains("warning: generating SBOM(s) without `--build-system swiftbuild` flag creates SBOM(s) without build-time conditionals."))
+            } else {
+                #expect(!stderr.contains("without build-time conditionals"))
+            }
+        }
+    }
 }
 
