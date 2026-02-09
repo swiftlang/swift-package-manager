@@ -60,6 +60,7 @@ extension Tag.Feature {
     @Tag public static var NetRc: Tag
     @Tag public static var Plugin: Tag
     @Tag public static var Resource: Tag
+    @Tag public static var Version: Tag
     @Tag public static var SBOM: Tag
     @Tag public static var SourceGeneration: Tag
     @Tag public static var SpecialCharacters: Tag
@@ -68,7 +69,6 @@ extension Tag.Feature {
     @Tag public static var Traits: Tag
     @Tag public static var TargetSettings: Tag
     @Tag public static var TaskBacktraces: Tag
-    @Tag public static var Version: Tag
 }
 
 extension Tag.Feature.Command {

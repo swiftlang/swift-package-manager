@@ -1811,7 +1811,11 @@ extension Triple {
 }
 
 
-@Suite
+@Suite(
+    .tags(
+        Tag.Feature.SBOM
+    ),
+)
 struct BuildSBOMCommandTests {
     
     /// Helper function to verify SBOM creation from stdout
