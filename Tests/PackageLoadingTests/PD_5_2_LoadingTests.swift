@@ -84,21 +84,29 @@ final class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        let observability = ObservabilitySystem.makeForTesting()
-        let (manifest, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
-        XCTAssertNoDiagnostics(observability.diagnostics)
-        XCTAssertNoDiagnostics(validationDiagnostics)
+        try await forEachManifestLoader { loader in
+            let observability = ObservabilitySystem.makeForTesting()
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                content,
+                customManifestLoader: loader,
+                observabilityScope: observability.topScope
+            )
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertNoDiagnostics(validationDiagnostics)
 
-        XCTAssertEqual(manifest.displayName, "Trivial")
-        XCTAssertEqual(manifest.dependencies[0].nameForModuleDependencyResolutionOnly, "Foo")
-        XCTAssertEqual(manifest.dependencies[1].nameForModuleDependencyResolutionOnly, "Foo2")
-        XCTAssertEqual(manifest.dependencies[2].nameForModuleDependencyResolutionOnly, "Foo3")
-        XCTAssertEqual(manifest.dependencies[3].nameForModuleDependencyResolutionOnly, "Foo4")
-        XCTAssertEqual(manifest.dependencies[4].nameForModuleDependencyResolutionOnly, "Foo5")
-        XCTAssertEqual(manifest.dependencies[5].nameForModuleDependencyResolutionOnly, "bar")
-        XCTAssertEqual(manifest.dependencies[6].nameForModuleDependencyResolutionOnly, "Bar2")
-        XCTAssertEqual(manifest.dependencies[7].nameForModuleDependencyResolutionOnly, "Baz")
-        XCTAssertEqual(manifest.dependencies[8].nameForModuleDependencyResolutionOnly, "swift")
+            XCTAssertEqual(manifest.displayName, "Trivial")
+            XCTAssertEqual(manifest.dependencies[0].nameForModuleDependencyResolutionOnly, "Foo")
+            XCTAssertEqual(manifest.dependencies[1].nameForModuleDependencyResolutionOnly, "Foo2")
+            XCTAssertEqual(manifest.dependencies[2].nameForModuleDependencyResolutionOnly, "Foo3")
+            XCTAssertEqual(manifest.dependencies[3].nameForModuleDependencyResolutionOnly, "Foo4")
+            XCTAssertEqual(manifest.dependencies[4].nameForModuleDependencyResolutionOnly, "Foo5")
+            XCTAssertEqual(manifest.dependencies[5].nameForModuleDependencyResolutionOnly, "bar")
+            XCTAssertEqual(manifest.dependencies[6].nameForModuleDependencyResolutionOnly, "Bar2")
+            XCTAssertEqual(manifest.dependencies[7].nameForModuleDependencyResolutionOnly, "Baz")
+            XCTAssertEqual(manifest.dependencies[8].nameForModuleDependencyResolutionOnly, "swift")
+            
+            return manifest
+        }
     }
 
     func testTargetDependencyProductInvalidPackage() async throws {
@@ -279,19 +287,27 @@ final class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        let observability = ObservabilitySystem.makeForTesting()
-        let (manifest, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
-        XCTAssertNoDiagnostics(observability.diagnostics)
-        XCTAssertNoDiagnostics(validationDiagnostics)
+        try await forEachManifestLoader { loader in
+            let observability = ObservabilitySystem.makeForTesting()
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                content,
+                customManifestLoader: loader,
+                observabilityScope: observability.topScope
+            )
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertNoDiagnostics(validationDiagnostics)
 
-        let dependencies = Dictionary(uniqueKeysWithValues: manifest.dependencies.map{ ($0.nameForModuleDependencyResolutionOnly, $0) })
-        let dependencyFoobar = dependencies["Foobar"]!
-        let dependencyBarfoo = dependencies["Barfoo"]!
-        let targetFoo = manifest.targetMap["foo"]!
-        let targetBar = manifest.targetMap["bar"]!
-        XCTAssertEqual(manifest.packageDependency(referencedBy: targetFoo.dependencies[0]), dependencyFoobar)
-        XCTAssertEqual(manifest.packageDependency(referencedBy: targetFoo.dependencies[1]), dependencyBarfoo)
-        XCTAssertEqual(manifest.packageDependency(referencedBy: targetBar.dependencies[0]), nil)
+            let dependencies = Dictionary(uniqueKeysWithValues: manifest.dependencies.map{ ($0.nameForModuleDependencyResolutionOnly, $0) })
+            let dependencyFoobar = dependencies["Foobar"]!
+            let dependencyBarfoo = dependencies["Barfoo"]!
+            let targetFoo = manifest.targetMap["foo"]!
+            let targetBar = manifest.targetMap["bar"]!
+            XCTAssertEqual(manifest.packageDependency(referencedBy: targetFoo.dependencies[0]), dependencyFoobar)
+            XCTAssertEqual(manifest.packageDependency(referencedBy: targetFoo.dependencies[1]), dependencyBarfoo)
+            XCTAssertEqual(manifest.packageDependency(referencedBy: targetBar.dependencies[0]), nil)
+            
+            return manifest
+        }
     }
 
     func testResourcesUnavailable() async throws {

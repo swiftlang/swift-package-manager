@@ -34,20 +34,28 @@ final class PackageDescription5_9LoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        let observability = ObservabilitySystem.makeForTesting()
-        let (manifest, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
-        XCTAssertNoDiagnostics(observability.diagnostics)
-        XCTAssertNoDiagnostics(validationDiagnostics)
+        try await forEachManifestLoader { loader in
+            let observability = ObservabilitySystem.makeForTesting()
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                content,
+                customManifestLoader: loader,
+                observabilityScope: observability.topScope
+            )
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertNoDiagnostics(validationDiagnostics)
 
-        XCTAssertEqual(manifest.platforms, [
-            PlatformDescription(name: "macos", version: "14.0"),
-            PlatformDescription(name: "ios", version: "17.0"),
-            PlatformDescription(name: "tvos", version: "17.0"),
-            PlatformDescription(name: "watchos", version: "10.0"),
-            PlatformDescription(name: "visionos", version: "1.0"),
-            PlatformDescription(name: "maccatalyst", version: "17.0"),
-            PlatformDescription(name: "driverkit", version: "23.0"),
-        ])
+            XCTAssertEqual(manifest.platforms, [
+                PlatformDescription(name: "macos", version: "14.0"),
+                PlatformDescription(name: "ios", version: "17.0"),
+                PlatformDescription(name: "tvos", version: "17.0"),
+                PlatformDescription(name: "watchos", version: "10.0"),
+                PlatformDescription(name: "visionos", version: "1.0"),
+                PlatformDescription(name: "maccatalyst", version: "17.0"),
+                PlatformDescription(name: "driverkit", version: "23.0"),
+            ])
+            
+            return manifest
+        }
     }
 
     func testMacroTargets() async throws {
@@ -62,8 +70,61 @@ final class PackageDescription5_9LoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        let observability = ObservabilitySystem.makeForTesting()
-        let (_, diagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
-        XCTAssertEqual(diagnostics.count, 0, "unexpected diagnostics: \(diagnostics)")
+        try await forEachManifestLoader { loader in
+            let observability = ObservabilitySystem.makeForTesting()
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                content,
+                customManifestLoader: loader,
+                observabilityScope: observability.topScope
+            )
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertNoDiagnostics(validationDiagnostics)
+
+            XCTAssertEqual(manifest.targets.count, 1)
+            XCTAssertEqual(manifest.targets[0].name, "MyMacro")
+            XCTAssertEqual(manifest.targets[0].type, .macro)
+
+            return manifest
+        }
+    }
+
+    func testPackageAccess() async throws {
+        let content = """
+            import PackageDescription
+
+            let package = Package(
+                name: "MyPackage",
+                targets: [
+                    .target(name: "PublicTarget", packageAccess: true),
+                    .target(name: "PrivateTarget", packageAccess: false),
+                    .target(name: "DefaultTarget"),
+                ]
+            )
+            """
+
+        try await forEachManifestLoader { loader in
+            let observability = ObservabilitySystem.makeForTesting()
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                content,
+                customManifestLoader: loader,
+                observabilityScope: observability.topScope
+            )
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertNoDiagnostics(validationDiagnostics)
+
+            // Check target with packageAccess: true
+            XCTAssertEqual(manifest.targets[0].name, "PublicTarget")
+            XCTAssertTrue(manifest.targets[0].packageAccess)
+
+            // Check target with packageAccess: false
+            XCTAssertEqual(manifest.targets[1].name, "PrivateTarget")
+            XCTAssertFalse(manifest.targets[1].packageAccess)
+
+            // Check target with default packageAccess (should be true per PackageDescription API)
+            XCTAssertEqual(manifest.targets[2].name, "DefaultTarget")
+            XCTAssertTrue(manifest.targets[2].packageAccess)
+
+            return manifest
+        }
     }
 }

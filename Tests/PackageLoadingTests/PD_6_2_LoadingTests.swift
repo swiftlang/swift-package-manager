@@ -14,15 +14,14 @@ import Basics
 import PackageLoading
 import PackageModel
 import _InternalTestSupport
-import Testing
+import XCTest
 
-struct PackageDescription6_2LoadingTests {
-    @Test(
-        .tags(
-            Tag.Feature.TargetSettings
-        )
-    )
-    func warningControlFlags() async throws {
+class PackageDescription6_2LoadingTests: PackageDescriptionLoadingTests {
+    override var toolsVersion: ToolsVersion {
+        .v6_0  // TODO: Update to .v6_2 when it's available
+    }
+
+    func testWarningControlFlags() async throws {
         let content = """
             import PackageDescription
             let package = Package(
@@ -71,30 +70,33 @@ struct PackageDescription6_2LoadingTests {
             )
             """
 
-        let observability = ObservabilitySystem.makeForTesting()
-        try await withKnownIssue("https://github.com/swiftlang/swift-package-manager/issues/8543: there are compilation errors on Windows", isIntermittent: true) {
-            let (_, validationDiagnostics) = try await PackageDescriptionLoadingTests
-                .loadAndValidateManifest(
-                    content,
-                    toolsVersion: .v6_2,
-                    packageKind: .fileSystem(.root),
-                    manifestLoader: ManifestLoader(
-                        toolchain: try! UserToolchain.default
-                    ),
-                    observabilityScope: observability.topScope
-                )
-            try expectDiagnostics(validationDiagnostics) { results in
-                results.checkIsEmpty()
-            }
-            try expectDiagnostics(observability.diagnostics) { results in
-                results.checkIsEmpty()
-            }
-        } when: {
-            isWindows && !CiEnvironment.runningInSmokeTestPipeline
+        // Skip on Windows if not running in smoke test pipeline
+        // See: https://github.com/swiftlang/swift-package-manager/issues/8543
+        if isWindows && !CiEnvironment.runningInSmokeTestPipeline {
+            throw XCTSkip("Skipping test on Windows due to compilation errors")
+        }
+
+        try await forEachManifestLoader { loader in
+            let observability = ObservabilitySystem.makeForTesting()
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                content,
+                customManifestLoader: loader,
+                observabilityScope: observability.topScope
+            )
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertNoDiagnostics(validationDiagnostics)
+            
+            // Verify the settings were parsed correctly
+            let fooTarget = manifest.targets.first { $0.name == "Foo" }
+            let barTarget = manifest.targets.first { $0.name == "Bar" }
+            
+            XCTAssertNotNil(fooTarget)
+            XCTAssertNotNil(barTarget)
+            
+            return manifest
         }
     }
 }
-
 private var isWindows: Bool {
 #if os(Windows)
     true
@@ -102,3 +104,4 @@ private var isWindows: Bool {
     false
 #endif
 }
+

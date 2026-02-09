@@ -84,11 +84,84 @@ final class PackageDescription6_0LoadingTests: PackageDescriptionLoadingTests {
                 )
                 """
 
-        let observability = ObservabilitySystem.makeForTesting()
-        let (_, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
-        XCTAssertNoDiagnostics(validationDiagnostics)
-        testDiagnostics(observability.diagnostics) { result in
-            result.checkUnordered(diagnostic: .contains("'swiftLanguageVersion' is deprecated: renamed to 'swiftLanguageMode(_:_:)'"), severity: .warning)
+        try await forEachManifestLoader { loader in
+            let observability = ObservabilitySystem.makeForTesting()
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                content,
+                customManifestLoader: loader,
+                observabilityScope: observability.topScope
+            )
+            XCTAssertNoDiagnostics(validationDiagnostics)
+
+            // Verify the manifest structure
+            XCTAssertEqual(manifest.targets.count, 2)
+            XCTAssertEqual(manifest.targets[0].name, "Foo")
+            XCTAssertEqual(manifest.targets[1].name, "Bar")
+
+            // Check for deprecation warnings (only present in compilation-based loader)
+            if loader == nil {
+                testDiagnostics(observability.diagnostics) { result in
+                    result.checkUnordered(diagnostic: .contains("'swiftLanguageVersion' is deprecated: renamed to 'swiftLanguageMode(_:_:)'"), severity: .warning)
+                }
+            }
+
+            return manifest
+        }
+    }
+
+    func testSwiftLanguageModesPackageLevel() async throws {
+        // Test the new swiftLanguageModes parameter name (6.0+)
+        let contentWithNewName = """
+                import PackageDescription
+                let package = Package(
+                    name: "Foo",
+                    swiftLanguageModes: [.v5, .v6]
+                )
+                """
+
+        try await forEachManifestLoader { loader in
+            let observability = ObservabilitySystem.makeForTesting()
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                contentWithNewName,
+                customManifestLoader: loader,
+                observabilityScope: observability.topScope
+            )
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertNoDiagnostics(validationDiagnostics)
+
+            XCTAssertEqual(manifest.swiftLanguageVersions, [.v5, .v6])
+
+            return manifest
+        }
+
+        // Test the deprecated swiftLanguageVersions parameter name (still valid)
+        let contentWithOldName = """
+                import PackageDescription
+                let package = Package(
+                    name: "Foo",
+                    swiftLanguageVersions: [.v4, .v5]
+                )
+                """
+
+        try await forEachManifestLoader { loader in
+            let observability = ObservabilitySystem.makeForTesting()
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                contentWithOldName,
+                customManifestLoader: loader,
+                observabilityScope: observability.topScope
+            )
+            XCTAssertNoDiagnostics(validationDiagnostics)
+
+            XCTAssertEqual(manifest.swiftLanguageVersions, [.v4, .v5])
+
+            // Check for deprecation warning (only present in compilation-based loader)
+            if loader == nil {
+                testDiagnostics(observability.diagnostics) { result in
+                    result.checkUnordered(diagnostic: .contains("'swiftLanguageVersions' is deprecated"), severity: .warning)
+                }
+            }
+
+            return manifest
         }
     }
 

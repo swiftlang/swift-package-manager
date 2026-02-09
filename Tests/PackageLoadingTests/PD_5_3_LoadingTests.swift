@@ -48,19 +48,23 @@ final class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        let observability = ObservabilitySystem.makeForTesting()
-        let (manifest, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
-        XCTAssertNoDiagnostics(observability.diagnostics)
-        XCTAssertNoDiagnostics(validationDiagnostics)
+        try await forEachManifestLoader { loader in
+            let observability = ObservabilitySystem.makeForTesting()
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(content, customManifestLoader: loader, observabilityScope: observability.topScope)
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertNoDiagnostics(validationDiagnostics)
 
-        let resources = manifest.targets[0].resources
-        XCTAssertEqual(resources[0], TargetDescription.Resource(rule: .copy, path: "foo.txt"))
-        XCTAssertEqual(resources[1], TargetDescription.Resource(rule: .process(localization: .none), path: "bar.txt"))
-        XCTAssertEqual(resources[2], TargetDescription.Resource(rule: .process(localization: .default), path: "biz.txt"))
-        XCTAssertEqual(resources[3], TargetDescription.Resource(rule: .process(localization: .base), path: "baz.txt"))
+            let resources = manifest.targets[0].resources
+            XCTAssertEqual(resources[0], TargetDescription.Resource(rule: .copy, path: "foo.txt"))
+            XCTAssertEqual(resources[1], TargetDescription.Resource(rule: .process(localization: .none), path: "bar.txt"))
+            XCTAssertEqual(resources[2], TargetDescription.Resource(rule: .process(localization: .default), path: "biz.txt"))
+            XCTAssertEqual(resources[3], TargetDescription.Resource(rule: .process(localization: .base), path: "baz.txt"))
 
-        let testResources = manifest.targets[1].resources
-        XCTAssertEqual(testResources[0], TargetDescription.Resource(rule: .process(localization: .none), path: "testfixture.txt"))
+            let testResources = manifest.targets[1].resources
+            XCTAssertEqual(testResources[0], TargetDescription.Resource(rule: .process(localization: .none), path: "testfixture.txt"))
+            
+            return manifest
+        }
     }
 
     func testBinaryTargetsTrivial() async throws {
@@ -87,61 +91,65 @@ final class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        let observability = ObservabilitySystem.makeForTesting()
-        let (manifest, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
-        XCTAssertNoDiagnostics(observability.diagnostics)
-        XCTAssertNoDiagnostics(validationDiagnostics)
+        try await forEachManifestLoader { loader in
+            let observability = ObservabilitySystem.makeForTesting()
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(content, customManifestLoader: loader, observabilityScope: observability.topScope)
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertNoDiagnostics(validationDiagnostics)
 
-        let targets = Dictionary(uniqueKeysWithValues: manifest.targets.map({ ($0.name, $0) }))
-        let foo1 = targets["Foo1"]!
-        let foo2 = targets["Foo2"]!
-        let foo3 = targets["Foo3"]
-        XCTAssertEqual(foo1, try? TargetDescription(
-            name: "Foo1",
-            dependencies: [],
-            path: "../Foo1.xcframework",
-            url: nil,
-            exclude: [],
-            sources: nil,
-            resources: [],
-            publicHeadersPath: nil,
-            type: .binary,
-            packageAccess: false,
-            pkgConfig: nil,
-            providers: nil,
-            settings: [],
-            checksum: nil))
-        XCTAssertEqual(foo2, try? TargetDescription(
-            name: "Foo2",
-            dependencies: [],
-            path: nil,
-            url: "https://foo.com/Foo2-1.0.0.zip",
-            exclude: [],
-            sources: nil,
-            resources: [],
-            publicHeadersPath: nil,
-            type: .binary,
-            packageAccess: false,
-            pkgConfig: nil,
-            providers: nil,
-            settings: [],
-            checksum: "839F9F30DC13C30795666DD8F6FB77DD0E097B83D06954073E34FE5154481F7A"))
-        XCTAssertEqual(foo3, try? TargetDescription(
-            name: "Foo3",
-            dependencies: [],
-            path: "./Foo3.zip",
-            url: nil,
-            exclude: [],
-            sources: nil,
-            resources: [],
-            publicHeadersPath: nil,
-            type: .binary,
-            packageAccess: false,
-            pkgConfig: nil,
-            providers: nil,
-            settings: [],
-            checksum: nil
-        ))
+            let targets = Dictionary(uniqueKeysWithValues: manifest.targets.map({ ($0.name, $0) }))
+            let foo1 = targets["Foo1"]!
+            let foo2 = targets["Foo2"]!
+            let foo3 = targets["Foo3"]
+            XCTAssertEqual(foo1, try? TargetDescription(
+                name: "Foo1",
+                dependencies: [],
+                path: "../Foo1.xcframework",
+                url: nil,
+                exclude: [],
+                sources: nil,
+                resources: [],
+                publicHeadersPath: nil,
+                type: .binary,
+                packageAccess: false,
+                pkgConfig: nil,
+                providers: nil,
+                settings: [],
+                checksum: nil))
+            XCTAssertEqual(foo2, try? TargetDescription(
+                name: "Foo2",
+                dependencies: [],
+                path: nil,
+                url: "https://foo.com/Foo2-1.0.0.zip",
+                exclude: [],
+                sources: nil,
+                resources: [],
+                publicHeadersPath: nil,
+                type: .binary,
+                packageAccess: false,
+                pkgConfig: nil,
+                providers: nil,
+                settings: [],
+                checksum: "839F9F30DC13C30795666DD8F6FB77DD0E097B83D06954073E34FE5154481F7A"))
+            XCTAssertEqual(foo3, try? TargetDescription(
+                name: "Foo3",
+                dependencies: [],
+                path: "./Foo3.zip",
+                url: nil,
+                exclude: [],
+                sources: nil,
+                resources: [],
+                publicHeadersPath: nil,
+                type: .binary,
+                packageAccess: false,
+                pkgConfig: nil,
+                providers: nil,
+                settings: [],
+                checksum: nil
+            ))
+            
+            return manifest
+        }
     }
 
     func testBinaryTargetsDisallowedProperties() async throws {
@@ -471,16 +479,20 @@ final class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        let observability = ObservabilitySystem.makeForTesting()
-        let (manifest, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
-        XCTAssertNoDiagnostics(observability.diagnostics)
-        XCTAssertNoDiagnostics(validationDiagnostics)
+        try await forEachManifestLoader { loader in
+            let observability = ObservabilitySystem.makeForTesting()
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(content, customManifestLoader: loader, observabilityScope: observability.topScope)
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertNoDiagnostics(validationDiagnostics)
 
-        let dependencies = manifest.targets[0].dependencies
-        XCTAssertEqual(dependencies[0], .target(name: "Biz"))
-        XCTAssertEqual(dependencies[1], .target(name: "Bar", condition: .init(platformNames: ["linux"], config: nil)))
-        XCTAssertEqual(dependencies[2], .product(name: "Baz", package: "Baz", condition: .init(platformNames: ["macos"])))
-        XCTAssertEqual(dependencies[3], .byName(name: "Bar", condition: .init(platformNames: ["watchos", "ios"])))
+            let dependencies = manifest.targets[0].dependencies
+            XCTAssertEqual(dependencies[0], .target(name: "Biz"))
+            XCTAssertEqual(dependencies[1], .target(name: "Bar", condition: .init(platformNames: ["linux"], config: nil)))
+            XCTAssertEqual(dependencies[2], .product(name: "Baz", package: "Baz", condition: .init(platformNames: ["macos"])))
+            XCTAssertEqual(dependencies[3], .byName(name: "Bar", condition: .init(platformNames: ["watchos", "ios"])))
+            
+            return manifest
+        }
     }
 
     func testDefaultLocalization() async throws {
@@ -495,11 +507,19 @@ final class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        let observability = ObservabilitySystem.makeForTesting()
-        let (manifest, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
-        XCTAssertNoDiagnostics(observability.diagnostics)
-        XCTAssertNoDiagnostics(validationDiagnostics)
-        XCTAssertEqual(manifest.defaultLocalization, "fr")
+        try await forEachManifestLoader { loader in
+            let observability = ObservabilitySystem.makeForTesting()
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                content,
+                customManifestLoader: loader,
+                observabilityScope: observability.topScope
+            )
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertNoDiagnostics(validationDiagnostics)
+            XCTAssertEqual(manifest.defaultLocalization, "fr")
+
+            return manifest
+        }
     }
 
     func testTargetPathsValidation() async throws {

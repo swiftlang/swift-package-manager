@@ -182,18 +182,26 @@ final class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        let observability = ObservabilitySystem.makeForTesting()
-        let (manifest, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
-        XCTAssertNoDiagnostics(observability.diagnostics)
-        XCTAssertNoDiagnostics(validationDiagnostics)
+        try await forEachManifestLoader { loader in
+            let observability = ObservabilitySystem.makeForTesting()
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                content,
+                customManifestLoader: loader,
+                observabilityScope: observability.topScope
+            )
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertNoDiagnostics(validationDiagnostics)
 
-        let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map{ ($0.identity.description, $0) })
-        XCTAssertEqual(deps["foo1"], .localSourceControl(path: "/foo1", requirement: .upToNextMajor(from: "1.0.0")))
-        XCTAssertEqual(deps["foo2"], .localSourceControl(path: "/foo2", requirement: .upToNextMajor(from: "1.0.0")))
-        XCTAssertEqual(deps["foo3"], .localSourceControl(path: "/foo3", requirement: .upToNextMinor(from: "1.0.0")))
-        XCTAssertEqual(deps["foo4"], .localSourceControl(path: "/foo4", requirement: .exact("1.0.0")))
-        XCTAssertEqual(deps["foo5"], .localSourceControl(path: "/foo5", requirement: .branch("main")))
-        XCTAssertEqual(deps["foo6"], .localSourceControl(path: "/foo6", requirement: .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")))
+            let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map{ ($0.identity.description, $0) })
+            XCTAssertEqual(deps["foo1"], .localSourceControl(path: "/foo1", requirement: .upToNextMajor(from: "1.0.0")))
+            XCTAssertEqual(deps["foo2"], .localSourceControl(path: "/foo2", requirement: .upToNextMajor(from: "1.0.0")))
+            XCTAssertEqual(deps["foo3"], .localSourceControl(path: "/foo3", requirement: .upToNextMinor(from: "1.0.0")))
+            XCTAssertEqual(deps["foo4"], .localSourceControl(path: "/foo4", requirement: .exact("1.0.0")))
+            XCTAssertEqual(deps["foo5"], .localSourceControl(path: "/foo5", requirement: .branch("main")))
+            XCTAssertEqual(deps["foo6"], .localSourceControl(path: "/foo6", requirement: .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")))
+            
+            return manifest
+        }
     }
 
     func testProducts() async throws {

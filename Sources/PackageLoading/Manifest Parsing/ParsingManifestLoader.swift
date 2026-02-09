@@ -243,7 +243,7 @@ class ManifestParseVisitor: SyntaxAnyVisitor {
 
     /// C language standard.
     var cLanguageStandard: String?
-
+    
     override func visitAny(_ node: Syntax) -> SyntaxVisitorContinueKind {
         // Any node not specifically handled is considered a limitation.
         limitations.append(.unexpectedSyntax(node))
@@ -353,8 +353,28 @@ extension ManifestParseVisitor {
                 self.packageName = name
                 continue
             }
+            
+            if argument.label?.text == "dependencies" {
+                guard let dependenciesArray = argument.expression.as(ArrayExprSyntax.self) else {
+                    limitations.append(
+                        .unsupportedExpression(
+                            argument.expression,
+                            expected: "array of package dependencies"
+                        )
+                    )
+                    continue
+                }
+                
+                for dependencyElement in dependenciesArray.elements {
+                    if let dependency = parsePackageDependency(dependencyElement.expression) {
+                        self.dependencies.append(dependency)
+                    }
+                }
+                continue
+            }
 
-            if argument.label?.text == "swiftLanguageVersions" {
+            // Accept both swiftLanguageVersions (deprecated) and swiftLanguageModes (6.0+)
+            if argument.label?.text == "swiftLanguageVersions" || argument.label?.text == "swiftLanguageModes" {
                 // Try new-style syntax first (e.g., [.v3, .v4, .version("5")])
                 if let versions = argument.expression.asSwiftLanguageVersionArray() {
                     self.swiftLanguageVersions = versions
@@ -460,6 +480,32 @@ extension ManifestParseVisitor {
                 continue
             }
             
+            if argument.label?.text == "platforms" {
+                guard let platformsArray = argument.expression.as(ArrayExprSyntax.self) else {
+                    limitations.append(
+                        .unsupportedExpression(
+                            argument.expression,
+                            expected: "array of platforms"
+                        )
+                    )
+                    continue
+                }
+                
+                var parsedPlatforms: [PlatformDescription] = []
+                for platformElement in platformsArray.elements {
+                    if let platform = parsePlatform(platformElement.expression) {
+                        parsedPlatforms.append(platform)
+                    }
+                }
+                self.platforms = parsedPlatforms
+                continue
+            }
+            
+            if argument.label?.text == "defaultLocalization" {
+                self.defaultLocalization = argument.expression.asStringLiteralValue()
+                continue
+            }
+            
             if argument.label?.text == "targets" {
                 guard let targetsArray = argument.expression.as(ArrayExprSyntax.self) else {
                     limitations.append(
@@ -477,6 +523,27 @@ extension ManifestParseVisitor {
                         self.targets.append(target)
                     }
                 }
+                continue
+            }
+            
+            if argument.label?.text == "traits" {
+                guard let traitsArray = argument.expression.as(ArrayExprSyntax.self) else {
+                    limitations.append(
+                        .unsupportedExpression(
+                            argument.expression,
+                            expected: "array of traits"
+                        )
+                    )
+                    continue
+                }
+                
+                var parsedTraits: Set<TraitDescription> = []
+                for traitElement in traitsArray.elements {
+                    if let trait = parseTrait(traitElement.expression) {
+                        parsedTraits.insert(trait)
+                    }
+                }
+                self.traits = parsedTraits
                 continue
             }
 
@@ -521,45 +588,80 @@ extension ManifestParseVisitor {
         var name: String?
         var dependencies: [TargetDescription.Dependency] = []
         var path: String? = nil
+        var url: String? = nil
+        var checksum: String? = nil
         var exclude: [String] = []
         var sources: [String]? = nil
+        var resources: [TargetDescription.Resource] = []
         var publicHeadersPath: String? = nil
-        
+        var pkgConfig: String? = nil
+        var providers: [SystemPackageProviderDescription]? = nil
+        var pluginCapability: TargetDescription.PluginCapability? = nil
+        var settings: [TargetBuildSettingDescription.Setting] = []
+        var pluginUsages: [TargetDescription.PluginUsage]? = nil
+        var packageAccess: Bool = true  // Default value per PackageDescription API
+
         for argument in functionCall.arguments {
             let label = argument.label?.text
             
             if label == "name" {
                 name = argument.expression.asStringLiteralValue()
             } else if label == "dependencies" {
-                if let depsArray = argument.expression.as(ArrayExprSyntax.self) {
-                    for depElement in depsArray.elements {
-                        if let dep = parseTargetDependency(depElement.expression) {
-                            dependencies.append(dep)
-                        }
-                    }
+                if let deps = argument.expression.parseArrayElements(parseTargetDependency) {
+                    dependencies.append(contentsOf: deps)
                 }
             } else if label == "path" {
                 path = argument.expression.asStringLiteralValue()
+            } else if label == "url" {
+                url = argument.expression.asStringLiteralValue()
+            } else if label == "checksum" {
+                checksum = argument.expression.asStringLiteralValue()
             } else if label == "exclude" {
-                if let excludeArray = argument.expression.as(ArrayExprSyntax.self) {
-                    for element in excludeArray.elements {
-                        if let pathString = element.expression.asStringLiteralValue() {
-                            exclude.append(pathString)
-                        }
-                    }
-                }
+                exclude = argument.expression.asStringArray() ?? []
             } else if label == "sources" {
-                if let sourcesArray = argument.expression.as(ArrayExprSyntax.self) {
-                    var sourcesParsed: [String] = []
-                    for element in sourcesArray.elements {
-                        if let sourceString = element.expression.asStringLiteralValue() {
-                            sourcesParsed.append(sourceString)
-                        }
-                    }
-                    sources = sourcesParsed
-                }
+                sources = argument.expression.asStringArray()
             } else if label == "publicHeadersPath" {
                 publicHeadersPath = argument.expression.asStringLiteralValue()
+            } else if label == "pkgConfig" {
+                pkgConfig = argument.expression.asStringLiteralValue()
+            } else if label == "providers" {
+                if let providersArray = argument.expression.as(ArrayExprSyntax.self) {
+                    var parsedProviders: [SystemPackageProviderDescription] = []
+                    for providerElement in providersArray.elements {
+                        if let provider = parseSystemPackageProvider(providerElement.expression) {
+                            parsedProviders.append(provider)
+                        }
+                    }
+                    providers = parsedProviders.isEmpty ? nil : parsedProviders
+                }
+            } else if label == "resources" {
+                if let parsed = argument.expression.parseArrayElements(parseResource) {
+                    resources.append(contentsOf: parsed)
+                }
+            } else if label == "capability" {
+                pluginCapability = parsePluginCapability(argument.expression)
+            } else if label == "cSettings" {
+                if let parsed = argument.expression.parseArrayElements({ parseBuildSetting($0, tool: .c) }) {
+                    settings.append(contentsOf: parsed)
+                }
+            } else if label == "cxxSettings" {
+                if let parsed = argument.expression.parseArrayElements({ parseBuildSetting($0, tool: .cxx) }) {
+                    settings.append(contentsOf: parsed)
+                }
+            } else if label == "swiftSettings" {
+                if let parsed = argument.expression.parseArrayElements({ parseBuildSetting($0, tool: .swift) }) {
+                    settings.append(contentsOf: parsed)
+                }
+            } else if label == "linkerSettings" {
+                if let parsed = argument.expression.parseArrayElements({ parseBuildSetting($0, tool: .linker) }) {
+                    settings.append(contentsOf: parsed)
+                }
+            } else if label == "plugins" {
+                pluginUsages = argument.expression.parseArrayElements(parsePluginUsage)
+            } else if label == "packageAccess" {
+                if let boolValue = argument.expression.asBooleanLiteralValue() {
+                    packageAccess = boolValue
+                }
             } else {
                 // Unknown/unsupported argument - not a limitation, just skip it
                 continue
@@ -576,13 +678,19 @@ extension ManifestParseVisitor {
                 name: targetName,
                 dependencies: dependencies,
                 path: path,
-                url: nil,
+                url: url,
                 exclude: exclude,
                 sources: sources,
-                resources: [],
+                resources: resources,
                 publicHeadersPath: publicHeadersPath,
                 type: targetType,
-                packageAccess: false
+                packageAccess: packageAccess,
+                pkgConfig: pkgConfig,
+                providers: providers,
+                pluginCapability: pluginCapability,
+                settings: settings,
+                checksum: checksum,
+                pluginUsages: pluginUsages
             )
         } catch {
             // If TargetDescription initialization fails (e.g., invalid property combinations),
@@ -600,48 +708,372 @@ extension ManifestParseVisitor {
         }
         
         // Case 2: .target(name: ...) or .product(name: ..., package: ...)
-        guard let functionCall = expr.as(FunctionCallExprSyntax.self),
-              let memberAccess = functionCall.calledExpression.as(MemberAccessExprSyntax.self),
-              memberAccess.base == nil, // Leading dot syntax
-              let methodName = memberAccess.declName.baseName.identifier?.name else {
+        guard let (methodName, arguments) = expr.asMemberAccessCall() else {
             limitations.append(.unsupportedExpression(expr, expected: "target dependency"))
             return nil
         }
         
         if methodName == "target" {
-            // Parse .target(name: "...")
-            for argument in functionCall.arguments {
-                if argument.label?.text == "name" {
-                    if let name = argument.expression.asStringLiteralValue() {
-                        return .target(name: name, condition: nil)
-                    }
+            // Parse .target(name: "...", condition: ...)
+            var name: String?
+            var condition: PackageConditionDescription?
+            
+            for argument in arguments {
+                let label = argument.label?.text
+                if label == "name" {
+                    name = argument.expression.asStringLiteralValue()
+                } else if label == "condition" {
+                    condition = parsePackageCondition(argument.expression)
                 }
+            }
+            
+            if let targetName = name {
+                return .target(name: targetName, condition: condition)
             }
             limitations.append(.unsupportedExpression(expr, expected: ".target with name"))
             return nil
         } else if methodName == "product" {
-            // Parse .product(name: "...", package: "...")
+            // Parse .product(name: "...", package: "...", moduleAliases: [...], condition: ...)
             var name: String?
             var package: String?
+            var moduleAliases: [String: String]?
+            var condition: PackageConditionDescription?
             
-            for argument in functionCall.arguments {
+            for argument in arguments {
                 let label = argument.label?.text
                 if label == "name" {
                     name = argument.expression.asStringLiteralValue()
                 } else if label == "package" {
                     package = argument.expression.asStringLiteralValue()
+                } else if label == "moduleAliases" {
+                    moduleAliases = parseModuleAliases(argument.expression)
+                } else if label == "condition" {
+                    condition = parsePackageCondition(argument.expression)
                 }
             }
             
             if let productName = name {
-                return .product(name: productName, package: package, moduleAliases: nil, condition: nil)
+                return .product(name: productName, package: package, moduleAliases: moduleAliases, condition: condition)
             }
             limitations.append(.unsupportedExpression(expr, expected: ".product with name"))
+            return nil
+        } else if methodName == "byName" {
+            // Parse .byName(name: "...", condition: ...)
+            var name: String?
+            var condition: PackageConditionDescription?
+            
+            for argument in arguments {
+                let label = argument.label?.text
+                if label == "name" {
+                    name = argument.expression.asStringLiteralValue()
+                } else if label == "condition" {
+                    condition = parsePackageCondition(argument.expression)
+                }
+            }
+            
+            if let depName = name {
+                return .byName(name: depName, condition: condition)
+            }
+            limitations.append(.unsupportedExpression(expr, expected: ".byName with name"))
             return nil
         } else {
             limitations.append(.unsupportedExpression(expr, expected: ".target or .product dependency"))
             return nil
         }
+    }
+    
+    /// Parse a package condition like .when(platforms: [.macOS, .linux])
+    private func parsePackageCondition(_ expr: ExprSyntax) -> PackageConditionDescription? {
+        guard let (methodName, arguments) = expr.asMemberAccessCall(),
+              methodName == "when" else {
+            limitations.append(.unsupportedExpression(expr, expected: "package condition"))
+            return nil
+        }
+        
+        var platformNames: [String] = []
+        var config: String?
+        var traits: Set<String>?
+        
+        for argument in arguments {
+            let label = argument.label?.text
+            
+            if label == "platforms" {
+                if let parsed = argument.expression.parseArrayElements({ $0.asEnumMember() }) {
+                    platformNames = parsed.map { $0.lowercased() }
+                }
+            } else if label == "configuration" {
+                config = argument.expression.asEnumMember()
+            } else if label == "traits" {
+                if let parsed = argument.expression.asStringArray() {
+                    traits = Set(parsed)
+                }
+            }
+        }
+        
+        // At least one condition must be specified
+        if !platformNames.isEmpty || config != nil || traits != nil {
+            return PackageConditionDescription(platformNames: platformNames, config: config, traits: traits)
+        }
+        
+        limitations.append(.unsupportedExpression(expr, expected: "package condition with platforms, configuration, or traits"))
+        return nil
+    }
+    
+    /// Parse module aliases dictionary like ["OriginalName": "AliasName", ...]
+    private func parseModuleAliases(_ expr: ExprSyntax) -> [String: String]? {
+        guard let dictExpr = expr.as(DictionaryExprSyntax.self) else {
+            limitations.append(.unsupportedExpression(expr, expected: "dictionary for module aliases"))
+            return nil
+        }
+        
+        var aliases: [String: String] = [:]
+        
+        // Check if it's a dictionary with elements
+        switch dictExpr.content {
+        case .colon:
+            // Empty dictionary [:]
+            return nil
+        case .elements(let elements):
+            // Dictionary with key-value pairs
+            for element in elements {
+                if let keyString = element.key.asStringLiteralValue(),
+                   let valueString = element.value.asStringLiteralValue() {
+                    aliases[keyString] = valueString
+                }
+            }
+        }
+        
+        return aliases.isEmpty ? nil : aliases
+    }
+    
+    /// Parse a build setting like .headerSearchPath("path"), .define("NAME"), .linkedLibrary("lib"), etc.
+    private func parseBuildSetting(_ expr: ExprSyntax, tool: TargetBuildSettingDescription.Tool) -> TargetBuildSettingDescription.Setting? {
+        guard let functionCall = expr.as(FunctionCallExprSyntax.self),
+              let memberAccess = functionCall.calledExpression.as(MemberAccessExprSyntax.self),
+              memberAccess.base == nil,
+              let methodName = memberAccess.declName.baseName.identifier?.name else {
+            limitations.append(.unsupportedExpression(expr, expected: "build setting"))
+            return nil
+        }
+        
+        var kind: TargetBuildSettingDescription.Kind?
+        var condition: PackageConditionDescription?
+        
+        // Parse the kind based on method name
+        switch methodName {
+        case "headerSearchPath":
+            if let firstArg = functionCall.arguments.first,
+               firstArg.label == nil,
+               let path = firstArg.expression.asStringLiteralValue() {
+                kind = .headerSearchPath(path)
+            }
+        case "define":
+            // .define("NAME") or .define("NAME", to: "VALUE")
+            var name: String?
+            var value: String?
+            
+            for argument in functionCall.arguments {
+                let label = argument.label?.text
+                if label == nil {
+                    name = argument.expression.asStringLiteralValue()
+                } else if label == "to" {
+                    value = argument.expression.asStringLiteralValue()
+                }
+            }
+            
+            if let defineName = name {
+                if let defineValue = value {
+                    kind = .define("\(defineName)=\(defineValue)")
+                } else {
+                    kind = .define(defineName)
+                }
+            }
+        case "linkedLibrary":
+            if let firstArg = functionCall.arguments.first,
+               firstArg.label == nil,
+               let library = firstArg.expression.asStringLiteralValue() {
+                kind = .linkedLibrary(library)
+            }
+        case "linkedFramework":
+            if let firstArg = functionCall.arguments.first,
+               firstArg.label == nil,
+               let framework = firstArg.expression.asStringLiteralValue() {
+                kind = .linkedFramework(framework)
+            }
+        case "unsafeFlags":
+            if let firstArg = functionCall.arguments.first,
+               firstArg.label == nil,
+               let flagsArray = firstArg.expression.as(ArrayExprSyntax.self) {
+                var flags: [String] = []
+                for flagElement in flagsArray.elements {
+                    if let flag = flagElement.expression.asStringLiteralValue() {
+                        flags.append(flag)
+                    }
+                }
+                kind = .unsafeFlags(flags)
+            }
+        case "enableUpcomingFeature":
+            if let firstArg = functionCall.arguments.first,
+               firstArg.label == nil,
+               let feature = firstArg.expression.asStringLiteralValue() {
+                kind = .enableUpcomingFeature(feature)
+            }
+        case "enableExperimentalFeature":
+            if let firstArg = functionCall.arguments.first,
+               firstArg.label == nil,
+               let feature = firstArg.expression.asStringLiteralValue() {
+                kind = .enableExperimentalFeature(feature)
+            }
+        case "interoperabilityMode":
+            // .interoperabilityMode(.C) or .interoperabilityMode(.Cxx)
+            if let firstArg = functionCall.arguments.first,
+               firstArg.label == nil,
+               let memberAccess = firstArg.expression.as(MemberAccessExprSyntax.self),
+               memberAccess.base == nil,
+               let modeName = memberAccess.declName.baseName.identifier?.name {
+                switch modeName {
+                case "C":
+                    kind = .interoperabilityMode(.C)
+                case "Cxx":
+                    kind = .interoperabilityMode(.Cxx)
+                default:
+                    break
+                }
+            }
+        case "strictMemorySafety":
+            kind = .strictMemorySafety
+        case "swiftLanguageMode":
+            // .swiftLanguageMode(.v5) or .swiftLanguageMode(.version("6"))
+            if let version = parseSwiftLanguageVersion(functionCall.arguments.first?.expression) {
+                kind = .swiftLanguageMode(version)
+            }
+        case "treatAllWarnings":
+            // .treatAllWarnings(.warning) or .treatAllWarnings(.error)
+            if let firstArg = functionCall.arguments.first,
+               firstArg.label == nil || firstArg.label?.text == "as",
+               let memberAccess = firstArg.expression.as(MemberAccessExprSyntax.self),
+               memberAccess.base == nil,
+               let levelName = memberAccess.declName.baseName.identifier?.name {
+                switch levelName {
+                case "warning":
+                    kind = .treatAllWarnings(.warning)
+                case "error":
+                    kind = .treatAllWarnings(.error)
+                default:
+                    break
+                }
+            }
+        case "treatWarning":
+            // .treatWarning("deprecated", as: .error)
+            var warningName: String?
+            var level: TargetBuildSettingDescription.WarningLevel?
+            
+            for argument in functionCall.arguments {
+                let label = argument.label?.text
+                if label == nil {
+                    warningName = argument.expression.asStringLiteralValue()
+                } else if label == "as" {
+                    if let memberAccess = argument.expression.as(MemberAccessExprSyntax.self),
+                       memberAccess.base == nil,
+                       let levelName = memberAccess.declName.baseName.identifier?.name {
+                        switch levelName {
+                        case "warning":
+                            level = .warning
+                        case "error":
+                            level = .error
+                        default:
+                            break
+                        }
+                    }
+                }
+            }
+            
+            if let warning = warningName, let warningLevel = level {
+                kind = .treatWarning(warning, warningLevel)
+            }
+        case "enableWarning":
+            if let firstArg = functionCall.arguments.first,
+               firstArg.label == nil,
+               let warning = firstArg.expression.asStringLiteralValue() {
+                kind = .enableWarning(warning)
+            }
+        case "disableWarning":
+            if let firstArg = functionCall.arguments.first,
+               firstArg.label == nil,
+               let warning = firstArg.expression.asStringLiteralValue() {
+                kind = .disableWarning(warning)
+            }
+        case "defaultIsolation":
+            // .defaultIsolation(.MainActor) or .defaultIsolation(.nonisolated)
+            if let firstArg = functionCall.arguments.first,
+               firstArg.label == nil,
+               let memberAccess = firstArg.expression.as(MemberAccessExprSyntax.self),
+               memberAccess.base == nil,
+               let isolationName = memberAccess.declName.baseName.identifier?.name {
+                switch isolationName {
+                case "MainActor":
+                    kind = .defaultIsolation(.MainActor)
+                case "nonisolated":
+                    kind = .defaultIsolation(.nonisolated)
+                default:
+                    break
+                }
+            }
+        default:
+            limitations.append(.unsupportedExpression(expr, expected: "known build setting type"))
+            return nil
+        }
+        
+        // Parse condition if present (last argument with no label or labeled as condition)
+        for argument in functionCall.arguments.dropFirst() {
+            if argument.label == nil || argument.label?.text == "condition" {
+                if let parsedCondition = parsePackageCondition(argument.expression) {
+                    condition = parsedCondition
+                }
+            }
+        }
+        
+        guard let settingKind = kind else {
+            limitations.append(.unsupportedExpression(expr, expected: "valid build setting"))
+            return nil
+        }
+        
+        return TargetBuildSettingDescription.Setting(tool: tool, kind: settingKind, condition: condition)
+    }
+    
+    /// Parse a Swift language version like .v5, .v6, or .version("5")
+    private func parseSwiftLanguageVersion(_ expr: ExprSyntax?) -> SwiftLanguageVersion? {
+        guard let expr = expr else { return nil }
+        
+        // Case 1: Member access like .v5, .v6
+        if let memberAccess = expr.as(MemberAccessExprSyntax.self),
+           memberAccess.base == nil,
+           let versionName = memberAccess.declName.baseName.identifier?.name {
+            let versionString: String
+            switch versionName {
+            case "v3": versionString = "3"
+            case "v4": versionString = "4"
+            case "v4_2": versionString = "4.2"
+            case "v5": versionString = "5"
+            case "v6": versionString = "6"
+            default: return nil
+            }
+            return SwiftLanguageVersion(string: versionString)
+        }
+        
+        // Case 2: Function call like .version("5")
+        if let functionCall = expr.as(FunctionCallExprSyntax.self),
+           let memberAccess = functionCall.calledExpression.as(MemberAccessExprSyntax.self),
+           memberAccess.base == nil,
+           let methodName = memberAccess.declName.baseName.identifier?.name,
+           methodName == "version",
+           let firstArg = functionCall.arguments.first,
+           firstArg.label == nil,
+           let versionString = firstArg.expression.asStringLiteralValue() {
+            return SwiftLanguageVersion(string: versionString)
+        }
+        
+        return nil
     }
     
     /// Parse a system package provider like .brew(["openssl"]) or .apt(["openssl", "libssl-dev"])
@@ -684,39 +1116,297 @@ extension ManifestParseVisitor {
         }
     }
     
-    /// Parse a product declaration like .executable(name: "tool", targets: ["tool"])
-    private func parseProduct(_ expr: ExprSyntax) -> ProductDescription? {
-        guard let functionCall = expr.as(FunctionCallExprSyntax.self),
-              let memberAccess = functionCall.calledExpression.as(MemberAccessExprSyntax.self),
-              memberAccess.base == nil, // Leading dot syntax
-              let methodName = memberAccess.declName.baseName.identifier?.name else {
-            limitations.append(.unsupportedExpression(expr, expected: "product declaration"))
+    /// Parse a resource declaration like .copy("foo.txt") or .process("bar.txt", localization: .default)
+    private func parseResource(_ expr: ExprSyntax) -> TargetDescription.Resource? {
+        guard let (methodName, arguments) = expr.asMemberAccessCall() else {
+            limitations.append(.unsupportedExpression(expr, expected: "resource declaration"))
             return nil
         }
         
+        // Parse the path argument (first unlabeled argument)
+        guard let firstArg = arguments.first,
+              firstArg.label == nil,
+              let path = firstArg.expression.asStringLiteralValue() else {
+            limitations.append(.unsupportedExpression(expr, expected: "resource with path"))
+            return nil
+        }
+        
+        // Determine the rule based on method name
+        let rule: TargetDescription.Resource.Rule
+        switch methodName {
+        case "copy":
+            rule = .copy
+        case "process":
+            // Check for localization argument
+            var localization: TargetDescription.Resource.Localization? = nil
+            for argument in arguments.dropFirst() {
+                if argument.label?.text == "localization" {
+                    if let memberAccess = argument.expression.as(MemberAccessExprSyntax.self),
+                       memberAccess.base == nil,
+                       let localizationName = memberAccess.declName.baseName.identifier?.name {
+                        switch localizationName {
+                        case "default":
+                            localization = .default
+                        case "base":
+                            localization = .base
+                        default:
+                            break
+                        }
+                    }
+                }
+            }
+            rule = .process(localization: localization)
+        case "embedInCode":
+            rule = .embedInCode
+        default:
+            limitations.append(.unsupportedExpression(expr, expected: "known resource type"))
+            return nil
+        }
+        
+        return TargetDescription.Resource(rule: rule, path: path)
+    }
+    
+    /// Parse a plugin capability like .buildTool() or .command(intent: .custom(verb: "foo", description: "bar"))
+    private func parsePluginCapability(_ expr: ExprSyntax) -> TargetDescription.PluginCapability? {
+        guard let (methodName, arguments) = expr.asMemberAccessCall() else {
+            limitations.append(.unsupportedExpression(expr, expected: "plugin capability"))
+            return nil
+        }
+        
+        switch methodName {
+        case "buildTool":
+            return .buildTool
+        case "command":
+            // Parse .command(intent: ..., permissions: [...])
+            var intent: TargetDescription.PluginCommandIntent?
+            var permissions: [TargetDescription.PluginPermission] = []
+            
+            for argument in arguments {
+                let label = argument.label?.text
+                if label == "intent" {
+                    intent = parsePluginCommandIntent(argument.expression)
+                } else if label == "permissions" {
+                    permissions = argument.expression.parseArrayElements(parsePluginPermission) ?? []
+                }
+            }
+            
+            if let commandIntent = intent {
+                return .command(intent: commandIntent, permissions: permissions)
+            } else {
+                limitations.append(.unsupportedExpression(expr, expected: "command capability with intent"))
+                return nil
+            }
+        default:
+            limitations.append(.unsupportedExpression(expr, expected: "known plugin capability type"))
+            return nil
+        }
+    }
+    
+    /// Parse a plugin command intent like .documentationGeneration or .custom(verb: "foo", description: "bar")
+    private func parsePluginCommandIntent(_ expr: ExprSyntax) -> TargetDescription.PluginCommandIntent? {
+        if let intentName = expr.asEnumMember() {
+            switch intentName {
+            case "documentationGeneration":
+                return .documentationGeneration
+            case "sourceCodeFormatting":
+                return .sourceCodeFormatting
+            default:
+                break
+            }
+        }
+        
+        // Parse .custom(verb: "...", description: "...")
+        if let (methodName, arguments) = expr.asMemberAccessCall(),
+           methodName == "custom" {
+            var verb: String?
+            var description: String?
+            
+            for argument in arguments {
+                let label = argument.label?.text
+                if label == "verb" {
+                    verb = argument.expression.asStringLiteralValue()
+                } else if label == "description" {
+                    description = argument.expression.asStringLiteralValue()
+                }
+            }
+            
+            if let v = verb, let d = description {
+                return .custom(verb: v, description: d)
+            }
+        }
+        
+        limitations.append(.unsupportedExpression(expr, expected: "plugin command intent"))
+        return nil
+    }
+    
+    /// Parse a plugin permission like .writeToPackageDirectory(reason: "...")
+    private func parsePluginPermission(_ expr: ExprSyntax) -> TargetDescription.PluginPermission? {
+        guard let (methodName, arguments) = expr.asMemberAccessCall() else {
+            limitations.append(.unsupportedExpression(expr, expected: "plugin permission"))
+            return nil
+        }
+        
+        switch methodName {
+        case "writeToPackageDirectory":
+            for argument in arguments {
+                if argument.label?.text == "reason",
+                   let reason = argument.expression.asStringLiteralValue() {
+                    return .writeToPackageDirectory(reason: reason)
+                }
+            }
+            limitations.append(.unsupportedExpression(expr, expected: "writeToPackageDirectory with reason"))
+            return nil
+        case "allowNetworkConnections":
+            // Parse .allowNetworkConnections(scope: ..., reason: "...")
+            var scope: TargetDescription.PluginNetworkPermissionScope?
+            var reason: String?
+            
+            for argument in arguments {
+                let label = argument.label?.text
+                if label == "scope" {
+                    scope = parsePluginNetworkPermissionScope(argument.expression)
+                } else if label == "reason" {
+                    reason = argument.expression.asStringLiteralValue()
+                }
+            }
+            
+            if let s = scope, let r = reason {
+                return .allowNetworkConnections(scope: s, reason: r)
+            } else {
+                limitations.append(.unsupportedExpression(expr, expected: "allowNetworkConnections with scope and reason"))
+                return nil
+            }
+        default:
+            limitations.append(.unsupportedExpression(expr, expected: "known plugin permission type"))
+            return nil
+        }
+    }
+    
+    /// Parse a plugin network permission scope like .none, .local(ports: [8080]), .all(ports: []), .docker, .unixDomainSocket
+    private func parsePluginNetworkPermissionScope(_ expr: ExprSyntax) -> TargetDescription.PluginNetworkPermissionScope? {
+        // Simple cases: .none, .docker, .unixDomainSocket
+        if let memberAccess = expr.as(MemberAccessExprSyntax.self),
+           memberAccess.base == nil,
+           let scopeName = memberAccess.declName.baseName.identifier?.name {
+            switch scopeName {
+            case "none":
+                return .none
+            case "docker":
+                return .docker
+            case "unixDomainSocket":
+                return .unixDomainSocket
+            default:
+                break
+            }
+        }
+        
+        // Cases with ports: .local(ports: [...]), .all(ports: [...])
+        if let functionCall = expr.as(FunctionCallExprSyntax.self),
+           let memberAccess = functionCall.calledExpression.as(MemberAccessExprSyntax.self),
+           memberAccess.base == nil,
+           let scopeName = memberAccess.declName.baseName.identifier?.name {
+            var ports: [Int] = []
+            
+            for argument in functionCall.arguments {
+                if argument.label?.text == "ports",
+                   let portsArray = argument.expression.as(ArrayExprSyntax.self) {
+                    for portElement in portsArray.elements {
+                        if let intLiteral = portElement.expression.as(IntegerLiteralExprSyntax.self),
+                           let port = Int(intLiteral.literal.text) {
+                            ports.append(port)
+                        }
+                    }
+                }
+            }
+            
+            switch scopeName {
+            case "local":
+                return .local(ports: ports)
+            case "all":
+                return .all(ports: ports)
+            default:
+                break
+            }
+        }
+        
+        limitations.append(.unsupportedExpression(expr, expected: "plugin network permission scope"))
+        return nil
+    }
+    
+    /// Parse a plugin usage like "PluginName", .plugin(name: "MyPlugin"), or .plugin(name: "MyPlugin", package: "MyPackage")
+    private func parsePluginUsage(_ expr: ExprSyntax) -> TargetDescription.PluginUsage? {
+        // Case 1: String literal (e.g., "PluginName" - refers to plugin in same package)
+        if let pluginName = expr.asStringLiteralValue() {
+            return .plugin(name: pluginName, package: nil)
+        }
+        
+        // Case 2: .plugin(name: "...", package: "...") or .plugin(name: "...")
+        guard let functionCall = expr.as(FunctionCallExprSyntax.self),
+              let memberAccess = functionCall.calledExpression.as(MemberAccessExprSyntax.self),
+              memberAccess.base == nil, // Leading dot syntax
+              memberAccess.declName.baseName.text == "plugin" else {
+            limitations.append(.unsupportedExpression(expr, expected: "plugin usage declaration"))
+            return nil
+        }
+        
+        var name: String?
+        var package: String?
+        
+        for argument in functionCall.arguments {
+            let label = argument.label?.text
+            if label == "name" {
+                name = argument.expression.asStringLiteralValue()
+            } else if label == "package" {
+                package = argument.expression.asStringLiteralValue()
+            }
+        }
+        
+        guard let pluginName = name else {
+            limitations.append(.unsupportedExpression(expr, expected: "plugin usage with name"))
+            return nil
+        }
+        
+        return .plugin(name: pluginName, package: package)
+    }
+    
+    /// Parse a product declaration like .executable(name: "tool", targets: ["tool"])
+    private func parseProduct(_ expr: ExprSyntax) -> ProductDescription? {
+        guard let (methodName, arguments) = expr.asMemberAccessCall() else {
+            limitations.append(.unsupportedExpression(expr, expected: "product declaration"))
+            return nil
+        }
+
         // Parse product arguments
         var name: String?
         var targets: [String] = []
         var productType: ProductType?
-        
-        for argument in functionCall.arguments {
+        var settings: [ProductSetting] = []
+
+        #if ENABLE_APPLE_PRODUCT_TYPES
+        // For iOSApplication products, we collect settings from individual parameters
+        var bundleIdentifier: String?
+        var teamIdentifier: String?
+        var displayVersion: String?
+        var bundleVersion: String?
+        var appIcon: ProductSetting.IOSAppInfo.AppIcon?
+        var accentColor: ProductSetting.IOSAppInfo.AccentColor?
+        var supportedDeviceFamilies: [ProductSetting.IOSAppInfo.DeviceFamily] = []
+        var supportedInterfaceOrientations: [ProductSetting.IOSAppInfo.InterfaceOrientation] = []
+        var capabilities: [ProductSetting.IOSAppInfo.Capability] = []
+        var appCategory: ProductSetting.IOSAppInfo.AppCategory?
+        var additionalInfoPlistContentFilePath: String?
+        #endif
+
+        for argument in arguments {
             let label = argument.label?.text
-            
+
             if label == "name" {
                 name = argument.expression.asStringLiteralValue()
             } else if label == "targets" {
-                if let targetsArray = argument.expression.as(ArrayExprSyntax.self) {
-                    for targetElement in targetsArray.elements {
-                        if let targetName = targetElement.expression.asStringLiteralValue() {
-                            targets.append(targetName)
-                        }
-                    }
-                }
+                targets = argument.expression.asStringArray() ?? []
             } else if label == "type" {
                 // Parse library type like .dynamic or .static
-                if let memberAccess = argument.expression.as(MemberAccessExprSyntax.self),
-                   memberAccess.base == nil,
-                   let typeName = memberAccess.declName.baseName.identifier?.name {
+                if let typeName = argument.expression.asEnumMember() {
                     switch typeName {
                     case "dynamic":
                         productType = .library(.dynamic)
@@ -727,6 +1417,33 @@ extension ManifestParseVisitor {
                     }
                 }
             }
+            
+            #if ENABLE_APPLE_PRODUCT_TYPES
+            // Parse iOS-specific product settings
+            if label == "bundleIdentifier" {
+                bundleIdentifier = argument.expression.asStringLiteralValue()
+            } else if label == "teamIdentifier" {
+                teamIdentifier = argument.expression.asStringLiteralValue()
+            } else if label == "displayVersion" {
+                displayVersion = argument.expression.asStringLiteralValue()
+            } else if label == "bundleVersion" {
+                bundleVersion = argument.expression.asStringLiteralValue()
+            } else if label == "appIcon" {
+                appIcon = parseAppIcon(argument.expression)
+            } else if label == "accentColor" {
+                accentColor = parseAccentColor(argument.expression)
+            } else if label == "supportedDeviceFamilies" {
+                supportedDeviceFamilies = parseDeviceFamilies(argument.expression)
+            } else if label == "supportedInterfaceOrientations" {
+                supportedInterfaceOrientations = parseInterfaceOrientations(argument.expression)
+            } else if label == "capabilities" {
+                capabilities = parseCapabilities(argument.expression)
+            } else if label == "appCategory" {
+                appCategory = parseAppCategory(argument.expression)
+            } else if label == "additionalInfoPlistContentFilePath" {
+                additionalInfoPlistContentFilePath = argument.expression.asStringLiteralValue()
+            }
+            #endif
         }
         
         guard let productName = name else {
@@ -743,6 +1460,36 @@ extension ManifestParseVisitor {
             finalProductType = productType ?? .library(.automatic)
         case "plugin":
             finalProductType = .plugin
+        #if ENABLE_APPLE_PRODUCT_TYPES
+        case "iOSApplication":
+            finalProductType = .executable
+            
+            // Build product settings from parsed iOS app configuration
+            if let bundleIdentifier = bundleIdentifier {
+                settings.append(.bundleIdentifier(bundleIdentifier))
+            }
+            if let teamIdentifier = teamIdentifier {
+                settings.append(.teamIdentifier(teamIdentifier))
+            }
+            if let displayVersion = displayVersion {
+                settings.append(.displayVersion(displayVersion))
+            }
+            if let bundleVersion = bundleVersion {
+                settings.append(.bundleVersion(bundleVersion))
+            }
+            
+            // Create IOSAppInfo setting if we have any iOS-specific configuration
+            let appInfo = ProductSetting.IOSAppInfo(
+                appIcon: appIcon,
+                accentColor: accentColor,
+                supportedDeviceFamilies: supportedDeviceFamilies,
+                supportedInterfaceOrientations: supportedInterfaceOrientations,
+                capabilities: capabilities,
+                appCategory: appCategory,
+                additionalInfoPlistContentFilePath: additionalInfoPlistContentFilePath
+            )
+            settings.append(.iOSAppInfo(appInfo))
+        #endif
         default:
             limitations.append(.unsupportedExpression(expr, expected: "known product type"))
             return nil
@@ -752,7 +1499,8 @@ extension ManifestParseVisitor {
             return try ProductDescription(
                 name: productName,
                 type: finalProductType,
-                targets: targets
+                targets: targets,
+                settings: settings
             )
         } catch {
             limitations.append(.unsupportedExpression(expr, expected: "valid product configuration"))
@@ -762,9 +1510,7 @@ extension ManifestParseVisitor {
     
     /// Parse C language standard like .iso9899_199409
     private func parseCLanguageStandard(_ expr: ExprSyntax) -> String? {
-        guard let memberAccess = expr.as(MemberAccessExprSyntax.self),
-              memberAccess.base == nil, // Leading dot syntax
-              let standardName = memberAccess.declName.baseName.identifier?.name else {
+        guard let standardName = expr.asEnumMember() else {
             limitations.append(.unsupportedExpression(expr, expected: "C language standard"))
             return nil
         }
@@ -794,9 +1540,7 @@ extension ManifestParseVisitor {
     
     /// Parse C++ language standard like .gnucxx14
     private func parseCxxLanguageStandard(_ expr: ExprSyntax) -> String? {
-        guard let memberAccess = expr.as(MemberAccessExprSyntax.self),
-              memberAccess.base == nil, // Leading dot syntax
-              let standardName = memberAccess.declName.baseName.identifier?.name else {
+        guard let standardName = expr.asEnumMember() else {
             limitations.append(.unsupportedExpression(expr, expected: "C++ language standard"))
             return nil
         }
@@ -821,6 +1565,729 @@ extension ManifestParseVisitor {
             limitations.append(.unsupportedExpression(expr, expected: "known C++ language standard"))
             return nil
         }
+    }
+    
+    #if ENABLE_APPLE_PRODUCT_TYPES
+    /// Parse an app icon like .asset("icon") or .placeholder(.appIcon)
+    private func parseAppIcon(_ expr: ExprSyntax) -> ProductSetting.IOSAppInfo.AppIcon? {
+        guard let (methodName, arguments) = expr.asMemberAccessCall() else {
+            limitations.append(.unsupportedExpression(expr, expected: "app icon"))
+            return nil
+        }
+        
+        switch methodName {
+        case "asset":
+            if let name = arguments.first?.expression.asStringLiteralValue() {
+                return .asset(name: name)
+            }
+        case "placeholder":
+            if let iconArg = arguments.first?.expression,
+               let iconName = iconArg.asEnumMember() {
+                return .placeholder(icon: .init(rawValue: iconName))
+            }
+        default:
+            break
+        }
+        
+        limitations.append(.unsupportedExpression(expr, expected: "valid app icon"))
+        return nil
+    }
+    
+    /// Parse an accent color like .asset("color") or .presetColor(.blue)
+    private func parseAccentColor(_ expr: ExprSyntax) -> ProductSetting.IOSAppInfo.AccentColor? {
+        guard let (methodName, arguments) = expr.asMemberAccessCall() else {
+            limitations.append(.unsupportedExpression(expr, expected: "accent color"))
+            return nil
+        }
+        
+        switch methodName {
+        case "asset":
+            if let name = arguments.first?.expression.asStringLiteralValue() {
+                return .asset(name: name)
+            }
+        case "presetColor":
+            if let colorArg = arguments.first?.expression,
+               let colorName = colorArg.asEnumMember() {
+                return .presetColor(presetColor: .init(rawValue: colorName))
+            }
+        default:
+            break
+        }
+        
+        limitations.append(.unsupportedExpression(expr, expected: "valid accent color"))
+        return nil
+    }
+    
+    /// Parse device families like [.pad, .phone, .mac]
+    private func parseDeviceFamilies(_ expr: ExprSyntax) -> [ProductSetting.IOSAppInfo.DeviceFamily] {
+        guard let arrayExpr = expr.as(ArrayExprSyntax.self) else {
+            limitations.append(.unsupportedExpression(expr, expected: "device family array"))
+            return []
+        }
+        
+        var families: [ProductSetting.IOSAppInfo.DeviceFamily] = []
+        for element in arrayExpr.elements {
+            if let familyName = element.expression.asEnumMember(),
+               let family = ProductSetting.IOSAppInfo.DeviceFamily(rawValue: familyName) {
+                families.append(family)
+            }
+        }
+        return families
+    }
+    
+    /// Parse interface orientations like [.portrait, .landscapeRight(.when(deviceFamilies: [.mac]))]
+    private func parseInterfaceOrientations(_ expr: ExprSyntax) -> [ProductSetting.IOSAppInfo.InterfaceOrientation] {
+        guard let arrayExpr = expr.as(ArrayExprSyntax.self) else {
+            limitations.append(.unsupportedExpression(expr, expected: "interface orientation array"))
+            return []
+        }
+        
+        var orientations: [ProductSetting.IOSAppInfo.InterfaceOrientation] = []
+        for element in arrayExpr.elements {
+            if let orientation = parseInterfaceOrientation(element.expression) {
+                orientations.append(orientation)
+            }
+        }
+        return orientations
+    }
+    
+    /// Parse a single interface orientation like .portrait or .landscapeRight(.when(deviceFamilies: [.mac]))
+    private func parseInterfaceOrientation(_ expr: ExprSyntax) -> ProductSetting.IOSAppInfo.InterfaceOrientation? {
+        // Handle simple case: .portrait (no condition)
+        if let orientationName = expr.asEnumMember() {
+            switch orientationName {
+            case "portrait":
+                return .portrait(condition: nil)
+            case "portraitUpsideDown":
+                return .portraitUpsideDown(condition: nil)
+            case "landscapeRight":
+                return .landscapeRight(condition: nil)
+            case "landscapeLeft":
+                return .landscapeLeft(condition: nil)
+            default:
+                break
+            }
+        }
+        
+        // Handle conditional case: .portrait(.when(deviceFamilies: [.mac]))
+        guard let functionCall = expr.as(FunctionCallExprSyntax.self),
+              let memberAccess = functionCall.calledExpression.as(MemberAccessExprSyntax.self),
+              memberAccess.base == nil,
+              let orientationName = memberAccess.declName.baseName.identifier?.name else {
+            limitations.append(.unsupportedExpression(expr, expected: "interface orientation"))
+            return nil
+        }
+        
+        var condition: ProductSetting.IOSAppInfo.DeviceFamilyCondition?
+        if let conditionArg = functionCall.arguments.first?.expression {
+            condition = parseDeviceFamilyCondition(conditionArg)
+        }
+        
+        switch orientationName {
+        case "portrait":
+            return .portrait(condition: condition)
+        case "portraitUpsideDown":
+            return .portraitUpsideDown(condition: condition)
+        case "landscapeRight":
+            return .landscapeRight(condition: condition)
+        case "landscapeLeft":
+            return .landscapeLeft(condition: condition)
+        default:
+            limitations.append(.unsupportedExpression(expr, expected: "valid interface orientation"))
+            return nil
+        }
+    }
+    
+    /// Parse a device family condition like .when(deviceFamilies: [.mac])
+    private func parseDeviceFamilyCondition(_ expr: ExprSyntax) -> ProductSetting.IOSAppInfo.DeviceFamilyCondition? {
+        guard let (methodName, arguments) = expr.asMemberAccessCall(),
+              methodName == "when" else {
+            limitations.append(.unsupportedExpression(expr, expected: "device family condition"))
+            return nil
+        }
+        
+        for argument in arguments {
+            if argument.label?.text == "deviceFamilies" {
+                let families = parseDeviceFamilies(argument.expression)
+                return ProductSetting.IOSAppInfo.DeviceFamilyCondition(deviceFamilies: families)
+            }
+        }
+        
+        return nil
+    }
+    
+    /// Parse capabilities like [.camera(purposeString: "..."), .microphone(purposeString: "...")]
+    private func parseCapabilities(_ expr: ExprSyntax) -> [ProductSetting.IOSAppInfo.Capability] {
+        guard let arrayExpr = expr.as(ArrayExprSyntax.self) else {
+            limitations.append(.unsupportedExpression(expr, expected: "capability array"))
+            return []
+        }
+        
+        var capabilities: [ProductSetting.IOSAppInfo.Capability] = []
+        for element in arrayExpr.elements {
+            if let capability = parseCapability(element.expression) {
+                capabilities.append(capability)
+            }
+        }
+        return capabilities
+    }
+    
+    /// Parse a single capability
+    private func parseCapability(_ expr: ExprSyntax) -> ProductSetting.IOSAppInfo.Capability? {
+        guard let (purpose, arguments) = expr.asMemberAccessCall() else {
+            limitations.append(.unsupportedExpression(expr, expected: "capability"))
+            return nil
+        }
+        
+        var purposeString: String?
+        var bonjourServiceTypes: [String]?
+        var condition: ProductSetting.IOSAppInfo.DeviceFamilyCondition?
+        
+        for argument in arguments {
+            let label = argument.label?.text
+            
+            if label == "purposeString" {
+                purposeString = argument.expression.asStringLiteralValue()
+            } else if label == "bonjourServiceTypes" {
+                bonjourServiceTypes = argument.expression.asStringArray()
+            } else if label == nil {
+                // Unlabeled argument could be a condition
+                if let cond = parseDeviceFamilyCondition(argument.expression) {
+                    condition = cond
+                }
+            }
+        }
+        
+        return ProductSetting.IOSAppInfo.Capability(
+            purpose: purpose,
+            purposeString: purposeString,
+            bonjourServiceTypes: bonjourServiceTypes,
+            condition: condition
+        )
+    }
+    
+    /// Parse an app category like .developerTools
+    private func parseAppCategory(_ expr: ExprSyntax) -> ProductSetting.IOSAppInfo.AppCategory? {
+        guard let categoryName = expr.asEnumMember() else {
+            limitations.append(.unsupportedExpression(expr, expected: "app category"))
+            return nil
+        }
+        
+        // Map the enum name to the raw value format
+        let rawValue: String
+        switch categoryName {
+        case "business":
+            rawValue = "public.app-category.business"
+        case "developerTools":
+            rawValue = "public.app-category.developer-tools"
+        case "education":
+            rawValue = "public.app-category.education"
+        case "entertainment":
+            rawValue = "public.app-category.entertainment"
+        case "finance":
+            rawValue = "public.app-category.finance"
+        case "games":
+            rawValue = "public.app-category.games"
+        case "healthAndFitness":
+            rawValue = "public.app-category.healthcare-fitness"
+        case "lifestyle":
+            rawValue = "public.app-category.lifestyle"
+        case "medical":
+            rawValue = "public.app-category.medical"
+        case "music":
+            rawValue = "public.app-category.music"
+        case "news":
+            rawValue = "public.app-category.news"
+        case "photography":
+            rawValue = "public.app-category.photography"
+        case "productivity":
+            rawValue = "public.app-category.productivity"
+        case "reference":
+            rawValue = "public.app-category.reference"
+        case "socialNetworking":
+            rawValue = "public.app-category.social-networking"
+        case "sports":
+            rawValue = "public.app-category.sports"
+        case "travel":
+            rawValue = "public.app-category.travel"
+        case "utilities":
+            rawValue = "public.app-category.utilities"
+        case "weather":
+            rawValue = "public.app-category.weather"
+        case "graphics_design":
+            rawValue = "public.app-category.graphics-design"
+        default:
+            rawValue = categoryName
+        }
+        
+        return ProductSetting.IOSAppInfo.AppCategory(rawValue: rawValue)
+    }
+    #endif
+    
+    /// Parse a package dependency like `.package(url: "/foo", from: "1.0.0")` or `.package(url: "/foo", branch: "main")`
+    private func parsePackageDependency(_ expr: ExprSyntax) -> PackageDependency? {
+        // Expect a function call like .package(url: "/foo", from: "1.0.0")
+        guard let functionCall = expr.as(FunctionCallExprSyntax.self),
+              let memberAccess = functionCall.calledExpression.as(MemberAccessExprSyntax.self),
+              memberAccess.base == nil, // Leading dot syntax
+              let methodName = memberAccess.declName.baseName.identifier?.name,
+              methodName == "package" else {
+            limitations.append(.unsupportedExpression(expr, expected: "package dependency declaration"))
+            return nil
+        }
+        
+        var name: String?
+        var url: String?
+        var id: String?  // Registry package ID
+        var requirement: PackageDependency.SourceControl.Requirement?
+        var registryRequirement: PackageDependency.Registry.Requirement?
+        var traits: Set<PackageDependency.Trait>?
+
+        // Parse arguments
+        for argument in functionCall.arguments {
+            let label = argument.label?.text
+
+            if label == "name" {
+                name = argument.expression.asStringLiteralValue()
+            } else if label == "id" {
+                id = argument.expression.asStringLiteralValue()
+            } else if label == "url" {
+                url = argument.expression.asStringLiteralValue()
+            } else if label == "traits" {
+                traits = parseDependencyTraits(argument.expression)
+            } else if label == "from" {
+                if let versionString = argument.expression.asStringLiteralValue(),
+                   let version = Version(versionString) {
+                    if id != nil {
+                        // Registry dependency
+                        registryRequirement = .range(.upToNextMajor(from: version))
+                    } else {
+                        // Source control dependency
+                        requirement = .range(.upToNextMajor(from: version))
+                    }
+                }
+            } else if label == "branch" {
+                if let branch = argument.expression.asStringLiteralValue() {
+                    requirement = .branch(branch)
+                }
+            } else if label == "revision" {
+                if let revision = argument.expression.asStringLiteralValue() {
+                    requirement = .revision(revision)
+                }
+            } else if label == "exact" {
+                if let versionString = argument.expression.asStringLiteralValue(),
+                   let version = Version(versionString) {
+                    if id != nil {
+                        // Registry dependency
+                        registryRequirement = .exact(version)
+                    } else {
+                        // Source control dependency
+                        requirement = .exact(version)
+                    }
+                }
+            } else if label == nil {
+                // Unlabeled argument could be:
+                // 1. A requirement like .upToNextMajor(from: "1.0.0")
+                // 2. A range operator expression like "1.0.0"..<"2.0.0"
+                
+                // Check for range operators first
+                if let rangeExpr = argument.expression.as(SequenceExprSyntax.self) {
+                    // Look for range operators like ..< or ...
+                    var lowerBound: Version?
+                    var upperBound: Version?
+                    var isClosedRange = false
+                    
+                    for element in rangeExpr.elements {
+                        if let stringLiteral = element.asStringLiteralValue(),
+                           let version = Version(stringLiteral) {
+                            if lowerBound == nil {
+                                lowerBound = version
+                            } else {
+                                upperBound = version
+                            }
+                        } else if let binaryOp = element.as(BinaryOperatorExprSyntax.self) {
+                            let opText = binaryOp.operator.text.trimmingCharacters(in: .whitespaces)
+                            if opText == "..." {
+                                isClosedRange = true
+                            }
+                        } else {
+                            // Check if this element is just the operator token
+                            let elementText = element.description.trimmingCharacters(in: .whitespaces)
+                            if elementText == "..." {
+                                isClosedRange = true
+                            }
+                        }
+                    }
+                    
+                    if let lower = lowerBound, let upper = upperBound {
+                        if isClosedRange {
+                            // Convert closed range to open range by using next patch version
+                            let upperNext = Version(
+                                upper.major,
+                                upper.minor,
+                                upper.patch + 1,
+                                prereleaseIdentifiers: upper.prereleaseIdentifiers,
+                                buildMetadataIdentifiers: upper.buildMetadataIdentifiers
+                            )
+                            if id != nil {
+                                registryRequirement = .range(lower..<upperNext)
+                            } else {
+                                requirement = .range(lower..<upperNext)
+                            }
+                        } else {
+                            if id != nil {
+                                registryRequirement = .range(lower..<upper)
+                            } else {
+                                requirement = .range(lower..<upper)
+                            }
+                        }
+                    }
+                } else if let reqExpr = argument.expression.as(FunctionCallExprSyntax.self),
+                   let reqMemberAccess = reqExpr.calledExpression.as(MemberAccessExprSyntax.self),
+                   reqMemberAccess.base == nil,
+                   let reqName = reqMemberAccess.declName.baseName.identifier?.name {
+
+                    switch reqName {
+                    case "upToNextMajor":
+                        if let fromArg = reqExpr.arguments.first(where: { $0.label?.text == "from" }),
+                           let versionString = fromArg.expression.asStringLiteralValue(),
+                           let version = Version(versionString) {
+                            if id != nil {
+                                registryRequirement = .range(.upToNextMajor(from: version))
+                            } else {
+                                requirement = .range(.upToNextMajor(from: version))
+                            }
+                        }
+                    case "upToNextMinor":
+                        if let fromArg = reqExpr.arguments.first(where: { $0.label?.text == "from" }),
+                           let versionString = fromArg.expression.asStringLiteralValue(),
+                           let version = Version(versionString) {
+                            if id != nil {
+                                registryRequirement = .range(.upToNextMinor(from: version))
+                            } else {
+                                requirement = .range(.upToNextMinor(from: version))
+                            }
+                        }
+                    case "exact":
+                        if let versionString = reqExpr.arguments.first?.expression.asStringLiteralValue(),
+                           let version = Version(versionString) {
+                            if id != nil {
+                                registryRequirement = .exact(version)
+                            } else {
+                                requirement = .exact(version)
+                            }
+                        }
+                    case "branch":
+                        if let branch = reqExpr.arguments.first?.expression.asStringLiteralValue() {
+                            requirement = .branch(branch)
+                        }
+                    case "revision":
+                        if let revision = reqExpr.arguments.first?.expression.asStringLiteralValue() {
+                            requirement = .revision(revision)
+                        }
+                    default:
+                        limitations.append(.unsupportedExpression(argument.expression, expected: "package dependency requirement"))
+                    }
+                }
+            }
+        }
+
+        // Handle registry dependencies
+        if let packageID = id {
+            guard let regReq = registryRequirement else {
+                limitations.append(.unsupportedExpression(expr, expected: "registry dependency with requirement"))
+                return nil
+            }
+
+            let identity = PackageIdentity.plain(packageID)
+            return .registry(
+                identity: identity,
+                requirement: regReq,
+                productFilter: .everything,
+                traits: traits ?? [.init(name: "default")]
+            )
+        }
+
+        guard let url = url, let requirement = requirement else {
+            limitations.append(.unsupportedExpression(expr, expected: "package dependency with url and requirement"))
+            return nil
+        }
+        
+        // Remote source control URL
+        let sourceControlURL = SourceControlURL(url)
+        let identity = name.map { PackageIdentity.plain($0) } ?? PackageIdentity(url: sourceControlURL)
+        return .remoteSourceControl(
+            identity: identity,
+            nameForTargetDependencyResolutionOnly: name,
+            url: sourceControlURL,
+            requirement: requirement,
+            productFilter: .everything,
+            traits: traits ?? [.init(name: "default")]
+        )
+    }
+    
+    /// Parse a platform description like `.macOS("10.13.option1.option2")` or `.iOS(.v12)`
+    private func parsePlatform(_ expr: ExprSyntax) -> PlatformDescription? {
+        // Expect a function call like .macOS("10.13")
+        guard let (platformName, arguments) = expr.asMemberAccessCall() else {
+            limitations.append(.unsupportedExpression(expr, expected: "platform declaration"))
+            return nil
+        }
+        
+        // Map platform names to their canonical form
+        let canonicalName: String
+        switch platformName {
+        case "macOS": canonicalName = "macos"
+        case "iOS": canonicalName = "ios"
+        case "tvOS": canonicalName = "tvos"
+        case "watchOS": canonicalName = "watchos"
+        case "visionOS": canonicalName = "visionos"
+        case "macCatalyst": canonicalName = "maccatalyst"
+        case "driverKit": canonicalName = "driverkit"
+        case "linux": canonicalName = "linux"
+        case "windows": canonicalName = "windows"
+        case "android": canonicalName = "android"
+        case "wasi": canonicalName = "wasi"
+        case "openbsd": canonicalName = "openbsd"
+        default:
+            limitations.append(.unsupportedExpression(expr, expected: "known platform"))
+            return nil
+        }
+        
+        // Get the version argument
+        guard let firstArg = arguments.first else {
+            limitations.append(.unsupportedExpression(expr, expected: "platform with version"))
+            return nil
+        }
+        
+        var version: String
+        var options: [String] = []
+        
+        // Check if it's a string literal like "10.13.option1.option2"
+        if let versionString = firstArg.expression.asStringLiteralValue() {
+            // Parse version and options from the string
+            let components = versionString.split(separator: ".")
+            if components.isEmpty {
+                limitations.append(.unsupportedExpression(expr, expected: "valid version string"))
+                return nil
+            }
+            
+            // Find where version numbers end and options begin
+            var versionComponents: [Substring] = []
+            var optionComponents: [String] = []
+            var inOptions = false
+            
+            for component in components {
+                if !inOptions && component.allSatisfy({ $0.isNumber }) {
+                    versionComponents.append(component)
+                } else {
+                    inOptions = true
+                    optionComponents.append(String(component))
+                }
+            }
+            
+            version = versionComponents.joined(separator: ".")
+            options = optionComponents
+        }
+        // Check if it's a member access like .v10_13
+        else if let memberAccess = firstArg.expression.as(MemberAccessExprSyntax.self),
+                memberAccess.base == nil,
+                let versionName = memberAccess.declName.baseName.identifier?.name {
+            // Parse version from names like "v10_13" or "v12"
+            if versionName.hasPrefix("v") {
+                let versionPart = String(versionName.dropFirst()) // Remove "v"
+                // Replace underscores with dots
+                version = versionPart.replacingOccurrences(of: "_", with: ".")
+                
+                // Normalize version to have at least major.minor (e.g., "12" -> "12.0")
+                if !version.contains(".") {
+                    version = version + ".0"
+                }
+            } else {
+                limitations.append(.unsupportedExpression(expr, expected: "version in format .vX_Y"))
+                return nil
+            }
+        }
+        else {
+            limitations.append(.unsupportedExpression(expr, expected: "string literal or version constant"))
+            return nil
+        }
+        
+        return PlatformDescription(name: canonicalName, version: version, options: options)
+    }
+    
+    /// Parse a trait declaration like "Trait1", Trait(name: "Trait2", description: "..."), or .trait(name: "Trait3", enabledTraits: [...])
+    private func parseTrait(_ expr: ExprSyntax) -> TraitDescription? {
+        // Case 1: String literal "TraitName"
+        if let traitName = expr.asStringLiteralValue() {
+            return TraitDescription(name: traitName)
+        }
+        
+        // Case 2: Trait(name: "...", description: "...", enabledTraits: [...]) or .trait(...) or .default(...)
+        guard let functionCall = expr.as(FunctionCallExprSyntax.self) else {
+            limitations.append(.unsupportedExpression(expr, expected: "trait declaration"))
+            return nil
+        }
+        
+        // Check if it's Trait(...), .trait(...), or .default(...)
+        let methodName: String?
+        if let identifierExpr = functionCall.calledExpression.as(DeclReferenceExprSyntax.self),
+           identifierExpr.baseName.text == "Trait" {
+            methodName = "trait"
+        } else if let memberAccess = functionCall.calledExpression.as(MemberAccessExprSyntax.self),
+                  memberAccess.base == nil {
+            methodName = memberAccess.declName.baseName.text
+        } else {
+            methodName = nil
+        }
+        
+        guard let method = methodName, (method == "trait" || method == "default") else {
+            limitations.append(.unsupportedExpression(expr, expected: "Trait(...), .trait(...), or .default(...)"))
+            return nil
+        }
+        
+        // Handle .default(enabledTraits: [...])
+        if method == "default" {
+            var enabledTraits: Set<String> = []
+            
+            for argument in functionCall.arguments {
+                if argument.label?.text == "enabledTraits" {
+                    if let parsed = argument.expression.asStringArray() {
+                        enabledTraits = Set(parsed)
+                    }
+                }
+            }
+            
+            return TraitDescription(
+                name: "default",
+                description: "The default traits of this package.",
+                enabledTraits: enabledTraits
+            )
+        }
+        
+        // Handle .trait(...) or Trait(...)
+        var name: String?
+        var description: String?
+        var enabledTraits: Set<String> = []
+        
+        for argument in functionCall.arguments {
+            let label = argument.label?.text
+            if label == "name" {
+                name = argument.expression.asStringLiteralValue()
+            } else if label == "description" {
+                description = argument.expression.asStringLiteralValue()
+            } else if label == "enabledTraits" {
+                if let parsed = argument.expression.asStringArray() {
+                    enabledTraits = Set(parsed)
+                }
+            }
+        }
+        
+        guard let traitName = name else {
+            limitations.append(.unsupportedExpression(expr, expected: "trait with name"))
+            return nil
+        }
+        
+        return TraitDescription(name: traitName, description: description, enabledTraits: enabledTraits)
+    }
+    
+    /// Parse dependency traits array like ["FooTrait1", .trait(name: "FooTrait2", condition: ...), .defaults]
+    private func parseDependencyTraits(_ expr: ExprSyntax) -> Set<PackageDependency.Trait>? {
+        guard let arrayExpr = expr.as(ArrayExprSyntax.self) else {
+            limitations.append(.unsupportedExpression(expr, expected: "array of dependency traits"))
+            return nil
+        }
+        
+        var traits: Set<PackageDependency.Trait> = []
+        
+        for traitElement in arrayExpr.elements {
+            if let trait = parseDependencyTrait(traitElement.expression) {
+                traits.insert(trait)
+            }
+        }
+        
+        return traits.isEmpty ? nil : traits
+    }
+    
+    /// Parse a single dependency trait like "FooTrait1", .trait(name: "...", condition: ...), or .defaults
+    private func parseDependencyTrait(_ expr: ExprSyntax) -> PackageDependency.Trait? {
+        // Case 1: String literal "TraitName"
+        if let traitName = expr.asStringLiteralValue() {
+            return PackageDependency.Trait(name: traitName)
+        }
+        
+        // Case 2: .defaults
+        if let memberAccess = expr.as(MemberAccessExprSyntax.self),
+           memberAccess.base == nil,
+           memberAccess.declName.baseName.text == "defaults" {
+            return PackageDependency.Trait(name: "default")
+        }
+        
+        // Case 3: .trait(name: "...", condition: ...) or Package.Dependency.Trait(name: "...", condition: ...)
+        guard let functionCall = expr.as(FunctionCallExprSyntax.self) else {
+            limitations.append(.unsupportedExpression(expr, expected: "dependency trait declaration"))
+            return nil
+        }
+        
+        // Check if it's .trait(...) or Package.Dependency.Trait(...)
+        let isValidCall: Bool
+        if let memberAccess = functionCall.calledExpression.as(MemberAccessExprSyntax.self),
+           memberAccess.base == nil,
+           memberAccess.declName.baseName.text == "trait" {
+            isValidCall = true
+        } else if let memberAccess = functionCall.calledExpression.as(MemberAccessExprSyntax.self),
+                  let baseAccess = memberAccess.base?.as(MemberAccessExprSyntax.self),
+                  memberAccess.declName.baseName.text == "Trait" {
+            // Package.Dependency.Trait(...)
+            isValidCall = true
+        } else {
+            isValidCall = false
+        }
+        
+        guard isValidCall else {
+            limitations.append(.unsupportedExpression(expr, expected: ".trait(...) or Package.Dependency.Trait(...)"))
+            return nil
+        }
+        
+        var name: String?
+        var condition: PackageDependency.Trait.Condition?
+        
+        for argument in functionCall.arguments {
+            let label = argument.label?.text
+            if label == "name" {
+                name = argument.expression.asStringLiteralValue()
+            } else if label == "condition" {
+                condition = parseDependencyTraitCondition(argument.expression)
+            }
+        }
+        
+        guard let traitName = name else {
+            limitations.append(.unsupportedExpression(expr, expected: "dependency trait with name"))
+            return nil
+        }
+        
+        return PackageDependency.Trait(name: traitName, condition: condition)
+    }
+    
+    /// Parse a dependency trait condition like .when(traits: ["Trait1"])
+    private func parseDependencyTraitCondition(_ expr: ExprSyntax) -> PackageDependency.Trait.Condition? {
+        guard let (methodName, arguments) = expr.asMemberAccessCall(),
+              methodName == "when" else {
+            limitations.append(.unsupportedExpression(expr, expected: "trait condition"))
+            return nil
+        }
+        
+        var traits: Set<String>?
+        
+        for argument in arguments {
+            if argument.label?.text == "traits" {
+                if let parsed = argument.expression.asStringArray() {
+                    traits = Set(parsed)
+                }
+            }
+        }
+        
+        return PackageDependency.Trait.Condition(traits: traits)
     }
 }
 
@@ -892,6 +2359,15 @@ extension ExprSyntax {
         }
 
         return segmentContents.content.text
+    }
+
+    /// Extract the boolean literal value from the expression, if it is one.
+    fileprivate func asBooleanLiteralValue() -> Bool? {
+        guard let boolLiteral = self.as(BooleanLiteralExprSyntax.self) else {
+            return nil
+        }
+
+        return boolLiteral.literal.tokenKind == .keyword(.true)
     }
 
     /// Extract an array of integer values from the expression, if it is one.
@@ -967,5 +2443,49 @@ extension ExprSyntax {
         }
         
         return result
+    }
+
+    /// Extract a member access function call (e.g., `.target(name: "foo")`)
+    /// Returns the method name and arguments if successful.
+    fileprivate func asMemberAccessCall() -> (methodName: String, arguments: LabeledExprListSyntax)? {
+        guard let functionCall = self.as(FunctionCallExprSyntax.self),
+              let memberAccess = functionCall.calledExpression.as(MemberAccessExprSyntax.self),
+              memberAccess.base == nil,  // Leading dot syntax
+              let methodName = memberAccess.declName.baseName.identifier?.name else {
+            return nil
+        }
+        return (methodName, functionCall.arguments)
+    }
+
+    /// Parse array elements using a transform function.
+    /// Returns array of successfully transformed elements, or nil if expression is not an array.
+    fileprivate func parseArrayElements<T>(_ transform: (ExprSyntax) -> T?) -> [T]? {
+        guard let arrayExpr = self.as(ArrayExprSyntax.self) else {
+            return nil
+        }
+
+        var result: [T] = []
+        for element in arrayExpr.elements {
+            if let value = transform(element.expression) {
+                result.append(value)
+            }
+        }
+        return result
+    }
+
+    /// Parse an array of string literals.
+    fileprivate func asStringArray() -> [String]? {
+        return parseArrayElements { $0.asStringLiteralValue() }
+    }
+
+    /// Parse an enum member access (e.g., `.static`, `.dynamic`).
+    /// Returns the member name if it's a simple member access with no base.
+    fileprivate func asEnumMember() -> String? {
+        guard let memberAccess = self.as(MemberAccessExprSyntax.self),
+              memberAccess.base == nil,  // Leading dot syntax
+              let memberName = memberAccess.declName.baseName.identifier?.name else {
+            return nil
+        }
+        return memberName
     }
 }
