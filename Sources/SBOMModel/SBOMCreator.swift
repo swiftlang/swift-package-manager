@@ -57,6 +57,10 @@ package struct SBOMCreator {
     }
 
     internal func createSBOMs() async throws -> [SBOMResult] {
+        guard !input.specs.isEmpty else {
+            throw SBOMError.noSpecsProvided
+        }
+        
         let extractor = SBOMExtractor(
             modulesGraph: input.modulesGraph,
             dependencyGraph: input.dependencyGraph,
