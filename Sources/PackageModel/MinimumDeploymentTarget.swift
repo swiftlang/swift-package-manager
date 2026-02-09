@@ -60,20 +60,10 @@ public struct MinimumDeploymentTarget {
 
     /// Temporary hard-coded minimum deployment targets for test targets.
     static func absoluteXCTestMinimumDeploymentTarget(platform: PackageModel.Platform) -> PlatformVersion? {
-        switch platform {
-        case .macOS:
-            PlatformVersion("14.0")
-        case .iOS:
-            PlatformVersion("17.0")
-        case .watchOS:
-            PlatformVersion("10.0")
-        case .tvOS:
-            PlatformVersion("17.0")
-        case .visionOS:
-            PlatformVersion("1.0")
-        default:
-            nil
+        if platform == .macOS {
+            return PlatformVersion("14.0")
         }
+        return nil
     }
 
     static func computeXCTestMinimumDeploymentTarget(with runResult: AsyncProcessResult, platform: PackageModel.Platform) throws -> PlatformVersion? {
