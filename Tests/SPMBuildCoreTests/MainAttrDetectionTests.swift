@@ -250,7 +250,7 @@ struct MainAttrDetectionTests {
                 fileContent: """
                 /*
                 This is a multi-line comment
-                /* @main
+                */ @main
                 struct MyApp {
                     static func main() {
                         print("Hello, World!")
@@ -258,7 +258,7 @@ struct MainAttrDetectionTests {
                 }
                 """,
                 expected: true,
-                knownIssue: true,
+                knownIssue: false,
                 id: "Multi-line comment end on a line containing @main",
             )
         ],
