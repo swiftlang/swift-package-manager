@@ -368,6 +368,7 @@ struct PURLTests {
 
         // Both should produce the same description (no qualifiers section)
         #expect(purlWithNil.description == purlWithEmpty.description)
+        #expect(purlWithNil == purlWithEmpty)
         #expect(!purlWithNil.description.contains("?"))
         #expect(!purlWithEmpty.description.contains("?"))
     }
