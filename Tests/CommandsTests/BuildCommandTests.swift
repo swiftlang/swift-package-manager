@@ -1821,6 +1821,7 @@ extension Triple {
 
 @Suite(
     .tags(
+        .TestSize.large,
         Tag.Feature.SBOM
     ),
 )
