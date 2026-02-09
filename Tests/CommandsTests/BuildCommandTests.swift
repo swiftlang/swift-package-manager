@@ -1826,13 +1826,13 @@ extension Triple {
 )
 struct BuildSBOMCommandTests {
     
-    /// Helper function to verify SBOM creation from stdout
+    /// Helper function to verify SBOM creation from stderr
     private func verifySBOMCreated(
-        in stdout: String,
+        in stderr: String,
         expectedDirectory: AbsolutePath? = nil,
         message: String = "should produce at least 1 SBOM"
     ) throws {
-        let lines = stdout.split(separator: "\n")
+        let lines = stderr.split(separator: "\n")
         var sbomPaths: [String] = []
         
         for line in lines {
@@ -1845,7 +1845,7 @@ struct BuildSBOMCommandTests {
         }
         
         guard !sbomPaths.isEmpty else {
-            Issue.record("No SBOM paths found in stdout")
+            Issue.record("No SBOM paths found in stderr")
             return
         }
         
@@ -1866,14 +1866,14 @@ struct BuildSBOMCommandTests {
         data: BuildData,
     ) async throws {
         try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
-            let (stdout, _) = try await executeSwiftBuild(
+            let (stdout, stderr) = try await executeSwiftBuild(
                 fixturePath,
                 configuration: data.config,
                 extraArgs: ["--sbom-spec", "cyclonedx"],
                 buildSystem: data.buildSystem,
             )
-            #expect(stdout.contains("Build complete!") && stdout.contains("SBOMs created"))
-            try verifySBOMCreated(in: stdout, message: "should produce at least 1 CycloneDX SBOM")
+            #expect(stdout.contains("Build complete!") && stderr.contains("SBOMs created"))
+            try verifySBOMCreated(in: stderr, message: "should produce at least 1 CycloneDX SBOM")
         }
     }
 
@@ -1884,14 +1884,14 @@ struct BuildSBOMCommandTests {
         data: BuildData,
     ) async throws {
         try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
-            let (stdout, _) = try await executeSwiftBuild(
+            let (stdout, stderr) = try await executeSwiftBuild(
                 fixturePath,
                 configuration: data.config,
                 extraArgs: ["--sbom-spec", "spdx"],
                 buildSystem: data.buildSystem,
             )
-            #expect(stdout.contains("Build complete!") && stdout.contains("SBOMs created"))
-            try verifySBOMCreated(in: stdout, message: "should produce at least 1 SPDX SBOM")
+            #expect(stdout.contains("Build complete!") && stderr.contains("SBOMs created"))
+            try verifySBOMCreated(in: stderr, message: "should produce at least 1 SPDX SBOM")
         }
     }
 
@@ -1922,14 +1922,14 @@ struct BuildSBOMCommandTests {
         data: BuildData,
     ) async throws {
         try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
-            let (stdout, _) = try await executeSwiftBuild(
+            let (stdout, stderr) = try await executeSwiftBuild(
                 fixturePath,
                 configuration: data.config,
                 extraArgs: ["--sbom-spec", "cyclonedx", "--product", "Foo"],
                 buildSystem: data.buildSystem,
             )
-            #expect(stdout.contains("SBOMs created"))
-            try verifySBOMCreated(in: stdout, message: "should produce at least 1 CycloneDX SBOM")
+            #expect(stderr.contains("SBOMs created"))
+            try verifySBOMCreated(in: stderr, message: "should produce at least 1 CycloneDX SBOM")
         }
     }
 
@@ -1940,14 +1940,14 @@ struct BuildSBOMCommandTests {
         data: BuildData,
     ) async throws {
         try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
-            let (stdout, _) = try await executeSwiftBuild(
+            let (stdout, stderr) = try await executeSwiftBuild(
                 fixturePath,
                 configuration: data.config,
                 extraArgs: ["--sbom-spec", "cyclonedx", "--sbom-spec", "spdx"],
                 buildSystem: data.buildSystem,
             )
-            #expect(stdout.contains("Build complete!") && stdout.contains("SBOMs created"))
-            try verifySBOMCreated(in: stdout, message: "should produce at least 2 SBOMs")
+            #expect(stdout.contains("Build complete!") && stderr.contains("SBOMs created"))
+            try verifySBOMCreated(in: stderr, message: "should produce at least 2 SBOMs")
         }
     }
 
@@ -1958,15 +1958,15 @@ struct BuildSBOMCommandTests {
         data: BuildData,
     ) async throws {
         try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
-            let (stdout, _) = try await executeSwiftBuild(
+            let (stdout, stderr) = try await executeSwiftBuild(
                 fixturePath,
                 configuration: data.config,
                 extraArgs: [],
                 env: ["SWIFTPM_BUILD_SBOM_SPEC": "cyclonedx"],
                 buildSystem: data.buildSystem,
             )
-            #expect(stdout.contains("Build complete!") && stdout.contains("SBOMs created"))
-            try verifySBOMCreated(in: stdout, message: "should produce at least 1 SBOM from environment variable")
+            #expect(stdout.contains("Build complete!") && stderr.contains("SBOMs created"))
+            try verifySBOMCreated(in: stderr, message: "should produce at least 1 SBOM from environment variable")
         }
     }
 
@@ -1977,7 +1977,7 @@ struct BuildSBOMCommandTests {
         data: BuildData,
     ) async throws {
         try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
-            let (stdout, _) = try await executeSwiftBuild(
+            let (stdout, stderr) = try await executeSwiftBuild(
                 fixturePath,
                 configuration: data.config,
                 extraArgs: [],
@@ -1985,8 +1985,8 @@ struct BuildSBOMCommandTests {
                 buildSystem: data.buildSystem,
             )
             
-            #expect(stdout.contains("Build complete!") && stdout.contains("SBOMs created"))
-            try verifySBOMCreated(in: stdout, message: "should produce at least 2 SBOMs from environment variable")
+            #expect(stdout.contains("Build complete!") && stderr.contains("SBOMs created"))
+            try verifySBOMCreated(in: stderr, message: "should produce at least 2 SBOMs from environment variable")
         }
     }
 
@@ -1999,7 +1999,7 @@ struct BuildSBOMCommandTests {
         try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
             let customSBOMDir = fixturePath.appending("env-sboms")
             
-            let (stdout, _) = try await executeSwiftBuild(
+            let (stdout, stderr) = try await executeSwiftBuild(
                 fixturePath,
                 configuration: data.config,
                 extraArgs: [],
@@ -2010,9 +2010,9 @@ struct BuildSBOMCommandTests {
                 buildSystem: data.buildSystem,
             )
             
-            #expect(stdout.contains("SBOMs created"))
+            #expect(stderr.contains("SBOMs created"))
             try verifySBOMCreated(
-                in: stdout,
+                in: stderr,
                 expectedDirectory: customSBOMDir,
                 message: "should produce at least 1 CycloneDX SBOM in custom directory"
             )
@@ -2026,7 +2026,7 @@ struct BuildSBOMCommandTests {
         data: BuildData,
     ) async throws {
         try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
-            let (stdout, _) = try await executeSwiftBuild(
+            let (stdout, stderr) = try await executeSwiftBuild(
                 fixturePath,
                 configuration: data.config,
                 extraArgs: [],
@@ -2037,8 +2037,8 @@ struct BuildSBOMCommandTests {
                 buildSystem: data.buildSystem,
             )
             
-            #expect(stdout.contains("SBOMs created"))
-            try verifySBOMCreated(in: stdout, message: "should produce at least 1 SBOM from environment variable")
+            #expect(stderr.contains("SBOMs created"))
+            try verifySBOMCreated(in: stderr, message: "should produce at least 1 SBOM from environment variable")
         }
     }
 
@@ -2049,7 +2049,7 @@ struct BuildSBOMCommandTests {
         data: BuildData,
     ) async throws {
         try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
-            let (stdout, _) = try await executeSwiftBuild(
+            let (stdout, stderr) = try await executeSwiftBuild(
                 fixturePath,
                 configuration: data.config,
                 extraArgs: ["--sbom-spec", "spdx"],
@@ -2057,11 +2057,11 @@ struct BuildSBOMCommandTests {
                 buildSystem: data.buildSystem,
             )
             
-            #expect(stdout.contains("SBOMs created"))
+            #expect(stderr.contains("SBOMs created"))
             
-            if let range = stdout.range(of: "created SBOM at "),
-               let endRange = stdout[range.upperBound...].range(of: ".json") {
-                let firstSBOMPath = String(stdout[range.upperBound..<endRange.upperBound])
+            if let range = stderr.range(of: "created SBOM at "),
+               let endRange = stderr[range.upperBound...].range(of: ".json") {
+                let firstSBOMPath = String(stderr[range.upperBound..<endRange.upperBound])
                 #expect(firstSBOMPath.contains("spdx"), "should create SPDX SBOM from command line, not CycloneDX from environment")
                 #expect(!firstSBOMPath.contains("cyclonedx"), "should not create CycloneDX SBOM from environment variable")
             } else {
@@ -2079,7 +2079,7 @@ struct BuildSBOMCommandTests {
         try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
             let customSBOMDir = fixturePath.appending("all-env-sboms")
             
-            let (stdout, _) = try await executeSwiftBuild(
+            let (stdout, stderr) = try await executeSwiftBuild(
                 fixturePath,
                 configuration: data.config,
                 extraArgs: [],
@@ -2092,7 +2092,7 @@ struct BuildSBOMCommandTests {
                 buildSystem: data.buildSystem,
             )
             
-            try verifySBOMCreated(in: stdout, expectedDirectory: customSBOMDir, message: "should produce at least 1 CycloneDX SBOM")
+            try verifySBOMCreated(in: stderr, expectedDirectory: customSBOMDir, message: "should produce at least 1 CycloneDX SBOM")
         }
     }
 
@@ -2220,7 +2220,7 @@ struct BuildSBOMCommandTests {
     ) async throws {
         try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
             // Valid CLI flag should override invalid environment variable
-            let (stdout, _) = try await executeSwiftBuild(
+            let (stdout, stderr) = try await executeSwiftBuild(
                 fixturePath,
                 configuration: data.config,
                 extraArgs: ["--sbom-spec", "cyclonedx", "--sbom-filter", "product"],
@@ -2231,8 +2231,8 @@ struct BuildSBOMCommandTests {
                 buildSystem: data.buildSystem,
             )
             
-            #expect(stdout.contains("SBOMs created"))
-            try verifySBOMCreated(in: stdout, message: "should produce SBOM despite invalid environment variables")
+            #expect(stderr.contains("SBOMs created"))
+            try verifySBOMCreated(in: stderr, message: "should produce SBOM despite invalid environment variables")
         }
     }
 }

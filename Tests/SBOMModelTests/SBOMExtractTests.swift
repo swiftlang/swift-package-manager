@@ -15,6 +15,11 @@ import Foundation
 @testable import SBOMModel
 import Testing
 
+@Suite(
+    .tags(
+        .Feature.SBOM
+    )
+)
 struct SBOMExtractTests {
     @Test("extractSBOM with product filter for SwiftPM")
     func extractSBOMWithProductFilterForSwiftPM() async throws {

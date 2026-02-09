@@ -19,6 +19,11 @@ import PackageModel
 import Testing
 import class TSCBasic.Process
 
+@Suite(
+    .tags(
+        .Feature.SBOM
+    )
+)
 struct SBOMExtractComponentsTests {
     struct TestExpectations {
         let totalComponentCount: Int

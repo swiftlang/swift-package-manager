@@ -18,6 +18,11 @@ import PackageModel
 @testable import SBOMModel
 import Testing
 
+@Suite(
+    .tags(
+        .Feature.SBOM
+    )
+)
 struct SBOMExtractScopeTests {
     @Test("extractScopeFromProduct with executable product returns runtime")
     func extractScopeFromExecutableProduct() throws {

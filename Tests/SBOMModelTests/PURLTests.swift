@@ -14,6 +14,11 @@ import Foundation
 @testable import SBOMModel
 import Testing
 
+@Suite(
+    .tags(
+        .Feature.SBOM
+    )
+)
 struct PURLTests {
     struct PURLStringTestCase {
         let purl: PURL

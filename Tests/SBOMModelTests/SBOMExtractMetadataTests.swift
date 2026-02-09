@@ -14,6 +14,11 @@ import Foundation
 @testable import SBOMModel
 import Testing
 
+@Suite(
+    .tags(
+        .Feature.SBOM
+    )
+)
 struct SBOMExtractMetadataTests {
     @Test("extractMetadata good weather")
     func extractMetadataParameterized() async throws {

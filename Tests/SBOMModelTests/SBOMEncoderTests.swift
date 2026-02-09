@@ -17,6 +17,11 @@ import PackageGraph
 @testable import SBOMModel
 import Testing
 
+@Suite(
+    .tags(
+        .Feature.SBOM
+    )
+)
 struct SBOMEncoderTests {
     private func verifyJSONFile(at path: AbsolutePath, fileSystem: any FileSystem = localFileSystem) throws {
         #expect(fileSystem.exists(path), "File should exist at \(path)")
