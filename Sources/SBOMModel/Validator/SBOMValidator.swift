@@ -125,8 +125,8 @@ struct SBOMValidator: SBOMValidatorProtocol {
 
     // MARK: - SBOMValidatorProtocol Implementation
 
-    func validate(_ jsonObject: Any) async throws {
-        try await self.validateValue(jsonObject, path: "$")
+    func validate(_ object: Any) async throws {
+        try await self.validateValue(object, path: "$")
     }
 
     func validateValue(_ value: Any, path: String) async throws {

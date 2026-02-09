@@ -82,9 +82,9 @@ internal struct SBOMSchema {
         throw SBOMSchemaError.bundleNotFound(bundleName: bundleName)
     }
 
-    internal func validate(json jsonObject: Any, spec: SBOMSpec) async throws {
+    internal func validate(json object: Any, spec: SBOMSpec) async throws {
         let validator = try createValidator(for: spec)
-        try await validator.validate(jsonObject)
+        try await validator.validate(object)
     }
 
     private func createValidator(for spec: SBOMSpec) throws -> any SBOMValidatorProtocol {

@@ -28,8 +28,8 @@ struct SPDXValidator: SBOMValidatorProtocol {
         self.graphElementSchema = SPDXValidator.extractGraphElementSchema(from: schema)
     }
 
-    func validate(_ jsonObject: Any) async throws {
-        guard let rootDict = jsonObject as? [String: Any] else {
+    func validate(_ object: Any) async throws {
+        guard let rootDict = object as? [String: Any] else {
             throw SBOMValidatorError.typeMismatch(
                 path: "$",
                 expected: "dictionary",
