@@ -39,7 +39,8 @@ internal struct PURL: Codable, Equatable, Hashable, CustomStringConvertible {
         self.namespace = namespace
         self.name = name
         self.version = version
-        self.qualifiers = qualifiers
+        // Normalize empty qualifiers dictionary to nil for consistency
+        self.qualifiers = qualifiers?.isEmpty == true ? nil : qualifiers
         self.subpath = subpath
     }
 
