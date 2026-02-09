@@ -1837,8 +1837,9 @@ struct BuildSBOMCommandTests {
         var sbomPaths: [String] = []
         
         for line in lines {
-            if line.contains("created SBOM at "),
-               let range = line.range(of: "created SBOM at "),
+            // Match the new format: "- created {spec} v{version} SBOM at {path}"
+            if line.contains(" SBOM at "),
+               let range = line.range(of: " SBOM at "),
                let endRange = line[range.upperBound...].range(of: ".json") {
                 let pathString = String(line[range.upperBound..<endRange.upperBound])
                 sbomPaths.append(pathString)
@@ -2065,14 +2066,12 @@ struct BuildSBOMCommandTests {
             
             #expect(stderr.contains("SBOMs created"))
             
-            if let range = stderr.range(of: "created SBOM at "),
-               let endRange = stderr[range.upperBound...].range(of: ".json") {
-                let firstSBOMPath = String(stderr[range.upperBound..<endRange.upperBound])
-                #expect(firstSBOMPath.contains("spdx"), "should create SPDX SBOM from command line, not CycloneDX from environment")
-                #expect(!firstSBOMPath.contains("cyclonedx"), "should not create CycloneDX SBOM from environment variable")
-            } else {
-                Issue.record("No SBOM path found in output")
-            }
+            // Verify that command line flag overrides environment variable by checking SBOM path
+            let spdxRegex = try Regex(#"created spdx.* v.* SBOM at .*\.json"#)
+            let cyclonedxRegex = try Regex(#"created cyclonedx.* v.* SBOM at .*\.json"#)
+            
+            #expect(stderr.contains(spdxRegex), "should create SPDX SBOM from command line, not CycloneDX from environment")
+            #expect(!stderr.contains(cyclonedxRegex), "should not create CycloneDX SBOM from environment variable")
         }
     }
 

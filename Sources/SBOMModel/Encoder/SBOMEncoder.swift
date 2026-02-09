@@ -23,17 +23,17 @@ internal struct SBOMEncoder {
         self.observabilityScope = observabilityScope
     }
 
-    internal func writeSBOMs(specs: [Spec], outputDir: AbsolutePath, filter: Filter = .all, fileSystem: any FileSystem = localFileSystem) async throws -> [AbsolutePath] {
+    internal func writeSBOMs(specs: [Spec], outputDir: AbsolutePath, filter: Filter = .all, fileSystem: any FileSystem = localFileSystem) async throws -> [SBOMResult] {
         if !fileSystem.exists(outputDir) {
             try fileSystem.createDirectory(outputDir, recursive: true)
         }
         let specs = await Self.getSpecs(from: specs)
-        var outputPaths: [AbsolutePath] = []
+        var results: [SBOMResult] = []
         for spec in specs {
             let outputPath = try await self.encodeSBOM(spec: spec, outputDir: outputDir, filter: filter, fileSystem: fileSystem)
-            outputPaths.append(outputPath)
+            results.append(SBOMResult(spec: spec, path: outputPath))
         }
-        return outputPaths.sorted()
+        return results
     }
 
     internal func encodeSBOM(spec: SBOMSpec, outputDir: AbsolutePath, filter: Filter = .all, fileSystem: any FileSystem = localFileSystem) async throws -> AbsolutePath {

@@ -229,7 +229,7 @@ extension SBOMEncoderTests {
         #expect(!outputs.isEmpty, "Output paths should not be empty")
         
         // Verify the file content is valid JSON
-        let outputPath = outputs[0]
+        let outputPath = outputs[0].path
         try self.verifyJsonContentIsValid(at: outputPath, fileSystem: fs)
     }
 
@@ -252,8 +252,8 @@ extension SBOMEncoderTests {
         #expect(files.count == 2, "Should write two files to InMemoryFileSystem")
         
         // Verify both files are valid JSON
-        for outputPath in outputs {
-            try self.verifyJsonContentIsValid(at: outputPath, fileSystem: fs)
+        for output in outputs {
+            try self.verifyJsonContentIsValid(at: output.path, fileSystem: fs)
         }
     }
 
