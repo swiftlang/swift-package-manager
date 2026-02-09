@@ -23,25 +23,25 @@ internal struct SBOMEncoder {
         self.observabilityScope = observabilityScope
     }
 
-    internal func writeSBOMs(specs: [Spec], outputDir: AbsolutePath, filter: Filter = .all) async throws -> [AbsolutePath] {
-        if !localFileSystem.exists(outputDir) {
-            try localFileSystem.createDirectory(outputDir, recursive: true)
+    internal func writeSBOMs(specs: [Spec], outputDir: AbsolutePath, filter: Filter = .all, fileSystem: any FileSystem = localFileSystem) async throws -> [AbsolutePath] {
+        if !fileSystem.exists(outputDir) {
+            try fileSystem.createDirectory(outputDir, recursive: true)
         }
         let specs = await Self.getSpecs(from: specs)
         var outputPaths: [AbsolutePath] = []
         for spec in specs {
-            let outputPath = try await self.encodeSBOM(spec: spec, outputDir: outputDir, filter: filter)
+            let outputPath = try await self.encodeSBOM(spec: spec, outputDir: outputDir, filter: filter, fileSystem: fileSystem)
             outputPaths.append(outputPath)
         }
         return outputPaths
     }
 
-    internal func encodeSBOM(spec: SBOMSpec, outputDir: AbsolutePath, filter: Filter = .all) async throws -> AbsolutePath {
+    internal func encodeSBOM(spec: SBOMSpec, outputDir: AbsolutePath, filter: Filter = .all, fileSystem: any FileSystem = localFileSystem) async throws -> AbsolutePath {
         let timestamp = ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "_")
         let filename = "\(spec.concreteSpec)-\(spec.versionString)-\(self.sbom.primaryComponent.name)-\(self.sbom.primaryComponent.version.revision)-\(filter)-\(timestamp).json"
         let outputPath = outputDir.appending(component: filename)
         let encoded = try await encodeSBOMData(spec: spec)
-        try localFileSystem.writeFileContents(outputPath, data: encoded)
+        try fileSystem.writeFileContents(outputPath, data: encoded)
         return outputPath
     }
 
