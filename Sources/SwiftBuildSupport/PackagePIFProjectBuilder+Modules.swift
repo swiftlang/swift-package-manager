@@ -536,7 +536,7 @@ extension PackagePIFProjectBuilder {
         // This should be only for dynamic targets, but that isn't possible today.
         // Improvement is tracked by rdar://77403529 (Only impart `PackageFrameworks` search paths to clients of dynamic
         // package targets and products).
-        impartedSettings[.FRAMEWORK_SEARCH_PATHS] = ["$(BUILT_PRODUCTS_DIR)/PackageFrameworks", "$(inherited)"]
+        impartedSettings[.FRAMEWORK_SEARCH_PATHS] = ["$(BUILT_PRODUCTS_DIR)/PackageFrameworks"]
         log(
             .debug,
             indent: 1,
