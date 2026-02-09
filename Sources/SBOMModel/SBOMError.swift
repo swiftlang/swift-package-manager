@@ -17,9 +17,9 @@ import Foundation
 
 /// General errors that can occur across SBOM operations
 internal enum SBOMError: Error, LocalizedError, CustomStringConvertible {
-    /// Expected a specific SBOM spec type but got another
     case unexpectedSpecType(expected: String, actual: SBOMSpec)
     case failedToWriteSBOM
+    case noSpecsProvided
 
     internal var errorDescription: String? {
         switch self {
@@ -27,6 +27,8 @@ internal enum SBOMError: Error, LocalizedError, CustomStringConvertible {
             "Expected \(expected) spec but got \(actual.concreteSpec)"
         case .failedToWriteSBOM:
             "Failed to write SBOM"
+        case .noSpecsProvided:
+            "No SBOM specifications provided"
         }
     }
 
