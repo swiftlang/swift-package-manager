@@ -350,7 +350,7 @@ let package = Package(
             /** SBOM (Software Bill of Materials) model objects */
             name: "SBOMModel",
             dependencies: ["Basics", "PackageCollections", "PackageGraph", "PackageModel", "SourceControl", "SwiftBuildSupport"],
-            exclude: ["CMakeLists.txt"],
+            exclude: ["CMakeLists.txt", "README.md"],
             resources: [
                 .copy("CycloneDX/Resources/cyclonedx-1.7.schema.json"),
                 .copy("SPDX/Resources/spdx-3.0.1.schema.json"),
