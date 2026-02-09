@@ -7772,6 +7772,7 @@ struct PackageCommandTests {
 
     @Suite(
         .tags(
+            .TestSize.large,
             .Feature.Command.Package.GenerateSBOM,
             .Feature.SBOM,
         ),
