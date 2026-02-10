@@ -671,4 +671,109 @@ struct CycloneDXConverterTests {
         #expect(result.component.bomRef == "primary-id")
         #expect(result.tools == nil)
     }
+
+    @Test("convertToExternalReferences with nil entries")
+    func convertToExternalReferencesWithNilEntries() async throws {
+        let originator = SBOMOriginator(commits: nil, entries: nil)
+        let result = try await CycloneDXConverter.convertToExternalReferences(from: originator)
+        #expect(result.isEmpty)
+    }
+
+    @Test("convertToExternalReferences with empty entries")
+    func convertToExternalReferencesWithEmptyEntries() async throws {
+        let originator = SBOMOriginator(commits: nil, entries: [])
+        let result = try await CycloneDXConverter.convertToExternalReferences(from: originator)
+        #expect(result.isEmpty)
+    }
+
+    @Test("convertToExternalReferences with single entry with URL")
+    func convertToExternalReferencesWithSingleEntryWithURL() async throws {
+        let url = try #require(URL(string: "https://registry.example.com/packages/mypackage/1.0.0"))
+        let entry = SBOMRegistryEntry(
+            url: url,
+            scope: "example.scope",
+            name: "mypackage",
+            version: "1.0.0"
+        )
+        let originator = SBOMOriginator(commits: nil, entries: [entry])
+        
+        let result = try await CycloneDXConverter.convertToExternalReferences(from: originator)
+        
+        #expect(result.count == 1)
+        let externalRef = result[0]
+        #expect(externalRef.url == url)
+        #expect(externalRef.refType == .distribution)
+    }
+
+    @Test("convertToExternalReferences with single entry without URL")
+    func convertToExternalReferencesWithSingleEntryWithoutURL() async throws {
+        let entry = SBOMRegistryEntry(
+            url: nil,
+            scope: "example.scope",
+            name: "mypackage",
+            version: "1.0.0"
+        )
+        let originator = SBOMOriginator(commits: nil, entries: [entry])
+        
+        let result = try await CycloneDXConverter.convertToExternalReferences(from: originator)
+        
+        #expect(result.isEmpty)
+    }
+
+    @Test("convertToExternalReferences with multiple entries all with URLs")
+    func convertToExternalReferencesWithMultipleEntriesAllWithURLs() async throws {
+        let url1 = try #require(URL(string: "https://registry.example.com/packages/package1/1.0.0"))
+        let url2 = try #require(URL(string: "https://registry.example.com/packages/package2/2.0.0"))
+        let url3 = try #require(URL(string: "https://registry.example.com/packages/package3/3.0.0"))
+        
+        let entry1 = SBOMRegistryEntry(url: url1, scope: "scope1", name: "package1", version: "1.0.0")
+        let entry2 = SBOMRegistryEntry(url: url2, scope: "scope2", name: "package2", version: "2.0.0")
+        let entry3 = SBOMRegistryEntry(url: url3, scope: "scope3", name: "package3", version: "3.0.0")
+        
+        let originator = SBOMOriginator(commits: nil, entries: [entry1, entry2, entry3])
+        
+        let result = try await CycloneDXConverter.convertToExternalReferences(from: originator)
+        
+        #expect(result.count == 3)
+        #expect(result[0].url == url1)
+        #expect(result[0].refType == .distribution)
+        #expect(result[1].url == url2)
+        #expect(result[1].refType == .distribution)
+        #expect(result[2].url == url3)
+        #expect(result[2].refType == .distribution)
+    }
+
+    @Test("convertToExternalReferences with mixed entries (some with URLs, some without)")
+    func convertToExternalReferencesWithMixedEntries() async throws {
+        let url1 = try #require(URL(string: "https://registry.example.com/packages/package1/1.0.0"))
+        let url3 = try #require(URL(string: "https://registry.example.com/packages/package3/3.0.0"))
+        
+        let entry1 = SBOMRegistryEntry(url: url1, scope: "scope1", name: "package1", version: "1.0.0")
+        let entry2 = SBOMRegistryEntry(url: nil, scope: "scope2", name: "package2", version: "2.0.0")
+        let entry3 = SBOMRegistryEntry(url: url3, scope: "scope3", name: "package3", version: "3.0.0")
+        let entry4 = SBOMRegistryEntry(url: nil, scope: "scope4", name: "package4", version: "4.0.0")
+        
+        let originator = SBOMOriginator(commits: nil, entries: [entry1, entry2, entry3, entry4])
+        
+        let result = try await CycloneDXConverter.convertToExternalReferences(from: originator)
+        
+        #expect(result.count == 2)
+        #expect(result[0].url == url1)
+        #expect(result[0].refType == .distribution)
+        #expect(result[1].url == url3)
+        #expect(result[1].refType == .distribution)
+    }
+
+    @Test("convertToExternalReferences with multiple entries all without URLs")
+    func convertToExternalReferencesWithMultipleEntriesAllWithoutURLs() async throws {
+        let entry1 = SBOMRegistryEntry(url: nil, scope: "scope1", name: "package1", version: "1.0.0")
+        let entry2 = SBOMRegistryEntry(url: nil, scope: "scope2", name: "package2", version: "2.0.0")
+        let entry3 = SBOMRegistryEntry(url: nil, scope: "scope3", name: "package3", version: "3.0.0")
+        
+        let originator = SBOMOriginator(commits: nil, entries: [entry1, entry2, entry3])
+        
+        let result = try await CycloneDXConverter.convertToExternalReferences(from: originator)
+        
+        #expect(result.isEmpty)
+    }
 }

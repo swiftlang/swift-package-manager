@@ -13,6 +13,7 @@
 internal struct SPDXExternalIdentifier: Codable, Equatable {
     internal enum Category: String, Codable, Equatable {
         case gitoid
+        case urlScheme
     }
 
     internal let identifier: String

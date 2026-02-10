@@ -18,6 +18,7 @@ internal struct SPDXRelationship: Codable, Equatable {
         case hasTest
         case generates
         case hasDeclaredLicense
+        case availableFrom
     }
 
     internal let id: String
