@@ -23,12 +23,12 @@ import Testing
     )
 )
 struct SBOMEncoderTests {
-    private func verifyJsonContentIsValid(at path: AbsolutePath, fileSystem: any FileSystem = localFileSystem) throws {
-        #expect(fileSystem.exists(path), "File should exist at \(path)")
+    private func verifyJsonContentIsValid(at path: AbsolutePath, fileSystem: any FileSystem = localFileSystem, sourceLocation: SourceLocation = #_sourceLocation) throws {
+        #expect(fileSystem.exists(path), "File should exist at \(path)", sourceLocation: sourceLocation)
 
         let data = try fileSystem.readFileContents(path)
         let jsonObject = try JSONSerialization.jsonObject(with: Data(data.contents))
-        #expect(jsonObject is [String: Any], "File should contain valid JSON object")
+        #expect(jsonObject is [String: Any], "File should contain valid JSON object", sourceLocation: sourceLocation)
     }
 
     @Test("writeSBOMs creates output directory if it doesn't exist")
