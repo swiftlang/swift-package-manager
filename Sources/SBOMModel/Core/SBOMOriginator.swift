@@ -12,10 +12,13 @@
 
 internal struct SBOMOriginator: Codable, Equatable, Hashable {
     internal let commits: [SBOMCommit]?
+    internal let entries: [SBOMRegistryEntry]?
 
     internal init(
-        commits: [SBOMCommit]? = nil
+        commits: [SBOMCommit]? = nil,
+        entries: [SBOMRegistryEntry]? = nil,
     ) {
         self.commits = commits
+        self.entries = entries
     }
 }

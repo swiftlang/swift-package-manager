@@ -439,6 +439,18 @@ struct PURLTests {
             location: "scope.package-name",
             expectedNamespace: "scope"
         ),
+        PURLNamespaceTestCase(
+            location: "mona.LinkedList",
+            expectedNamespace: "mona"
+        ),
+        PURLNamespaceTestCase(
+            location: "org.swift.swift-package-manager",
+            expectedNamespace: "org.swift"
+        ),
+        PURLNamespaceTestCase(
+            location: "io.github.myorg.mypackage",
+            expectedNamespace: "io.github.myorg"
+        ),
         // Local file paths - should have no namespace (path goes in qualifier instead)
         PURLNamespaceTestCase(
             location: "/Users/username/MyPackage",
@@ -489,7 +501,11 @@ struct PURLTests {
 
     @Test("Extract namespace", arguments: packageNamespaceTestCases)
     func extractNamespaceFromLocation(testCase: PURLNamespaceTestCase) async throws {
-        let actual = await PURL.extractNamespace(from: SBOMCommit(sha: "sha", repository: testCase.location))
+        let version = SBOMComponent.Version(
+            revision: "1.0.0",
+            commit: SBOMCommit(sha: "sha", repository: testCase.location)
+        )
+        let actual = await PURL.extractNamespace(from: version)
         #expect(actual == testCase.expectedNamespace)
     }
 
@@ -563,7 +579,6 @@ struct PURLTests {
 
     @Test("Create PURL from ResolvedProduct with local package")
     func createPURLFromResolvedProductLocalPackage() async throws {
-        // Create a package and product manually
         let packageIdentity = PackageIdentity.plain("swift-package-manager")
         let module = SBOMTestModulesGraph.createSwiftModule(name: "SwiftPMDataModel")
         let productType = ProductType.library(.automatic)
@@ -636,6 +651,190 @@ struct PURLTests {
         #expect(purl.description == "pkg:swift/github.com/swiftlang/swiftly:swiftly@1.0.0")
     }
 
+    @Test("Create PURL from registry package")
+    func createPURLFromRegistryPackage() async throws {
+        let packageIdentity = PackageIdentity.plain("org.example.mypackage")
+        let module = SBOMTestModulesGraph.createSwiftModule(name: "MyPackage")
+        let package = SBOMTestModulesGraph.createPackage(
+            identity: packageIdentity,
+            displayName: "mypackage",
+            path: "/path/to/registry/packages/org.example.mypackage",
+            modules: [module],
+            products: []
+        )
+        let resolvedModule = SBOMTestModulesGraph.createResolvedModule(
+            packageIdentity: packageIdentity,
+            module: module
+        )
+        let resolvedPackage = SBOMTestModulesGraph.createResolvedPackage(
+            package: package,
+            modules: IdentifiableSet([resolvedModule]),
+            products: []
+        )
+        
+        let registryEntry = SBOMRegistryEntry(
+            url: URL(string: "https://swift.org"),
+            scope: "org.example",
+            name: "mypackage",
+            version: "1.2.3"
+        )
+        
+        let purl = await PURL.from(
+            package: resolvedPackage,
+            version: SBOMComponent.Version(
+                revision: "1.2.3",
+                commit: nil,
+                entry: registryEntry
+            )
+        )
+
+        #expect(purl.scheme == "pkg")
+        #expect(purl.type == "swift")
+        #expect(purl.namespace == "org.example")
+        #expect(purl.name == "mypackage")
+        #expect(purl.version == "1.2.3")
+        #expect(purl.qualifiers == nil)
+        #expect(purl.description == "pkg:swift/org.example/mypackage@1.2.3")
+    }
+
+    @Test("Create PURL from registry product")
+    func createPURLFromRegistryProduct() async throws {
+        let packageIdentity = PackageIdentity.plain("com.company.networking")
+        let module = SBOMTestModulesGraph.createSwiftModule(name: "HTTPClient")
+        let productType = ProductType.library(.automatic)
+        let product = try Product(
+            package: packageIdentity,
+            name: "HTTPClient",
+            type: productType,
+            modules: [module]
+        )
+        let resolvedModule = SBOMTestModulesGraph.createResolvedModule(
+            packageIdentity: packageIdentity,
+            module: module
+        )
+        let resolvedProduct = SBOMTestModulesGraph.createResolvedProduct(
+            packageIdentity: packageIdentity,
+            product: product,
+            modules: IdentifiableSet([resolvedModule])
+        )
+        
+        let registryEntry = SBOMRegistryEntry(
+            url: URL(string: "https://swift.org"),
+            scope: "com.company",
+            name: "networking",
+            version: "2.0.0"
+        )
+        
+        let purl = await PURL.from(
+            product: resolvedProduct,
+            version: SBOMComponent.Version(
+                revision: "2.0.0",
+                commit: nil,
+                entry: registryEntry
+            )
+        )
+
+        #expect(purl.scheme == "pkg")
+        #expect(purl.type == "swift")
+        #expect(purl.namespace == "com.company")
+        #expect(purl.name == "networking:HTTPClient")
+        #expect(purl.version == "2.0.0")
+        #expect(purl.qualifiers == nil)
+        #expect(purl.description == "pkg:swift/com.company/networking:HTTPClient@2.0.0")
+    }
+
+    @Test("Create PURL from single-scope registry package")
+    func createPURLFromSingleScopeRegistryPackage() async throws {
+        let packageIdentity = PackageIdentity.plain("mona.LinkedList")
+        let module = SBOMTestModulesGraph.createSwiftModule(name: "LinkedList")
+        let package = SBOMTestModulesGraph.createPackage(
+            identity: packageIdentity,
+            displayName: "LinkedList",
+            path: "/path/to/registry/packages/mona.LinkedList",
+            modules: [module],
+            products: []
+        )
+        let resolvedModule = SBOMTestModulesGraph.createResolvedModule(
+            packageIdentity: packageIdentity,
+            module: module
+        )
+        let resolvedPackage = SBOMTestModulesGraph.createResolvedPackage(
+            package: package,
+            modules: IdentifiableSet([resolvedModule]),
+            products: []
+        )
+        
+        let registryEntry = SBOMRegistryEntry(
+            url: URL(string: "https://swift.org"),
+            scope: "mona",
+            name: "LinkedList",
+            version: "3.1.4"
+        )
+        
+        let purl = await PURL.from(
+            package: resolvedPackage,
+            version: SBOMComponent.Version(
+                revision: "3.1.4",
+                commit: nil,
+                entry: registryEntry
+            )
+        )
+
+        #expect(purl.scheme == "pkg")
+        #expect(purl.type == "swift")
+        #expect(purl.namespace == "mona")
+        #expect(purl.name == "LinkedList")
+        #expect(purl.version == "3.1.4")
+        #expect(purl.qualifiers == nil)
+        #expect(purl.description == "pkg:swift/mona/LinkedList@3.1.4")
+    }
+
+    @Test("Create PURL from registry package with hyphenated name")
+    func createPURLFromRegistryPackageWithHyphenatedName() async throws {
+        let packageIdentity = PackageIdentity.plain("org.swift.swift-package-manager")
+        let module = SBOMTestModulesGraph.createSwiftModule(name: "SwiftPM")
+        let package = SBOMTestModulesGraph.createPackage(
+            identity: packageIdentity,
+            displayName: "swift-package-manager",
+            path: "/path/to/registry/packages/org.swift.swift-package-manager",
+            modules: [module],
+            products: []
+        )
+        let resolvedModule = SBOMTestModulesGraph.createResolvedModule(
+            packageIdentity: packageIdentity,
+            module: module
+        )
+        let resolvedPackage = SBOMTestModulesGraph.createResolvedPackage(
+            package: package,
+            modules: IdentifiableSet([resolvedModule]),
+            products: []
+        )
+        
+        let registryEntry = SBOMRegistryEntry(
+            url: URL(string: "https://swift.org"),
+            scope: "org.swift",
+            name: "swift-package-manager",
+            version: "5.9.0"
+        )
+        
+        let purl = await PURL.from(
+            package: resolvedPackage,
+            version: SBOMComponent.Version(
+                revision: "5.9.0",
+                commit: nil,
+                entry: registryEntry
+            )
+        )
+
+        #expect(purl.scheme == "pkg")
+        #expect(purl.type == "swift")
+        #expect(purl.namespace == "org.swift")
+        #expect(purl.name == "swift-package-manager")
+        #expect(purl.version == "5.9.0")
+        #expect(purl.qualifiers == nil)
+        #expect(purl.description == "pkg:swift/org.swift/swift-package-manager@5.9.0")
+    }
+
     struct PURLQualifiersTestCase {
         let location: String
         let expectedQualifiers: [String: String]?
@@ -676,12 +875,25 @@ struct PURLTests {
             location: "git@github.com:swiftlang/swiftly",
             expectedQualifiers: nil
         ),
+        // Registry identities should have no qualifiers
         PURLQualifiersTestCase(
             location: "org.foo",
             expectedQualifiers: nil
         ),
         PURLQualifiersTestCase(
             location: "com.example.package",
+            expectedQualifiers: nil
+        ),
+        PURLQualifiersTestCase(
+            location: "mona.LinkedList",
+            expectedQualifiers: nil
+        ),
+        PURLQualifiersTestCase(
+            location: "org.swift.swift-package-manager",
+            expectedQualifiers: nil
+        ),
+        PURLQualifiersTestCase(
+            location: "io.github.myorg.mypackage",
             expectedQualifiers: nil
         ),
         PURLQualifiersTestCase(
@@ -693,7 +905,8 @@ struct PURLTests {
     @Test("Extract qualifiers", arguments: qualifiersTestCases)
     func extractQualifiersFromLocation(testCase: PURLQualifiersTestCase) async throws {
         let commit = testCase.location.isEmpty ? nil : SBOMCommit(sha: "sha", repository: testCase.location)
-        let actualQualifiers = await PURL.extractQualifiers(from: commit)
+        let version = SBOMComponent.Version(revision: "1.0.0", commit: commit)
+        let actualQualifiers = await PURL.extractQualifiers(from: version)
         #expect(
             actualQualifiers == testCase.expectedQualifiers,
             "Expected \(String(describing: testCase.expectedQualifiers)) but got \(String(describing: actualQualifiers))"

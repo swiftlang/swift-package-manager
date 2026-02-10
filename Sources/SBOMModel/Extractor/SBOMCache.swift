@@ -18,7 +18,7 @@ import PackageModel
 import SourceControl
 import TSCUtility
 
-internal struct SBOMGitInfo {
+internal struct SBOMVersionInfo {
     internal let version: SBOMComponent.Version
     internal let originator: SBOMOriginator
 
@@ -28,15 +28,15 @@ internal struct SBOMGitInfo {
     }
 }
 
-/// Cache for storing root package Git info (to minimize calls to Git)
-internal actor SBOMGitCache {
-    private var cache: [PackageIdentity: SBOMGitInfo] = [:]
-    internal func get(_ identity: PackageIdentity) -> SBOMGitInfo? {
+/// Cache for storing root package version info (to minimize calls to Git)
+internal actor SBOMVersionCache {
+    private var cache: [PackageIdentity: SBOMVersionInfo] = [:]
+    internal func get(_ identity: PackageIdentity) -> SBOMVersionInfo? {
         self.cache[identity]
     }
 
-    internal func set(_ identity: PackageIdentity, gitInfo: SBOMGitInfo) {
-        self.cache[identity] = gitInfo
+    internal func set(_ identity: PackageIdentity, versionInfo: SBOMVersionInfo) {
+        self.cache[identity] = versionInfo
     }
 }
 
@@ -90,22 +90,22 @@ internal actor SBOMTargetNameCache {
 
 /// Consolidated container for all SBOM extraction caches
 internal struct SBOMCaches {
-    internal let git: SBOMGitCache
+    internal let version: SBOMVersionCache
     internal let component: SBOMComponentCache
     internal let targetName: SBOMTargetNameCache
 
     internal init() {
-        self.git = SBOMGitCache()
+        self.version = SBOMVersionCache()
         self.component = SBOMComponentCache()
         self.targetName = SBOMTargetNameCache()
     }
 
     internal init(
-        git: SBOMGitCache,
+        version: SBOMVersionCache,
         component: SBOMComponentCache,
         targetName: SBOMTargetNameCache
     ) {
-        self.git = git
+        self.version = version
         self.component = component
         self.targetName = targetName
     }

@@ -9,19 +9,23 @@
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
+import Foundation
 
-internal struct SBOMCommit: Hashable, Codable, Equatable {
-    internal let sha: String
-    internal let repository: String
-    internal let authors: [SBOMPerson]?
+internal struct SBOMRegistryEntry: Hashable, Codable, Equatable {
+    internal let url: URL?
+    internal let scope: String
+    internal let name: String
+    internal let version: String
 
     internal init(
-        sha: String,
-        repository: String,
-        authors: [SBOMPerson]? = nil,
+        url: URL? = nil,
+        scope: String,
+        name: String,
+        version: String,
     ) {
-        self.sha = sha
-        self.repository = repository
-        self.authors = authors
+        self.url = url
+        self.scope = scope
+        self.name = name
+        self.version = version
     }
 }

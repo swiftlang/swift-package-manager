@@ -29,16 +29,20 @@ internal struct SBOMComponent: Codable, Equatable, Hashable {
         case package = "swift-package"
     }
 
+    // Specifies the commit or registry entry that is used for the version
     internal struct Version: Codable, Equatable, Hashable {
         internal let revision: String
         internal let commit: SBOMCommit?
+        internal let entry: SBOMRegistryEntry?
 
         internal init(
             revision: String,
-            commit: SBOMCommit? = nil
+            commit: SBOMCommit? = nil,
+            entry: SBOMRegistryEntry? = nil
         ) {
             self.revision = revision
             self.commit = commit
+            self.entry = entry
         }
     }
 
