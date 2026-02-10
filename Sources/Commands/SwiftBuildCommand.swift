@@ -176,24 +176,15 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
             toolsBuildParameters.printPIFManifestGraphviz = true
         }
 
-        let buildResult: BuildResult 
         do {
-            buildResult = try await build(
+            try await build(
                 swiftCommandState,
                 subset: subset,
                 productsBuildParameters: productsBuildParameters,
                 toolsBuildParameters: toolsBuildParameters,
-                buildOutputs: await getBuildOutputs()
             )
         } catch SwiftBuildSupport.PIFGenerationError.printedPIFManifestGraphviz {
             throw ExitCode.success
-        }
-
-        do {
-            try await processBuildResult(
-                swiftCommandState,
-                buildResult: buildResult
-            )
         } catch _ as Diagnostics {
             throw ExitCode.failure
         }
@@ -204,8 +195,7 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
         subset: BuildSubset,
         productsBuildParameters: BuildParameters,
         toolsBuildParameters: BuildParameters,
-        buildOutputs: [BuildOutput] = [],
-    ) async throws -> BuildResult {
+    ) async throws {
         let buildSystem = try await swiftCommandState.createBuildSystem(
             explicitProduct: options.product,
             shouldLinkStaticSwiftStdlib: options.shouldLinkStaticSwiftStdlib,
@@ -215,11 +205,8 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
             // ie "swift build" should output to stdout
             outputStream: TSCBasic.stdoutStream
         )
-        do {
-            return try await buildSystem.build(subset: subset, buildOutputs: buildOutputs)
-        } catch _ as Diagnostics {
-            throw ExitCode.failure
-        }
+        let buildResult = try await buildSystem.build(subset: subset, buildOutputs: try await getBuildOutputs())
+        try await processBuildResult(swiftCommandState, buildSystem: buildSystem, buildResult: buildResult)
     }
 
     private func getBuildOutputs() async throws -> [BuildOutput] {
@@ -228,27 +215,23 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
 
     private func processBuildResult(
         _ swiftCommandState: SwiftCommandState,
+        buildSystem: any BuildSystem,
         buildResult: BuildResult) async throws {
         if try !self.options.sbom.sbomSpecs.isEmpty {
-            try await generateSBOMs(swiftCommandState, buildResult)
+            try await generateSBOMs(swiftCommandState, buildSystem, buildResult)
         }
     }
 
     private func generateSBOMs(
         _ swiftCommandState: SwiftCommandState,
+        _ buildSystem: any BuildSystem,
         _ buildResult: BuildResult) async throws {
-
         do {
             guard try self.options.sbom.sbomSpecs.isEmpty || options.target == nil else {
                 throw SBOMModel.SBOMCommandError.targetFlagNotSupported
             }
             let workspace = try swiftCommandState.getActiveWorkspace()
-            let packageGraph = try await workspace.loadPackageGraph(
-                rootInput: swiftCommandState.getWorkspaceRoot(),
-                explicitProduct: options.product,
-                forceResolvedVersions: self.globalOptions.resolver.forceResolvedVersions,
-                observabilityScope: swiftCommandState.observabilityScope
-            )
+            let packageGraph = try await buildSystem.getPackageGraph()
             let resolvedPackagesStore = try workspace.resolvedPackagesStore.load()
             let input = SBOMInput(
                 modulesGraph: packageGraph,
