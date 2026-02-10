@@ -865,6 +865,7 @@ extension PackagePIFProjectBuilder {
         let settings: ProjectModel.BuildSettings = self.package.underlying.packageBaseBuildSettings
         let pkgConfig = try systemLibrary.pkgConfig(
             package: self.package,
+            pkgConfigDirectories: self.pifBuilder.pkgConfigDirectories,
             fileSystem: self.pifBuilder.fileSystem,
             observabilityScope: pifBuilder.observabilityScope
         )
