@@ -15,9 +15,12 @@ import Basics
 import Foundation
 import PackageGraph
 import PackageModel
+import PackageRegistry
 @testable import SBOMModel
 import Testing
 import class TSCBasic.Process
+
+import struct TSCUtility.Version
 
 @Suite(
     .tags(
@@ -501,5 +504,213 @@ struct SBOMExtractComponentsTests {
             filter: .package,
             product: productName
         )
+    }
+
+    // MARK: - Mock Registry Tests
+    
+    @Test("extractComponents from mock registry package")
+    func extractComponentsFromMockRegistryPackage() async throws {
+        let fs = InMemoryFileSystem()
+        
+        // Create mock registry
+        let registry = MockRegistry(
+            filesystem: fs,
+            identityResolver: DefaultIdentityResolver(),
+            checksumAlgorithm: MockHashAlgorithm(),
+            fingerprintStorage: MockPackageFingerprintStorage(),
+            signingEntityStorage: MockPackageSigningEntityStorage()
+        )
+        
+        // Setup registry package
+        let registryPackageIdentity: PackageIdentity = .plain("example.TestLibrary")
+        let registryPackageVersion: Version = "1.0.0"
+        let registryPackageSource = InMemoryRegistryPackageSource(
+            fileSystem: fs,
+            path: .root.appending(components: "registry", "server", registryPackageIdentity.description)
+        )
+        try registryPackageSource.writePackageContent(
+            targets: ["TestLibrary"],
+            toolsVersion: .v5_9
+        )
+        
+        // Add package to registry
+        registry.addPackage(
+            identity: registryPackageIdentity,
+            versions: [registryPackageVersion],
+            sourceControlURLs: [URL("https://github.com/example/TestLibrary")],
+            source: registryPackageSource
+        )
+        
+        // Create registry dependency package first
+        let registryModule = SBOMTestModulesGraph.createSwiftModule(
+            name: "TestLibrary",
+            type: .library
+        )
+        let registryProduct = try Product(
+            package: registryPackageIdentity,
+            name: "TestLibrary",
+            type: .library(.automatic),
+            modules: [registryModule]
+        )
+        let registryPackage = SBOMTestModulesGraph.createPackage(
+            identity: registryPackageIdentity,
+            displayName: "TestLibrary",
+            path: "/registry/TestLibrary",
+            modules: [registryModule],
+            products: [registryProduct]
+        )
+        
+        // Create resolved modules and products for registry package
+        let registryResolvedModule = SBOMTestModulesGraph.createResolvedModule(
+            packageIdentity: registryPackageIdentity,
+            module: registryModule
+        )
+        let registryResolvedProduct = SBOMTestModulesGraph.createResolvedProduct(
+            packageIdentity: registryPackageIdentity,
+            product: registryProduct,
+            modules: IdentifiableSet([registryResolvedModule])
+        )
+        
+        // Create a root package that depends on the registry package
+        let rootPackageIdentity = PackageIdentity.plain("MyApp")
+        let rootModule = SBOMTestModulesGraph.createSwiftModule(
+            name: "MyApp",
+            type: .executable
+        )
+        let rootProduct = try Product(
+            package: rootPackageIdentity,
+            name: "App",
+            type: .executable,
+            modules: [rootModule]
+        )
+        let rootPackage = SBOMTestModulesGraph.createPackage(
+            identity: rootPackageIdentity,
+            displayName: "MyApp",
+            path: "/MyApp",
+            modules: [rootModule],
+            products: [rootProduct]
+        )
+        
+        // Create resolved modules with dependency on registry product
+        let rootResolvedModule = SBOMTestModulesGraph.createResolvedModule(
+            packageIdentity: rootPackageIdentity,
+            module: rootModule,
+            dependencies: [
+                .product(registryResolvedProduct, conditions: [])
+            ]
+        )
+        let rootResolvedProduct = SBOMTestModulesGraph.createResolvedProduct(
+            packageIdentity: rootPackageIdentity,
+            product: rootProduct,
+            modules: IdentifiableSet([rootResolvedModule])
+        )
+        
+        // Create resolved packages with registry metadata
+        let registryURL = URL("http://localhost/registry/mock")
+        let registryMetadata = RegistryReleaseMetadata(
+            source: .registry(registryURL),
+            metadata: .init(
+                author: nil,
+                description: "Test library from registry",
+                licenseURL: nil,
+                readmeURL: nil,
+                scmRepositoryURLs: [SourceControlURL("https://github.com/example/TestLibrary")]
+            ),
+            signature: nil
+        )
+        
+        let rootResolvedPackage = SBOMTestModulesGraph.createResolvedPackage(
+            package: rootPackage,
+            modules: IdentifiableSet([rootResolvedModule]),
+            products: [rootResolvedProduct],
+            dependencies: [registryPackageIdentity]
+        )
+        
+        let registryResolvedPackage = ResolvedPackage(
+            underlying: registryPackage,
+            defaultLocalization: nil,
+            supportedPlatforms: [],
+            dependencies: [],
+            enabledTraits: nil,
+            modules: IdentifiableSet([registryResolvedModule]),
+            products: [registryResolvedProduct],
+            registryMetadata: registryMetadata,
+            platformVersionProvider: PlatformVersionProvider(implementation: .minimumDeploymentTargetDefault)
+        )
+        
+        // Create package references
+        let registryPackageRef = PackageReference.registry(identity: registryPackageIdentity)
+        
+        // Create modules graph
+        let graph = try ModulesGraph(
+            rootPackages: [rootResolvedPackage],
+            rootDependencies: [registryResolvedPackage],
+            packages: IdentifiableSet([rootResolvedPackage, registryResolvedPackage]),
+            dependencies: [registryPackageRef],
+            binaryArtifacts: [:]
+        )
+        
+        // Create store with registry package
+        let store = try SBOMTestStore.createSimpleResolvedPackagesStore()
+        store.track(
+            packageRef: registryPackageRef,
+            state: .version(registryPackageVersion, revision: "abc123")
+        )
+        
+        // Extract components
+        let extractor = SBOMExtractor(modulesGraph: graph, dependencyGraph: nil, store: store)
+        let components = try await extractor.extractDependencies().components
+        
+        // Verify components - should have root package, root product, registry package, and registry product
+        #expect(components.count >= 3, "Should have at least root package, root product, and registry product")
+        
+        // Find registry product component (not package - products are what get extracted as dependencies)
+        let registryProductComponent = components.first {
+            $0.id.value.contains("TestLibrary") && $0.entity == .product
+        }
+        let foundRegistryProduct = try #require(registryProductComponent, "Registry product component should be found. Available: \(components.map { "\($0.id.value) (\($0.entity))" }.joined(separator: ", "))")
+        
+        // Verify registry product properties
+        #expect(foundRegistryProduct.name == "TestLibrary")
+        #expect(foundRegistryProduct.version.revision == "1.0.0")
+        #expect(foundRegistryProduct.entity == .product)
+        
+        // Find registry package component
+        let registryPackageComponent = components.first {
+            $0.id.value == registryPackageIdentity.description && $0.entity == .package
+        }
+        let foundRegistryPackage = try #require(registryPackageComponent, "Registry package component should be found")
+        
+        // Verify registry package properties
+        #expect(foundRegistryPackage.name == "example.TestLibrary")
+        #expect(foundRegistryPackage.version.revision == "1.0.0")
+        #expect(foundRegistryPackage.entity == .package)
+        
+        // Verify registry entry in version
+        let registryEntry = try #require(
+            foundRegistryPackage.version.entry,
+            "Registry package should have registry entry"
+        )
+        #expect(registryEntry.url == registryURL)
+        #expect(registryEntry.scope == "example")
+        #expect(registryEntry.name == "TestLibrary")
+        #expect(registryEntry.version == "1.0.0")
+        
+        // Verify registry entry in originator
+        let originatorEntries = try #require(
+            foundRegistryPackage.originator.entries,
+            "Registry package should have originator entries"
+        )
+        #expect(originatorEntries[0].url == registryURL)
+        
+        // Verify PURL is correct for registry package
+        let expectedPURL = PURL(
+            scheme: "pkg",
+            type: "swift",
+            namespace: "example",
+            name: "TestLibrary",
+            version: "1.0.0"
+        )
+        #expect(foundRegistryPackage.purl == expectedPURL)
     }
 }

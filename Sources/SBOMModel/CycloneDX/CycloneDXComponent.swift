@@ -32,6 +32,7 @@ internal struct CycloneDXComponent: Codable, Equatable {
     internal let purl: String
     internal let components: [CycloneDXComponent]?
     internal let pedigree: CycloneDXPedigree?
+    internal let externalReferences: [CycloneDXExternalReference]?
     internal let properties: [CycloneDXProperty]?
     internal let licenses: [CycloneDXLicense]?
 
@@ -44,6 +45,7 @@ internal struct CycloneDXComponent: Codable, Equatable {
         purl: String,
         components: [CycloneDXComponent]? = nil,
         pedigree: CycloneDXPedigree? = nil,
+        externalReferences: [CycloneDXExternalReference]? = nil,
         properties: [CycloneDXProperty]? = nil,
         licenses: [CycloneDXLicense]? = nil
     ) {
@@ -55,6 +57,7 @@ internal struct CycloneDXComponent: Codable, Equatable {
         self.purl = purl
         self.components = components
         self.pedigree = pedigree
+        self.externalReferences = externalReferences
         self.properties = properties
         self.licenses = licenses
     }
@@ -68,6 +71,7 @@ internal struct CycloneDXComponent: Codable, Equatable {
         case purl
         case components
         case pedigree
+        case externalReferences
         case properties
         case licenses
     }

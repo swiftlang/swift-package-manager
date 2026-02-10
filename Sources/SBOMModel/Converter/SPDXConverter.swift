@@ -173,10 +173,13 @@ internal struct SPDXConverter {
         }
 
         var externalIdentifiers: [any SPDXObject] = []
+
         var commitToComponents: [String: (repository: String, componentIDs: [String])] = [:]
         for component in comps {
+            let componentID: String = self.generateSPDXID(component.id.value)
+
+            // Handle originator commits
             if let commits = component.originator.commits {
-                let componentID = self.generateSPDXID(component.id.value)
                 for commit in commits {
                     if commitToComponents[commit.sha] != nil {
                         commitToComponents[commit.sha]?.componentIDs.append(componentID)
@@ -185,7 +188,32 @@ internal struct SPDXConverter {
                     }
                 }
             }
+            // Handle originator registry entries
+            if let entries = component.originator.entries {
+                for entry in entries {
+                    guard let entryURL = entry.url else {
+                        continue
+                    }
+                    let externalIdentifier = SPDXExternalIdentifier(
+                        identifier: generateSPDXID(entryURL.description),
+                        identifierLocator: [entryURL.description],
+                        type: .ExternalIdentifier,
+                        category: .urlScheme
+                    )
+                    externalIdentifiers.append(externalIdentifier)
+                    let relationship = SPDXRelationship(
+                        id: generateSPDXID("\(entry.scope)-\(entry.name)-\(entry.version)-availableFrom-\(componentID)"),
+                        type: .Relationship,
+                        category: .availableFrom,
+                        creationInfoID: SPDXConstants.spdxRootCreationInfoID,
+                        parentID: componentID,
+                        childrenID: [self.generateSPDXID(entryURL.description)]
+                    )
+                    externalIdentifiers.append(relationship)
+                }
+            }
         }
+
         for (commitSHA, commitInfo) in commitToComponents {
             let externalIdentifier = SPDXExternalIdentifier(
                 identifier: generateSPDXID(commitSHA),

@@ -588,6 +588,227 @@ struct SPDXConverterTests {
         #expect(relationshipUnwrapped.childrenID.contains("urn:spdx:test-id-1"))
         #expect(relationshipUnwrapped.childrenID.contains("urn:spdx:test-id-2"))
     }
+    @Test("convertToExternalIdentifiers with single registry entry")
+    func convertToExternalIdentifiersWithSingleRegistryEntry() async throws {
+        let registryEntry = SBOMRegistryEntry(
+            url: URL(string: "https://registry.example.com/package/1.0.0"),
+            scope: "example",
+            name: "package",
+            version: "1.0.0"
+        )
+        let component = SBOMComponent(
+            category: .library,
+            id: SBOMIdentifier(value: "test-id"),
+            purl: PURL(scheme: "pkg", type: "swift", name: "test", version: "1.0.0"),
+            name: "TestComponent",
+            version: SBOMComponent.Version(revision: "1.0.0"),
+            originator: SBOMOriginator(commits: nil, entries: [registryEntry]),
+            scope: .runtime,
+            entity: .product
+        )
+
+        let result = await SPDXConverter.convertToExternalIdentifiers(from: [component])
+        #expect(result.count == 2) // 1 ExternalIdentifier + 1 Relationship
+
+        let externalIdentifier = result[0] as? SPDXExternalIdentifier
+        let externalIdentifierUnwrapped = try #require(externalIdentifier)
+        #expect(externalIdentifierUnwrapped.identifier == "urn:spdx:https://registry.example.com/package/1.0.0")
+        #expect(externalIdentifierUnwrapped.identifierLocator == ["https://registry.example.com/package/1.0.0"])
+        #expect(externalIdentifierUnwrapped.type == .ExternalIdentifier)
+        #expect(externalIdentifierUnwrapped.category == .urlScheme)
+
+        let relationship = result[1] as? SPDXRelationship
+        let relationshipUnwrapped = try #require(relationship)
+        #expect(relationshipUnwrapped.id == "urn:spdx:example-package-1.0.0-availableFrom-urn:spdx:test-id")
+        #expect(relationshipUnwrapped.type == .Relationship)
+        #expect(relationshipUnwrapped.category == .availableFrom)
+        #expect(relationshipUnwrapped.creationInfoID == "_:creationInfo")
+        #expect(relationshipUnwrapped.parentID == "urn:spdx:test-id")
+        #expect(relationshipUnwrapped.childrenID == ["urn:spdx:https://registry.example.com/package/1.0.0"])
+    }
+
+    @Test("convertToExternalIdentifiers with multiple registry entries")
+    func convertToExternalIdentifiersWithMultipleRegistryEntries() async throws {
+        let registryEntry1 = SBOMRegistryEntry(
+            url: URL(string: "https://registry1.example.com/package/1.0.0"),
+            scope: "example",
+            name: "package",
+            version: "1.0.0"
+        )
+        let registryEntry2 = SBOMRegistryEntry(
+            url: URL(string: "https://registry2.example.com/package/1.0.0"),
+            scope: "example",
+            name: "package",
+            version: "1.0.0"
+        )
+        let component = SBOMComponent(
+            category: .library,
+            id: SBOMIdentifier(value: "test-id"),
+            purl: PURL(scheme: "pkg", type: "swift", name: "test", version: "1.0.0"),
+            name: "TestComponent",
+            version: SBOMComponent.Version(revision: "1.0.0"),
+            originator: SBOMOriginator(commits: nil, entries: [registryEntry1, registryEntry2]),
+            scope: .runtime,
+            entity: .product
+        )
+
+        let result = await SPDXConverter.convertToExternalIdentifiers(from: [component])
+        #expect(result.count == 4) // 2 ExternalIdentifiers + 2 Relationships
+
+        let externalIdentifiers = result.compactMap { $0 as? SPDXExternalIdentifier }
+        let relationships = result.compactMap { $0 as? SPDXRelationship }
+
+        #expect(externalIdentifiers.count == 2)
+        #expect(relationships.count == 2)
+
+        let identifiers = externalIdentifiers.map(\.identifier)
+        #expect(identifiers.contains("urn:spdx:https://registry1.example.com/package/1.0.0"))
+        #expect(identifiers.contains("urn:spdx:https://registry2.example.com/package/1.0.0"))
+
+        for relationship in relationships {
+            #expect(relationship.type == .Relationship)
+            #expect(relationship.category == .availableFrom)
+            #expect(relationship.creationInfoID == "_:creationInfo")
+            #expect(relationship.parentID == "urn:spdx:test-id")
+        }
+    }
+
+    @Test("convertToExternalIdentifiers with registry entry without URL")
+    func convertToExternalIdentifiersWithRegistryEntryWithoutURL() async throws {
+        let registryEntry = SBOMRegistryEntry(
+            url: nil,
+            scope: "example",
+            name: "package",
+            version: "1.0.0"
+        )
+        let component = SBOMComponent(
+            category: .library,
+            id: SBOMIdentifier(value: "test-id"),
+            purl: PURL(scheme: "pkg", type: "swift", name: "test", version: "1.0.0"),
+            name: "TestComponent",
+            version: SBOMComponent.Version(revision: "1.0.0"),
+            originator: SBOMOriginator(commits: nil, entries: [registryEntry]),
+            scope: .runtime,
+            entity: .product
+        )
+
+        let result = await SPDXConverter.convertToExternalIdentifiers(from: [component])
+        #expect(result.isEmpty) // Registry entry without URL should be skipped
+    }
+
+    @Test("convertToExternalIdentifiers with both commits and registry entries")
+    func convertToExternalIdentifiersWithBothCommitsAndRegistryEntries() async throws {
+        let commit = SBOMCommit(
+            sha: "abc123",
+            repository: "https://github.com/swiftlang/swift-package-manager",
+            authors: nil
+        )
+        let registryEntry = SBOMRegistryEntry(
+            url: URL(string: "https://registry.example.com/package/1.0.0"),
+            scope: "example",
+            name: "package",
+            version: "1.0.0"
+        )
+        let component = SBOMComponent(
+            category: .library,
+            id: SBOMIdentifier(value: "test-id"),
+            purl: PURL(scheme: "pkg", type: "swift", name: "test", version: "1.0.0"),
+            name: "TestComponent",
+            version: SBOMComponent.Version(revision: "1.0.0"),
+            originator: SBOMOriginator(commits: [commit], entries: [registryEntry]),
+            scope: .runtime,
+            entity: .product
+        )
+
+        let result = await SPDXConverter.convertToExternalIdentifiers(from: [component])
+        #expect(result.count == 4) // 1 commit ExternalIdentifier + 1 commit Relationship + 1 registry ExternalIdentifier + 1 registry Relationship
+
+        let externalIdentifiers = result.compactMap { $0 as? SPDXExternalIdentifier }
+        let relationships = result.compactMap { $0 as? SPDXRelationship }
+
+        #expect(externalIdentifiers.count == 2)
+        #expect(relationships.count == 2)
+
+        // Check commit external identifier
+        let commitIdentifier = externalIdentifiers.first { $0.category == .gitoid }
+        let commitIdentifierUnwrapped = try #require(commitIdentifier)
+        #expect(commitIdentifierUnwrapped.identifier == "urn:spdx:abc123")
+        #expect(commitIdentifierUnwrapped.identifierLocator == ["https://github.com/swiftlang/swift-package-manager"])
+
+        // Check registry external identifier
+        let registryIdentifier = externalIdentifiers.first { $0.category == .urlScheme }
+        let registryIdentifierUnwrapped = try #require(registryIdentifier)
+        #expect(registryIdentifierUnwrapped.identifier == "urn:spdx:https://registry.example.com/package/1.0.0")
+        #expect(registryIdentifierUnwrapped.identifierLocator == ["https://registry.example.com/package/1.0.0"])
+
+        // Check commit relationship
+        let generatesRelationship = relationships.first { $0.category == .generates }
+        let generatesRelationshipUnwrapped = try #require(generatesRelationship)
+        #expect(generatesRelationshipUnwrapped.parentID == "urn:spdx:abc123")
+        #expect(generatesRelationshipUnwrapped.childrenID == ["urn:spdx:test-id"])
+
+        // Check registry relationship
+        let availableFromRelationship = relationships.first { $0.category == .availableFrom }
+        let availableFromRelationshipUnwrapped = try #require(availableFromRelationship)
+        #expect(availableFromRelationshipUnwrapped.parentID == "urn:spdx:test-id")
+        #expect(availableFromRelationshipUnwrapped.childrenID == ["urn:spdx:https://registry.example.com/package/1.0.0"])
+    }
+
+    @Test("convertToExternalIdentifiers with multiple components with registry entries")
+    func convertToExternalIdentifiersWithMultipleComponentsWithRegistryEntries() async throws {
+        let registryEntry1 = SBOMRegistryEntry(
+            url: URL(string: "https://registry.example.com/package1/1.0.0"),
+            scope: "example",
+            name: "package1",
+            version: "1.0.0"
+        )
+        let registryEntry2 = SBOMRegistryEntry(
+            url: URL(string: "https://registry.example.com/package2/2.0.0"),
+            scope: "example",
+            name: "package2",
+            version: "2.0.0"
+        )
+        let component1 = SBOMComponent(
+            category: .library,
+            id: SBOMIdentifier(value: "test-id-1"),
+            purl: PURL(scheme: "pkg", type: "swift", name: "test1", version: "1.0.0"),
+            name: "TestComponent1",
+            version: SBOMComponent.Version(revision: "1.0.0"),
+            originator: SBOMOriginator(commits: nil, entries: [registryEntry1]),
+            scope: .runtime,
+            entity: .product
+        )
+        let component2 = SBOMComponent(
+            category: .library,
+            id: SBOMIdentifier(value: "test-id-2"),
+            purl: PURL(scheme: "pkg", type: "swift", name: "test2", version: "2.0.0"),
+            name: "TestComponent2",
+            version: SBOMComponent.Version(revision: "2.0.0"),
+            originator: SBOMOriginator(commits: nil, entries: [registryEntry2]),
+            scope: .runtime,
+            entity: .product
+        )
+
+        let result = await SPDXConverter.convertToExternalIdentifiers(from: [component1, component2])
+        #expect(result.count == 4) // 2 ExternalIdentifiers + 2 Relationships
+
+        let externalIdentifiers = result.compactMap { $0 as? SPDXExternalIdentifier }
+        let relationships = result.compactMap { $0 as? SPDXRelationship }
+
+        #expect(externalIdentifiers.count == 2)
+        #expect(relationships.count == 2)
+
+        // All should be urlScheme category
+        for identifier in externalIdentifiers {
+            #expect(identifier.category == .urlScheme)
+        }
+
+        // All relationships should be availableFrom
+        for relationship in relationships {
+            #expect(relationship.category == .availableFrom)
+        }
+    }
+
 
     @Test("convertToRelationships with nil dependencies")
     func convertToRelationshipsWithNilDependencies() async throws {

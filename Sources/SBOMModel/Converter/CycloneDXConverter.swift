@@ -84,6 +84,20 @@ internal struct CycloneDXConverter {
         return CycloneDXPedigree(commits: cyclonedxCommits)
     }
 
+    internal static func convertToExternalReferences(from originator: SBOMOriginator) async throws -> [CycloneDXExternalReference] {
+        guard let registryEntries = originator.entries else {
+            return []
+        }
+        let externalReferences = registryEntries.compactMap { entry -> CycloneDXExternalReference? in
+            guard let url = entry.url else { return nil }
+            return CycloneDXExternalReference(
+                url: url,
+                refType: .distribution
+            )
+        }
+        return externalReferences
+    }
+
     internal static func convertToComponent(from comp: SBOMComponent) async throws -> CycloneDXComponent {
         try await CycloneDXComponent(
             type: self.convertToCategory(from: comp.category),
@@ -93,6 +107,7 @@ internal struct CycloneDXConverter {
             scope: self.convertToScope(from: comp.scope ?? .runtime),
             purl: comp.purl.description,
             pedigree: self.convertToPedigree(from: comp.originator),
+            externalReferences: self.convertToExternalReferences(from: comp.originator),
             properties: [CycloneDXProperty(name: "swift-entity", value: comp.entity.rawValue)]
         )
     }
