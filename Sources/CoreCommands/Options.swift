@@ -35,6 +35,7 @@ import enum SBOMModel.SBOMCommandError
 
 import struct SPMBuildCore.BuildParameters
 import struct SPMBuildCore.BuildSystemProvider
+import enum SPMBuildCore.ConfigurableEnvVar
 
 import struct TSCBasic.StringError
 
@@ -801,7 +802,7 @@ public struct SBOMOptions: ParsableArguments {
             if !_sbomSpecs.isEmpty {
                 return _sbomSpecs
             }
-            if let envSpecs = ProcessInfo.processInfo.environment["SWIFTPM_BUILD_SBOM_SPEC"] {
+            if let envSpecs = SPMBuildCore.ConfigurableEnvVar.SWIFTPM_BUILD_SBOM_SPEC.getEnvVar() {
                 let specStrings = envSpecs.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
                 var specs: [SBOMModel.Spec] = []
                 for specString in specStrings {
@@ -823,7 +824,7 @@ public struct SBOMOptions: ParsableArguments {
         if let cmdLineDir = _sbomDirectory {
             return cmdLineDir
         }
-        if let envDir = ProcessInfo.processInfo.environment["SWIFTPM_BUILD_SBOM_OUTPUT_DIR"] {
+        if let envDir = SPMBuildCore.ConfigurableEnvVar.SWIFTPM_BUILD_SBOM_OUTPUT_DIR.getEnvVar() {
             guard let path = AbsolutePath(argument: envDir) else {
                 return nil
             }
@@ -839,7 +840,7 @@ public struct SBOMOptions: ParsableArguments {
             if let cliFilter = _sbomFilter {
                 return cliFilter
             }
-            if let envFilter = ProcessInfo.processInfo.environment["SWIFTPM_BUILD_SBOM_FILTER"] {
+            if let envFilter = SPMBuildCore.ConfigurableEnvVar.SWIFTPM_BUILD_SBOM_FILTER.getEnvVar() {
                 guard let filter = SBOMModel.Filter(rawValue: envFilter) else {
                     throw SBOMModel.SBOMCommandError.invalidFilterValue(value: envFilter)
                 }
@@ -854,7 +855,7 @@ public struct SBOMOptions: ParsableArguments {
         if _sbomWarningOnly {
             return true
         }
-        if let envWarningOnly = ProcessInfo.processInfo.environment["SWIFTPM_BUILD_SBOM_WARNING_ONLY"] {
+        if let envWarningOnly = SPMBuildCore.ConfigurableEnvVar.SWIFTPM_BUILD_SBOM_WARNING_ONLY.getEnvVar() {
             let lowercased = envWarningOnly.lowercased()
             return !["false", "0", "no"].contains(lowercased)
         }
