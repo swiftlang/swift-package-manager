@@ -35,6 +35,9 @@ extension Trait where Self == Testing.ConditionTrait {
 
 @Suite(
     .serializedIfOnWindows,
+    .tags(
+        .FunctionalArea.APIDiff,
+    ),
 )
 struct APIDiffTests {
     @discardableResult
@@ -55,7 +58,13 @@ struct APIDiffTests {
         )
     }
 
-    @Test(.requiresAPIDigester, arguments: SupportedBuildSystemOnAllPlatforms)
+    @Test(
+        .requiresAPIDigester,
+        .tags(
+            .Feature.Command.Package.DiagnoseApiBreakingChanges,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
     func testInvokeAPIDiffDigester(buildSystem: BuildSystemProvider.Kind) async throws {
         try await fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
             let packageRoot = fixturePath.appending("Foo")
@@ -70,7 +79,13 @@ struct APIDiffTests {
         }
     }
 
-    @Test(.requiresAPIDigester, arguments: SupportedBuildSystemOnAllPlatforms)
+    @Test(
+        .requiresAPIDigester,
+        .tags(
+            .Feature.Command.Package.DiagnoseApiBreakingChanges,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
     func testSimpleAPIDiff(buildSystem: BuildSystemProvider.Kind) async throws {
         try await fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
             let packageRoot = fixturePath.appending("Foo")
@@ -88,6 +103,9 @@ struct APIDiffTests {
 
     @Test(
         .requiresAPIDigester,
+        .tags(
+            .Feature.Command.Package.DiagnoseApiBreakingChanges,
+        ),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8926", relationship: .defect),
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
@@ -114,6 +132,9 @@ struct APIDiffTests {
 
     @Test(
         .requiresAPIDigester,
+        .tags(
+            .Feature.Command.Package.DiagnoseApiBreakingChanges,
+        ),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8926", relationship: .defect),
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
@@ -148,6 +169,9 @@ struct APIDiffTests {
 
     @Test(
         .requiresAPIDigester,
+        .tags(
+            .Feature.Command.Package.DiagnoseApiBreakingChanges,
+        ),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8926", relationship: .defect),
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
@@ -184,7 +208,7 @@ struct APIDiffTests {
 
     @Test(
         .tags(
-            .Feature.Command.Run,
+            .Feature.Command.Package.DiagnoseApiBreakingChanges,
         ),
         .requiresAPIDigester,
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8926", relationship: .defect),
@@ -250,13 +274,14 @@ struct APIDiffTests {
 
     @Test(
         .tags(
-            .Feature.Command.Run,
+            .Feature.Command.Package.DiagnoseApiBreakingChanges,
         ),
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/9699", relationship: .defect),
         .requiresAPIDigester,
         arguments: SupportedBuildSystemOnAllPlatforms
     )
     func testAPIDiffOfModuleWithCDependency(buildSystem: BuildSystemProvider.Kind) async throws {
-        try await withKnownIssue("https://github.com/swiftlang/swift/issues/82394", isIntermittent: true) {
+        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
                 let packageRoot = fixturePath.appending("CTargetDep")
                 // Overwrite the existing decl.
@@ -271,29 +296,30 @@ struct APIDiffTests {
                     """
                 )
                 await expectThrowsCommandExecutionError(try await execute(["diagnose-api-breaking-changes", "1.2.3"], packagePath: packageRoot, buildSystem: buildSystem)) { error in
-                    #expect(error.stdout.contains("1 breaking change detected in Bar"))
-                    #expect(error.stdout.contains("💔 API breakage: func bar() has return type change from Swift.Int to Swift.String"))
+                    #expect(error.stdout.contains("1 breaking change detected in Bar"), "stderr: \(error.stderr)")
+                    #expect(error.stdout.contains("💔 API breakage: func bar() has return type change from Swift.Int to Swift.String"), "stderr: \(error.stderr)")
                 }
 
                 // Report an error if we explicitly ask to diff a C-family target
                 await expectThrowsCommandExecutionError(try await execute(["diagnose-api-breaking-changes", "1.2.3", "--targets", "Foo"], packagePath: packageRoot, buildSystem: buildSystem)) { error in
-                    #expect(error.stderr.contains("error: 'Foo' is not a Swift language target"))
+                    #expect(error.stderr.contains("error: 'Foo' is not a Swift language target"), "stdout: \(error.stdout)")
                 }
             }
         } when: {
-            buildSystem == .swiftbuild
+            buildSystem == .swiftbuild && [.macOS, .linux].contains(ProcessInfo.hostOperatingSystem) // <unknown>:0: error: missing required module 'Foo'
         }
     }
 
     @Test(
         .tags(
-            .Feature.Command.Run,
+            .Feature.Command.Package.DiagnoseApiBreakingChanges,
         ),
         .requiresAPIDigester,
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/9699", relationship: .defect),
         arguments: SupportedBuildSystemOnAllPlatforms
     )
     func testAPIDiffOfVendoredCDependency(buildSystem: BuildSystemProvider.Kind) async throws {
-        try await withKnownIssue("https://github.com/swiftlang/swift/issues/82394", isIntermittent: true) {
+        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
                 let packageRoot = fixturePath.appending("CIncludePath")
                 let (output, _) = try await execute(["diagnose-api-breaking-changes", "main"], packagePath: packageRoot, buildSystem: buildSystem)
@@ -301,13 +327,13 @@ struct APIDiffTests {
                 #expect(output.contains("No breaking changes detected in Sample"))
             }
         } when: {
-            buildSystem == .swiftbuild
+            buildSystem == .swiftbuild && [.macOS, .linux].contains(ProcessInfo.hostOperatingSystem) // <unknown>:0: error: missing required module 'Foo'
         }
     }
 
     @Test(
         .tags(
-            .Feature.Command.Run,
+            .Feature.Command.Package.DiagnoseApiBreakingChanges,
         ),
         .requiresAPIDigester,
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8926", relationship: .defect),
@@ -329,7 +355,7 @@ struct APIDiffTests {
 
     @Test(
         .tags(
-            .Feature.Command.Run,
+            .Feature.Command.Package.DiagnoseApiBreakingChanges,
         ),
         .requiresAPIDigester,
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8926", relationship: .defect),
@@ -373,7 +399,13 @@ struct APIDiffTests {
         }
     }
 
-    @Test(.requiresAPIDigester, arguments: SupportedBuildSystemOnAllPlatforms)
+    @Test(
+        .requiresAPIDigester,
+        .tags(
+            .Feature.Command.Package.DiagnoseApiBreakingChanges,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
     func testAPIDiffPackageWithPlugin(buildSystem: BuildSystemProvider.Kind) async throws {
         try await fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
             let packageRoot = fixturePath.appending("WithPlugin")
@@ -382,7 +414,13 @@ struct APIDiffTests {
         }
     }
 
-    @Test(.requiresAPIDigester, arguments: SupportedBuildSystemOnAllPlatforms)
+    @Test(
+        .requiresAPIDigester,
+        .tags(
+            .Feature.Command.Package.DiagnoseApiBreakingChanges,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
     func testBadTreeish(buildSystem: BuildSystemProvider.Kind) async throws {
         try await fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
             let packageRoot = fixturePath.appending("Foo")
@@ -392,7 +430,13 @@ struct APIDiffTests {
         }
     }
 
-    @Test(.requiresAPIDigester, arguments: SupportedBuildSystemOnAllPlatforms)
+    @Test(
+        .requiresAPIDigester,
+        .tags(
+            .Feature.Command.Package.DiagnoseApiBreakingChanges,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
     func testBranchUpdate(buildSystem: BuildSystemProvider.Kind) async throws {
         try await withTemporaryDirectory { baselineDir in
             try await fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
@@ -432,7 +476,13 @@ struct APIDiffTests {
         }
     }
 
-    @Test(.requiresAPIDigester, arguments: SupportedBuildSystemOnAllPlatforms)
+    @Test(
+        .requiresAPIDigester,
+        .tags(
+            .Feature.Command.Package.DiagnoseApiBreakingChanges,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
     func testBaselineDirOverride(buildSystem: BuildSystemProvider.Kind) async throws {
         try await fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
             let packageRoot = fixturePath.appending("Foo")
@@ -462,7 +512,13 @@ struct APIDiffTests {
         }
     }
 
-    @Test(.requiresAPIDigester, arguments: SupportedBuildSystemOnAllPlatforms)
+    @Test(
+        .requiresAPIDigester,
+        .tags(
+            .Feature.Command.Package.DiagnoseApiBreakingChanges,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
     func testRegenerateBaseline(buildSystem: BuildSystemProvider.Kind) async throws {
         try await fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
             let packageRoot = fixturePath.appending("Foo")
@@ -527,7 +583,12 @@ struct APIDiffTests {
         }
     }
 
-    @Test(arguments: SupportedBuildSystemOnAllPlatforms)
+    @Test(
+        .tags(
+            .Feature.Command.Package.ExperimentalApiDiff,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
     func testOldName(buildSystem: BuildSystemProvider.Kind) async throws {
         await expectThrowsCommandExecutionError(try await execute(["experimental-api-diff", "1.2.3", "--regenerate-baseline"], packagePath: nil, buildSystem: buildSystem)) { error in
             #expect(error.stdout.contains("`swift package experimental-api-diff` has been renamed to `swift package diagnose-api-breaking-changes`"))
