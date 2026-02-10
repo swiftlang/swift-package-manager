@@ -10,7 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Basics
 import Foundation
+import PackageGraph
+import PackageModel
 @testable import SBOMModel
 import Testing
 
@@ -492,9 +495,26 @@ struct PURLTests {
 
     @Test("Create PURL from ResolvedPackage")
     func createPURLFromResolvedPackage() async throws {
-        let graph = try SBOMTestModulesGraph.createSPMModulesGraph()
-        let rootPackage = try #require(graph.rootPackages.first)
-        let purl = await PURL.from(package: rootPackage, version: SBOMComponent.Version(revision: "1.0.0", commit: nil))
+        let packageIdentity = PackageIdentity.plain("swift-package-manager")
+        let module = SBOMTestModulesGraph.createSwiftModule(name: "TestModule")
+        let package = SBOMTestModulesGraph.createPackage(
+            identity: packageIdentity,
+            displayName: "swift-package-manager",
+            path: "/swift-package-manager",
+            modules: [module],
+            products: []
+        )
+        let resolvedModule = SBOMTestModulesGraph.createResolvedModule(
+            packageIdentity: packageIdentity,
+            module: module
+        )
+        let resolvedPackage = SBOMTestModulesGraph.createResolvedPackage(
+            package: package,
+            modules: IdentifiableSet([resolvedModule]),
+            products: []
+        )
+        
+        let purl = await PURL.from(package: resolvedPackage, version: SBOMComponent.Version(revision: "1.0.0", commit: nil))
 
         #expect(purl.scheme == "pkg")
         #expect(purl.type == "swift")
@@ -506,11 +526,27 @@ struct PURLTests {
 
     @Test("Create PURL from ResolvedProduct with package location")
     func createPURLFromResolvedProduct() async throws {
-        let graph = try SBOMTestModulesGraph.createSPMModulesGraph()
-        let rootPackage = try #require(graph.rootPackages.first)
-        let product = try #require(rootPackage.products.first { $0.name == "SwiftPMDataModel" })
-        let purl = await PURL.from(
+        let packageIdentity = PackageIdentity.plain("swift-package-manager")
+        let module = SBOMTestModulesGraph.createSwiftModule(name: "SwiftPMDataModel")
+        let productType = ProductType.library(.automatic)
+        let product = try Product(
+            package: packageIdentity,
+            name: "SwiftPMDataModel",
+            type: productType,
+            modules: [module]
+        )
+        let resolvedModule = SBOMTestModulesGraph.createResolvedModule(
+            packageIdentity: packageIdentity,
+            module: module
+        )
+        let resolvedProduct = SBOMTestModulesGraph.createResolvedProduct(
+            packageIdentity: packageIdentity,
             product: product,
+            modules: IdentifiableSet([resolvedModule])
+        )
+        
+        let purl = await PURL.from(
+            product: resolvedProduct,
             version: SBOMComponent.Version(
                 revision: "1.0.0",
                 commit: SBOMCommit(sha: "sha", repository: "https://github.com/swiftlang/swift-package-manager.git")
@@ -527,12 +563,29 @@ struct PURLTests {
 
     @Test("Create PURL from ResolvedProduct with local package")
     func createPURLFromResolvedProductLocalPackage() async throws {
-        let graph = try SBOMTestModulesGraph.createSPMModulesGraph()
-        let rootPackage = try #require(graph.rootPackages.first)
-        let product = try #require(rootPackage.products.first { $0.name == "SwiftPMDataModel" })
+        // Create a package and product manually
+        let packageIdentity = PackageIdentity.plain("swift-package-manager")
+        let module = SBOMTestModulesGraph.createSwiftModule(name: "SwiftPMDataModel")
+        let productType = ProductType.library(.automatic)
+        let product = try Product(
+            package: packageIdentity,
+            name: "SwiftPMDataModel",
+            type: productType,
+            modules: [module]
+        )
+        let resolvedModule = SBOMTestModulesGraph.createResolvedModule(
+            packageIdentity: packageIdentity,
+            module: module
+        )
+        let resolvedProduct = SBOMTestModulesGraph.createResolvedProduct(
+            packageIdentity: packageIdentity,
+            product: product,
+            modules: IdentifiableSet([resolvedModule])
+        )
+        
         let localPath = "/Users/someuser/myCode/SwiftPM/"
         let purl = await PURL.from(
-            product: product,
+            product: resolvedProduct,
             version: SBOMComponent.Version(revision: "1.0.0", commit: SBOMCommit(sha: "sha", repository: localPath))
         )
 
@@ -548,11 +601,27 @@ struct PURLTests {
 
     @Test("Create PURL from ResolvedProduct with SSH URL")
     func createPURLFromResolvedProductSSH() async throws {
-        let graph = try SBOMTestModulesGraph.createSwiftlyModulesGraph()
-        let rootPackage = try #require(graph.rootPackages.first)
-        let product = try #require(rootPackage.products.first)
-        let purl = await PURL.from(
+        let packageIdentity = PackageIdentity.plain("swiftly")
+        let module = SBOMTestModulesGraph.createSwiftModule(name: "swiftly")
+        let productType = ProductType.library(.automatic)
+        let product = try Product(
+            package: packageIdentity,
+            name: "swiftly",
+            type: productType,
+            modules: [module]
+        )
+        let resolvedModule = SBOMTestModulesGraph.createResolvedModule(
+            packageIdentity: packageIdentity,
+            module: module
+        )
+        let resolvedProduct = SBOMTestModulesGraph.createResolvedProduct(
+            packageIdentity: packageIdentity,
             product: product,
+            modules: IdentifiableSet([resolvedModule])
+        )
+        
+        let purl = await PURL.from(
+            product: resolvedProduct,
             version: SBOMComponent.Version(
                 revision: "1.0.0",
                 commit: SBOMCommit(sha: "sha", repository: "git@github.com:swiftlang/swiftly.git")
