@@ -44,7 +44,7 @@ public class ObservabilitySystem {
     public convenience init(
         _ handler: @escaping @Sendable (ObservabilityScope, Diagnostic) -> Void,
         outputStream: (any WritableByteStream)? = nil,
-        logLevel: Diagnostic.Severity
+        logLevel: Diagnostic.Severity = .error,
     ) {
         self.init(
             SingleDiagnosticsHandler(
