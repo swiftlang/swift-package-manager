@@ -48,4 +48,22 @@ struct MacroTests {
             #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
         }
     }
+
+    @Test(
+        .tags(
+            Tag.Feature.Command.Build
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func minimalExecutableMacro(
+        buildSystem: BuildSystemProvider.Kind
+    ) async throws {
+        try await fixture(name: "Macros/MinimalMacroPackage") { fixturePath in
+            let (stdout, _) = try await executeSwiftBuild(
+                fixturePath,
+                buildSystem: buildSystem,
+            )
+            #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+        }
+    }
 }
