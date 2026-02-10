@@ -462,7 +462,6 @@ struct SPDXConverterTests {
             sha: "abc123",
             repository: "https://github.com/swiftlang/swift-package-manager",
             authors: nil,
-            message: "Initial commit"
         )
         let component = SBOMComponent(
             category: .library,
@@ -501,13 +500,11 @@ struct SPDXConverterTests {
             sha: "abc123",
             repository: "https://github.com/swiftlang/swift-package-manager",
             authors: nil,
-            message: "First commit"
         )
         let commit2 = SBOMCommit(
             sha: "def456",
             repository: "https://github.com/swiftlang/swift-package-manager",
             authors: nil,
-            message: "Second commit"
         )
         let component = SBOMComponent(
             category: .library,
@@ -548,7 +545,6 @@ struct SPDXConverterTests {
             sha: "abc123",
             repository: "https://github.com/swiftlang/swift-package-manager",
             authors: nil,
-            message: "Shared commit"
         )
         let component1 = SBOMComponent(
             category: .library,
@@ -672,7 +668,6 @@ struct SPDXConverterTests {
             sha: "abc123",
             repository: "https://github.com/swiftlang/swift-package-manager",
             authors: nil,
-            message: "First commit"
         )
         let parent = SBOMComponent(
             category: .library,
@@ -897,7 +892,6 @@ struct SPDXConverterTests {
             sha: "abc123",
             repository: "https://github.com/swiftlang/swift-package-manager",
             authors: nil,
-            message: "Initial commit"
         )
         let component1 = SBOMComponent(
             category: .library,

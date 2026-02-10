@@ -78,7 +78,6 @@ internal struct CycloneDXConverter {
                 uid: sbomCommit.sha,
                 url: sbomCommit.repository,
                 author: cyclonedxAuthor,
-                message: sbomCommit.message
             )
         }
 

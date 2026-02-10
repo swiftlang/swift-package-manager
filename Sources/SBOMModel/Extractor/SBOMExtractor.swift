@@ -113,12 +113,12 @@ internal struct SBOMExtractor {
         return allProductsAreTests ? .test : .runtime
     }
 
-    private func extractComponentInfoFromGit(packagePath: AbsolutePath) async throws -> SBOMGitInfo {
+    private func extractComponentInfoFromGit(packagePath: AbsolutePath) async throws -> SBOMVersionInfo {
         let gitRepo = GitRepository(path: packagePath, isWorkingRepo: true)
 
         let currentRevision = try? gitRepo.getCurrentRevision()
         guard let currentRevision else {
-            return SBOMGitInfo(
+            return SBOMVersionInfo(
                 version: SBOMComponent.Version(revision: "unknown"),
                 originator: SBOMOriginator(commits: nil)
             )
@@ -138,7 +138,7 @@ internal struct SBOMExtractor {
         let versionCommit = commit
         let commits = commit.map { [$0] }
 
-        return SBOMGitInfo(
+        return SBOMVersionInfo(
             version: SBOMComponent.Version(
                 revision: revisionString,
                 commit: versionCommit
@@ -147,23 +147,25 @@ internal struct SBOMExtractor {
         )
     }
 
-    private func extractComponentVersionAndCommits(from packageIdentity: PackageIdentity) async throws -> SBOMGitInfo {
-        if let cachedGitInfo = await caches.git.get(packageIdentity) {
-            return cachedGitInfo
+    private func extractComponentVersionInfo(from packageIdentity: PackageIdentity) async throws -> SBOMVersionInfo {
+        if let cachedVersionInfo = await caches.version.get(packageIdentity) {
+            return cachedVersionInfo
         }
-        // root package (try to get version and commits from git)
+        // root package (built from source)
         if let rootPackage = modulesGraph.rootPackages.first(where: { $0.identity == packageIdentity }) {
-            let gitInfo = try await extractComponentInfoFromGit(packagePath: rootPackage.path)
-            await self.caches.git.set(packageIdentity, gitInfo: gitInfo)
-            return gitInfo
+            let versionInfo = try await extractComponentInfoFromGit(packagePath: rootPackage.path)
+            await self.caches.version.set(packageIdentity, versionInfo: versionInfo)
+            return versionInfo
         }
+        // non-root package (version is from store, URL is from registry or repo)
         guard let resolvedPackage = store.resolvedPackages[packageIdentity] else {
-            return SBOMGitInfo(
+            return SBOMVersionInfo(
                 version: SBOMComponent.Version(revision: "unknown"),
                 originator: SBOMOriginator(commits: nil)
             )
         }
-        // non-root package (version is from store)
+
+        // Get the version
         let version: String
         let sha: String
         switch resolvedPackage.state {
@@ -178,14 +180,44 @@ internal struct SBOMExtractor {
             version = revision
             sha = revision
         }
-        let commit = SBOMCommit(
-            sha: sha,
-            repository: resolvedPackage.packageRef.kind.locationString // absolute path, URL string, or package identity
-        )
-        return SBOMGitInfo(
-            version: SBOMComponent.Version(revision: version, commit: commit),
-            originator: SBOMOriginator(commits: [commit])
-        )
+        // Get registry or repo information
+        if resolvedPackage.packageRef.kind == .registry(packageIdentity) {
+            guard let registry = resolvedPackage.packageRef.identity.registry else {
+                return SBOMVersionInfo(
+                    version: SBOMComponent.Version(revision: version),
+                    originator: SBOMOriginator()
+                )
+            }
+            
+            guard let actualResolvedPackage = modulesGraph.packages.first(where: { $0.identity == packageIdentity }),
+                  let registryMetadata = actualResolvedPackage.registryMetadata,
+                  case .registry(let registryURL) = registryMetadata.source else {
+                return SBOMVersionInfo(
+                    version: SBOMComponent.Version(revision: version),
+                    originator: SBOMOriginator()
+                )
+            }
+            
+            let entry = SBOMRegistryEntry(
+                url: registryURL,
+                scope: registry.scope.description,
+                name: registry.name.description,
+                version: version
+            )
+            return SBOMVersionInfo(
+                version: SBOMComponent.Version(revision: version, entry: entry),
+                originator: SBOMOriginator(entries: [entry])
+            )
+        } else {
+            let commit = SBOMCommit(
+                sha: sha,
+                repository: resolvedPackage.packageRef.kind.locationString // absolute path, URL string, or package identity
+            )
+            return SBOMVersionInfo(
+                version: SBOMComponent.Version(revision: version, commit: commit),
+                originator: SBOMOriginator(commits: [commit])
+            )
+        }
     }
 
     internal static func extractComponentID(from package: ResolvedPackage) -> SBOMIdentifier {
@@ -210,15 +242,15 @@ internal struct SBOMExtractor {
             return cached
         }
 
-        let gitInfo = try await extractComponentVersionAndCommits(from: package.identity)
+        let versionInfo = try await extractComponentVersionInfo(from: package.identity)
         let products = try await extractProductsFromPackage(package: package)
         let component = try await SBOMComponent(
             category: Self.extractCategory(from: package),
             id: Self.extractComponentID(from: package),
-            purl: PURL.from(package: package, version: gitInfo.version),
+            purl: PURL.from(package: package, version: versionInfo.version),
             name: package.identity.description,
-            version: gitInfo.version,
-            originator: gitInfo.originator,
+            version: versionInfo.version,
+            originator: versionInfo.originator,
             description: package.description,
             scope: Self.extractScope(from: package),
             components: products,
@@ -235,14 +267,14 @@ internal struct SBOMExtractor {
             return cached
         }
 
-        let gitInfo = try await extractComponentVersionAndCommits(from: product.packageIdentity)
+        let versionInfo = try await extractComponentVersionInfo(from: product.packageIdentity)
         let component = try await SBOMComponent(
             category: Self.extractCategory(from: product),
             id: Self.extractComponentID(from: product),
-            purl: PURL.from(product: product, version: gitInfo.version),
+            purl: PURL.from(product: product, version: versionInfo.version),
             name: product.name,
-            version: gitInfo.version,
-            originator: gitInfo.originator,
+            version: versionInfo.version,
+            originator: versionInfo.originator,
             description: nil,
             scope: Self.extractScope(from: product),
             entity: .product

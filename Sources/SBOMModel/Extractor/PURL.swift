@@ -39,7 +39,6 @@ internal struct PURL: Codable, Equatable, Hashable, CustomStringConvertible {
         self.namespace = namespace
         self.name = name
         self.version = version
-        // Normalize empty qualifiers dictionary to nil for consistency
         self.qualifiers = qualifiers?.isEmpty == true ? nil : qualifiers
         self.subpath = subpath
     }
@@ -66,34 +65,44 @@ internal struct PURL: Codable, Equatable, Hashable, CustomStringConvertible {
 
 extension PURL {
     internal static func from(package: ResolvedPackage, version: SBOMComponent.Version) async -> PURL {
-        let namespace = await extractNamespace(from: version.commit)
-        let qualifiers = await extractQualifiers(from: version.commit)
+        let namespace = await extractNamespace(from: version)
+        let qualifiers = await extractQualifiers(from: version)
         return PURL(
             scheme: "pkg",
             type: "swift",
             namespace: namespace,
-            name: SBOMExtractor.extractComponentID(from: package).value,
+            name: version.entry?.name ?? SBOMExtractor.extractComponentID(from: package).value,
             version: version.revision,
             qualifiers: qualifiers
         )
     }
 
     internal static func from(product: ResolvedProduct, version: SBOMComponent.Version) async -> PURL {
-        let namespace = await extractNamespace(from: version.commit)
-        let qualifiers = await extractQualifiers(from: version.commit)
+        let namespace = await extractNamespace(from: version)
+        let qualifiers = await extractQualifiers(from: version)
 
+        let name: String
+        if let registryPackageName = version.entry?.name.description {
+            name = "\(registryPackageName):\(product.name)"
+        } else {
+            name = SBOMExtractor.extractComponentID(from: product).value
+        }
         return PURL(
             scheme: "pkg",
             type: "swift",
             namespace: (namespace == nil && qualifiers == nil) ? product.packageIdentity.description : namespace,
-            name: SBOMExtractor.extractComponentID(from: product).value,
+            name: name,
             version: version.revision,
             qualifiers: qualifiers
         )
     }
 
-    internal static func extractNamespace(from commit: SBOMCommit?) async -> String? {
-        guard let packageLocation = commit?.repository else {
+    internal static func extractNamespace(from version: SBOMComponent.Version) async -> String? {
+        if let scope = version.entry?.scope {
+            return scope
+        }
+
+        guard let packageLocation = version.commit?.repository else {
             return nil
         }
         // local absolute file system paths: no namespace
@@ -140,10 +149,11 @@ extension PURL {
         return nil
     }
 
-    internal static func extractQualifiers(from commit: SBOMCommit?) async -> [String: String]? {
-        guard let packageLocation = commit?.repository else {
+    internal static func extractQualifiers(from version: SBOMComponent.Version) async -> [String: String]? {
+        guard let packageLocation = version.commit?.repository else {
             return nil
         }
+        // For packages on the local filesystem
         if packageLocation.hasPrefix("/") {
             return ["path": packageLocation]
         }

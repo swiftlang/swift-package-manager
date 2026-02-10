@@ -40,7 +40,6 @@ struct CycloneDXConverterTests {
             sha: "abc123",
             repository: "https://github.com/swiftlang/swift-package-manager",
             authors: nil,
-            message: "Initial commit"
         )])
         let result = try await CycloneDXConverter.convertToPedigree(from: originator)
 
@@ -51,7 +50,6 @@ struct CycloneDXConverterTests {
         #expect(cdxCommit.uid == "abc123")
         #expect(cdxCommit.url == "https://github.com/swiftlang/swift-package-manager")
         #expect(cdxCommit.author == nil)
-        #expect(cdxCommit.message == "Initial commit")
     }
 
     @Test("convertToPedigree with single commit with authors")
@@ -65,7 +63,6 @@ struct CycloneDXConverterTests {
                     name: "John Doe",
                     email: "john@example.com"
                 )],
-                message: "Add new feature"
             ),
         ])
 
@@ -77,7 +74,6 @@ struct CycloneDXConverterTests {
         let cdxCommit = cdxCommits[0]
         #expect(cdxCommit.uid == "def456")
         #expect(cdxCommit.url == "https://github.com/swiftlang/swift-package-manager")
-        #expect(cdxCommit.message == "Add new feature")
 
         let cdxAuthor = try #require(cdxCommit.author)
         #expect(cdxAuthor.name == "John Doe")
@@ -101,13 +97,11 @@ struct CycloneDXConverterTests {
             sha: "abc123",
             repository: "https://github.com/swiftlang/swift-package-manager",
             authors: [author1],
-            message: "First commit"
         )
         let commit2 = SBOMCommit(
             sha: "def456",
             repository: "https://github.com/swiftlang/swift-package-manager",
             authors: [author2],
-            message: "Second commit"
         )
 
         let originator = SBOMOriginator(commits: [commit1, commit2])
@@ -120,14 +114,12 @@ struct CycloneDXConverterTests {
         let cdxCommit1 = cdxCommits[0]
         #expect(cdxCommit1.uid == "abc123")
         #expect(cdxCommit1.url == "https://github.com/swiftlang/swift-package-manager")
-        #expect(cdxCommit1.message == "First commit")
         let cdxAuthor1 = try #require(cdxCommit1.author)
         #expect(cdxAuthor1.name == "John Doe")
 
         let cdxCommit2 = cdxCommits[1]
         #expect(cdxCommit2.uid == "def456")
         #expect(cdxCommit2.url == "https://github.com/swiftlang/swift-package-manager")
-        #expect(cdxCommit2.message == "Second commit")
         let cdxAuthor2 = try #require(cdxCommit2.author)
         #expect(cdxAuthor2.name == "Jane Smith")
     }
@@ -149,7 +141,6 @@ struct CycloneDXConverterTests {
             sha: "abc123",
             repository: "https://github.com/swiftlang/swift-package-manager",
             authors: [author1, author2],
-            message: "Commit with multiple authors"
         )
         let originator = SBOMOriginator(commits: [commit])
         let result = try await CycloneDXConverter.convertToPedigree(from: originator)
@@ -273,7 +264,6 @@ struct CycloneDXConverterTests {
                         email: "john@example.com"
                     ),
                 ],
-                message: "Initial commit"
             ),
         ])
 
@@ -304,7 +294,6 @@ struct CycloneDXConverterTests {
         let cdxCommit = commits[0]
         #expect(cdxCommit.uid == "abc123")
         #expect(cdxCommit.url == "https://github.com/swiftlang/swift-package-manager")
-        #expect(cdxCommit.message == "Initial commit")
 
         let cdxAuthor = try #require(cdxCommit.author)
         #expect(cdxAuthor.name == "John Doe")
