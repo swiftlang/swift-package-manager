@@ -61,6 +61,7 @@ extension BuildPlan {
             dependencies: playgroundRunnerTarget.dependencies, // copy template target's dependencies
             defaultLocalization: playgroundProduct.defaultLocalization,
             supportedPlatforms: playgroundProduct.supportedPlatforms,
+            platformConstraint: .all,
             platformVersionProvider: playgroundProduct.platformVersionProvider
         )
 
