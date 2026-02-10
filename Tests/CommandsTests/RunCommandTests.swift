@@ -123,15 +123,12 @@ struct RunCommandTests {
             #expect(stdout.contains("sentinel"))
 
             // swift-build-tool output should go to stderr.
-            withKnownIssue {
-                #expect(stderr.contains("Compiling"))
-            } when: {
-                buildSystem == .swiftbuild
-            }
-            withKnownIssue {
-                #expect(stderr.contains("Linking"))
-            } when: {
-                buildSystem == .swiftbuild
+            switch buildSystem {
+                case .native:
+                    #expect(stderr.contains("Compiling"))
+                    #expect(stderr.contains("Linking"))
+                case .swiftbuild, .xcode:
+                    break
             }
         }
     }
@@ -140,8 +137,6 @@ struct RunCommandTests {
          .tags(
             .Feature.TargetType.Executable,
         ),
-        .IssueWindowsPathTestsFailures,
-        .IssueWindowsRelativePathAssert,
         arguments: SupportedBuildSystemOnPlatform,
     )
     func productArgumentPassing(
@@ -160,21 +155,17 @@ struct RunCommandTests {
                 """))
 
             // swift-build-tool output should go to stderr.
-            withKnownIssue {
-                #expect(stderr.contains("Compiling"))
-            } when: {
-                buildSystem == .swiftbuild
-            }
-            withKnownIssue {
-                #expect(stderr.contains("Linking"))
-            } when: {
-                buildSystem == .swiftbuild
+            switch buildSystem {
+                case .native:
+                    #expect(stderr.contains("Compiling"))
+                    #expect(stderr.contains("Linking"))
+                case .swiftbuild, .xcode:
+                    break
             }
         }
     }
 
     @Test(
-        .SWBINTTODO("Swift run using Swift Build does not output executable content to the terminal"),
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8279"),
         arguments: SupportedBuildSystemOnPlatform,
     )

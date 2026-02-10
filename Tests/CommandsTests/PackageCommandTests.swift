@@ -149,21 +149,34 @@ struct PackageCommandTests {
         #expect(stdout.contains("SEE ALSO: swift build, swift run, swift test \n(Run this command without --help to see possible dynamic plugin commands.)"))
     }
 
-    @Test
-    func commandDoesNotEmitDuplicateSymbols() async throws {
+    @Test(
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func commandDoesNotEmitDuplicateSymbols(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
         let duplicateSymbolRegex = try #require(duplicateSymbolRegex)
 
-        let (stdout, stderr) = try await SwiftPM.Package.execute(["--help"])
+        try await withTemporaryDirectory { tmpDir in
+            let (stdout, stderr) = try await executeSwiftPackage(
+                tmpDir,
+                extraArgs: ["--help"],
+                buildSystem: buildSystem,
+            )
 
-        #expect(!stdout.contains(duplicateSymbolRegex))
-        #expect(!stderr.contains(duplicateSymbolRegex))
+            #expect(!stdout.contains(duplicateSymbolRegex))
+            #expect(!stderr.contains(duplicateSymbolRegex))
+        }
     }
 
     @Test
     func version() async throws {
-        let stdout = try await SwiftPM.Package.execute(["--version"], ).stdout
-        let expectedRegex = try Regex(#"Swift Package Manager -( \w+ )?\d+.\d+.\d+(-\w+)?"#)
-        #expect(stdout.contains(expectedRegex))
+        try await withTemporaryDirectory { tmpDir in
+            let stdout = try await SwiftPM.Package.execute(["--version"]).stdout
+
+            let expectedRegex = try Regex(#"Swift Package Manager -( \w+ )?\d+.\d+.\d+(-\w+)?"#)
+            #expect(stdout.contains(expectedRegex))
+        }
     }
 
     @Test(
@@ -6426,7 +6439,7 @@ struct PackageCommandTests {
             .requiresSymbolgraphExtract,
             .issue(
                 "https://github.com/swiftlang/swift-package-manager/issues/8848",
-                relationship: .defect
+                relationship: .defect,
             ),
             .tags(
                 .Feature.Command.Package.CommandPlugin,
@@ -6573,9 +6586,7 @@ struct PackageCommandTests {
                     }
                 }
             } when: {
-                let shouldSkip: Bool = (ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild)
-                    || !CiEnvironment.runningInSmokeTestPipeline
-
+                let shouldSkip = false
                 #if compiler(>=6.3)
                     return shouldSkip
                 #else
