@@ -1469,7 +1469,7 @@ final class PrebuiltsTests: XCTestCase {
     }
 }
 
-fileprivate extension String {
+extension String {
     var fixwin: String {
         #if os(Windows)
         return self.replacingOccurrences(of: "/", with: "\\")

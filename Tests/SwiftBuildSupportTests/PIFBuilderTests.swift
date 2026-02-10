@@ -24,12 +24,8 @@ import Workspace
 // MARK: - Helpers
 
 extension PIFBuilderParameters {
-    static func constructDefaultParametersForTesting(
-        temporaryDirectory: Basics.AbsolutePath,
-        addLocalRpaths: Bool,
-        pluginScriptRunner: PluginScriptRunner? = nil
-    ) throws -> Self {
-        try self.init(
+    static func constructDefaultParametersForTesting(temporaryDirectory: Basics.AbsolutePath, addLocalRpaths: Bool) throws -> Self {
+        self.init(
             isPackageAccessModifierSupported: true,
             enableTestability: false,
             shouldCreateDylibForDynamicProducts: false,
@@ -37,7 +33,7 @@ extension PIFBuilderParameters {
             toolchainLibDir: temporaryDirectory.appending(component: "toolchain-lib-dir"),
             pkgConfigDirectories: [],
             supportedSwiftVersions: [.v4, .v4_2, .v5, .v6],
-            pluginScriptRunner: pluginScriptRunner ?? DefaultPluginScriptRunner(
+            pluginScriptRunner: DefaultPluginScriptRunner(
                 fileSystem: localFileSystem,
                 cacheDir: temporaryDirectory.appending(component: "plugin-cache-dir"),
                 toolchain: try UserToolchain.default

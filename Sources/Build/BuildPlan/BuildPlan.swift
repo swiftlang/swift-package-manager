@@ -794,7 +794,7 @@ extension BuildPlan {
                 // build.
                 let observability = ObservabilitySystem { _, _ in }
                 // Compute the generated files based on all results we have computed so far.
-                let pluginGeneratedFiles = ModulesGraph.computePluginGeneratedFiles(
+                (pluginDerivedSources, pluginDerivedResources) = ModulesGraph.computePluginGeneratedFiles(
                     target: module,
                     toolsVersion: package.manifest.toolsVersion,
                     additionalFileRules: additionalFileRules,
@@ -803,11 +803,6 @@ extension BuildPlan {
                     prebuildCommandResults: [],
                     observabilityScope: observability.topScope
                 )
-                pluginDerivedSources = Sources(
-                    paths: pluginGeneratedFiles.sources.map(\.self),
-                    root: buildParameters.dataPath
-                )
-                pluginDerivedResources = pluginGeneratedFiles.resources.values.map(\.self)
             } else {
                 pluginDerivedSources = .init(paths: [], root: package.path)
                 pluginDerivedResources = []

@@ -18,8 +18,6 @@ import struct Basics.AbsolutePath
 import class Basics.ObservabilitySystem
 import struct Basics.SourceControlURL
 
-import PackageLoading
-
 import class PackageModel.BinaryModule
 import class PackageModel.Manifest
 import enum PackageModel.PackageCondition
@@ -100,12 +98,12 @@ extension PackagePIFProjectBuilder {
         }
 
         // Deal with any generated source files or resource files.
-        let generatedFiles = computePluginGeneratedFiles(
+        let (generatedSourceFiles, pluginGeneratedResourceFiles) = computePluginGeneratedFiles(
             module: mainModule,
             targetKeyPath: mainModuleTargetKeyPath,
             addBuildToolPluginCommands: pifProductType == .application
         )
-        if mainModule.resources.hasContent || generatedFiles.resources.hasContent {
+        if mainModule.resources.hasContent || pluginGeneratedResourceFiles.hasContent {
             mainModuleTargetNamesWithResources.insert(mainModule.name)
         }
 
@@ -172,18 +170,10 @@ extension PackagePIFProjectBuilder {
         settings[.XROS_DEPLOYMENT_TARGET] = mainTargetDeploymentTargets[.visionOS] ?? nil
 
         // If the main module includes C headers, then we need to set up the HEADER_SEARCH_PATHS setting appropriately.
-        var headerSearchPaths: [AbsolutePath] = []
         if let includeDirAbsolutePath = mainModule.includeDirAbsolutePath {
-            headerSearchPaths.append(includeDirAbsolutePath)
-        }
-        headerSearchPaths += generatedFiles.publicHeaderPaths
-
-        if !headerSearchPaths.isEmpty {
             // Let the main module itself find its own headers.
-            settings[.HEADER_SEARCH_PATHS] = headerSearchPaths.map(\.pathString) + ["$(inherited)"]
-            for path in headerSearchPaths {
-                log(.debug, indent: 1, "Added '\(path)' to HEADER_SEARCH_PATHS")
-            }
+            settings[.HEADER_SEARCH_PATHS] = [includeDirAbsolutePath.pathString, "$(inherited)"]
+            log(.debug, indent: 1, "Added '\(includeDirAbsolutePath)' to HEADER_SEARCH_PATHS")
         }
 
         // Set the appropriate language versions.
@@ -231,7 +221,7 @@ extension PackagePIFProjectBuilder {
         let headerFiles = Set(mainModule.headerFileAbsolutePaths)
 
         // Add any additional source files emitted by custom build commands.
-        for path in generatedFiles.sources {
+        for path in generatedSourceFiles {
             let sourceFileRef = self.project.mainGroup[keyPath: mainTargetSourceFileGroupKeyPath]
                 .addFileReference { id in
                     FileReference(
@@ -248,7 +238,7 @@ extension PackagePIFProjectBuilder {
 
         // Add any additional resource files emitted by synthesized build commands
         let generatedResourceFiles: [String] = {
-            var generatedResourceFiles = generatedFiles.resources.keys.map(\.pathString)
+            var generatedResourceFiles = pluginGeneratedResourceFiles
             generatedResourceFiles.append(
                 contentsOf: addBuildToolCommands(
                     from: synthesizedResourceGeneratingPluginInvocationResults,
@@ -333,8 +323,8 @@ extension PackagePIFProjectBuilder {
                     module: mainModule,
                     sourceModuleTargetKeyPath: mainModuleTargetKeyPath,
                     resourceBundleTargetKeyPath: resourceBundleTargetKeyPath,
-                    sourceFilePaths: generatedFiles.sources.map(\.self),
-                    resourceFilePaths: generatedFiles.resources.keys.map(\.pathString)
+                    sourceFilePaths: generatedSourceFiles,
+                    resourceFilePaths: generatedResourceFiles
                 )
             } else {
                 // Generated resources always trigger the creation of a bundle accessor.
@@ -350,8 +340,8 @@ extension PackagePIFProjectBuilder {
                     module: mainModule,
                     sourceModuleTargetKeyPath: mainModuleTargetKeyPath,
                     resourceBundleTargetKeyPath: mainModuleTargetKeyPath,
-                    sourceFilePaths: generatedFiles.sources.map(\.self),
-                    resourceFilePaths: generatedFiles.resources.keys.map(\.pathString)
+                    sourceFilePaths: generatedSourceFiles,
+                    resourceFilePaths: generatedResourceFiles
                 )
             }
         }
