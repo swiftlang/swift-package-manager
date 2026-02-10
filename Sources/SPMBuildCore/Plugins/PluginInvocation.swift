@@ -619,53 +619,41 @@ extension ModulesGraph {
         buildToolPluginInvocationResults: [BuildToolPluginInvocationResult],
         prebuildCommandResults: [CommandPluginResult],
         observabilityScope: ObservabilityScope
-    ) -> GeneratedFiles {
-        // Add any derived files that were declared for any commands from plugin invocations.
-        var generatedFiles = GeneratedFiles()
+    ) -> (pluginDerivedSources: Sources, pluginDerivedResources: [Resource]) {
+        var pluginDerivedSources = Sources(paths: [], root: buildParameters.dataPath)
 
-        for result in buildToolPluginInvocationResults {
-            let files = TargetSourcesBuilder.computeContents(
-                for: result.buildCommands.flatMap(\.outputFiles),
-                toolsVersion: toolsVersion,
-                additionalFileRules: additionalFileRules,
-                defaultLocalization: target.defaultLocalization,
-                module: target.underlying,
-                observabilityScope: observabilityScope
-            )
-            generatedFiles.add(files)
-            if !files.headers.isEmpty {
-                // Capture the public include directory if there were header files generated there
-                // Hardcoding as the default for now
-                let publicDir = result.pluginOutputDirectory.appending(ClangModule.defaultPublicHeadersComponent)
-                if files.headers.contains(where: { $0.isDescendantOfOrEqual(to: publicDir) }) {
-                    generatedFiles.publicHeaderPaths.append(publicDir)
-                }
+        // Add any derived files that were declared for any commands from plugin invocations.
+        var pluginDerivedFiles = [AbsolutePath]()
+        for command in buildToolPluginInvocationResults.reduce([], { $0 + $1.buildCommands }) {
+            for absPath in command.outputFiles {
+                pluginDerivedFiles.append(absPath)
             }
         }
 
         // Add any derived files that were discovered from output directories of prebuild commands.
         for result in prebuildCommandResults {
-            let files = TargetSourcesBuilder.computeContents(
-                for: result.derivedFiles,
-                toolsVersion: toolsVersion,
-                additionalFileRules: additionalFileRules,
-                defaultLocalization: target.defaultLocalization,
-                module: target.underlying,
-                observabilityScope: observabilityScope
-            )
-            generatedFiles.add(files)
-            for header in files.headers {
-                let outputDirs = result.outputDirectories.filter { header.isDescendantOfOrEqual(to: $0) }
-                for dir in outputDirs {
-                    // If the output dir ends in the default public header dir, make it public (yuck)
-                    if dir.basename == ClangModule.defaultPublicHeadersComponent {
-                        generatedFiles.publicHeaderPaths.append(dir)
-                    }
-                }
+            for path in result.derivedFiles {
+                pluginDerivedFiles.append(path)
             }
         }
 
-        return generatedFiles
+        // Let `TargetSourcesBuilder` compute the treatment of plugin generated files.
+        let (derivedSources, derivedResources) = TargetSourcesBuilder.computeContents(
+            for: pluginDerivedFiles,
+            toolsVersion: toolsVersion,
+            additionalFileRules: additionalFileRules,
+            defaultLocalization: target.defaultLocalization,
+            targetName: target.name,
+            targetPath: target.underlying.path,
+            observabilityScope: observabilityScope
+        )
+        let pluginDerivedResources = derivedResources
+        derivedSources.forEach { absPath in
+            let relPath = absPath.relative(to: pluginDerivedSources.root)
+            pluginDerivedSources.relativePaths.append(relPath)
+        }
+
+        return (pluginDerivedSources, pluginDerivedResources)
     }
 }
 

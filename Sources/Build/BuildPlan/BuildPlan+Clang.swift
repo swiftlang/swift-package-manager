@@ -39,10 +39,8 @@ extension BuildPlan {
                 // Setup search paths for C dependencies:
                 clangTarget.additionalFlags += ["-I", target.includeDir.pathString]
 
+                // Add the modulemap of the dependency if it has one.
                 if case let .clang(dependencyTargetDescription)? = description {
-                    // Add in public generated header paths
-                    clangTarget.additionalFlags += dependencyTargetDescription.pluginDerivedPublicHeaderPaths.flatMap { ["-I", $0.pathString] }
-                    // Add the modulemap of the dependency if it has one.
                     if let moduleMap = dependencyTargetDescription.moduleMap {
                         clangTarget.additionalFlags += ["-fmodule-map-file=\(moduleMap.pathString)"]
                     }
