@@ -74,6 +74,16 @@ extension BuildPlan {
 
                         swiftTarget.libraryBinaryPaths.insert(library.libraryPath)
                     }
+
+                    // Make sure DLLs associated with static libraries on Windows get copied over to
+                    // the build output directory with those static libraries.
+                    if swiftTarget.buildParameters.triple.isWindows() {
+                        let executables = try parseExecutableArtifactsArchive(for: target, triple: swiftTarget.buildParameters.triple)
+                        for executable in executables where executable.executablePath.extension?.lowercased() == "dll" {
+                            // TODO, this probably should be a seperate list
+                            swiftTarget.windowsDLLBinaryPaths.insert(executable.executablePath)
+                        }
+                    }
                 case .xcframework:
                     let libraries = try self.parseXCFramework(
                         for: target,
