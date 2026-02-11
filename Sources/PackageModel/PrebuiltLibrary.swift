@@ -55,9 +55,8 @@ public struct PrebuiltLibrary {
     }
 }
 
-public enum PrebuiltsPlatform: String, Codable, CaseIterable {
-    case macos_aarch64
-    case macos_x86_64
+public enum PrebuiltsPlatform: String, Codable {
+    case macos_universal
     case windows_aarch64
     case windows_x86_64
     case ubuntu_noble_aarch64
@@ -86,28 +85,30 @@ public enum PrebuiltsPlatform: String, Codable, CaseIterable {
         case linux
     }
 
-    public var arch: Arch {
+    public var arch: Arch? {
         switch self {
-        case .macos_aarch64, .windows_aarch64,
+        case .windows_aarch64,
             .ubuntu_noble_aarch64, .ubuntu_jammy_aarch64, .ubuntu_focal_aarch64,
             .fedora_39_aarch64,
             .amazonlinux2_aarch64,
             .rhel_ubi9_aarch64,
             .debian_12_aarch64:
             return .aarch64
-        case .macos_x86_64, .windows_x86_64,
+        case .windows_x86_64,
             .ubuntu_noble_x86_64, .ubuntu_jammy_x86_64, .ubuntu_focal_x86_64,
             .fedora_39_x86_64,
             .amazonlinux2_x86_64,
             .rhel_ubi9_x86_64,
             .debian_12_x86_64:
             return .x86_64
+        case .macos_universal:
+            return nil
         }
     }
 
     public var os: OS {
         switch self {
-        case .macos_aarch64, .macos_x86_64:
+        case .macos_universal:
             return .macos
         case .windows_aarch64, .windows_x86_64:
             return .windows
@@ -122,7 +123,34 @@ public enum PrebuiltsPlatform: String, Codable, CaseIterable {
         }
     }
 
-        /// Determine host platform based on compilation target
+    public enum PrebuiltNameError: Error {
+        case missingSwiftVersion
+        case missingSDKName
+    }
+
+    public func prebuiltName(hostToolchain: UserToolchain) throws -> String {
+        guard let swiftVersion = hostToolchain.swiftCompilerVersion else {
+            throw PrebuiltNameError.missingSwiftVersion
+        }
+
+        switch os {
+        case .macos:
+            if swiftVersion.hasPrefix("swiftlang-") {
+                // Denotes an Xcode toochain, need the SDK name as well
+                guard let sdkName = try hostToolchain.swiftSDK.loadSettings()?.CanonicalName else {
+                    throw PrebuiltNameError.missingSDKName
+                }
+                // The SDK name identifies the platform
+                return "\(swiftVersion)-\(sdkName)"
+            } else {
+                fallthrough
+            }
+        default:
+            return "\(swiftVersion)-\(self)"
+        }
+    }
+
+    /// Determine host platform based on compilation target
     public static var hostPlatform: Self? {
         let arch: Arch?
 #if arch(arm64)
@@ -137,12 +165,7 @@ public enum PrebuiltsPlatform: String, Codable, CaseIterable {
         }
 
 #if os(macOS)
-        switch arch {
-        case .aarch64:
-            return .macos_aarch64
-        case .x86_64:
-            return .macos_x86_64
-        }
+        return .macos_universal
 #elseif os(Windows)
         switch arch {
         case .aarch64:

@@ -185,6 +185,8 @@ public final class PackagePIFBuilder {
     /// Package display version, if any (i.e., it can be a version, branch or a git ref).
     let packageDisplayVersion: String?
 
+    let pkgConfigDirectories: [AbsolutePath]
+
     /// The file system to read from.
     let fileSystem: FileSystem
 
@@ -212,6 +214,7 @@ public final class PackagePIFBuilder {
         materializeStaticArchiveProductsForRootPackages: Bool = false,
         addLocalRpaths: Bool = true,
         packageDisplayVersion: String?,
+        pkgConfigDirectories: [AbsolutePath],
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
     ) {
@@ -223,6 +226,7 @@ public final class PackagePIFBuilder {
         self.createDylibForDynamicProducts = createDylibForDynamicProducts
         self.materializeStaticArchiveProductsForRootPackages = materializeStaticArchiveProductsForRootPackages
         self.packageDisplayVersion = packageDisplayVersion
+        self.pkgConfigDirectories = pkgConfigDirectories
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope
         self.addLocalRpaths = addLocalRpaths
@@ -238,6 +242,7 @@ public final class PackagePIFBuilder {
         materializeStaticArchiveProductsForRootPackages: Bool = false,
         addLocalRpaths: Bool = true,
         packageDisplayVersion: String?,
+        pkgConfigDirectories: [AbsolutePath],
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
     ) {
@@ -250,6 +255,7 @@ public final class PackagePIFBuilder {
         self.materializeStaticArchiveProductsForRootPackages = materializeStaticArchiveProductsForRootPackages
         self.addLocalRpaths = addLocalRpaths
         self.packageDisplayVersion = packageDisplayVersion
+        self.pkgConfigDirectories = pkgConfigDirectories
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope
     }

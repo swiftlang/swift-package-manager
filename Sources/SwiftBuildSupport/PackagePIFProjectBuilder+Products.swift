@@ -115,6 +115,14 @@ extension PackagePIFProjectBuilder {
         settings[.PRODUCT_NAME] = "$(TARGET_NAME)"
         // We must use the main module name here instead of the product name, because they're not guranteed to be the same, and the users may have authored e.g. tests which rely on an executable's module name.
         settings[.PRODUCT_MODULE_NAME] = mainModule.c99name
+        if product.type == .executable {
+            // Don't install the Swift module of the executable product, lest it conflict with the testable variant.
+            // The contents of the testable variant's module will exactly match the binary linked by dependencies (test targets).
+            // Also, multiple executable products may incorporate sources from the same executable target, while the testable
+            // variant of an executable target's module will always be unique, so we avoid producing conflicting copies.
+            settings[.SWIFT_INSTALL_MODULE] = "NO"
+        }
+
         settings[.PRODUCT_BUNDLE_IDENTIFIER] = "\(self.package.identity).\(product.name)"
             .spm_mangledToBundleIdentifier()
         settings[.SWIFT_PACKAGE_NAME] = mainModule.packageName
