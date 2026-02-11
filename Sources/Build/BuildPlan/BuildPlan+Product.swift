@@ -27,6 +27,7 @@ import class PackageModel.SystemLibraryModule
 import struct SPMBuildCore.BuildParameters
 import struct SPMBuildCore.ExecutableInfo
 import struct SPMBuildCore.LibraryInfo
+import struct SPMBuildCore.WindowsDLLInfo
 import func TSCBasic.topologicalSort
 
 extension BuildPlan {
@@ -355,6 +356,13 @@ extension BuildPlan {
         try self.externalExecutablesCache.memoize(key: module) {
             let execInfos = try module.parseExecutableArtifactArchives(for: triple, fileSystem: self.fileSystem)
             return execInfos.filter { !$0.supportedTriples.isEmpty }
+        }
+    }
+
+    func parseWindowsDLLArtifactsArchive(for module: BinaryModule, triple: Triple) throws -> [WindowsDLLInfo] {
+        try self.externalWindowsDLLCache.memoize(key: module) {
+            let dllInfos = try module.parseWindowsDLLArtifactArchives(for: triple, fileSystem: self.fileSystem)
+            return dllInfos.filter { !$0.supportedTriples.isEmpty }
         }
     }
 

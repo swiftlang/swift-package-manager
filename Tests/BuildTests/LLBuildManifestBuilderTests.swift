@@ -208,8 +208,7 @@ struct LLBuildManifestBuilderTests {
     }
 
     /// Verifies the DLLs in an artifact bundle are copied to the output directory on Windows only
-    @Test
-    func windowsDLLsInArtifactBundle() async throws {
+    @Test func windowsDLLsInArtifactBundle() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles: [
                 "/MyPkg/Sources/MyExe/MyExe.swift"
@@ -249,7 +248,7 @@ struct LLBuildManifestBuilderTests {
                   ]
                 },
                 "MyBinaryLib.DLL": {
-                  "type": "executable",
+                  "type": "experimentalWindowsDLL",
                   "version": "1.0.0",
                   "variants": [
                     {
@@ -313,10 +312,15 @@ struct LLBuildManifestBuilderTests {
         let dll: AbsolutePath = "/path/to/build/x86_64-unknown-windows-msvc/debug/MyBinaryLib.dll"
         let windowsDLLCopy = try #require(windowsManifest.commands[dll.pathString])
         let windowsDLLCopyTool = try #require(windowsDLLCopy.tool as? CopyTool)
+        let windowsDLLOutput: Node = .file("/path/to/build/x86_64-unknown-windows-msvc/debug/MyBinaryLib.dll")
         #expect(
             windowsDLLCopyTool.inputs == [.file("/MyPkg/my.artifactbundle/x86_64-unknown-windows-msvc/MyBinaryLib.dll")]
-            && windowsDLLCopyTool.outputs == [.file("/path/to/build/x86_64-unknown-windows-msvc/debug/MyBinaryLib.dll")]
+            && windowsDLLCopyTool.outputs == [windowsDLLOutput]
         )
+
+        // Make sure the copy command is consumed in the build graph
+        let consumerCommand = try #require(windowsManifest.commands.filter({ $0.value.tool.inputs.contains(windowsDLLOutput) }).only)
+        #expect(consumerCommand.key == "C.MyExe-x86_64-unknown-windows-msvc-debug.module")
 
         let macosPlan = try await mockBuildPlan(
             triple: .arm64MacOS,
