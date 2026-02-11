@@ -19,15 +19,18 @@ add_library(SBOMModel STATIC
   Core/SBOMMetadata.swift
   Core/SBOMOriginator.swift
   Core/SBOMPerson.swift
+  Core/SBOMRegistryEntry.swift
   Core/SBOMRelationship.swift
   Core/SBOMSpec.swift
   Core/SBOMTool.swift
+  Core/SBOMVersionRegistry.swift
   Converter/CycloneDXConverter.swift
   Converter/SPDXConverter.swift
   CycloneDX/CycloneDXComponent.swift
   CycloneDX/CycloneDXConstants.swift
   CycloneDX/CycloneDXDependency.swift
   CycloneDX/CycloneDXDocument.swift
+  CycloneDX/CycloneDXExternalReference.swift
   CycloneDX/CycloneDXLicense.swift
   CycloneDX/CycloneDXMetadata.swift
   CycloneDX/CycloneDXPedigree.swift
