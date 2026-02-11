@@ -21,3 +21,5 @@ Swift Package Manager automatically generates a module map for each C language l
 * Otherwise, Swift package manager uses the `include` directory as an umbrella directory; all headers under it are included in the module.
 
 In case of complicated `include` layouts or headers that are not compatible with modules, provide a `module.modulemap` in the `include` directory.
+
+For more information on module maps, read <doc:ModuleMaps> and <doc:ModuleMapReference>.

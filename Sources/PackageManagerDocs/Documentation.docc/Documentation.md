@@ -42,6 +42,7 @@ The Swift Package Manager lets you share your code as a package, depend on and u
 
 ### Sharing Packages
 - <doc:ReleasingPublishingAPackage>
+- <doc:DistributingBinaryDependencies>
 - <doc:PackageCollections>
 
 ### Extending Package Manager
