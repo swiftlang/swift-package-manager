@@ -267,6 +267,13 @@ public struct SwiftSDK: Equatable {
 
     public private(set) var swiftSDKManifest: Basics.AbsolutePath?
 
+    public func loadSettings() throws -> SDKSettings? {
+        guard let sdkSettingsFile = pathsConfiguration.sdkRootPath?.appending("SDKSettings.json") else {
+            return nil
+        }
+        return try JSONDecoder().decode(SDKSettings.self, from: Data(contentsOf: sdkSettingsFile.asURL))
+    }
+
     /// The paths associated with a Swift SDK. The Path type can be a `String`
     /// to encapsulate the arguments for the `SwiftSDKConfigurationStore.configure`
     /// function, or can be a fully-realized `AbsolutePath` when deserialized from a configuration.
@@ -1257,4 +1264,9 @@ extension Basics.AbsolutePath {
             try self.init(validating: string)
         }
     }
+}
+
+// TODO: Move anything to do with the SDKSettings here
+public struct SDKSettings: Codable {
+    public let CanonicalName: String
 }
