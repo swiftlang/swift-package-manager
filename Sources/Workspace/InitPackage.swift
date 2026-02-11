@@ -315,7 +315,10 @@ public final class InitPackage {
                         testTarget = """
                                 .testTarget(
                                     name: "\(moduleName)Tests",
-                                    dependencies: ["\(moduleName)"]
+                                    dependencies: ["\(moduleName)"],
+                                    swiftSettings: [
+                                        .enableUpcomingFeature("ApproachableConcurrency"),
+                                    ],
                                 ),
                         """
                     } else {
@@ -323,7 +326,10 @@ public final class InitPackage {
                     }
                     param += """
                             .executableTarget(
-                                name: "\(moduleName)"
+                                name: "\(moduleName)",
+                                swiftSettings: [
+                                    .enableUpcomingFeature("ApproachableConcurrency"),
+                                ],
                             ),
                     \(testTarget)
                         ]
@@ -334,7 +340,10 @@ public final class InitPackage {
                         testTarget = """
                                 .testTarget(
                                     name: "\(moduleName)Tests",
-                                    dependencies: ["\(moduleName)"]
+                                    dependencies: ["\(moduleName)"],
+                                    swiftSettings: [
+                                        .enableUpcomingFeature("ApproachableConcurrency"),
+                                    ],
                                 ),
                         """
                     } else {
@@ -345,7 +354,10 @@ public final class InitPackage {
                                 name: "\(moduleName)",
                                 dependencies: [
                                     .product(name: "ArgumentParser", package: "swift-argument-parser"),
-                                ]
+                                ],
+                                swiftSettings: [
+                                    .enableUpcomingFeature("ApproachableConcurrency"),
+                                ],
                             ),
                     \(testTarget)
                         ]
@@ -393,7 +405,10 @@ public final class InitPackage {
                                     dependencies: [
                                         "\(moduleName)Macros",
                                         .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax"),
-                                    ]
+                                    ],
+                                    swiftSettings: [
+                                        .enableUpcomingFeature("ApproachableConcurrency"),
+                                    ],
                                 ),
                         """
                     } else {
@@ -410,10 +425,22 @@ public final class InitPackage {
                             ),
 
                             // Library that exposes a macro as part of its API, which is used in client programs.
-                            .target(name: "\(moduleName)", dependencies: ["\(moduleName)Macros"]),
+                            .target(
+                                name: "\(moduleName)", 
+                                dependencies: ["\(moduleName)Macros"],
+                                swiftSettings: [
+                                    .enableUpcomingFeature("ApproachableConcurrency"),
+                                ],
+                            ),
 
                             // A client of the library, which is able to use the macro in its own code.
-                            .executableTarget(name: "\(moduleName)Client", dependencies: ["\(moduleName)"]),
+                            .executableTarget(
+                                name: "\(moduleName)Client", 
+                                dependencies: ["\(moduleName)"],
+                                swiftSettings: [
+                                    .enableUpcomingFeature("ApproachableConcurrency"),
+                                ],
+                            ),
                     \(testTarget)
                         ]
                     """
@@ -423,7 +450,10 @@ public final class InitPackage {
                         testTarget = """
                                 .testTarget(
                                     name: "\(moduleName)Tests",
-                                    dependencies: ["\(moduleName)"]
+                                    dependencies: ["\(moduleName)"],
+                                    swiftSettings: [
+                                        .enableUpcomingFeature("ApproachableConcurrency"),
+                                    ],
                                 ),
                         """
                     } else {
@@ -432,7 +462,10 @@ public final class InitPackage {
 
                     param += """
                             .target(
-                                name: "\(moduleName)"
+                                name: "\(moduleName)",
+                                swiftSettings: [
+                                    .enableUpcomingFeature("ApproachableConcurrency"),
+                                ],
                             ),
                     \(testTarget)
                         ]
