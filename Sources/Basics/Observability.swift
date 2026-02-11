@@ -41,8 +41,18 @@ public class ObservabilitySystem {
     }
 
     /// Create an ObservabilitySystem with a single diagnostics handler.
-    public convenience init(_ handler: @escaping @Sendable (ObservabilityScope, Diagnostic) -> Void, outputStream: (any WritableByteStream)? = nil) {
-        self.init(SingleDiagnosticsHandler(handler, outputStream: outputStream))
+    public convenience init(
+        _ handler: @escaping @Sendable (ObservabilityScope, Diagnostic) -> Void,
+        outputStream: (any WritableByteStream)? = nil,
+        logLevel: Diagnostic.Severity = .error,
+    ) {
+        self.init(
+            SingleDiagnosticsHandler(
+                handler,
+                outputStream: outputStream,
+                logLevel: logLevel
+            )
+        )
     }
 
     private struct SingleDiagnosticsHandler: ObservabilityHandlerProvider, DiagnosticsHandler {
@@ -50,23 +60,35 @@ public class ObservabilitySystem {
 
         let underlying: @Sendable (ObservabilityScope, Diagnostic) -> Void
         let outputStream: (any WritableByteStream)?
+        let logLevel: Diagnostic.Severity
 
-        init(_ underlying: @escaping @Sendable (ObservabilityScope, Diagnostic) -> Void, outputStream: (any WritableByteStream)?) {
+        init(
+            _ underlying: @escaping @Sendable (ObservabilityScope, Diagnostic) -> Void,
+            outputStream: (any WritableByteStream)?,
+            logLevel: Diagnostic.Severity = .error
+        ) {
             self.underlying = underlying
             self.outputStream = outputStream
+            self.logLevel = logLevel
         }
 
         func handleDiagnostic(scope: ObservabilityScope, diagnostic: Diagnostic) {
             self.underlying(scope, diagnostic)
         }
 
-        func print(_ output: String, verbose: Bool) {
-            outputStream?.write(output)
+        func print(_ output: String, condition: OutputCondition) {
+            switch condition {
+            case .always:
+                outputStream?.write(output)
+            case .onlyWhenVerbose:
+                guard self.logLevel.isVerbose else { return }
+                outputStream?.write(output)
+            }
         }
     }
 
     public static var NOOP: ObservabilityScope {
-        ObservabilitySystem({ _, _ in }, outputStream: nil).topScope
+        ObservabilitySystem({ _, _ in }, outputStream: nil, logLevel: .debug).topScope
     }
 }
 
@@ -135,8 +157,8 @@ public final class ObservabilityScope: DiagnosticsEmitterProtocol, Sendable, Cus
         return parent?.errorsReportedInAnyScope ?? false
     }
 
-    public func print(_ output: String, verbose: Bool) {
-        self.diagnosticsHandler.print(output, verbose: verbose)
+    public func print(_ output: String, condition: OutputCondition) {
+        self.diagnosticsHandler.print(output, condition: condition)
     }
 
     // DiagnosticsEmitterProtocol
@@ -161,8 +183,8 @@ public final class ObservabilityScope: DiagnosticsEmitterProtocol, Sendable, Cus
             self.underlying.handleDiagnostic(scope: scope, diagnostic: diagnostic)
         }
 
-        public func print(_ output: String, verbose: Bool) {
-            self.underlying.print(output, verbose: verbose)
+        public func print(_ output: String, condition: OutputCondition) {
+            self.underlying.print(output, condition: condition)
         }
 
         var errorsReported: Bool {
@@ -171,12 +193,20 @@ public final class ObservabilityScope: DiagnosticsEmitterProtocol, Sendable, Cus
     }
 }
 
+// MARK: - OutputCondition
+
+/// Enum describing the condition in which some textual output should be emitted.
+public enum OutputCondition {
+    case onlyWhenVerbose
+    case always
+}
+
 // MARK: - Diagnostics
 
 public protocol DiagnosticsHandler: Sendable {
     func handleDiagnostic(scope: ObservabilityScope, diagnostic: Diagnostic)
 
-    func print(_ output: String, verbose: Bool)
+    func print(_ output: String, condition: OutputCondition)
 }
 
 /// Helper protocol to share default behavior.

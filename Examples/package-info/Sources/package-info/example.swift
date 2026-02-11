@@ -30,7 +30,7 @@ struct Example {
         // There are several levels of information available.
         // Each takes longer to load than the level above it, but provides more detail.
 
-        let observability = ObservabilitySystem({ print("\($0): \($1)") }, outputStream: stdoutStream)
+        let observability = ObservabilitySystem({ print("\($0): \($1)") }, outputStream: stdoutStream, logLevel: .debug)
 
         let workspace = try Workspace(forRootPackage: packagePath)
 
