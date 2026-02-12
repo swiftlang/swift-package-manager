@@ -803,7 +803,7 @@ public struct SBOMOptions: ParsableArguments {
                 return _sbomSpecs
             }
             if let envSpecs = SPMBuildCore.ConfigurableEnvVar.SWIFTPM_BUILD_SBOM_SPEC.getEnvVar() {
-                let specStrings = envSpecs.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
+                let specStrings = envSpecs.components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) }
                 var specs: [SBOMModel.Spec] = []
                 for specString in specStrings {
                     guard let spec = SBOMModel.Spec(rawValue: specString) else {
