@@ -39,6 +39,18 @@ public struct ExecutableInfo: Equatable {
     public let supportedTriples: [Triple]
 }
 
+/// Information about a Windows DLL from a binary dependency.
+public struct WindowsDLLInfo: Equatable {
+    /// The tool name
+    public let name: String
+
+    /// The path to the executable.
+    public let dllPath: Basics.AbsolutePath
+
+    /// Supported triples, e.g. `x86_64-apple-macosx`
+    public let supportedTriples: [Triple]
+}
+
 extension BinaryModule {
     public func parseXCFrameworks(for triple: Triple, fileSystem: FileSystem) throws -> [LibraryInfo] {
         // At the moment we return at most a single library.
@@ -79,6 +91,32 @@ extension BinaryModule {
                 return ExecutableInfo(
                     name: entry.key,
                     executablePath: self.artifactPath.appending($0.path),
+                    supportedTriples: filteredSupportedTriples
+                )
+            }
+        }
+    }
+
+    public func parseWindowsDLLArtifactArchives(for triple: Triple, fileSystem: any FileSystem) throws -> [WindowsDLLInfo] {
+        // The host triple might contain a version which we don't want to take into account here.
+        let versionLessTriple = try triple.withoutVersion()
+        // We return at most a single variant of each artifact.
+        let metadata = try ArtifactsArchiveMetadata.parse(fileSystem: fileSystem, rootPath: self.artifactPath)
+        // Filter out everything except executables.
+        let dlls = metadata.artifacts.filter { $0.value.type == .experimentalWindowsDLL }
+        // Construct an ExecutableInfo for each matching variant.
+        return try dlls.flatMap { entry in
+            // Filter supported triples with versionLessTriple and pass into
+            // ExecutableInfo; empty if non matching triples found.
+            try entry.value.variants.map {
+                guard let supportedTriples = $0.supportedTriples else {
+                    throw StringError("No \"supportedTriples\" found in the artifact metadata for \(entry.key) in \(self.artifactPath)")
+                }
+                let filteredSupportedTriples = try supportedTriples
+                    .filter { try $0.withoutVersion() == versionLessTriple }
+                return WindowsDLLInfo(
+                    name: entry.key,
+                    dllPath: self.artifactPath.appending($0.path),
                     supportedTriples: filteredSupportedTriples
                 )
             }

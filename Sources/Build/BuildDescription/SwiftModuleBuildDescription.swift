@@ -168,6 +168,10 @@ public final class SwiftModuleBuildDescription {
     /// Paths to the binary libraries the target depends on.
     var libraryBinaryPaths: Set<AbsolutePath> = []
 
+    /// Path to Windows DLLs that ship with binary libraries that need to be copied
+    /// over to the build output directory so executables that use them can find them.
+    var windowsDLLBinaryPaths: Set<AbsolutePath> = []
+
     /// Any addition flags to be added. These flags are expected to be computed during build planning.
     var additionalFlags: [String] = []
 
