@@ -208,6 +208,9 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     /// Cache for tools information.
     var externalExecutablesCache = [BinaryModule: [ExecutableInfo]]()
 
+    /// Cache for Windows DLL information.
+    var externalWindowsDLLCache = [BinaryModule: [WindowsDLLInfo]]()
+
     /// Whether to disable sandboxing (e.g. for macros).
     private let shouldDisableSandbox: Bool
 

@@ -74,6 +74,11 @@ extension BuildPlan {
 
                         swiftTarget.libraryBinaryPaths.insert(library.libraryPath)
                     }
+
+                    // Record usages of Windows DLLs
+                    for dll in try parseWindowsDLLArtifactsArchive(for: target, triple: swiftTarget.buildParameters.triple) {
+                        swiftTarget.windowsDLLBinaryPaths.insert(dll.dllPath)
+                    }
                 case .xcframework:
                     let libraries = try self.parseXCFramework(
                         for: target,

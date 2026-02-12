@@ -95,6 +95,15 @@ public enum ModuleBuildDescription: SPMBuildCore.ModuleBuildDescription {
         }
     }
 
+    var windowsDLLBinaryPaths: Set<AbsolutePath> {
+        switch self {
+        case .swift(let target):
+            return target.windowsDLLBinaryPaths
+        case .clang(let target):
+            return target.windowsDLLBinaryPaths
+        }
+    }
+
     var resourceBundleInfoPlistPath: AbsolutePath? {
         switch self {
         case .swift(let buildDescription):

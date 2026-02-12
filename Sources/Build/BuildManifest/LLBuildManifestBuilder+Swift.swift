@@ -305,6 +305,17 @@ extension LLBuildManifestBuilder {
             }
         }
 
+        // Make sure the windows DLLs get copied over
+        for binaryPath in target.windowsDLLBinaryPaths {
+            let path = target.buildParameters.destinationPath(forBinaryAt: binaryPath)
+            if self.fileSystem.isDirectory(binaryPath) {
+                inputs.append(directory: path)
+            } else {
+                inputs.append(file: path)
+            }
+        }
+
+
         let additionalInputs = try self.addBuildToolPlugins(.swift(target))
 
         // Depend on any required macro's output.
