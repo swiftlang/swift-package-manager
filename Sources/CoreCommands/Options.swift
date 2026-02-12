@@ -555,7 +555,7 @@ public struct BuildOptions: ParsableArguments {
     public var buildSystem: BuildSystemProvider.Kind {
         switch self._buildSystem {
         case .swiftbuild, .xcode:
-            return self._buildSystem
+            return .swiftbuild
         case .native:
             // Maintain legacy behavior and force use of the Xcode build system if we want to build more than one arch.
             return self.architectures.count > 1 ? .swiftbuild : .native
