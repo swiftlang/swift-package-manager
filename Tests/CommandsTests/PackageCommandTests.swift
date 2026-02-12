@@ -155,11 +155,13 @@ struct PackageCommandTests {
     func commandDoesNotEmitDuplicateSymbols(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
+        let config = BuildConfiguration.debug
         let duplicateSymbolRegex = try #require(duplicateSymbolRegex)
 
-        try await withTemporaryDirectory { tmpDir in
+        try await withTemporaryDirectory { tempDir in
             let (stdout, stderr) = try await executeSwiftPackage(
-                tmpDir,
+                tempDir,
+                configuration: config,
                 extraArgs: ["--help"],
                 buildSystem: buildSystem,
             )
