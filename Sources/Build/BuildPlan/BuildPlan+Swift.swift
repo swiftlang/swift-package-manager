@@ -41,6 +41,9 @@ extension BuildPlan {
                     "-Xcc", "-fmodule-map-file=\(moduleMap.pathString)",
                     "-Xcc", "-I", "-Xcc", target.clangTarget.includeDir.pathString,
                 ]
+                swiftTarget.additionalFlags += target.pluginDerivedPublicHeaderPaths.flatMap {
+                    ["-Xcc", "-I", "-Xcc", $0.pathString]
+                }
             case let target as SwiftModule:
                 // Copy include paths over if needed
                 let targetPaths = Set(swiftTarget.target.underlying.buildSettings.assignments[.PREBUILT_INCLUDE_PATHS]?.flatMap(\.values) ?? [])

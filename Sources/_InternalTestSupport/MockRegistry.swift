@@ -163,7 +163,7 @@ public class MockRegistry {
                 throw StringError("invalid url: \(request.url)")
             }
             let toolsVersion = components.queryItems?.first(where: { $0.name == "swift-version" })?.value
-                .flatMap(ToolsVersion.init(string:))
+                .flatMap({ ToolsVersion(string: $0) })
             return try self.getManifest(packageIdentity: package, version: version, toolsVersion: toolsVersion)
         default:
             throw StringError("unknown request \(request.url)")

@@ -18,6 +18,7 @@ import struct Basics.Diagnostic
 import class Basics.ObservabilitySystem
 import struct Basics.SourceControlURL
 
+import class PackageModel.ClangModule
 import class PackageModel.Manifest
 import struct PackageModel.Platform
 import class PackageModel.Product
@@ -30,6 +31,7 @@ import struct PackageGraph.ResolvedPackage
 
 import struct PackageLoading.FileRuleDescription
 import struct PackageLoading.TargetSourcesBuilder
+import struct PackageLoading.GeneratedFiles
 
 import struct SwiftBuild.Pair
 import enum SwiftBuild.ProjectModel
@@ -389,14 +391,12 @@ struct PackagePIFProjectBuilder {
         module: PackageGraph.ResolvedModule,
         targetKeyPath: WritableKeyPath<ProjectModel.Project, ProjectModel.Target>,
         addBuildToolPluginCommands: Bool
-    ) -> (sourceFilePaths: [AbsolutePath], resourceFilePaths: [String]) {
+    ) -> GeneratedFiles {
+        var generatedFiles = GeneratedFiles()
         guard let pluginResults = pifBuilder.buildToolPluginResultsByTargetName[module.name] else {
             // We found no results for the target.
-            return (sourceFilePaths: [], resourceFilePaths: [])
+            return generatedFiles
         }
-
-        var sourceFilePaths: [AbsolutePath] = []
-        var resourceFilePaths: [AbsolutePath] = []
 
         for pluginResult in pluginResults {
             // Process the results of applying any build tool plugins on the target.
@@ -408,19 +408,32 @@ struct PackagePIFProjectBuilder {
             }
 
             // Process all the paths of derived output paths using the same rules as for source.
-            let result = self.process(
-                pluginGeneratedFilePaths: pluginResult.allDerivedOutputPaths,
-                forModule: module,
-                toolsVersion: self.package.manifest.toolsVersion
-            )
+            for command in pluginResult.buildCommands {
+                let files = self.process(
+                    pluginGeneratedFilePaths: command.absoluteOutputPaths,
+                    forModule: module,
+                    toolsVersion: self.package.manifest.toolsVersion
+                )
 
-            sourceFilePaths.append(contentsOf: result.sourceFilePaths)
-            resourceFilePaths.append(contentsOf: result.resourceFilePaths.map(\.path))
+                generatedFiles.add(files)
+                if !files.headers.isEmpty {
+                    // Capture the public include directory if there were header files generated there
+                    // Hardcoding as the default for now
+                    let publicDir = command.pluginOutputDir.appending(ClangModule.defaultPublicHeadersComponent)
+                    if files.headers.contains(where: { $0.isDescendantOfOrEqual(to: publicDir) }) {
+                        generatedFiles.publicHeaderPaths.append(publicDir)
+                    }
+                }
+            }
+
+            let files = self.process(
+                pluginGeneratedFilePaths: pluginResult.prebuildCommandOutputPaths,
+                forModule: module,
+                toolsVersion: self.package.manifest.toolsVersion)
+            generatedFiles.add(files)
         }
-        return (
-            sourceFilePaths: sourceFilePaths,
-            resourceFilePaths: resourceFilePaths.map(\.pathString)
-        )
+
+        return generatedFiles
     }
 
     /// Helper function for adding build tool commands to the right PIF target depending on whether they generate
@@ -501,32 +514,23 @@ struct PackagePIFProjectBuilder {
         pluginGeneratedFilePaths: [AbsolutePath],
         forModule module: PackageGraph.ResolvedModule,
         toolsVersion: PackageModel.ToolsVersion?
-    ) -> (sourceFilePaths: [AbsolutePath], resourceFilePaths: [Resource]) {
+    ) -> GeneratedFiles {
         precondition(module.isSourceModule)
 
         // If we have no tools version, all files are treated as *source* files.
         guard let toolsVersion else {
-            return (sourceFilePaths: pluginGeneratedFilePaths, resourceFilePaths: [])
+            return GeneratedFiles()
         }
 
-        // FIXME: Will be fixed by <rdar://144802163> (SwiftPM PIFBuilder — adopt ObservabilityScope as the logging API).
-        let observabilityScope = ObservabilitySystem.NOOP
-
         // Use the `TargetSourcesBuilder` from libSwiftPM to split the generated files into sources and resources.
-        let (generatedSourcePaths, generatedResourcePaths) = TargetSourcesBuilder.computeContents(
+        return TargetSourcesBuilder.computeContents(
             for: pluginGeneratedFilePaths,
             toolsVersion: toolsVersion,
             additionalFileRules: Self.additionalFileRules,
             defaultLocalization: module.defaultLocalization,
-            targetName: module.name,
-            targetPath: module.path,
-            observabilityScope: observabilityScope
+            module: module.underlying,
+            observabilityScope: pifBuilder.observabilityScope
         )
-
-        // FIXME: We are not handling resource rules here, but the same is true for non-generated resources.
-        // (Today, everything gets essentially treated as `.processResource` even if it may have been declared as
-        // `.copy` in the manifest.)
-        return (generatedSourcePaths, generatedResourcePaths)
     }
 
     private static let additionalFileRules: [FileRuleDescription] =
