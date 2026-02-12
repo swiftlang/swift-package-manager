@@ -136,7 +136,7 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
         name: .customLong("build-system"),
         help: "The build system to use.",
     )
-    var _buildSystem: BuildSystemProvider.Kind = .native
+    var _buildSystem: BuildSystemProvider.Kind = .swiftbuild
 
     private var buildSystem: BuildSystemProvider.Kind {
         #if os(macOS)

@@ -89,7 +89,7 @@ public func mockBuildParameters(
     config: BuildConfiguration = .debug,
     toolchain: PackageModel.Toolchain = try! MockToolchain(),
     flags: PackageModel.BuildFlags = PackageModel.BuildFlags(),
-    buildSystemKind: BuildSystemProvider.Kind = .native,
+    buildSystemKind: BuildSystemProvider.Kind = .swiftbuild,
     shouldLinkStaticSwiftStdlib: Bool = false,
     shouldDisableLocalRpath: Bool = false,
     canRenameEntrypointFunctionName: Bool = false,
