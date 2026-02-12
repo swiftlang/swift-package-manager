@@ -18,6 +18,9 @@
         "--security-opt",
         "seccomp=unconfined"
     ],
+    "remoteEnv": {
+        "DEVELOPER_DIR": null
+    },
     "customizations": {
         "vscode": {
             "settings": {
