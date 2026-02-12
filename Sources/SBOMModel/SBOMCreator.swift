@@ -42,7 +42,7 @@ package struct SBOMCreator {
     /// - Returns: An array of paths to the created SBOM files
     /// - Throws: SBOMError if SBOM creation fails
     package func createSBOMsWithLogging() async throws {
-        input.observabilityScope.print("Creating SBOMs...", verbose: true)
+        input.observabilityScope.print("Creating SBOMs...", condition: .always)
         let sbomStartTime = ContinuousClock.Instant.now
         
         let results = try await createSBOMs()
@@ -51,9 +51,9 @@ package struct SBOMCreator {
         let formattedDuration = duration.formatted(.units(allowed: [.seconds], fractionalPart: .show(length: 2, rounded: .up)))
         
         for result in results {
-            input.observabilityScope.print("- created \(result.spec.concreteSpec) v\(SBOMVersionRegistry.getLatestVersion(for: result.spec)) SBOM at \(result.path.pathString)", verbose: true)
+            input.observabilityScope.print("- created \(result.spec.concreteSpec) v\(SBOMVersionRegistry.getLatestVersion(for: result.spec)) SBOM at \(result.path.pathString)", condition: .always)
         }
-        input.observabilityScope.print("SBOMs created  (\(formattedDuration))", verbose: true)
+        input.observabilityScope.print("SBOMs created  (\(formattedDuration))", condition: .always)
     }
 
     internal func createSBOMs() async throws -> [SBOMResult] {
