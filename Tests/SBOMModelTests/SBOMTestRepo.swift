@@ -15,6 +15,7 @@ import Basics
 import Foundation
 import SourceControl
 import class TSCBasic.Process
+import enum TSCUtility.Git
 
 enum SBOMTestRepo {
     static func setupSPMTestRepo() throws -> (GitRepository, AbsolutePath) {
@@ -27,7 +28,7 @@ enum SBOMTestRepo {
         try repo.create()
         
         try Process.checkNonZeroExit(
-            args: "git",
+            args: Git.tool,
             "-C",
             path.pathString,
             "remote",
@@ -45,7 +46,7 @@ enum SBOMTestRepo {
         }
         
         try Process.checkNonZeroExit(
-            args: "git",
+            args: Git.tool,
             "-C",
             path.pathString,
             "config",
@@ -66,7 +67,7 @@ enum SBOMTestRepo {
         try repo.create()
         
         try Process.checkNonZeroExit(
-            args: "git",
+            args: Git.tool,
             "-C",
             path.pathString,
             "remote",
@@ -86,7 +87,7 @@ enum SBOMTestRepo {
         try repo.tag(name: "v1.0.0")
         
         try Process.checkNonZeroExit(
-            args: "git",
+            args: Git.tool,
             "-C",
             path.pathString,
             "config",

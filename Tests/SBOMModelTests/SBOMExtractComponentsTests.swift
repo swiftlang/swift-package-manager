@@ -20,6 +20,7 @@ import PackageRegistry
 import Testing
 import class TSCBasic.Process
 
+import enum TSCUtility.Git
 import struct TSCUtility.Version
 
 @Suite(
@@ -379,7 +380,7 @@ struct SBOMExtractComponentsTests {
 
         // Add a second remote to test multiple remotes
         try await Process.checkNonZeroExit(
-            args: "git",
+            args: Git.tool,
             "-C",
             spmPath.pathString,
             "remote",
