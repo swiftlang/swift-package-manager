@@ -1202,9 +1202,7 @@ struct PackageCommandTests {
     }
 
     @Test(
-        .disabled(
-            "disabling this suite.. first one to fail. due to \"couldn't determine the current working directory\""
-        ),
+        .requireSwift6_3,
         .tags(
             .Feature.Command.Package.DumpSymbolGraph,
         ),
@@ -1222,22 +1220,19 @@ struct PackageCommandTests {
         withPrettyPrinting: Bool,
     ) async throws {
         let config = BuildConfiguration.debug
-        // try XCTSkipIf(buildSystemProvider == .native && (try? UserToolchain.default.getSymbolGraphExtract()) == nil, "skipping test because the `swift-symbolgraph-extract` tools isn't available")
-        try await withKnownIssue(isIntermittent: true) {
+        // try await withKnownIssue(isIntermittent: true) {
             try await fixture(
                 name: "DependencyResolution/Internal/Simple",
                 removeFixturePathOnDeinit: true
             ) { fixturePath in
-                let tool = try SwiftCommandState.makeMockState(
-                    options: GlobalOptions.parse(["--package-path", fixturePath.pathString])
-                )
-                let symbolGraphExtractorPath = try tool.getTargetToolchain().getSymbolGraphExtract()
+                let symbolGraphExtractorPath = try UserToolchain.default.getSymbolGraphExtract()
 
-                let arguments =
-                    withPrettyPrinting ? ["dump-symbol-graph", "--pretty-print"] : ["dump-symbol-graph"]
+                let symbolGraphOutputDir = fixturePath.appending("symbolgraph")
+
+                let arguments = withPrettyPrinting ? ["--pretty-print"] : []
 
                 let result = try await execute(
-                    arguments,
+                    ["dump-symbol-graph", "--output-dir", symbolGraphOutputDir.pathString] + arguments,
                     packagePath: fixturePath,
                     env: ["SWIFT_SYMBOLGRAPH_EXTRACT": symbolGraphExtractorPath.pathString],
                     configuration: config,
@@ -1276,10 +1271,10 @@ struct PackageCommandTests {
                     #expect(JSONText.components(separatedBy: .newlines).count == 1)
                 }
             }
-        } when: {
-            (ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild && !withPrettyPrinting)
-                || (buildSystem == .swiftbuild && withPrettyPrinting)
-        }
+        // } when: {
+        //     (ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild && !withPrettyPrinting)
+        //         || (buildSystem == .swiftbuild && withPrettyPrinting)
+        // }
     }
 
     @Suite(
@@ -6813,7 +6808,7 @@ struct PackageCommandTests {
                             #expect(stdout.contains("staticLibrary"))
                         }
                     } when: {
-                        buildSystem == .swiftbuild
+                        buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem != .macOS
                     }
 
                     // Invoke the plugin with parameters choosing a verbose build of MyDynamicLibrary for release.
@@ -6876,10 +6871,13 @@ struct PackageCommandTests {
                     #expect(stdout.contains(#/artifact-path: [^\n]+MyExecutable(.*)?\nartifact-kind: executable/#))
                     #expect(stdout.contains(#/artifact-path: [^\n]+MyDynamicLibrary(.*)?\nartifact-kind: dynamicLibrary/#))
                     // The not-built executable in the dependency should not be reported. The native build system fails to exclude it.
-                    withKnownIssue {
-                        #expect(!stdout.contains("MySupportExecutable"))
-                    } when: {
-                        buildSystem == .native
+                    switch buildSystem {
+                        case .native:
+                            #expect(stdout.contains("MySupportExecutable"))
+                        case .swiftbuild:
+                            #expect(!stdout.contains("MySupportExecutable"))
+                        case .xcode:
+                            Issue.record("unimplemented assertion for --build-system xcode")
                     }
                 }
             } when: {
@@ -7767,7 +7765,7 @@ struct PackageCommandTests {
                     #expect(stdout.contains("Works fine!"))
                 }
             } when: {
-                (ProcessInfo.hostOperatingSystem == .windows && buildData.buildSystem == .swiftbuild) || (ProcessInfo.hostOperatingSystem == .linux && buildData.buildSystem == .swiftbuild)
+                [.linux, .windows].contains(ProcessInfo.hostOperatingSystem) && buildData.buildSystem == .swiftbuild
             }
         }
     }
