@@ -25,17 +25,31 @@ package func containsAtMain(fileSystem: FileSystem, path: AbsolutePath) throws -
         if line.hasPrefix("//") {
             continue
         }
-        if line.hasPrefix("/*") {
-            multilineComment = true
-        }
-        if line.hasSuffix("*/") {
-            multilineComment = false
-        }
-        if multilineComment {
-            continue
-        }
-        if line.hasPrefix("@main") {
-            return true
+
+        // Process the line character-by-character to handle comment boundaries
+        // and @main detection on the same line (e.g., `*/ @main`).
+        var remaining = line[line.startIndex...]
+        while !remaining.isEmpty {
+            if multilineComment {
+                if let endRange = remaining.range(of: "*/") {
+                    multilineComment = false
+                    remaining = remaining[endRange.upperBound...]
+                    // Trim leading whitespace from the remainder
+                    remaining = remaining.drop(while: { $0.isWhitespace })
+                } else {
+                    // Entire remainder is inside a comment
+                    break
+                }
+            } else {
+                if remaining.hasPrefix("/*") {
+                    multilineComment = true
+                    remaining = remaining[remaining.index(remaining.startIndex, offsetBy: 2)...]
+                } else if remaining.hasPrefix("@main") {
+                    return true
+                } else {
+                    break
+                }
+            }
         }
     }
     return false
