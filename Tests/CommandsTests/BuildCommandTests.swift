@@ -2109,10 +2109,10 @@ struct BuildSBOMCommandTests {
     ) async throws {
         try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
             // Use platform-specific invalid path:
-            // - Windows: C:\invalid\readonlypath (path doesn't exist and can't be created)
+            // - Windows: NUL is a reserved device name that cannot be used as a directory
             // - Unix/macOS: /invalid/readonlypath (path doesn't exist and can't be created)
             let invalidPath = ProcessInfo.hostOperatingSystem == .windows
-                ? "C:\\invalid\\readonlypath"
+                ? "NUL"
                 : "/invalid/readonlypath"
             
             await expectThrowsCommandExecutionError(
