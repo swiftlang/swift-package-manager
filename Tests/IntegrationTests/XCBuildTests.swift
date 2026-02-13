@@ -16,23 +16,25 @@ import _IntegrationTestSupport
 import _InternalTestSupport
 import Testing
 
+import struct SPMBuildCore.BuildSystemProvider
+import enum PackageModel.BuildConfiguration
+
 @Suite
 private struct XCBuildTests {
     @Test(.requireHostOS(.macOS))
     func testExecutableProducts() async throws {
         try await fixture(name: "XCBuild/ExecutableProducts") { path in
             let fooPath = path.appending(component: "Foo")
-            let binaryPath = fooPath.appending(components: ".build", "apple", "Products")
 
             try await executeSwiftBuild(fooPath, buildSystem: .xcode)
-            let debugPath = binaryPath.appending(component: "Debug")
+            let debugPath = try fooPath.appending(components: BuildSystemProvider.Kind.swiftbuild.binPath(for: BuildConfiguration.debug))
             #expect(localFileSystem.exists(debugPath.appending(component: "foo")))
             #expect(localFileSystem.exists(debugPath.appending(component: "cfoo")))
             #expect(localFileSystem.exists(debugPath.appending(component: "bar")))
             #expect(localFileSystem.notExists(debugPath.appending(component: "cbar")))
 
             try await executeSwiftBuild(fooPath, configuration: .release, buildSystem: .xcode)
-            let releasePath = binaryPath.appending(component: "Release")
+            let releasePath = try fooPath.appending(components: BuildSystemProvider.Kind.swiftbuild.binPath(for: BuildConfiguration.release))
             #expect(localFileSystem.exists(releasePath.appending(component: "foo")))
             #expect(localFileSystem.exists(releasePath.appending(component: "cfoo")))
             #expect(localFileSystem.exists(releasePath.appending(component: "bar")))
@@ -41,7 +43,6 @@ private struct XCBuildTests {
 
         try await fixture(name: "XCBuild/ExecutableProducts") { path in
             let fooPath = path.appending(component: "Foo")
-            let binaryPath = fooPath.appending(components: ".build", "apple", "Products")
 
             try await executeSwiftBuild(
                 fooPath,
@@ -51,7 +52,7 @@ private struct XCBuildTests {
                 ],
                 buildSystem: .xcode,
             )
-            let debugPath = binaryPath.appending(component: "Debug")
+            let debugPath = try fooPath.appending(components: BuildSystemProvider.Kind.swiftbuild.binPath(for: BuildConfiguration.debug))
             #expect(localFileSystem.exists(debugPath.appending(component: "foo")))
             #expect(localFileSystem.exists(debugPath.appending(component: "cfoo")))
             #expect(localFileSystem.exists(debugPath.appending(component: "bar")))
@@ -66,7 +67,8 @@ private struct XCBuildTests {
                 ],
                 buildSystem: .xcode,
             )
-            let releasePath = binaryPath.appending(component: "Release")
+            let releasePath = try fooPath.appending(components: BuildSystemProvider.Kind.swiftbuild.binPath(for: BuildConfiguration.release))
+
             #expect(localFileSystem.exists(releasePath.appending(component: "foo")))
             #expect(localFileSystem.exists(releasePath.appending(component: "cfoo")))
             #expect(localFileSystem.exists(releasePath.appending(component: "bar")))
@@ -75,7 +77,6 @@ private struct XCBuildTests {
 
         try await fixture(name: "XCBuild/ExecutableProducts") { path in
             let fooPath = path.appending(component: "Foo")
-            let binaryPath = fooPath.appending(components: ".build", "apple", "Products")
 
             try await executeSwiftBuild(
                 fooPath,
@@ -85,7 +86,7 @@ private struct XCBuildTests {
                 ],
                 buildSystem: .xcode,
             )
-            let debugPath = binaryPath.appending(component: "Debug")
+            let debugPath = try fooPath.appending(components: BuildSystemProvider.Kind.swiftbuild.binPath(for: BuildConfiguration.debug))
             #expect(localFileSystem.notExists(debugPath.appending(component: "foo")))
             #expect(localFileSystem.exists(debugPath.appending(component: "cfoo")))
             #expect(localFileSystem.notExists(debugPath.appending(component: "bar")))
@@ -100,7 +101,7 @@ private struct XCBuildTests {
                 ],
                 buildSystem: .xcode,
             )
-            let releasePath = binaryPath.appending(component: "Release")
+            let releasePath = try fooPath.appending(components: BuildSystemProvider.Kind.swiftbuild.binPath(for: BuildConfiguration.release))
             #expect(localFileSystem.notExists(releasePath.appending(component: "foo")))
             #expect(localFileSystem.exists(releasePath.appending(component: "cfoo")))
             #expect(localFileSystem.notExists(releasePath.appending(component: "bar")))
@@ -109,7 +110,6 @@ private struct XCBuildTests {
 
         try await fixture(name: "XCBuild/ExecutableProducts") { path in
             let fooPath = path.appending(component: "Foo")
-            let binaryPath = fooPath.appending(components: ".build", "apple", "Products")
 
             try await executeSwiftBuild(
                 fooPath,
@@ -119,7 +119,7 @@ private struct XCBuildTests {
                 ],
                 buildSystem: .xcode,
             )
-            let debugPath = binaryPath.appending(component: "Debug")
+            let debugPath = try fooPath.appending(components: BuildSystemProvider.Kind.swiftbuild.binPath(for: BuildConfiguration.debug))
             #expect(localFileSystem.notExists(debugPath.appending(component: "foo")))
             #expect(localFileSystem.notExists(debugPath.appending(component: "cfoo")))
             #expect(localFileSystem.exists(debugPath.appending(component: "bar")))
@@ -134,7 +134,7 @@ private struct XCBuildTests {
                 ],
                 buildSystem: .xcode,
             )
-            let releasePath = binaryPath.appending(component: "Release")
+            let releasePath = try fooPath.appending(components: BuildSystemProvider.Kind.swiftbuild.binPath(for: BuildConfiguration.release))
             #expect(localFileSystem.notExists(releasePath.appending(component: "foo")))
             #expect(localFileSystem.notExists(releasePath.appending(component: "cfoo")))
             #expect(localFileSystem.exists(releasePath.appending(component: "bar")))
@@ -143,7 +143,6 @@ private struct XCBuildTests {
 
         try await fixture(name: "XCBuild/ExecutableProducts") { path in
             let fooPath = path.appending(component: "Foo")
-            let binaryPath = fooPath.appending(components: ".build", "apple", "Products")
 
             try await executeSwiftBuild(
                 fooPath,
@@ -153,7 +152,7 @@ private struct XCBuildTests {
                 ],
                 buildSystem: .xcode,
             )
-            let debugPath = binaryPath.appending(component: "Debug")
+            let debugPath = try fooPath.appending(components: BuildSystemProvider.Kind.swiftbuild.binPath(for: BuildConfiguration.debug))
             #expect(localFileSystem.notExists(debugPath.appending(component: "foo")))
             #expect(localFileSystem.notExists(debugPath.appending(component: "cfoo")))
             #expect(localFileSystem.notExists(debugPath.appending(component: "bar")))
@@ -168,7 +167,7 @@ private struct XCBuildTests {
                 ],
                 buildSystem: .xcode,
             )
-            let releasePath = binaryPath.appending(component: "Release")
+            let releasePath = try fooPath.appending(components: BuildSystemProvider.Kind.swiftbuild.binPath(for: BuildConfiguration.release))
             #expect(localFileSystem.notExists(releasePath.appending(component: "foo")))
             #expect(localFileSystem.notExists(releasePath.appending(component: "cfoo")))
             #expect(localFileSystem.notExists(releasePath.appending(component: "bar")))
@@ -185,13 +184,12 @@ private struct XCBuildTests {
     func testTestProducts() async throws {
         try await fixture(name: "XCBuild/TestProducts") { path in
             let fooPath = path.appending(component: "Foo")
-            let binaryPath = fooPath.appending(components: ".build", "apple", "Products")
 
             try await executeSwiftBuild(
                 fooPath,
                 buildSystem: .xcode,
             )
-            let debugPath = binaryPath.appending(component: "Debug")
+            let debugPath = try fooPath.appending(components: BuildSystemProvider.Kind.swiftbuild.binPath(for: BuildConfiguration.debug))
             #expect(localFileSystem.exists(debugPath.appending(component: "FooLib.o")))
             #expect(localFileSystem.exists(debugPath.appending(component: "FooTests.xctest")))
             #expect(localFileSystem.exists(debugPath.appending(component: "CFooTests.xctest")))
@@ -202,7 +200,7 @@ private struct XCBuildTests {
                 configuration: .release,
                 buildSystem: .xcode,
             )
-            let releasePath = binaryPath.appending(component: "Release")
+            let releasePath = try fooPath.appending(components: BuildSystemProvider.Kind.swiftbuild.binPath(for: BuildConfiguration.release))
             #expect(localFileSystem.exists(releasePath.appending(component: "FooLib.o")))
             #expect(localFileSystem.exists(releasePath.appending(component: "FooTests.xctest")))
             #expect(localFileSystem.exists(releasePath.appending(component: "CFooTests.xctest")))
@@ -211,8 +209,6 @@ private struct XCBuildTests {
 
         try await fixture(name: "XCBuild/TestProducts") { path in
             let fooPath = path.appending(component: "Foo")
-            let binaryPath = fooPath.appending(components: ".build", "apple", "Products")
-
             try await executeSwiftBuild(
                 fooPath,
                 extraArgs: [
@@ -220,7 +216,7 @@ private struct XCBuildTests {
                 ],
                 buildSystem: .xcode,
             )
-            let debugPath = binaryPath.appending(component: "Debug")
+            let debugPath = try fooPath.appending(components: BuildSystemProvider.Kind.swiftbuild.binPath(for: BuildConfiguration.debug))
             #expect(localFileSystem.exists(debugPath.appending(component: "FooLib.o")))
             #expect(localFileSystem.isDirectory(debugPath.appending(component: "FooTests.xctest")))
             #expect(localFileSystem.isDirectory(debugPath.appending(component: "CFooTests.xctest")))
@@ -234,7 +230,7 @@ private struct XCBuildTests {
                 ],
                 buildSystem: .xcode,
             )
-            let releasePath = binaryPath.appending(component: "Release")
+            let releasePath = try fooPath.appending(components: BuildSystemProvider.Kind.swiftbuild.binPath(for: BuildConfiguration.release))
             #expect(localFileSystem.exists(releasePath.appending(component: "FooLib.o")))
             #expect(localFileSystem.isDirectory(releasePath.appending(component: "FooTests.xctest")))
             #expect(localFileSystem.isDirectory(releasePath.appending(component: "CFooTests.xctest")))
@@ -243,7 +239,6 @@ private struct XCBuildTests {
 
         try await fixture(name: "XCBuild/TestProducts") { path in
             let fooPath = path.appending(component: "Foo")
-            let binaryPath = fooPath.appending(components: ".build", "apple", "Products")
 
             try await executeSwiftBuild(
                 fooPath,
@@ -253,7 +248,7 @@ private struct XCBuildTests {
                 ],
                 buildSystem: .xcode,
             )
-            let debugPath = binaryPath.appending(component: "Debug")
+            let debugPath = try fooPath.appending(components: BuildSystemProvider.Kind.swiftbuild.binPath(for: BuildConfiguration.debug))
             #expect(localFileSystem.exists(debugPath.appending(component: "FooLib.o")))
             #expect(localFileSystem.isDirectory(debugPath.appending(component: "FooTests.xctest")))
             #expect(localFileSystem.exists(debugPath.appending(component: "CFooTests.xctest")))
@@ -268,7 +263,7 @@ private struct XCBuildTests {
                 ],
                 buildSystem: .xcode,
             )
-            let releasePath = binaryPath.appending(component: "Release")
+            let releasePath = try fooPath.appending(components: BuildSystemProvider.Kind.swiftbuild.binPath(for: BuildConfiguration.release))
             #expect(localFileSystem.exists(releasePath.appending(component: "FooLib.o")))
             #expect(localFileSystem.isDirectory(releasePath.appending(component: "FooTests.xctest")))
             #expect(localFileSystem.exists(releasePath.appending(component: "CFooTests.xctest")))
@@ -277,7 +272,6 @@ private struct XCBuildTests {
 
         try await fixture(name: "XCBuild/TestProducts") { path in
             let fooPath = path.appending(component: "Foo")
-            let binaryPath = fooPath.appending(components: ".build", "apple", "Products")
 
             try await executeSwiftBuild(
                 fooPath,
@@ -287,7 +281,7 @@ private struct XCBuildTests {
                 ],
                 buildSystem: .xcode,
             )
-            let debugPath = binaryPath.appending(component: "Debug")
+            let debugPath = try fooPath.appending(components: BuildSystemProvider.Kind.swiftbuild.binPath(for: BuildConfiguration.debug))
             #expect(localFileSystem.exists(debugPath.appending(component: "FooLib.o")))
             #expect(localFileSystem.exists(debugPath.appending(component: "FooTests.xctest")))
             #expect(localFileSystem.isDirectory(debugPath.appending(component: "CFooTests.xctest")))
@@ -302,7 +296,7 @@ private struct XCBuildTests {
                 ],
                 buildSystem: .xcode,
             )
-            let releasePath = binaryPath.appending(component: "Release")
+            let releasePath = try fooPath.appending(components: BuildSystemProvider.Kind.swiftbuild.binPath(for: BuildConfiguration.release))
             #expect(localFileSystem.exists(releasePath.appending(component: "FooLib.o")))
             #expect(localFileSystem.exists(releasePath.appending(component: "FooTests.xctest")))
             #expect(localFileSystem.isDirectory(releasePath.appending(component: "CFooTests.xctest")))
@@ -314,31 +308,29 @@ private struct XCBuildTests {
     func testLibraryProductsAndTargets() async throws {
         try await fixture(name: "XCBuild/Libraries") { path in
             let fooPath = path.appending(component: "Foo")
-            let binaryPath = fooPath.appending(components: ".build", "apple", "Products")
 
             try await executeSwiftBuild(
                 fooPath,
                 buildSystem: .xcode,
             )
-            let debugPath = binaryPath.appending(component: "Debug")
-            #expect(localFileSystem.exists(debugPath.appending(component: "FooLib_Module.o")))
-            #expect(localFileSystem.exists(debugPath.appending(component: "CFooLib_Module.o")))
-            #expect(localFileSystem.exists(debugPath.appending(component: "BarLib_Module.o")))
+            let debugPath = try fooPath.appending(components: BuildSystemProvider.Kind.swiftbuild.binPath(for: BuildConfiguration.debug))
+            #expect(localFileSystem.exists(debugPath.appending(component: "FooLib.o")))
+            #expect(localFileSystem.exists(debugPath.appending(component: "CFooLib.o")))
+            #expect(localFileSystem.exists(debugPath.appending(component: "BarLib.o")))
 
             try await executeSwiftBuild(
                 fooPath,
                 configuration: .release,
                 buildSystem: .xcode,
             )
-            let releasePath = binaryPath.appending(component: "Release")
-            #expect(localFileSystem.exists(releasePath.appending(component: "FooLib_Module.o")))
-            #expect(localFileSystem.exists(releasePath.appending(component: "CFooLib_Module.o")))
-            #expect(localFileSystem.exists(releasePath.appending(component: "BarLib_Module.o")))
+            let releasePath = try fooPath.appending(components: BuildSystemProvider.Kind.swiftbuild.binPath(for: BuildConfiguration.release))
+            #expect(localFileSystem.exists(releasePath.appending(component: "FooLib.o")))
+            #expect(localFileSystem.exists(releasePath.appending(component: "CFooLib.o")))
+            #expect(localFileSystem.exists(releasePath.appending(component: "BarLib.o")))
         }
 
         try await fixture(name: "XCBuild/Libraries") { path in
             let fooPath = path.appending(component: "Foo")
-            let binaryPath = fooPath.appending(components: ".build", "apple", "Products")
 
             try await executeSwiftBuild(
                 fooPath,
@@ -348,10 +340,10 @@ private struct XCBuildTests {
                 ],
                 buildSystem: .xcode,
             )
-            let debugPath = binaryPath.appending(component: "Debug")
-            #expect(localFileSystem.exists(debugPath.appending(component: "FooLib_Module.o")))
-            #expect(localFileSystem.exists(debugPath.appending(component: "CFooLib_Module.o")))
-            #expect(localFileSystem.exists(debugPath.appending(component: "BarLib_Module.o")))
+            let debugPath = try fooPath.appending(components: BuildSystemProvider.Kind.swiftbuild.binPath(for: BuildConfiguration.debug))
+            #expect(localFileSystem.exists(debugPath.appending(component: "FooLib.o")))
+            #expect(localFileSystem.exists(debugPath.appending(component: "CFooLib.o")))
+            #expect(localFileSystem.exists(debugPath.appending(component: "BarLib.o")))
 
             try await executeSwiftBuild(
                 fooPath,
@@ -362,15 +354,14 @@ private struct XCBuildTests {
                 ],
                 buildSystem: .xcode,
             )
-            let releasePath = binaryPath.appending(component: "Release")
-            #expect(localFileSystem.exists(releasePath.appending(component: "FooLib_Module.o")))
-            #expect(localFileSystem.exists(releasePath.appending(component: "CFooLib_Module.o")))
-            #expect(localFileSystem.exists(releasePath.appending(component: "BarLib_Module.o")))
+            let releasePath = try fooPath.appending(components: BuildSystemProvider.Kind.swiftbuild.binPath(for: BuildConfiguration.release))
+            #expect(localFileSystem.exists(releasePath.appending(component: "FooLib.o")))
+            #expect(localFileSystem.exists(releasePath.appending(component: "CFooLib.o")))
+            #expect(localFileSystem.exists(releasePath.appending(component: "BarLib.o")))
         }
 
         try await fixture(name: "XCBuild/Libraries") { path in
             let fooPath = path.appending(component: "Foo")
-            let binaryPath = fooPath.appending(components: ".build", "apple", "Products")
 
             try await executeSwiftBuild(
                 fooPath,
@@ -380,10 +371,10 @@ private struct XCBuildTests {
                 ],
                 buildSystem: .xcode,
             )
-            let debugPath = binaryPath.appending(component: "Debug")
-            #expect(localFileSystem.notExists(debugPath.appending(component: "FooLib_Module.o")))
-            #expect(localFileSystem.exists(debugPath.appending(component: "CFooLib_Module.o")))
-            #expect(localFileSystem.exists(debugPath.appending(component: "BarLib_Module.o")))
+            let debugPath = try fooPath.appending(components: BuildSystemProvider.Kind.swiftbuild.binPath(for: BuildConfiguration.debug))
+            #expect(localFileSystem.notExists(debugPath.appending(component: "FooLib.o")))
+            #expect(localFileSystem.exists(debugPath.appending(component: "CFooLib.o")))
+            #expect(localFileSystem.exists(debugPath.appending(component: "BarLib.o")))
 
             try await executeSwiftBuild(
                 fooPath,
@@ -394,15 +385,14 @@ private struct XCBuildTests {
                 ],
                 buildSystem: .xcode,
             )
-            let releasePath = binaryPath.appending(component: "Release")
-            #expect(localFileSystem.notExists(releasePath.appending(component: "FooLib_Module.o")))
-            #expect(localFileSystem.exists(releasePath.appending(component: "CFooLib_Module.o")))
-            #expect(localFileSystem.exists(releasePath.appending(component: "BarLib_Module.o")))
+            let releasePath = try fooPath.appending(components: BuildSystemProvider.Kind.swiftbuild.binPath(for: BuildConfiguration.release))
+            #expect(localFileSystem.notExists(releasePath.appending(component: "FooLib.o")))
+            #expect(localFileSystem.exists(releasePath.appending(component: "CFooLib.o")))
+            #expect(localFileSystem.exists(releasePath.appending(component: "BarLib.o")))
         }
 
         try await fixture(name: "XCBuild/Libraries") { path in
             let fooPath = path.appending(component: "Foo")
-            let binaryPath = fooPath.appending(components: ".build", "apple", "Products")
 
             try await executeSwiftBuild(
                 fooPath,
@@ -412,10 +402,10 @@ private struct XCBuildTests {
                 ],
                 buildSystem: .xcode,
             )
-            let debugPath = binaryPath.appending(component: "Debug")
-            #expect(localFileSystem.notExists(debugPath.appending(component: "FooLib_Module.o")))
-            #expect(localFileSystem.notExists(debugPath.appending(component: "CFooLib_Module.o")))
-            #expect(localFileSystem.exists(debugPath.appending(component: "BarLib_Module.o")))
+            let debugPath = try fooPath.appending(components: BuildSystemProvider.Kind.swiftbuild.binPath(for: BuildConfiguration.debug))
+            #expect(localFileSystem.notExists(debugPath.appending(component: "FooLib.o")))
+            #expect(localFileSystem.notExists(debugPath.appending(component: "CFooLib.o")))
+            #expect(localFileSystem.exists(debugPath.appending(component: "BarLib.o")))
 
             try await executeSwiftBuild(
                 fooPath,
@@ -426,10 +416,10 @@ private struct XCBuildTests {
                 ],
                 buildSystem: .xcode,
             )
-            let releasePath = binaryPath.appending(component: "Release")
-            #expect(localFileSystem.notExists(releasePath.appending(component: "FooLib_Module.o")))
-            #expect(localFileSystem.notExists(releasePath.appending(component: "CFooLib_Module.o")))
-            #expect(localFileSystem.exists(releasePath.appending(component: "BarLib_Module.o")))
+            let releasePath = try fooPath.appending(components: BuildSystemProvider.Kind.swiftbuild.binPath(for: BuildConfiguration.release))
+            #expect(localFileSystem.notExists(releasePath.appending(component: "FooLib.o")))
+            #expect(localFileSystem.notExists(releasePath.appending(component: "CFooLib.o")))
+            #expect(localFileSystem.exists(releasePath.appending(component: "BarLib.o")))
         }
     }
 
@@ -442,7 +432,6 @@ private struct XCBuildTests {
     func testSystemTargets() async throws {
         try await fixture(name: "XCBuild/SystemTargets") { path in
             let fooPath = path.appending(component: "Foo")
-            let binaryPath = fooPath.appending(components: ".build", "apple", "Products")
             let inputsPath = path.appending(component: "Inputs")
 
             // Because there isn't any one system target that we can depend on for testing purposes, we build our own.
@@ -463,7 +452,7 @@ private struct XCBuildTests {
                 buildSystem: .xcode,
             )
 
-            let debugPath = binaryPath.appending(component: "Debug")
+            let debugPath = try fooPath.appending(components: BuildSystemProvider.Kind.swiftbuild.binPath(for: BuildConfiguration.debug))
             #expect(localFileSystem.exists(debugPath.appending(component: "foo")))
 
             try await executeSwiftBuild(
@@ -477,7 +466,7 @@ private struct XCBuildTests {
                 buildSystem: .xcode,
             )
 
-            let releasePath = binaryPath.appending(component: "Release")
+            let releasePath = try fooPath.appending(components: BuildSystemProvider.Kind.swiftbuild.binPath(for: BuildConfiguration.release))
             #expect(localFileSystem.exists(releasePath.appending(component: "foo")))
         }
     }

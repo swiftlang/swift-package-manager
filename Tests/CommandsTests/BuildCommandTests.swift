@@ -1699,7 +1699,7 @@ struct BuildCommandTestCases {
             }
         } when: {
             // The native build system does not correctly pass the elevated deployment target
-            buildSystem != .swiftbuild
+            buildSystem == .native
         }
     }
 
