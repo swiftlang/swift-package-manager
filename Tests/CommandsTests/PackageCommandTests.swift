@@ -2040,6 +2040,8 @@ struct PackageCommandTests {
                 )
 
                 let manifest = path.appending("Package.swift")
+                expectFileExists(at: manifest)
+
                 let contents: String = try localFileSystem.readFileContents(manifest)
                 let version = InitPackage.newPackageToolsVersion
                 let versionSpecifier = "\(version.major).\(version.minor)"
@@ -2048,6 +2050,7 @@ struct PackageCommandTests {
                         "// swift-tools-version:\(version < .v5_4 ? "" : " ")\(versionSpecifier)\n"
                     )
                 )
+                #expect(contents.contains(#".enableUpcomingFeature("ApproachableConcurrency")"#))
 
                 expectFileExists(at: manifest)
                 #expect(
@@ -2077,7 +2080,12 @@ struct PackageCommandTests {
                     buildSystem: buildSystem,
                 )
 
-                expectFileExists(at: path.appending("Package.swift"))
+                let manifest = path.appending("Package.swift")
+                expectFileExists(at: manifest)
+
+                let contents: String = try localFileSystem.readFileContents(manifest)
+                #expect(contents.contains(#".enableUpcomingFeature("ApproachableConcurrency")"#))
+
                 #expect(
                     try fs.getDirectoryContents(path.appending("Sources").appending("Foo")) == ["Foo.swift"]
                 )
@@ -2108,6 +2116,8 @@ struct PackageCommandTests {
                 )
 
                 let manifest = path.appending("Package.swift")
+                expectFileExists(at: manifest)
+
                 let contents: String = try localFileSystem.readFileContents(manifest)
                 let version = InitPackage.newPackageToolsVersion
                 let versionSpecifier = "\(version.major).\(version.minor)"
@@ -2116,8 +2126,8 @@ struct PackageCommandTests {
                         "// swift-tools-version:\(version < .v5_4 ? "" : " ")\(versionSpecifier)\n"
                     )
                 )
+                #expect(contents.contains(#".enableUpcomingFeature("ApproachableConcurrency")"#))
 
-                expectFileExists(at: manifest)
                 #expect(
                     try fs.getDirectoryContents(path.appending("Sources").appending("CustomName")) == [
                         "CustomName.swift"
