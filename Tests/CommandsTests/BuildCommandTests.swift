@@ -2108,11 +2108,18 @@ struct BuildSBOMCommandTests {
         data: BuildData,
     ) async throws {
         try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
+            // Use platform-specific invalid path:
+            // - Windows: C:\invalid\readonlypath (path doesn't exist and can't be created)
+            // - Unix/macOS: /invalid/readonlypath (path doesn't exist and can't be created)
+            let invalidPath = ProcessInfo.hostOperatingSystem == .windows
+                ? "C:\\invalid\\readonlypath"
+                : "/invalid/readonlypath"
+            
             await expectThrowsCommandExecutionError(
                 try await executeSwiftBuild(
                     fixturePath,
                     configuration: data.config,
-                    extraArgs: ["--sbom-spec", "cyclonedx", "--sbom-output-dir", "/invalid/readonlypath"],
+                    extraArgs: ["--sbom-spec", "cyclonedx", "--sbom-output-dir", invalidPath],
                     buildSystem: data.buildSystem,
                 )
             ) { error in
@@ -2122,7 +2129,7 @@ struct BuildSBOMCommandTests {
             let (_, _) = try await executeSwiftBuild(
                 fixturePath,
                 configuration: data.config,
-                extraArgs: ["--sbom-spec", "cyclonedx", "--sbom-output-dir", "/invalid/readonlypath", "--sbom-warning-only"],
+                extraArgs: ["--sbom-spec", "cyclonedx", "--sbom-output-dir", invalidPath, "--sbom-warning-only"],
                 buildSystem: data.buildSystem,
             )
 
@@ -2130,7 +2137,7 @@ struct BuildSBOMCommandTests {
                 try await executeSwiftBuild(
                     fixturePath,
                     configuration: data.config,
-                    extraArgs: ["--sbom-spec", "cyclonedx", "--sbom-output-dir", "/invalid/readonlypath"],
+                    extraArgs: ["--sbom-spec", "cyclonedx", "--sbom-output-dir", invalidPath],
                     env: ["SWIFTPM_BUILD_SBOM_WARNING_ONLY": "false"],
                     buildSystem: data.buildSystem,
                 )
@@ -2141,7 +2148,7 @@ struct BuildSBOMCommandTests {
             let (_, _) = try await executeSwiftBuild(
                 fixturePath,
                 configuration: data.config,
-                extraArgs: ["--sbom-spec", "cyclonedx", "--sbom-output-dir", "/invalid/readonlypath"],
+                extraArgs: ["--sbom-spec", "cyclonedx", "--sbom-output-dir", invalidPath],
                 env: ["SWIFTPM_BUILD_SBOM_WARNING_ONLY": "true"],
                 buildSystem: data.buildSystem,
             )

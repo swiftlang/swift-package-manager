@@ -18,6 +18,7 @@ import PackageModel
 import SourceControl
 import Testing
 import class TSCBasic.Process
+import enum TSCUtility.Git
 
 @Suite(
     .tags(
@@ -608,7 +609,7 @@ struct SBOMExtractPrimaryComponentTests {
 
         // Add a second remote to verify origin is preferred
         try await Process.checkNonZeroExit(
-            args: "git",
+            args: Git.tool,
             "-C",
             spmPath.pathString,
             "remote",
