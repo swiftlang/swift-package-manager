@@ -2115,7 +2115,7 @@ struct BuildSBOMCommandTests {
                     buildSystem: data.buildSystem,
                 )
             ) { error in
-                #expect(error.stderr.contains("readonlypath"))
+                #expect(error.stderr.contains(invalidPath))
             }
 
             let (_, _) = try await executeSwiftBuild(
@@ -2134,7 +2134,7 @@ struct BuildSBOMCommandTests {
                     buildSystem: data.buildSystem,
                 )
             ) { error in
-                #expect(error.stderr.contains("readonlypath"))
+                #expect(error.stderr.contains(invalidPath))
             }
 
             let (_, _) = try await executeSwiftBuild(
