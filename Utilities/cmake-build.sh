@@ -23,6 +23,7 @@ build-dep() {
 }
 
 [ -d .build ] || swift package resolve
+
 rm -fr .build/cmake
 
 build-dep swift-system SwiftSystem
@@ -40,3 +41,16 @@ build-dep swift-syntax SwiftSyntax
 
 cmake -G Ninja -B .build/cmake/swiftpm -S . $DEPS
 cmake --build .build/cmake/swiftpm
+
+cp -R .build/cmake/swiftpm/Sources/Runtimes/PackageDescription/PackageDescription.swiftmodule .build/cmake/swiftpm/bin
+cp .build/cmake/swiftpm/pm/ManifestAPI/libPackageDescription.dylib .build/cmake/swiftpm/bin
+
+if [ "$(uname -s)" == "Darwin" ]; then
+    .build/cmake/swiftpm/bin/swift-build --product swiftpm-testing-helper
+    cp .build/debug/swiftpm-testing-helper .build/cmake/swiftpm/bin
+fi
+
+mkdir -p .build/cmake/test
+cd .build/cmake/test
+../swiftpm/bin/swift-package init
+../swiftpm/bin/swift-test
