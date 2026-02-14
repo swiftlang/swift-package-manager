@@ -68,6 +68,8 @@ extension PackagePIFBuilder {
             self.outputPaths.compactMap { try? AbsolutePath(validating: $0) }
         }
 
+        public var pluginOutputDir: AbsolutePath
+
         public var sandboxProfile: SandboxProfile? = nil
 
         public init(
@@ -78,6 +80,7 @@ extension PackagePIFBuilder {
             workingDir: AbsolutePath?,
             inputPaths: [AbsolutePath],
             outputPaths: [String],
+            pluginOutputDir: AbsolutePath,
             sandboxProfile: SandboxProfile?
         ) {
             self.displayName = displayName
@@ -87,6 +90,7 @@ extension PackagePIFBuilder {
             self.workingDir = workingDir
             self.inputPaths = inputPaths
             self.outputPaths = outputPaths
+            self.pluginOutputDir = pluginOutputDir
             self.sandboxProfile = sandboxProfile
         }
     }

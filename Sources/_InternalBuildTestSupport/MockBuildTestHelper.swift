@@ -63,6 +63,8 @@ public func mockBuildPlan(
     platform: PackageModel.Platform? = nil,
     toolchain: PackageModel.Toolchain = try! MockToolchain(),
     graph: ModulesGraph,
+    pluginConfiguration: PluginConfiguration? = nil,
+    pluginTools: [ResolvedModule.ID: [String: PluginTool]] = [:],
     commonFlags: PackageModel.BuildFlags = .init(),
     indexStoreMode: BuildParameters.IndexStoreMode = .off,
     omitFramePointers: Bool? = nil,
@@ -132,6 +134,8 @@ public func mockBuildPlan(
         destinationBuildParameters: destinationParameters,
         toolsBuildParameters: hostParameters,
         graph: graph,
+        pluginConfiguration: pluginConfiguration,
+        pluginTools: pluginTools,
         fileSystem: fs,
         observabilityScope: observabilityScope
     )
