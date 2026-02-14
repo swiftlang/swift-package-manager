@@ -34,6 +34,7 @@ public struct ToolsVersion: Equatable, Hashable, Codable, Sendable {
     public static let v6_0 = ToolsVersion(version: "6.0.0")
     public static let v6_1 = ToolsVersion(version: "6.1.0")
     public static let v6_2 = ToolsVersion(version: "6.2.0")
+    public static let v6_3 = ToolsVersion(version: "6.3.0")
     public static let vNext = ToolsVersion(version: "999.0.0")
 
     /// The current tools version in use.
@@ -85,8 +86,19 @@ public struct ToolsVersion: Equatable, Hashable, Codable, Sendable {
     /// The underlying backing store.
     fileprivate let _version: Version
 
+    /// Experimental features
+    public enum ExperimentalFeature: String, Sendable, Codable {
+        case experimentalCGen
+    }
+    public let experimentalFeatures: Set<ExperimentalFeature>
+
+    /// Helpers for experimental
+    public var experimentalCGen: Bool {
+        self >= .v6_3 && experimentalFeatures.contains(.experimentalCGen)
+    }
+
     /// Create an instance of tools version from a given string.
-    public init?(string: String) {
+    public init?(string: String, experimentalFeatures: Set<ExperimentalFeature> = []) {
         guard let match = ToolsVersion.toolsVersionRegex.firstMatch(
             in: string, options: [], range: NSRange(location: 0, length: string.count)) else {
             return nil
@@ -100,6 +112,7 @@ public struct ToolsVersion: Equatable, Hashable, Codable, Sendable {
         let patch = patchRange.location != NSNotFound ? Int(string.substring(with: patchRange))! : 0
         // We ignore storing pre-release and build identifiers for now.
         _version = Version(major, minor, patch)
+        self.experimentalFeatures = experimentalFeatures
     }
 
     /// Create instance of tools version from a given version.
@@ -107,6 +120,12 @@ public struct ToolsVersion: Equatable, Hashable, Codable, Sendable {
     /// - precondition: prereleaseIdentifiers and buildMetadataIdentifier should not be present.
     public init(version: Version) {
         _version = version
+        experimentalFeatures = []
+    }
+
+    /// Override equality to ignore experimental features
+    public static func == (lhs: ToolsVersion, rhs: ToolsVersion) -> Bool {
+        lhs._version == rhs._version
     }
 
     private enum ValidationResult {

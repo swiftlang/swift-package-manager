@@ -837,4 +837,14 @@ final class ToolsVersionParserTests: XCTestCase {
         try version.validateToolsVersion(currentToolsVersion, packageIdentity: .plain("lunch"))
         XCTAssertEqual(version.description, "5.0.0")
     }
+
+    func testExperimentalFlag() throws {
+        let version = try ToolsVersionParser.parse(utf8String: "// swift-tools-version: 6.3;(experimentalCGen)")
+        XCTAssertEqual(version, ToolsVersion(version: .init(6, 3, 0)))
+        XCTAssertTrue(version.experimentalFeatures.contains(.experimentalCGen))
+
+        let version2 = try ToolsVersionParser.parse(utf8String: "// swift-tools-version: 6.3;(experimentalIgnored)")
+        XCTAssertEqual(version2, ToolsVersion(version: .init(6, 3, 0)))
+        XCTAssertTrue(version2.experimentalFeatures.isEmpty)
+    }
 }

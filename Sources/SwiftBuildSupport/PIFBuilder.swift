@@ -275,9 +275,9 @@ public final class PIFBuilder {
                     if package.manifest.toolsVersion >= .v6_0 {
                         // Set up dummy observability because we don't want to emit diagnostics for this before the actual
                         // build.
-                        let observability = ObservabilitySystem({ _, _ in }, outputStream: nil, logLevel: .info)
+                        let observability = ObservabilitySystem { _, _ in }
                         // Compute the generated files based on all results we have computed so far.
-                        (pluginDerivedSources, pluginDerivedResources) = ModulesGraph.computePluginGeneratedFiles(
+                        let pluginGeneratedFiles = ModulesGraph.computePluginGeneratedFiles(
                             target: module,
                             toolsVersion: package.manifest.toolsVersion,
                             additionalFileRules: self.parameters.additionalFileRules,
@@ -286,6 +286,11 @@ public final class PIFBuilder {
                             prebuildCommandResults: [],
                             observabilityScope: observability.topScope
                         )
+                        pluginDerivedSources = Sources(
+                                paths: pluginGeneratedFiles.sources.map(\.self),
+                                root: buildParameters.dataPath
+                            )
+                        pluginDerivedResources = pluginGeneratedFiles.resources.values.map(\.self)
                     } else {
                         pluginDerivedSources = .init(paths: [], root: package.path)
                         pluginDerivedResources = []
@@ -367,6 +372,7 @@ public final class PIFBuilder {
                             workingDir: package.path,
                             inputPaths: buildCommand.inputFiles,
                             outputPaths: buildCommand.outputFiles.map(\.pathString),
+                            pluginOutputDir: pluginOutputDir,
                             sandboxProfile:
                                 self.parameters.disableSandbox ?
                             nil :
