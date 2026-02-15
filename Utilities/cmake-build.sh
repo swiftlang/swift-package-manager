@@ -14,15 +14,18 @@
 ## run from the package root for swiftpm
 set -ex
 
+DEPS_ROOT=.build/checkouts
+[ -z "$1" ] || DEPS_ROOT=$1
+
 build-dep() {
     dep=$1; shift
     name=$1; shift
-    cmake -G Ninja -B .build/cmake/$dep -S .build/checkouts/$dep $DEPS -DBUILD_TESTING=NO $*
+    cmake -G Ninja -B .build/cmake/$dep -S $DEPS_ROOT/$dep $DEPS -DBUILD_TESTING=NO $*
     cmake --build .build/cmake/$dep
     DEPS="$DEPS -D${name}_DIR=$(pwd)/.build/cmake/${dep}/cmake/modules"
 }
 
-[ -d .build ] || swift package resolve
+[ -d .build/checkouts ] || swift package resolve
 
 rm -fr .build/cmake
 
@@ -33,8 +36,8 @@ build-dep swift-argument-parser ArgumentParser
 build-dep swift-driver SwiftDriver
 build-dep swift-collections SwiftCollections
 build-dep swift-asn1 SwiftASN1
-build-dep swift-certificates SwiftCertificates
 build-dep swift-crypto SwiftCrypto
+build-dep swift-certificates SwiftCertificates
 build-dep swift-tools-protocols SwiftToolsProtocols
 build-dep swift-build SwiftBuild
 build-dep swift-syntax SwiftSyntax
