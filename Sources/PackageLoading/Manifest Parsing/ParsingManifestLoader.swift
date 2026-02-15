@@ -82,7 +82,7 @@ public final class ParsingManifestLoader: ManifestLoaderProtocol {
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         delegateQueue: DispatchQueue
-    ) async throws -> Manifest {
+    ) throws(ManifestParserError) -> Manifest {
         let manifestContents: ByteString
         do {
             manifestContents = try fileSystem.readFileContents(manifestPath)
@@ -599,7 +599,7 @@ extension ManifestParseVisitor {
         var pluginCapability: TargetDescription.PluginCapability? = nil
         var settings: [TargetBuildSettingDescription.Setting] = []
         var pluginUsages: [TargetDescription.PluginUsage]? = nil
-        var packageAccess: Bool = true  // Default value per PackageDescription API
+        var packageAccess: Bool = false  // Default value per PackageDescription API
 
         for argument in functionCall.arguments {
             let label = argument.label?.text
@@ -2299,7 +2299,8 @@ extension VariableDeclSyntax {
         // No attributes, no modifiers, and a single "let" binding with an
         // identifier and an initializer.
         guard attributes.isEmpty, modifiers.isEmpty,
-              bindingSpecifier.tokenKind == .keyword(.let),
+              (bindingSpecifier.tokenKind == .keyword(.let) ||
+               bindingSpecifier.tokenKind == .keyword(.var)),
               let binding = bindings.first, bindings.count == 1,
               let identifier = binding.pattern.as(IdentifierPatternSyntax.self)?
                 .identifier.identifier,

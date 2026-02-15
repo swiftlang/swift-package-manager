@@ -71,6 +71,9 @@ public struct GlobalOptions: ParsableArguments {
 
     @OptionGroup(title: "Trait Options")
     public var traits: TraitOptions
+
+    @OptionGroup(title: "Manifest Options")
+    public var manifest: ManifestOptions
 }
 
 public struct LocationOptions: ParsableArguments {
@@ -860,6 +863,36 @@ public struct SBOMOptions: ParsableArguments {
             return !["false", "0", "no"].contains(lowercased)
         }
         return false
+    }
+}
+
+public struct ManifestOptions: ParsableArguments {
+    public init() {}
+
+    @Option(
+        name: .customLong("experimental-manifest-processing-mode"),
+        help: "Specifies how manifest files are processed"
+    )
+    public var manifestProcessingMode: ManifestProcessingMode = .crosscheck
+
+    @Flag(
+        name: .customLong("experimental-show-manifest-parser-limitations"),
+        help: "Show any manifest parser limitations uncovered in the manifest file"
+    )
+    public var showManifestParserLimitations: Bool = false
+
+    public enum ManifestProcessingMode: String, ExpressibleByArgument {
+        case onlyParsed
+        case onlyExecuted
+        case crosscheck
+        case parsedWithFallback
+
+        public static var allValueDescriptions: [String: String] {
+            ["only-parsed" : "Use the built-in manifest parser",
+             "only-executed" : "Build and execute the manifest",
+             "parsed-with-fallback": "Use the built-in manifest parser. If it encounters limitations, fall back to building and executing the manifest.",
+             "crosscheck" : "Use both the built-in manifest parser and also execute the manifest, cross-checking the results"]
+        }
     }
 }
 
