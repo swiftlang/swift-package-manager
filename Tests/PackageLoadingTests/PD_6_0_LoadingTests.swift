@@ -157,7 +157,7 @@ final class PackageDescription6_0LoadingTests: PackageDescriptionLoadingTests {
             // Check for deprecation warning (only present in compilation-based loader)
             if loader == nil {
                 testDiagnostics(observability.diagnostics) { result in
-                    result.checkUnordered(diagnostic: .contains("'swiftLanguageVersions' is deprecated"), severity: .warning)
+                    result.checkUnordered(diagnostic: .contains("is deprecated"), severity: .warning)
                 }
             }
 

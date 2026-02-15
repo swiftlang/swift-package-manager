@@ -236,12 +236,19 @@ final class PackageDescription5_7LoadingTests: PackageDescriptionLoadingTests {
                 )
                 """
 
-            let observability = ObservabilitySystem.makeForTesting()
-            let (_, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
-            XCTAssertNoDiagnostics(observability.diagnostics)
-            testDiagnostics(validationDiagnostics) { result in
-                result.checkUnordered(diagnostic: "unknown package 'org.baz' in dependencies of target 'Target1'; valid packages are: 'org.foo', 'org.bar'", severity: .error)
-                result.checkUnordered(diagnostic: "unknown dependency 'foos' in target 'Target2'; valid dependencies are: 'org.foo', 'org.bar'", severity: .error)
+            try await forEachManifestLoader { loader in
+                let observability = ObservabilitySystem.makeForTesting()
+                let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                    content,
+                    customManifestLoader: loader,
+                    observabilityScope: observability.topScope
+                )
+                XCTAssertNoDiagnostics(observability.diagnostics)
+                testDiagnostics(validationDiagnostics) { result in
+                    result.checkUnordered(diagnostic: "unknown package 'org.baz' in dependencies of target 'Target1'; valid packages are: 'org.foo', 'org.bar'", severity: .error)
+                    result.checkUnordered(diagnostic: "unknown dependency 'foos' in target 'Target2'; valid dependencies are: 'org.foo', 'org.bar'", severity: .error)
+                }
+                return manifest
             }
         }
     }

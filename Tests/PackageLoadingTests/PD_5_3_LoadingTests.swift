@@ -216,11 +216,18 @@ final class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
                 )
                 """
 
-            let observability = ObservabilitySystem.makeForTesting()
-            let (_, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
-            XCTAssertNoDiagnostics(observability.diagnostics)
-            testDiagnostics(validationDiagnostics) { result in
-                result.check(diagnostic: "invalid type for binary product 'FooLibrary'; products referencing only binary targets must be executable or automatic library products", severity: .error)
+            try await forEachManifestLoader { loader in
+                let observability = ObservabilitySystem.makeForTesting()
+                let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                    content,
+                    customManifestLoader: loader,
+                    observabilityScope: observability.topScope
+                )
+                XCTAssertNoDiagnostics(observability.diagnostics)
+                testDiagnostics(validationDiagnostics) { result in
+                    result.check(diagnostic: "invalid type for binary product 'FooLibrary'; products referencing only binary targets must be executable or automatic library products", severity: .error)
+                }
+                return manifest
             }
         }
 
@@ -239,10 +246,17 @@ final class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
                 )
                 """
 
-            let observability = ObservabilitySystem.makeForTesting()
-            let (_, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
-            XCTAssertNoDiagnostics(observability.diagnostics)
-            XCTAssertNoDiagnostics(validationDiagnostics)
+            try await forEachManifestLoader { loader in
+                let observability = ObservabilitySystem.makeForTesting()
+                let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                    content,
+                    customManifestLoader: loader,
+                    observabilityScope: observability.topScope
+                )
+                XCTAssertNoDiagnostics(observability.diagnostics)
+                XCTAssertNoDiagnostics(validationDiagnostics)
+                return manifest
+            }
         }
 
         do {
@@ -259,11 +273,18 @@ final class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
                 )
                 """
 
-            let observability = ObservabilitySystem.makeForTesting()
-            let (_, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
-            XCTAssertNoDiagnostics(observability.diagnostics)
-            testDiagnostics(validationDiagnostics) { result in
-                result.check(diagnostic: "invalid local path ' ' for binary target 'Foo', path expected to be relative to package root.", severity: .error)
+            try await forEachManifestLoader { loader in
+                let observability = ObservabilitySystem.makeForTesting()
+                let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                    content,
+                    customManifestLoader: loader,
+                    observabilityScope: observability.topScope
+                )
+                XCTAssertNoDiagnostics(observability.diagnostics)
+                testDiagnostics(validationDiagnostics) { result in
+                    result.check(diagnostic: "invalid local path ' ' for binary target 'Foo', path expected to be relative to package root.", severity: .error)
+                }
+                return manifest
             }
         }
 
@@ -281,11 +302,18 @@ final class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
                 )
                 """
 
-            let observability = ObservabilitySystem.makeForTesting()
-            let (_, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
-            XCTAssertNoDiagnostics(observability.diagnostics)
-            testDiagnostics(validationDiagnostics) { result in
-                result.check(diagnostic: "invalid URL scheme for binary target 'Foo'; valid schemes are: 'https'", severity: .error)
+            try await forEachManifestLoader { loader in
+                let observability = ObservabilitySystem.makeForTesting()
+                let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                    content,
+                    customManifestLoader: loader,
+                    observabilityScope: observability.topScope
+                )
+                XCTAssertNoDiagnostics(observability.diagnostics)
+                testDiagnostics(validationDiagnostics) { result in
+                    result.check(diagnostic: "invalid URL scheme for binary target 'Foo'; valid schemes are: 'https'", severity: .error)
+                }
+                return manifest
             }
         }
 
@@ -303,11 +331,18 @@ final class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
                 )
                 """
 
-            let observability = ObservabilitySystem.makeForTesting()
-            let (_, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
-            XCTAssertNoDiagnostics(observability.diagnostics)
-            testDiagnostics(validationDiagnostics) { result in
-                result.check(diagnostic: "unsupported extension for binary target 'Foo'; valid extensions are: 'artifactbundle', 'xcframework', 'zip'", severity: .error)
+            try await forEachManifestLoader { loader in
+                let observability = ObservabilitySystem.makeForTesting()
+                let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                    content,
+                    customManifestLoader: loader,
+                    observabilityScope: observability.topScope
+                )
+                XCTAssertNoDiagnostics(observability.diagnostics)
+                testDiagnostics(validationDiagnostics) { result in
+                    result.check(diagnostic: "unsupported extension for binary target 'Foo'; valid extensions are: 'artifactbundle', 'xcframework', 'zip'", severity: .error)
+                }
+                return manifest
             }
         }
 
@@ -328,11 +363,18 @@ final class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
                 )
                 """
 
-            let observability = ObservabilitySystem.makeForTesting()
-            let (_, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
-            XCTAssertNoDiagnostics(observability.diagnostics)
-            testDiagnostics(validationDiagnostics) { result in
-                result.check(diagnostic: "unsupported extension for binary target 'Foo'; valid extensions are: 'artifactbundleindex', 'zip'", severity: .error)
+            try await forEachManifestLoader { loader in
+                let observability = ObservabilitySystem.makeForTesting()
+                let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                    content,
+                    customManifestLoader: loader,
+                    observabilityScope: observability.topScope
+                )
+                XCTAssertNoDiagnostics(observability.diagnostics)
+                testDiagnostics(validationDiagnostics) { result in
+                    result.check(diagnostic: "unsupported extension for binary target 'Foo'; valid extensions are: 'artifactbundleindex', 'zip'", severity: .error)
+                }
+                return manifest
             }
         }
 
@@ -350,11 +392,18 @@ final class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
                 )
                 """
 
-            let observability = ObservabilitySystem.makeForTesting()
-            let (_, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
-            XCTAssertNoDiagnostics(observability.diagnostics)
-            testDiagnostics(validationDiagnostics) { result in
-                result.check(diagnostic: "unsupported extension for binary target 'Foo'; valid extensions are: 'artifactbundle', 'xcframework', 'zip'", severity: .error)
+            try await forEachManifestLoader { loader in
+                let observability = ObservabilitySystem.makeForTesting()
+                let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                    content,
+                    customManifestLoader: loader,
+                    observabilityScope: observability.topScope
+                )
+                XCTAssertNoDiagnostics(observability.diagnostics)
+                testDiagnostics(validationDiagnostics) { result in
+                    result.check(diagnostic: "unsupported extension for binary target 'Foo'; valid extensions are: 'artifactbundle', 'xcframework', 'zip'", severity: .error)
+                }
+                return manifest
             }
         }
 
@@ -375,11 +424,18 @@ final class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
                 )
                 """
 
-            let observability = ObservabilitySystem.makeForTesting()
-            let (_, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
-            XCTAssertNoDiagnostics(observability.diagnostics)
-            testDiagnostics(validationDiagnostics) { result in
-                result.check(diagnostic: "unsupported extension for binary target 'Foo'; valid extensions are: 'artifactbundleindex', 'zip'", severity: .error)
+            try await forEachManifestLoader { loader in
+                let observability = ObservabilitySystem.makeForTesting()
+                let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                    content,
+                    customManifestLoader: loader,
+                    observabilityScope: observability.topScope
+                )
+                XCTAssertNoDiagnostics(observability.diagnostics)
+                testDiagnostics(validationDiagnostics) { result in
+                    result.check(diagnostic: "unsupported extension for binary target 'Foo'; valid extensions are: 'artifactbundleindex', 'zip'", severity: .error)
+                }
+                return manifest
             }
         }
 
@@ -400,11 +456,18 @@ final class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
                 )
                 """
 
-            let observability = ObservabilitySystem.makeForTesting()
-            let (_, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
-            XCTAssertNoDiagnostics(observability.diagnostics)
-            testDiagnostics(validationDiagnostics) { result in
-                result.check(diagnostic: "invalid URL scheme for binary target 'Foo'; valid schemes are: 'https'", severity: .error)
+            try await forEachManifestLoader { loader in
+                let observability = ObservabilitySystem.makeForTesting()
+                let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                    content,
+                    customManifestLoader: loader,
+                    observabilityScope: observability.topScope
+                )
+                XCTAssertNoDiagnostics(observability.diagnostics)
+                testDiagnostics(validationDiagnostics) { result in
+                    result.check(diagnostic: "invalid URL scheme for binary target 'Foo'; valid schemes are: 'https'", severity: .error)
+                }
+                return manifest
             }
         }
 

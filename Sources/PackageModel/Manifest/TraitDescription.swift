@@ -47,4 +47,16 @@ extension TraitDescription {
     public var isDefault: Bool {
         self.name == "default"
     }
+    
+    private enum CodingKeys: String, CodingKey {
+        case name, description, enabledTraits
+    }
+    
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(name, forKey: .name)
+        try container.encodeIfPresent(description, forKey: .description)
+        // Sort enabledTraits for consistent JSON output
+        try container.encode(enabledTraits.sorted(), forKey: .enabledTraits)
+    }
 }

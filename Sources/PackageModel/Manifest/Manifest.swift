@@ -664,7 +664,7 @@ extension Manifest: Encodable {
         try container.encode(self.dependencies, forKey: .dependencies)
         try container.encode(self.products, forKey: .products)
         try container.encode(self.targets, forKey: .targets)
-        try container.encode(self.traits, forKey: .traits)
+        try container.encode(self.traits.sorted(by: { $0.name < $1.name }), forKey: .traits)
         try container.encode(self.platforms, forKey: .platforms)
         try container.encode(self.packageKind, forKey: .packageKind)
     }

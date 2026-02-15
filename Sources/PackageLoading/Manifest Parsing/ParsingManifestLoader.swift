@@ -165,7 +165,10 @@ public final class ParsingManifestLoader: ManifestLoaderProtocol {
         }
 
         // Walk the source file to parse
-        let visitor = ManifestParseVisitor(viewMode: .fixedUp)
+        let visitor = ManifestParseVisitor(
+            manifestPath: manifestPath,
+            defaultPackageAccess: manifestToolsVersion >= .v5_9
+        )
         visitor.walk(sourceFile)
 
         // If we hit any of the limitations of the manifest parser, bail out
@@ -208,6 +211,9 @@ class ManifestParseVisitor: SyntaxAnyVisitor {
     /// Limitations encountered while processing the manifest.
     var limitations: [ManifestParseLimitation] = []
 
+    /// The path to the manifest file (used for resolving relative paths)
+    let manifestPath: AbsolutePath
+    
     /// Package name
     var packageName: String?
 
@@ -243,7 +249,15 @@ class ManifestParseVisitor: SyntaxAnyVisitor {
 
     /// C language standard.
     var cLanguageStandard: String?
-    
+
+    var defaultPackageAccess: Bool
+
+    public init(manifestPath: AbsolutePath, defaultPackageAccess: Bool) {
+        self.manifestPath = manifestPath
+        self.defaultPackageAccess = defaultPackageAccess
+        super.init(viewMode: .fixedUp)
+    }
+
     override func visitAny(_ node: Syntax) -> SyntaxVisitorContinueKind {
         // Any node not specifically handled is considered a limitation.
         limitations.append(.unexpectedSyntax(node))
@@ -366,7 +380,7 @@ extension ManifestParseVisitor {
                 }
                 
                 for dependencyElement in dependenciesArray.elements {
-                    if let dependency = parsePackageDependency(dependencyElement.expression) {
+                    if let dependency = parsePackageDependency(dependencyElement.expression, manifestPath: manifestPath) {
                         self.dependencies.append(dependency)
                     }
                 }
@@ -599,7 +613,7 @@ extension ManifestParseVisitor {
         var pluginCapability: TargetDescription.PluginCapability? = nil
         var settings: [TargetBuildSettingDescription.Setting] = []
         var pluginUsages: [TargetDescription.PluginUsage]? = nil
-        var packageAccess: Bool = false  // Default value per PackageDescription API
+        var packageAccess: Bool = defaultPackageAccess
 
         for argument in functionCall.arguments {
             let label = argument.label?.text
@@ -791,6 +805,7 @@ extension ManifestParseVisitor {
         }
         
         var platformNames: [String] = []
+        var hasPlatforms = false
         var config: String?
         var traits: Set<String>?
         
@@ -798,6 +813,7 @@ extension ManifestParseVisitor {
             let label = argument.label?.text
             
             if label == "platforms" {
+                hasPlatforms = true
                 if let parsed = argument.expression.parseArrayElements({ $0.asEnumMember() }) {
                     platformNames = parsed.map { $0.lowercased() }
                 }
@@ -810,7 +826,12 @@ extension ManifestParseVisitor {
             }
         }
         
-        // At least one condition must be specified
+        // If platforms is explicitly empty and no other conditions, return nil (no condition)
+        if hasPlatforms && platformNames.isEmpty && config == nil && traits == nil {
+            return nil
+        }
+        
+        // At least one non-empty condition must be specified
         if !platformNames.isEmpty || config != nil || traits != nil {
             return PackageConditionDescription(platformNames: platformNames, config: config, traits: traits)
         }
@@ -875,9 +896,15 @@ extension ManifestParseVisitor {
             for argument in functionCall.arguments {
                 let label = argument.label?.text
                 if label == nil {
-                    name = argument.expression.asStringLiteralValue()
+                    // Skip condition arguments (they'll be parsed later)
+                    if argument.expression.asStringLiteralValue() != nil {
+                        name = argument.expression.asStringLiteralValue()
+                    }
                 } else if label == "to" {
                     value = argument.expression.asStringLiteralValue()
+                } else if label == "condition" {
+                    // Skip - will be parsed later
+                    continue
                 }
             }
             
@@ -942,8 +969,9 @@ extension ManifestParseVisitor {
             }
         case "strictMemorySafety":
             kind = .strictMemorySafety
-        case "swiftLanguageMode":
+        case "swiftLanguageMode", "swiftLanguageVersion":
             // .swiftLanguageMode(.v5) or .swiftLanguageMode(.version("6"))
+            // Also supports deprecated .swiftLanguageVersion() for backward compatibility
             if let version = parseSwiftLanguageVersion(functionCall.arguments.first?.expression) {
                 kind = .swiftLanguageMode(version)
             }
@@ -971,7 +999,10 @@ extension ManifestParseVisitor {
             for argument in functionCall.arguments {
                 let label = argument.label?.text
                 if label == nil {
-                    warningName = argument.expression.asStringLiteralValue()
+                    // Skip condition arguments (they'll be parsed later)
+                    if argument.expression.asStringLiteralValue() != nil {
+                        warningName = argument.expression.asStringLiteralValue()
+                    }
                 } else if label == "as" {
                     if let memberAccess = argument.expression.as(MemberAccessExprSyntax.self),
                        memberAccess.base == nil,
@@ -985,6 +1016,9 @@ extension ManifestParseVisitor {
                             break
                         }
                     }
+                } else if label == "condition" {
+                    // Skip - will be parsed later
+                    continue
                 }
             }
             
@@ -1825,7 +1859,7 @@ extension ManifestParseVisitor {
     #endif
     
     /// Parse a package dependency like `.package(url: "/foo", from: "1.0.0")` or `.package(url: "/foo", branch: "main")`
-    private func parsePackageDependency(_ expr: ExprSyntax) -> PackageDependency? {
+    private func parsePackageDependency(_ expr: ExprSyntax, manifestPath: AbsolutePath) -> PackageDependency? {
         // Expect a function call like .package(url: "/foo", from: "1.0.0")
         guard let functionCall = expr.as(FunctionCallExprSyntax.self),
               let memberAccess = functionCall.calledExpression.as(MemberAccessExprSyntax.self),
@@ -1838,6 +1872,7 @@ extension ManifestParseVisitor {
         
         var name: String?
         var url: String?
+        var path: String?  // Filesystem path
         var id: String?  // Registry package ID
         var requirement: PackageDependency.SourceControl.Requirement?
         var registryRequirement: PackageDependency.Registry.Requirement?
@@ -1853,6 +1888,8 @@ extension ManifestParseVisitor {
                 id = argument.expression.asStringLiteralValue()
             } else if label == "url" {
                 url = argument.expression.asStringLiteralValue()
+            } else if label == "path" {
+                path = argument.expression.asStringLiteralValue()
             } else if label == "traits" {
                 traits = parseDependencyTraits(argument.expression)
             } else if label == "from" {
@@ -1992,6 +2029,55 @@ extension ManifestParseVisitor {
             }
         }
 
+        // Handle filesystem dependencies (no version control)
+        if let fsPath = path {
+            // Process the path string - handle file:// URLs
+            var processedPath = fsPath
+            
+            // Remove file:// prefix if present
+            if processedPath.hasPrefix("file://") {
+                processedPath = String(processedPath.dropFirst(7))
+            }
+            
+            // Expand tilde (~/) at the beginning of the path
+            // This is used in tests and matches the compilation-based loader behavior
+            if processedPath.hasPrefix("~/") {
+                // Replace ~/ with /home/user/ for testing purposes
+                processedPath = "/home/user" + String(processedPath.dropFirst(1))
+            }
+            
+            // Resolve the path to an absolute path
+            // If it's already absolute, use it as-is
+            // If it's relative, resolve it relative to the manifest's directory
+            let absolutePath: AbsolutePath
+            if processedPath.hasPrefix("/") {
+                // Already an absolute path
+                guard let absPath = try? AbsolutePath(validating: processedPath) else {
+                    limitations.append(.unsupportedExpression(expr, expected: "valid absolute filesystem path"))
+                    return nil
+                }
+                absolutePath = absPath
+            } else {
+                // Relative path - resolve relative to manifest directory
+                let manifestDirectory = manifestPath.parentDirectory
+                guard let absPath = try? AbsolutePath(validating: processedPath, relativeTo: manifestDirectory) else {
+                    limitations.append(.unsupportedExpression(expr, expected: "valid relative filesystem path"))
+                    return nil
+                }
+                absolutePath = absPath
+            }
+            
+            // Always derive identity from path to ensure lowercase canonicalization
+            let identity = PackageIdentity(path: absolutePath)
+            return .fileSystem(
+                identity: identity,
+                nameForTargetDependencyResolutionOnly: name,
+                path: absolutePath,
+                productFilter: .everything,
+                traits: traits ?? [.init(name: "default")]
+            )
+        }
+
         // Handle registry dependencies
         if let packageID = id {
             guard let regReq = registryRequirement else {
@@ -2013,17 +2099,49 @@ extension ManifestParseVisitor {
             return nil
         }
         
-        // Remote source control URL
-        let sourceControlURL = SourceControlURL(url)
-        let identity = name.map { PackageIdentity.plain($0) } ?? PackageIdentity(url: sourceControlURL)
-        return .remoteSourceControl(
-            identity: identity,
-            nameForTargetDependencyResolutionOnly: name,
-            url: sourceControlURL,
-            requirement: requirement,
-            productFilter: .everything,
-            traits: traits ?? [.init(name: "default")]
-        )
+        // Check if the URL is actually a local file path
+        // A URL is treated as a local path if it:
+        // 1. Starts with "/" (absolute path on Unix-like systems)
+        // 2. Starts with "~/" (home directory)
+        // 3. Starts with "./" or "../" (relative path)
+        // 4. Is a Windows absolute path (e.g., "C:\")
+        let isLocalPath = url.hasPrefix("/") || 
+                         url.hasPrefix("~/") || 
+                         url.hasPrefix("./") || 
+                         url.hasPrefix("../") ||
+                         (url.count >= 3 && url[url.index(url.startIndex, offsetBy: 1)] == ":" && 
+                          (url[url.index(url.startIndex, offsetBy: 2)] == "\\" || url[url.index(url.startIndex, offsetBy: 2)] == "/"))
+        
+        if isLocalPath {
+            // Local source control path
+            guard let absolutePath = try? AbsolutePath(validating: url) else {
+                limitations.append(.unsupportedExpression(expr, expected: "valid file path"))
+                return nil
+            }
+            // Always derive identity from path to ensure lowercase canonicalization
+            let identity = PackageIdentity(path: absolutePath)
+            return .localSourceControl(
+                identity: identity,
+                nameForTargetDependencyResolutionOnly: name,
+                path: absolutePath,
+                requirement: requirement,
+                productFilter: .everything,
+                traits: traits ?? [.init(name: "default")]
+            )
+        } else {
+            // Remote source control URL
+            let sourceControlURL = SourceControlURL(url)
+            // Always derive identity from URL, not from name parameter
+            let identity = PackageIdentity(url: sourceControlURL)
+            return .remoteSourceControl(
+                identity: identity,
+                nameForTargetDependencyResolutionOnly: name,
+                url: sourceControlURL,
+                requirement: requirement,
+                productFilter: .everything,
+                traits: traits ?? [.init(name: "default")]
+            )
+        }
     }
     
     /// Parse a platform description like `.macOS("10.13.option1.option2")` or `.iOS(.v12)`

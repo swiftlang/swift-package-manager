@@ -18,7 +18,7 @@ import XCTest
 
 class PackageDescription6_2LoadingTests: PackageDescriptionLoadingTests {
     override var toolsVersion: ToolsVersion {
-        .v6_0  // TODO: Update to .v6_2 when it's available
+        .v6_2
     }
 
     func testWarningControlFlags() async throws {

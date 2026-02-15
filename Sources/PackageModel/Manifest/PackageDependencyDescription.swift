@@ -533,3 +533,63 @@ extension PackageDependency.Registry.Requirement: Encodable {
         }
     }
 }
+
+extension PackageDependency.FileSystem {
+    private enum CodingKeys: String, CodingKey {
+        case identity, nameForTargetDependencyResolutionOnly, path, productFilter, traits
+    }
+    
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(identity, forKey: .identity)
+        try container.encode(nameForTargetDependencyResolutionOnly, forKey: .nameForTargetDependencyResolutionOnly)
+        try container.encode(path, forKey: .path)
+        try container.encode(productFilter, forKey: .productFilter)
+        // Sort traits by name for consistent JSON output
+        if let traits = traits {
+            try container.encode(traits.sorted(by: { $0.name < $1.name }), forKey: .traits)
+        } else {
+            try container.encodeNil(forKey: .traits)
+        }
+    }
+}
+
+extension PackageDependency.SourceControl {
+    private enum CodingKeys: String, CodingKey {
+        case identity, nameForTargetDependencyResolutionOnly, location, requirement, productFilter, traits
+    }
+    
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(identity, forKey: .identity)
+        try container.encode(nameForTargetDependencyResolutionOnly, forKey: .nameForTargetDependencyResolutionOnly)
+        try container.encode(location, forKey: .location)
+        try container.encode(requirement, forKey: .requirement)
+        try container.encode(productFilter, forKey: .productFilter)
+        // Sort traits by name for consistent JSON output
+        if let traits = traits {
+            try container.encode(traits.sorted(by: { $0.name < $1.name }), forKey: .traits)
+        } else {
+            try container.encodeNil(forKey: .traits)
+        }
+    }
+}
+
+extension PackageDependency.Registry {
+    private enum CodingKeys: String, CodingKey {
+        case identity, requirement, productFilter, traits
+    }
+    
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(identity, forKey: .identity)
+        try container.encode(requirement, forKey: .requirement)
+        try container.encode(productFilter, forKey: .productFilter)
+        // Sort traits by name for consistent JSON output
+        if let traits = traits {
+            try container.encode(traits.sorted(by: { $0.name < $1.name }), forKey: .traits)
+        } else {
+            try container.encodeNil(forKey: .traits)
+        }
+    }
+}
