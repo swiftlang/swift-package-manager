@@ -37,33 +37,41 @@ extension SwiftPackageCommand {
         var sbom: SBOMOptions
 
         func run(_ swiftCommandState: SwiftCommandState) async throws {
-            guard try !sbom.sbomSpecs.isEmpty else {
-                throw SBOMModel.SBOMCommandError.noSpecArg
+            do {
+                guard try !sbom.sbomSpecs.isEmpty else {
+                    throw SBOMModel.SBOMCommandError.noSpecArg
+                }
+                
+                let workspace = try swiftCommandState.getActiveWorkspace()
+                let packageGraph = try await workspace.loadPackageGraph(
+                    rootInput: swiftCommandState.getWorkspaceRoot(),
+                    explicitProduct: self.product,
+                    forceResolvedVersions: self.globalOptions.resolver.forceResolvedVersions,
+                    observabilityScope: swiftCommandState.observabilityScope
+                )
+                let resolvedPackagesStore = try workspace.resolvedPackagesStore.load()
+
+                let input = SBOMInput(
+                    modulesGraph: packageGraph,
+                    dependencyGraph: nil,
+                    store: resolvedPackagesStore,
+                    filter: try self.sbom.sbomFilter,
+                    product: self.product,
+                    specs: try self.sbom.sbomSpecs,
+                    dir: await SBOMCreator.resolveSBOMDirectory(from: self.sbom.sbomDirectory, withDefault: try swiftCommandState.productsBuildParameters.buildPath),
+                    observabilityScope: swiftCommandState.observabilityScope
+                )
+
+                let creator = SBOMCreator(input: input)
+                try await creator.createSBOMsWithLogging()
+                swiftCommandState.observabilityScope.emit(warning: "`generate-sbom` subcommand may be inaccurate as it does not contain build-time conditionals.")
+            } catch {
+                if sbom.sbomWarningOnly {
+                    swiftCommandState.observabilityScope.emit(warning: "SBOM generation failed: \(error.localizedDescription)")
+                } else {
+                    throw error
+                }
             }
-            
-            let workspace = try swiftCommandState.getActiveWorkspace()
-            let packageGraph = try await workspace.loadPackageGraph(
-                rootInput: swiftCommandState.getWorkspaceRoot(),
-                explicitProduct: self.product,
-                forceResolvedVersions: self.globalOptions.resolver.forceResolvedVersions,
-                observabilityScope: swiftCommandState.observabilityScope
-            )
-            let resolvedPackagesStore = try workspace.resolvedPackagesStore.load()
-
-            let input = SBOMInput(
-                modulesGraph: packageGraph,
-                dependencyGraph: nil,
-                store: resolvedPackagesStore,
-                filter: try self.sbom.sbomFilter,
-                product: self.product,
-                specs: try self.sbom.sbomSpecs,
-                dir: await SBOMCreator.resolveSBOMDirectory(from: self.sbom.sbomDirectory, withDefault: try swiftCommandState.productsBuildParameters.buildPath),
-                observabilityScope: swiftCommandState.observabilityScope
-            )
-
-            let creator = SBOMCreator(input: input)
-            try await creator.createSBOMsWithLogging()
-            swiftCommandState.observabilityScope.emit(warning: "`generate-sbom` subcommand may be inaccurate as it does not contain build-time conditionals.")
         }
     }
 }
