@@ -42,7 +42,7 @@ extension BuildSystemProvider.Kind {
         for config: BuildConfiguration,
         scratchPath: [String] = [".build"],
         triple: String? = nil,
-    ) -> [String] {
+    ) throws -> [String] {
         let suffix: String
         let tripleString: String
         let targetTriple: Triple
