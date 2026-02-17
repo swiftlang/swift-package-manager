@@ -281,7 +281,7 @@ struct APIDiffTests {
         arguments: SupportedBuildSystemOnAllPlatforms
     )
     func testAPIDiffOfModuleWithCDependency(buildSystem: BuildSystemProvider.Kind) async throws {
-        try await withKnownIssue(isIntermittent: true) {
+        try await withKnownIssue {
             try await fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
                 let packageRoot = fixturePath.appending("CTargetDep")
                 // Overwrite the existing decl.
@@ -306,7 +306,11 @@ struct APIDiffTests {
                 }
             }
         } when: {
+            #if compiler(>=6.3)
+            false
+            #else
             buildSystem == .swiftbuild && [.macOS, .linux].contains(ProcessInfo.hostOperatingSystem) // <unknown>:0: error: missing required module 'Foo'
+            #endif
         }
     }
 
@@ -319,7 +323,7 @@ struct APIDiffTests {
         arguments: SupportedBuildSystemOnAllPlatforms
     )
     func testAPIDiffOfVendoredCDependency(buildSystem: BuildSystemProvider.Kind) async throws {
-        try await withKnownIssue(isIntermittent: true) {
+        try await withKnownIssue {
             try await fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
                 let packageRoot = fixturePath.appending("CIncludePath")
                 let (output, _) = try await execute(["diagnose-api-breaking-changes", "main"], packagePath: packageRoot, buildSystem: buildSystem)
@@ -327,7 +331,11 @@ struct APIDiffTests {
                 #expect(output.contains("No breaking changes detected in Sample"))
             }
         } when: {
+            #if compiler(>=6.3)
+            false
+            #else
             buildSystem == .swiftbuild && [.macOS, .linux].contains(ProcessInfo.hostOperatingSystem) // <unknown>:0: error: missing required module 'Foo'
+            #endif
         }
     }
 

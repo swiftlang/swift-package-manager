@@ -41,8 +41,8 @@ struct TestCommandTests {
             packagePath,
             configuration: configuration,
             extraArgs: args,
-            throwIfCommandFails: throwIfCommandFails,
             buildSystem: buildSystem,
+            throwIfCommandFails: throwIfCommandFails,
         )
     }
 
@@ -115,21 +115,17 @@ struct TestCommandTests {
     }
 
     @Test(
-        .SWBINTTODO("Windows: Driver threw unable to load output file map"),
         .tags(
             .Feature.CommandLineArguments.Toolset,
         ),
+        .IssueWindowsPathNoEntry,
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func toolsetRunner(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-
         let configuration = BuildConfiguration.debug
-        try await withKnownIssue(
-            "Windows: Driver threw unable to load output file map",
-            isIntermittent: true
-        ) {
+        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
                 #if os(Windows)
                     let win32 = ".win32"
@@ -150,22 +146,16 @@ struct TestCommandTests {
                 #expect(stdout.contains("\(fixturePath)"))
 
                 // swift-build-tool output should go to stderr.
-                withKnownIssue {
-                    #expect(stderr.contains("Compiling"))
-                } when: {
-                    buildSystem == .swiftbuild // && ProcessInfo.hostOperatingSystem != .macOS
-                }
-
-                withKnownIssue {
-                    #expect(stderr.contains("Linking"))
-                } when: {
-                    buildSystem == .swiftbuild // && ProcessInfo.hostOperatingSystem != .macOS
+                switch buildSystem {
+                    case .native:
+                        #expect(stderr.contains("Compiling"))
+                        #expect(stderr.contains("Linking"))
+                    case .swiftbuild, .xcode:
+                        break
                 }
             }
         } when: {
-            (buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows)
-            || (buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .linux && CiEnvironment.runningInSmokeTestPipeline)
-            || (buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .linux && CiEnvironment.runningInSelfHostedPipeline) // error: SwiftCompile normal x86_64 /tmp/Miscellaneous_EchoExecutable.sxkNTX/Miscellaneous_EchoExecutable/.build/x86_64-unknown-linux-gnu/Intermediates.noindex/EchoExecutable.build/Debug-linux/TestSuite-test-runner.build/DerivedSources/test_entry_point.swift failed with a nonzero exit code
+            ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild
         }
     }
 
@@ -360,8 +350,8 @@ struct TestCommandTests {
                         fixturePath,
                         configuration: configuration,
                         extraArgs: [],
-                        throwIfCommandFails: true,
                         buildSystem: buildSystem,
+                        throwIfCommandFails: true,
                     )
                 }
                 guard case SwiftPMError.executionFailure(_, let stdout, _) = try #require(error) else {
@@ -961,15 +951,15 @@ struct TestCommandTests {
         .tags(
             .Feature.TargetType.Executable,
         ),
-        .SWBINTTODO("Fails to find test executable"),
         .issue("https://github.com/swiftlang/swift-package-manager/pull/8722", relationship: .fixedBy),
+        .IssueWindowsPathNoEntry,
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func enableTestDiscoveryDeprecation(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let configuration = BuildConfiguration.debug
-        try await withKnownIssue("Fails to find test executable") {
+        try await withKnownIssue {
             let compilerDiagnosticFlags = ["-Xswiftc", "-Xfrontend", "-Xswiftc", "-Rmodule-interface-rebuild"]
             // should emit when LinuxMain is present
             try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
@@ -983,8 +973,8 @@ struct TestCommandTests {
             }
 
             #if canImport(Darwin)
+                // should emit when LinuxMain is not present
                 let expected = true
-            // should emit when LinuxMain is not present
             #else
                 // should not emit when LinuxMain is present
                 let expected = false
@@ -1090,7 +1080,6 @@ struct TestCommandTests {
                 #expect(listStdout.contains("SimpleTests.SimpleTests/testThrowing"))
             } when: {
                 (configuration == .release && ProcessInfo.hostOperatingSystem != .macOS)
-                || (buildSystem == .swiftbuild && [.linux].contains(ProcessInfo.hostOperatingSystem))
                 || (buildSystem == .swiftbuild && [.windows].contains(ProcessInfo.hostOperatingSystem)) && configuration == .debug
             }
         }
@@ -1103,6 +1092,7 @@ struct TestCommandTests {
         ),
         .SWBINTTODO("Fails to find test executable"),
         .issue("https://github.com/swiftlang/swift-package-manager/pull/8722", relationship: .fixedBy),
+        .IssueWindowsPathNoEntry,
         .tags(
             Tag.Feature.Command.Build,
         ),
@@ -1112,10 +1102,11 @@ struct TestCommandTests {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let configuration = BuildConfiguration.debug
-        try await withKnownIssue("Failed to find test executable, or getting error: module 'Simple' was not compiled for testing, onMacOS", isIntermittent: true) {
+        try await withKnownIssue(
+            isIntermittent: true
+        ) {
             try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
                 // build first
-                try await withKnownIssue("Failed to save attachment", isIntermittent: true) {
                     // This might be intermittently failing on windows
                     let (buildStdout, _) = try await executeSwiftBuild(
                         fixturePath,
@@ -1124,9 +1115,6 @@ struct TestCommandTests {
                         buildSystem: buildSystem,
                     )
                     #expect(buildStdout.contains("Build complete!"))
-                } when: {
-                    ProcessInfo.hostOperatingSystem == .windows
-                }
 
                 // list while skipping build
                 let (listStdout, listStderr) = try await execute(["list", "--skip-build"], packagePath: fixturePath, buildSystem: buildSystem)
@@ -1137,6 +1125,8 @@ struct TestCommandTests {
                 #expect(listStdout.contains("SimpleTests.SimpleTests/test_Example2"))
                 #expect(listStdout.contains("SimpleTests.SimpleTests/testThrowing"))
             }
+        } when: {
+            ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild
         }
     }
 
@@ -1203,6 +1193,7 @@ struct TestCommandTests {
         ),
         .skipHostOS(.macOS),  // because this was guarded with `#if !canImport(Darwin)`
         .SWBINTTODO("This is a PIF builder missing GUID problem. Further investigation is needed."),
+        .IssueWindowsPathNoEntry,
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func generatedMainIsConcurrencySafe_XCTest(
@@ -1221,15 +1212,17 @@ struct TestCommandTests {
                 #expect(!stderr.contains("is not concurrency-safe"))
             }
         } when: {
-            (buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem != .linux)
+            ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild
         }
     }
+
     @Test(
          .tags(
             .Feature.TargetType.Executable,
         ),
         .skipHostOS(.macOS),  // because this was guarded with `#if !canImport(Darwin)`
         .SWBINTTODO("This is a PIF builder missing GUID problem. Further investigation is needed."),
+        .IssueWindowsPathNoEntry,
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func generatedMainIsExistentialAnyClean(
@@ -1248,7 +1241,7 @@ struct TestCommandTests {
                 #expect(!stderr.contains("error: use of protocol"))
             }
         } when: {
-            (buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem != .linux)
+            ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild
         }
     }
 
@@ -1291,13 +1284,14 @@ struct TestCommandTests {
         ),
         .SWBINTTODO("Fails to find test executable"),
         .issue("https://github.com/swiftlang/swift-package-manager/pull/8722", relationship: .fixedBy),
+        .IssueWindowsPathNoEntry,
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func XCTestOnlyDoesNotLogAboutNoMatchingTests(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let configuration = BuildConfiguration.debug
-        try await withKnownIssue("Fails to find test executable",  isIntermittent: true) {
+        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
                 let (_, stderr) = try await execute(
                     ["--disable-swift-testing"],
@@ -1308,7 +1302,7 @@ struct TestCommandTests {
                 #expect(!stderr.contains("No matching test cases were run"))
             }
         } when: {
-            buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows
+            ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild
         }
     }
 

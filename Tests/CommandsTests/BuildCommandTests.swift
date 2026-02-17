@@ -1469,7 +1469,7 @@ struct BuildCommandTestCases {
                     buildSystem: buildSystem,
                 )
                 let mainOFile = try fixturePath.appending(buildSystemAndOutputLocation(buildSystem: buildSystem, configuration: config))
-                let initialMainOMtime = try FileManager.default.attributesOfItem(atPath: mainOFile.pathString)[.modificationDate] as? Date
+                let initialMainOMtime = try #require(FileManager.default.attributesOfItem(atPath: mainOFile.pathString)[.modificationDate] as? Date)
 
                 _ = try await build(
                     flags,
@@ -1479,11 +1479,11 @@ struct BuildCommandTestCases {
                     buildSystem: buildSystem,
                 )
 
-                let subsequentMainOMtime = try FileManager.default.attributesOfItem(atPath: mainOFile.pathString)[.modificationDate] as? Date
+                let subsequentMainOMtime = try #require(FileManager.default.attributesOfItem(atPath: mainOFile.pathString)[.modificationDate] as? Date)
                 #expect(initialMainOMtime == subsequentMainOMtime, "Expected no rebuild to occur when using flags \(flags), but the file was modified.")
             }
         } when: {
-            buildSystem == .swiftbuild
+            buildSystem == .swiftbuild && [.windows, .linux].contains(ProcessInfo.hostOperatingSystem)
         }
     }
 
