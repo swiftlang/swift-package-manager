@@ -80,6 +80,9 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
     private let buildSystem: SwiftBuildSystem
     private let workspace: Workspace
 
+    // Track exitHandler call count to detect double-calls
+    private static var exitHandlerCallCount:Int = 0
+
     public let messageHandlingHelper = QueueBasedMessageHandlerHelper(
         signpostLoggingCategory: "build-server-message-handling",
         createLoggingScope: false
@@ -115,6 +118,7 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
     var exitHandler: (Int) -> Void
 
     public init(packageRoot: Basics.AbsolutePath, buildSystem: SwiftBuildSystem, workspace: Workspace, connectionToClient: any Connection, exitHandler: @escaping (Int) -> Void) async throws {
+        print("[DEBUG] SwiftPMBuildServer: Initializing...")
         self.packageRoot = packageRoot
         self.buildSystem = buildSystem
         self.workspace = workspace
@@ -131,28 +135,59 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
             derivedDataPath: self.buildSystem.buildParameters.buildPath,
             symbolGraphOptions: nil
         )
+        print("[DEBUG] SwiftPMBuildServer: Creating underlying SWBBuildServer...")
         self.underlyingBuildServer = SWBBuildServer(
             session: session.session,
             containerPath: buildSystem.buildParameters.pifManifest.pathString,
             buildRequest: buildrequest,
             connectionToClient: connectionFromUnderlyingBuildServer,
-            exitHandler: { _ in
+            exitHandler: { exitCode in
+                let entryTime = Date()
+
+                SwiftPMBuildServer.exitHandlerCallCount += 1;
+                let callNumber = SwiftPMBuildServer.exitHandlerCallCount
+
+                print("[DEBUG] SwiftPMBuildServer: exitHandler ENTERED (call #\(callNumber)) with code \(exitCode) at \(entryTime)")
+                print("[DEBUG] SwiftPMBuildServer: Call stack: \(Thread.callStackSymbols.prefix(10).joined(separator: "\n  "))")
+                do {
+                    print("[DEBUG] SwiftPMBuildServer: [Call #\(callNumber), T+0s] Calling session.teardownHandler()...")
+                    try await session.teardownHandler()
+                    let elapsed = Date().timeIntervalSince(entryTime)
+                    print("[DEBUG] SwiftPMBuildServer: [Call #\(callNumber), T+\(String(format: "%.3f", elapsed))s] session.teardownHandler() completed")
+                } catch {
+                    let elapsed = Date().timeIntervalSince(entryTime)
+                    print("[ERROR] SwiftPMBuildServer: [Call #\(callNumber), T+\(String(format: "%.3f", elapsed))s] session.teardownHandler() failed: \(error)")
+                }
+                let elapsed = Date().timeIntervalSince(entryTime)
+                print("[DEBUG] SwiftPMBuildServer: [Call #\(callNumber), T+\(String(format: "%.3f", elapsed))s] Closing connection to underlying build server")
                 connectionToUnderlyingBuildServer.close()
-                try? await session.teardownHandler()
+                let finalElapsed = Date().timeIntervalSince(entryTime)
+                print("[DEBUG] SwiftPMBuildServer: [Call #\(callNumber), T+\(String(format: "%.3f", finalElapsed))s] exitHandler EXITING")
             }
         )
+        print("[DEBUG] SwiftPMBuildServer: Starting connections...")
         connectionToUnderlyingBuildServer.start(handler: underlyingBuildServer)
         connectionFromUnderlyingBuildServer.start(handler: self)
+        print("[DEBUG] SwiftPMBuildServer: Initialization complete")
     }
 
     public func handle(notification: some NotificationType) async {
         switch notification {
         case is OnBuildExitNotification:
-            connectionToUnderlyingBuildServer.send(notification)
+            let timestamp = Date()
+            print("[DEBUG] SwiftPMBuildServer: [\(timestamp)] Received OnBuildExitNotification, state=\(state)")
+            print("[DEBUG] SwiftPMBuildServer: Call stack: \(Thread.callStackSymbols.prefix(10).joined(separator: "\n  "))")
+            // Don't forward OnBuildExitNotification to underlying server - we handle exit ourselves
+            // Forwarding it would cause the underlying server to call our exitHandler again,
+            // resulting in session.teardownHandler() being called twice
             if state == .shutdown {
+                print("[DEBUG] SwiftPMBuildServer: [\(timestamp)] State is shutdown, calling exitHandler(0)")
                 exitHandler(0)
+                print("[DEBUG] SwiftPMBuildServer: [\(Date())] exitHandler(0) call returned")
             } else {
+                print("[DEBUG] SwiftPMBuildServer: [\(timestamp)] State is \(state), calling exitHandler(1)")
                 exitHandler(1)
+                print("[DEBUG] SwiftPMBuildServer: [\(Date())] exitHandler(1) call returned")
             }
         case is OnBuildInitializedNotification:
             connectionToUnderlyingBuildServer.send(notification)
@@ -192,8 +227,37 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
         switch request {
         case let request as RequestAndReply<BuildShutdownRequest>:
             await request.reply {
-                _ = try await connectionToUnderlyingBuildServer.send(request.params)
-                return await shutdown()
+                print("[DEBUG] SwiftPMBuildServer: Handling shutdown request, sending to underlying server...")
+                do {
+                    // Add timeout to prevent infinite wait
+                    let shutdownResponse = try await withThrowingTaskGroup(of: VoidResponse.self) { group in
+                        // Task 1: Send shutdown to underlying server
+                        group.addTask {
+                            print("[DEBUG] SwiftPMBuildServer: Sending shutdown to underlying server...")
+                            let response = try await self.connectionToUnderlyingBuildServer.send(request.params)
+                            print("[DEBUG] SwiftPMBuildServer: Underlying server responded to shutdown")
+                            return response
+                        }
+
+                        // Task 2: Timeout after 30 seconds
+                        group.addTask {
+                            try await Task.sleep(nanoseconds: 30_000_000_000)
+                            print("[ERROR] SwiftPMBuildServer: Shutdown request timed out after 30 seconds!")
+                            throw CancellationError()
+                        }
+
+                        // Wait for first task to complete
+                        let result = try await group.next()!
+                        group.cancelAll()
+                        return result
+                    }
+                    print("[DEBUG] SwiftPMBuildServer: Calling local shutdown()...")
+                    return await shutdown()
+                } catch {
+                    print("[ERROR] SwiftPMBuildServer: Shutdown failed with error: \(error)")
+                    // Still try to shutdown locally even if underlying server didn't respond
+                    return await shutdown()
+                }
             }
         case let request as RequestAndReply<BuildTargetPrepareRequest>:
             await request.reply {
@@ -315,7 +379,9 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
     }
 
     private func shutdown() -> VoidResponse {
+        print("[DEBUG] SwiftPMBuildServer: shutdown() called, setting state to .shutdown")
         state = .shutdown
+        print("[DEBUG] SwiftPMBuildServer: shutdown() completed, state is now \(state)")
         return VoidResponse()
     }
 
