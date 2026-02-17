@@ -56,7 +56,7 @@ extension SwiftPM {
     }
 
     public var xctestBinaryPath: AbsolutePath {
-        Self.xctestBinaryPath(for: RelativePath("swift-package-manager"))
+        Self.xctestBinaryPath(for: RelativePath(self.executableName))
     }
 
     public static func xctestBinaryPath(for executableName: RelativePath) -> AbsolutePath {
@@ -172,6 +172,7 @@ public enum SwiftPMError: Error {
     case executionFailure(underlying: Error, stdout: String, stderr: String)
 }
 
+@available(*, deprecated, message: "Use SwiftPMError instead")
 public enum SwiftPMProductError: Swift.Error {
     case packagePathNotFound
     case executionFailure(error: Swift.Error, output: String, stderr: String)
