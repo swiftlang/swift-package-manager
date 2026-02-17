@@ -95,6 +95,7 @@ public struct ManifestValidator {
     }
 
     private func validateTraits() -> [Basics.Diagnostic] {
+        // TODO bp add trait validation here.
         var diagnostics = [Basics.Diagnostic]()
 
         if self.manifest.traits.count > 300 {
@@ -126,6 +127,7 @@ public struct ManifestValidator {
                 }
             }
         }
+
 
         return diagnostics
     }

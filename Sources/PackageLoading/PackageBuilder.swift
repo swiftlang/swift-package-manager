@@ -93,17 +93,6 @@ public enum ModuleError: Swift.Error {
         scmPackage: PackageIdentity,
         modules: [String]
     )
-
-    /// Indicates that an invalid trait was enabled.
-    case invalidTrait(
-        package: PackageIdentity,
-        trait: String
-    )
-    
-    case disablingDefaultTraitsOnEmptyTraits(
-        parentPackage: PackageIdentity,
-        packageName: String
-    )
 }
 
 extension ModuleError: CustomStringConvertible {
@@ -181,14 +170,6 @@ extension ModuleError: CustomStringConvertible {
             this may indicate that the two packages are the same and can be de-duplicated \
             by activating the automatic source-control to registry replacement, or by using mirrors. \
             if they are not duplicate consider using the `moduleAliases` parameter in manifest to provide unique names
-            """
-        case .invalidTrait(let package, let trait):
-            return """
-            Trait '"\(trait)"' is not declared by package '\(package)'.
-            """
-        case .disablingDefaultTraitsOnEmptyTraits(let parentPackage, let packageName):
-            return """
-            Disabled default traits by package '\(parentPackage)' on package '\(packageName)' that declares no traits. This is prohibited to allow packages to adopt traits initially without causing an API break.
             """
         }
     }

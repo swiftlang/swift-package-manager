@@ -105,6 +105,12 @@ public struct FileSystemPackageContainer: PackageContainer {
         return package.withName(manifest.displayName)
     }
 
+    public func loadPackageTraits(at boundVersion: BoundVersion) async throws -> Set<TraitDescription> {
+        assert(boundVersion == .unversioned, "Unexpected bound version \(boundVersion)")
+        let manifest = try await loadManifest()
+        return manifest.traits
+    }
+
     public func isToolsVersionCompatible(at version: Version) -> Bool {
         fatalError("This should never be called")
     }

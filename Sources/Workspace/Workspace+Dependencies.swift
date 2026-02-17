@@ -196,6 +196,13 @@ extension Workspace {
             observabilityScope: observabilityScope
         )
 
+        // Update traits; validation check.
+        try await self.updateTraits(
+            manifests: updatedDependencyManifests,
+            addedOrUpdatedPackages: addedOrUpdatedPackages,
+            observabilityScope: observabilityScope
+        )
+
         return packageStateChanges
     }
 
@@ -479,6 +486,13 @@ extension Workspace {
             observabilityScope: observabilityScope
         )
 
+        // Update traits; validation check
+        try await self.updateTraits(
+            manifests: currentManifests,
+            addedOrUpdatedPackages: [],
+            observabilityScope: observabilityScope
+        )
+
         let precomputationResult = try await self.precomputeResolution(
             root: graphRoot,
             dependencyManifests: currentManifests,
@@ -586,6 +600,12 @@ extension Workspace {
                     observabilityScope: observabilityScope
                 )
 
+                try await self.updateTraits(
+                    manifests: currentManifests,
+                    addedOrUpdatedPackages: [],
+                    observabilityScope: observabilityScope
+                )
+
                 return currentManifests
             case .required(let reason):
                 delegate?.willResolveDependencies(reason: reason)
@@ -661,6 +681,13 @@ extension Workspace {
             observabilityScope: observabilityScope
         )
 
+        // Update traits; validation check.
+        try await self.updateTraits(
+            manifests: updatedDependencyManifests,
+            addedOrUpdatedPackages: addedOrUpdatedPackages,
+            observabilityScope: observabilityScope
+        )
+
         return updatedDependencyManifests
     }
 
@@ -680,6 +707,8 @@ extension Workspace {
         observabilityScope: ObservabilityScope
     ) async -> [(PackageReference, PackageStateChange)] {
         // Get the update package states from resolved results.
+
+        // TODO bp should traits be included in the package state changes?
         guard let packageStateChanges = await observabilityScope.trap({
             try await self.computePackageStateChanges(
                 root: root,
@@ -907,7 +936,8 @@ extension Workspace {
         }
 
         guard let requiredDependencies = observabilityScope
-            .trap({ try dependencyManifests.requiredPackages.filter(\.kind.isResolvable) })
+            .trap({ try
+                dependencyManifests.requiredPackages.filter(\.kind.isResolvable) })
         else {
             return nil
         }
