@@ -187,11 +187,13 @@ struct LLBuildManifestBuilderTests {
         let plan = try await BuildPlan(
             destinationBuildParameters: mockBuildParameters(
                 destination: .target,
+                buildSystemKind: .native,
                 shouldLinkStaticSwiftStdlib: true,
                 triple: productsTriple
             ),
             toolsBuildParameters: mockBuildParameters(
                 destination: .host,
+                buildSystemKind: .native,
                 triple: toolsTriple
             ),
             graph: graph,

@@ -66,10 +66,12 @@ final class SourceKitLSPAPITests: XCTestCase {
         let plan = try await BuildPlan(
             destinationBuildParameters: mockBuildParameters(
                 destination: .target,
+                buildSystemKind: .native,
                 shouldLinkStaticSwiftStdlib: true
             ),
             toolsBuildParameters: mockBuildParameters(
                 destination: .host,
+                buildSystemKind: .native,
                 shouldLinkStaticSwiftStdlib: true
             ),
             graph: graph,
@@ -153,10 +155,12 @@ final class SourceKitLSPAPITests: XCTestCase {
         let plan = try await BuildPlan(
             destinationBuildParameters: mockBuildParameters(
                 destination: .target,
+                buildSystemKind: .native,
                 shouldLinkStaticSwiftStdlib: true
             ),
             toolsBuildParameters: mockBuildParameters(
                 destination: .host,
+                buildSystemKind: .native,
                 shouldLinkStaticSwiftStdlib: true
             ),
             graph: graph,
@@ -224,10 +228,12 @@ final class SourceKitLSPAPITests: XCTestCase {
         let plan = try await BuildPlan(
             destinationBuildParameters: mockBuildParameters(
                 destination: .target,
+                buildSystemKind: .native,
                 shouldLinkStaticSwiftStdlib: true
             ),
             toolsBuildParameters: mockBuildParameters(
                 destination: .host,
+                buildSystemKind: .native,
                 shouldLinkStaticSwiftStdlib: true
             ),
             graph: graph,
@@ -280,7 +286,7 @@ final class SourceKitLSPAPITests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let destinationBuildParameters = mockBuildParameters(destination: .target)
+        let destinationBuildParameters = mockBuildParameters(destination: .target, buildSystemKind: .native)
         try await withTemporaryDirectory { tmpDir in
             let pluginConfiguration = PluginConfiguration(
                 scriptRunner: DefaultPluginScriptRunner(
@@ -295,7 +301,7 @@ final class SourceKitLSPAPITests: XCTestCase {
 
             let loaded = try await BuildDescription.load(
                 destinationBuildParameters: destinationBuildParameters,
-                toolsBuildParameters: mockBuildParameters(destination: .host),
+                toolsBuildParameters: mockBuildParameters(destination: .host, buildSystemKind: .native),
                 packageGraph: graph,
                 pluginConfiguration: pluginConfiguration,
                 traitConfiguration: TraitConfiguration(),
@@ -347,10 +353,12 @@ final class SourceKitLSPAPITests: XCTestCase {
         let plan = try await BuildPlan(
             destinationBuildParameters: mockBuildParameters(
                 destination: .target,
+                buildSystemKind: .native,
                 shouldLinkStaticSwiftStdlib: true
             ),
             toolsBuildParameters: mockBuildParameters(
                 destination: .host,
+                buildSystemKind: .native,
                 shouldLinkStaticSwiftStdlib: true
             ),
             graph: graph,

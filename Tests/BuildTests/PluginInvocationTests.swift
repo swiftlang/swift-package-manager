@@ -235,7 +235,8 @@ final class PluginInvocationTests: XCTestCase {
         let pluginRunner = MockPluginScriptRunner()
         let buildParameters = mockBuildParameters(
             destination: .host,
-            environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+            environment: BuildEnvironment(platform: .macOS, configuration: .debug),
+            buildSystem: .swiftbuild,
         )
 
         let results = try await invokeBuildToolPlugins(
@@ -968,7 +969,8 @@ final class PluginInvocationTests: XCTestCase {
                 let outputDir = packageDir.appending(".build")
                 let buildParameters = mockBuildParameters(
                     destination: .host,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug),
+                    buildSystem: .swiftbuild,
                 )
 
                 let result = try await invokeBuildToolPlugins(
@@ -1110,7 +1112,8 @@ final class PluginInvocationTests: XCTestCase {
                 let outputDir = packageDir.appending(".build")
                 let buildParameters = mockBuildParameters(
                     destination: .host,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug),
+                    buildSystem: .swiftbuild,
                 )
 
                 let result = try await invokeBuildToolPlugins(
@@ -1464,7 +1467,8 @@ final class PluginInvocationTests: XCTestCase {
             let outputDir = packageDir.appending(".build")
             let buildParameters = mockBuildParameters(
                 destination: .host,
-                environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                environment: BuildEnvironment(platform: .macOS, configuration: .debug),
+                buildSystem: .swiftbuild,
             )
 
             return try await invokeBuildToolPlugins(

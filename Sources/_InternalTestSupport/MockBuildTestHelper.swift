@@ -89,7 +89,7 @@ public func mockBuildParameters(
     config: BuildConfiguration = .debug,
     toolchain: PackageModel.Toolchain = try! MockToolchain(),
     flags: PackageModel.BuildFlags = PackageModel.BuildFlags(),
-    buildSystemKind: BuildSystemProvider.Kind = .swiftbuild,
+    buildSystemKind: BuildSystemProvider.Kind,
     shouldLinkStaticSwiftStdlib: Bool = false,
     shouldDisableLocalRpath: Bool = false,
     canRenameEntrypointFunctionName: Bool = false,
@@ -136,7 +136,8 @@ public func mockBuildParameters(
 
 public func mockBuildParameters(
     destination: BuildParameters.Destination,
-    environment: BuildEnvironment
+    environment: BuildEnvironment,
+    buildSystem: BuildSystemProvider.Kind,
 ) -> BuildParameters {
     let triple: Basics.Triple
     switch environment.platform {
@@ -155,6 +156,7 @@ public func mockBuildParameters(
     return mockBuildParameters(
         destination: destination,
         config: environment.configuration ?? .debug,
-        triple: triple
+        buildSystemKind: buildSystem,
+        triple: triple,
     )
 }

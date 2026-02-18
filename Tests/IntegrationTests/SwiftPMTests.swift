@@ -84,7 +84,7 @@ private struct SwiftPMTests {
             Tag.Feature.Command.Package.Init,
             Tag.Feature.PackageType.Executable,
         ),
-        arguments: SupportedBuildSystemOnPlatform,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func packageInitExecutable(_ buildSystemProvider: BuildSystemProvider.Kind) throws {
         try withTemporaryDirectory { tmpDir in

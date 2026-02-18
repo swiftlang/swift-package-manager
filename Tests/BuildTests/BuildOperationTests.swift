@@ -80,11 +80,12 @@ final class BuildOperationTests: XCTestCase {
                     destination: .target,
                     buildPath: scratchDirectory.appending(triple.tripleString),
                     config: .debug,
+                    buildSystemKind: .native,
                     triple: triple
                 )
                 let buildOp = mockBuildOperation(
                     productsBuildParameters: targetBuildParameters,
-                    toolsBuildParameters: mockBuildParameters(destination: .host),
+                    toolsBuildParameters: mockBuildParameters(destination: .host, buildSystemKind: .native),
                     cacheBuildManifest: false,
                     packageGraphLoader: { packageGraph },
                     scratchDirectory: scratchDirectory,
@@ -113,11 +114,12 @@ final class BuildOperationTests: XCTestCase {
                         destination: .target,
                         buildPath: scratchDirectory.appending(triple.tripleString),
                         config: .debug,
+                        buildSystemKind: .native,
                         triple: triple
                     )
                     let buildOp = mockBuildOperation(
                         productsBuildParameters: targetBuildParameters,
-                        toolsBuildParameters: mockBuildParameters(destination: .host),
+                        toolsBuildParameters: mockBuildParameters(destination: .host, buildSystemKind: .native),
                         cacheBuildManifest: true,
                         packageGraphLoader: { packageGraph },
                         scratchDirectory: scratchDirectory,
@@ -138,8 +140,8 @@ final class BuildOperationTests: XCTestCase {
     func testHostProductsAndTargetsWithoutExplicitDestination() async throws {
         let mock  = try macrosTestsPackageGraph()
 
-        let hostParameters = mockBuildParameters(destination: .host)
-        let targetParameters = mockBuildParameters(destination: .target)
+        let hostParameters = mockBuildParameters(destination: .host, buildSystemKind: .native)
+        let targetParameters = mockBuildParameters(destination: .target, buildSystemKind: .native)
         let op = mockBuildOperation(
             productsBuildParameters: targetParameters,
             toolsBuildParameters: hostParameters,

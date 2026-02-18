@@ -55,7 +55,7 @@ fileprivate func withGeneratedPIF(
     let buildParameters = if let buildParameters {
         buildParameters
     } else {
-       mockBuildParameters(destination: .host)
+       mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
     }
     try await fixture(name: fixtureName) { fixturePath in
         let observabilitySystem: TestingObservability = ObservabilitySystem.makeForTesting(verbose: false)
@@ -416,7 +416,11 @@ struct PIFBuilderTests {
          ) async throws {
             try await withGeneratedPIF(
                 fromFixture: "PIFBuilder/Simple",
-                buildParameters: mockBuildParameters(destination: .host, indexStoreMode: indexStoreSettingUT),
+                buildParameters: mockBuildParameters(
+                    destination: .host,
+                    buildSystemKind: .swiftbuild,
+                    indexStoreMode: indexStoreSettingUT
+                ),
             ) { pif, observabilitySystem in
                 // #expect(false, "fail purposefully...")
                 #expect(observabilitySystem.diagnostics.filter {
