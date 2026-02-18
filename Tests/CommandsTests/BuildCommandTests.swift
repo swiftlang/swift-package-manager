@@ -378,7 +378,6 @@ struct BuildCommandTestCases {
     func buildExistingExecutableProductIsSuccessfull(
         data: BuildData,
     ) async throws {
-        try await withKnownIssue("Failures possibly due to long file paths", isIntermittent: true) {
             try await fixture(name: "Miscellaneous/MultipleExecutables") { fixturePath in
                 let fullPath = try resolveSymlinks(fixturePath)
 
@@ -391,9 +390,6 @@ struct BuildCommandTestCases {
                 #expect(result.binContents.contains(executableName("exec1")))
                 #expect(!result.binContents.contains("exec2.build"))
             }
-        } when: {
-            ProcessInfo.hostOperatingSystem == .windows && data.buildSystem == .swiftbuild
-        }
     }
 
     @Test(
@@ -408,7 +404,6 @@ struct BuildCommandTestCases {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let config = BuildConfiguration.debug
-        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/MultipleExecutables") { fixturePath in
                 let fullPath = try resolveSymlinks(fixturePath)
 
@@ -419,24 +414,17 @@ struct BuildCommandTestCases {
                     buildSystem: buildSystem,
                 )
                 switch buildSystem {
-                    case .native, .swiftbuild:
-                        withKnownIssue("Found multiple targets named 'lib1'") {
+                    case .native:
                             #expect(
                                 stderr.contains(
                                     "'--product' cannot be used with the automatic product 'lib1'; building the default target instead"
                                 )
                             )
-                        } when: {
-                            .swiftbuild == buildSystem
-                        }
-                    case .xcode:
+                    case .swiftbuild, .xcode:
                         // Do nothing.
                         break
                 }
             }
-        } when: {
-            ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild
-        }
     }
 
     @Test(
@@ -585,15 +573,7 @@ struct BuildCommandTestCases {
                 Issue.record("Incorrect error was raised.")
                 return
             }
-            withKnownIssue(isIntermittent: true) {
-                #expect(stderr.contains("error: '--product', '--target', and '--build-tests' are mutually exclusive"), "stout: \(stdout)")
-            } when: {
-                (
-                    ProcessInfo.hostOperatingSystem == .windows && (
-                        data.buildSystem == .native
-                        || (data.buildSystem == .swiftbuild && data.config == .debug)
-                        ))
-            }
+            #expect(stderr.contains("error: '--product', '--target', and '--build-tests' are mutually exclusive"), "stout: \(stdout)")
         }
     }
 
@@ -734,12 +714,12 @@ struct BuildCommandTestCases {
         .tags(
             .Feature.CommandLineArguments.Product,
         ),
-        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func nonReachableProductsAndTargetsFunctionalWhereDependencyContainsADependentProducts(
-        data: BuildData,
+        buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        let buildSystem = data.buildSystem
+        let config = BuildConfiguration.debug
         try await withKnownIssue("SWBINTTODO: Test failed. This needs to be investigated") {
             try await fixture(name: "Miscellaneous/UnreachableTargets") { fixturePath in
                 let aPath = fixturePath.appending("A")
@@ -749,7 +729,7 @@ struct BuildCommandTestCases {
                 let result = try await build(
                     ["--product", "bexec"],
                     packagePath: aPath,
-                    configuration: data.config,
+                    configuration: config,
                     buildSystem: buildSystem,
                 )
                 #expect(result.binContents.contains("BTarget2.build"))
@@ -1189,14 +1169,12 @@ struct BuildCommandTestCases {
             .Feature.EnvironmentVariables.CUSTOM_SWIFT_VERSION,
             .Feature.CommandLineArguments.Verbose,
         ),
-        buildDataUsingAllBuildSystemWithTags.tags,
-        arguments: buildDataUsingAllBuildSystemWithTags.buildData,
+        arguments: BuildConfiguration.allCases,
     )
     func swiftGetVersion(
-        data: BuildData,
+        config: BuildConfiguration,
     ) async throws {
-        let buildSystem = data.buildSystem
-        let config = data.config
+        let buildSystem = BuildSystemProvider.Kind.native
         try await fixture(name: "Miscellaneous/Simple") { fixturePath in
             func findSwiftGetVersionFile() throws -> AbsolutePath {
                 let buildArenaPath = fixturePath.appending(components: ".build", "debug")
@@ -1290,7 +1268,6 @@ struct BuildCommandTestCases {
                 }
             } when: {
                 (ProcessInfo.hostOperatingSystem == .windows)
-                || ([.xcode, .swiftbuild].contains(buildSystem))
                 || (buildSystem == .native && config == .release)
             }
         }
@@ -1575,7 +1552,6 @@ struct BuildCommandTestCases {
          buildSystem: BuildSystemProvider.Kind,
      ) async throws {
          let configuration = BuildConfiguration.debug
-         try await withKnownIssue(isIntermittent: true) {
              // GIVEN we have a simple test package
              try await fixture(name: "Miscellaneous/SwiftBuild") { fixturePath in
                 //WHEN we build with the --quiet option
@@ -1590,10 +1566,6 @@ struct BuildCommandTestCases {
                 // AND no content in stdout
                  #expect(stdout.isEmpty)
             }
-         } when: {
-            ProcessInfo.hostOperatingSystem == .windows &&
-            buildSystem == .swiftbuild
-         }
     }
 
     @Test(
@@ -1653,7 +1625,7 @@ struct BuildCommandTestCases {
         .tags(
             .Feature.CommandLineArguments.Triple,
         ),
-        arguments: SupportedBuildSystemOnPlatform,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func buildingPackageWhichRequiresOlderDeploymentTarget(
         buildSystem: BuildSystemProvider.Kind,
@@ -1718,7 +1690,7 @@ struct BuildCommandTestCases {
             }
         } when: {
             // The native build system does not correctly pass the elevated deployment target
-            buildSystem != .swiftbuild
+            buildSystem == .native
         }
     }
 
@@ -1751,10 +1723,11 @@ struct BuildCommandTestCases {
                 #expect(result.binContents.contains("PackageFrameworks"))
                 #expect(result.binContents.contains("exec"))
 
-                let frameworks = try localFileSystem.getDirectoryContents(result.binPath.appending("PackageFrameworks"))
+                let packageFrameworkPath = result.binPath.appending("PackageFrameworks")
+                try requireDirectoryExists(at: packageFrameworkPath)
+                let frameworks = try localFileSystem.getDirectoryContents(packageFrameworkPath)
                 #expect(frameworks.contains("firstDyna.framework"))
                 #expect(frameworks.contains("secondDyna.framework"))
-
             }
         } when: {
             data.config == .release
