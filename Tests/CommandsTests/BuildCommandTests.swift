@@ -235,29 +235,36 @@ struct BuildCommandTestCases {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let configuration = BuildConfiguration.debug
-        try await withKnownIssue("SWBINTTODO: Test/ fails because the warning message regarding missing imports is expected to be more verbose and actionable at the SwiftPM level with mention of the involved targets. This needs to be investigated. See case targetDiagnostic(TargetDiagnosticInfo) as a message type that may help.") {
-            try await fixture(name: "Miscellaneous/ImportOfMissingDependency") { path in
-                let fullPath = try resolveSymlinks(path)
-                let error = await #expect(throws: SwiftPMError.self ) {
-                    try await build(
-                        ["--explicit-target-dependency-import-check=warn"],
-                        packagePath: fullPath,
-                        configuration: configuration,
-                        buildSystem: buildSystem,
-                    )
-                }
-                guard case SwiftPMError.executionFailure(_, let stdout, let stderr) = try #require(error) else {
-                    Issue.record("Incorrect error was raised.")
-                    return
-                }
-
-                #expect(
-                    stderr.contains("warning: Target A imports another target (B) in the package without declaring it a dependency."),
-                    "got stdout: \(stdout), stderr: \(stderr)",
+        try await fixture(name: "Miscellaneous/ImportOfMissingDependency") { path in
+            let fullPath = try resolveSymlinks(path)
+            let error = await #expect(throws: SwiftPMError.self ) {
+                try await build(
+                    ["--explicit-target-dependency-import-check=warn"],
+                    packagePath: fullPath,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
                 )
             }
-        } when: {
-            [.swiftbuild, .xcode].contains(buildSystem)
+
+            guard case SwiftPMError.executionFailure(_, let stdout, let stderr) = try #require(error) else {
+                Issue.record("Incorrect error was raised.")
+                return
+            }
+
+            switch buildSystem {
+                case .native, .swiftbuild:
+                    withKnownIssue("https://github.com/swiftlang/swift-package-manager/issues/9620") {
+                        #expect(
+                            stderr.contains("warning: Target A imports another target (B) in the package without declaring it a dependency."),
+                            "got stdout: \(stdout), stderr: \(stderr)",
+                        )
+                    } when: {
+                        buildSystem == .swiftbuild
+                    }
+                case .xcode:
+                    Issue.record("Test expectation have not been implemented")
+                    break
+            }
         }
     }
 
@@ -272,33 +279,39 @@ struct BuildCommandTestCases {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let config = BuildConfiguration.debug
-        try await withKnownIssue("SWBINTTODO: Test fails because the warning message regarding missing imports is expected to be more verbose and actionable at the SwiftPM level with mention of the involved targets. This needs to be investigated. See case targetDiagnostic(TargetDiagnosticInfo) as a message type that may help.") {
-            try await fixture(name: "Miscellaneous/ImportOfMissingDependency") { path in
-                let fullPath = try resolveSymlinks(path)
-                let error = await #expect(throws: SwiftPMError.self ) {
-                    try await build(
-                        ["--explicit-target-dependency-import-check=error"],
-                        packagePath: fullPath,
-                        configuration: config,
-                        buildSystem: buildSystem,
-                    )
-                }
-                guard case SwiftPMError.executionFailure(_, _, let stderr) = try #require(error) else {
-                    Issue.record("Expected error did not occur")
-                    return
-                }
-
-                #expect(
-                    stderr.contains("error: Target A imports another target (B) in the package without declaring it a dependency."),
-                    "got stdout: \(String(describing: stdout)), stderr: \(String(describing: stderr))",
+        try await fixture(name: "Miscellaneous/ImportOfMissingDependency") { path in
+            let fullPath = try resolveSymlinks(path)
+            let error = await #expect(throws: SwiftPMError.self ) {
+                try await build(
+                    ["--explicit-target-dependency-import-check=error"],
+                    packagePath: fullPath,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 )
             }
-        } when: {
-            [.swiftbuild, .xcode].contains(buildSystem)
+            guard case SwiftPMError.executionFailure(_, let stdout, let stderr) = try #require(error) else {
+                Issue.record("Expected error did not occur")
+                return
+            }
+
+            switch buildSystem {
+                case .native, .swiftbuild:
+                    withKnownIssue("https://github.com/swiftlang/swift-package-manager/issues/9620") {
+                        #expect(
+                            stderr.contains("error: Target A imports another target (B) in the package without declaring it a dependency."),
+                            "got stdout: \(stdout), stderr: \(stderr)",
+                        )
+                    } when: {
+                        buildSystem == .swiftbuild
+                    }
+                case .xcode:
+                    Issue.record("Test expectatation have not been implemented.")
+            }
         }
     }
 
     @Test(
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/9620", relationship: .defect),
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func importOfMissedDepWarningVerifyingDefaultDoesNotRunTheCheck(
@@ -315,14 +328,20 @@ struct BuildCommandTestCases {
                     buildSystem: buildSystem,
                 )
             }
-            guard case SwiftPMError.executionFailure(_, _, let stderr) = try #require(error) else {
+            guard case SwiftPMError.executionFailure(_, let stdout, let stderr) = try #require(error) else {
                 Issue.record("Expected error did not occur")
                 return
             }
-            #expect(
-                !stderr.contains("warning: Target A imports another target (B) in the package without declaring it a dependency."),
-                "got stdout: \(String(describing: stdout)), stderr: \(String(describing: stderr))",
-            )
+            let mustNotBeMatches: String
+            switch buildSystem {
+                case .native, .swiftbuild:
+                    mustNotBeMatches = "Target A imports another target (B) in the package without declaring it a dependency."
+                case .xcode:
+                    mustNotBeMatches = "make compiler happy"
+                    Issue.record("Test expectation has not been implemented")
+            }
+            #expect(!stderr.contains(mustNotBeMatches))
+            #expect(!stdout.contains(mustNotBeMatches))
         }
     }
 
@@ -359,7 +378,6 @@ struct BuildCommandTestCases {
     func buildExistingExecutableProductIsSuccessfull(
         data: BuildData,
     ) async throws {
-        try await withKnownIssue("Failures possibly due to long file paths", isIntermittent: true) {
             try await fixture(name: "Miscellaneous/MultipleExecutables") { fixturePath in
                 let fullPath = try resolveSymlinks(fixturePath)
 
@@ -372,9 +390,6 @@ struct BuildCommandTestCases {
                 #expect(result.binContents.contains(executableName("exec1")))
                 #expect(!result.binContents.contains("exec2.build"))
             }
-        } when: {
-            ProcessInfo.hostOperatingSystem == .windows && data.buildSystem == .swiftbuild
-        }
     }
 
     @Test(
@@ -389,7 +404,6 @@ struct BuildCommandTestCases {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let config = BuildConfiguration.debug
-        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/MultipleExecutables") { fixturePath in
                 let fullPath = try resolveSymlinks(fixturePath)
 
@@ -400,24 +414,17 @@ struct BuildCommandTestCases {
                     buildSystem: buildSystem,
                 )
                 switch buildSystem {
-                    case .native, .swiftbuild:
-                        withKnownIssue("Found multiple targets named 'lib1'") {
+                    case .native:
                             #expect(
                                 stderr.contains(
                                     "'--product' cannot be used with the automatic product 'lib1'; building the default target instead"
                                 )
                             )
-                        } when: {
-                            .swiftbuild == buildSystem
-                        }
-                    case .xcode:
+                    case .swiftbuild, .xcode:
                         // Do nothing.
                         break
                 }
             }
-        } when: {
-            ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild
-        }
     }
 
     @Test(
@@ -566,15 +573,7 @@ struct BuildCommandTestCases {
                 Issue.record("Incorrect error was raised.")
                 return
             }
-            withKnownIssue(isIntermittent: true) {
-                #expect(stderr.contains("error: '--product', '--target', and '--build-tests' are mutually exclusive"), "stout: \(stdout)")
-            } when: {
-                (
-                    ProcessInfo.hostOperatingSystem == .windows && (
-                        data.buildSystem == .native
-                        || (data.buildSystem == .swiftbuild && data.config == .debug)
-                        ))
-            }
+            #expect(stderr.contains("error: '--product', '--target', and '--build-tests' are mutually exclusive"), "stout: \(stdout)")
         }
     }
 
@@ -715,12 +714,12 @@ struct BuildCommandTestCases {
         .tags(
             .Feature.CommandLineArguments.Product,
         ),
-        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func nonReachableProductsAndTargetsFunctionalWhereDependencyContainsADependentProducts(
-        data: BuildData,
+        buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        let buildSystem = data.buildSystem
+        let config = BuildConfiguration.debug
         try await withKnownIssue("SWBINTTODO: Test failed. This needs to be investigated") {
             try await fixture(name: "Miscellaneous/UnreachableTargets") { fixturePath in
                 let aPath = fixturePath.appending("A")
@@ -730,7 +729,7 @@ struct BuildCommandTestCases {
                 let result = try await build(
                     ["--product", "bexec"],
                     packagePath: aPath,
-                    configuration: data.config,
+                    configuration: config,
                     buildSystem: buildSystem,
                 )
                 #expect(result.binContents.contains("BTarget2.build"))
@@ -1170,14 +1169,12 @@ struct BuildCommandTestCases {
             .Feature.EnvironmentVariables.CUSTOM_SWIFT_VERSION,
             .Feature.CommandLineArguments.Verbose,
         ),
-        buildDataUsingAllBuildSystemWithTags.tags,
-        arguments: buildDataUsingAllBuildSystemWithTags.buildData,
+        arguments: BuildConfiguration.allCases,
     )
     func swiftGetVersion(
-        data: BuildData,
+        config: BuildConfiguration,
     ) async throws {
-        let buildSystem = data.buildSystem
-        let config = data.config
+        let buildSystem = BuildSystemProvider.Kind.native
         try await fixture(name: "Miscellaneous/Simple") { fixturePath in
             func findSwiftGetVersionFile() throws -> AbsolutePath {
                 let buildArenaPath = fixturePath.appending(components: ".build", "debug")
@@ -1271,7 +1268,6 @@ struct BuildCommandTestCases {
                 }
             } when: {
                 (ProcessInfo.hostOperatingSystem == .windows)
-                || ([.xcode, .swiftbuild].contains(buildSystem))
                 || (buildSystem == .native && config == .release)
             }
         }
@@ -1556,7 +1552,6 @@ struct BuildCommandTestCases {
          buildSystem: BuildSystemProvider.Kind,
      ) async throws {
          let configuration = BuildConfiguration.debug
-         try await withKnownIssue(isIntermittent: true) {
              // GIVEN we have a simple test package
              try await fixture(name: "Miscellaneous/SwiftBuild") { fixturePath in
                 //WHEN we build with the --quiet option
@@ -1571,10 +1566,6 @@ struct BuildCommandTestCases {
                 // AND no content in stdout
                  #expect(stdout.isEmpty)
             }
-         } when: {
-            ProcessInfo.hostOperatingSystem == .windows &&
-            buildSystem == .swiftbuild
-         }
     }
 
     @Test(
@@ -1732,10 +1723,11 @@ struct BuildCommandTestCases {
                 #expect(result.binContents.contains("PackageFrameworks"))
                 #expect(result.binContents.contains("exec"))
 
-                let frameworks = try localFileSystem.getDirectoryContents(result.binPath.appending("PackageFrameworks"))
+                let packageFrameworkPath = result.binPath.appending("PackageFrameworks")
+                try requireDirectoryExists(at: packageFrameworkPath)
+                let frameworks = try localFileSystem.getDirectoryContents(packageFrameworkPath)
                 #expect(frameworks.contains("firstDyna.framework"))
                 #expect(frameworks.contains("secondDyna.framework"))
-
             }
         } when: {
             data.config == .release

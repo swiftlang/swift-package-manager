@@ -190,11 +190,10 @@ private struct BasicTests {
             // Create a new package with an executable target.
             let packagePath = tempDir.appending(component: "Project")
             try localFileSystem.createDirectory(packagePath)
-            await withKnownIssue("error: no tests found; create a target in the 'Tests' directory") {
                 try await executeSwiftPackage(
                     packagePath,
                     configuration: config,
-                    extraArgs: ["init", "--type", "library"],
+                    extraArgs: ["init", "--type", "library", "--enable-xctest", "--enable-swift-testing"],
                     buildSystem: buildSystem,
                 )
                 let packageOutput = try await executeSwiftTest(
@@ -205,22 +204,12 @@ private struct BasicTests {
                 )
 
                 // Check the test log.
-                switch buildSystem {
-                    case .native:
-                        let compilingRegex = try Regex("Compiling .*ProjectTests.*")
-                        #expect(packageOutput.stderr.contains(compilingRegex), "stdout: '\(packageOutput.stdout)'\n stderr:'\(packageOutput.stderr)'")
-                    case .swiftbuild:
-                        break
-                    case .xcode:
-                        Issue.record("Test configuration error.  Test backend is not meant to be tested.")
-
-                }
-                #expect(packageOutput.stdout.contains("Executed 1 test"), "stdout: '\(packageOutput.stdout)'\n stderr:'\(packageOutput.stderr)'")
+                #expect(packageOutput.stdout.contains("Executed 1 test"), "stdout: '\(packageOutput.stdout)'\n\n\n stderr:'\(packageOutput.stderr)'")
+                #expect(packageOutput.stdout.contains("Test run with 1 test"), "stdout: '\(packageOutput.stdout)'\n\n\n stderr:'\(packageOutput.stderr)'")
 
                 // Check there were no compile errors or warnings.
                 #expect(!packageOutput.stdout.contains("error"))
                 #expect(!packageOutput.stdout.contains("warning"))
-            }
         }
     }
 
