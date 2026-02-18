@@ -55,11 +55,7 @@ public struct ToolsVersionParser {
             throw ManifestParseError.emptyManifest(path: manifestPath)
         }
 
-        do {
-          return try self.parse(utf8String: manifestContentsDecodedWithUTF8)
-        } catch Error.malformedToolsVersionSpecification(.commentMarker(.isMissing)) {
-          throw UnsupportedToolsVersion(packageIdentity: .init(path: manifestPath), currentToolsVersion: .current, packageToolsVersion: .v3)
-        }
+        return try self.parse(utf8String: manifestContentsDecodedWithUTF8)
     }
 
     public static func parse(utf8String: String) throws -> ToolsVersion {
@@ -645,8 +641,16 @@ extension ManifestLoader {
         do {
             regularManifestToolsVersion = try ToolsVersionParser.parse(manifestPath: regularManifest, fileSystem: fileSystem)
         }
-        catch let error as UnsupportedToolsVersion where error.packageToolsVersion == .v3 {
-          regularManifestToolsVersion = .v3
+        catch let error as ToolsVersionParser.Error {
+            // If we have version-specific manifests, there are still more checks we must do if
+            // the error being thrown is that of a missing comment marker.
+            // Set the tools version to 3.1.0 since earlier packages default to this.
+            if case .malformedToolsVersionSpecification(.commentMarker(.isMissing)) = error,
+               !versionSpecificManifests.isEmpty {
+                regularManifestToolsVersion = .v3
+            } else {
+                throw error
+            }
         }
 
         // Find the newest version-specific manifest that is compatible with the current tools version.
