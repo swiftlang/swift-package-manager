@@ -5413,7 +5413,6 @@ struct PackageCommandTests {
             let containsWarning = "command plugin: Diagnostics.warning"
             let containsError = "command plugin: Diagnostics.error"
 
-            await withKnownIssue(isIntermittent: true) {
                 try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
                     func runPlugin(
                         flags: [String],
@@ -5580,7 +5579,6 @@ struct PackageCommandTests {
                         #expect(stderr.contains(containsError))
                     }
                 }
-            }
         }
 
         // Test target builds requested by a command plugin
@@ -5825,7 +5823,6 @@ struct PackageCommandTests {
                 }
             } when: {
                 ProcessInfo.hostOperatingSystem == .windows
-                    || (ProcessInfo.hostOperatingSystem == .linux && buildSystem == .swiftbuild)
             }
         }
 
@@ -6819,7 +6816,7 @@ struct PackageCommandTests {
                             #expect(stdout.contains("staticLibrary"))
                         }
                     } when: {
-                        buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem != .macOS
+                        buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows
                     }
 
                     // Invoke the plugin with parameters choosing a verbose build of MyDynamicLibrary for release.
