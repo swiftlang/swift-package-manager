@@ -19,6 +19,7 @@ import class Basics.ObservabilityScope
 import struct Basics.SourceControlURL
 import class Basics.ThreadSafeKeyValueStore
 import class PackageGraph.ResolvedPackagesStore
+import enum PackageRegistry.RegistryError
 import protocol PackageLoading.ManifestLoaderProtocol
 import protocol PackageModel.DependencyMapper
 import protocol PackageModel.IdentityResolver
@@ -332,6 +333,11 @@ extension Workspace {
             url: SourceControlURL,
             observabilityScope: ObservabilityScope
         ) async throws -> PackageIdentity? {
+            // Validate URL before attempting registry lookup
+            guard url.isValid else {
+                throw RegistryError.invalidSourceControlURL(url)
+            }
+
             if let cached = self.identityLookupCache[url], cached.expirationTime > .now() {
                 switch cached.result {
                 case .success(let identity):
