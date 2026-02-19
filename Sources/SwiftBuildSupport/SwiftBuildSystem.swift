@@ -119,17 +119,39 @@ func withSession(
 }
 
 package final class SwiftBuildSystemPlanningOperationDelegate: SWBPlanningOperationDelegate, SWBIndexingDelegate, Sendable {
-    package init() {}
+    private let shouldEnableDebuggingEntitlement: Bool
+
+    package init(shouldEnableDebuggingEntitlement: Bool) {
+        self.shouldEnableDebuggingEntitlement = shouldEnableDebuggingEntitlement
+    }
 
     public func provisioningTaskInputs(
         targetGUID: String,
         provisioningSourceData: SWBProvisioningTaskInputsSourceData
     ) async -> SWBProvisioningTaskInputs {
-        let identity = provisioningSourceData.signingCertificateIdentifier
+        let identity = if provisioningSourceData.signingCertificateIdentifier.isEmpty && shouldEnableDebuggingEntitlement {
+            "-"
+        } else {
+            provisioningSourceData.signingCertificateIdentifier
+        }
+
         if identity == "-" {
-            let signedEntitlements = provisioningSourceData.entitlementsDestination == "Signature"
-                ? provisioningSourceData.productTypeEntitlements.merging(
-                    ["application-identifier": .plString(provisioningSourceData.bundleIdentifier)],
+            let getTaskAllowEntitlementKey: String
+            let applicationIdentifierEntitlementKey: String
+
+            if provisioningSourceData.sdkRoot.contains("macos") || provisioningSourceData.sdkRoot
+                .contains("simulator")
+            {
+                getTaskAllowEntitlementKey = "com.apple.security.get-task-allow"
+                applicationIdentifierEntitlementKey = "com.apple.application-identifier"
+            } else {
+                getTaskAllowEntitlementKey = "get-task-allow"
+                applicationIdentifierEntitlementKey = "application-identifier"
+            }
+
+            let signedEntitlements = provisioningSourceData
+                .entitlementsDestination == "Signature" ? provisioningSourceData.productTypeEntitlements.merging(
+                    [applicationIdentifierEntitlementKey: .plString(provisioningSourceData.bundleIdentifier)],
                     uniquingKeysWith: { _, new in new }
                 ).merging(provisioningSourceData.projectEntitlements ?? [:], uniquingKeysWith: { _, new in new })
                 : [:]
@@ -141,6 +163,12 @@ package final class SwiftBuildSystemPlanningOperationDelegate: SWBPlanningOperat
                 ).merging(provisioningSourceData.projectEntitlements ?? [:], uniquingKeysWith: { _, new in new })
                 : [:]
 
+            var additionalEntitlements: [String: SWBPropertyListItem] = [:]
+
+            if shouldEnableDebuggingEntitlement {
+                additionalEntitlements[getTaskAllowEntitlementKey] = .plBool(true)
+            }
+
             return SWBProvisioningTaskInputs(
                 identityHash: "-",
                 identityName: "-",
@@ -149,7 +177,7 @@ package final class SwiftBuildSystemPlanningOperationDelegate: SWBPlanningOperat
                 profilePath: nil,
                 designatedRequirements: nil,
                 signedEntitlements: signedEntitlements.merging(
-                    provisioningSourceData.sdkRoot.contains("simulator") ? ["get-task-allow": .plBool(true)] : [:],
+                    additionalEntitlements,
                     uniquingKeysWith: { _, new in new }
                 ),
                 simulatedEntitlements: simulatedEntitlements,
@@ -600,7 +628,9 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
                     let operation = try await session.createBuildOperation(
                         request: request,
-                        delegate: SwiftBuildSystemPlanningOperationDelegate(),
+                        delegate: SwiftBuildSystemPlanningOperationDelegate(shouldEnableDebuggingEntitlement: self.buildParameters
+                            .debuggingParameters.shouldEnableDebuggingEntitlement
+                        ),
                         retainBuildDescription: true
                     )
 
@@ -1012,7 +1042,9 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
     private static func constructDebuggingSettingsOverrides(from parameters: BuildParameters.Debugging) -> [String: String] {
         var settings: [String: String] = [:]
         // TODO: debugInfoFormat: https://github.com/swiftlang/swift-build/issues/560
-        // TODO: shouldEnableDebuggingEntitlement: Enable/Disable get-task-allow
+        if parameters.shouldEnableDebuggingEntitlement {
+            settings["DEPLOYMENT_POSTPROCESSING"] = "NO"
+        }
         // TODO: omitFramePointer: https://github.com/swiftlang/swift-build/issues/561
         return settings
     }

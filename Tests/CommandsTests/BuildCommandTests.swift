@@ -10,19 +10,21 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Foundation
+import _InternalTestSupport
 import Basics
 @testable import Commands
 @testable import CoreCommands
+import Foundation
 import PackageGraph
 import PackageLoading
 import PackageModel
 import enum PackageModel.BuildConfiguration
 import SPMBuildCore
-import _InternalTestSupport
+import enum SWBUtil.PropertyList
+import enum SWBUtil.PropertyListItem
+import Testing
 import TSCTestSupport
 import Workspace
-import Testing
 
 struct BuildResult {
     let binPath: AbsolutePath
@@ -1274,107 +1276,125 @@ struct BuildCommandTestCases {
     }
 
     @Test(
-        .SWBINTTODO("Test failed because swiftbuild doesn't output precis codesign commands. Once swift run works with swiftbuild the test can be investigated."),
         .tags(
             .Feature.CommandLineArguments.DisableGetTaskAllowEntitlement,
             .Feature.CommandLineArguments.EnableGetTaskAllowEntitlement,
-            .Feature.CommandLineArguments.Verbose,
+            .Feature.CommandLineArguments.Verbose
         ),
         .tags(
-            .Feature.CommandLineArguments.BuildSystem,
+            .Feature.CommandLineArguments.BuildSystem
         ),
-        arguments: SupportedBuildSystemOnPlatform,
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms)
     )
-    func getTaskAllowEntitlement(
-        buildSystem: BuildSystemProvider.Kind,
-    ) async throws {
-        try await withKnownIssue(isIntermittent: true) {
-            try await fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { fixturePath in
-    #if os(macOS)
-                // try await building with default parameters.  This should succeed. We build verbosely so we get full command
-                // lines.
-                var buildResult = try await build(["-v"], packagePath: fixturePath, configuration: .debug, buildSystem: buildSystem,)
-
-                // TODO verification of the ad-hoc code signing can be done by `swift run` of the executable in these cases once swiftbuild build system is working with that
-                #expect(buildResult.stdout.contains("codesign --force --sign - --entitlements"))
-
-                buildResult = try await build(["-v"], packagePath: fixturePath, configuration:.debug, buildSystem: buildSystem,)
-
-                #expect(buildResult.stdout.contains("codesign --force --sign - --entitlements"))
-
-                // Build with different combinations of the entitlement flag and debug/release build configurations.
-
-                buildResult = try await build(
-                    ["--enable-get-task-allow-entitlement", "-v"],
-                    packagePath: fixturePath,
-                    configuration: .release,
-                    buildSystem: buildSystem,
-                )
-
-                #expect(buildResult.stdout.contains("codesign --force --sign - --entitlements"))
-
-                buildResult = try await build(
-                    ["--enable-get-task-allow-entitlement", "-v"],
-                    packagePath: fixturePath,
-                    configuration: .debug,
-                    buildSystem: buildSystem,
-                )
-
-                #expect(buildResult.stdout.contains("codesign --force --sign - --entitlements"))
-
-                buildResult = try await build(
-                    ["--disable-get-task-allow-entitlement", "-v"],
-                    packagePath: fixturePath,
-                    configuration: .debug,
-                    buildSystem: buildSystem,
-                )
-
-                #expect(!buildResult.stdout.contains("codesign --force --sign - --entitlements"))
-
-                buildResult = try await build(
-                    ["--disable-get-task-allow-entitlement", "-v"],
-                    packagePath: fixturePath,
-                    configuration: .release,
-                    buildSystem: buildSystem,
-                )
-
-                #expect(!buildResult.stdout.contains("codesign --force --sign - --entitlements"))
-    #else
-                var buildResult = try await build(["-v"], packagePath: fixturePath, configuration: .debug, buildSystem: buildSystem,)
-
-                #expect(!buildResult.stdout.contains("codesign --force --sign - --entitlements"))
-
-                buildResult = try await build(["-v"], packagePath: fixturePath, configuration: .release,buildSystem: buildSystem,)
-
-                #expect(!buildResult.stdout.contains("codesign --force --sign - --entitlements"))
-
-                buildResult = try await build(
-                    ["--disable-get-task-allow-entitlement", "-v"],
-                    packagePath: fixturePath,
-                    configuration: .release,
-                    buildSystem: buildSystem,
-                )
-
-                #expect(!buildResult.stdout.contains("codesign --force --sign - --entitlements"))
-                #expect(buildResult.stderr.contains(SwiftCommandState.entitlementsMacOSWarning))
-
-                buildResult = try await build(
-                    ["--enable-get-task-allow-entitlement", "-v"],
-                    packagePath: fixturePath,
-                    configuration: .release,
-                    buildSystem: buildSystem,
-                )
-
-                #expect(!buildResult.stdout.contains("codesign --force --sign - --entitlements"))
-                #expect(buildResult.stderr.contains(SwiftCommandState.entitlementsMacOSWarning))
-    #endif
-
-                buildResult = try await build(["-v"], packagePath: fixturePath, configuration: .release, buildSystem: buildSystem)
-
-                #expect(!buildResult.stdout.contains("codesign --force --sign - --entitlements"))
+    func getTaskAllowEntitlement(data: BuildData) async throws {
+        let buildSystem = data.buildSystem
+        let buildConfiguration = data.config
+        try await fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { fixturePath in
+            #if os(macOS)
+            func codesignDisplay(execPath: AbsolutePath) async throws -> PropertyListItem? {
+                let args = ["codesign", "-d", "--entitlements", "-", "--xml", execPath.pathString]
+                let result = try await AsyncProcess.popen(arguments: args)
+                return if case .success(let output) = result.output,
+                          !output.isEmpty
+                {
+                    try PropertyList.fromBytes(output)
+                } else {
+                    nil
+                }
             }
-        } when: {
-            [.swiftbuild, .xcode].contains(buildSystem) && ProcessInfo.hostOperatingSystem != .linux
+
+            enum EntitlementCheckType {
+                case required, forbidden
+            }
+
+            func verify(entitlements: PropertyListItem?, getTaskAllow: EntitlementCheckType) {
+                guard let entitlements, case .plDict(let dict) = entitlements else {
+                    if getTaskAllow == .required {
+                        Issue.record("Missing expected entitlements")
+                    }
+                    return
+                }
+
+                switch getTaskAllow {
+                case .required:
+                    #expect(dict["com.apple.security.get-task-allow"] == .plBool(true))
+                case .forbidden:
+                    #expect(dict["com.apple.security.get-task-allow"] == nil)
+                }
+            }
+
+            let execName = "ExecutableNew"
+
+            var buildResult = try await build(
+                ["-v"],
+                packagePath: fixturePath,
+                configuration: buildConfiguration,
+                cleanAfterward: false,
+                buildSystem: buildSystem
+            )
+            var entitlements = try await codesignDisplay(execPath: buildResult.binPath.appending(execName))
+
+            verify(
+                entitlements: entitlements,
+                getTaskAllow:
+                buildConfiguration == .debug ? .required : .forbidden
+            )
+
+            try await executeSwiftPackage(fixturePath, extraArgs: ["clean"], buildSystem: buildSystem)
+
+            buildResult = try await build(
+                ["--enable-get-task-allow-entitlement"],
+                packagePath: fixturePath,
+                configuration: buildConfiguration,
+                cleanAfterward: false,
+                buildSystem: buildSystem
+            )
+            entitlements = try await codesignDisplay(execPath: buildResult.binPath.appending(execName))
+
+            verify(entitlements: entitlements, getTaskAllow: .required)
+
+            try await executeSwiftPackage(fixturePath, extraArgs: ["clean"], buildSystem: buildSystem)
+
+            buildResult = try await build(
+                ["--disable-get-task-allow-entitlement"],
+                packagePath: fixturePath,
+                configuration: buildConfiguration,
+                cleanAfterward: false,
+                buildSystem: buildSystem
+            )
+            entitlements = try await codesignDisplay(execPath: buildResult.binPath.appending(execName))
+
+            verify(entitlements: entitlements, getTaskAllow: .forbidden)
+            #else
+            var buildResult = try await build(
+                ["-v"],
+                packagePath: fixturePath,
+                configuration: buildConfiguration,
+                buildSystem: buildSystem
+            )
+
+            #expect(!buildResult.stdout.contains("codesign --force --sign - --entitlements"))
+
+            buildResult = try await build(
+                ["--disable-get-task-allow-entitlement", "-v"],
+                packagePath: fixturePath,
+                configuration: buildConfiguration,
+                buildSystem: buildSystem
+            )
+
+            #expect(!buildResult.stdout.contains("codesign --force --sign - --entitlements"))
+            #expect(buildResult.stderr.contains(SwiftCommandState.entitlementsMacOSWarning))
+
+            buildResult = try await build(
+                ["--enable-get-task-allow-entitlement", "-v"],
+                packagePath: fixturePath,
+                configuration: buildConfiguration,
+                buildSystem: buildSystem
+            )
+
+            #expect(!buildResult.stdout.contains("codesign --force --sign - --entitlements"))
+            #expect(buildResult.stderr.contains(SwiftCommandState.entitlementsMacOSWarning))
+            #endif
         }
     }
 
