@@ -167,6 +167,8 @@ public final class ParsingManifestLoader: ManifestLoaderProtocol {
         // Walk the source file to parse
         let visitor = ManifestParseVisitor(
             manifestPath: manifestPath,
+            dependencyMapper: dependencyMapper,
+            fileSystem: fileSystem,
             defaultPackageAccess: manifestToolsVersion >= .v5_9
         )
         visitor.walk(sourceFile)
@@ -214,6 +216,12 @@ class ManifestParseVisitor: SyntaxAnyVisitor {
     /// The path to the manifest file (used for resolving relative paths)
     let manifestPath: AbsolutePath
     
+    /// Dependency mapper for handling path resolution and mirrors
+    let dependencyMapper: DependencyMapper
+    
+    /// File system for path operations
+    let fileSystem: FileSystem
+    
     /// Package name
     var packageName: String?
 
@@ -252,8 +260,15 @@ class ManifestParseVisitor: SyntaxAnyVisitor {
 
     var defaultPackageAccess: Bool
 
-    public init(manifestPath: AbsolutePath, defaultPackageAccess: Bool) {
+    public init(
+        manifestPath: AbsolutePath,
+        dependencyMapper: DependencyMapper,
+        fileSystem: FileSystem,
+        defaultPackageAccess: Bool
+    ) {
         self.manifestPath = manifestPath
+        self.dependencyMapper = dependencyMapper
+        self.fileSystem = fileSystem
         self.defaultPackageAccess = defaultPackageAccess
         super.init(viewMode: .fixedUp)
     }
@@ -2031,51 +2046,19 @@ extension ManifestParseVisitor {
 
         // Handle filesystem dependencies (no version control)
         if let fsPath = path {
-            // Process the path string - handle file:// URLs
-            var processedPath = fsPath
-            
-            // Remove file:// prefix if present
-            if processedPath.hasPrefix("file://") {
-                processedPath = String(processedPath.dropFirst(7))
-            }
-            
-            // Expand tilde (~/) at the beginning of the path
-            // This is used in tests and matches the compilation-based loader behavior
-            if processedPath.hasPrefix("~/") {
-                // Replace ~/ with /home/user/ for testing purposes
-                processedPath = "/home/user" + String(processedPath.dropFirst(1))
-            }
-            
-            // Resolve the path to an absolute path
-            // If it's already absolute, use it as-is
-            // If it's relative, resolve it relative to the manifest's directory
-            let absolutePath: AbsolutePath
-            if processedPath.hasPrefix("/") {
-                // Already an absolute path
-                guard let absPath = try? AbsolutePath(validating: processedPath) else {
-                    limitations.append(.unsupportedExpression(expr, expected: "valid absolute filesystem path"))
-                    return nil
-                }
-                absolutePath = absPath
-            } else {
-                // Relative path - resolve relative to manifest directory
-                let manifestDirectory = manifestPath.parentDirectory
-                guard let absPath = try? AbsolutePath(validating: processedPath, relativeTo: manifestDirectory) else {
-                    limitations.append(.unsupportedExpression(expr, expected: "valid relative filesystem path"))
-                    return nil
-                }
-                absolutePath = absPath
-            }
-            
-            // Always derive identity from path to ensure lowercase canonicalization
-            let identity = PackageIdentity(path: absolutePath)
-            return .fileSystem(
-                identity: identity,
-                nameForTargetDependencyResolutionOnly: name,
-                path: absolutePath,
+            let mappableDep = MappablePackageDependency(
+                parentPackagePath: manifestPath.parentDirectory,
+                kind: .fileSystem(name: name, path: fsPath),
                 productFilter: .everything,
-                traits: traits ?? [.init(name: "default")]
+                traits: traits.map { Set($0) } ?? Set([.init(name: "default")])
             )
+            
+            do {
+                return try dependencyMapper.mappedDependency(mappableDep, fileSystem: fileSystem)
+            } catch {
+                limitations.append(.unsupportedExpression(expr, expected: "valid filesystem path: \(error)"))
+                return nil
+            }
         }
 
         // Handle registry dependencies
@@ -2099,48 +2082,19 @@ extension ManifestParseVisitor {
             return nil
         }
         
-        // Check if the URL is actually a local file path
-        // A URL is treated as a local path if it:
-        // 1. Starts with "/" (absolute path on Unix-like systems)
-        // 2. Starts with "~/" (home directory)
-        // 3. Starts with "./" or "../" (relative path)
-        // 4. Is a Windows absolute path (e.g., "C:\")
-        let isLocalPath = url.hasPrefix("/") || 
-                         url.hasPrefix("~/") || 
-                         url.hasPrefix("./") || 
-                         url.hasPrefix("../") ||
-                         (url.count >= 3 && url[url.index(url.startIndex, offsetBy: 1)] == ":" && 
-                          (url[url.index(url.startIndex, offsetBy: 2)] == "\\" || url[url.index(url.startIndex, offsetBy: 2)] == "/"))
+        // Use the dependency mapper for source control dependencies
+        let mappableDep = MappablePackageDependency(
+            parentPackagePath: manifestPath.parentDirectory,
+            kind: .sourceControl(name: name, location: url, requirement: requirement),
+            productFilter: .everything,
+            traits: traits.map { Set($0) } ?? Set([.init(name: "default")])
+        )
         
-        if isLocalPath {
-            // Local source control path
-            guard let absolutePath = try? AbsolutePath(validating: url) else {
-                limitations.append(.unsupportedExpression(expr, expected: "valid file path"))
-                return nil
-            }
-            // Always derive identity from path to ensure lowercase canonicalization
-            let identity = PackageIdentity(path: absolutePath)
-            return .localSourceControl(
-                identity: identity,
-                nameForTargetDependencyResolutionOnly: name,
-                path: absolutePath,
-                requirement: requirement,
-                productFilter: .everything,
-                traits: traits ?? [.init(name: "default")]
-            )
-        } else {
-            // Remote source control URL
-            let sourceControlURL = SourceControlURL(url)
-            // Always derive identity from URL, not from name parameter
-            let identity = PackageIdentity(url: sourceControlURL)
-            return .remoteSourceControl(
-                identity: identity,
-                nameForTargetDependencyResolutionOnly: name,
-                url: sourceControlURL,
-                requirement: requirement,
-                productFilter: .everything,
-                traits: traits ?? [.init(name: "default")]
-            )
+        do {
+            return try dependencyMapper.mappedDependency(mappableDep, fileSystem: fileSystem)
+        } catch {
+            limitations.append(.unsupportedExpression(expr, expected: "valid source control dependency: \(error)"))
+            return nil
         }
     }
     
