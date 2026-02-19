@@ -29,8 +29,13 @@ import enum PackageModel.Sanitizer
 
 import enum PackageModel.TraitConfiguration
 
+import enum SBOMModel.Filter
+import enum SBOMModel.Spec
+import enum SBOMModel.SBOMCommandError
+
 import struct SPMBuildCore.BuildParameters
 import struct SPMBuildCore.BuildSystemProvider
+import enum SPMBuildCore.ConfigurableEnvVar
 
 import struct TSCBasic.StringError
 
@@ -753,6 +758,108 @@ extension TraitConfiguration {
             enabledTraits: enabledTraits,
             enableAllTraits: traitOptions.enableAllTraits
         )
+    }
+}
+
+public struct SBOMOptions: ParsableArguments {
+    public init() {}
+
+    /// SBOM specification(s) to generate.
+    @Option(
+        name: .customLong("sbom-spec"),
+        help: ArgumentHelp("Set the SBOM specification(s) and generate SBOM(s).")
+    )
+    package var _sbomSpecs: [SBOMModel.Spec] = []
+
+    /// Directory path to generate SBOM(s) in.
+    @Option(
+        name: .customLong("sbom-output-dir"),
+        help: ArgumentHelp("The absolute or relative directory path to generate the SBOM(s) in. Must be used with --sbom-spec. (default: <scratch_path>/sboms)."),
+        completion: .directory
+    )
+    package var _sbomDirectory: AbsolutePath?
+
+    /// Filter SBOM components and dependencies by entity.
+    @Option(
+        name: .customLong("sbom-filter"),
+        help: ArgumentHelp("Filter the SBOM components and dependencies by products and/or packages. Must be used with --sbom-spec.")
+    )
+    package var _sbomFilter: SBOMModel.Filter? = nil
+
+    /// Whether to treat SBOM generation errors as warnings
+    @Flag(
+        name: .customLong("sbom-warning-only"),
+        help: ArgumentHelp("Treat SBOM generation errors as warnings. Must be used with --sbom-spec. (default: false).")
+    )
+    package var _sbomWarningOnly: Bool = false
+
+    // MARK: - Computed properties with environment variable support
+
+    /// SBOM specifications with environment variable fallback. CLI flag takes precedence.
+    /// Throws an error if the environment variable contains an invalid value.
+    package var sbomSpecs: [SBOMModel.Spec] {
+        get throws {
+            if !_sbomSpecs.isEmpty {
+                return _sbomSpecs
+            }
+            if let envSpecs = SPMBuildCore.ConfigurableEnvVar.SWIFTPM_BUILD_SBOM_SPEC.getEnvVar() {
+                let specStrings = envSpecs.components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) }
+                var specs: [SBOMModel.Spec] = []
+                for specString in specStrings {
+                    guard let spec = SBOMModel.Spec(rawValue: specString) else {
+                        throw SBOMModel.SBOMCommandError.invalidSpecValue(value: specString)
+                    }
+                    specs.append(spec)
+                }
+                if !specs.isEmpty {
+                    return specs
+                }
+            }
+            return []
+        }
+    }
+
+    /// SBOM directory with environment variable fallback. CLI flag takes precedence.
+    package var sbomDirectory: AbsolutePath? {
+        if let cmdLineDir = _sbomDirectory {
+            return cmdLineDir
+        }
+        if let envDir = SPMBuildCore.ConfigurableEnvVar.SWIFTPM_BUILD_SBOM_OUTPUT_DIR.getEnvVar() {
+            guard let path = AbsolutePath(argument: envDir) else {
+                return nil
+            }
+            return path
+        }
+        return nil
+    }
+
+    /// SBOM filter with environment variable fallback. CLI flag takes precedence.
+    /// Throws an error if the environment variable contains an invalid value.
+    package var sbomFilter: SBOMModel.Filter {
+        get throws {
+            if let cliFilter = _sbomFilter {
+                return cliFilter
+            }
+            if let envFilter = SPMBuildCore.ConfigurableEnvVar.SWIFTPM_BUILD_SBOM_FILTER.getEnvVar() {
+                guard let filter = SBOMModel.Filter(rawValue: envFilter) else {
+                    throw SBOMModel.SBOMCommandError.invalidFilterValue(value: envFilter)
+                }
+                return filter
+            }
+            return .all
+        }
+    }
+
+    /// SBOM warning-only mode with environment variable fallback. CLI flag takes precedence.
+    package var sbomWarningOnly: Bool {
+        if _sbomWarningOnly {
+            return true
+        }
+        if let envWarningOnly = SPMBuildCore.ConfigurableEnvVar.SWIFTPM_BUILD_SBOM_WARNING_ONLY.getEnvVar() {
+            let lowercased = envWarningOnly.lowercased()
+            return !["false", "0", "no"].contains(lowercased)
+        }
+        return false
     }
 }
 

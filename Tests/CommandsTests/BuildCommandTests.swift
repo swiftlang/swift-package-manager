@@ -1811,4 +1811,455 @@ extension Triple {
 }
 
 
+@Suite(
+    .tags(
+        .TestSize.large,
+        Tag.Feature.SBOM
+    ),
+)
+struct BuildSBOMCommandTests {
+    
+    /// Helper function to verify SBOM creation from stderr
+    private func verifySBOMCreated(
+        in stderr: String,
+        expectedDirectory: AbsolutePath? = nil,
+        message: String = "should produce at least 1 SBOM"
+    ) throws {
+        let lines = stderr.split(separator: "\n")
+        var sbomPaths: [String] = []
+        
+        for line in lines {
+            // Match the new format: "- created {spec} v{version} SBOM at {path}"
+            if line.contains(" SBOM at "),
+               let range = line.range(of: " SBOM at "),
+               let endRange = line[range.upperBound...].range(of: ".json") {
+                let pathString = String(line[range.upperBound..<endRange.upperBound])
+                sbomPaths.append(pathString)
+            }
+        }
+        
+        guard !sbomPaths.isEmpty else {
+            Issue.record("No SBOM paths found in stderr")
+            return
+        }
+        
+        for pathString in sbomPaths {
+            let absolutePath = try AbsolutePath(validating: pathString)
+            #expect(localFileSystem.exists(absolutePath), "Reported SBOM should exist at \(absolutePath)")
+            
+            if let expectedDir = expectedDirectory {
+                #expect(absolutePath.parentDirectory == expectedDir, "SBOM should be created in the expected directory: \(expectedDir)")
+            }
+        }
+    }
+    
+    @Test(
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+    )
+    func buildWithCycloneDXSpec(
+        data: BuildData,
+    ) async throws {
+        try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
+            let (stdout, stderr) = try await executeSwiftBuild(
+                fixturePath,
+                configuration: data.config,
+                extraArgs: ["--sbom-spec", "cyclonedx"],
+                buildSystem: data.buildSystem,
+            )
+            #expect(stdout.contains("Build complete!"))
+            #expect(stderr.contains("SBOMs created"))
+            try verifySBOMCreated(in: stderr, message: "should produce at least 1 CycloneDX SBOM")
+        }
+    }
+
+    @Test(
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+    )
+    func buildWithSPDXSpec(
+        data: BuildData,
+    ) async throws {
+        try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
+            let (stdout, stderr) = try await executeSwiftBuild(
+                fixturePath,
+                configuration: data.config,
+                extraArgs: ["--sbom-spec", "spdx"],
+                buildSystem: data.buildSystem,
+            )
+            #expect(stdout.contains("Build complete!"))
+            #expect(stderr.contains("SBOMs created"))
+            try verifySBOMCreated(in: stderr, message: "should produce at least 1 SPDX SBOM")
+        }
+    }
+
+    @Test(
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+    )
+    func buildWithInvalidSBOMSpec(
+        data: BuildData,
+    ) async throws {
+        try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
+            await expectThrowsCommandExecutionError(
+                try await executeSwiftBuild(
+                    fixturePath,
+                    configuration: data.config,
+                    extraArgs: ["--sbom-spec", "cyclonedx22"],
+                    buildSystem: data.buildSystem,
+                )
+            ) { error in
+                #expect(error.stderr.contains("The value 'cyclonedx22' is invalid"))
+            }
+        }
+    }
+
+    @Test(
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+    )
+    func buildWithSBOMSpecAndProduct(
+        data: BuildData,
+    ) async throws {
+        try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
+            let (stdout, stderr) = try await executeSwiftBuild(
+                fixturePath,
+                configuration: data.config,
+                extraArgs: ["--sbom-spec", "cyclonedx", "--product", "Foo"],
+                buildSystem: data.buildSystem,
+            )
+            #expect(stderr.contains("SBOMs created"))
+            try verifySBOMCreated(in: stderr, message: "should produce at least 1 CycloneDX SBOM")
+        }
+    }
+
+    @Test(
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+    )
+    func buildWithMultipleSBOMSpecs(
+        data: BuildData,
+    ) async throws {
+        try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
+            let (stdout, stderr) = try await executeSwiftBuild(
+                fixturePath,
+                configuration: data.config,
+                extraArgs: ["--sbom-spec", "cyclonedx", "--sbom-spec", "spdx"],
+                buildSystem: data.buildSystem,
+            )
+            #expect(stdout.contains("Build complete!"))
+            #expect(stderr.contains("SBOMs created"))
+            try verifySBOMCreated(in: stderr, message: "should produce at least 2 SBOMs")
+        }
+    }
+
+    @Test(
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+    )
+    func buildWithSBOMSpecFromEnvironment(
+        data: BuildData,
+    ) async throws {
+        try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
+            let (stdout, stderr) = try await executeSwiftBuild(
+                fixturePath,
+                configuration: data.config,
+                extraArgs: [],
+                env: ["SWIFTPM_BUILD_SBOM_SPEC": "cyclonedx"],
+                buildSystem: data.buildSystem,
+            )
+            #expect(stdout.contains("Build complete!"))
+            #expect(stderr.contains("SBOMs created"))
+            try verifySBOMCreated(in: stderr, message: "should produce at least 1 SBOM from environment variable")
+        }
+    }
+
+    @Test(
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+    )
+    func buildWithMultipleSBOMSpecsFromEnvironment(
+        data: BuildData,
+    ) async throws {
+        try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
+            let (stdout, stderr) = try await executeSwiftBuild(
+                fixturePath,
+                configuration: data.config,
+                extraArgs: [],
+                env: ["SWIFTPM_BUILD_SBOM_SPEC": "cyclonedx,spdx"],
+                buildSystem: data.buildSystem,
+            )
+            
+            #expect(stdout.contains("Build complete!"))
+            #expect(stderr.contains("SBOMs created"))
+            try verifySBOMCreated(in: stderr, message: "should produce at least 2 SBOMs from environment variable")
+        }
+    }
+
+    @Test(
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+    )
+    func buildWithSBOMDirectoryFromEnvironment(
+        data: BuildData,
+    ) async throws {
+        try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
+            let customSBOMDir = fixturePath.appending("env-sboms")
+            
+            let (stdout, stderr) = try await executeSwiftBuild(
+                fixturePath,
+                configuration: data.config,
+                extraArgs: [],
+                env: [
+                    "SWIFTPM_BUILD_SBOM_SPEC": "cyclonedx",
+                    "SWIFTPM_BUILD_SBOM_OUTPUT_DIR": customSBOMDir.pathString
+                ],
+                buildSystem: data.buildSystem,
+            )
+            
+            #expect(stderr.contains("SBOMs created"))
+            try verifySBOMCreated(
+                in: stderr,
+                expectedDirectory: customSBOMDir,
+                message: "should produce at least 1 CycloneDX SBOM in custom directory"
+            )
+        }
+    }
+
+    @Test(
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+    )
+    func buildWithSBOMFilterFromEnvironment(
+        data: BuildData,
+    ) async throws {
+        try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
+            let (stdout, stderr) = try await executeSwiftBuild(
+                fixturePath,
+                configuration: data.config,
+                extraArgs: [],
+                env: [
+                    "SWIFTPM_BUILD_SBOM_SPEC": "cyclonedx",
+                    "SWIFTPM_BUILD_SBOM_FILTER": "product"
+                ],
+                buildSystem: data.buildSystem,
+            )
+            
+            #expect(stderr.contains("SBOMs created"))
+            try verifySBOMCreated(in: stderr, message: "should produce at least 1 SBOM from environment variable")
+        }
+    }
+
+    @Test(
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+    )
+    func commandLineFlagOverridesEnvironmentVariable(
+        data: BuildData,
+    ) async throws {
+        try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
+            let (stdout, stderr) = try await executeSwiftBuild(
+                fixturePath,
+                configuration: data.config,
+                extraArgs: ["--sbom-spec", "spdx"],
+                env: ["SWIFTPM_BUILD_SBOM_SPEC": "cyclonedx"],
+                buildSystem: data.buildSystem,
+            )
+            
+            #expect(stderr.contains("SBOMs created"))
+            
+            // Verify that command line flag overrides environment variable by checking SBOM path
+            let spdxRegex = try Regex(#"created spdx.* v.* SBOM at .*\.json"#)
+            let cyclonedxRegex = try Regex(#"created cyclonedx.* v.* SBOM at .*\.json"#)
+            
+            #expect(stderr.contains(spdxRegex), "should create SPDX SBOM from command line, not CycloneDX from environment")
+            #expect(!stderr.contains(cyclonedxRegex), "should not create CycloneDX SBOM from environment variable")
+        }
+    }
+
+    @Test(
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+    )
+    func buildWithAllSBOMEnvironmentVariables(
+        data: BuildData,
+    ) async throws {
+        try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
+            let customSBOMDir = fixturePath.appending("all-env-sboms")
+            
+            let (stdout, stderr) = try await executeSwiftBuild(
+                fixturePath,
+                configuration: data.config,
+                extraArgs: [],
+                env: [
+                    "SWIFTPM_BUILD_SBOM_SPEC": "cyclonedx,spdx",
+                    "SWIFTPM_BUILD_SBOM_OUTPUT_DIR": customSBOMDir.pathString,
+                    "SWIFTPM_BUILD_SBOM_FILTER": "all",
+                    "SWIFTPM_BUILD_SBOM_WARNING_ONLY": "false"
+                ],
+                buildSystem: data.buildSystem,
+            )
+            
+            try verifySBOMCreated(in: stderr, expectedDirectory: customSBOMDir, message: "should produce at least 1 CycloneDX SBOM")
+        }
+    }
+
+    @Test(
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+    )
+    func buildWithSBOMWarningOnlyMode(
+        data: BuildData,
+    ) async throws {
+        try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
+            // Use platform-specific invalid path:
+            // - Windows: NUL is a reserved device name that cannot be used as a directory
+            // - Unix/macOS: /invalid/readonlypath (path doesn't exist and can't be created)
+            let invalidPath = ProcessInfo.hostOperatingSystem == .windows
+                ? "NUL"
+                : "/invalid/readonlypath"
+            
+            await expectThrowsCommandExecutionError(
+                try await executeSwiftBuild(
+                    fixturePath,
+                    configuration: data.config,
+                    extraArgs: ["--sbom-spec", "cyclonedx", "--sbom-output-dir", invalidPath],
+                    buildSystem: data.buildSystem,
+                )
+            ) { error in
+                #expect(error.stderr.contains(invalidPath))
+            }
+
+            let (_, _) = try await executeSwiftBuild(
+                fixturePath,
+                configuration: data.config,
+                extraArgs: ["--sbom-spec", "cyclonedx", "--sbom-output-dir", invalidPath, "--sbom-warning-only"],
+                buildSystem: data.buildSystem,
+            )
+
+            await expectThrowsCommandExecutionError(
+                try await executeSwiftBuild(
+                    fixturePath,
+                    configuration: data.config,
+                    extraArgs: ["--sbom-spec", "cyclonedx", "--sbom-output-dir", invalidPath],
+                    env: ["SWIFTPM_BUILD_SBOM_WARNING_ONLY": "false"],
+                    buildSystem: data.buildSystem,
+                )
+            ) { error in
+                #expect(error.stderr.contains(invalidPath))
+            }
+
+            let (_, _) = try await executeSwiftBuild(
+                fixturePath,
+                configuration: data.config,
+                extraArgs: ["--sbom-spec", "cyclonedx", "--sbom-output-dir", invalidPath],
+                env: ["SWIFTPM_BUILD_SBOM_WARNING_ONLY": "true"],
+                buildSystem: data.buildSystem,
+            )
+        }
+    }
+
+    @Test(
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+    )
+    func buildWithInvalidSBOMFilterFromEnvironment(
+        data: BuildData,
+    ) async throws {
+        try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
+            await expectThrowsCommandExecutionError(
+                try await executeSwiftBuild(
+                    fixturePath,
+                    configuration: data.config,
+                    extraArgs: [],
+                    env: [
+                        "SWIFTPM_BUILD_SBOM_SPEC": "cyclonedx",
+                        "SWIFTPM_BUILD_SBOM_FILTER": "invalid_filter"
+                    ],
+                    buildSystem: data.buildSystem,
+                )
+            ) { error in
+                #expect(error.stderr.contains("Invalid SBOM filter value 'invalid_filter'"))
+                #expect(error.stderr.contains("Valid values are: all, product, package"))
+            }
+        }
+    }
+
+    @Test(
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+    )
+    func buildWithInvalidSBOMSpecFromEnvironment(
+        data: BuildData,
+    ) async throws {
+        try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
+            await expectThrowsCommandExecutionError(
+                try await executeSwiftBuild(
+                    fixturePath,
+                    configuration: data.config,
+                    extraArgs: [],
+                    env: ["SWIFTPM_BUILD_SBOM_SPEC": "invalid_spec"],
+                    buildSystem: data.buildSystem,
+                )
+            ) { error in
+                #expect(error.stderr.contains("Invalid SBOM spec value 'invalid_spec'"))
+                #expect(error.stderr.contains("Valid values are"))
+            }
+        }
+    }
+
+    @Test(
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+    )
+    func buildWithPartiallyInvalidSBOMSpecsFromEnvironment(
+        data: BuildData,
+    ) async throws {
+        try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
+            await expectThrowsCommandExecutionError(
+                try await executeSwiftBuild(
+                    fixturePath,
+                    configuration: data.config,
+                    extraArgs: [],
+                    env: ["SWIFTPM_BUILD_SBOM_SPEC": "cyclonedx,invalid_spec,spdx"],
+                    buildSystem: data.buildSystem,
+                )
+            ) { error in
+                #expect(error.stderr.contains("Invalid SBOM spec value 'invalid_spec'"))
+                #expect(error.stderr.contains("Valid values are"))
+            }
+        }
+    }
+
+    @Test(
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+    )
+    func commandLineFlagOverridesInvalidEnvironmentVariable(
+        data: BuildData,
+    ) async throws {
+        try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
+            // Valid CLI flag should override invalid environment variable
+            let (stdout, stderr) = try await executeSwiftBuild(
+                fixturePath,
+                configuration: data.config,
+                extraArgs: ["--sbom-spec", "cyclonedx", "--sbom-filter", "product"],
+                env: [
+                    "SWIFTPM_BUILD_SBOM_SPEC": "invalid_spec",
+                    "SWIFTPM_BUILD_SBOM_FILTER": "invalid_filter"
+                ],
+                buildSystem: data.buildSystem,
+            )
+            
+            #expect(stderr.contains("SBOMs created"))
+            try verifySBOMCreated(in: stderr, message: "should produce SBOM despite invalid environment variables")
+        }
+    }
+
+    @Test(
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+    )
+    func buildWithSBOMSpecEmitsWarningForNonSwiftBuild(
+        data: BuildData,
+    ) async throws {
+        try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
+            let (stdout, stderr) = try await executeSwiftBuild(
+                fixturePath,
+                configuration: data.config,
+                extraArgs: ["--sbom-spec", "cyclonedx"],
+                buildSystem: data.buildSystem,
+            )
+            
+            if data.buildSystem != .swiftbuild {
+                #expect(stderr.contains("warning: generating SBOM(s) without `--build-system swiftbuild` flag creates SBOM(s) without build-time conditionals."))
+            } else {
+                #expect(!stderr.contains("without build-time conditionals"))
+            }
+        }
+    }
+}
 

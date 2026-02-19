@@ -16,6 +16,8 @@ target_link_libraries(CoreCommands PUBLIC
   Basics
   Build
   PackageGraph
+  PackageModel
+  SBOMModel
   TSCBasic
   TSCUtility
   Workspace

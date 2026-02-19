@@ -531,6 +531,43 @@ public final class GitRepository: Repository, WorkingCheckout {
         }
     }
 
+    // MARK: Helpers for SBOM functionality
+    public func getCurrentBranch() throws -> String? {
+        try self.lock.withLock {
+            let branch = try callGit(
+                "rev-parse",
+                "--abbrev-ref",
+                "HEAD",
+                failureMessage: "Couldn't get the current branch"
+            )
+            // Return nil if in detached HEAD state
+            return branch == "HEAD" ? nil : branch
+        }
+    }
+
+    public func getRemote(for branch: String) throws -> (name: String, url: String)? {
+        try self.lock.withLock {
+            guard let remoteName = try? callGit(
+                "config",
+                "--get",
+                "branch.\(branch).remote",
+                failureMessage: "Couldn't get remote for branch '\(branch)'"
+            ) else {
+                return nil
+            }
+            
+            let url = try callGit(
+                "config",
+                "--get",
+                "remote.\(remoteName).url",
+                failureMessage: "Couldn't get URL for remote '\(remoteName)'"
+            )
+            
+            return (name: remoteName, url: url)
+        }
+    }
+
+
     // MARK: Repository Interface
 
     /// Returns the tags present in repository.

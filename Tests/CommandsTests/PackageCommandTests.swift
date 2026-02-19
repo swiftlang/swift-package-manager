@@ -7780,4 +7780,267 @@ struct PackageCommandTests {
             }
         }
     }
+
+    @Suite(
+        .tags(
+            .TestSize.large,
+            .Feature.Command.Package.GenerateSBOM,
+            .Feature.SBOM,
+        ),
+    )
+
+    struct GenerateSBOMCommandTests {
+        @Test(
+            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        )
+        func generateSBOMWithoutSpec(
+            data: BuildData,
+        ) async throws {
+            try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
+                await expectThrowsCommandExecutionError(
+                    try await execute(
+                        ["generate-sbom"],
+                        packagePath: fixturePath,
+                        configuration: data.config,
+                        buildSystem: data.buildSystem,
+                    )
+                ) { error in
+                    #expect(error.stderr.contains("No SBOM specification argument provided."))
+                }
+            }
+        }
+
+        @Test(
+            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        )
+        func generateSBOMWithWrongSpec(
+            data: BuildData,
+        ) async throws {
+            try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
+                await expectThrowsCommandExecutionError(
+                    try await execute(
+                        ["generate-sbom", "--sbom-spec", "cyclonedx22"],
+                        packagePath: fixturePath,
+                        configuration: data.config,
+                        buildSystem: data.buildSystem,
+                    )
+                ) { error in
+                    #expect(error.stderr.contains("The value 'cyclonedx22' is invalid"))
+                }
+            }
+        }
+
+        @Test(
+            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        )
+        func generateSBOMWithCycloneDXSpec(
+            data: BuildData,
+        ) async throws {
+            try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
+                let (stdout, stderr) = try await execute(
+                    ["generate-sbom", "--sbom-spec", "cyclonedx"],
+                    packagePath: fixturePath,
+                    configuration: data.config,
+                    buildSystem: data.buildSystem,
+                )
+                #expect(stderr.contains("SBOMs created"))
+
+                let prefix = " SBOM at "
+                let range = try #require(stderr.range(of: prefix), "Could not find '\(prefix)' in output")
+                let endRange = try #require(stderr[range.upperBound...].range(of: ".json"), "Could not find '.json' in output")
+                let pathString = String(stderr[range.upperBound..<endRange.upperBound])
+                let sbomPath = try AbsolutePath(validating: pathString)
+                
+                #expect(localFileSystem.exists(sbomPath))
+                let filesInDirectory = try localFileSystem.getDirectoryContents(sbomPath.parentDirectory)
+                #expect(filesInDirectory.count == 1, "should only produce 1 CycloneDX SBOM")
+            }
+        }
+
+        @Test(
+            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        )
+        func generateSBOMWithSPDXSpec(
+            data: BuildData,
+        ) async throws {
+            try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
+                let (stdout, stderr) = try await execute(
+                    ["generate-sbom", "--sbom-spec", "spdx"],
+                    packagePath: fixturePath,
+                    configuration: data.config,
+                    buildSystem: data.buildSystem,
+                )
+
+                #expect(stderr.contains("SBOMs created"))
+
+                let prefix = " SBOM at "
+                let range = try #require(stderr.range(of: prefix), "Could not find '\(prefix)' in output")
+                let endRange = try #require(stderr[range.upperBound...].range(of: ".json"), "Could not find '.json' in output")
+                let pathString = String(stderr[range.upperBound..<endRange.upperBound])
+                let sbomPath = try AbsolutePath(validating: pathString)
+                
+                #expect(localFileSystem.exists(sbomPath))
+                let filesInDirectory = try localFileSystem.getDirectoryContents(sbomPath.parentDirectory)
+                #expect(filesInDirectory.count == 1, "should only produce 1 SPDX SBOM")
+            }
+        }
+    
+        @Test(
+            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        )
+        func generateSBOMWithCustomDirectory(
+            data: BuildData,
+        ) async throws {
+            try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
+                let customSBOMDir = fixturePath.appending("custom-sboms")
+                
+                let (stdout, stderr) = try await execute(
+                    ["generate-sbom", "--sbom-spec", "cyclonedx", "--sbom-output-dir", customSBOMDir.pathString],
+                    packagePath: fixturePath,
+                    configuration: data.config,
+                    buildSystem: data.buildSystem,
+                )
+                #expect(stderr.contains("SBOMs created"))
+                
+                #expect(localFileSystem.isDirectory(customSBOMDir))
+                let files = try localFileSystem.getDirectoryContents(customSBOMDir)
+                    #expect(files.count == 1)
+            }
+        }
+    
+        @Test(
+            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        )
+        func generateCycloneDXSBOMWithProduct(
+            data: BuildData,
+        ) async throws {
+            try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
+                let (stdout, stderr) = try await execute(
+                    ["generate-sbom", "--sbom-spec", "cyclonedx", "--product", "Foo"],
+                    packagePath: fixturePath,
+                    configuration: data.config,
+                    buildSystem: data.buildSystem,
+                )
+                #expect(stderr.contains("SBOMs created"))
+
+                let prefix = " SBOM at "
+                let range = try #require(stderr.range(of: prefix), "Could not find '\(prefix)' in output")
+                let endRange = try #require(stderr[range.upperBound...].range(of: ".json"), "Could not find '.json' in output")
+                let pathString = String(stderr[range.upperBound..<endRange.upperBound])
+                let sbomPath = try AbsolutePath(validating: pathString)
+                
+                #expect(localFileSystem.exists(sbomPath))
+                let filesInDirectory = try localFileSystem.getDirectoryContents(sbomPath.parentDirectory)
+                #expect(filesInDirectory.count == 1, "should only produce 1 CycloneDX SBOM")
+            }
+        }
+
+        @Test(
+            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        )
+        func generateCycloneDXSBOMWithTarget(
+            data: BuildData,
+        ) async throws {
+            try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
+                await expectThrowsCommandExecutionError(
+                    try await execute(
+                        ["generate-sbom", "--sbom-spec", "cyclonedx", "--target", "Foo"],
+                        packagePath: fixturePath,
+                        configuration: data.config,
+                        buildSystem: data.buildSystem,
+                    )
+                ) { error in
+                    #expect(error.stderr.contains("Unknown option '--target'"))
+                }
+            }
+        }
+
+        @Test(
+            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        )
+        func generateSPDXSBOMWithProduct(
+            data: BuildData,
+        ) async throws {
+            try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
+                let (stdout, stderr) = try await execute(
+                    ["generate-sbom", "--sbom-spec", "spdx", "--product", "Foo"],
+                    packagePath: fixturePath,
+                    configuration: data.config,
+                    buildSystem: data.buildSystem,
+                )
+                #expect(stderr.contains("SBOMs created"))
+
+                let prefix = " SBOM at "
+                let range = try #require(stderr.range(of: prefix), "Could not find '\(prefix)' in output")
+                let endRange = try #require(stderr[range.upperBound...].range(of: ".json"), "Could not find '.json' in output")
+                let pathString = String(stderr[range.upperBound..<endRange.upperBound])
+                let sbomPath = try AbsolutePath(validating: pathString)
+                
+                #expect(localFileSystem.exists(sbomPath))
+                let filesInDirectory = try localFileSystem.getDirectoryContents(sbomPath.parentDirectory)
+                #expect(filesInDirectory.count == 1, "should only produce 1 SPDX SBOM")
+            }
+        }
+
+        @Test(
+            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        )
+        func generateSPDXSBOMWithTarget(
+            data: BuildData,
+        ) async throws {
+            try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
+                await expectThrowsCommandExecutionError(
+                    try await execute(
+                        ["generate-sbom", "--sbom-spec", "spdx", "--target", "Foo"],
+                        packagePath: fixturePath,
+                        configuration: data.config,
+                        buildSystem: data.buildSystem,
+                    )
+                ) { error in
+                    #expect(error.stderr.contains("Unknown option '--target'"))
+                }
+            }
+        }
+
+        @Test(
+            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        )
+        func generateSBOMMultipleSpecs(
+            data: BuildData,
+        ) async throws {
+            try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
+                let customSBOMDir = fixturePath.appending("custom-sboms")
+                
+                let (stdout, stderr) = try await execute(
+                    ["generate-sbom", "--sbom-spec", "cyclonedx", "--sbom-spec", "spdx", "--sbom-output-dir", customSBOMDir.pathString],
+                    packagePath: fixturePath,
+                    configuration: data.config,
+                    buildSystem: data.buildSystem,
+                )
+
+                #expect(stderr.contains("SBOMs created"))
+                #expect(localFileSystem.isDirectory(customSBOMDir))
+                let files = try localFileSystem.getDirectoryContents(customSBOMDir)
+                #expect(files.count == 2)
+            }
+        }
+
+        @Test(
+            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        )
+        func generateSBOMEmitsWarningAboutBuildTimeConditionals(
+            data: BuildData,
+        ) async throws {
+            try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
+                let (stdout, stderr) = try await execute(
+                    ["generate-sbom", "--sbom-spec", "cyclonedx"],
+                    packagePath: fixturePath,
+                    configuration: data.config,
+                    buildSystem: data.buildSystem,
+                )
+                
+                #expect(stderr.contains("warning: `generate-sbom` subcommand may be inaccurate as it does not contain build-time conditionals."))
+            }
+        }
+    }
 }
