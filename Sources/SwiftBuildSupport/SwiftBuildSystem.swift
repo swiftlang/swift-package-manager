@@ -1011,9 +1011,29 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
     private static func constructDebuggingSettingsOverrides(from parameters: BuildParameters.Debugging) -> [String: String] {
         var settings: [String: String] = [:]
-        // TODO: debugInfoFormat: https://github.com/swiftlang/swift-build/issues/560
+
+        // Set DEBUG_INFORMATION_FORMAT based on debugInfoFormat
+        switch parameters.debugInfoFormat {
+        case .dwarf:
+            settings["DEBUG_INFORMATION_FORMAT"] = "dwarf"
+        case .codeview:
+            settings["DEBUG_INFORMATION_FORMAT"] = "codeview"
+        case .none:
+            settings["GCC_GENERATE_DEBUGGING_SYMBOLS"] = "NO"
+            break
+        }
+
+        if let omitFramePointers = parameters.omitFramePointers {
+            if omitFramePointers {
+                settings["CLANG_OMIT_FRAME_POINTERS"] = "YES"
+                settings["SWIFT_OMIT_FRAME_POINTERS"] = "YES"
+            } else {
+                settings["CLANG_OMIT_FRAME_POINTERS"] = "NO"
+                settings["SWIFT_OMIT_FRAME_POINTERS"] = "NO"
+            }
+        }
+
         // TODO: shouldEnableDebuggingEntitlement: Enable/Disable get-task-allow
-        // TODO: omitFramePointer: https://github.com/swiftlang/swift-build/issues/561
         return settings
     }
 
