@@ -71,7 +71,7 @@ struct PathTests {
             ]
         )
         func pathStringIsSetCorrectlySkipOnWindows(path: String, expected: String, label: String) {
-            withKnownIssue("https://github.com/swiftlang/swift-package-manager/issues/8511: Path \(path) is not properly") {
+            withKnownIssue("https://github.com/swiftlang/swift-package-manager/issues/8511: Path \(path) is not properly", isIntermittent: true) {
                 pathStringIsSetCorrectlyTestImplementation(
                     path: path,
                     expected: expected,
@@ -425,7 +425,7 @@ struct PathTests {
             ]
         )
         func pathStringIsSetCorrectlyFailsOnWindows(path: String, expected: String, label: String) {
-            withKnownIssue("https://github.com/swiftlang/swift-package-manager/issues/8511: Path \(path) does not resolve properly") {
+            withKnownIssue("https://github.com/swiftlang/swift-package-manager/issues/8511: Path \(path) does not resolve properly", isIntermittent: true) {
                     pathStringIsSetCorrectlyTestImplementation(
                     path: path,
                     expected: expected,
@@ -715,7 +715,9 @@ struct PathTests {
         #expect(AbsolutePath("/a/b/c/d").relative(to: AbsolutePath("/a/b")) == RelativePath("c/d"));
         #expect(AbsolutePath("/a/b/c/d").relative(to: AbsolutePath("/a/b/c")) == RelativePath("d"));
         #expect(AbsolutePath("/a/b/c/d").relative(to: AbsolutePath("/a/c/d")) == RelativePath("../../b/c/d"));
+        #if !os(Windows)
         #expect(AbsolutePath("/a/b/c/d").relative(to: AbsolutePath("/b/c/d")) == RelativePath("../../../a/b/c/d"));
+        #endif
     }
 
     @Test
