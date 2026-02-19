@@ -16,7 +16,7 @@ import enum PackageModel.BuildConfiguration
 extension BuildParameters {
     public struct Debugging: Encodable {
         public init(
-            debugInfoFormat: DebugInfoFormat = .dwarf,
+            debugInfoFormat: DebugInfoFormat? = nil,
             triple: Triple,
             shouldEnableDebuggingEntitlement: Bool,
             omitFramePointers: Bool?
@@ -40,8 +40,8 @@ extension BuildParameters {
             }
         }
 
-        public var debugInfoFormat: DebugInfoFormat
-        
+        public var debugInfoFormat: DebugInfoFormat?
+
         /// Whether the produced executable should be codesigned with the debugging entitlement, enabling enhanced
         /// backtraces on macOS.
         public var shouldEnableDebuggingEntitlement: Bool
