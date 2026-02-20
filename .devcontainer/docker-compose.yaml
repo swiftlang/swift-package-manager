@@ -1,0 +1,15 @@
+services:
+  devcontainer:
+    # Use your desired image or Dockerfile here
+    image: "swiftlang/swift:nightly-main"
+    env_file:
+      - .env
+    cap_add:
+      - SYS_PTRACE
+    security_opt:
+      - seccomp=unconfined
+    volumes:
+      # Mount the main git repo dir and the current worktree dir at the same absolute path as the host
+      - ${GIT_REPO}:${GIT_REPO}:rw
+      - ${WORKSPACE_DIR}:${WORKSPACE_DIR}:rw
+    command: sleep infinityg
