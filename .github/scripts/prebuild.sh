@@ -11,7 +11,7 @@
 ##
 ##===----------------------------------------------------------------------===##
 
-set -e
+set -ex
 
 if [[ $(uname) == Darwin ]] ; then
     if [[ "$INSTALL_CMAKE" == "1" ]] ; then
@@ -42,6 +42,9 @@ elif command -v apt-get >/dev/null 2>&1 ; then # bookworm, noble, jammy
 
     # Debug symbols
     apt-get install -y libc6-dbg
+
+    # SwiftPM requirements
+    apt-get install -y zip unzip
 
     if [[ "$INSTALL_CMAKE" == "1" ]] ; then
         apt-get install -y cmake ninja-build
