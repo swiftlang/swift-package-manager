@@ -84,7 +84,7 @@ fileprivate func build(
                 moduleContents = (try? localFileSystem.getDirectoryContents(binPath.appending(component: "Modules"))) ?? []
             case .swiftbuild, .xcode:
                 let moduleDirs = (try? localFileSystem.getDirectoryContents(binPath).filter {
-                    $0.hasSuffix(".swiftmodule")
+                    $0.contains(".swiftmodule")
                 }) ?? []
                 for dir: String in moduleDirs {
                     moduleContents +=
@@ -720,8 +720,7 @@ struct BuildCommandTestCases {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let config = BuildConfiguration.debug
-        try await withKnownIssue("SWBINTTODO: Test failed. This needs to be investigated") {
-            try await fixture(name: "Miscellaneous/UnreachableTargets") { fixturePath in
+            try await fixture(name: "Miscellaneous/UnreachableTargets", removeFixturePathOnDeinit: false) { fixturePath in
                 let aPath = fixturePath.appending("A")
 
                 // Dependency contains a dependent product
@@ -732,19 +731,30 @@ struct BuildCommandTestCases {
                     configuration: config,
                     buildSystem: buildSystem,
                 )
-                #expect(result.binContents.contains("BTarget2.build"))
+                switch buildSystem {
+                    case .native:
+                    #expect(result.binContents.contains("BTarget2.build"))
+                    case .swiftbuild, .xcode:
+                    break
+                }
                 #expect(result.binContents.contains(executableName("bexec")))
                 #expect(!result.binContents.contains(executableName("aexec")))
                 #expect(!result.binContents.contains("ATarget.build"))
                 #expect(!result.binContents.contains("BLibrary.a"))
 
-                // FIXME: We create the modulemap during build planning, hence this ugliness.
-                let bTargetBuildDir =
-                ((try? localFileSystem.getDirectoryContents(result.binPath.appending("BTarget1.build"))) ?? [])
-                    .filter { $0 != moduleMapFilename }
-                #expect(bTargetBuildDir.isEmpty, "bTargetBuildDir should be empty")
 
                 #expect(!result.binContents.contains("cexec"))
+                switch buildSystem {
+                    case .native:
+                    // FIXME: We create the modulemap during build planning, hence this ugliness.
+                    let bTargetBuildDir =
+                    ((try? localFileSystem.getDirectoryContents(result.binPath.appending("BTarget1.build"))) ?? [])
+                        .filter { $0 != moduleMapFilename }
+                    #expect(bTargetBuildDir.isEmpty, "bTargetBuildDir should be empty")
+                    #expect(result.binContents.contains("BTarget2.build"))
+                    case .swiftbuild, .xcode:
+                    break
+                }
                 #expect(!result.binContents.contains("CTarget.build"))
 
                 // Also make sure we didn't emit parseable module interfaces
@@ -754,9 +764,6 @@ struct BuildCommandTestCases {
                 #expect(!result.moduleContents.contains("BTarget.swiftinterface"))
                 #expect(!result.moduleContents.contains("CTarget.swiftinterface"))
             }
-        } when: {
-            buildSystem == .swiftbuild
-        }
     }
 
     @Test(
@@ -797,10 +804,11 @@ struct BuildCommandTestCases {
 
     @Test(
         .tags(
+            .FunctionalArea.LibraryEvoluton,
             .Feature.CommandLineArguments.Product,
             .Feature.CommandLineArguments.BuildTests,
         ),
-        arguments: SupportedBuildSystemOnPlatform,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func automaticParseableInterfacesWithLibraryEvolution(
         buildSystem: BuildSystemProvider.Kind,
@@ -818,15 +826,13 @@ struct BuildCommandTestCases {
                     case .native:
                         #expect(result.moduleContents.contains("A.swiftinterface"))
                         #expect(result.moduleContents.contains("B.swiftinterface"))
-                    case .swiftbuild, .xcode:
-                        let moduleARegex = try Regex(#"A[.]swiftmodule[/].*[.]swiftinterface"#)
+                    case .swiftbuild:
+                        let moduleARegex = try Regex(#"A[.]swiftmodule[/].*[.]swiftmodule"#)
                         let moduleBRegex = try Regex(#"B[.]swiftmodule[/].*[.]swiftmodule"#)
-                        withKnownIssue("SWBINTTODO: Test failed because of missing 'A.swiftmodule/*.swiftinterface' files") {
-                            #expect(result.moduleContents.contains { $0.contains(moduleARegex) })
-                        } when: {
-                            buildSystem == .swiftbuild
-                        }
+                        #expect(result.moduleContents.contains { $0.contains(moduleARegex) })
                         #expect(result.moduleContents.contains { $0.contains(moduleBRegex) })
+                    case .xcode:
+                        Issue.record("Test configuration error. Build backend is not intended to be tested.")
                 }
             }
         } when: {
@@ -1026,13 +1032,10 @@ struct BuildCommandTestCases {
             .Feature.EnvironmentVariables.SWIFT_EXEC,
             .Feature.EnvironmentVariables.SWIFT_EXEC_MANIFEST,
         ),
-        arguments: [BuildSystemProvider.Kind.swiftbuild, .xcode],
     )
-    func buildSystemOverrides(
-        buildSystem: BuildSystemProvider.Kind,
-    ) async throws {
+    func buildSystemOverrides() async throws {
         let config = BuildConfiguration.debug
-        try await withKnownIssue(isIntermittent: true) {
+        let buildSystem = BuildSystemProvider.Kind.swiftbuild
         try await fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { fixturePath in
             let swiftCompilerPath = try UserToolchain.default.swiftCompilerPath
             // try await building without specifying overrides.  This should succeed, and should use the default
@@ -1066,9 +1069,6 @@ struct BuildCommandTestCases {
                 return
             }
             #expect(stderr.contains("/usr/bin/false"))
-        }
-        } when: {
-            buildSystem == .swiftbuild
         }
     }
 
@@ -1274,7 +1274,7 @@ struct BuildCommandTestCases {
     }
 
     @Test(
-        .SWBINTTODO("Test failed because swiftbuild doesn't output precis codesign commands. Once swift run works with swiftbuild the test can be investigated."),
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/9745", relationship: .defect),
         .tags(
             .Feature.CommandLineArguments.DisableGetTaskAllowEntitlement,
             .Feature.CommandLineArguments.EnableGetTaskAllowEntitlement,
@@ -1693,7 +1693,6 @@ struct BuildCommandTestCases {
             buildSystem == .native
         }
     }
-
 
     @Test(
         .requireHostOS(.macOS),
