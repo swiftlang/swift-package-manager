@@ -81,9 +81,6 @@ struct TestDiscoveryTests {
             .Feature.CommandLineArguments.BuildSystem,
         ),
         .IssueWindowsCannotSaveAttachment,
-        .issue("https://github.com/swiftlang/swift-build/issues/333", relationship: .defect),
-        .bug("https://github.com/swiftlang/swift-build/issues/13"),
-        // arguments: [BuildSystemProvider.Kind.native],
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func nonStandardName(_ buildSystem: BuildSystemProvider.Kind) async throws {
@@ -96,7 +93,7 @@ struct TestDiscoveryTests {
                 #expect(stdout.contains("Executed 1 test"))
             }
         } when: {
-            buildSystem == .swiftbuild && [.windows, .macOS].contains(ProcessInfo.hostOperatingSystem)
+            buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows
         }
     }
 
