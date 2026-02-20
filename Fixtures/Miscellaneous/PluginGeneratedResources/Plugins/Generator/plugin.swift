@@ -19,7 +19,7 @@ struct GeneratorPlugin: BuildToolPlugin {
             .prebuildCommand(
                 displayName: "Generating empty file",
                 executable: .init(fileURLWithPath: touchExe),
-                arguments: touchArgs + [String(cString: (context.pluginWorkDirectoryURL.appending(path: "best.txt") as NSURL).fileSystemRepresentation)],
+                arguments: touchArgs + [context.pluginWorkDirectoryURL.appendingPathComponent("best.txt").path],
                 outputFilesDirectory: context.pluginWorkDirectoryURL
             )
         ]

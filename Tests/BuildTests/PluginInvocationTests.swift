@@ -827,7 +827,7 @@ final class PluginInvocationTests: XCTestCase {
             let packageDir = tmpPath.appending(components: "mypkg")
             try localFileSystem.createDirectory(packageDir, recursive: true)
             try localFileSystem.writeFileContents(packageDir.appending("Package.swift"), string: """
-                // swift-tools-version:5.7
+                // swift-tools-version:6.0
 
                 import PackageDescription
 
@@ -888,9 +888,9 @@ final class PluginInvocationTests: XCTestCase {
                           [
                               Command.prebuildCommand(
                                   displayName: "X: Running Y before the build...",
-                                  executable: try context.tool(named: "Y").path,
+                                  executable: try context.tool(named: "Y").url,
                                   arguments: [ "ARGUMENT_ONE", "ARGUMENT_TWO" ],
-                                  outputFilesDirectory: context.pluginWorkDirectory.appending("OUTPUT_FILES_DIRECTORY")
+                                  outputFilesDirectory: context.pluginWorkDirectoryURL.appendingPathComponent("OUTPUT_FILES_DIRECTORY")
                               )
                           ]
                       }
@@ -998,7 +998,7 @@ final class PluginInvocationTests: XCTestCase {
             let packageDir = tmpPath.appending(components: "mypkg")
             try localFileSystem.createDirectory(packageDir, recursive: true)
             try localFileSystem.writeFileContents(packageDir.appending("Package.swift"), string: """
-                // swift-tools-version:5.7
+                // swift-tools-version:6.0
 
                 import PackageDescription
 
@@ -1058,9 +1058,9 @@ final class PluginInvocationTests: XCTestCase {
                           [
                               Command.prebuildCommand(
                                   displayName: "X: Running Y before the build...",
-                                  executable: try context.tool(named: "Y").path,
+                                  executable: try context.tool(named: "Y").url,
                                   arguments: [ "ARGUMENT_ONE", "ARGUMENT_TWO" ],
-                                  outputFilesDirectory: context.pluginWorkDirectory.appending("OUTPUT_FILES_DIRECTORY")
+                                  outputFilesDirectory: context.pluginWorkDirectoryURL.appendingPathComponent("OUTPUT_FILES_DIRECTORY")
                               )
                           ]
                       }

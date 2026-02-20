@@ -1,8 +1,9 @@
 import PackagePlugin
+import Foundation
 
 @main
 struct MyPlugin: BuildToolPlugin {
-    
+
     // Create build commands that don't invoke the MySourceGenBuildTool source generator
     // tool directly, but instead invoke a system tool that invokes it indirectly.  We
     // want to test that we still end up with a dependency on not only that tool but also
@@ -10,21 +11,19 @@ struct MyPlugin: BuildToolPlugin {
     func createBuildCommands(context: PluginContext, target: Target) throws -> [Command] {
         print("Hello from the Build Tool Plugin!")
         guard let target = target as? SourceModuleTarget else { return [] }
-        let inputFiles = target.sourceFiles.filter({ $0.path.extension == "dat" })
+        let inputFiles = target.sourceFiles.filter({ $0.url.pathExtension == "dat" })
         return try inputFiles.map {
-            let inputFile = $0
-            let inputPath = inputFile.path
-            let outputName = inputPath.stem + ".swift"
-            let outputPath = context.pluginWorkDirectory.appending(outputName)
+            let inputPath = $0.url
+            let outputName = inputPath.deletingPathExtension().appendingPathExtension("swift").lastPathComponent
+            let outputPath = context.pluginWorkDirectoryURL.appendingPathComponent(outputName)
             return .buildCommand(
                 displayName:
-                    "Generating \(outputName) from \(inputPath.lastComponent)",
+                    "Generating \(outputName) from \(inputPath.lastPathComponent)",
                 executable:
-                    Path("/usr/bin/env"),
+                    try context.tool(named: "MySourceGenBuildTool").url,
                 arguments: [
-                    try context.tool(named: "MySourceGenBuildTool").path,
-                    "\(inputPath)",
-                    "\(outputPath)"
+                    inputPath.path,
+                    outputPath.path,
                 ],
                 inputFiles: [
                     inputPath,

@@ -5,7 +5,7 @@ struct MyPlugin: BuildToolPlugin {
     func createBuildCommands(context: PluginContext, target: Target) async throws -> [Command] {
         return [.buildCommand(
             displayName: "Running MyPluginExecutable",
-            executable: try context.tool(named: "MyPluginExecutable").path,
+            executable: try context.tool(named: "MyPluginExecutable").url,
             arguments: [],
             environment: [:],
             inputFiles: [],
