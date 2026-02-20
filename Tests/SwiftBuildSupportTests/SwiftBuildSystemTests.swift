@@ -40,7 +40,7 @@ func withInstantiatedSwiftBuildSystem(
             let buildParameters = if let buildParameters {
                 buildParameters
             } else {
-                mockBuildParameters(destination: .host)
+                mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
             }
             let observabilitySystem: TestingObservability = ObservabilitySystem.makeForTesting()
             let toolchain = try UserToolchain.default
@@ -155,6 +155,7 @@ struct SwiftBuildSystemTests {
                 fromFixture: "PIFBuilder/Simple",
                 buildParameters: mockBuildParameters(
                     destination: .host,
+                    buildSystemKind: .swiftbuild,
                     sanitizers: [sanitizer],
                 ),
             ) { swiftBuild, session, observabilityScope, buildParameters in
@@ -182,6 +183,7 @@ struct SwiftBuildSystemTests {
                 fromFixture: "PIFBuilder/Simple",
                 buildParameters: mockBuildParameters(
                     destination: .host,
+                    buildSystemKind: .swiftbuild,
                     sanitizers: [sanitizer],
                 ),
             ) { swiftBuild, session, observabilityScope, buildParameters in
@@ -212,6 +214,7 @@ struct SwiftBuildSystemTests {
                 fromFixture: "PIFBuilder/Simple",
                 buildParameters: mockBuildParameters(
                     destination: .host,
+                    buildSystemKind: .swiftbuild,
                     shouldLinkStaticSwiftStdlib: shouldLinkStaticSwiftStdlib,
                     triple: triple,
                 ),
@@ -253,6 +256,7 @@ struct SwiftBuildSystemTests {
                 fromFixture: "PIFBuilder/Simple",
                 buildParameters: mockBuildParameters(
                     destination: .host,
+                    buildSystemKind: .swiftbuild,
                     shouldLinkStaticSwiftStdlib: shouldLinkStaticSwiftStdlib,
                     triple: nonDarwinTriple,
                 ),
@@ -288,6 +292,7 @@ struct SwiftBuildSystemTests {
             fromFixture: "PIFBuilder/Simple",
             buildParameters: mockBuildParameters(
                 destination: .host,
+                buildSystemKind: .swiftbuild,
                 indexStoreMode: indexStoreSettingUT,
             ),
         ) { swiftBuild, session, observabilityScope, buildParameters in
@@ -331,6 +336,7 @@ struct SwiftBuildSystemTests {
             fromFixture: "PIFBuilder/Simple",
             buildParameters: mockBuildParameters(
                 destination: .host,
+                buildSystemKind: .swiftbuild,
                 linkerDeadStrip: linkerDeadStripUT,
             ),
         ) { swiftBuild, session, observabilityScope, buildParameters in
@@ -367,6 +373,7 @@ struct SwiftBuildSystemTests {
                 fromFixture: "PIFBuilder/Simple",
                 buildParameters: mockBuildParameters(
                     destination: .host,
+                    buildSystemKind: .swiftbuild,
                     numberOfWorkers: expectedNumberOfWorkers,
                 ),
             ) { swiftBuild, session, observabilityScope, buildParameters in

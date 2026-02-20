@@ -125,7 +125,7 @@ struct TestGetBuildSystemArgs {
     }
 
     @Test(
-        arguments: SupportedBuildSystemOnPlatform
+        arguments: SupportedBuildSystemOnAllPlatforms
     )
     func validArgumentsReturnsCorrectCommandLineArguments(_ inputValue: BuildSystemProvider.Kind) {
         let expected = [

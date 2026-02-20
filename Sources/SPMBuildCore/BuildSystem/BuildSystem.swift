@@ -223,8 +223,8 @@ public struct BuildSystemProvider {
         public var defaultValueDescription: String {
             switch self {
                 case .native: "Native Build System"
-                case .swiftbuild: "Swift Build build engine (preview; recommended for feedback and testing.  Report issues at https://github.com/swiftlang/swift-package-manager/issues)"
-                case .xcode: "Xcode build system integration (discouraged)"
+                case .swiftbuild: "Swift Build build engine (Report issues at https://github.com/swiftlang/swift-package-manager/issues)"
+                case .xcode: "aliased to the Swift Build build engine"
             }
         }
     }

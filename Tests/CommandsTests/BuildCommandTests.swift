@@ -346,7 +346,7 @@ struct BuildCommandTestCases {
     }
 
     @Test(
-        arguments: SupportedBuildSystemOnPlatform,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func symlink(
         buildSystem: BuildSystemProvider.Kind,
@@ -398,7 +398,7 @@ struct BuildCommandTestCases {
         .tags(
             .Feature.CommandLineArguments.Product,
         ),
-        arguments: SupportedBuildSystemOnPlatform,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func buildExistingLibraryProductIsSuccessfull(
         buildSystem: BuildSystemProvider.Kind,
@@ -465,7 +465,7 @@ struct BuildCommandTestCases {
             .Feature.CommandLineArguments.Product,
             .Feature.CommandLineArguments.Target,
         ),
-        arguments: SupportedBuildSystemOnPlatform,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func buildProductAndTargetsFailsWithAMutuallyExclusiveMessage(
         buildSystem: BuildSystemProvider.Kind,
@@ -494,7 +494,7 @@ struct BuildCommandTestCases {
             .Feature.CommandLineArguments.BuildTests,
             .Feature.CommandLineArguments.Product,
         ),
-        arguments: SupportedBuildSystemOnPlatform,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func buildProductAndTestsFailsWithAMutuallyExclusiveMessage(
         buildSystem: BuildSystemProvider.Kind,
@@ -524,7 +524,7 @@ struct BuildCommandTestCases {
             .Feature.CommandLineArguments.BuildTests,
             .Feature.CommandLineArguments.Target,
         ),
-        arguments: SupportedBuildSystemOnPlatform,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func buildTargetAndTestsFailsWithAMutuallyExclusiveMessage(
         buildSystem: BuildSystemProvider.Kind,
@@ -554,7 +554,7 @@ struct BuildCommandTestCases {
             .Feature.CommandLineArguments.Product,
             .Feature.CommandLineArguments.Target,
         ),
-        arguments: getBuildData(for: SupportedBuildSystemOnPlatform),
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
     )
     func buildProductTargetAndTestsFailsWithAMutuallyExclusiveMessage(
         data: BuildData,
@@ -581,7 +581,7 @@ struct BuildCommandTestCases {
         .tags(
             .Feature.CommandLineArguments.Product,
         ),
-        arguments: SupportedBuildSystemOnPlatform,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func buildUnknownProductFailsWithAppropriateMessage(
         buildSystem: BuildSystemProvider.Kind,
@@ -620,7 +620,7 @@ struct BuildCommandTestCases {
         .tags(
             .Feature.CommandLineArguments.Target,
         ),
-        arguments: SupportedBuildSystemOnPlatform,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func buildUnknownTargetFailsWithAppropriateMessage(
         buildSystem: BuildSystemProvider.Kind,
@@ -688,7 +688,7 @@ struct BuildCommandTestCases {
     }
 
     @Test(
-        arguments: SupportedBuildSystemOnPlatform,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func nonReachableProductsAndTargetsFunctional(
         buildSystem: BuildSystemProvider.Kind,
@@ -800,7 +800,7 @@ struct BuildCommandTestCases {
             .Feature.CommandLineArguments.Product,
             .Feature.CommandLineArguments.BuildTests,
         ),
-        arguments: SupportedBuildSystemOnPlatform,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func automaticParseableInterfacesWithLibraryEvolution(
         buildSystem: BuildSystemProvider.Kind,
@@ -856,7 +856,7 @@ struct BuildCommandTestCases {
         .tags(
             .Feature.BuildCache,
         ),
-        arguments: SupportedBuildSystemOnPlatform,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func buildCompleteMessage(
         buildSystem: BuildSystemProvider.Kind,
@@ -940,7 +940,7 @@ struct BuildCommandTestCases {
 
     @Test(
         .IssueWindowsLongPath,
-        arguments: SupportedBuildSystemOnPlatform,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func buildSystemDefaultSettings(
         buildSystem: BuildSystemProvider.Kind,
@@ -1026,7 +1026,7 @@ struct BuildCommandTestCases {
             .Feature.EnvironmentVariables.SWIFT_EXEC,
             .Feature.EnvironmentVariables.SWIFT_EXEC_MANIFEST,
         ),
-        arguments: [BuildSystemProvider.Kind.swiftbuild, .xcode],
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
     )
     func buildSystemOverrides(
         buildSystem: BuildSystemProvider.Kind,
@@ -1076,7 +1076,7 @@ struct BuildCommandTestCases {
         .tags(
             .Feature.CommandLineArguments.PrintManifestJobGraph,
         ),
-        arguments: SupportedBuildSystemOnPlatform,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func printLLBuildManifestJobGraph(
         buildSystem: BuildSystemProvider.Kind,
@@ -1097,7 +1097,7 @@ struct BuildCommandTestCases {
         .tags(
             .Feature.CommandLineArguments.PrintPIFManifestGraph,
         ),
-        arguments: SupportedBuildSystemOnPlatform,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func printPIFManifestGraph(
         buildSystem: BuildSystemProvider.Kind,
@@ -1127,7 +1127,7 @@ struct BuildCommandTestCases {
         .tags(
             .Feature.CommandLineArguments.BuildSystem,
         ),
-        arguments: SupportedBuildSystemOnPlatform,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func swiftDriverRawOutputGetsNewlines(
         buildSystem: BuildSystemProvider.Kind,
@@ -1283,7 +1283,7 @@ struct BuildCommandTestCases {
         .tags(
             .Feature.CommandLineArguments.BuildSystem,
         ),
-        arguments: SupportedBuildSystemOnPlatform,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func getTaskAllowEntitlement(
         buildSystem: BuildSystemProvider.Kind,
@@ -1386,7 +1386,7 @@ struct BuildCommandTestCases {
             .Feature.CommandLineArguments.EnableTestDiscovery,
             .Feature.CommandLineArguments.Verbose,
         ),
-        arguments: SupportedBuildSystemOnPlatform,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func ignoresLinuxMain(
         buildSystem: BuildSystemProvider.Kind,
@@ -1422,7 +1422,7 @@ struct BuildCommandTestCases {
             .Feature.CommandLineArguments.VeryVerbose,
             .Feature.CommandLineArguments.Xswiftc,
         ),
-        arguments: SupportedBuildSystemOnPlatform, [
+        arguments: SupportedBuildSystemOnAllPlatforms, [
             ["--verbose"],
             ["--very-verbose"],
             ["-Xswiftc", "-diagnostic-style=llvm"],
@@ -1508,7 +1508,7 @@ struct BuildCommandTestCases {
         .tags(
             .Feature.CommandLineArguments.BuildTests,
         ),
-        arguments: SupportedBuildSystemOnPlatform,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func fatalErrorDisplayedCorrectNumberOfTimesWhenSingleXCTestHasFatalErrorInBuildCompilation(
         buildSystem: BuildSystemProvider.Kind,
@@ -1546,7 +1546,7 @@ struct BuildCommandTestCases {
         .tags(
             .Feature.CommandLineArguments.Quiet,
         ),
-    arguments: SupportedBuildSystemOnPlatform,
+    arguments: SupportedBuildSystemOnAllPlatforms,
     )
      func swiftBuildQuietLogLevel(
          buildSystem: BuildSystemProvider.Kind,
@@ -1573,7 +1573,7 @@ struct BuildCommandTestCases {
         .tags(
             .Feature.CommandLineArguments.Quiet,
         ),
-        arguments: SupportedBuildSystemOnPlatform,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func swiftBuildQuietLogLevelWithError(
         buildSystem: BuildSystemProvider.Kind,

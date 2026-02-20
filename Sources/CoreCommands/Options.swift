@@ -546,7 +546,7 @@ public struct BuildOptions: ParsableArguments {
         name: .customLong("build-system"),
         help: "Specify the build system to use.",
     )
-    var _buildSystem: BuildSystemProvider.Kind = .native
+    var _buildSystem: BuildSystemProvider.Kind = .swiftbuild
 
     /// The Debug Information Format to use.
     @Option(name: .customLong("debug-info-format", withSingleDash: true), help: "The Debug Information Format to use.")
@@ -555,10 +555,10 @@ public struct BuildOptions: ParsableArguments {
     public var buildSystem: BuildSystemProvider.Kind {
         switch self._buildSystem {
         case .swiftbuild, .xcode:
-            return self._buildSystem
+            return .swiftbuild
         case .native:
             // Maintain legacy behavior and force use of the Xcode build system if we want to build more than one arch.
-            return self.architectures.count > 1 ? .xcode : .native
+            return self.architectures.count > 1 ? .swiftbuild : .native
         }
     }
 
