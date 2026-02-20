@@ -582,7 +582,6 @@ public final class PackagePIFBuilder {
         settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS]
             .lazilyInitializeAndMutate(initialValue: ["$(inherited)"]) { $0.append("SWIFT_PACKAGE") }
         settings[.GCC_PREPROCESSOR_DEFINITIONS] = ["$(inherited)", "SWIFT_PACKAGE"]
-        settings[.CLANG_ENABLE_OBJC_ARC] = "YES"
         settings[.KEEP_PRIVATE_EXTERNS] = "NO"
 
         // We currently deliberately do not support Swift ObjC interface headers.
