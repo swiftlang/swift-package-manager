@@ -22,7 +22,10 @@ class PackageDescriptionLoadingTests: XCTestCase, ManifestLoaderDelegate {
 
     /// The array of manifest loaders to test with for complete coverage.
     var testManifestLoaders: [(any ManifestLoaderProtocol)?] = [
-        ParsingManifestLoader(),
+        try! ParsingManifestLoader(
+            toolchain: try! UserToolchain.default,
+            extraManifestFlags: []
+        ),
         /*default manifest loader*/nil,
     ]
 

@@ -370,9 +370,10 @@ let package = Package(
             ] + swiftSyntaxDependencies(
                 [
                     "SwiftDiagnostics",
+                    "SwiftIfConfig",
                     "SwiftParser",
                     "SwiftParserDiagnostics",
-                    "SwiftSyntax"
+                    "SwiftSyntax",
                 ]
             ),
             exclude: ["CMakeLists.txt", "README.md"],

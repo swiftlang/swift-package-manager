@@ -1081,9 +1081,11 @@ public final class SwiftCommandState {
         )
     })
 
-    private func createParsingManifestLoader() -> ParsingManifestLoader {
-        return ParsingManifestLoader(
-            pruneDependencies: self.options.resolver.pruneDependencies
+    private func createParsingManifestLoader() throws -> ParsingManifestLoader {
+        return try ParsingManifestLoader(
+            toolchain: self.getHostToolchain(),
+            pruneDependencies: self.options.resolver.pruneDependencies,
+            extraManifestFlags: self.options.build.manifestFlags
         )
     }
 
@@ -1122,11 +1124,11 @@ public final class SwiftCommandState {
     private lazy var _manifestLoader: Result<any ManifestLoaderProtocol, Swift.Error> = Result(
         catching: {
             switch self.options.manifest.manifestProcessingMode {
-            case .onlyParsed: createParsingManifestLoader()
+            case .onlyParsed: try createParsingManifestLoader()
             case .onlyExecuted: try createExecutingManifestLoader()
             case .crosscheck, .parsedWithFallback:
                 ChainedParsingManifestLoader(
-                    parsingLoader: createParsingManifestLoader(),
+                    parsingLoader: try createParsingManifestLoader(),
                     executingLoader: try createExecutingManifestLoader(),
                     showLimitations: self.options.manifest.showManifestParserLimitations,
                     crosscheck: self.options.manifest.manifestProcessingMode == .crosscheck

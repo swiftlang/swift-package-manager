@@ -17,6 +17,7 @@ import PackageModel
 import SourceControl
 
 public import SwiftDiagnostics
+import SwiftIfConfig
 import SwiftParser
 import SwiftParserDiagnostics
 import SwiftSyntax
@@ -42,9 +43,18 @@ public typealias SyntaxDiagnostic = SwiftDiagnostics.Diagnostic
 /// than continue to manifest parsing.
 public final class ParsingManifestLoader: ManifestLoaderProtocol {
     let pruneDependencies: Bool
+    let config: StaticBuildConfiguration
 
-    public init(pruneDependencies: Bool = false) {
+    public init(
+        toolchain: UserToolchain,
+        pruneDependencies: Bool = false,
+        extraManifestFlags: [String],
+    ) throws {
         self.pruneDependencies = pruneDependencies
+        self.config = try StaticBuildConfiguration.getHostConfiguration(
+            usingSwiftCompiler: toolchain.swiftCompilerPathForManifests,
+            extraManifestFlags: extraManifestFlags
+        )
     }
 
     public func resetCache(observabilityScope: Basics.ObservabilityScope) async {
@@ -157,16 +167,29 @@ public final class ParsingManifestLoader: ManifestLoaderProtocol {
         let sourceFile: SourceFileSyntax = Parser.parse(source: manifestContents)
 
         // Check for syntax errors that would prevent us from going further.
-        // FIXME: Figure out how we want to handle #ifs here. We could filter
-        // out untaken #if branches like the compiler does.
         let diagnostics = ParseDiagnosticsGenerator.diagnostics(for: sourceFile)
         if !diagnostics.isEmpty {
-            throw .syntaxErrors(diagnostics)
+            // Filter out diagnostics in unparsed regions.
+            let configured = sourceFile.configuredRegions(in: config)
+            let relevantDiagnostics = diagnostics.filter { diag in
+                switch configured.isActive(diag.node) {
+                case .active, .inactive:
+                    true
+
+                case .unparsed:
+                    false
+                }
+            }
+
+            if !relevantDiagnostics.isEmpty {
+                throw .syntaxErrors(relevantDiagnostics)
+            }
         }
 
         // Walk the source file to parse
         let visitor = ManifestParseVisitor(
             manifestPath: manifestPath,
+            configuration: config,
             dependencyMapper: dependencyMapper,
             fileSystem: fileSystem,
             defaultPackageAccess: manifestToolsVersion >= .v5_9
@@ -209,7 +232,8 @@ public final class ParsingManifestLoader: ManifestLoaderProtocol {
     }
 }
 
-class ManifestParseVisitor: SyntaxAnyVisitor {
+/// Syntax visitor that processes the parsed manifest.
+class ManifestParseVisitor: ActiveSyntaxAnyVisitor {
     /// Limitations encountered while processing the manifest.
     var limitations: [ManifestParseLimitation] = []
 
@@ -262,6 +286,7 @@ class ManifestParseVisitor: SyntaxAnyVisitor {
 
     public init(
         manifestPath: AbsolutePath,
+        configuration: StaticBuildConfiguration,
         dependencyMapper: DependencyMapper,
         fileSystem: FileSystem,
         defaultPackageAccess: Bool
@@ -270,7 +295,7 @@ class ManifestParseVisitor: SyntaxAnyVisitor {
         self.dependencyMapper = dependencyMapper
         self.fileSystem = fileSystem
         self.defaultPackageAccess = defaultPackageAccess
-        super.init(viewMode: .fixedUp)
+        super.init(viewMode: .fixedUp, configuration: configuration)
     }
 
     override func visitAny(_ node: Syntax) -> SyntaxVisitorContinueKind {
