@@ -139,6 +139,7 @@ extension Tag.Feature.Command.Package {
     @Tag public static var AddSetting: Tag
     @Tag public static var AddTarget: Tag
     @Tag public static var AddTargetDependency: Tag
+    @Tag public static var AddTargetPlugin: Tag
     @Tag public static var BuildPlugin: Tag
     @Tag public static var Clean: Tag
     @Tag public static var CommandPlugin: Tag
