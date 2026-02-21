@@ -743,6 +743,12 @@ let package = Package(
             exclude: ["CMakeLists.txt"]
         ),
         .executableTarget(
+            /** For listing and running #Playground blocks */
+            name: "swift-play",
+            dependencies: ["Commands"],
+            exclude: ["CMakeLists.txt"]
+        ),
+        .executableTarget(
             /** Interacts with package collections */
             name: "swift-package-collection",
             dependencies: ["Commands", "PackageCollectionsCommand"]

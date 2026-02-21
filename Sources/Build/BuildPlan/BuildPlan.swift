@@ -199,6 +199,9 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     @_spi(SwiftPMInternal)
     public private(set) var derivedTestTargetsMap: [ResolvedProduct.ID: [ResolvedModule]] = [:]
 
+    @_spi(SwiftPMInternal)
+    public private(set) var derivedPlaygroundTargetsMap: [ResolvedProduct.ID: [ResolvedModule]] = [:]
+
     /// Cache for pkgConfig flags.
     private var pkgConfigCache = [SystemLibraryModule: (cFlags: [String], libs: [String])]()
 
@@ -459,6 +462,28 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
             }
 
             self.derivedTestTargetsMap[item.product.id] = derivedTestTargets
+        }
+
+        // Plan the derived playground runner targets, if necessary.
+        if let playgroundRunnerBuildDescription = productMap.first (where: {
+            $0.product.underlying.isPlaygroundRunner
+        }) {
+            let derivedPlaygroundRunnerTargets = try Self.makeDerivedPlaygroundRunnerTargets(
+                playgroundRunnerProductBuildDescription: playgroundRunnerBuildDescription,
+                destinationBuildParameters: destinationBuildParameters,
+                toolsBuildParameters: toolsBuildParameters,
+                shouldDisableSandbox: self.shouldDisableSandbox,
+                self.fileSystem,
+                self.observabilityScope
+            )
+
+            // Replace the placeholder target added by the PackageBuilder with the new derived target
+            let placeholderPlaygroundRunnerTargets = targetMap.filter { $0.module.underlying.isPlaygroundRunner }
+            targetMap = targetMap.subtracting(placeholderPlaygroundRunnerTargets)
+            for item in derivedPlaygroundRunnerTargets {
+                targetMap.insert(.swift(item.playgroundRunnerTargetBuildDescription))
+                self.derivedPlaygroundTargetsMap[item.product.id] = [item.playgroundRunnerTargetBuildDescription.target]
+            }
         }
 
         self.buildToolPluginInvocationResults = buildToolPluginInvocationResults

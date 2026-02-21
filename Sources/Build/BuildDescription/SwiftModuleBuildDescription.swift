@@ -198,6 +198,8 @@ public final class SwiftModuleBuildDescription {
     public var isTestTarget: Bool {
         self.testTargetRole != nil
     }
+    
+    public let isPlaygroundRunnerTarget: Bool
 
     /// True if this module needs to be parsed as a library based on the target type and the configuration
     /// of the source code
@@ -218,6 +220,11 @@ public final class SwiftModuleBuildDescription {
             // in the module or their names.
             if self.toolsVersion < .v5_5 || self.sources.count != 1 {
                 return false
+            }
+            if self.isPlaygroundRunnerTarget {
+                // Always true for the Playground runner executable target, as the derived source file hasn't
+                // been written yet.
+                return true
             }
             // looking into the file content to see if it is using the @main annotation which requires parse-as-library
             return (try? containsAtMain(fileSystem: self.fileSystem, path: self.sources[0])) ?? false
@@ -272,7 +279,8 @@ public final class SwiftModuleBuildDescription {
         shouldGenerateTestObservation: Bool = false,
         shouldDisableSandbox: Bool,
         fileSystem: FileSystem,
-        observabilityScope: ObservabilityScope
+        observabilityScope: ObservabilityScope,
+        isPlaygroundRunnerTarget: Bool = false
     ) throws {
         guard let swiftTarget = target.underlying as? SwiftModule else {
             throw InternalError("underlying target type mismatch \(target)")
@@ -293,6 +301,8 @@ public final class SwiftModuleBuildDescription {
         } else {
             self.testTargetRole = nil
         }
+
+        self.isPlaygroundRunnerTarget = isPlaygroundRunnerTarget
 
         self.tempsPath = target.tempsPath(self.buildParameters)
         self.derivedSources = Sources(paths: [], root: self.tempsPath.appending("DerivedSources"))

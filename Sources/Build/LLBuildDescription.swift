@@ -39,6 +39,9 @@ public struct BuildDescription: Codable {
     /// The map of test entry point commands.
     let testEntryPointCommands: [LLBuildManifest.CmdName: TestEntryPointTool]
 
+    /// The map of playground runner commands.
+    let playgroundRunnerCommands: [LLBuildManifest.CmdName: PlaygroundRunnerTool]
+
     /// The map of copy commands.
     let copyCommands: [LLBuildManifest.CmdName: CopyTool]
 
@@ -73,6 +76,7 @@ public struct BuildDescription: Codable {
         swiftFrontendCommands: [LLBuildManifest.CmdName: SwiftFrontendTool],
         testDiscoveryCommands: [LLBuildManifest.CmdName: TestDiscoveryTool],
         testEntryPointCommands: [LLBuildManifest.CmdName: TestEntryPointTool],
+        playgroundRunnerCommands: [LLBuildManifest.CmdName: PlaygroundRunnerTool],
         copyCommands: [LLBuildManifest.CmdName: CopyTool],
         writeCommands: [LLBuildManifest.CmdName: WriteAuxiliaryFile],
         pluginDescriptions: [PluginBuildDescription]
@@ -83,6 +87,7 @@ public struct BuildDescription: Codable {
             swiftFrontendCommands: swiftFrontendCommands,
             testDiscoveryCommands: testDiscoveryCommands,
             testEntryPointCommands: testEntryPointCommands,
+            playgroundRunnerCommands: playgroundRunnerCommands,
             copyCommands: copyCommands,
             writeCommands: writeCommands,
             pluginDescriptions: pluginDescriptions,
@@ -96,6 +101,7 @@ public struct BuildDescription: Codable {
         swiftFrontendCommands: [LLBuildManifest.CmdName: SwiftFrontendTool],
         testDiscoveryCommands: [LLBuildManifest.CmdName: TestDiscoveryTool],
         testEntryPointCommands: [LLBuildManifest.CmdName: TestEntryPointTool],
+        playgroundRunnerCommands: [LLBuildManifest.CmdName: PlaygroundRunnerTool],
         copyCommands: [LLBuildManifest.CmdName: CopyTool],
         writeCommands: [LLBuildManifest.CmdName: WriteAuxiliaryFile],
         pluginDescriptions: [PluginBuildDescription],
@@ -105,6 +111,7 @@ public struct BuildDescription: Codable {
         self.swiftFrontendCommands = swiftFrontendCommands
         self.testDiscoveryCommands = testDiscoveryCommands
         self.testEntryPointCommands = testEntryPointCommands
+        self.playgroundRunnerCommands = playgroundRunnerCommands
         self.copyCommands = copyCommands
         self.writeCommands = writeCommands
         self.explicitTargetDependencyImportCheckingMode = plan.destinationBuildParameters.driverParameters

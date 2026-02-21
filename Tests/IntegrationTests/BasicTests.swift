@@ -509,6 +509,172 @@ private struct BasicTests {
             }
         }
     }
+
+    @Test(
+        .tags(
+            Tag.Feature.Command.Play,
+            Tag.Feature.Command.Package.Init,
+            Tag.Feature.PackageType.Library,
+        ),
+    )
+    func testSwiftPlayList() throws {
+        let packageName = "SwiftPlayList"
+        try withTemporaryDirectory { tempDir in
+            let packagePath = tempDir.appending(component: packageName)
+            try localFileSystem.createDirectory(packagePath)
+            try await executeSwiftPackage(
+                packagePath,
+                extraArgs: ["init", "--type", "library", "--name", packageName],
+                buildSystem: .native
+            )
+            try localFileSystem.writeFileContents(
+                packagePath.appending(component: "Package.swift"),
+                bytes: ByteString(
+                    encodingAsUTF8: """
+                    // swift-tools-version: 6.2
+
+                    import PackageDescription
+
+                    let package = Package(
+                        name: "\(packageName)",
+                        platforms: [.macOS(.v10_15)], // min for playgrounds lib
+                        products: [
+                            // Products define the executables and libraries a package produces, making them visible to other packages.
+                            .library(
+                                name: "\(packageName)",
+                                targets: ["\(packageName)"]
+                            ),
+                        ],
+                        dependencies: [
+                            .package(url: "https://github.com/apple/swift-play-experimental", branch: "main"),
+                        ],
+                        targets: [
+                            // Targets are the basic building blocks of a package, defining a module or a test suite.
+                            // Targets can depend on other targets in this package and products from dependencies.
+                            .target(
+                                name: "\(packageName)",
+                                dependencies: [
+                                    .product(name: "Playgrounds", package: "swift-play-experimental"),
+                                ]
+                            ),
+                            .testTarget(
+                                name: "\(packageName)Tests",
+                                dependencies: ["\(packageName)"]
+                            ),
+                        ]
+                    )
+                    """
+                ),
+                atomically: true
+            )
+            try localFileSystem.writeFileContents(
+                packagePath.appending(components: "Sources", "\(packageName)", "Playground.swift"),
+                bytes: ByteString(
+                    encodingAsUTF8: """
+                    import Playgrounds
+                    
+                    #Playground("Answer") {
+                      let answer = 42
+                      print(answer)
+                    }
+                    """
+                ),
+                atomically: true
+            )
+            let result = try await executeSwiftPlay(
+                packagePath,
+                extraArgs: [
+                    "--list",
+                ]
+            )
+
+            // Check the output.
+            #expect(result.stdout.contains("Found 1 Playground"), "stdout: '\(result.stdout)'\n stderr:'\(result.stderr)'")
+            #expect(result.stdout.contains("\(packageName)/Playground.swift:3 Answer"), "stdout: '\(result.stdout)'\n stderr:'\(result.stderr)'")
+        }
+    }
+
+    @Test(
+        .tags(
+            Tag.Feature.Command.Play,
+            Tag.Feature.Command.Package.Init,
+            Tag.Feature.PackageType.Library,
+        ),
+    )
+    func testSwiftPlayExecute() throws {
+        try withTemporaryDirectory { tempDir in
+            let packagePath = tempDir.appending(component: "swiftPlayExecute")
+            try localFileSystem.createDirectory(packagePath)
+            try await executeSwiftPackage(
+                packagePath,
+                extraArgs: ["init", "--type", "library"],
+                buildSystem: .native
+            )
+            try localFileSystem.writeFileContents(
+                packagePath.appending(component: "Package.swift"),
+                bytes: ByteString(
+                    encodingAsUTF8: """
+                    // swift-tools-version: 6.2
+
+                    import PackageDescription
+
+                    let package = Package(
+                        name: "swiftPlayExecute",
+                        platforms: [.macOS(.v10_15)], // min for playgrounds lib
+                        products: [
+                            // Products define the executables and libraries a package produces, making them visible to other packages.
+                            .library(
+                                name: "swiftPlayExecute",
+                                targets: ["swiftPlayExecute"]
+                            ),
+                        ],
+                        dependencies: [
+                            .package(url: "https://github.com/apple/swift-play-experimental", branch: "main"),
+                        ],
+                        targets: [
+                            // Targets are the basic building blocks of a package, defining a module or a test suite.
+                            // Targets can depend on other targets in this package and products from dependencies.
+                            .target(
+                                name: "swiftPlayExecute",
+                                dependencies: [
+                                    .product(name: "Playgrounds", package: "swift-play-experimental"),
+                                ]
+                            ),
+                            .testTarget(
+                                name: "swiftPlayExecuteTests",
+                                dependencies: ["swiftPlayExecute"]
+                            ),
+                        ]
+                    )
+                    """
+                )
+            )
+            try localFileSystem.writeFileContents(
+                packagePath.appending(components: "Sources", "swiftPlayExecute", "Playground.swift"),
+                bytes: ByteString(
+                    encodingAsUTF8: """
+                    import Playgrounds
+                    
+                    #Playground("Answer") {
+                      let answer = 42
+                      print("answer is \\(answer)")
+                    }
+                    """
+                )
+            )
+            let result = try await executeSwiftPlay(
+                packagePath,
+                extraArgs: [
+                    "--one-shot", // immediately exit after execution
+                    "Answer",     // run this named playground
+                ]
+            )
+
+            // Check the output.
+            #expect(result.stdout.contains("answer is 42"), "stdout: '\(result.stdout)'\n stderr:'\(result.stderr)'")
+        }
+    }
+
 }
 
 extension Character {
