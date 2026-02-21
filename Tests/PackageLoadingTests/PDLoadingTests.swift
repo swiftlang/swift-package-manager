@@ -18,16 +18,20 @@ import XCTest
 
 class PackageDescriptionLoadingTests: XCTestCase, ManifestLoaderDelegate {
     lazy var manifestLoader = ManifestLoader(toolchain: try! UserToolchain.default, delegate: self)
+    lazy var parsingManifestLoader = try! ParsingManifestLoader(
+        toolchain: try! UserToolchain.default,
+        extraManifestFlags: [],
+        environment: self.environment
+    )
     var parsedManifest = ThreadSafeBox<AbsolutePath>(.root)
 
     /// The array of manifest loaders to test with for complete coverage.
-    var testManifestLoaders: [(any ManifestLoaderProtocol)?] = [
-        try! ParsingManifestLoader(
-            toolchain: try! UserToolchain.default,
-            extraManifestFlags: []
-        ),
-        /*default manifest loader*/nil,
-    ]
+    var testManifestLoaders: [(any ManifestLoaderProtocol)?] {
+        [
+            parsingManifestLoader,
+            /*default manifest loader*/nil,
+        ]
+    }
 
     func willLoad(packageIdentity: PackageModel.PackageIdentity, packageLocation: String, manifestPath: AbsolutePath) {
         // noop
@@ -64,6 +68,8 @@ class PackageDescriptionLoadingTests: XCTestCase, ManifestLoaderDelegate {
     var toolsVersion: ToolsVersion {
         fatalError("implement in subclass")
     }
+
+    var environment: [String: String]? { nil }
 
     /// Run the given closure for each manifest loader, comparing the
     /// resulting manifests to ensure that they match.

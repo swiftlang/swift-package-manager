@@ -371,6 +371,7 @@ let package = Package(
                 [
                     "SwiftDiagnostics",
                     "SwiftIfConfig",
+                    "SwiftOperators",
                     "SwiftParser",
                     "SwiftParserDiagnostics",
                     "SwiftSyntax",

@@ -1085,7 +1085,8 @@ public final class SwiftCommandState {
         return try ParsingManifestLoader(
             toolchain: self.getHostToolchain(),
             pruneDependencies: self.options.resolver.pruneDependencies,
-            extraManifestFlags: self.options.build.manifestFlags
+            extraManifestFlags: self.options.build.manifestFlags,
+            environment: nil
         )
     }
 

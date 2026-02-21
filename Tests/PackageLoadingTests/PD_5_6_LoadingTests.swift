@@ -236,22 +236,30 @@ final class PackageDescription5_6LoadingTests: PackageDescriptionLoadingTests {
         }
     }
 
-    /// Tests use of Context.current.packageDirectory
+    /// Tests use of Context.packageDirectory
     func testPackageContextName() async throws {
         let content = """
             import PackageDescription
             let package = Package(name: Context.packageDirectory)
             """
 
-        let observability = ObservabilitySystem.makeForTesting()
-        let (manifest, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
-        XCTAssertNoDiagnostics(observability.diagnostics)
-        XCTAssertNoDiagnostics(validationDiagnostics)
+        try await forEachManifestLoader { loader in
+            let observability = ObservabilitySystem.makeForTesting()
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                content,
+                customManifestLoader: loader,
+                observabilityScope: observability.topScope
+            )
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertNoDiagnostics(validationDiagnostics)
 
-        XCTAssertNotNil(parsedManifest)
-        XCTAssertNotNil(parsedManifest.parentDirectory)
-        let name = try XCTUnwrap(parsedManifest.parentDirectory).pathString
-        XCTAssertEqual(manifest.displayName, name)
+            XCTAssertNotNil(parsedManifest)
+            XCTAssertNotNil(parsedManifest.parentDirectory)
+            let name = try XCTUnwrap(parsedManifest.parentDirectory).pathString
+            XCTAssertEqual(manifest.displayName, name)
+            
+            return manifest
+        }
     }
 
     /// Tests access to the package's directory contents.

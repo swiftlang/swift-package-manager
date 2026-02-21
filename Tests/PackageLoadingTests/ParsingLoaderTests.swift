@@ -21,6 +21,10 @@ final class ParsingLoaderTests: PackageDescriptionLoadingTests {
         .v6_2
     }
 
+    override var environment: [String : String]? {
+        ["SWIFT_TARGET_NAME": "MyTarget"]
+    }
+
     func testPoundIf() async throws {
         let content =  """
             import PackageDescription
@@ -90,5 +94,31 @@ final class ParsingLoaderTests: PackageDescriptionLoadingTests {
             XCTAssertEqual(manifest.targets[0].name, "MyTarget")
             return manifest
         }
+    }
+
+    func testEnvironment() async throws {
+        let content =  """
+            import PackageDescription
+            let package = Package(
+                name: "Foo",
+                targets: [
+                  .target(name: Context.environment["SWIFT_TARGET_NAME"] ?? "OtherTarget")
+                ],
+            )
+            """
+
+        // NOTE: non-parsing manifest loader doesn't support testing the
+        // environment.
+        let observability = ObservabilitySystem.makeForTesting()
+        let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+            content,
+            customManifestLoader: self.parsingManifestLoader,
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+        XCTAssertNoDiagnostics(validationDiagnostics)
+
+        XCTAssertEqual(manifest.targets.count, 1)
+        XCTAssertEqual(manifest.targets[0].name, "MyTarget")
     }
 }

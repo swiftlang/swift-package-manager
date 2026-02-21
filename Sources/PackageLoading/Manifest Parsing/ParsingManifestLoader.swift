@@ -18,6 +18,7 @@ import SourceControl
 
 public import SwiftDiagnostics
 import SwiftIfConfig
+import SwiftOperators
 import SwiftParser
 import SwiftParserDiagnostics
 import SwiftSyntax
@@ -44,17 +45,20 @@ public typealias SyntaxDiagnostic = SwiftDiagnostics.Diagnostic
 public final class ParsingManifestLoader: ManifestLoaderProtocol {
     let pruneDependencies: Bool
     let config: StaticBuildConfiguration
+    let environment: [String: String]?
 
     public init(
         toolchain: UserToolchain,
         pruneDependencies: Bool = false,
         extraManifestFlags: [String],
+        environment: [String: String]?
     ) throws {
         self.pruneDependencies = pruneDependencies
         self.config = try StaticBuildConfiguration.getHostConfiguration(
             usingSwiftCompiler: toolchain.swiftCompilerPathForManifests,
             extraManifestFlags: extraManifestFlags
         )
+        self.environment = environment
     }
 
     public func resetCache(observabilityScope: Basics.ObservabilityScope) async {
@@ -163,8 +167,25 @@ public final class ParsingManifestLoader: ManifestLoaderProtocol {
         observabilityScope: ObservabilityScope,
         delegateQueue: DispatchQueue
     ) throws(ManifestParserError) -> Manifest {
+
+        let contextModel = StaticContextModel(
+            packageDirectory: manifestPath.parentDirectory.pathString,
+            environment: environment ?? ProcessInfo.processInfo.environment
+        )
+        
         // Parse the source file.
-        let sourceFile: SourceFileSyntax = Parser.parse(source: manifestContents)
+        var sourceFile: SourceFileSyntax = Parser.parse(source: manifestContents)
+
+        // Fold all operators in the source file so we can evaluate
+        // expressions.
+        var operatorLimitations: [ManifestParseLimitation] = []
+        sourceFile = OperatorTable.standardOperators.foldAll(sourceFile) { error in
+            operatorLimitations.append(.operatorPrecedence(error.asDiagnostic.node))
+        }.cast(SourceFileSyntax.self)
+
+        if !operatorLimitations.isEmpty {
+            throw .limitations(operatorLimitations)
+        }
 
         // Check for syntax errors that would prevent us from going further.
         let diagnostics = ParseDiagnosticsGenerator.diagnostics(for: sourceFile)
@@ -192,6 +213,7 @@ public final class ParsingManifestLoader: ManifestLoaderProtocol {
             configuration: config,
             dependencyMapper: dependencyMapper,
             fileSystem: fileSystem,
+            contextModel: contextModel,
             defaultPackageAccess: manifestToolsVersion >= .v5_9
         )
         visitor.walk(sourceFile)
@@ -246,6 +268,9 @@ class ManifestParseVisitor: ActiveSyntaxAnyVisitor {
     /// File system for path operations
     let fileSystem: FileSystem
     
+    /// Context model for Context API support (packageDirectory, gitInformation, environment)
+    let contextModel: StaticContextModel
+
     /// Package name
     var packageName: String?
 
@@ -284,16 +309,18 @@ class ManifestParseVisitor: ActiveSyntaxAnyVisitor {
 
     var defaultPackageAccess: Bool
 
-    public init(
+    init(
         manifestPath: AbsolutePath,
         configuration: StaticBuildConfiguration,
         dependencyMapper: DependencyMapper,
         fileSystem: FileSystem,
+        contextModel: StaticContextModel,
         defaultPackageAccess: Bool
     ) {
         self.manifestPath = manifestPath
         self.dependencyMapper = dependencyMapper
         self.fileSystem = fileSystem
+        self.contextModel = contextModel
         self.defaultPackageAccess = defaultPackageAccess
         super.init(viewMode: .fixedUp, configuration: configuration)
     }
@@ -392,7 +419,7 @@ extension ManifestParseVisitor {
     ) {
         for argument in arguments {
             if argument.label?.text == "name" {
-                guard let name = argument.expression.asStringLiteralValue() else {
+                guard let name = argument.expression.asStringLiteralValue(in: contextModel) else {
                     limitations.append(
                         .unsupportedExpression(
                             argument.expression,
@@ -476,7 +503,7 @@ extension ManifestParseVisitor {
             }
             
             if argument.label?.text == "pkgConfig" {
-                self.pkgConfig = argument.expression.asStringLiteralValue()
+                self.pkgConfig = argument.expression.asStringLiteralValue(in: contextModel)
                 continue
             }
             
@@ -556,7 +583,7 @@ extension ManifestParseVisitor {
             }
             
             if argument.label?.text == "defaultLocalization" {
-                self.defaultLocalization = argument.expression.asStringLiteralValue()
+                self.defaultLocalization = argument.expression.asStringLiteralValue(in: contextModel)
                 continue
             }
             
@@ -659,23 +686,23 @@ extension ManifestParseVisitor {
             let label = argument.label?.text
             
             if label == "name" {
-                name = argument.expression.asStringLiteralValue()
+                name = argument.expression.asStringLiteralValue(in: contextModel)
             } else if label == "dependencies" {
                 if let deps = argument.expression.parseArrayElements(parseTargetDependency) {
                     dependencies.append(contentsOf: deps)
                 }
             } else if label == "path" {
-                path = argument.expression.asStringLiteralValue()
+                path = argument.expression.asStringLiteralValue(in: contextModel)
             } else if label == "url" {
-                url = argument.expression.asStringLiteralValue()
+                url = argument.expression.asStringLiteralValue(in: contextModel)
             } else if label == "checksum" {
                 checksum = argument.expression.asStringLiteralValue()
             } else if label == "exclude" {
-                exclude = argument.expression.asStringArray() ?? []
+                exclude = argument.expression.asStringArray(in: contextModel) ?? []
             } else if label == "sources" {
-                sources = argument.expression.asStringArray()
+                sources = argument.expression.asStringArray(in: contextModel)
             } else if label == "publicHeadersPath" {
-                publicHeadersPath = argument.expression.asStringLiteralValue()
+                publicHeadersPath = argument.expression.asStringLiteralValue(in: contextModel)
             } else if label == "pkgConfig" {
                 pkgConfig = argument.expression.asStringLiteralValue()
             } else if label == "providers" {
@@ -757,7 +784,7 @@ extension ManifestParseVisitor {
     /// Parse a target dependency like "dep1", .target(name: "dep2"), or .product(name: "dep3", package: "Pkg")
     private func parseTargetDependency(_ expr: ExprSyntax) -> TargetDescription.Dependency? {
         // Case 1: String literal dependency (e.g., "dep1")
-        if let depName = expr.asStringLiteralValue() {
+        if let depName = expr.asStringLiteralValue(in: contextModel) {
             return .byName(name: depName, condition: nil)
         }
         
@@ -775,7 +802,7 @@ extension ManifestParseVisitor {
             for argument in arguments {
                 let label = argument.label?.text
                 if label == "name" {
-                    name = argument.expression.asStringLiteralValue()
+                    name = argument.expression.asStringLiteralValue(in: contextModel)
                 } else if label == "condition" {
                     condition = parsePackageCondition(argument.expression)
                 }
@@ -796,9 +823,9 @@ extension ManifestParseVisitor {
             for argument in arguments {
                 let label = argument.label?.text
                 if label == "name" {
-                    name = argument.expression.asStringLiteralValue()
+                    name = argument.expression.asStringLiteralValue(in: contextModel)
                 } else if label == "package" {
-                    package = argument.expression.asStringLiteralValue()
+                    package = argument.expression.asStringLiteralValue(in: contextModel)
                 } else if label == "moduleAliases" {
                     moduleAliases = parseModuleAliases(argument.expression)
                 } else if label == "condition" {
@@ -819,7 +846,7 @@ extension ManifestParseVisitor {
             for argument in arguments {
                 let label = argument.label?.text
                 if label == "name" {
-                    name = argument.expression.asStringLiteralValue()
+                    name = argument.expression.asStringLiteralValue(in: contextModel)
                 } else if label == "condition" {
                     condition = parsePackageCondition(argument.expression)
                 }
@@ -860,7 +887,7 @@ extension ManifestParseVisitor {
             } else if label == "configuration" {
                 config = argument.expression.asEnumMember()
             } else if label == "traits" {
-                if let parsed = argument.expression.asStringArray() {
+                if let parsed = argument.expression.asStringArray(in: contextModel) {
                     traits = Set(parsed)
                 }
             }
@@ -897,8 +924,8 @@ extension ManifestParseVisitor {
         case .elements(let elements):
             // Dictionary with key-value pairs
             for element in elements {
-                if let keyString = element.key.asStringLiteralValue(),
-                   let valueString = element.value.asStringLiteralValue() {
+                if let keyString = element.key.asStringLiteralValue(in: contextModel),
+                   let valueString = element.value.asStringLiteralValue(in: contextModel) {
                     aliases[keyString] = valueString
                 }
             }
@@ -925,7 +952,7 @@ extension ManifestParseVisitor {
         case "headerSearchPath":
             if let firstArg = functionCall.arguments.first,
                firstArg.label == nil,
-               let path = firstArg.expression.asStringLiteralValue() {
+               let path = firstArg.expression.asStringLiteralValue(in: contextModel) {
                 kind = .headerSearchPath(path)
             }
         case "define":
@@ -937,11 +964,11 @@ extension ManifestParseVisitor {
                 let label = argument.label?.text
                 if label == nil {
                     // Skip condition arguments (they'll be parsed later)
-                    if argument.expression.asStringLiteralValue() != nil {
-                        name = argument.expression.asStringLiteralValue()
+                    if argument.expression.asStringLiteralValue(in: contextModel) != nil {
+                        name = argument.expression.asStringLiteralValue(in: contextModel)
                     }
                 } else if label == "to" {
-                    value = argument.expression.asStringLiteralValue()
+                    value = argument.expression.asStringLiteralValue(in: contextModel)
                 } else if label == "condition" {
                     // Skip - will be parsed later
                     continue
@@ -958,13 +985,13 @@ extension ManifestParseVisitor {
         case "linkedLibrary":
             if let firstArg = functionCall.arguments.first,
                firstArg.label == nil,
-               let library = firstArg.expression.asStringLiteralValue() {
+               let library = firstArg.expression.asStringLiteralValue(in: contextModel) {
                 kind = .linkedLibrary(library)
             }
         case "linkedFramework":
             if let firstArg = functionCall.arguments.first,
                firstArg.label == nil,
-               let framework = firstArg.expression.asStringLiteralValue() {
+               let framework = firstArg.expression.asStringLiteralValue(in: contextModel) {
                 kind = .linkedFramework(framework)
             }
         case "unsafeFlags":
@@ -973,7 +1000,7 @@ extension ManifestParseVisitor {
                let flagsArray = firstArg.expression.as(ArrayExprSyntax.self) {
                 var flags: [String] = []
                 for flagElement in flagsArray.elements {
-                    if let flag = flagElement.expression.asStringLiteralValue() {
+                    if let flag = flagElement.expression.asStringLiteralValue(in: contextModel) {
                         flags.append(flag)
                     }
                 }
@@ -982,13 +1009,13 @@ extension ManifestParseVisitor {
         case "enableUpcomingFeature":
             if let firstArg = functionCall.arguments.first,
                firstArg.label == nil,
-               let feature = firstArg.expression.asStringLiteralValue() {
+               let feature = firstArg.expression.asStringLiteralValue(in: contextModel) {
                 kind = .enableUpcomingFeature(feature)
             }
         case "enableExperimentalFeature":
             if let firstArg = functionCall.arguments.first,
                firstArg.label == nil,
-               let feature = firstArg.expression.asStringLiteralValue() {
+               let feature = firstArg.expression.asStringLiteralValue(in: contextModel) {
                 kind = .enableExperimentalFeature(feature)
             }
         case "interoperabilityMode":
@@ -1040,8 +1067,8 @@ extension ManifestParseVisitor {
                 let label = argument.label?.text
                 if label == nil {
                     // Skip condition arguments (they'll be parsed later)
-                    if argument.expression.asStringLiteralValue() != nil {
-                        warningName = argument.expression.asStringLiteralValue()
+                    if argument.expression.asStringLiteralValue(in: contextModel) != nil {
+                        warningName = argument.expression.asStringLiteralValue(in: contextModel)
                     }
                 } else if label == "as" {
                     if let memberAccess = argument.expression.as(MemberAccessExprSyntax.self),
@@ -1068,13 +1095,13 @@ extension ManifestParseVisitor {
         case "enableWarning":
             if let firstArg = functionCall.arguments.first,
                firstArg.label == nil,
-               let warning = firstArg.expression.asStringLiteralValue() {
+               let warning = firstArg.expression.asStringLiteralValue(in: contextModel) {
                 kind = .enableWarning(warning)
             }
         case "disableWarning":
             if let firstArg = functionCall.arguments.first,
                firstArg.label == nil,
-               let warning = firstArg.expression.asStringLiteralValue() {
+               let warning = firstArg.expression.asStringLiteralValue(in: contextModel) {
                 kind = .disableWarning(warning)
             }
         case "defaultIsolation":
@@ -1170,7 +1197,7 @@ extension ManifestParseVisitor {
         
         var packages: [String] = []
         for element in arrayExpr.elements {
-            if let packageName = element.expression.asStringLiteralValue() {
+            if let packageName = element.expression.asStringLiteralValue(in: contextModel) {
                 packages.append(packageName)
             }
         }
@@ -1200,7 +1227,7 @@ extension ManifestParseVisitor {
         // Parse the path argument (first unlabeled argument)
         guard let firstArg = arguments.first,
               firstArg.label == nil,
-              let path = firstArg.expression.asStringLiteralValue() else {
+              let path = firstArg.expression.asStringLiteralValue(in: contextModel) else {
             limitations.append(.unsupportedExpression(expr, expected: "resource with path"))
             return nil
         }
@@ -1298,9 +1325,9 @@ extension ManifestParseVisitor {
             for argument in arguments {
                 let label = argument.label?.text
                 if label == "verb" {
-                    verb = argument.expression.asStringLiteralValue()
+                    verb = argument.expression.asStringLiteralValue(in: contextModel)
                 } else if label == "description" {
-                    description = argument.expression.asStringLiteralValue()
+                    description = argument.expression.asStringLiteralValue(in: contextModel)
                 }
             }
             
@@ -1324,7 +1351,7 @@ extension ManifestParseVisitor {
         case "writeToPackageDirectory":
             for argument in arguments {
                 if argument.label?.text == "reason",
-                   let reason = argument.expression.asStringLiteralValue() {
+                   let reason = argument.expression.asStringLiteralValue(in: contextModel) {
                     return .writeToPackageDirectory(reason: reason)
                 }
             }
@@ -1340,7 +1367,7 @@ extension ManifestParseVisitor {
                 if label == "scope" {
                     scope = parsePluginNetworkPermissionScope(argument.expression)
                 } else if label == "reason" {
-                    reason = argument.expression.asStringLiteralValue()
+                    reason = argument.expression.asStringLiteralValue(in: contextModel)
                 }
             }
             
@@ -1410,7 +1437,7 @@ extension ManifestParseVisitor {
     /// Parse a plugin usage like "PluginName", .plugin(name: "MyPlugin"), or .plugin(name: "MyPlugin", package: "MyPackage")
     private func parsePluginUsage(_ expr: ExprSyntax) -> TargetDescription.PluginUsage? {
         // Case 1: String literal (e.g., "PluginName" - refers to plugin in same package)
-        if let pluginName = expr.asStringLiteralValue() {
+        if let pluginName = expr.asStringLiteralValue(in: contextModel) {
             return .plugin(name: pluginName, package: nil)
         }
         
@@ -1429,9 +1456,9 @@ extension ManifestParseVisitor {
         for argument in functionCall.arguments {
             let label = argument.label?.text
             if label == "name" {
-                name = argument.expression.asStringLiteralValue()
+                name = argument.expression.asStringLiteralValue(in: contextModel)
             } else if label == "package" {
-                package = argument.expression.asStringLiteralValue()
+                package = argument.expression.asStringLiteralValue(in: contextModel)
             }
         }
         
@@ -1475,9 +1502,9 @@ extension ManifestParseVisitor {
             let label = argument.label?.text
 
             if label == "name" {
-                name = argument.expression.asStringLiteralValue()
+                name = argument.expression.asStringLiteralValue(in: contextModel)
             } else if label == "targets" {
-                targets = argument.expression.asStringArray() ?? []
+                targets = argument.expression.asStringArray(in: contextModel) ?? []
             } else if label == "type" {
                 // Parse library type like .dynamic or .static
                 if let typeName = argument.expression.asEnumMember() {
@@ -1495,13 +1522,13 @@ extension ManifestParseVisitor {
             #if ENABLE_APPLE_PRODUCT_TYPES
             // Parse iOS-specific product settings
             if label == "bundleIdentifier" {
-                bundleIdentifier = argument.expression.asStringLiteralValue()
+                bundleIdentifier = argument.expression.asStringLiteralValueWithContextEvaluation(contextModel: contextModel)
             } else if label == "teamIdentifier" {
-                teamIdentifier = argument.expression.asStringLiteralValue()
+                teamIdentifier = argument.expression.asStringLiteralValueWithContextEvaluation(contextModel: contextModel)
             } else if label == "displayVersion" {
-                displayVersion = argument.expression.asStringLiteralValue()
+                displayVersion = argument.expression.asStringLiteralValueWithContextEvaluation(contextModel: contextModel)
             } else if label == "bundleVersion" {
-                bundleVersion = argument.expression.asStringLiteralValue()
+                bundleVersion = argument.expression.asStringLiteralValueWithContextEvaluation(contextModel: contextModel)
             } else if label == "appIcon" {
                 appIcon = parseAppIcon(argument.expression)
             } else if label == "accentColor" {
@@ -1515,7 +1542,7 @@ extension ManifestParseVisitor {
             } else if label == "appCategory" {
                 appCategory = parseAppCategory(argument.expression)
             } else if label == "additionalInfoPlistContentFilePath" {
-                additionalInfoPlistContentFilePath = argument.expression.asStringLiteralValue()
+                additionalInfoPlistContentFilePath = argument.expression.asStringLiteralValueWithContextEvaluation(contextModel: contextModel)
             }
             #endif
         }
@@ -1651,7 +1678,7 @@ extension ManifestParseVisitor {
         
         switch methodName {
         case "asset":
-            if let name = arguments.first?.expression.asStringLiteralValue() {
+            if let name = arguments.first?.expression.asStringLiteralValueWithContextEvaluation(contextModel: contextModel) {
                 return .asset(name: name)
             }
         case "placeholder":
@@ -1676,7 +1703,7 @@ extension ManifestParseVisitor {
         
         switch methodName {
         case "asset":
-            if let name = arguments.first?.expression.asStringLiteralValue() {
+            if let name = arguments.first?.expression.asStringLiteralValueWithContextEvaluation(contextModel: contextModel) {
                 return .asset(name: name)
             }
         case "presetColor":
@@ -1821,7 +1848,7 @@ extension ManifestParseVisitor {
             let label = argument.label?.text
             
             if label == "purposeString" {
-                purposeString = argument.expression.asStringLiteralValue()
+                purposeString = argument.expression.asStringLiteralValueWithContextEvaluation(contextModel: contextModel)
             } else if label == "bonjourServiceTypes" {
                 bonjourServiceTypes = argument.expression.asStringArray()
             } else if label == nil {
@@ -1923,13 +1950,13 @@ extension ManifestParseVisitor {
             let label = argument.label?.text
 
             if label == "name" {
-                name = argument.expression.asStringLiteralValue()
+                name = argument.expression.asStringLiteralValue(in: contextModel)
             } else if label == "id" {
-                id = argument.expression.asStringLiteralValue()
+                id = argument.expression.asStringLiteralValue(in: contextModel)
             } else if label == "url" {
-                url = argument.expression.asStringLiteralValue()
+                url = argument.expression.asStringLiteralValue(in: contextModel)
             } else if label == "path" {
-                path = argument.expression.asStringLiteralValue()
+                path = argument.expression.asStringLiteralValue(in: contextModel)
             } else if label == "traits" {
                 traits = parseDependencyTraits(argument.expression)
             } else if label == "from" {
@@ -1944,11 +1971,11 @@ extension ManifestParseVisitor {
                     }
                 }
             } else if label == "branch" {
-                if let branch = argument.expression.asStringLiteralValue() {
+                if let branch = argument.expression.asStringLiteralValue(in: contextModel) {
                     requirement = .branch(branch)
                 }
             } else if label == "revision" {
-                if let revision = argument.expression.asStringLiteralValue() {
+                if let revision = argument.expression.asStringLiteralValue(in: contextModel) {
                     requirement = .revision(revision)
                 }
             } else if label == "exact" {
@@ -1967,8 +1994,44 @@ extension ManifestParseVisitor {
                 // 1. A requirement like .upToNextMajor(from: "1.0.0")
                 // 2. A range operator expression like "1.0.0"..<"2.0.0"
                 
-                // Check for range operators first
-                if let rangeExpr = argument.expression.as(SequenceExprSyntax.self) {
+                // Check for range operators - handle InfixOperatorExprSyntax (after sequence folding)
+                if let infixExpr = argument.expression.as(InfixOperatorExprSyntax.self),
+                   let op = infixExpr.operator.as(BinaryOperatorExprSyntax.self) {
+                    let opText = op.operator.text.trimmingCharacters(in: .whitespaces)
+                    
+                    if opText == "..<" || opText == "..." {
+                        // Parse the left and right operands as version strings
+                        if let lowerString = infixExpr.leftOperand.asStringLiteralValue(),
+                           let lowerVersion = Version(lowerString),
+                           let upperString = infixExpr.rightOperand.asStringLiteralValue(),
+                           let upperVersion = Version(upperString) {
+                            
+                            if opText == "..." {
+                                // Closed range - convert to half-open range
+                                let upperNext = Version(
+                                    upperVersion.major,
+                                    upperVersion.minor,
+                                    upperVersion.patch + 1,
+                                    prereleaseIdentifiers: upperVersion.prereleaseIdentifiers,
+                                    buildMetadataIdentifiers: upperVersion.buildMetadataIdentifiers
+                                )
+                                if id != nil {
+                                    registryRequirement = .range(lowerVersion..<upperNext)
+                                } else {
+                                    requirement = .range(lowerVersion..<upperNext)
+                                }
+                            } else {
+                                // Half-open range
+                                if id != nil {
+                                    registryRequirement = .range(lowerVersion..<upperVersion)
+                                } else {
+                                    requirement = .range(lowerVersion..<upperVersion)
+                                }
+                            }
+                        }
+                    }
+                } else if let rangeExpr = argument.expression.as(SequenceExprSyntax.self) {
+                    // Fallback: Check for range operators in SequenceExprSyntax (for older syntax trees)
                     // Look for range operators like ..< or ...
                     var lowerBound: Version?
                     var upperBound: Version?
@@ -2216,7 +2279,7 @@ extension ManifestParseVisitor {
     /// Parse a trait declaration like "Trait1", Trait(name: "Trait2", description: "..."), or .trait(name: "Trait3", enabledTraits: [...])
     private func parseTrait(_ expr: ExprSyntax) -> TraitDescription? {
         // Case 1: String literal "TraitName"
-        if let traitName = expr.asStringLiteralValue() {
+        if let traitName = expr.asStringLiteralValue(in: contextModel) {
             return TraitDescription(name: traitName)
         }
         
@@ -2249,7 +2312,7 @@ extension ManifestParseVisitor {
             
             for argument in functionCall.arguments {
                 if argument.label?.text == "enabledTraits" {
-                    if let parsed = argument.expression.asStringArray() {
+                    if let parsed = argument.expression.asStringArray(in: contextModel) {
                         enabledTraits = Set(parsed)
                     }
                 }
@@ -2270,11 +2333,11 @@ extension ManifestParseVisitor {
         for argument in functionCall.arguments {
             let label = argument.label?.text
             if label == "name" {
-                name = argument.expression.asStringLiteralValue()
+                name = argument.expression.asStringLiteralValue(in: contextModel)
             } else if label == "description" {
-                description = argument.expression.asStringLiteralValue()
+                description = argument.expression.asStringLiteralValue(in: contextModel)
             } else if label == "enabledTraits" {
-                if let parsed = argument.expression.asStringArray() {
+                if let parsed = argument.expression.asStringArray(in: contextModel) {
                     enabledTraits = Set(parsed)
                 }
             }
@@ -2309,7 +2372,7 @@ extension ManifestParseVisitor {
     /// Parse a single dependency trait like "FooTrait1", .trait(name: "...", condition: ...), or .defaults
     private func parseDependencyTrait(_ expr: ExprSyntax) -> PackageDependency.Trait? {
         // Case 1: String literal "TraitName"
-        if let traitName = expr.asStringLiteralValue() {
+        if let traitName = expr.asStringLiteralValue(in: contextModel) {
             return PackageDependency.Trait(name: traitName)
         }
         
@@ -2352,7 +2415,7 @@ extension ManifestParseVisitor {
         for argument in functionCall.arguments {
             let label = argument.label?.text
             if label == "name" {
-                name = argument.expression.asStringLiteralValue()
+                name = argument.expression.asStringLiteralValue(in: contextModel)
             } else if label == "condition" {
                 condition = parseDependencyTraitCondition(argument.expression)
             }
@@ -2378,7 +2441,7 @@ extension ManifestParseVisitor {
         
         for argument in arguments {
             if argument.label?.text == "traits" {
-                if let parsed = argument.expression.asStringArray() {
+                if let parsed = argument.expression.asStringArray(in: contextModel) {
                     traits = Set(parsed)
                 }
             }
@@ -2457,6 +2520,209 @@ extension ExprSyntax {
         }
 
         return segmentContents.content.text
+    }
+    
+    /// Evaluate a string literal that may contain Context interpolations, or a direct Context expression.
+    /// Returns the evaluated string, or nil if it cannot be evaluated.
+    fileprivate func asStringLiteralValue(in contextModel: StaticContextModel) -> String? {
+        // First, try to evaluate as a direct Context expression (e.g., Context.packageDirectory)
+        if let value = self.evaluateContextExpression(contextModel: contextModel) {
+            return value
+        }
+        
+        // Otherwise, try to parse as a string literal
+        guard let stringLiteral = self.as(StringLiteralExprSyntax.self) else {
+            return nil
+        }
+        
+        // Simple case: no interpolation
+        if stringLiteral.segments.count == 1,
+           let segment = stringLiteral.segments.first,
+           case .stringSegment(let segmentContents) = segment {
+            return segmentContents.content.text
+        }
+        
+        // Complex case: handle interpolations
+        var result = ""
+        for segment in stringLiteral.segments {
+            switch segment {
+            case .stringSegment(let contents):
+                result += contents.content.text
+                
+            case .expressionSegment(let exprSegment):
+                // Try to evaluate the interpolated expression
+                if let value = exprSegment.expressions.first?.expression.evaluateContextExpression(contextModel: contextModel) {
+                    result += value
+                } else {
+                    // Cannot evaluate this interpolation
+                    return nil
+                }
+            }
+        }
+        
+        return result
+    }
+    
+    /// Evaluate a Context expression like Context.gitInformation?.currentTag or Context.environment["KEY"]
+    /// Returns the string representation of the value, or nil if it cannot be evaluated.
+    fileprivate func evaluateContextExpression(contextModel: StaticContextModel) -> String? {
+        var expr: ExprSyntax = self
+        var nilCoalescingDefault: String? = nil
+
+        // Handle nil-coalescing operator (??)
+        if let infixExpr = expr.as(InfixOperatorExprSyntax.self),
+           let op = infixExpr.operator.as(BinaryOperatorExprSyntax.self),
+           op.operator.text.trimmingCharacters(in: .whitespaces) == "??" {
+            // Get the default value from the right side
+            if let rightValue = infixExpr.rightOperand.asStringLiteralValue() {
+                nilCoalescingDefault = rightValue
+            }
+            // Continue evaluating the left side
+            expr = infixExpr.leftOperand
+        }
+        
+        // Handle boolean comparison (== true)
+        if let infixExpr = expr.as(InfixOperatorExprSyntax.self),
+           let op = infixExpr.operator.as(BinaryOperatorExprSyntax.self),
+           op.operator.text.trimmingCharacters(in: .whitespaces) == "==" {
+            // Check if right side is 'true'
+            if let boolLit = infixExpr.rightOperand.as(BooleanLiteralExprSyntax.self),
+               boolLit.literal.tokenKind == .keyword(.true) {
+                expr = infixExpr.leftOperand
+            }
+        }
+        
+        // Check for subscript access (e.g., Context.environment["KEY"])
+        if let subscriptExpr = expr.as(SubscriptCallExprSyntax.self) {
+            // Parse the base expression (e.g., Context.environment)
+            var baseParts: [String] = []
+            var currentExpr = subscriptExpr.calledExpression
+            
+            // Walk through the member access chain
+            while true {
+                if let memberAccess = currentExpr.as(MemberAccessExprSyntax.self) {
+                    baseParts.insert(memberAccess.declName.baseName.text, at: 0)
+                    if let base = memberAccess.base {
+                        currentExpr = base
+                    } else {
+                        break
+                    }
+                } else if let declRef = currentExpr.as(DeclReferenceExprSyntax.self) {
+                    baseParts.insert(declRef.baseName.text, at: 0)
+                    break
+                } else {
+                    return nil
+                }
+            }
+            
+            // Check if it's Context.environment
+            if baseParts.count == 2 && baseParts[0] == "Context" && baseParts[1] == "environment" {
+                // Get the subscript key
+                if let firstArg = subscriptExpr.arguments.first,
+                   let keyString = firstArg.expression.asStringLiteralValue() {
+                    // Look up the environment variable
+                    if let value = contextModel.environment[keyString] {
+                        return value
+                    } else {
+                        return nilCoalescingDefault
+                    }
+                }
+            }
+            
+            return nil
+        }
+        
+        // Now parse the member access chain
+        // Expected patterns:
+        // - Context.packageDirectory
+        // - Context.gitInformation?.currentTag
+        // - Context.gitInformation?.currentCommit
+        // - Context.gitInformation?.hasUncommittedChanges
+        
+        // Extract all parts of the member access chain
+        var parts: [String] = []
+        var currentExpr = expr
+        
+        // Walk backwards through the member access chain
+        while true {
+            if let sequence = currentExpr.as(SequenceExprSyntax.self) {
+                // A sequence expression can contain optional chaining
+                // For "Context.gitInformation?.currentTag", this will be a sequence
+                // We need to extract the meaningful parts
+                
+                // For optional chaining, the sequence contains: base, postfixOperator(?), member access
+                // Let's try to parse it differently - just take the first element if it's what we need
+                if let firstElement = sequence.elements.first {
+                    currentExpr = firstElement
+                    continue
+                } else {
+                    return nil
+                }
+            } else if let memberAccess = currentExpr.as(MemberAccessExprSyntax.self) {
+                // Add the member name
+                parts.insert(memberAccess.declName.baseName.text, at: 0)
+                
+                if let base = memberAccess.base {
+                    currentExpr = base
+                } else {
+                    // No more base, we're done
+                    break
+                }
+            } else if let optChain = currentExpr.as(OptionalChainingExprSyntax.self) {
+                // Skip the optional chaining wrapper and continue
+                currentExpr = optChain.expression
+            } else if let postfixUnary = currentExpr.as(PostfixUnaryExprSyntax.self) {
+                // This handles the ? in optional chaining
+                currentExpr = postfixUnary.expression
+            } else if let declRef = currentExpr.as(DeclReferenceExprSyntax.self) {
+                // This is the base identifier (e.g., "Context")
+                parts.insert(declRef.baseName.text, at: 0)
+                break
+            } else {
+                // Unknown expression structure
+                return nil
+            }
+        }
+        
+        // Now evaluate based on the parts
+        guard parts.count >= 2 && parts[0] == "Context" else {
+            return nil
+        }
+        
+        switch parts[1] {
+        case "packageDirectory":
+            return contextModel.packageDirectory
+            
+        case "gitInformation":
+            guard parts.count >= 3 else {
+                return nil
+            }
+            guard let gitInfo = contextModel.gitInformation else {
+                return nilCoalescingDefault
+            }
+            
+            switch parts[2] {
+            case "currentTag":
+                if let tag = gitInfo.currentTag {
+                    return tag
+                } else {
+                    return nilCoalescingDefault ?? ""
+                }
+                
+            case "currentCommit":
+                return gitInfo.currentCommit
+                
+            case "hasUncommittedChanges":
+                let value = gitInfo.hasUncommittedChanges
+                return value ? "true" : "false"
+                
+            default:
+                return nil
+            }
+            
+        default:
+            return nil
+        }
     }
 
     /// Extract the boolean literal value from the expression, if it is one.
@@ -2572,8 +2838,10 @@ extension ExprSyntax {
     }
 
     /// Parse an array of string literals.
-    fileprivate func asStringArray() -> [String]? {
-        return parseArrayElements { $0.asStringLiteralValue() }
+    fileprivate func asStringArray(in contextModel: StaticContextModel) -> [String]? {
+        return parseArrayElements {
+            $0.asStringLiteralValue(in: contextModel)
+        }
     }
 
     /// Parse an enum member access (e.g., `.static`, `.dynamic`).
@@ -2586,4 +2854,30 @@ extension ExprSyntax {
         }
         return memberName
     }
+}
+
+/// A version of ContextModel that stores everything directly, rather than
+/// fallback back to the current process's environment.
+class StaticContextModel {
+    let packageDirectory : String
+    var environment: [String : String]
+
+    init(packageDirectory: String, environment: [String : String]) {
+        self.packageDirectory = packageDirectory
+        self.environment = environment
+    }
+
+    lazy var gitInformation: ContextModel.GitInformation? = {
+        do {
+            let repo = GitRepository(path: try AbsolutePath(validating: packageDirectory))
+            return ContextModel.GitInformation(
+                currentTag: repo.getCurrentTag(),
+                currentCommit: try repo.getCurrentRevision().identifier,
+                hasUncommittedChanges: repo.hasUncommittedChanges()
+            )
+        } catch {
+            // Ignore errors getting git info
+            return nil
+        }
+    }()
 }

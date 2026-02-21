@@ -182,15 +182,20 @@ final class PackageDescription6_0LoadingTests: PackageDescriptionLoadingTests {
             try repo.commit(message: "best")
             try repo.tag(name: "lunch")
 
-            let manifest = try await manifestLoader.load(
-                manifestPath: manifestPath,
-                packageKind: .root(tmpdir),
-                toolsVersion: self.toolsVersion,
-                fileSystem: localFileSystem,
-                observabilityScope: observability.topScope
-            )
+            try await forEachManifestLoader { loader in
+                let loader = loader ?? self.manifestLoader
+                let manifest = try await loader.load(
+                    manifestPath: manifestPath,
+                    packageKind: .root(tmpdir),
+                    toolsVersion: self.toolsVersion,
+                    fileSystem: localFileSystem,
+                    observabilityScope: observability.topScope
+                )
 
-            try validator(manifest, observability)
+                try validator(manifest, observability)
+
+                return manifest
+            }
         }
     }
 }

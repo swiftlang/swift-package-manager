@@ -41,6 +41,9 @@ public enum ManifestParseLimitation {
 
     /// An invalid Swift language version value.
     case invalidSwiftLanguageVersion(ExprSyntax, value: String)
+
+    /// Unhandled operator-precedence issue.
+    case operatorPrecedence(Syntax)
 }
 
 extension ManifestParseLimitation: CustomStringConvertible {
@@ -69,6 +72,8 @@ extension ManifestParseLimitation {
             return Syntax(arg)
         case .invalidSwiftLanguageVersion(let expr, _):
             return Syntax(expr)
+        case .operatorPrecedence(let node):
+            return Syntax(node)
         }
     }
 
@@ -98,6 +103,8 @@ extension ManifestParseLimitation: DiagnosticMessage {
             return "Unhandled argument in call to '\(callee)'"
         case .invalidSwiftLanguageVersion(_, value: let value):
             return "Invalid Swift language version '\(value)'; expected format is major[.minor[.patch]]"
+        case .operatorPrecedence(_):
+            return "Unhandled operator precedence issue"
         }
     }
 
@@ -110,6 +117,7 @@ extension ManifestParseLimitation: DiagnosticMessage {
         case .unsupportedExpression: "unsupported-expression"
         case .unsupportedArgument: "unsupported-argument"
         case .invalidSwiftLanguageVersion: "invalid-swift-language-version"
+        case .operatorPrecedence: "unhandled-operator-precedence"
         }
 
         return MessageID(domain: "manifest-parse-limitation", id: id)
