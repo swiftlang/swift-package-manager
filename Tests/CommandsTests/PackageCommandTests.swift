@@ -6165,53 +6165,49 @@ struct PackageCommandTests {
             testData: CommandPluginNetworkingPermissionsTestData,
         ) async throws {
             let config = BuildConfiguration.debug
-            try await withKnownIssue(isIntermittent: true) {
-                try await testWithTemporaryDirectory { tmpPath in
-                    let packageDir = tmpPath.appending(components: "MyPackage")
-                    try localFileSystem.writeFileContents(
-                        packageDir.appending(components: "Package.swift"),
-                        string:
-                            """
-                            // swift-tools-version: 5.9
-                            import PackageDescription
-                            let package = Package(
-                                name: "MyPackage",
-                                targets: [
-                                    .target(name: "MyLibrary"),
-                                    .plugin(name: "MyPlugin", capability: .command(intent: .custom(verb: "Network", description: "Help description"), permissions: \(testData.permissionsManifestFragment))),
-                                ]
-                            )
-                            """
-                    )
-                    try localFileSystem.writeFileContents(
-                        packageDir.appending(components: "Sources", "MyLibrary", "library.swift"),
-                        string: "public func Foo() { }"
-                    )
-                    try localFileSystem.writeFileContents(
-                        packageDir.appending(components: "Plugins", "MyPlugin", "plugin.swift"),
-                        string:
-                            """
-                            import PackagePlugin
+            try await testWithTemporaryDirectory { tmpPath in
+                let packageDir = tmpPath.appending(components: "MyPackage")
+                try localFileSystem.writeFileContents(
+                    packageDir.appending(components: "Package.swift"),
+                    string:
+                        """
+                        // swift-tools-version: 5.9
+                        import PackageDescription
+                        let package = Package(
+                            name: "MyPackage",
+                            targets: [
+                                .target(name: "MyLibrary"),
+                                .plugin(name: "MyPlugin", capability: .command(intent: .custom(verb: "Network", description: "Help description"), permissions: \(testData.permissionsManifestFragment))),
+                            ]
+                        )
+                        """
+                )
+                try localFileSystem.writeFileContents(
+                    packageDir.appending(components: "Sources", "MyLibrary", "library.swift"),
+                    string: "public func Foo() { }"
+                )
+                try localFileSystem.writeFileContents(
+                    packageDir.appending(components: "Plugins", "MyPlugin", "plugin.swift"),
+                    string:
+                        """
+                        import PackagePlugin
 
-                            @main
-                            struct MyCommandPlugin: CommandPlugin {
-                                func performCommand(context: PluginContext, arguments: [String]) throws {
-                                    print("hello world")
-                                }
+                        @main
+                        struct MyCommandPlugin: CommandPlugin {
+                            func performCommand(context: PluginContext, arguments: [String]) throws {
+                                print("hello world")
                             }
-                            """
-                    )
+                        }
+                        """
+                )
 
-                    let (stdout, _) = try await executeSwiftPackage(
-                        packageDir,
-                        configuration: config,
-                        extraArgs: ["--disable-sandbox", "plugin", "Network"],
-                        buildSystem: buildSystem,
-                    )
-                    #expect(stdout.contains("hello world"))
-                }
-            } when: {
-                ProcessInfo.hostOperatingSystem == .windows
+                let (stdout, _) = try await executeSwiftPackage(
+                    packageDir,
+                    configuration: config,
+                    extraArgs: ["--disable-sandbox", "plugin", "Network"],
+                    buildSystem: buildSystem,
+                )
+                #expect(stdout.contains("hello world"))
             }
         }
 
