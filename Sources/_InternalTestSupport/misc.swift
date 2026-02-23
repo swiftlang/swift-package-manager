@@ -116,7 +116,7 @@ public func testWithTemporaryDirectory<Result>(
 @available(*, deprecated, message: "Migrate test to Swift Testing and use 'fixture' instead")
 @discardableResult public func fixtureXCTest<T>(
     name: String,
-    createGitRepo: Bool = true,
+    createGitRepo: Bool = false,
     file: StaticString = #file,
     line: UInt = #line,
     body: (AbsolutePath) throws -> T
@@ -154,7 +154,7 @@ public func testWithTemporaryDirectory<Result>(
 
 @discardableResult public func fixture<T>(
     name: String,
-    createGitRepo: Bool = true,
+    createGitRepo: Bool = false,
     removeFixturePathOnDeinit: Bool = true,
     file: StaticString = #file,
     line: UInt = #line,
@@ -204,7 +204,7 @@ public enum TestError: Error {
 @available(*, deprecated, message: "Migrate test to Swift Testing and use 'fixture' instead")
 @discardableResult public func fixtureXCTest<T>(
     name: String,
-    createGitRepo: Bool = true,
+    createGitRepo: Bool = false,
     file: StaticString = #file,
     line: UInt = #line,
     body: (AbsolutePath) async throws -> T
@@ -242,7 +242,7 @@ public enum TestError: Error {
 
 @discardableResult public func fixture<T>(
     name: String,
-    createGitRepo: Bool = true,
+    createGitRepo: Bool = false,
     removeFixturePathOnDeinit: Bool = true,
     file: StaticString = #file,
     line: UInt = #line,

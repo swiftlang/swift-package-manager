@@ -694,7 +694,7 @@ struct BuildCommandTestCases {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let config = BuildConfiguration.debug
-        try await fixture(name: "Miscellaneous/UnreachableTargets") { fixturePath in
+        try await fixture(name: "Miscellaneous/UnreachableTargets", createGitRepo: true) { fixturePath in
             let aPath = fixturePath.appending("A")
 
             let result = try await build(
@@ -721,7 +721,7 @@ struct BuildCommandTestCases {
     ) async throws {
         let config = BuildConfiguration.debug
         try await withKnownIssue("SWBINTTODO: Test failed. This needs to be investigated") {
-            try await fixture(name: "Miscellaneous/UnreachableTargets") { fixturePath in
+            try await fixture(name: "Miscellaneous/UnreachableTargets", createGitRepo: true) { fixturePath in
                 let aPath = fixturePath.appending("A")
 
                 // Dependency contains a dependent product
@@ -1809,6 +1809,3 @@ extension Triple {
         }
     }
 }
-
-
-

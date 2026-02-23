@@ -130,7 +130,7 @@ struct DependencyResolutionTests {
     ) async throws {
         let configuration = BuildConfiguration.debug
         try await withKnownIssue(isIntermittent: true) {
-            try await fixture(name: "DependencyResolution/External/Simple") { fixturePath in
+            try await fixture(name: "DependencyResolution/External/Simple", createGitRepo: true) { fixturePath in
                 // Add several other tags to check version selection.
                 let repo = GitRepository(path: fixturePath.appending(components: "Foo"))
                 for tag in ["1.1.0", "1.2.0"] {
@@ -175,7 +175,7 @@ struct DependencyResolutionTests {
             // rdar://162339964
             || (ProcessInfo.isHostAmazonLinux2() && buildSystem == .swiftbuild)
         ) {
-            try await fixture(name: "DependencyResolution/External/Complex") { fixturePath in
+            try await fixture(name: "DependencyResolution/External/Complex", createGitRepo: true) { fixturePath in
                 let packageRoot = fixturePath.appending("app")
                 try await executeSwiftBuild(
                     packageRoot,
@@ -207,7 +207,7 @@ struct DependencyResolutionTests {
     ) async throws {
         let configuration = BuildConfiguration.debug
         try await withKnownIssue(isIntermittent: true) {
-            try await fixture(name: "DependencyResolution/External/Branch") { fixturePath in
+            try await fixture(name: "DependencyResolution/External/Branch", createGitRepo: true) { fixturePath in
                 // Tests the convenience init .package(url: , branch: )
                 let app = fixturePath.appending("Bar")
                 try await executeSwiftBuild(
@@ -235,7 +235,7 @@ struct DependencyResolutionTests {
     ) async throws {
         let configuration = BuildConfiguration.debug
         try await withKnownIssue("https://github.com/swiftlang/swift-build/issues/609", isIntermittent: true) {
-            try await fixture(name: "DependencyResolution/External/Mirror") { fixturePath in
+            try await fixture(name: "DependencyResolution/External/Mirror", createGitRepo: true) { fixturePath in
                 let prefix = try resolveSymlinks(fixturePath)
                 let appPath = prefix.appending("App")
                 let packageResolvedPath = appPath.appending("Package.resolved")

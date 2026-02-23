@@ -51,7 +51,7 @@ struct SigningEntityTests {
         ]
     )
     func fromCertificate(certificateFilename: String, id: String) throws {
-        try fixture(name: "Signing", createGitRepo: false) { fixturePath in
+        try fixture(name: "Signing") { fixturePath in
             let certificateBytes = try readFileContents(
                 in: fixturePath,
                 pathComponents: "Certificates",

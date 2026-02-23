@@ -568,7 +568,7 @@ struct PackageCommandTests {
             buildSystem: BuildSystemProvider.Kind,
         ) async throws {
             let config = BuildConfiguration.debug
-            try await fixture(name: "DependencyResolution/External/Simple") { fixturePath in
+            try await fixture(name: "DependencyResolution/External/Simple", createGitRepo: true) { fixturePath in
                 let packageRoot = fixturePath.appending("Bar")
                 let repositoriesPath = packageRoot.appending(components: ".build", "repositories")
                 let cachePath = fixturePath.appending("cache")
@@ -794,7 +794,7 @@ struct PackageCommandTests {
             buildSystem: BuildSystemProvider.Kind,
         ) async throws {
             let config = BuildConfiguration.debug
-            try await fixture(name: "DependencyResolution/External/Simple") { fixturePath in
+            try await fixture(name: "DependencyResolution/External/Simple", createGitRepo: true) { fixturePath in
                 let packageRoot = fixturePath.appending("Bar")
 
                 // Check that `resolve` works.
@@ -819,7 +819,7 @@ struct PackageCommandTests {
             buildSystem: BuildSystemProvider.Kind,
         ) async throws {
             let config = BuildConfiguration.debug
-            try await fixture(name: "DependencyResolution/External/Simple") { fixturePath in
+            try await fixture(name: "DependencyResolution/External/Simple", createGitRepo: true) { fixturePath in
                 let packageRoot = fixturePath.appending("Bar")
 
                 // Perform an initial fetch.
@@ -875,7 +875,7 @@ struct PackageCommandTests {
             buildSystem: BuildSystemProvider.Kind,
         ) async throws {
             let config = BuildConfiguration.debug
-            try await fixture(name: "DependencyResolution/External/Simple") { fixturePath in
+            try await fixture(name: "DependencyResolution/External/Simple", createGitRepo: true) { fixturePath in
                 let packageRoot = fixturePath.appending("Bar")
                 let repositoriesPath = packageRoot.appending(components: ".build", "repositories")
                 let cachePath = fixturePath.appending("cache")
@@ -1561,7 +1561,7 @@ struct PackageCommandTests {
             buildSystem: BuildSystemProvider.Kind,
         ) async throws {
             let config = BuildConfiguration.debug
-            try await fixture(name: "DependencyResolution/External/Complex") { fixturePath in
+            try await fixture(name: "DependencyResolution/External/Complex", createGitRepo: true) { fixturePath in
                 let packageRoot = fixturePath.appending("app")
                 let (textOutput, _) = try await execute(
                     ["show-dependencies", "--format=text"],
@@ -2887,7 +2887,7 @@ struct PackageCommandTests {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let config = BuildConfiguration.debug
-        try await fixture(name: "Miscellaneous/PackageEdit") { fixturePath in
+        try await fixture(name: "Miscellaneous/PackageEdit", createGitRepo: true) { fixturePath in
             let fooPath = fixturePath.appending("foo")
             func build() async throws -> (stdout: String, stderr: String) {
                 return try await executeSwiftBuild(
@@ -3033,7 +3033,7 @@ struct PackageCommandTests {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let config = BuildConfiguration.debug
-        try await fixture(name: "DependencyResolution/External/Simple") { fixturePath in
+        try await fixture(name: "DependencyResolution/External/Simple", createGitRepo: true) { fixturePath in
             let packageRoot = fixturePath.appending("Bar")
 
             // Build it.
@@ -3079,7 +3079,7 @@ struct PackageCommandTests {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let config = BuildConfiguration.debug
-        try await fixture(name: "DependencyResolution/External/Simple") { fixturePath in
+        try await fixture(name: "DependencyResolution/External/Simple", createGitRepo: true) { fixturePath in
             let packageRoot = fixturePath.appending("Bar")
 
             // Build it.
@@ -3168,7 +3168,7 @@ struct PackageCommandTests {
             isIntermittent: ProcessInfo.isHostAmazonLinux2() // rdar://134238535
         ) {
             // Test that purge-cache works in a package directory and successfully purges caches
-            try await fixture(name: "DependencyResolution/External/Simple") { fixturePath in
+            try await fixture(name: "DependencyResolution/External/Simple", createGitRepo: true) { fixturePath in
                 let packageRoot = fixturePath.appending("Bar")
 
                 // Use a unique temporary cache directory for this test
@@ -3234,7 +3234,7 @@ struct PackageCommandTests {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let config = BuildConfiguration.debug
-        try await fixture(name: "Miscellaneous/PackageEdit") { fixturePath in
+        try await fixture(name: "Miscellaneous/PackageEdit", createGitRepo: true) { fixturePath in
             let fooPath = fixturePath.appending("foo")
 
             @discardableResult
@@ -3310,7 +3310,7 @@ struct PackageCommandTests {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let config = BuildConfiguration.debug
-        try await fixture(name: "Miscellaneous/PackageEdit") { fixturePath in
+        try await fixture(name: "Miscellaneous/PackageEdit", createGitRepo: true) { fixturePath in
             let fooPath = fixturePath.appending("foo")
             let binPath = try fooPath.appending(components: buildSystem.binPath(for: config))
             let exec = [
@@ -4662,7 +4662,7 @@ struct PackageCommandTests {
             numberOfExecutions: Int,
         ) async throws {
             let config = BuildConfiguration.debug
-            try await fixture(name: "DependencyResolution/External/Simple") { fixturePath in
+            try await fixture(name: "DependencyResolution/External/Simple", createGitRepo: true) { fixturePath in
                 let packageRoot = fixturePath.appending("Bar")
 
                 // Running without arguments or options, overwriting existing archive
@@ -4760,7 +4760,7 @@ struct PackageCommandTests {
             buildSystem: BuildSystemProvider.Kind,
         ) async throws {
             let config = BuildConfiguration.debug
-            try await fixture(name: "DependencyResolution/External/Simple") { fixturePath in
+            try await fixture(name: "DependencyResolution/External/Simple", createGitRepo: true) { fixturePath in
                 let packageRoot = fixturePath.appending("Bar")
                 // Running with output as absolute path to existing directory
                 let destination = AbsolutePath.root
