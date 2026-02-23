@@ -259,7 +259,9 @@ struct PluginCommand: AsyncSwiftCommand {
         }
 
         // If the plugin requires permissions, we ask the user for approval.
-        if case .command(_, let permissions) = pluginTarget.capability {
+        // If the sandbox is disabled, we skip the permission prompts.
+        if case .command(_, let permissions) = pluginTarget.capability,
+           !swiftCommandState.shouldDisableSandbox {
             try permissions.forEach {
                 let permissionString: String
                 let reasonString: String

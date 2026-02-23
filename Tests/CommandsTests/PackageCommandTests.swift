@@ -6153,6 +6153,69 @@ struct PackageCommandTests {
         }
 
         @Test(
+            .requiresSwiftConcurrencySupport,
+            .tags(
+                .Feature.Command.Package.CommandPlugin,
+            ),
+            arguments: SupportedBuildSystemOnAllPlatforms,
+            Self.getCommandPluginNetworkingPermissionTestData()
+        )
+        func commandPluginNetworkingPermissionsWithDisabledSandbox(
+            buildSystem: BuildSystemProvider.Kind,
+            testData: CommandPluginNetworkingPermissionsTestData,
+        ) async throws {
+            let config = BuildConfiguration.debug
+            try await withKnownIssue(isIntermittent: true) {
+                try await testWithTemporaryDirectory { tmpPath in
+                    let packageDir = tmpPath.appending(components: "MyPackage")
+                    try localFileSystem.writeFileContents(
+                        packageDir.appending(components: "Package.swift"),
+                        string:
+                            """
+                            // swift-tools-version: 5.9
+                            import PackageDescription
+                            let package = Package(
+                                name: "MyPackage",
+                                targets: [
+                                    .target(name: "MyLibrary"),
+                                    .plugin(name: "MyPlugin", capability: .command(intent: .custom(verb: "Network", description: "Help description"), permissions: \(testData.permissionsManifestFragment))),
+                                ]
+                            )
+                            """
+                    )
+                    try localFileSystem.writeFileContents(
+                        packageDir.appending(components: "Sources", "MyLibrary", "library.swift"),
+                        string: "public func Foo() { }"
+                    )
+                    try localFileSystem.writeFileContents(
+                        packageDir.appending(components: "Plugins", "MyPlugin", "plugin.swift"),
+                        string:
+                            """
+                            import PackagePlugin
+
+                            @main
+                            struct MyCommandPlugin: CommandPlugin {
+                                func performCommand(context: PluginContext, arguments: [String]) throws {
+                                    print("hello world")
+                                }
+                            }
+                            """
+                    )
+
+                    let (stdout, _) = try await executeSwiftPackage(
+                        packageDir,
+                        configuration: config,
+                        extraArgs: ["--disable-sandbox", "plugin", "Network"],
+                        buildSystem: buildSystem,
+                    )
+                    #expect(stdout.contains("hello world"))
+                }
+            } when: {
+                ProcessInfo.hostOperatingSystem == .windows
+            }
+        }
+
+        @Test(
             .issue(
                 "https://github.com/swiftlang/swift-package-manager/issues/8782",
                 relationship: .defect
