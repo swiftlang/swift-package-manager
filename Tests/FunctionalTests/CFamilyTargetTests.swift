@@ -70,7 +70,7 @@ struct CFamilyTargetTestCase {
     func cUsingCAndSwiftDep(
         data: BuildData,
     ) async throws {
-            try await fixture(name: "DependencyResolution/External/CUsingCDep") { fixturePath in
+            try await fixture(name: "DependencyResolution/External/CUsingCDep", createGitRepo: true) { fixturePath in
                 let packageRoot = fixturePath.appending("Bar")
                 try await executeSwiftBuild(
                     packageRoot,
