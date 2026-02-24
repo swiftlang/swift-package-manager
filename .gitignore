@@ -1,6 +1,7 @@
 .build
 .test
 .index-build
+.devcontainer/.env
 DerivedData
 /.previous-build
 xcuserdata
