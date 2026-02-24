@@ -75,7 +75,7 @@ struct MiscellaneousTestCase {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let config = BuildConfiguration.debug
-        try await fixture(name: "Miscellaneous/ExactDependencies") { fixturePath in
+        try await fixture(name: "Miscellaneous/ExactDependencies", createGitRepo: true) { fixturePath in
             let packagePath = fixturePath.appending("app")
             try await executeSwiftBuild(
                 packagePath,
@@ -101,7 +101,7 @@ struct MiscellaneousTestCase {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let config = BuildConfiguration.debug
-        try await fixture(name: "DependencyResolution/External/Complex") { fixturePath in
+        try await fixture(name: "DependencyResolution/External/Complex", createGitRepo: true) { fixturePath in
             try await executeSwiftBuild(
                 fixturePath.appending("app"),
                 configuration: config,
@@ -277,7 +277,7 @@ struct MiscellaneousTestCase {
     ) async throws {
         let configuration = BuildConfiguration.debug
         try await withKnownIssue {
-        try await fixture(name: "DependencyResolution/External/Complex") { fixturePath in
+        try await fixture(name: "DependencyResolution/External/Complex", createGitRepo: true) { fixturePath in
             let packageRoot = fixturePath.appending(component: "app")
             let binPath = try packageRoot.appending(components: buildSystem.binPath(for: configuration))
             let executable = binPath.appending(component: "Dealer")
@@ -330,7 +330,7 @@ struct MiscellaneousTestCase {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let configuration = BuildConfiguration.debug
-        try await fixture(name: "Miscellaneous/DependencyEdges/External") { fixturePath in
+        try await fixture(name: "Miscellaneous/DependencyEdges/External", createGitRepo: true) { fixturePath in
             let packageRoot = fixturePath.appending("root")
             let binPath = try packageRoot.appending(components: buildSystem.binPath(for: configuration))
             let executable = binPath.appending(component: "dep2")
@@ -934,7 +934,7 @@ struct MiscellaneousTestCase {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let configuration = BuildConfiguration.debug
-        try await fixture(name: "Miscellaneous/Edit") { fixturePath in
+        try await fixture(name: "Miscellaneous/Edit", createGitRepo: true) { fixturePath in
 #if os(Windows)
             let prefix = fixturePath
 #else
@@ -1117,7 +1117,7 @@ struct MiscellaneousTestCase {
         }when: {
             (buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .linux)
             || (buildSystem == .swiftbuild)
-            || (ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline)
+            || (ProcessInfo.hostOperatingSystem == .windows)
         }
     }
 
@@ -1289,7 +1289,7 @@ struct MiscellaneousTestCase {
 struct MiscellaneousSwiftTestingTests {
     @Test(.skipHostOS(.windows), arguments: SupportedBuildSystemOnAllPlatforms)
     func pkgConfigCFamilyTargets(buildSystem: BuildSystemProvider.Kind) async throws {
-        try await fixture(name: "Miscellaneous/PkgConfig") { fixturePath in
+        try await fixture(name: "Miscellaneous/PkgConfig", createGitRepo: true) { fixturePath in
             let systemModule = fixturePath.appending("SystemModule")
             // Create a shared library.
             let input = systemModule.appending(components: "Sources", "SystemModule.c")
