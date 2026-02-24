@@ -257,6 +257,15 @@ def parse_global_args(args):
         args.sysroot = None
 
 @log_entry_exit
+def get_configuration_build_output(configuration, targetTriple: str) -> str:
+    value = [configuration]
+    if "linux" in targetTriple:
+        value.append("linux")
+    elif "windows" in targetTriple:
+        value.append("windows")
+    return "-".join(value).capitalize()
+
+@log_entry_exit
 def parse_build_args(args):
     """Parses and cleans arguments necessary for build-related actions."""
     parse_global_args(args)
@@ -286,16 +295,20 @@ def parse_build_args(args):
             args.target_dir = os.path.join(args.build_dir, 'out', 'Products')
         elif re.match('android-', args.cross_compile_hosts):
             args.target_dir = os.path.join(
-                                  args.build_dir,
-                                  get_build_target(args,cross_compile=True))
+                                    args.build_dir,
+                                    # get_build_target(args,cross_compile=True)
+                                    'out',
+                                    'Products',
+                                    'Debug-android', # ?
+                                )
     else:
         if platform.system() == 'FreeBSD':
             args.target_dir = os.path.join(args.build_dir, get_unversioned_build_target(args))
         else:
-            args.target_dir = os.path.join(args.build_dir, get_build_target(args))
+            args.target_dir = os.path.join(args.build_dir, 'out', 'Products')
     args.bootstrap_dir = os.path.join(args.target_dir, "bootstrap")
     args.conf = 'release' if args.release else 'debug'
-    args.bin_dir = os.path.join(args.target_dir, args.conf)
+    args.bin_dir = os.path.join(args.target_dir, get_configuration_build_output(args.conf, get_build_target(args)))
     args.bootstrap = not args.skip_cmake_bootstrap or \
                      not os.path.exists(os.path.join(os.path.split(args.swiftc_path)[0], "swift-build"))
 
