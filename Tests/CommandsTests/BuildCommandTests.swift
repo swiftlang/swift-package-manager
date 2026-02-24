@@ -1824,6 +1824,100 @@ struct BuildCommandTestCases {
             ProcessInfo.hostOperatingSystem == .windows
         }
     }
+
+    @Test(
+        .tags(
+            .Feature.CommandLineArguments.BuildSystem,
+        ),
+        .requireSwift6_4,
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func codesizeProfile(
+        buildSystem: BuildSystemProvider.Kind
+    ) async throws {
+        try await fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { fixturePath in
+            let config = BuildConfiguration.release // Use release for WMO
+            let _ = try await build(
+                ["--experimental-enable-codesize-profile"],
+                packagePath: fixturePath,
+                configuration: config,
+                cleanAfterward: false,
+                buildSystem: buildSystem
+            )
+
+            let (binPathOutput, _) = try await execute(
+                ["--show-bin-path"],
+                packagePath: fixturePath,
+                configuration: config,
+                buildSystem: buildSystem
+            )
+            let binPath = try AbsolutePath(validating: binPathOutput.trimmingCharacters(in: .whitespacesAndNewlines))
+
+            switch buildSystem {
+            case .native:
+                let executableBuildDir = binPath.appending("ExecutableNew.build")
+                #expect(localFileSystem.exists(executableBuildDir), "ExecutableNew.build directory should exist")
+
+                let buildDirContents = try localFileSystem.getDirectoryContents(executableBuildDir).filter {
+                    $0.hasSuffix(".sil") || $0.hasSuffix(".ll") || $0.hasSuffix(".opt.yaml")
+                }
+                #expect(!buildDirContents.isEmpty, "Should have supplementary output files (.sil, .ll, .opt.yaml)")
+
+            case .swiftbuild, .xcode:
+                // Swift Build stores intermediates under:
+                // .build/out/Intermediates.noindex/<Target>.build/<Config-platform>/<Variant>.build/Objects-normal/<arch>/
+                // The variant suffix (e.g. "-p" for products) varies by platform, so search recursively.
+                let intermediatesRoot = binPath
+                    .parentDirectory // Products
+                    .parentDirectory // out
+                    .appending(component: "Intermediates.noindex")
+                var foundFiles: [String] = []
+                if let enumerator = FileManager.default.enumerator(atPath: intermediatesRoot.pathString) {
+                    for case let file as String in enumerator {
+                        if file.hasSuffix(".sil") || file.hasSuffix(".ll") || file.hasSuffix(".opt.yaml") {
+                            foundFiles.append(file)
+                        }
+                    }
+                }
+                #expect(!foundFiles.isEmpty, "Should have supplementary output files (.sil, .ll, .opt.yaml) under \(intermediatesRoot)")
+            }
+        }
+    }
+
+    @Test(
+        .tags(
+            .Feature.CommandLineArguments.BuildSystem,
+        ),
+        .requireSwift6_4,
+        arguments: [BuildSystemProvider.Kind.native]
+    )
+    func codesizeProfileWithCustomOutputDirectory(
+        buildSystem: BuildSystemProvider.Kind
+    ) async throws {
+        try await fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { fixturePath in
+            let config = BuildConfiguration.release
+            let customOutputDir = fixturePath.appending("custom-codesize-output")
+
+            let _ = try await build(
+                ["--experimental-enable-codesize-profile", "--experimental-codesize-profile-output-dir", customOutputDir.pathString],
+                packagePath: fixturePath,
+                configuration: config,
+                cleanAfterward: false,
+                buildSystem: buildSystem
+            )
+
+            #expect(localFileSystem.exists(customOutputDir), "Custom output directory should be created")
+
+            let outputContents = try localFileSystem.getDirectoryContents(customOutputDir)
+            let hasSIL = outputContents.contains { $0.hasSuffix(".sil") }
+            let hasIR = outputContents.contains { $0.hasSuffix(".ll") }
+            let hasOptRecord = outputContents.contains { $0.hasSuffix(".opt.yaml") }
+
+            #expect(hasSIL, "Should have .sil files in custom directory")
+            #expect(hasIR, "Should have .ll files in custom directory")
+            #expect(hasOptRecord, "Should have .opt.yaml files in custom directory")
+        }
+    }
 }
 
 extension Triple {

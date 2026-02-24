@@ -176,6 +176,22 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
             toolsBuildParameters.printPIFManifestGraphviz = true
         }
 
+        if swiftCommandState.options.build.enableCodesizeProfile {
+            var driverParameters = productsBuildParameters.driverParameters
+            driverParameters.codesizeProfileEnabled = true
+            driverParameters.emitSILFiles = true
+            driverParameters.emitIRFiles = true
+            driverParameters.emitOptimizationRecord = true
+
+            if let outputDir = swiftCommandState.options.build.codesizeProfileOutputDirectory {
+                let outputPath = try AbsolutePath(validating: outputDir, relativeTo: swiftCommandState.originalWorkingDirectory)
+                driverParameters.silOutputDirectory = outputPath
+                driverParameters.irOutputDirectory = outputPath
+                driverParameters.optimizationRecordDirectory = outputPath
+            }
+            productsBuildParameters.driverParameters = driverParameters
+        }
+
         do {
             try await build(
                 swiftCommandState,

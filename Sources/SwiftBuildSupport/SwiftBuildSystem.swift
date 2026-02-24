@@ -926,6 +926,32 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                 + buildParameters.flags.swiftCompilerFlags.map { $0.shellEscaped() }
         ).joined(separator: " ")
 
+        if buildParameters.driverParameters.emitSILFiles {
+            settings["SWIFT_EMIT_SIL_FILES"] = "YES"
+            if let outputDir = buildParameters.driverParameters.silOutputDirectory {
+                settings["SWIFT_SIL_OUTPUT_DIR"] = outputDir.pathString
+            }
+        }
+
+        if buildParameters.driverParameters.emitIRFiles {
+            settings["SWIFT_EMIT_IR_FILES"] = "YES"
+            if let outputDir = buildParameters.driverParameters.irOutputDirectory {
+                settings["SWIFT_IR_OUTPUT_DIR"] = outputDir.pathString
+            }
+        }
+
+        if buildParameters.driverParameters.emitOptimizationRecord {
+            settings["SWIFT_EMIT_OPT_RECORDS"] = "YES"
+            if let outputDir = buildParameters.driverParameters.optimizationRecordDirectory {
+                settings["SWIFT_OPT_RECORD_OUTPUT_DIR"] = outputDir.pathString
+            }
+        }
+
+        if buildParameters.driverParameters.codesizeProfileEnabled {
+            // dSYM generation is required to attribute code size to source locations
+            settings["DEBUG_INFORMATION_FORMAT"] = "dwarf-with-dsym"
+        }
+
         let inherited = ["$(inherited)"]
 
         let buildParametersLinkFlags =
