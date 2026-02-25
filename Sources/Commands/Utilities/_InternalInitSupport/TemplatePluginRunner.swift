@@ -141,6 +141,7 @@ enum TemplatePluginRunner {
         let success = try await pluginTarget.invoke(
             action: .performCommand(package: package, arguments: arguments),
             buildEnvironment: buildParams.buildEnvironment,
+            workers: buildParams.workers,
             scriptRunner: pluginScriptRunner,
             workingDirectory: workingDir,
             outputDirectory: outputDir,
