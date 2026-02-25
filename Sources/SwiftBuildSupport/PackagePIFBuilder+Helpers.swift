@@ -302,6 +302,10 @@ extension PackageModel.BuildSettings.Declaration {
         case .OTHER_LDFLAGS, .LINK_LIBRARIES, .LINK_FRAMEWORKS:
             true
 
+        // Prebuilts
+        case .PREBUILT_INCLUDE_PATHS, .PREBUILT_LIBRARY_PATHS, .PREBUILT_LIBRARIES:
+            true
+
         default:
             true
         }
@@ -635,6 +639,18 @@ extension PackageGraph.ResolvedModule {
                     singleValueSetting = nil
                     multipleValueSetting = .HEADER_SEARCH_PATHS
                     values = settingAssignment.values.map { self.sourceDirAbsolutePath.pathString + "/" + $0 }
+                case .PREBUILT_INCLUDE_PATHS:
+                    singleValueSetting = nil
+                    multipleValueSetting = .OTHER_SWIFT_FLAGS
+                    values = settingAssignment.values.flatMap { ["-I", $0] }
+                case .PREBUILT_LIBRARY_PATHS:
+                    singleValueSetting = nil
+                    multipleValueSetting = .LIBRARY_SEARCH_PATHS
+                    values = settingAssignment.values
+                case .PREBUILT_LIBRARIES:
+                    singleValueSetting = nil
+                    multipleValueSetting = .OTHER_LDFLAGS
+                    values = settingAssignment.values.map { "-l\($0)" }
                 default:
                     if declaration.allowsMultipleValues {
                         singleValueSetting = nil
@@ -661,8 +677,12 @@ extension PackageGraph.ResolvedModule {
                         pifPlatform = nil
                     }
 
-                    // Handle imparted settings for OTHER_LDFLAGS (always multiple values)
-                    if let multipleValueSetting = multipleValueSetting, multipleValueSetting == .OTHER_LDFLAGS {
+                    // Handle imparted settings for OTHER_LDFLAGS and prebuilts include paths (always multiple values)
+                    // TODO: Do we realy need to impart OTHER_LDFLAGS?
+                    // TODO: Doing that for the PREBUILT_LIBRARIES was causing duplicate library warnings.
+                    if let multipleValueSetting = multipleValueSetting,
+                        declaration != .PREBUILT_LIBRARIES,
+                        (multipleValueSetting == .OTHER_LDFLAGS || declaration == .PREBUILT_INCLUDE_PATHS) {
                         allSettings.impartedMultipleValueSettings[pifPlatform, default: [:]][multipleValueSetting, default: []].append(contentsOf: values)
                     }
 
@@ -693,6 +713,7 @@ extension SystemLibraryModule {
     /// Returns pkgConfig result for a system library target.
     func pkgConfig(
         package: PackageGraph.ResolvedPackage,
+        pkgConfigDirectories: [AbsolutePath],
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
     ) throws -> (cFlags: [String], libs: [String]) {
@@ -703,9 +724,9 @@ extension SystemLibraryModule {
             }
         }
 
-        let pkgConfigParsingScope = ObservabilitySystem { _, diagnostic in
+        let pkgConfigParsingScope = ObservabilitySystem({ _, diagnostic in
             diagnostics.append(diagnostic)
-        }.topScope.makeChildScope(description: "PkgConfig") {
+        }, outputStream: nil, logLevel: .debug).topScope.makeChildScope(description: "PkgConfig") {
             var packageMetadata = ObservabilityMetadata.packageMetadata(
                 identity: package.identity,
                 kind: package.manifest.packageKind
@@ -714,29 +735,33 @@ extension SystemLibraryModule {
             return packageMetadata
         }
 
-        let brewPath = if FileManager.default.fileExists(atPath: "/opt/brew") {
-            "/opt/brew" // Legacy path for Homebrew.
-        } else if FileManager.default.fileExists(atPath: "/opt/homebrew") {
-            "/opt/homebrew" // Default path for Homebrew on Apple Silicon.
+        let brewPrefix: AbsolutePath?
+        // Normally PIF should be independent of the host OS, but in this case
+        // we need to invoke a tool (pkg-config) installed on the host system by homebrew.
+        if ProcessInfo.hostOperatingSystem == .macOS {
+            let brewPath = if FileManager.default.fileExists(atPath: "/opt/brew") {
+                "/opt/brew" // Legacy path for Homebrew.
+            } else if FileManager.default.fileExists(atPath: "/opt/homebrew") {
+                "/opt/homebrew" // Default path for Homebrew on Apple Silicon.
+            } else {
+                "/usr/local" // Fallback to default path for Homebrew.
+            }
+
+            brewPrefix = try? AbsolutePath(
+                validating: UserDefaults.standard.string(forKey: "IDEHomebrewPrefixPath") ?? brewPath
+            )
         } else {
-            "/usr/local" // Fallback to default path for Homebrew.
+            brewPrefix = nil
         }
-
-        let emptyPkgConfig: (cFlags: [String], libs: [String]) = ([], [])
-
-        let brewPrefix = try? AbsolutePath(
-            validating: UserDefaults.standard.string(forKey: "IDEHomebrewPrefixPath") ?? brewPath
-        )
-        guard let brewPrefix else { return emptyPkgConfig }
 
         let pkgConfigResult = try? pkgConfigArgs(
             for: self,
-            pkgConfigDirectories: [],
+            pkgConfigDirectories: pkgConfigDirectories,
             brewPrefix: brewPrefix,
             fileSystem: fileSystem,
             observabilityScope: pkgConfigParsingScope
         )
-        guard let pkgConfigResult else { return emptyPkgConfig }
+        guard let pkgConfigResult else { return ([], []) }
 
         let pkgConfig = (
             cFlags: pkgConfigResult.flatMap(\.cFlags),
@@ -874,16 +899,19 @@ extension Collection<PackageGraph.ResolvedModule> {
     /// Recursively applies a block to each of the *dependencies* of the given module, in topological sort order.
     /// Each module or product dependency is visited only once.
     func recursivelyTraverseDependencies(with block: (ResolvedModule.Dependency) -> Void) {
-        var moduleGuidsSeen: Set<ResolvedModule.ID> = []
-        var productGuidsSeen: Set<ResolvedProduct.ID> = []
+        var moduleIDsSeen: Set<ResolvedModule.ID> = []
+        var productIDsSeen: Set<ResolvedProduct.ID> = []
 
         func visitDependency(_ dependency: ResolvedModule.Dependency) {
             switch dependency {
             case .module(let moduleDependency, _):
-                let (unseenModule, _) = moduleGuidsSeen.insert(moduleDependency.id)
+                let (unseenModule, _) = moduleIDsSeen.insert(moduleDependency.id)
                 guard unseenModule else { return }
 
-                if moduleDependency.underlying.type != .macro {
+                // Do not traverse into *macro* or *plugin* dependencies.
+                // Macros run at compile time and their dependencies should not be linked into the client.
+                // Plugins run at build time and their dependencies should not be linked into the client neither.
+                if ![.macro, .plugin].contains(moduleDependency.underlying.type) {
                     for dependency in moduleDependency.dependencies {
                         visitDependency(dependency)
                     }
@@ -891,15 +919,14 @@ extension Collection<PackageGraph.ResolvedModule> {
                 block(dependency)
 
             case .product(let productDependency, let conditions):
-                let (unseenProduct, _) = productGuidsSeen.insert(productDependency.id)
+                let (unseenProduct, _) = productIDsSeen.insert(productDependency.id)
                 guard unseenProduct && !productDependency.isBinaryOnlyExecutableProduct else { return }
                 block(dependency)
 
-                // We need to visit any binary modules to be able to add direct references to them to any client
-                // targets.
+                // We need to visit any binary modules to be able to add direct references to them to any client targets.
                 // This is needed so that XCFramework processing always happens *prior* to building any client targets.
                 for moduleDependency in productDependency.modules where moduleDependency.isBinary {
-                    if moduleGuidsSeen.contains(moduleDependency.id) { continue }
+                    if moduleIDsSeen.contains(moduleDependency.id) { continue }
                     block(.module(moduleDependency, conditions: conditions))
                 }
             }
@@ -1033,7 +1060,7 @@ extension ProjectModel.BuildSettings {
         self[.SWIFT_PACKAGE_NAME] = packageName ?? nil
 
         // This should really be swift-build defaults set in the .xcspec files, but changing that requires
-        // some extensive testing to ensure xcode projects are not effected.
+        // some extensive testing to ensure xcode projects are not affected.
         // So for now lets just force it here.
         self[.EXECUTABLE_PREFIX] = "lib"
         self[.EXECUTABLE_PREFIX, Platform.windows] = ""

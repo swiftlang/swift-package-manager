@@ -168,6 +168,9 @@ extension LLBuildManifestBuilder {
             for binaryPath in target.libraryBinaryPaths {
                 destinations[target.buildParameters.destinationPath(forBinaryAt: binaryPath)] = binaryPath
             }
+            for binaryPath in target.windowsDLLBinaryPaths {
+                destinations[target.buildParameters.destinationPath(forBinaryAt: binaryPath)] = binaryPath
+            }
         }
         for (destination, source) in destinations {
             self.addCopyCommand(from: source, to: destination)

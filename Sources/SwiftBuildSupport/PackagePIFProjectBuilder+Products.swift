@@ -21,6 +21,7 @@ import struct Basics.SourceControlURL
 import class PackageModel.BinaryModule
 import class PackageModel.Manifest
 import enum PackageModel.PackageCondition
+import enum PackageModel.PrebuiltsPlatform
 import class PackageModel.Product
 import enum PackageModel.ProductType
 import struct PackageModel.RegistryReleaseMetadata
@@ -114,6 +115,14 @@ extension PackagePIFProjectBuilder {
         settings[.PRODUCT_NAME] = "$(TARGET_NAME)"
         // We must use the main module name here instead of the product name, because they're not guranteed to be the same, and the users may have authored e.g. tests which rely on an executable's module name.
         settings[.PRODUCT_MODULE_NAME] = mainModule.c99name
+        if product.type == .executable {
+            // Don't install the Swift module of the executable product, lest it conflict with the testable variant.
+            // The contents of the testable variant's module will exactly match the binary linked by dependencies (test targets).
+            // Also, multiple executable products may incorporate sources from the same executable target, while the testable
+            // variant of an executable target's module will always be unique, so we avoid producing conflicting copies.
+            settings[.SWIFT_INSTALL_MODULE] = "NO"
+        }
+
         settings[.PRODUCT_BUNDLE_IDENTIFIER] = "\(self.package.identity).\(product.name)"
             .spm_mangledToBundleIdentifier()
         settings[.SWIFT_PACKAGE_NAME] = mainModule.packageName
@@ -132,6 +141,19 @@ extension PackagePIFProjectBuilder {
             settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS].lazilyInitialize { ["$(inherited)"] }
             // Enable index-while building for Swift compilations to facilitate discovery of XCTest tests.
             settings[.SWIFT_INDEX_STORE_ENABLE] = "YES"
+
+            if mainModule.platformConstraint == .host {
+                // This is a macro test using prebuilts
+                settings[.SUPPORTED_PLATFORMS] = ["$(HOST_PLATFORM)"]
+                switch PrebuiltsPlatform.hostPlatform?.arch {
+                case .aarch64:
+                    settings[.ARCHS] = ["arm64"]
+                case .x86_64:
+                    settings[.ARCHS] = ["86_64"]
+                case .none:
+                    break
+                }
+            }
         } else if mainModule.type == .executable {
             // Setup install path for executables if it's in root of a pure Swift package.
             if pifBuilder.delegate.hostsOnlyPackages && pifBuilder.delegate.isRootPackage {
@@ -491,7 +513,7 @@ extension PackagePIFProjectBuilder {
 
         // Collect linked binaries.
         let linkedPackageBinaries: [PackagePIFBuilder.LinkedPackageBinary] = mainModule.dependencies.compactMap {
-            PackagePIFBuilder.LinkedPackageBinary(dependency: $0, package: self.package)
+            PackagePIFBuilder.LinkedPackageBinary(dependency: $0)
         }
 
         let moduleOrProduct = PackagePIFBuilder.ModuleOrProduct(
@@ -603,6 +625,8 @@ extension PackagePIFProjectBuilder {
                 productName = "$(WRAPPER_NAME)"
                 productType = .framework
             }
+        } else if pifBuilder.delegate.isRootPackage && pifBuilder.materializeStaticArchiveProductsForRootPackages {
+            productType = .staticArchive
         } else {
             productType = .packageProduct
         }
@@ -691,6 +715,20 @@ extension PackagePIFProjectBuilder {
                 installPath: installPath(for: product.underlying),
                 delegate: pifBuilder.delegate
             )
+            // An empty sources phase is required in order to trigger linking.
+            self.project[keyPath: libraryUmbrellaTargetKeyPath].common.addSourcesBuildPhase { id in
+                ProjectModel.SourcesBuildPhase(id: id)
+            }
+        } else if productType == .staticArchive {
+            settings[.TARGET_NAME] = product.targetName()
+            settings[.PRODUCT_NAME] = product.name
+
+            // This should really be swift-build defaults set in the .xcspec files, but changing that requires
+            // some extensive testing to ensure xcode projects are not affected.
+            // So for now lets just force it here.
+            settings[.EXECUTABLE_PREFIX] = "lib"
+            settings[.EXECUTABLE_PREFIX, ProjectModel.BuildSettings.Platform.windows] = ""
+            // An empty sources phase is required in order to trigger linking.
             self.project[keyPath: libraryUmbrellaTargetKeyPath].common.addSourcesBuildPhase { id in
                 ProjectModel.SourcesBuildPhase(id: id)
             }
@@ -845,7 +883,7 @@ extension PackagePIFProjectBuilder {
 
         // Collect linked binaries.
         let linkedPackageBinaries = product.modules.compactMap {
-            PackagePIFBuilder.LinkedPackageBinary(module: $0, package: self.package)
+            PackagePIFBuilder.LinkedPackageBinary(module: $0)
         }
 
         let moduleOrProductType: PackagePIFBuilder.ModuleOrProductType = switch product.libraryType {
@@ -937,6 +975,7 @@ extension PackagePIFProjectBuilder {
         }
 
         let buildSettings: ProjectModel.BuildSettings = package.underlying.packageBaseBuildSettings
+
         self.project[keyPath: pluginTargetKeyPath].common.addBuildConfig { id in
             BuildConfig(id: id, name: "Debug", settings: buildSettings)
         }

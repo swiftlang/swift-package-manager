@@ -223,6 +223,12 @@ extension LLBuildManifestBuilder {
             // Ignore Plugin Modules.
             if module.underlying is PluginModule { return }
 
+            if target.target.platformConstraint == .all && module.platformConstraint == .host {
+                // Skip module that is host only.
+                // This only happens when the target isn't actually referenced by the root package.
+                return
+            }
+
             guard let description else {
                 throw InternalError("No build description for module: \(module)")
             }
@@ -298,6 +304,17 @@ extension LLBuildManifestBuilder {
                 inputs.append(file: path)
             }
         }
+
+        // Make sure the windows DLLs get copied over
+        for binaryPath in target.windowsDLLBinaryPaths {
+            let path = target.buildParameters.destinationPath(forBinaryAt: binaryPath)
+            if self.fileSystem.isDirectory(binaryPath) {
+                inputs.append(directory: path)
+            } else {
+                inputs.append(file: path)
+            }
+        }
+
 
         let additionalInputs = try self.addBuildToolPlugins(.swift(target))
 

@@ -36,6 +36,7 @@ extension ResolvedModule {
             dependencies: deps.map { .module($0, conditions: conditions) },
             defaultLocalization: nil,
             supportedPlatforms: [],
+            platformConstraint: .all,
             platformVersionProvider: .init(implementation: .minimumDeploymentTargetDefault)
         )
     }

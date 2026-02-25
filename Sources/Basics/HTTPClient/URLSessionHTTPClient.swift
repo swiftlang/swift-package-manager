@@ -307,6 +307,12 @@ private final class DownloadTaskManager: NSObject, URLSessionDownloadDelegate {
         do {
             let path = try AbsolutePath(validating: location.path)
 
+            // Only proceed to move the file if status code is within 200-299 range.
+            if let response = downloadTask.response as? HTTPURLResponse,
+               response.statusCode < 200 || response.statusCode >= 300 {
+                throw HTTPClientError.badResponseStatusCode(response.statusCode)
+            }
+
             // Always using synchronous `localFileSystem` here since `URLSession` requires temporary `location`
             // to be moved from synchronously. Otherwise the file will be immediately cleaned up after returning
             // from this delegate method.

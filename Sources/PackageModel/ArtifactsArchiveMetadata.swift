@@ -46,6 +46,8 @@ public struct ArtifactsArchiveMetadata: Equatable {
         case executable
         case staticLibrary
         case swiftSDK
+        // Experimental support for Windows DLLs
+        case experimentalWindowsDLL
 
         // Can't be marked as formally deprecated as we still need to use this value for warning users.
         case crossCompilationDestination

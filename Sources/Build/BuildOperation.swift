@@ -171,10 +171,10 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     }
 
     /// The build description resulting from planing.
-    private let buildDescription = ThreadSafeBox<BuildDescription>()
+    private let buildDescription = AsyncThrowingValueMemoizer<BuildDescription>()
 
     /// The loaded package graph.
-    private let packageGraph = ThreadSafeBox<ModulesGraph>()
+    private let packageGraph = AsyncThrowingValueMemoizer<ModulesGraph>()
 
     /// File system to operate on.
     private var fileSystem: Basics.FileSystem {
@@ -624,6 +624,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             sourceFiles: plugin.sources.paths,
             pluginName: plugin.moduleName,
             toolsVersion: plugin.toolsVersion,
+            workers: config.toolsBuildParameters.workers,
             observabilityScope: self.observabilityScope,
             callbackQueue: DispatchQueue.sharedConcurrent,
             delegate: delegate

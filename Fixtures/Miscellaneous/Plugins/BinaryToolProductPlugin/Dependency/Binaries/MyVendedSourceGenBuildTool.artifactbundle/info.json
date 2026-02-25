@@ -11,7 +11,7 @@
                 },
                 {
                     "path": "mytool-linux/mytool",
-                    "supportedTriples": ["x86_64-unknown-linux-gnu"]
+                    "supportedTriples": ["x86_64-unknown-linux-gnu", "aarch64-unknown-linux-gnu"]
                 }
             ]
         }

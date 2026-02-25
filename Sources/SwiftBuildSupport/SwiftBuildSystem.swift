@@ -36,7 +36,7 @@ import var TSCBasic.stdoutStream
 import Foundation
 import SWBBuildService
 import SwiftBuild
-
+import enum SWBCore.SwiftAPIDigesterMode
 
 struct SessionFailedError: Error {
     var error: Error
@@ -515,6 +515,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                 sourceFiles: plugin.sources.paths,
                 pluginName: plugin.moduleName,
                 toolsVersion: plugin.toolsVersion,
+                workers: self.buildParameters.workers,
                 observabilityScope: observabilityScope,
                 callbackQueue: DispatchQueue.sharedConcurrent,
                 delegate: delegate
@@ -702,36 +703,45 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
     }
 
     private func makeRunDestination() -> SwiftBuild.SWBRunDestinationInfo {
-        let platformName: String
-        let sdkName: String
-        if self.buildParameters.triple.isAndroid() {
-            // Android triples are identified by the environment part of the triple
-            platformName = "android"
-            sdkName = platformName
-        } else if self.buildParameters.triple.isWasm {
-            // Swift Build uses webassembly instead of wasi as the platform name
-            platformName = "webassembly"
-            sdkName = platformName
+        if let sdkManifestPath = self.buildParameters.toolchain.swiftSDK.swiftSDKManifest {
+            return SwiftBuild.SWBRunDestinationInfo(
+                buildTarget: .swiftSDK(sdkManifestPath: sdkManifestPath.pathString, triple: self.buildParameters.triple.tripleString),
+                targetArchitecture: buildParameters.triple.archName,
+                supportedArchitectures: [],
+                disableOnlyActiveArch: (buildParameters.architectures?.count ?? 1) > 1,
+            )
         } else {
-            platformName = self.buildParameters.triple.darwinPlatform?.platformName ?? self.buildParameters.triple.osNameUnversioned
-            sdkName = platformName
-        }
+            let platformName: String
+            let sdkName: String
 
-        let sdkVariant: String?
-        if self.buildParameters.triple.environment == .macabi {
-            sdkVariant = "iosmac"
-        } else {
-            sdkVariant = nil
-        }
+            if self.buildParameters.triple.isAndroid() {
+                // Android triples are identified by the environment part of the triple
+                platformName = "android"
+                sdkName = platformName
+            } else {
+                platformName = self.buildParameters.triple.darwinPlatform?.platformName ?? self.buildParameters.triple.osNameUnversioned
+                sdkName = platformName
+            }
 
-        return SwiftBuild.SWBRunDestinationInfo(
-            platform: platformName,
-            sdk: sdkName,
-            sdkVariant: sdkVariant,
-            targetArchitecture: buildParameters.triple.archName,
-            supportedArchitectures: [],
-            disableOnlyActiveArch: (buildParameters.architectures?.count ?? 1) > 1
-        )
+            let sdkVariant: String?
+            if self.buildParameters.triple.environment == .macabi {
+                sdkVariant = "iosmac"
+            } else {
+                sdkVariant = nil
+            }
+
+            return SwiftBuild.SWBRunDestinationInfo(
+                buildTarget: .toolchainSDK(
+                    platform: platformName,
+                    sdk: sdkName,
+                    sdkVariant: sdkVariant
+                ),
+                targetArchitecture: buildParameters.triple.archName,
+                supportedArchitectures: [],
+                disableOnlyActiveArch: (buildParameters.architectures?.count ?? 1) > 1,
+                hostTargetedPlatform: nil
+            )
+        }
     }
 
     internal func makeBuildParameters(
@@ -866,12 +876,19 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                 + buildParameters.flags.swiftCompilerFlags.map { $0.shellEscaped() }
         ).joined(separator: " ")
 
-        settings["OTHER_LDFLAGS"] = (
-            verboseFlag + // clang will be invoked to link so the verbose flag is valid for it
-                ["$(inherited)"]
-                + buildParameters.toolchain.extraFlags.linkerFlags.asSwiftcLinkerFlags().map { $0.shellEscaped() }
-                + buildParameters.flags.linkerFlags.asSwiftcLinkerFlags().map { $0.shellEscaped() }
-        ).joined(separator: " ")
+        let inherited = ["$(inherited)"]
+
+        let buildParametersLinkFlags =
+            buildParameters.toolchain.extraFlags.linkerFlags.asSwiftcLinkerFlags().map { $0.shellEscaped() }
+            + buildParameters.flags.linkerFlags.asSwiftcLinkerFlags().map { $0.shellEscaped() }
+
+        var otherLdFlags =
+                verboseFlag  // clang will be invoked to link so the verbose flag is valid for it
+                + inherited
+
+        otherLdFlags += buildParametersLinkFlags
+
+        settings["OTHER_LDFLAGS"] = otherLdFlags.joined(separator: " ")
 
         // Optionally also set the list of architectures to build for.
         if let architectures = buildParameters.architectures, !architectures.isEmpty {
@@ -1082,14 +1099,14 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         var settings: [String: String] = [:]
         switch digesterMode {
         case .generateBaselines(let baselinesDirectory, let modulesRequestingBaselines):
-            settings["SWIFT_API_DIGESTER_MODE"] = "api"
+            settings["SWIFT_API_DIGESTER_MODE"] = SwiftAPIDigesterMode.api.rawValue
             for module in modulesRequestingBaselines {
                 settings["RUN_SWIFT_ABI_GENERATION_TOOL_MODULE_\(module)"] = "YES"
             }
             settings["RUN_SWIFT_ABI_GENERATION_TOOL"] = "$(RUN_SWIFT_ABI_GENERATION_TOOL_MODULE_$(PRODUCT_MODULE_NAME))"
             settings["SWIFT_ABI_GENERATION_TOOL_OUTPUT_DIR"] = baselinesDirectory.appending(components: ["$(PRODUCT_MODULE_NAME)", "ABI"]).pathString
         case .compareToBaselines(let baselinesDirectory, let modulesToCompare, let breakageAllowListPath):
-            settings["SWIFT_API_DIGESTER_MODE"] = "api"
+            settings["SWIFT_API_DIGESTER_MODE"] = SwiftAPIDigesterMode.api.rawValue
             settings["SWIFT_ABI_CHECKER_DOWNGRADE_ERRORS"] = "YES"
             for module in modulesToCompare {
                 settings["RUN_SWIFT_ABI_CHECKER_TOOL_MODULE_\(module)"] = "YES"
@@ -1117,7 +1134,8 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                     disableSandbox: self.pluginConfiguration.disableSandbox,
                     pluginWorkingDirectory: self.pluginConfiguration.workDirectory,
                     additionalFileRules: additionalFileRules,
-                    addLocalRpaths: !self.buildParameters.linkingParameters.shouldDisableLocalRpath
+                    addLocalRpaths: !self.buildParameters.linkingParameters.shouldDisableLocalRpath,
+                    materializeStaticArchiveProductsForRootPackages: true
                 ),
                 fileSystem: self.fileSystem,
                 observabilityScope: self.observabilityScope,

@@ -111,6 +111,7 @@ extension BuildPlan {
                     dependencies: testProduct.modules.map { .module($0, conditions: []) },
                     defaultLocalization: testProduct.defaultLocalization,
                     supportedPlatforms: testProduct.supportedPlatforms,
+                    platformConstraint: .all,
                     platformVersionProvider: testProduct.platformVersionProvider
                 )
 
@@ -168,6 +169,7 @@ extension BuildPlan {
                     dependencies: testProduct.modules.map { .module($0, conditions: []) } + resolvedTargetDependencies,
                     defaultLocalization: testProduct.defaultLocalization,
                     supportedPlatforms: testProduct.supportedPlatforms,
+                    platformConstraint: .all,
                     platformVersionProvider: testProduct.platformVersionProvider
                 )
 
@@ -214,6 +216,7 @@ extension BuildPlan {
                             dependencies: entryPointResolvedTarget.dependencies + resolvedTargetDependencies,
                             defaultLocalization: testProduct.defaultLocalization,
                             supportedPlatforms: testProduct.supportedPlatforms,
+                            platformConstraint: .all,
                             platformVersionProvider: testProduct.platformVersionProvider
                         )
                         let entryPointTargetBuildDescription = try SwiftModuleBuildDescription(

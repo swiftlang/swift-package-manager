@@ -337,7 +337,7 @@ public final class MockWorkspace {
                     ) },
                     products: package.products.map { try ProductDescription(
                         name: $0.name,
-                        type: .library(.automatic),
+                        type: $0.type ?? .library(.automatic),
                         targets: $0.modules
                     ) },
                     targets: package.targets.map { try $0.convert(identityResolver: self.identityResolver) },
@@ -348,8 +348,9 @@ public final class MockWorkspace {
 
             func writePackageContent(fileSystem: FileSystem, root: AbsolutePath, toolsVersion: ToolsVersion) throws {
                 let sourcesDir = root.appending("Sources")
+                let pluginsDir = root.appending("Plugins")
                 for target in package.targets {
-                    let targetDir = sourcesDir.appending(component: target.name)
+                    let targetDir = (target.type == .plugin ? pluginsDir : sourcesDir).appending(component: target.name)
                     try fileSystem.createDirectory(targetDir, recursive: true)
                     try fileSystem.writeFileContents(targetDir.appending("file.swift"), bytes: "")
                 }

@@ -31,10 +31,15 @@ extension Tag.Platform {
 }
 
 extension Tag.FunctionalArea {
+    @Tag public static var APIDiff: Tag
     @Tag public static var PIF: Tag
     @Tag public static var IndexMode: Tag
     @Tag public static var Sanitizer: Tag
     @Tag public static var LinkSwiftStaticStdlib: Tag
+    @Tag public static var Metal: Tag
+    @Tag public static var ModuleMaps: Tag
+    @Tag public static var Resources: Tag
+    @Tag public static var Workspace: Tag
 }
 
 extension Tag.Feature {
@@ -140,9 +145,11 @@ extension Tag.Feature.Command.Package {
     @Tag public static var CompletionTool: Tag
     @Tag public static var Config: Tag
     @Tag public static var Describe: Tag
+    @Tag public static var DiagnoseApiBreakingChanges: Tag
     @Tag public static var DumpPackage: Tag
     @Tag public static var DumpSymbolGraph: Tag
     @Tag public static var Edit: Tag
+    @Tag public static var ExperimentalApiDiff: Tag
     @Tag public static var Init: Tag
     @Tag public static var Migrate: Tag
     @Tag public static var Plugin: Tag

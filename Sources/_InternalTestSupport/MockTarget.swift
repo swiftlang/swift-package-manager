@@ -15,7 +15,7 @@ import PackageModel
 
 public struct MockTarget {
     public enum `Type` {
-        case regular, test, binary, macro, executable
+        case regular, test, binary, macro, executable, plugin
     }
 
     public let name: String
@@ -26,11 +26,13 @@ public struct MockTarget {
     public let packageAccess: Bool
     public let settings: [TargetBuildSettingDescription.Setting]
     public let type: Type
+    public let pluginCapability: TargetDescription.PluginCapability?
 
     public init(
         name: String,
         dependencies: [TargetDescription.Dependency] = [],
         type: Type = .regular,
+        pluginCapability: TargetDescription.PluginCapability? = nil,
         path: String? = nil,
         url: String? = nil,
         packageAccess: Bool = true,
@@ -40,6 +42,7 @@ public struct MockTarget {
         self.name = name
         self.dependencies = dependencies
         self.type = type
+        self.pluginCapability = pluginCapability
         self.path = path
         self.url = url
         self.packageAccess = packageAccess
@@ -110,6 +113,19 @@ public struct MockTarget {
                 type: .executable,
                 packageAccess: packageAccess,
                 settings: self.settings
+            )
+        case .plugin:
+            return try TargetDescription(
+                name: self.name,
+                dependencies: self.dependencies.map{ try $0.convert(identityResolver: identityResolver) },
+                path: self.path,
+                exclude: [],
+                sources: nil,
+                publicHeadersPath: nil,
+                type: .plugin,
+                packageAccess: packageAccess,
+                pluginCapability: pluginCapability,
+                settings: self.settings,
             )
         }
     }

@@ -76,10 +76,10 @@ public struct BuildParameters: Encodable {
     // FIXME: this may be inconsistent with `targetTriple`.
     public var architectures: [String]?
 
-    /// How many jobs should llbuild and the Swift compiler spawn
+    /// How many jobs should llbuild and the Swift compiler spawn.
     public var workers: UInt32
 
-    /// Which compiler sanitizers should be enabled
+    /// Which compiler sanitizers should be enabled.
     public var sanitizers: EnabledSanitizers
 
     /// The mode to use for indexing-while-building feature.
@@ -332,7 +332,7 @@ public struct BuildParameters: Encodable {
         case .library(.dynamic):
             return try dynamicLibraryPath(for: product.name)
         case .library(.automatic), .plugin:
-            fatalError()
+            fatalError("\(#file):\(#line) - Illegal call of function \(#function) with automatica library and plugin")
         case .test:
             switch buildSystemKind {
             case .native, .xcode:

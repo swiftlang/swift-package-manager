@@ -7,17 +7,17 @@ Learn to create and use a Swift package.
 A package consists of a `Package.swift` manifest file along with source files, resources, and other assets. 
 The manifest file, or package manifest, defines the package's name and its contents using the [PackageDescription](https://developer.apple.com/documentation/packagedescription) module.
 
-Each package declares `Products`, a list of what the package produces.
+Each package declares [Products](https://docs.swift.org/swiftpm/documentation/packagedescription/product), a list of what the package produces.
 Types of products include libraries, executables, and plugins:
 
 - A library defines one or more modules that can be imported by other code.
 - An executable is a program that can be run by the operating system.
 - A plugin is executable code that the Swift Package Manager may use to provide additional commands or build capabilities.
 
-A package may declare `Dependencies`, that provide products from other Swift packages.
+A package may declare [Dependencies](https://docs.swift.org/swiftpm/documentation/packagedescription/package/dependency), that provide products from other Swift packages.
 A dependency may also be defined to a system library or binary (non-source) artifact.
 
-Each product is made up of one or more `Targets`, the basic building block of a Swift package.
+Each product is made up of one or more [Targets](https://docs.swift.org/swiftpm/documentation/packagedescription/target), the basic building block of a Swift package.
 Each target specifies an module, may declare one or more dependencies on other targets within the same package and on products vended by the package’s dependencies.
 A target may define a library, a test suite, an executable, an macro, a binary file, and so on.
 

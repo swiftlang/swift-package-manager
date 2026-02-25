@@ -208,6 +208,9 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     /// Cache for tools information.
     var externalExecutablesCache = [BinaryModule: [ExecutableInfo]]()
 
+    /// Cache for Windows DLL information.
+    var externalWindowsDLLCache = [BinaryModule: [WindowsDLLInfo]]()
+
     /// Whether to disable sandboxing (e.g. for macros).
     private let shouldDisableSandbox: Bool
 
@@ -792,7 +795,7 @@ extension BuildPlan {
             if package.manifest.toolsVersion >= .v6_0 {
                 // Set up dummy observability because we don't want to emit diagnostics for this before the actual
                 // build.
-                let observability = ObservabilitySystem { _, _ in }
+                let observability = ObservabilitySystem({ _, _ in }, outputStream: nil, logLevel: .debug)
                 // Compute the generated files based on all results we have computed so far.
                 (pluginDerivedSources, pluginDerivedResources) = ModulesGraph.computePluginGeneratedFiles(
                     target: module,
@@ -817,6 +820,7 @@ extension BuildPlan {
                     pluginGeneratedResources: pluginDerivedResources.map(\.path)
                 ),
                 buildEnvironment: buildParameters.buildEnvironment,
+                workers: buildParameters.workers,
                 scriptRunner: configuration.scriptRunner,
                 workingDirectory: package.path,
                 outputDirectory: pluginOutputDir,
@@ -943,7 +947,7 @@ extension BuildPlan {
             case .test:
                 self = .product(product, product.hasDirectMacroDependencies ? .host : destination)
             default:
-                self = .product(product, destination)
+                self = .product(product, product.platformConstraint == .host ? .host : destination)
             }
         }
 
@@ -960,8 +964,9 @@ extension BuildPlan {
             default:
                 // By default assume the destination of the context.
                 // This means that i.e. test products that reference macros
-                // would force all of their successors to be `host`
-                self = .module(module, destination)
+                // would force all of their successors to be `host`.
+                // Also if the module has a platform constraint of `host`, use that.
+                self = .module(module, module.platformConstraint == .host ? .host : destination)
             }
         }
     }

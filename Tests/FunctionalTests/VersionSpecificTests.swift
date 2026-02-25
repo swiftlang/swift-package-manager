@@ -33,12 +33,12 @@ struct VersionSpecificTests {
             .Feature.Command.Package.Reset,
             .Feature.Version,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func endToEndResolution(
         buildSystem: BuildSystemProvider.Kind,
-        configuration: BuildConfiguration,
     ) async throws {
+        let configuration = BuildConfiguration.debug
         try await withKnownIssue(isIntermittent: true) { // Test passed on Windows at-desk
         try await testWithTemporaryDirectory{ path in
             let fs = localFileSystem

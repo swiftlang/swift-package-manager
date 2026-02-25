@@ -15,7 +15,6 @@ import Testing
 @testable import SwiftBuildSupport
 import SPMBuildCore
 
-
 import var TSCBasic.stderrStream
 import Basics
 import Workspace
@@ -352,6 +351,7 @@ struct SwiftBuildSystemTests {
     }
 
     @Test(
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/9321", relationship: .verifies),
         arguments: [
             0,
             1,

@@ -132,7 +132,10 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
     public var shouldDisableLocalRpath: Bool = false
 
     /// The build system to use.
-    @Option(name: .customLong("build-system"))
+    @Option(
+        name: .customLong("build-system"),
+        help: "The build system to use.",
+    )
     var _buildSystem: BuildSystemProvider.Kind = .native
 
     private var buildSystem: BuildSystemProvider.Kind {
@@ -172,11 +175,11 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
         do {
             let fileSystem = localFileSystem
 
-            let observabilityScope = ObservabilitySystem { _, diagnostics in
+            let observabilityScope = ObservabilitySystem({ _, diagnostics in
                 if diagnostics.severity >= logLevel {
                     print(diagnostics)
                 }
-            }.topScope
+            }, outputStream: stdoutStream, logLevel: .debug).topScope
 
             guard let cwd: AbsolutePath = fileSystem.currentWorkingDirectory else {
                 observabilityScope.emit(error: "couldn't determine the current working directory")

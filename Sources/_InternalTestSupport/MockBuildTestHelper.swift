@@ -41,6 +41,7 @@ public struct MockToolchain: PackageModel.Toolchain {
     public let swiftPMLibrariesLocation = ToolchainConfiguration.SwiftPMLibrariesLocation(
         manifestLibraryPath: AbsolutePath("/fake/manifestLib/path"), pluginLibraryPath: AbsolutePath("/fake/pluginLibrary/path")
     )
+    public var swiftSDK: PackageModel.SwiftSDK
 
     public func getClangCompiler() throws -> AbsolutePath {
         "/fake/path/to/clang"
@@ -54,10 +55,11 @@ public struct MockToolchain: PackageModel.Toolchain {
         #endif
     }
 
-    public init(swiftResourcesPath: AbsolutePath? = nil) {
+    public init(swiftResourcesPath: AbsolutePath? = nil) throws {
         self.swiftResourcesPath = swiftResourcesPath
         self.metalToolchainPath = nil
         self.metalToolchainId = nil
+        self.swiftSDK = try .hostSwiftSDK()
     }
 }
 
@@ -71,6 +73,7 @@ extension Basics.Triple {
     public static let arm64Windows = try! Self("aarch64-unknown-windows-msvc")
     public static let wasi = try! Self("wasm32-unknown-wasi")
     public static let arm64iOS = try! Self("arm64-apple-ios")
+    public static let arm64MacOS = try! Self("arm64-apple-macosx")
 }
 
 public let hostTriple = try! UserToolchain.default.targetTriple
@@ -84,7 +87,7 @@ public func mockBuildParameters(
     destination: BuildParameters.Destination,
     buildPath: AbsolutePath? = nil,
     config: BuildConfiguration = .debug,
-    toolchain: PackageModel.Toolchain = MockToolchain(),
+    toolchain: PackageModel.Toolchain = try! MockToolchain(),
     flags: PackageModel.BuildFlags = PackageModel.BuildFlags(),
     buildSystemKind: BuildSystemProvider.Kind = .native,
     shouldLinkStaticSwiftStdlib: Bool = false,

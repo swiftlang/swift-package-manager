@@ -37,7 +37,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
     private let cancellator: Cancellator
     private let verboseOutput: Bool
 
-    private let sdkRootCache = ThreadSafeBox<Basics.AbsolutePath>()
+    private let sdkRootCache = ThreadSafeBox<Basics.AbsolutePath?>()
 
     public init(
         fileSystem: Basics.FileSystem,
@@ -66,6 +66,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         writableDirectories: [Basics.AbsolutePath],
         readOnlyDirectories: [Basics.AbsolutePath],
         allowNetworkConnections: [SandboxNetworkPermission],
+        workers: UInt32,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
@@ -77,6 +78,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
             sourceFiles: sourceFiles,
             pluginName: pluginName,
             toolsVersion: toolsVersion,
+            workers: workers,
             observabilityScope: observabilityScope,
             callbackQueue: DispatchQueue.sharedConcurrent,
             delegate: delegate,
@@ -119,6 +121,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         sourceFiles: [Basics.AbsolutePath],
         pluginName: String,
         toolsVersion: ToolsVersion,
+        workers: UInt32,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
         delegate: PluginScriptCompilerDelegate,
@@ -220,6 +223,9 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
 
         // Parse the plugin as a library so that `@main` is supported even though there might be only a single source file.
         commandLine += ["-parse-as-library"]
+
+        // Enable concurrent compilation.
+        commandLine += ["-j\(workers)"]
 
         // Ask the compiler to create a diagnostics file (we'll put it next to the executable).
         commandLine += ["-Xfrontend", "-serialize-diagnostics-path", "-Xfrontend", diagFilePath.pathString]
@@ -402,26 +408,23 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
     /// Returns path to the sdk, if possible.
     // FIXME: This is copied from ManifestLoader.  This should be consolidated when ManifestLoader is cleaned up.
     private func sdkRoot() -> Basics.AbsolutePath? {
-        if let sdkRoot = self.sdkRootCache.get() {
-            return sdkRoot
-        }
+        return self.sdkRootCache.memoizeOptional(body: {
+            var sdkRootPath: Basics.AbsolutePath?
+            // Find SDKROOT on macOS using xcrun.
+            #if os(macOS)
+            let foundPath = try? AsyncProcess.checkNonZeroExit(
+                args: "/usr/bin/xcrun", "--sdk", "macosx", "--show-sdk-path"
+            )
+            guard let sdkRoot = foundPath?.spm_chomp(), !sdkRoot.isEmpty else {
+                return nil
+            }
+            if let path = try? Basics.AbsolutePath(validating: sdkRoot) {
+                sdkRootPath = path
+            }
+            #endif
 
-        var sdkRootPath: Basics.AbsolutePath?
-        // Find SDKROOT on macOS using xcrun.
-        #if os(macOS)
-        let foundPath = try? AsyncProcess.checkNonZeroExit(
-            args: "/usr/bin/xcrun", "--sdk", "macosx", "--show-sdk-path"
-        )
-        guard let sdkRoot = foundPath?.spm_chomp(), !sdkRoot.isEmpty else {
-            return nil
-        }
-        if let path = try? Basics.AbsolutePath(validating: sdkRoot) {
-            sdkRootPath = path
-            self.sdkRootCache.put(path)
-        }
-        #endif
-
-        return sdkRootPath
+            return sdkRootPath
+        })
     }
     
     /// Private function that invokes a compiled plugin executable and communicates with it until it finishes.

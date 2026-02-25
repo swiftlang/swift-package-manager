@@ -21,12 +21,15 @@ import SwiftBuildSupport
 import _InternalTestSupport
 import Workspace
 
+// MARK: - Helpers
+
 extension PIFBuilderParameters {
-    fileprivate static func constructDefaultParametersForTesting(temporaryDirectory: Basics.AbsolutePath, addLocalRpaths: Bool) throws -> Self {
+    static func constructDefaultParametersForTesting(temporaryDirectory: Basics.AbsolutePath, addLocalRpaths: Bool) throws -> Self {
         self.init(
             isPackageAccessModifierSupported: true,
             enableTestability: false,
             shouldCreateDylibForDynamicProducts: false,
+            materializeStaticArchiveProductsForRootPackages: true,
             toolchainLibDir: temporaryDirectory.appending(component: "toolchain-lib-dir"),
             pkgConfigDirectories: [],
             supportedSwiftVersions: [.v4, .v4_2, .v5, .v6],
@@ -47,7 +50,7 @@ fileprivate func withGeneratedPIF(
     fromFixture fixtureName: String,
     addLocalRpaths: Bool = true,
     buildParameters: BuildParameters? = nil,
-    do doIt: (SwiftBuildSupport.PIF.TopLevelObject, TestingObservability) async throws -> (),
+    do doIt: (SwiftBuildSupport.PIF.TopLevelObject, TestingObservability) async throws -> ()
 ) async throws {
     let buildParameters = if let buildParameters {
         buildParameters
@@ -55,7 +58,7 @@ fileprivate func withGeneratedPIF(
        mockBuildParameters(destination: .host)
     }
     try await fixture(name: fixtureName) { fixturePath in
-        let observabilitySystem: TestingObservability = ObservabilitySystem.makeForTesting()
+        let observabilitySystem: TestingObservability = ObservabilitySystem.makeForTesting(verbose: false)
         let toolchain = try UserToolchain.default
         let workspace = try Workspace(
             fileSystem: localFileSystem,
@@ -70,7 +73,10 @@ fileprivate func withGeneratedPIF(
         )
         let builder = PIFBuilder(
             graph: graph,
-            parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(temporaryDirectory: fixturePath, addLocalRpaths: addLocalRpaths),
+            parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
+                temporaryDirectory: fixturePath,
+                addLocalRpaths: addLocalRpaths
+            ),
             fileSystem: localFileSystem,
             observabilityScope: observabilitySystem.topScope
         )
@@ -167,11 +173,13 @@ extension BuildConfiguration {
     }
 }
 
+// MARK: - Tests
+
 @Suite(
     .tags(
         .TestSize.medium,
-        .FunctionalArea.PIF,
-    ),
+        .FunctionalArea.PIF
+    )
 )
 struct PIFBuilderTests {
 
@@ -298,13 +306,13 @@ struct PIFBuilderTests {
                 ),
                 ExpectedValue(
                     targetName: "LibraryStatic-product",
-                    expectedValue: nil,
-                    expectedValueForWindows: nil,
+                    expectedValue: "lib",
+                    expectedValueForWindows: "",
                 ),
                 ExpectedValue(
                     targetName: "LibraryAuto-product",
-                    expectedValue: nil,
-                    expectedValueForWindows: nil,
+                    expectedValue: "lib",
+                    expectedValueForWindows: "",
                 ),
             ]
             for targetUnderTest in targetsUnderTest {
@@ -393,8 +401,8 @@ struct PIFBuilderTests {
 
     @Suite(
         .tags(
-            .FunctionalArea.IndexMode,
-        ),
+            .FunctionalArea.IndexMode
+        )
     )
     struct IndexModeSettingTests {
 

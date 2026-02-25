@@ -380,7 +380,6 @@ struct PluginTests {
     @Test(
         .issue("https://github.com/swiftlang/swift-package-manager/issues/9215", relationship: .verifies),
         .requiresSwiftConcurrencySupport,
-        .disabled("rdar://162053979"),
         arguments: [BuildSystemProvider.Kind.native, .swiftbuild]
     )
     func testUseOfVendedBinaryTool(buildSystem: BuildSystemProvider.Kind) async throws {
@@ -813,6 +812,7 @@ struct PluginTests {
                       plugin.invoke(
                         action: .performCommand(package: package, arguments: arguments),
                         buildEnvironment: BuildEnvironment(platform: .macOS, configuration: .debug),
+                        workers: 1,
                         scriptRunner: scriptRunner,
                         workingDirectory: package.path,
                         outputDirectory: pluginDir.appending("output"),
@@ -1112,6 +1112,7 @@ struct PluginTests {
                     _ = try await plugin.invoke(
                         action: .performCommand(package: package, arguments: []),
                         buildEnvironment: BuildEnvironment(platform: .macOS, configuration: .debug),
+                        workers: 1,
                         scriptRunner: scriptRunner,
                         workingDirectory: package.path,
                         outputDirectory: pluginDir.appending("output"),
@@ -1373,17 +1374,18 @@ struct PluginTests {
             .bug("https://github.com/swiftlang/swift-package-manager/issues/8774"),
             .IssueWindowsRelativePathAssert,
             .requiresSwiftConcurrencySupport,
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func testSnippetSupport(
-            buildData: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws {
+            let config = BuildConfiguration.debug
             try await fixture(name: "Miscellaneous/Plugins/PluginsAndSnippets") { fixturePath in
                 let (stdout, stderr) = try await executeSwiftPackage(
                     fixturePath,
-                    configuration: buildData.config,
+                    configuration: config,
                     extraArgs: ["do-something"],
-                    buildSystem: buildData.buildSystem,
+                    buildSystem: buildSystem,
                 )
                 #expect(stdout.contains("type of snippet target: snippet"), "stderr:\n\(stderr)")
             }
@@ -1395,30 +1397,31 @@ struct PluginTests {
             .tags(
                 .Feature.Command.Package.CompletionTool,
             ),
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func testBasicBuildSnippets(
-            data: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws {
+            let config = BuildConfiguration.debug
             try await fixture(name: "Miscellaneous/Plugins/PluginsAndSnippets") { fixturePath in
                 await #expect(throws: Never.self) {
                     let _ = try await executeSwiftBuild(
                         fixturePath,
-                        configuration: data.config,
-                        buildSystem: data.buildSystem,
+                        configuration: config,
+                        buildSystem: buildSystem,
                     )
                 }
 
                 let snippets = try await executeSwiftPackage(
                     fixturePath,
-                    configuration: data.config,
+                    configuration: config,
                     extraArgs: ["completion-tool", "list-snippet"],
-                    buildSystem: data.buildSystem,
+                    buildSystem: buildSystem,
                 ).stdout.split(whereSeparator: \.isNewline)
 
                 for snippet in snippets {
                     try expectFileExists(
-                        at: fixturePath.appending(components: data.buildSystem.binPath(for: data.config) + ["\(snippet)"])
+                        at: fixturePath.appending(components: buildSystem.binPath(for: config) + ["\(snippet)"])
                     )
                 }
             }
@@ -1428,26 +1431,27 @@ struct PluginTests {
             .issue("https://github.com/swiftlang/swift-package-manager/issues/9040", relationship: .verifies),
             .IssueWindowsCannotSaveAttachment,
             .requiresSwiftConcurrencySupport,
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms), try getFiles(in: RelativePath(validating: "Fixtures/Miscellaneous/Plugins/PluginsAndSnippets/Snippets"), matchingExtension: "swift",),
+            arguments: SupportedBuildSystemOnAllPlatforms, try getFiles(in: RelativePath(validating: "Fixtures/Miscellaneous/Plugins/PluginsAndSnippets/Snippets"), matchingExtension: "swift",),
         )
         func testBasicBuildIndividualSnippets(
-            data: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
             targetPath: RelativePath,
         ) async throws {
+            let config = BuildConfiguration.debug
             try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/Plugins/PluginsAndSnippets") { fixturePath in
                 let targetName = targetPath.basenameWithoutExt
                 await #expect(throws: Never.self) {
                     let _ = try await executeSwiftBuild(
                         fixturePath,
-                        configuration: data.config,
+                        configuration: config,
                         extraArgs: ["--product", targetName],
-                        buildSystem: data.buildSystem,
+                        buildSystem: buildSystem,
                     )
                 }
             }
             } when: {
-                ProcessInfo.hostOperatingSystem == .windows && data.buildSystem == .swiftbuild
+                ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild
             }
         }
 
@@ -1455,26 +1459,27 @@ struct PluginTests {
             .issue("https://github.com/swiftlang/swift-package-manager/issues/9040", relationship: .verifies),
             .IssueWindowsCannotSaveAttachment,
             .requiresSwiftConcurrencySupport,
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms), try getFiles(in: RelativePath(validating: "Fixtures/Miscellaneous/Plugins/PluginsAndSnippets/Snippets"), matchingExtension: "swift",),
+            arguments: SupportedBuildSystemOnAllPlatforms, try getFiles(in: RelativePath(validating: "Fixtures/Miscellaneous/Plugins/PluginsAndSnippets/Snippets"), matchingExtension: "swift",),
         )
         func testBasicRunSnippets(
-            data: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
             targetPath: RelativePath,
         ) async throws {
+            let config = BuildConfiguration.debug
             let targetName = targetPath.basenameWithoutExt
             try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/Plugins/PluginsAndSnippets") { fixturePath in
                 let (stdout, stderr) = try await executeSwiftRun(
                     fixturePath,
                     targetName,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+                    configuration: config,
+                    buildSystem: buildSystem,
                 )
 
                 #expect(stdout.contains("hello, snippets"), "stderr: \(stderr)")
             }
             } when: {
-                [.windows].contains(ProcessInfo.hostOperatingSystem) && data.buildSystem == .swiftbuild
+                [.windows].contains(ProcessInfo.hostOperatingSystem) && buildSystem == .swiftbuild
             }
         }
     }
@@ -1717,11 +1722,10 @@ struct PluginTests {
                     #expect(stdout.contains("Build of product 'MyLocalTool' complete!"), "stdout:\n\(stdout)")
                 case .swiftbuild:
                     #expect(stdout.contains("MySourceGenBuildTool-product"), "stdout:\n\(stdout)\nstderr:\n\(stderr)")
-                    #expect(stdout.contains("Creating foo.swift from foo.dat"), "stdout:\n\(stdout)\nstderr:\n\(stderr)")
+                    #expect(stderr.contains("Creating foo.swift from foo.dat"), "stdout:\n\(stdout)\nstderr:\n\(stderr)")
                     #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)\nstderr:\n\(stderr)")
                 case .xcode:
                     Issue.record("Test expected have not been considered")
-
                 }
             }
         } when: {

@@ -90,9 +90,7 @@ public actor AsyncThrowingValueMemoizer<Value: Sendable> {
     }
 }
 
-
-
-/// Thread-safe dictionary like structure
+/// Thread-safe dictionary like structure.
 public final class ThreadSafeKeyValueStore<Key, Value> where Key: Hashable {
     private var underlying: [Key: Value]
     private let lock = NSLock()

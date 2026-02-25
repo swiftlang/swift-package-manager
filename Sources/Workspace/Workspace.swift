@@ -578,7 +578,7 @@ public class Workspace {
 
         var prebuiltsManager: PrebuiltsManager?
         if configuration.usePrebuilts,
-           let hostPlatform = customPrebuiltsManager?.hostPlatform ?? PrebuiltsManifest.Platform.hostPlatform
+           let hostPlatform = customPrebuiltsManager?.hostPlatform ?? PrebuiltsPlatform.hostPlatform
         {
             let rootCertPath: AbsolutePath?
             if let path = configuration.prebuiltsRootCertPath {
@@ -1227,7 +1227,12 @@ extension Workspace {
                             } else {
                                 throw StringError("\(artifactPath) does not contain binary artifact")
                             }
-                        } else if let url = target.url.flatMap(URL.init(string:)) {
+                        } else if let urlString = target.url {
+                            // Apply mirroring to the URL
+                            let mappedURLString = self.identityResolver.mappedLocation(for: urlString)
+                            guard let url = URL(string: mappedURLString) else {
+                                throw StringError("Invalid URL after mirroring: \(mappedURLString)")
+                            }
                             let fakePath = try manifest.path.parentDirectory.appending(components: "remote", "archive")
                                 .appending(RelativePath(validating: url.lastPathComponent))
                             partial[target.name] = BinaryArtifact(
@@ -1247,7 +1252,6 @@ extension Workspace {
                     path: path,
                     additionalFileRules: [],
                     binaryArtifacts: binaryArtifacts,
-                    prebuilts: [:],
                     fileSystem: self.fileSystem,
                     observabilityScope: observabilityScope,
                     enabledTraits: try manifest.enabledTraits(using: self.traitConfiguration)
@@ -1312,7 +1316,6 @@ extension Workspace {
             path: previousPackage.path,
             additionalFileRules: self.configuration.additionalFileRules,
             binaryArtifacts: packageGraph.binaryArtifacts[identity] ?? [:],
-            prebuilts: [:],
             shouldCreateMultipleTestProducts: self.configuration.shouldCreateMultipleTestProducts,
             createREPLProduct: self.configuration.createREPLProduct,
             fileSystem: self.fileSystem,

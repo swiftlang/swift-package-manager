@@ -45,9 +45,17 @@ struct DumpSymbolGraph: AsyncSwiftCommand {
 
     @Flag(help: "Add symbols with SPI information to the symbol graph.")
     var includeSPISymbols = false
-    
+
     @Flag(help: "Emit extension block symbols for extensions to external types or directly associate members and conformances with the extended nominal.")
     var extensionBlockSymbolBehavior: ExtensionBlockSymbolBehavior = .omitExtensionBlockSymbols
+
+    @Option(
+        help: .init(
+            "Specify symbol graph output directory",
+            visibility: .hidden,
+        ),
+    )
+    var outputDir: Basics.AbsolutePath? = nil
 
     func run(_ swiftCommandState: SwiftCommandState) async throws {
         // Build the current package.
@@ -69,7 +77,7 @@ struct DumpSymbolGraph: AsyncSwiftCommand {
             )
         ), .buildPlan])
 
-        let symbolGraphDirectory = try swiftCommandState.productsBuildParameters.dataPath.appending("symbolgraph")
+        let symbolGraphDirectory = try self.outputDir ?? swiftCommandState.productsBuildParameters.dataPath.appending("symbolgraph")
 
         let fs = swiftCommandState.fileSystem
 

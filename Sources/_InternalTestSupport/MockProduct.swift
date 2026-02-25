@@ -10,12 +10,20 @@
 //
 //===----------------------------------------------------------------------===//
 
+import PackageModel
+
 public struct MockProduct {
     public let name: String
     public let modules: [String]
+    public let type: ProductType?
 
-    public init(name: String, modules: [String]) {
+    public init(
+        name: String,
+        modules: [String],
+        type: ProductType? = nil
+    ) {
         self.name = name
         self.modules = modules
+        self.type = type
     }
 }
