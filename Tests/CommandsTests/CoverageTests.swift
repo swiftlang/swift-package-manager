@@ -34,9 +34,7 @@ import class TSCBasic.BufferedOutputByteStream
 )
 struct CoverageTests {
     @Test(
-        .SWBINTTODO(
-            "Test failed because of missing plugin support in the PIF builder. This can be reinvestigated after the support is there."
-        ),
+        .SWBINTTODO("Test failed because of missing plugin support in the PIF builder. This can be reinvestigated after the support is there."),
         .tags(
             .Feature.Command.Build,
             .Feature.Command.Test,
@@ -75,9 +73,7 @@ struct CoverageTests {
     }
 
     @Test(
-        .SWBINTTODO(
-            "Test failed because of missing plugin support in the PIF builder. This can be reinvestigated after the support is there."
-        ),
+        .SWBINTTODO("Test failed because of missing plugin support in the PIF builder. This can be reinvestigated after the support is there."),
         .IssueWindowsCannotSaveAttachment,
         .tags(
             .Feature.Command.Test,
