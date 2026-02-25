@@ -596,14 +596,14 @@ def install_dylib(args, library_name, install_dir, module_names):
         if args.cross_compile_hosts and re.match("macosx-", args.cross_compile_hosts):
             install_binary(args, module + ".swiftmodule", install_dir, ['Project', '*.swiftmodule'])
         elif args.cross_compile_hosts:
-            install_binary(args, module + ".swiftmodule", install_dir, ['Project', '*.swiftmodule'], subpath="Modules")
+            install_binary(args, module + ".swiftmodule", install_dir, ['Project', '*.swiftmodule'],)
         else:
             # Otherwise we have either a .swiftinterface or a .swiftmodule, plus a .swiftdoc.
             if os.path.exists(os.path.join(args.bin_dir, module + ".swiftinterface")):
-                install_binary(args, module + ".swiftinterface", install_dir, subpath="Modules")
+                install_binary(args, module + ".swiftinterface", install_dir,)
             else:
-                install_binary(args, module + ".swiftmodule", install_dir, subpath="Modules")
-            install_binary(args, module + ".swiftdoc", install_dir, subpath="Modules")
+                install_binary(args, module + ".swiftmodule", install_dir,)
+            install_binary(args, module + ".swiftdoc", install_dir,)
 
 
 # Helper function that installs a single built artifact to a particular directory. The source may be either a file or a directory.
