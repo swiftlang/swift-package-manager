@@ -596,8 +596,19 @@ public final class PackagePIFBuilder {
         // sharing.
         settings[.COMPILER_WORKING_DIRECTORY] = "$(WORKSPACE_DIR)"
 
-        // Defer to the build system for linker driver selection.
-        settings[.LINKER_DRIVER] = "auto"
+        // Defer to the build system for linker driver selection,
+        // unless this is an application product package (e.g. Swift
+        // Playgrounds). With LINKER_DRIVER="auto", clang may be
+        // selected for the debug dylib link step but does not add
+        // the correct SDK library search paths for playgrounds projects.
+        let hasApplicationProduct = self.package.products.contains { product in
+            guard product.type == .executable else { return false }
+            return self.delegate.customProductType(forExecutable: product.underlying) == .application
+        }
+
+        if !hasApplicationProduct {
+            settings[.LINKER_DRIVER] = "auto"
+        }
 
         // Hook to customize the project-wide build settings.
         self.delegate.configureProjectBuildSettings(&settings)
