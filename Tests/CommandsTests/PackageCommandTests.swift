@@ -2239,7 +2239,7 @@ struct PackageCommandTests {
         }
 
         @Test(
-            arguments: SupportedBuildSystemOnAllPlatforms,
+            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
         )
         func packageAddDependencyToMultipleManifests(
             data: BuildData,
@@ -2284,7 +2284,7 @@ struct PackageCommandTests {
                     url: url,
                     requirementArgs: ["--exact", "601.0.1"],
                     expectedManifestString: expected,
-                    buildData: data,
+                    buildSystem: data.buildSystem,
                 )
 
                 try expectAllManifests(path) { manifestContents in
@@ -2344,7 +2344,7 @@ struct PackageCommandTests {
                     url: url,
                     requirementArgs: ["--exact", "601.0.1", "--filter-manifests", "Package@swift-6.1.swift"],
                     expectedManifestString: expected,
-                    buildData: data,
+                    buildSystem: data.buildSystem,
                 )
 
                 try expectAllManifests(path) { manifestContents in
@@ -2371,7 +2371,7 @@ struct PackageCommandTests {
 
 
         @Test(
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func packageAddSameDependencyURLTwiceHasNoEffect(
             buildSystem: BuildSystemProvider.Kind,
