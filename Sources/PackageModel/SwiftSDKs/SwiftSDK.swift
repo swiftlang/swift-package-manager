@@ -787,6 +787,50 @@ public struct SwiftSDK: Equatable {
         } else if let swiftSDKSelector {
             do {
                 swiftSDK = try store.selectBundle(matching: swiftSDKSelector, hostTriple: hostTriple)
+
+                // Override with user's manual config
+                do {
+                    let configurationStore = try SwiftSDKConfigurationStore(
+                      hostTimeTriple: hostTriple,
+                      swiftSDKBundleStore: store
+                    )
+                    if swiftSDKSelector != swiftSDK.targetTriple?.tripleString,
+                       let configSDK = try configurationStore.readConfiguration(
+                         sdkID: swiftSDKSelector,
+                         targetTriple: swiftSDK.targetTriple!)
+                    {
+                        swiftSDK = configSDK
+                    } else if let targetTriple = swiftSDK.targetTriple, swiftSDKSelector == targetTriple.tripleString {
+                        var matchedBundles: [String] = []
+                        var multipleConfigMatches: Bool = false
+                        var matchSDK: SwiftSDK?
+
+                        let bundles = try store.allValidBundles
+                        for artifactID in bundles.sortedArtifactIDs {
+                            bundles.selectSwiftSDK(id: artifactID, hostTriple: hostTriple, targetTriple: targetTriple).map { print($0.targetTriple); matchedBundles.append(artifactID) }
+                        }
+                        for match in matchedBundles {
+                            if let matchSDK {
+                                multipleConfigMatches = true
+                            } else if let readSDK = try configurationStore.readConfiguration(
+                               sdkID: match,
+                               targetTriple: targetTriple)
+                            {
+                                matchSDK = readSDK
+                            }
+                        }
+                        if multipleConfigMatches {
+                observabilityScope.emit(
+                    warning: """
+                        Multiple SDKs have been configured with this triple \(swiftSDKSelector), so
+                            dropping back to values from original bundle.
+                        """
+                )
+                        } else if let matchSDK {
+                           swiftSDK = matchSDK
+                        }
+                    }
+                } catch { /* do nothing to override if a custom SDK config is not found */ }
             } catch {
                 // If a user-installed bundle for the selector doesn't exist, check if the
                 // selector is recognized as a default SDK.
