@@ -331,6 +331,33 @@ struct PIFBuilderTests {
     }
 
 
+    @Test(arguments: BuildConfiguration.allCases)
+    func conditionalLinkerSettings(configuration: BuildConfiguration) async throws {
+        try await withGeneratedPIF(fromFixture: "PIFBuilder/ConditionalBuildSettings") { pif, observabilitySystem in
+            let errors = observabilitySystem.diagnostics.filter { $0.severity == .error }
+            #expect(errors.isEmpty, "Expected no errors during PIF generation, but got: \(errors)")
+
+            let targetConfig = try pif.workspace
+                .project(named: "ConditionalBuildSettings")
+                .target(id: "PACKAGE-TARGET:ConditionalBuildSettings")
+                .buildConfig(named: configuration)
+
+            let ldflags = targetConfig.settings[.OTHER_LDFLAGS]
+            switch configuration {
+            case .debug:
+                #expect(
+                    ldflags?.contains("-Xlinker") == true && ldflags?.contains("-interposable") == true,
+                    "Debug config should contain -Xlinker and -interposable, but got: \(String(describing: ldflags))"
+                )
+            case .release:
+                let hasInterposable = ldflags?.contains("-interposable") ?? false
+                #expect(
+                    !hasInterposable,
+                    "Release config should not contain -interposable, but got: \(String(describing: ldflags))"
+                )
+            }
+        }
+    }
 
     @Test func impartedModuleMaps() async throws {
         try await withGeneratedPIF(fromFixture: "CFamilyTargets/ModuleMapGenerationCases") { pif, observabilitySystem in
