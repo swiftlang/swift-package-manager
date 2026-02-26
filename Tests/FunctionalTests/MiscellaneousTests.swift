@@ -1337,4 +1337,19 @@ struct MiscellaneousSwiftTestingTests {
             )
         }
     }
+
+    @Test(
+        .tags(.Feature.Command.Build),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func caseInsensitiveCollisions(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Miscellaneous/CaseCollision") { fixturePath in
+            try await executeSwiftBuild(
+                fixturePath,
+                buildSystem: buildSystem,
+            )
+        }
+    }
 }

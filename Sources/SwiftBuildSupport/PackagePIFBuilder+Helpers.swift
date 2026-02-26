@@ -1054,6 +1054,7 @@ extension ProjectModel.BuildSettings {
         delegate: PackagePIFBuilder.BuildDelegate,
     ) {
         self[.TARGET_NAME] = targetName
+        self[.TARGET_TEMP_DIR_SUFFIX] = "-t"
         self[.PRODUCT_NAME] = productName
         self[.PRODUCT_MODULE_NAME] = productName
         self[.PRODUCT_BUNDLE_IDENTIFIER] = "\(packageIdentity).\(productName)".spm_mangledToBundleIdentifier()

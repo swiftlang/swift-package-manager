@@ -207,6 +207,7 @@ struct PackagePIFProjectBuilder {
 
         var settings: ProjectModel.BuildSettings = self.package.underlying.packageBaseBuildSettings
         settings[.TARGET_NAME] = bundleName
+        settings[.TARGET_TEMP_DIR_SUFFIX] = "-b"
         settings[.PRODUCT_NAME] = "$(TARGET_NAME)"
         settings[.PRODUCT_MODULE_NAME] = bundleName
         settings[.PRODUCT_BUNDLE_IDENTIFIER] = "\(self.package.identity).\(module.name).resources"
