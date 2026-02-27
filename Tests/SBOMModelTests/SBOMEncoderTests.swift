@@ -119,12 +119,11 @@ struct SBOMEncoderTests {
             #expect(files.count == 1)
 
             let filename = files[0]
-            // Format: {spec.type}-{spec.version}-{name}-{version}.json
-            let components = filename.replacingOccurrences(of: ".json", with: "").split(separator: "-")
-            #expect(components.count >= 4, "Filename should have at least 4 components")
-            #expect(components[0] == "cyclonedx1", "First component should be spec type")
-            #expect(components[1] == "1.7", "Second component should be spec version")
-            #expect(components[2] == "swiftly", "Third component should be package name")
+            // Format: {spec}-{version}-{name}-{revision}-{filter}-{timestamp}.json
+            // Example: cyclonedx1-1.7-swiftly-unknown-all-2025-01-15T12_30_45Z.json
+            let pattern = #"^cyclonedx1-1\.7-swiftly-[^-]+-all-\d{4}-\d{2}-\d{2}T\d{2}_\d{2}_\d{2}Z\.json$"#
+            let regex = try Regex(pattern)
+            #expect(filename.contains(regex), "Filename should match expected format with timestamp: \(filename)")
             #expect(!outputs.isEmpty, "Output paths should not be empty")
         }
     }
