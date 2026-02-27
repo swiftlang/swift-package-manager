@@ -31,7 +31,8 @@ import Build
         case swiftModule
     }
 
-    let pluginRootDir: Basics.AbsolutePath = "/MyPkg/.build/plugins"
+    let buildDir: Basics.AbsolutePath = "/MyPkg/.build"
+    var pluginRootDir: Basics.AbsolutePath { buildDir.appending("plugins") }
     var pluginOutputDir: Basics.AbsolutePath {
         pluginRootDir.appending("outputs", "mypkg", "MyModule", "destination", "MyPlugin")
     }
@@ -198,6 +199,7 @@ import Build
 
         return try await BuildPlanResult(
             plan: mockBuildPlan(
+                buildPath: buildDir,
                 triple: UserToolchain.default.targetTriple,
                 graph: graph,
                 pluginConfiguration: pluginConfiguration,
