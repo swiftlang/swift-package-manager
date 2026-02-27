@@ -31,7 +31,10 @@ import Build
         case swiftModule
     }
 
-    let pluginOutputDir: Basics.AbsolutePath = "/PluginOut/outputs/mypkg/MyModule/destination/MyPlugin"
+    let pluginRootDir: Basics.AbsolutePath = "/MyPkg/.build/plugins"
+    var pluginOutputDir: Basics.AbsolutePath {
+        pluginRootDir.appending("outputs", "mypkg", "MyModule", "destination", "MyPlugin")
+    }
     var pluginIncludeDir: Basics.AbsolutePath { pluginOutputDir.appending("include") }
     var pluginModuleMapFile: Basics.AbsolutePath { pluginIncludeDir.appending("module.modulemap") }
     var pluginModuleMapArg: String { "-fmodule-map-file=\(pluginModuleMapFile.pathString)" }
@@ -183,7 +186,7 @@ import Build
 
         let pluginConfiguration = PluginConfiguration(
             scriptRunner: pluginScriptRunner,
-            workDirectory: "/PluginOut",
+            workDirectory: pluginRootDir,
             disableSandbox: true
         )
 
@@ -229,7 +232,7 @@ import Build
         #expect(!observability.hasErrorDiagnostics && !observability.hasWarningDiagnostics)
 
         let module = try #require(try result.allTargets(named: "MyModule").only?.clang())
-        let pluginOutputDir: AbsolutePath = "/PluginOut/outputs/mypkg/MyModule/destination/MyPlugin"
+        let pluginOutputDir: AbsolutePath = "/MyPkg/.build/plugins/outputs/mypkg/MyModule/destination/MyPlugin"
         let pluginIncludeDir = pluginOutputDir.appending("include")
         #expect(module.pluginDerivedPublicHeaderPaths == [pluginIncludeDir])
         let pluginModuleMap = pluginIncludeDir.appending("module.modulemap")
@@ -237,6 +240,8 @@ import Build
         #expect(module.pluginDerivedModuleMap == pluginModuleMap)
         #expect(module.pluginDerivedAPINotes == [pluginIncludeDir.appending("Gened.apinotes")])
         let pluginSource = pluginOutputDir.appending("Gened.c")
+        print(try module.compilePaths())
+        print("pluginSource:", pluginSource)
         #expect(try module.compilePaths().contains(where: { $0.source == pluginSource }))
         let cmd = try module.emitCommandLine(for: pluginSource)
         #expect(cmd.contains(pluginIncludeDir.pathString))
