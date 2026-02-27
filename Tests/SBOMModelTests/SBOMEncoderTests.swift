@@ -25,7 +25,7 @@ import Testing
 )
 struct SBOMEncoderTests {
     private func verifyJsonContentIsValid(at path: AbsolutePath, fileSystem: any FileSystem = localFileSystem, sourceLocation: SourceLocation = #_sourceLocation) throws {
-        #expect(fileSystem.exists(path), "File should exist at \(path)", sourceLocation: sourceLocation)
+        try #require(fileSystem.exists(path), "File should exist at \(path)", sourceLocation: sourceLocation)
 
         let data = try fileSystem.readFileContents(path)
         let jsonObject = try JSONSerialization.jsonObject(with: Data(data.contents))
