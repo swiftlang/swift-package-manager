@@ -242,8 +242,6 @@ import Build
         #expect(module.pluginDerivedModuleMap == pluginModuleMap)
         #expect(module.pluginDerivedAPINotes == [pluginIncludeDir.appending("Gened.apinotes")])
         let pluginSource = pluginOutputDir.appending("Gened.c")
-        print(try module.compilePaths())
-        print("pluginSource:", pluginSource)
         #expect(try module.compilePaths().contains(where: { $0.source == pluginSource }))
         let cmd = try module.emitCommandLine(for: pluginSource)
         #expect(cmd.contains(pluginIncludeDir.pathString))
