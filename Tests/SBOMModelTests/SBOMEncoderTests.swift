@@ -145,33 +145,26 @@ struct SBOMEncoderTests {
         }
     }
 
-    @Test("writeSBOMs integration test with SPM graph")
-    func writeSBOMsIntegrationTestWithSPMGraph() async throws {
+    @Test(
+        "writeSBOMs integration test",
+        arguments: ["SPM", "Swiftly"]
+    )
+    func writeSBOMsIntegrationTest(graphName: String) async throws {
         try await withTemporaryDirectory { tmpDir in
-            let graph = try SBOMTestModulesGraph.createSPMModulesGraph()
-            let store = try SBOMTestStore.createSPMResolvedPackagesStore()
-            let extractor = SBOMExtractor(modulesGraph: graph, dependencyGraph: nil, store: store)
-            let sbom = try await extractor.extractSBOM()
-            let encoder = SBOMEncoder(sbom: sbom, observabilityScope: ObservabilitySystem.makeForTesting().topScope)
-
-            let _ = try await encoder.writeSBOMs(specs: [.cyclonedx, .spdx], outputDir: tmpDir)
-
-            let files = try localFileSystem.getDirectoryContents(tmpDir)
-            #expect(files.count == 2, "Should generate both CycloneDX and SPDX files")
-
-            // Verify both files are valid
-            for filename in files {
-                let filePath = tmpDir.appending(component: filename)
-                try self.verifyJsonContentIsValid(at: filePath)
+            let graph: ModulesGraph
+            let store: ResolvedPackagesStore
+            
+            switch graphName {
+            case "SPM":
+                graph = try SBOMTestModulesGraph.createSPMModulesGraph()
+                store = try SBOMTestStore.createSPMResolvedPackagesStore()
+            case "Swiftly":
+                graph = try SBOMTestModulesGraph.createSwiftlyModulesGraph()
+                store = try SBOMTestStore.createSwiftlyResolvedPackagesStore()
+            default:
+                fatalError("Unknown graph name: \(graphName)")
             }
-        }
-    }
-
-    @Test("writeSBOMs integration test with Swiftly graph")
-    func writeSBOMsIntegrationTestWithSwiftlyGraph() async throws {
-        try await withTemporaryDirectory { tmpDir in
-            let graph = try SBOMTestModulesGraph.createSwiftlyModulesGraph()
-            let store = try SBOMTestStore.createSwiftlyResolvedPackagesStore()
+            
             let extractor = SBOMExtractor(modulesGraph: graph, dependencyGraph: nil, store: store)
             let sbom = try await extractor.extractSBOM()
             let encoder = SBOMEncoder(sbom: sbom, observabilityScope: ObservabilitySystem.makeForTesting().topScope)
