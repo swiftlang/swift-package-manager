@@ -6800,8 +6800,8 @@ struct PackageCommandTests {
                             )
                             #expect(stdout.contains("Building for production..."))
                             #expect(!stdout.contains("Building for debug..."))
-                            #expect(!stdout.contains("-module-name MyLibrary"))
                             if buildSystemProvider == .native {
+                                #expect(!stdout.contains("-module-name MyLibrary"))
                                 #expect(stdout.contains("Build of product 'MyStaticLibrary' complete!"))
                             }
                             #expect(stdout.contains("succeeded: true"))

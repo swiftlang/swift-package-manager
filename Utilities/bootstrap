@@ -603,7 +603,11 @@ def install_dylib(args, library_name, install_dir, module_names):
                 install_binary(args, module + ".swiftinterface", install_dir,)
             else:
                 install_binary(args, module + ".swiftmodule", install_dir,)
-            install_binary(args, module + ".swiftdoc", install_dir,)
+            ##  The `.swiftdoc` file in currently found somewhere in the Intermediates.noindex. so we won't install it
+            ##  for now.  If it's needed, SwiftBuild needs to move the artifact under the `Products` build directory
+            ##  output
+            ##  outputswift/utils/build-script --preset=buildbot_swiftpm_macos_platform,tools=RA,stdlib=RA --cmake-c-launcher /usr/local/bin/sccache --cmake-cxx-launcher /usr/local/bin/sccache
+            # install_binary(args, module + ".swiftdoc", install_dir,)
 
 
 # Helper function that installs a single built artifact to a particular directory. The source may be either a file or a directory.

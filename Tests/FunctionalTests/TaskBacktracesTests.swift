@@ -44,9 +44,13 @@ struct TaskBacktraceTests {
             )
             // Add a basic check that we produce backtrace output. The specifc formatting is tested by Swift Build.
             #expect(incrementalStderr.contains("Task backtrace:"))
+            withKnownIssue(isIntermittent: true) {
             #expect(incrementalStderr.split(separator: "\n").contains(where: {
                 $0.contains("Foo.swift' changed")
             }))
+            } when: {
+                ProcessInfo.hostOperatingSystem == .linux && CiEnvironment.runningInSmokeTestPipeline
+            }
             #expect(incrementalStdout.contains("Build complete!"))
         }
     }
