@@ -74,24 +74,27 @@ struct SBOMExtractDependenciesTests {
         childID.hasPrefix(parentID)
     }
     
-    private func validateOwnProductDependency(childID: String, parentID: String) {
+    private func validateOwnProductDependency(childID: String, parentID: String, sourceLocation: SourceLocation = #_sourceLocation) {
         #expect(
             isOwnProduct(childID: childID, parentID: parentID),
-            "Package '\(parentID)' product dependency '\(childID)' should depend on '\(parentID)'"
+            "Package '\(parentID)' product dependency '\(childID)' should depend on '\(parentID)'",
+            sourceLocation: sourceLocation
         )
     }
     
-    private func validatePackageDependency(childID: String, parentID: String, packageIDs: [String]) {
+    private func validatePackageDependency(childID: String, parentID: String, packageIDs: [String], sourceLocation: SourceLocation = #_sourceLocation) {
         #expect(
             packageIDs.contains(childID),
-            "Package '\(parentID)' package dependency '\(childID)' should be a valid package"
+            "Package '\(parentID)' package dependency '\(childID)' should be a valid package",
+            sourceLocation: sourceLocation
         )
     }
     
-    private func validateProductDependency(childID: String, parentID: String) {
+    private func validateProductDependency(childID: String, parentID: String, sourceLocation: SourceLocation = #_sourceLocation) {
         #expect(
             isProductID(childID),
-            "Product '\(parentID)' should only depend on other products, but found package dependency '\(childID)'"
+            "Product '\(parentID)' should only depend on other products, but found package dependency '\(childID)'",
+            sourceLocation: sourceLocation
         )
     }
     
@@ -99,28 +102,29 @@ struct SBOMExtractDependenciesTests {
         dependency: SBOMRelationship,
         rootPackageID: String,
         packageIDs: [String],
-        filter: Filter = .all
+        filter: Filter = .all,
+        sourceLocation: SourceLocation = #_sourceLocation
     ) {
         for child in dependency.childrenID {
             if isProductID(child.value) { // package-to-product
                 // root-package to root product is allowed when filter == .package or .product
                 if filter == .package && rootPackageID != dependency.parentID.value {
-                    #expect(!isProductID(child.value), "Package \(dependency.parentID) should only depend on packages when filter is .package'")
+                    #expect(!isProductID(child.value), "Package \(dependency.parentID) should only depend on packages when filter is .package'", sourceLocation: sourceLocation)
                     return
-                } else if filter == .product && rootPackageID != dependency.parentID.value { 
-                    #expect(!isProductID(child.value), "Package \(dependency.parentID) should only depend on root products and not other products when filter is .product'")
+                } else if filter == .product && rootPackageID != dependency.parentID.value {
+                    #expect(!isProductID(child.value), "Package \(dependency.parentID) should only depend on root products and not other products when filter is .product'", sourceLocation: sourceLocation)
                     return
                 }
-                validateOwnProductDependency(childID: child.value, parentID: dependency.parentID.value)
+                validateOwnProductDependency(childID: child.value, parentID: dependency.parentID.value, sourceLocation: sourceLocation)
             } else { // package-to-package
-                validatePackageDependency(childID: child.value, parentID: dependency.parentID.value, packageIDs: packageIDs)
+                validatePackageDependency(childID: child.value, parentID: dependency.parentID.value, packageIDs: packageIDs, sourceLocation: sourceLocation)
             }
         }
     }
     
-    private func validateProductChildren(dependency: SBOMRelationship) {
+    private func validateProductChildren(dependency: SBOMRelationship, sourceLocation: SourceLocation = #_sourceLocation) {
         for child in dependency.childrenID { // product-to-product
-            validateProductDependency(childID: child.value, parentID: dependency.parentID.value)
+            validateProductDependency(childID: child.value, parentID: dependency.parentID.value, sourceLocation: sourceLocation)
         }
     }
     
@@ -128,10 +132,11 @@ struct SBOMExtractDependenciesTests {
         dependency: SBOMRelationship,
         rootPackageID: String,
         packageIDs: [String],
-        filter: Filter = .all
+        filter: Filter = .all,
+        sourceLocation: SourceLocation = #_sourceLocation
     ) {
-        #expect(!dependency.childrenID.map(\.value).contains(rootPackageID))
-        validatePackageChildren(dependency: dependency, rootPackageID: rootPackageID, packageIDs: packageIDs, filter: filter)
+        #expect(!dependency.childrenID.map(\.value).contains(rootPackageID), sourceLocation: sourceLocation)
+        validatePackageChildren(dependency: dependency, rootPackageID: rootPackageID, packageIDs: packageIDs, filter: filter, sourceLocation: sourceLocation)
     }
     
     private func verifyProductDependencies(
@@ -140,40 +145,42 @@ struct SBOMExtractDependenciesTests {
         dependencyGraph: [String: [String]]? = nil,
         filter: Filter = .all,
         product: String? = nil,
+        sourceLocation: SourceLocation = #_sourceLocation
     ) async throws {
         let extractor = SBOMExtractor(modulesGraph: graph, dependencyGraph: dependencyGraph, store: store)
-        let dependencies = try await #require(extractor.extractDependencies(product: product, filter: filter).relationships)
-        let rootPackage = try #require(graph.rootPackages.first)
+        let dependencies = try await #require(extractor.extractDependencies(product: product, filter: filter).relationships, sourceLocation: sourceLocation)
+        let rootPackage = try #require(graph.rootPackages.first, sourceLocation: sourceLocation)
         let rootPackageID = SBOMExtractor.extractComponentID(from: rootPackage).value
         let packageIDs = graph.packages.map(\.identity.description)
 
-        #expect(!dependencies.isEmpty)
+        #expect(!dependencies.isEmpty, sourceLocation: sourceLocation)
 
         let parentIDs = dependencies.map(\.parentID)
-        #expect(parentIDs.count == Set(parentIDs).count, "Parent IDs should be unique")
+        #expect(parentIDs.count == Set(parentIDs).count, "Parent IDs should be unique", sourceLocation: sourceLocation)
 
         let cycles = self.detectCycles(in: dependencies)
-        #expect(cycles.isEmpty, "Dependency graph should not contain cycles. Found: \(cycles.joined(separator: "; "))")
+        #expect(cycles.isEmpty, "Dependency graph should not contain cycles. Found: \(cycles.joined(separator: "; "))", sourceLocation: sourceLocation)
 
         for dependency in dependencies {
-            #expect(!dependency.id.value.isEmpty, "Dependency ID should not be empty")
-            #expect(!dependency.parentID.value.isEmpty, "Parent ID should not be empty")
-            #expect(!dependency.childrenID.isEmpty, "Children ID should not be empty")
+            #expect(!dependency.id.value.isEmpty, "Dependency ID should not be empty", sourceLocation: sourceLocation)
+            #expect(!dependency.parentID.value.isEmpty, "Parent ID should not be empty", sourceLocation: sourceLocation)
+            #expect(!dependency.childrenID.isEmpty, "Children ID should not be empty", sourceLocation: sourceLocation)
 
             #expect(
                 !dependency.childrenID.map(\.value).contains(dependency.parentID.value),
-                "parent '\(dependency.parentID.value)' should not depend on itself"
+                "parent '\(dependency.parentID.value)' should not depend on itself",
+                sourceLocation: sourceLocation
             )
 
             if packageIDs.contains(dependency.parentID.value) { // package-to-product or package-to-package
-                validatePackageChildren(dependency: dependency, rootPackageID: rootPackageID, packageIDs: packageIDs, filter: filter)
+                validatePackageChildren(dependency: dependency, rootPackageID: rootPackageID, packageIDs: packageIDs, filter: filter, sourceLocation: sourceLocation)
             } else {
                 // product-to-product
-                validateProductChildren(dependency: dependency)
+                validateProductChildren(dependency: dependency, sourceLocation: sourceLocation)
             }
 
             if product == nil {
-                #expect(!dependency.childrenID.map(\.value).contains(rootPackageID))
+                #expect(!dependency.childrenID.map(\.value).contains(rootPackageID), sourceLocation: sourceLocation)
             }
         }
     }

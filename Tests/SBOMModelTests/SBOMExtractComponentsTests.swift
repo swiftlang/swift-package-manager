@@ -112,27 +112,29 @@ struct SBOMExtractComponentsTests {
     private func verifyComponentCounts(
         _ components: [SBOMComponent],
         expectations: TestExpectations,
-        isFullExtraction: Bool
+        isFullExtraction: Bool,
+        sourceLocation: SourceLocation = #_sourceLocation
     ) {
         if isFullExtraction {
-            #expect(components.count == expectations.totalComponentCount)
+            #expect(components.count == expectations.totalComponentCount, sourceLocation: sourceLocation)
         } else {
-            #expect(components.count <= expectations.totalComponentCount)
+            #expect(components.count <= expectations.totalComponentCount, sourceLocation: sourceLocation)
         }
     }
     
     private func verifyPackageIds(
         _ components: [SBOMComponent],
         expectations: TestExpectations,
-        isFullExtraction: Bool
+        isFullExtraction: Bool,
+        sourceLocation: SourceLocation = #_sourceLocation
     ) {
         let componentPackageIds = Set(components.compactMap { component in
             component.id.value.components(separatedBy: ":").first
         })
         if isFullExtraction {
-            #expect(componentPackageIds == expectations.expectedPackageIds, "Package IDs did not match")
+            #expect(componentPackageIds == expectations.expectedPackageIds, "Package IDs did not match", sourceLocation: sourceLocation)
         } else {
-            #expect(componentPackageIds.isSubset(of: expectations.expectedPackageIds), "Package IDs should be a subset")
+            #expect(componentPackageIds.isSubset(of: expectations.expectedPackageIds), "Package IDs should be a subset", sourceLocation: sourceLocation)
         }
     }
 
@@ -140,24 +142,26 @@ struct SBOMExtractComponentsTests {
         _ components: [SBOMComponent],
         expectations: TestExpectations,
         filter: Filter,
-        product: String?
+        product: String?,
+        sourceLocation: SourceLocation = #_sourceLocation
     ) {
         let rootPackageComponent = components.first { $0.id.value == expectations.rootPackage && $0.entity == .package }
         // If filter is product AND the primary component is a product, the root package should NOT be included
         if let productName = product {
             if filter == .product {
-                #expect(rootPackageComponent == nil, "Root package should not be included when filter is .product and primary component '\(productName)' is a product")
+                #expect(rootPackageComponent == nil, "Root package should not be included when filter is .product and primary component '\(productName)' is a product", sourceLocation: sourceLocation)
                 return
             }
         } // else it's always included
-         #expect(rootPackageComponent != nil, "Root package should be included")
+         #expect(rootPackageComponent != nil, "Root package should be included", sourceLocation: sourceLocation)
     }
     
     private func verifyRootProducts(
         _ components: [SBOMComponent],
         expectations: TestExpectations,
         filter: Filter,
-        product: String?
+        product: String?,
+        sourceLocation: SourceLocation = #_sourceLocation
     ) {
         let rootProducts = components.filter { $0.id.value.hasPrefix(expectations.rootPackagePrefix) }
         let rootProductComponents = rootProducts.filter { $0.entity == .product }
@@ -165,33 +169,35 @@ struct SBOMExtractComponentsTests {
         if let productName = product {
             // if product is primary component, it should always show up in components, regardless of filter
             let targetProduct = rootProductComponents.first { $0.name == productName }
-            #expect(targetProduct != nil, "Target product '\(productName)' should be included")
+            #expect(targetProduct != nil, "Target product '\(productName)' should be included", sourceLocation: sourceLocation)
         } else {
             if filter == .all || filter == .product {
                 // expect all root products if filter is .all or .product, and primary component is root package
-                #expect(rootProducts.count == expectations.expectedRootProductCount, "Filter.\(filter) should include all root products")
+                #expect(rootProducts.count == expectations.expectedRootProductCount, "Filter.\(filter) should include all root products", sourceLocation: sourceLocation)
                 let rootProductNames = Set(rootProductComponents.map(\.name))
-                #expect(rootProductNames == expectations.expectedRootProductNames, "Root product names should match expectations")
+                #expect(rootProductNames == expectations.expectedRootProductNames, "Root product names should match expectations", sourceLocation: sourceLocation)
             } else if filter == .package {
                 // no root products if filter is .package, and primary component is root package
-                #expect(rootProducts.count == 0, "Filter.\(filter) should include no root products")
+                #expect(rootProducts.count == 0, "Filter.\(filter) should include no root products", sourceLocation: sourceLocation)
             }
         }
     }
     
-    private func verifyComponentProperties(_ components: [SBOMComponent], filter: Filter) {
+    private func verifyComponentProperties(_ components: [SBOMComponent], filter: Filter, sourceLocation: SourceLocation = #_sourceLocation) {
         for component in components {
-            #expect(!component.id.value.isEmpty, "Component ID should not be empty")
-            #expect(!component.name.isEmpty, "Component name should not be empty")
-            #expect(!component.purl.description.isEmpty, "Component PURL should not be empty")
-            #expect(!component.version.revision.isEmpty, "Component version should not be empty")
+            #expect(!component.id.value.isEmpty, "Component ID should not be empty", sourceLocation: sourceLocation)
+            #expect(!component.name.isEmpty, "Component name should not be empty", sourceLocation: sourceLocation)
+            #expect(!component.purl.description.isEmpty, "Component PURL should not be empty", sourceLocation: sourceLocation)
+            #expect(!component.version.revision.isEmpty, "Component version should not be empty", sourceLocation: sourceLocation)
             #expect(
                 component.category == .application || component.category == .library,
-                "Component category should be application or library"
+                "Component category should be application or library",
+                sourceLocation: sourceLocation
             )
             #expect(
                 component.scope == .runtime || component.scope == .test,
-                "Component scope should be runtime or test"
+                "Component scope should be runtime or test",
+                sourceLocation: sourceLocation
             )
         }
     }
