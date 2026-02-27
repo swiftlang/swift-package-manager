@@ -21,6 +21,8 @@ import SwiftBuildSupport
 import _InternalTestSupport
 import Workspace
 
+@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly) import PackageGraph
+
 // MARK: - Helpers
 
 extension PIFBuilderParameters {
@@ -396,6 +398,157 @@ struct PIFBuilderTests {
 
                 #expect(releaseConfig.impartedBuildProperties.settings[.LD_RUNPATH_SEARCH_PATHS] == nil)
             }
+        }
+    }
+
+    @Test func warningSettingsInRemotePackage() async throws {
+        let observability = ObservabilitySystem.makeForTesting()
+
+        let fs = InMemoryFileSystem(emptyFiles: [
+            "/Root/Sources/RootLib/RootLib.swift",
+            "/RemotePkg/Sources/swiftLib/swiftLib.swift",
+            "/RemotePkg/Sources/cLib/cLib.c",
+            "/RemotePkg/Sources/cLib/include/cLib.h",
+            "/RemotePkg/Sources/cxxLib/cxxLib.cpp",
+            "/RemotePkg/Sources/cxxLib/include/cxxLib.h",
+            "/LocalPkg/Sources/localLib/localLib.swift",
+        ])
+
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Root",
+                    path: "/Root",
+                    toolsVersion: .v6_2,
+                    dependencies: [
+                        .remoteSourceControl(
+                            url: "https://example.com/remote-pkg",
+                            requirement: .upToNextMajor(from: "1.0.0")
+                        ),
+                        .fileSystem(path: "/LocalPkg"),
+                    ],
+                    products: [],
+                    targets: [
+                        TargetDescription(
+                            name: "RootLib",
+                            dependencies: [
+                                .product(name: "RemoteLib", package: "remote-pkg"),
+                                .product(name: "RemoteCLib", package: "remote-pkg"),
+                                .product(name: "RemoteCXXLib", package: "remote-pkg"),
+                                .product(name: "LocalLib", package: "LocalPkg"),
+                            ]
+                        ),
+                    ]
+                ),
+                Manifest.createRemoteSourceControlManifest(
+                    displayName: "remote-pkg",
+                    url: "https://example.com/remote-pkg",
+                    path: "/RemotePkg",
+                    toolsVersion: .v6_2,
+                    products: [
+                        ProductDescription(name: "RemoteLib", type: .library(.automatic), targets: ["swiftLib"]),
+                        ProductDescription(name: "RemoteCLib", type: .library(.automatic), targets: ["cLib"]),
+                        ProductDescription(name: "RemoteCXXLib", type: .library(.automatic), targets: ["cxxLib"]),
+                    ],
+                    targets: [
+                        TargetDescription(
+                            name: "swiftLib",
+                            settings: [
+                                .init(tool: .swift, kind: .treatAllWarnings(.warning), condition: .init(config: "debug")),
+                                .init(tool: .swift, kind: .treatAllWarnings(.error), condition: .init(config: "release")),
+                                .init(tool: .swift, kind: .treatWarning("DeprecatedDeclaration", .error), condition: .init(config: "release")),
+                            ]
+                        ),
+                        TargetDescription(
+                            name: "cLib",
+                            settings: [
+                                .init(tool: .c, kind: .enableWarning("implicit-fallthrough"), condition: .init(config: "debug")),
+                                .init(tool: .c, kind: .treatAllWarnings(.error), condition: .init(config: "release")),
+                                .init(tool: .c, kind: .treatWarning("deprecated-declarations", .error), condition: .init(config: "release")),
+                            ]
+                        ),
+                        TargetDescription(
+                            name: "cxxLib",
+                            settings: [
+                                .init(tool: .cxx, kind: .enableWarning("implicit-fallthrough"), condition: .init(config: "debug")),
+                                .init(tool: .cxx, kind: .treatAllWarnings(.error), condition: .init(config: "release")),
+                                .init(tool: .cxx, kind: .treatWarning("deprecated-declarations", .error), condition: .init(config: "release")),
+                            ]
+                        ),
+                    ]
+                ),
+                Manifest.createFileSystemManifest(
+                    displayName: "LocalPkg",
+                    path: "/LocalPkg",
+                    toolsVersion: .v6_2,
+                    products: [
+                        ProductDescription(name: "LocalLib", type: .library(.automatic), targets: ["localLib"]),
+                    ],
+                    targets: [
+                        TargetDescription(
+                            name: "localLib",
+                            settings: [
+                                .init(tool: .swift, kind: .treatAllWarnings(.error)),
+                            ]
+                        ),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        let pifBuilder = PIFBuilder(
+            graph: graph,
+            parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
+                temporaryDirectory: AbsolutePath.root,
+                addLocalRpaths: true
+            ),
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+        let pif = try await pifBuilder.constructPIF(
+            buildParameters: mockBuildParameters(destination: .host)
+        )
+
+        let remoteProject = try pif.workspace.project(named: "remote-pkg")
+        for config in [BuildConfiguration.debug, .release] {
+            #expect(try remoteProject.buildConfig(named: config).settings[.SUPPRESS_WARNINGS] == "YES")
+        }
+
+        let swiftLibTarget = try remoteProject.target(named: "swiftLib")
+        let strippedSwiftFlags = ["-warnings-as-errors", "-no-warnings-as-errors", "-Wwarning", "-Werror", "DeprecatedDeclaration"]
+        for config in [BuildConfiguration.debug, .release] {
+            let swiftLibConfig = try swiftLibTarget.buildConfig(named: config)
+            if let swiftFlags = swiftLibConfig.settings[.OTHER_SWIFT_FLAGS] {
+                for flag in strippedSwiftFlags {
+                    #expect(!swiftFlags.contains(flag))
+                }
+            }
+        }
+
+        for clangLibTargetName in ["cLib", "cxxLib"] {
+            let cLibTarget = try remoteProject.target(named: clangLibTargetName)
+            for config in [BuildConfiguration.debug, .release] {
+                let cLibConfig = try cLibTarget.buildConfig(named: config)
+                if let cFlags = cLibConfig.settings[.OTHER_CFLAGS] {
+                    #expect(cFlags.filter { $0.count > 2 && $0.hasPrefix("-W") }.isEmpty)
+                }
+                if let cPlusPlusFlags = cLibConfig.settings[.OTHER_CPLUSPLUSFLAGS] {
+                    #expect(cPlusPlusFlags.filter { $0.count > 2 && $0.hasPrefix("-W") }.isEmpty)
+                }
+            }
+        }
+
+        let localProject = try pif.workspace.project(named: "LocalPkg")
+
+        for config in [BuildConfiguration.debug, .release] {
+            #expect(try localProject.buildConfig(named: config).settings[.SUPPRESS_WARNINGS] == nil)
+        }
+
+        let localLibTarget = try localProject.target(named: "localLib")
+        for config in [BuildConfiguration.debug, .release] {
+            #expect(try localLibTarget.buildConfig(named: config).settings[.OTHER_SWIFT_FLAGS]?.contains("-warnings-as-errors") == true)
         }
     }
 

@@ -1369,12 +1369,7 @@ extension Basics.Triple {
 
 extension ResolvedPackage {
     var isRemote: Bool {
-        switch self.underlying.manifest.packageKind {
-        case .registry, .remoteSourceControl, .localSourceControl:
-            return true
-        case .root, .fileSystem:
-            return false
-        }
+        self.underlying.manifest.packageKind.isRemote
     }
 }
 

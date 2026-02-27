@@ -19,6 +19,7 @@ import struct PackageGraph.ResolvedModule
 import struct SPMBuildCore.BuildParameters
 import struct SPMBuildCore.BuildToolPluginInvocationResult
 import struct SPMBuildCore.CommandPluginResult
+import enum SPMBuildCore.WarningControlFlags
 
 @available(*, deprecated, renamed: "ClangModuleBuildDescription")
 public typealias ClangTargetBuildDescription = ClangModuleBuildDescription
@@ -368,16 +369,7 @@ public final class ClangModuleBuildDescription {
         // suppress warnings if the package is remote
         if self.package.isRemote {
             // `-w` (suppress warnings) and the other warning control flags are mutually exclusive
-            args = args.filter { arg in
-                // we consider the following flags:
-                // -Wxxxx
-                // -Wno-xxxx
-                // -Werror
-                // -Werror=xxxx
-                // -Wno-error
-                // -Wno-error=xxxx
-                arg.count <= 2 || !arg.starts(with: "-W")
-            }
+            args = WarningControlFlags.filterClangWarningControlFlags(args)
             args += ["-w"]
         }
 

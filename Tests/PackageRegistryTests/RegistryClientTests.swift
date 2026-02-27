@@ -2957,6 +2957,137 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
             return false
         }
     }
+
+    @Test func downloadSourceArchiveWithSymlinks() async throws {
+        let checksumAlgorithm: HashAlgorithm = MockHashAlgorithm()
+        let checksum = checksumAlgorithm.hash(emptyZipFile).hexadecimalRepresentation
+
+        let handler: HTTPClient.Implementation = { request, _ in
+            switch (request.kind, request.method, request.url) {
+            case (.generic, .get, metadataURL):
+                let data = """
+                {
+                    "id": "\(identity)",
+                    "version": "\(version)",
+                    "resources": [
+                        {
+                            "name": "source-archive",
+                            "type": "application/zip",
+                            "checksum": "\(checksum)"
+                        }
+                    ],
+                    "metadata": {
+                        "author": {
+                            "name": "Test Author"
+                        },
+                        "description": "Test package with symlinks"
+                    }
+                }
+                """.data(using: .utf8)!
+
+                return .init(
+                    statusCode: 200,
+                    headers: .init([
+                        .init(name: "Content-Length", value: "\(data.count)"),
+                        .init(name: "Content-Type", value: "application/json"),
+                        .init(name: "Content-Version", value: "1"),
+                    ]),
+                    body: data
+                )
+            case (.download(let fileSystem, let path), .get, downloadURL):
+                #expect(request.headers.get("Accept").first == "application/vnd.swift.registry.v1+zip")
+
+                let data = Data(emptyZipFile.contents)
+                try! fileSystem.writeFileContents(path, data: data)
+
+                return .init(
+                    statusCode: 200,
+                    headers: .init([
+                        .init(name: "Content-Length", value: "\(data.count)"),
+                        .init(name: "Content-Type", value: "application/zip"),
+                        .init(name: "Content-Version", value: "1"),
+                        .init(
+                            name: "Content-Disposition",
+                            value: "attachment; filename=\"\(identity)-\(version).zip\""
+                        ),
+                        .init(
+                            name: "Digest",
+                            value: "sha-256=bc6c9a5d2f2226cfa1ef4fad8344b10e1cc2e82960f468f70d9ed696d26b3283"
+                        ),
+                    ]),
+                    body: nil
+                )
+            default:
+                throw StringError("method and url should match")
+            }
+        }
+
+        let httpClient = HTTPClient(implementation: handler)
+        var configuration = RegistryConfiguration()
+        configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
+        configuration.security = .testDefault
+
+        let fileSystem = localFileSystem
+        let tmpDir = try fileSystem.tempDirectory.appending(component: UUID().uuidString)
+        try fileSystem.createDirectory(tmpDir, recursive: true)
+        defer {
+            try? fileSystem.removeFileTree(tmpDir)
+        }
+
+        let registryClient = RegistryClient(
+            configuration: configuration,
+            fingerprintStorage: .none,
+            fingerprintCheckingMode: .strict,
+            skipSignatureValidation: false,
+            signingEntityStorage: .none,
+            signingEntityCheckingMode: .strict,
+            customHTTPClient: httpClient,
+            customArchiverProvider: { fileSystem in
+                MockArchiver(handler: { _, from, to, callback in
+                    let data = try fileSystem.readFileContents(from)
+                    #expect(data == emptyZipFile)
+
+                    let packagePath = to.appending(component: "package")
+                    try fileSystem.createDirectory(packagePath, recursive: true)
+
+                    let targetFile = packagePath.appending(component: "AFile.swift")
+                    try fileSystem.writeFileContents(targetFile, string: "// Target file content\n")
+
+                    let symlink = packagePath.appending(component: "ZLinkToFile.swift")
+                    try fileSystem.createSymbolicLink(symlink, pointingAt: targetFile, relative: true)
+
+                    // Also create Package.swift
+                    try fileSystem.writeFileContents(packagePath.appending(component: "Package.swift"), string: "// Package manifest\n")
+
+                    callback(.success(()))
+                })
+            },
+            delegate: .none,
+            checksumAlgorithm: checksumAlgorithm
+        )
+
+        let path = tmpDir.appending(component: "\(identity)-\(version)")
+
+        try await registryClient.downloadSourceArchive(
+            package: identity,
+            version: version,
+            fileSystem: fileSystem,
+            destinationPath: path
+        )
+
+        let contents = try fileSystem.getDirectoryContents(path).sorted()
+        #expect(contents.contains("AFile.swift"), "Regular file AFile.swift should exist")
+        #expect(contents.contains("ZLinkToFile.swift"), "Symlink ZLinkToFile.swift should exist")
+        #expect(contents.contains("Package.swift"), "Package.swift should exist")
+        #expect(contents.contains(RegistryReleaseMetadataStorage.fileName), "Metadata file should exist")
+
+        let symlinkPath = path.appending(component: "ZLinkToFile.swift")
+        let regularFilePath = path.appending(component: "AFile.swift")
+
+        let regularFileContent: String = try fileSystem.readFileContents(regularFilePath)
+        let symlinkContent: String = try fileSystem.readFileContents(symlinkPath)
+        #expect(symlinkContent == regularFileContent, "Symlink should have same content as target file")
+    }
 }
 
 @Suite("Lookup Identities") struct LookupIdentities {

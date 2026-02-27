@@ -567,6 +567,10 @@ fileprivate final class PackagePIFBuilderDelegate: PackagePIFBuilder.BuildDelega
     var isRootPackage: Bool {
         self.package.manifest.packageKind.isRoot
     }
+
+    var isRemote: Bool {
+        self.package.manifest.packageKind.isRemote
+    }
     
     var hostsOnlyPackages: Bool {
         false

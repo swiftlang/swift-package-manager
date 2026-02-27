@@ -81,6 +81,15 @@ public struct PackageReference {
                 return false
             }
         }
+
+        public var isRemote: Bool {
+            switch self {
+            case .registry, .remoteSourceControl, .localSourceControl:
+                return true
+            case .root, .fileSystem:
+                return false
+            }
+        }
     }
 
     /// The identity of the package.

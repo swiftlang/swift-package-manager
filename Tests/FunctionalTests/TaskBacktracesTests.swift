@@ -18,7 +18,8 @@ import _InternalTestSupport
 @Suite
 struct TaskBacktraceTests {
     @Test(
-        .tags(.TestSize.large, .Feature.TaskBacktraces)
+        .tags(.TestSize.large, .Feature.TaskBacktraces),
+        .skip("https://github.com/swiftlang/swift-package-manager/issues/9775")
     )
     func taskBacktraces() async throws {
         try await fixture(name: "Miscellaneous/Simple") { fixturePath in
