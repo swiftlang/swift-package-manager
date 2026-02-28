@@ -1290,7 +1290,7 @@ struct BuildCommandTestCases {
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func getTaskAllowEntitlement(
-        buildSystem: BuildSystemProvider,
+        buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let buildConfiguration = BuildConfiguration.debug
         try await fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { fixturePath in
