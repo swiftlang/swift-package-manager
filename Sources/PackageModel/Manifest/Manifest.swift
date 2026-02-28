@@ -669,10 +669,10 @@ extension Manifest: Encodable {
         try container.encode(self.packageKind, forKey: .packageKind)
     }
 
-    public func toJSON() -> String {
+    public func toJSON() throws -> String {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [ .prettyPrinted, .sortedKeys ]
-        let data = try! encoder.encode(self)
+        let data = try encoder.encode(self)
         return String(data: data, encoding: .utf8)!
     }
 }

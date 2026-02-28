@@ -154,8 +154,8 @@ public final class ChainedParsingManifestLoader: ManifestLoaderProtocol {
         if let parsedManifest {
             precondition(crosscheck)
 
-            let parsedJSON = parsedManifest.toJSON()
-            let executedJSON = executedManifest.toJSON()
+            let parsedJSON = try parsedManifest.toJSON()
+            let executedJSON = try executedManifest.toJSON()
             guard parsedJSON == executedJSON else {
                 throw ChainedParsingError.manifestMismatch(
                     parsed: parsedJSON,

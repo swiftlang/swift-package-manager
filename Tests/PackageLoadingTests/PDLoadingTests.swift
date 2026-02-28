@@ -83,8 +83,8 @@ class PackageDescriptionLoadingTests: XCTestCase, ManifestLoaderDelegate {
 
             if let currentManifest {
                 XCTAssertEqual(
-                    currentManifest.toJSON(),
-                    newManifest.toJSON(),
+                    try currentManifest.toJSON(),
+                    try newManifest.toJSON(),
                     file: file,
                     line: line
                 )
