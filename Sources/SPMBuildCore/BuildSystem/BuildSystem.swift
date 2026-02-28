@@ -71,6 +71,7 @@ public enum BuildOutput: Equatable {
     case buildPlan
     case replArguments
     case builtArtifacts
+    case dependencyGraph
 }
 
 /// A protocol that represents a build system used by SwiftPM for all build operations. This allows factoring out the
@@ -125,18 +126,22 @@ public struct BuildResult {
         symbolGraph: SymbolGraphResult? = nil,
         buildPlan: BuildPlan? = nil,
         replArguments: CLIArguments?,
-        builtArtifacts: [(String, PluginInvocationBuildResult.BuiltArtifact)]? = nil
+        builtArtifacts: [(String, PluginInvocationBuildResult.BuiltArtifact)]? = nil,
+        // TODO: echeng3805, there's probably a better type for this?
+        dependencyGraph: [String: [String]]? = nil
     ) {
         self.serializedDiagnosticPathsByTargetName = serializedDiagnosticPathsByTargetName
         self.symbolGraph = symbolGraph
         self.buildPlan = buildPlan
         self.replArguments = replArguments
         self.builtArtifacts = builtArtifacts
+        self.dependencyGraph = dependencyGraph
     }
 
     public let replArguments: CLIArguments?
     public let symbolGraph: SymbolGraphResult?
     public let buildPlan: BuildPlan?
+    public let dependencyGraph: [String: [String]]?
 
     public var serializedDiagnosticPathsByTargetName: Result<[String: [AbsolutePath]], Error>
     public var builtArtifacts: [(String, PluginInvocationBuildResult.BuiltArtifact)]?
