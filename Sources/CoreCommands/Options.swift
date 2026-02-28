@@ -873,7 +873,7 @@ public struct ManifestOptions: ParsableArguments {
         name: .customLong("experimental-manifest-processing-mode"),
         help: "Specifies how manifest files are processed"
     )
-    public var manifestProcessingMode: ManifestProcessingMode = .crosscheck
+    public var manifestProcessingMode: ManifestProcessingMode = .onlyExecuted
 
     @Flag(
         name: .customLong("experimental-show-manifest-parser-limitations"),
