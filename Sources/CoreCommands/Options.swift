@@ -729,8 +729,8 @@ public struct TraitOptions: ParsableArguments {
     package var _enabledTraits: String?
 
     /// The set of enabled traits for the package.
-    public var enabledTraits: Set<String>? {
-        self._enabledTraits.flatMap { Set($0.components(separatedBy: ",")) }
+    public var enabledTraits: [String]? {
+        self._enabledTraits.flatMap { $0.components(separatedBy: ",") }
     }
 
     /// Enables all traits of the package.

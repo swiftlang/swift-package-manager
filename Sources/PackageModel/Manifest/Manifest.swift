@@ -84,7 +84,7 @@ public final class Manifest: Sendable {
     public let products: [ProductDescription]
 
     /// The set of traits of this package.
-    public let traits: Set<TraitDescription>
+    public let traits: [TraitDescription]
 
     /// The C language standard flag.
     public let cLanguageStandard: String?
@@ -128,7 +128,7 @@ public final class Manifest: Sendable {
         dependencies: [PackageDependency] = [],
         products: [ProductDescription] = [],
         targets: [TargetDescription] = [],
-        traits: Set<TraitDescription>,
+        traits: [TraitDescription],
         pruneDependencies: Bool = false
     ) {
         self.displayName = displayName

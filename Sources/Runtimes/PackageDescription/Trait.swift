@@ -57,7 +57,7 @@
 @available(_PackageDescription, introduced: 6.1)
 public struct Trait: Hashable, ExpressibleByStringLiteral {
     /// Declares the default traits for this package.
-    public static func `default`(enabledTraits: Set<String>) -> Self {
+    public static func `default`(enabledTraits: [String]) -> Self {
         .init(
             name: "default",
             description: "The default traits of this package.",
@@ -84,7 +84,7 @@ public struct Trait: Hashable, ExpressibleByStringLiteral {
     public var description: String?
 
     /// A set of other traits of this package that this trait enables.
-    public var enabledTraits: Set<String>
+    public var enabledTraits: [String]
 
     /// Creates a trait with a name, a description, and set of additional traits it enables.
     ///
@@ -95,7 +95,7 @@ public struct Trait: Hashable, ExpressibleByStringLiteral {
     public init(
         name: String,
         description: String? = nil,
-        enabledTraits: Set<String> = []
+        enabledTraits: [String] = []
     ) {
         self.name = name
         self.description = description
@@ -117,7 +117,7 @@ public struct Trait: Hashable, ExpressibleByStringLiteral {
     public static func trait(
         name: String,
         description: String? = nil,
-        enabledTraits: Set<String> = []
+        enabledTraits: [String] = []
     ) -> Trait {
         .init(
             name: name,

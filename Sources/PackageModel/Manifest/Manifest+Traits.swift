@@ -167,10 +167,10 @@ extension Manifest {
 /// Helper methods to calculate states of the manifest and its dependencies when given a set of enabled traits.
 extension Manifest {
     /// The default traits as defined in this package as the root.
-    public var defaultTraits: Set<String>? {
+    public var defaultTraits: [String]? {
         // First, guard against whether this package actually has traits.
         guard self.supportsTraits else { return nil }
-        return Set(self.traits.filter(\.isDefault).flatMap(\.enabledTraits))
+        return self.traits.filter(\.isDefault).flatMap(\.enabledTraits)
     }
 
     /// A map of trait names to the trait description.
@@ -332,7 +332,7 @@ extension Manifest {
 
                 // For each trait that is a condition on this target dependency, assure that
                 // at least one is enabled in the manifest.
-                return !traits.intersection(enabledTraits.names).isEmpty
+                return !Set(traits).intersection(enabledTraits.names).isEmpty
             }
 
             let deps = nonTraitDeps + traitGuardedDeps

@@ -299,7 +299,7 @@ class ManifestParseVisitor: ActiveSyntaxAnyVisitor {
     var products: [ProductDescription] = []
 
     /// Traits.
-    var traits: Set<TraitDescription> = []
+    var traits: [TraitDescription] = []
 
     /// C++ language standard.
     var cxxLanguageStandard: String?
@@ -618,13 +618,8 @@ extension ManifestParseVisitor {
                     continue
                 }
                 
-                var parsedTraits: Set<TraitDescription> = []
-                for traitElement in traitsArray.elements {
-                    if let trait = parseTrait(traitElement.expression) {
-                        parsedTraits.insert(trait)
-                    }
+                self.traits = traitsArray.elements.compactMap { parseTrait($0.expression)
                 }
-                self.traits = parsedTraits
                 continue
             }
 
@@ -874,7 +869,7 @@ extension ManifestParseVisitor {
         var platformNames: [String] = []
         var hasPlatforms = false
         var config: String?
-        var traits: Set<String>?
+        var traits: [String]?
         
         for argument in arguments {
             let label = argument.label?.text
@@ -888,7 +883,7 @@ extension ManifestParseVisitor {
                 config = argument.expression.asEnumMember()
             } else if label == "traits" {
                 if let parsed = argument.expression.asStringArray(in: contextModel) {
-                    traits = Set(parsed)
+                    traits = parsed
                 }
             }
         }
@@ -1943,7 +1938,7 @@ extension ManifestParseVisitor {
         var id: String?  // Registry package ID
         var requirement: PackageDependency.SourceControl.Requirement?
         var registryRequirement: PackageDependency.Registry.Requirement?
-        var traits: Set<PackageDependency.Trait>?
+        var traits: [PackageDependency.Trait]?
 
         // Parse arguments
         for argument in functionCall.arguments {
@@ -2138,7 +2133,7 @@ extension ManifestParseVisitor {
                 parentPackagePath: manifestPath.parentDirectory,
                 kind: .fileSystem(name: name, path: fsPath),
                 productFilter: .everything,
-                traits: traits.map { Set($0) } ?? Set([.init(name: "default")])
+                traits: traits ?? [.init(name: "default")]
             )
             
             do {
@@ -2175,7 +2170,7 @@ extension ManifestParseVisitor {
             parentPackagePath: manifestPath.parentDirectory,
             kind: .sourceControl(name: name, location: url, requirement: requirement),
             productFilter: .everything,
-            traits: traits.map { Set($0) } ?? Set([.init(name: "default")])
+            traits: traits ?? [.init(name: "default")]
         )
         
         do {
@@ -2308,12 +2303,12 @@ extension ManifestParseVisitor {
         
         // Handle .default(enabledTraits: [...])
         if method == "default" {
-            var enabledTraits: Set<String> = []
+            var enabledTraits: [String] = []
             
             for argument in functionCall.arguments {
                 if argument.label?.text == "enabledTraits" {
                     if let parsed = argument.expression.asStringArray(in: contextModel) {
-                        enabledTraits = Set(parsed)
+                        enabledTraits = parsed
                     }
                 }
             }
@@ -2328,7 +2323,7 @@ extension ManifestParseVisitor {
         // Handle .trait(...) or Trait(...)
         var name: String?
         var description: String?
-        var enabledTraits: Set<String> = []
+        var enabledTraits: [String] = []
         
         for argument in functionCall.arguments {
             let label = argument.label?.text
@@ -2338,7 +2333,7 @@ extension ManifestParseVisitor {
                 description = argument.expression.asStringLiteralValue(in: contextModel)
             } else if label == "enabledTraits" {
                 if let parsed = argument.expression.asStringArray(in: contextModel) {
-                    enabledTraits = Set(parsed)
+                    enabledTraits = parsed
                 }
             }
         }
@@ -2352,21 +2347,14 @@ extension ManifestParseVisitor {
     }
     
     /// Parse dependency traits array like ["FooTrait1", .trait(name: "FooTrait2", condition: ...), .defaults]
-    private func parseDependencyTraits(_ expr: ExprSyntax) -> Set<PackageDependency.Trait>? {
+    private func parseDependencyTraits(_ expr: ExprSyntax) -> [PackageDependency.Trait]? {
         guard let arrayExpr = expr.as(ArrayExprSyntax.self) else {
             limitations.append(.unsupportedExpression(expr, expected: "array of dependency traits"))
             return nil
         }
-        
-        var traits: Set<PackageDependency.Trait> = []
-        
-        for traitElement in arrayExpr.elements {
-            if let trait = parseDependencyTrait(traitElement.expression) {
-                traits.insert(trait)
-            }
+
+        return arrayExpr.elements.compactMap { parseDependencyTrait($0.expression)
         }
-        
-        return traits.isEmpty ? nil : traits
     }
     
     /// Parse a single dependency trait like "FooTrait1", .trait(name: "...", condition: ...), or .defaults
@@ -2437,12 +2425,12 @@ extension ManifestParseVisitor {
             return nil
         }
         
-        var traits: Set<String>?
+        var traits: [String]?
         
         for argument in arguments {
             if argument.label?.text == "traits" {
                 if let parsed = argument.expression.asStringArray(in: contextModel) {
-                    traits = Set(parsed)
+                    traits = parsed
                 }
             }
         }

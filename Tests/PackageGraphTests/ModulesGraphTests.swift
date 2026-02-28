@@ -74,7 +74,7 @@ struct ModulesGraphTests {
                 cLanguageStandard: nil,
                 cxxLanguageStandard: nil,
                 swiftLanguageVersions: nil,
-                traits: Set([]),
+                traits: [],
             )
             let rootPackages = (0..<num).map {
                 ResolvedPackage(
@@ -90,7 +90,7 @@ struct ModulesGraphTests {
                     defaultLocalization: nil,
                     supportedPlatforms: [],
                     dependencies: [],
-                    enabledTraits: Set(),
+                    enabledTraits: [],
                     modules: IdentifiableSet([]),
                     products: [],
                     registryMetadata: nil,

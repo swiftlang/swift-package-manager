@@ -179,7 +179,7 @@ class ManifestTests: XCTestCase {
             TargetDescription(name: "MyPlugin", type: .plugin, pluginCapability: .buildTool),
         ]
 
-        let traits: Set<TraitDescription> = [
+        let traits: [TraitDescription] = [
             TraitDescription(name: "Trait1", enabledTraits: ["Trait2"]),
             TraitDescription(name: "Trait2"),
         ]
@@ -230,7 +230,7 @@ class ManifestTests: XCTestCase {
             TargetDescription(name: "MyPlugin", type: .plugin, pluginCapability: .buildTool),
         ]
 
-        let traits: Set<TraitDescription> = [
+        let traits: [TraitDescription] = [
             TraitDescription(name: "Trait1", enabledTraits: ["Trait2"]),
             TraitDescription(name: "Trait2"),
         ]
@@ -373,7 +373,7 @@ class ManifestTests: XCTestCase {
             TargetDescription(name: "Boo", dependencies: [.product(name: "Buzz", package: "Buzz")]),
         ]
 
-        let traits: Set<TraitDescription> = [
+        let traits: [TraitDescription] = [
             TraitDescription(name: "Trait1", enabledTraits: ["Trait2"]),
             TraitDescription(name: "Trait2"),
         ]
@@ -443,7 +443,7 @@ class ManifestTests: XCTestCase {
             TargetDescription(name: "MyPlugin", type: .plugin, pluginCapability: .buildTool),
         ]
 
-        let traits: Set<TraitDescription> = [
+        let traits: [TraitDescription] = [
             TraitDescription(name: "default", enabledTraits: ["Trait1"]),
             TraitDescription(name: "Trait1", enabledTraits: ["Trait2"]),
             TraitDescription(name: "Trait2"),
@@ -490,7 +490,7 @@ class ManifestTests: XCTestCase {
             .localSourceControl(path: "/MyPlugin", requirement: .upToNextMajor(from: "1.0.0")),
         ]
 
-        let traits: Set<TraitDescription> = [
+        let traits: [TraitDescription] = [
             TraitDescription(name: "Trait1", enabledTraits: ["Trait2"]),
             TraitDescription(name: "Trait2"),
             TraitDescription(name: "Trait3")
@@ -525,7 +525,7 @@ class ManifestTests: XCTestCase {
             TargetDescription(name: "Bar"),
         ]
 
-        let traits: Set<TraitDescription> = [
+        let traits: [TraitDescription] = [
             TraitDescription(name: "default", enabledTraits: ["Trait1"]),
             TraitDescription(name: "Trait1", enabledTraits: ["Trait2"]),
             TraitDescription(name: "Trait2"),
@@ -560,7 +560,7 @@ class ManifestTests: XCTestCase {
             TargetDescription(name: "Bar"),
         ]
 
-        let traits: Set<TraitDescription> = [
+        let traits: [TraitDescription] = [
             TraitDescription(name: "default", enabledTraits: ["Trait1"]),
             TraitDescription(name: "Trait1", enabledTraits: ["Trait2"]),
             TraitDescription(name: "Trait2"),
@@ -600,7 +600,7 @@ class ManifestTests: XCTestCase {
             TargetDescription(name: "Bar"),
         ]
 
-        let traits: Set<TraitDescription> = [
+        let traits: [TraitDescription] = [
             TraitDescription(name: "default", enabledTraits: ["Trait1"]),
             TraitDescription(name: "Trait1", enabledTraits: ["Trait2"]),
             TraitDescription(name: "Trait2"),
@@ -654,7 +654,7 @@ class ManifestTests: XCTestCase {
             ),
         ]
 
-        let traits: Set<TraitDescription> = [
+        let traits: [TraitDescription] = [
             TraitDescription(name: "default", enabledTraits: ["Trait1"]),
             TraitDescription(name: "Trait1", enabledTraits: ["Trait2"]),
             TraitDescription(name: "Trait2"),
@@ -735,7 +735,7 @@ class ManifestTests: XCTestCase {
             ]
         )
 
-        let traits: Set<TraitDescription> = [
+        let traits: [TraitDescription] = [
             TraitDescription(name: "default", enabledTraits: ["Trait1"]),
             TraitDescription(name: "Trait1", enabledTraits: ["Trait2"]),
             TraitDescription(name: "Trait2"),
@@ -903,7 +903,7 @@ class ManifestTests: XCTestCase {
             ]
         )
 
-        let traits: Set<TraitDescription> = [
+        let traits: [TraitDescription] = [
             TraitDescription(name: "default", enabledTraits: ["Trait1"]),
             TraitDescription(name: "Trait1", enabledTraits: ["Trait2"]),
             TraitDescription(name: "Trait2"),

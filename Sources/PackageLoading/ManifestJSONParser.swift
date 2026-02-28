@@ -45,7 +45,7 @@ enum ManifestJSONParser {
         var dependencies: [PackageDependency] = []
         var providers: [SystemPackageProviderDescription]?
         var products: [ProductDescription] = []
-        var traits: Set<TraitDescription> = []
+        var traits: [TraitDescription] = []
         var cxxLanguageStandard: String?
         var cLanguageStandard: String?
     }
@@ -115,7 +115,7 @@ enum ManifestJSONParser {
             dependencies: dependencies,
             providers: input.package.providers?.map { .init($0) },
             products: try input.package.products.map { try .init($0) },
-            traits: Set(input.package.traits?.map { TraitDescription($0) } ?? []),
+            traits: input.package.traits?.map { TraitDescription($0) } ?? [],
             cxxLanguageStandard: input.package.cxxLanguageStandard?.rawValue,
             cLanguageStandard: input.package.cLanguageStandard?.rawValue
         )
@@ -880,7 +880,7 @@ extension MappablePackageDependency {
                     path: path
                 ),
                 productFilter: .everything,
-                traits: seed.traits.flatMap { Set($0.map { PackageDependency.Trait.init($0) } ) }
+                traits: seed.traits.flatMap { $0.map { PackageDependency.Trait.init($0) } }
             )
         case .sourceControl(let name, let location, let requirement):
             self.init(
@@ -891,7 +891,7 @@ extension MappablePackageDependency {
                     requirement: .init(requirement)
                 ),
                 productFilter: .everything,
-                traits: seed.traits.flatMap { Set($0.map { PackageDependency.Trait.init($0) } ) }
+                traits: seed.traits.flatMap { $0.map { PackageDependency.Trait.init($0) } }
             )
         case .registry(let id, let requirement):
             self.init(
@@ -901,7 +901,7 @@ extension MappablePackageDependency {
                     requirement: .init(requirement)
                 ),
                 productFilter: .everything,
-                traits: seed.traits.flatMap { Set($0.map { PackageDependency.Trait.init($0) } ) }
+                traits: seed.traits.flatMap { $0.map { PackageDependency.Trait.init($0) } }
             )
         }
     }
