@@ -35,7 +35,7 @@ swift build --sbom-spec cyclonedx \
 
 ### Use swift package generate-sbom
 
-`swift package generate-sbom` generates an SBOM without building.
+[`swift package generate-sbom`](doc:PackageGenerateSBOM) generates an SBOM without building.
 This SBOM is less accurate than an SBOM from `swift build` because build-time conditionals aren't applied and the package graph might change before generation.
 
 For the highest accuracy, generate SBOMs through `swift build` whenever possible.
