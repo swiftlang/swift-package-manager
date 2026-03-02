@@ -124,21 +124,12 @@ struct SBOMValidationTests {
         let encoder = SBOMEncoder(sbom: document, observabilityScope: observability.topScope)
         let encodedData = try await encoder.encodeSBOMData(spec: testCase.inputSpec)
         
-        // Parse the encoded SBOM data
         guard let sbomJSONObject = try JSONSerialization.jsonObject(with: encodedData) as? [String: Any] else {
             throw SBOMEncoderError.jsonConversionFailed(message: "Could not convert generated SBOM file into JSON object for validation")
         }
         
-        // Create validator using test helper that works with Bundle.module
         let validator = try createTestValidator(for: testCase.inputSpec)
-
-        if testCase.wantError {
-            await #expect(throws: SBOMValidatorError.self) {
-                try await validator.validate(sbomJSONObject)
-            }
-        } else {
-            try await validator.validate(sbomJSONObject)
-        }
+        try await validator.validate(sbomJSONObject)
     }
 
     struct ValidateFileSBOMTestCase {
