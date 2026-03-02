@@ -24,7 +24,7 @@ swift build --build-system swiftbuild \
     --sbom-spec spdx
 ```
 
-The following examples generate SBOMs without SwiftBuild.
+The following examples generate SBOMs without using the Swift Build build backend.
 
 ```bash
 swift build --sbom-spec cyclonedx
@@ -73,7 +73,7 @@ swift package generate-sbom --sbom-spec spdx \
     --sbom-filter product
 ```
 
-Swift Package Manager places generated SBOMs in `<scratch_path>/sboms` by default.
+Swift Package Manager places generated SBOMs in `<build_output>/sboms` by default.
 Use `--sbom-output-dir` to specify a different directory for generated SBOMs.
 
 ```bash
