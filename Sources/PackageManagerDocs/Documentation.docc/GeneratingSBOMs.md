@@ -64,7 +64,7 @@ swift package generate-sbom --product MyProduct \
 ```
 
 Filter an SBOM by packages or products. By default, the SBOM includes both packages and products. 
-Swift Package Manager always includes the primary component, regardless of the filter you apply.
+Swift Package Manager always includes the primary component, regardless of the applied filter.
 
 ```bash
 swift build --build-system swiftbuild --sbom-spec cyclonedx \
