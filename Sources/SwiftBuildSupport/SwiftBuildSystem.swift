@@ -885,15 +885,11 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         }
 
         let normalizedTriple = Triple(buildParameters.triple.triple, normalizing: true)
-        if let deploymentTargetSettingName = normalizedTriple.deploymentTargetSettingName {
-            let value = normalizedTriple.deploymentTargetVersion
-
+        if let deploymentTargetSettingName = normalizedTriple.deploymentTargetSettingName, let value = normalizedTriple.deploymentTargetVersionString {
             // Only override the deployment target if a version is explicitly specified;
             // for Apple platforms this normally comes from the package manifest and may
             // not be set to the same value for all packages in the package graph.
-            if value != .zero {
-                settings[deploymentTargetSettingName] = value.description
-            }
+            settings[deploymentTargetSettingName] = value
         }
 
         // FIXME: "none" triples get a placeholder SDK/platform and don't support any specific triple by default. Unlike most platforms, where the vendor and environment is implied as a function of the arch and "platform", bare metal operates in terms of triples directly. We need to replace this bringup convenience with a more idiomatic mechanism, perhaps in the build request.
@@ -1138,10 +1134,6 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             }
         }
 
-        if let resourcesPath = self.buildParameters.toolchain.swiftResourcesPath(isStatic: parameters.shouldLinkStaticSwiftStdlib) {
-            settings["SWIFT_RESOURCE_DIR"] = resourcesPath.pathString
-        }
-
         return settings
     }
 
@@ -1315,5 +1307,18 @@ fileprivate extension Triple {
             return Version(parse: environmentName)
         }
         return osVersion
+    }
+
+    var deploymentTargetVersionString: String? {
+        let v = deploymentTargetVersion
+        guard v != .zero else {
+            return nil
+        }
+        var components = [v.major, v.minor, v.micro]
+        let minimumComponentCount = isApple() ? 2 : 1
+        while components.last == 0 && components.count > minimumComponentCount {
+            components.removeLast()
+        }
+        return components.map { String($0) }.joined(separator: ".")
     }
 }
