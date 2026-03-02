@@ -2251,11 +2251,18 @@ struct BuildSBOMCommandTests {
         try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
             // Use platform-specific invalid path:
             // - Windows: NUL is a reserved device name that cannot be used as a directory
-            // - Unix/macOS: /invalid/readonlypath (path doesn't exist and can't be created)
-            let invalidPath = ProcessInfo.hostOperatingSystem == .windows
-                ? "NUL"
-                : "/invalid/readonlypath"
-
+            // - Linux: /proc/self/fd/0 is a read-only file descriptor that cannot be used as a directory
+            // - macOS: /invalid/readonlypath (path doesn't exist and can't be created)
+            let invalidPath: String
+            switch ProcessInfo.hostOperatingSystem {
+            case .windows:
+                invalidPath = "NUL"
+            case .linux:
+                invalidPath = "/proc/self/fd/0"
+            default:
+                invalidPath = "/invalid/readonlypath"
+            }
+            
             await expectThrowsCommandExecutionError(
                 try await executeSwiftBuild(
                     fixturePath,
