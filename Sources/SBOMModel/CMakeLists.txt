@@ -55,7 +55,6 @@ add_library(SBOMModel STATIC
   SPDX/SPDXSBOM.swift
   SPDX/SPDXType.swift
   Validator/CycloneDXValidator.swift
-  Validator/SBOMSchema.swift
   Validator/SBOMValidator.swift
   Validator/SBOMValidatorProtocol.swift
   Validator/SPDXValidator.swift)
