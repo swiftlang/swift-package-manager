@@ -94,16 +94,6 @@ extension SBOMExtractor {
             }
         }
 
-        // Get dependencies using the strategy pattern
-        func getDependencies(for module: ResolvedModule) async throws -> [DependencyReference] {
-            return try await dependencySource.getDependencies(for: module)
-        }
-
-        // Get dependencies using the strategy pattern
-        func getDependencies(for product: ResolvedProduct) async throws -> [DependencyReference] {
-            return try await dependencySource.getDependencies(for: product)
-        }
-
         // Processes modules recursively and returns a list of products to process.
         func processModuleDependency(
             from product: ResolvedProduct,
@@ -118,7 +108,7 @@ extension SBOMExtractor {
                 guard processedModules.insert(currentModule.id).inserted else {
                     continue
                 }
-                let dependencies = try await getDependencies(for: currentModule)
+                let dependencies = try await dependencySource.getDependencies(for: currentModule)
                 for dependency in dependencies {
                     switch dependency {
                     case .product(let dependentProduct):
@@ -187,7 +177,7 @@ extension SBOMExtractor {
         func processDependencies(for product: ResolvedProduct) async throws -> [ResolvedProduct] {
             var result = IdentifiableSet<ResolvedProduct>()
             
-            let dependencies = try await getDependencies(for: product)
+            let dependencies = try await dependencySource.getDependencies(for: product)
             
             for dependency in dependencies {
                 switch dependency {
