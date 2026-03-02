@@ -56,7 +56,7 @@ extension SwiftPackageCommand {
                     store: resolvedPackagesStore,
                     filter: try self.sbom.sbomFilter,
                     product: self.product,
-                    specs: specs.isEmpty ? [.cyclonedx, .spdx] : specs,
+                    specs: specs.isEmpty ? Spec.allCases : specs,
                     dir: await SBOMCreator.resolveSBOMDirectory(from: self.sbom.sbomDirectory, withDefault: try swiftCommandState.productsBuildParameters.buildPath),
                     observabilityScope: swiftCommandState.observabilityScope
                 )
