@@ -10,6 +10,38 @@
 //
 //===----------------------------------------------------------------------===//
 
+public struct BuildFlag: Hashable, Sendable, Encodable {
+    public var value: String
+
+    /// Describes the origin of this flag, for example if it was sourced from a Swift SDK, or added as a builtin option by SwiftPM.
+    public var source: Source?
+
+    public init(value: String, source: Source? = nil) {
+        self.value = value
+        self.source = source
+    }
+
+    public enum Source: Sendable, Hashable, Codable {
+        case defaultSwiftTestingSearchPath
+        case swiftSDK
+        case commandLineOptions
+    }
+}
+
+extension [BuildFlag] {
+    public var rawFlags: [String] {
+        return self.map(\.value)
+    }
+}
+
+extension [String] {
+    public func constructBuildFlags(source: BuildFlag.Source?) -> [BuildFlag] {
+        return self.map {
+            BuildFlag(value: $0, source: source)
+        }
+    }
+}
+
 /// Build-tool independent flags.
 public struct BuildFlags: Equatable, Encodable {
     /// Flags to pass to the C compiler.
@@ -19,7 +51,7 @@ public struct BuildFlags: Equatable, Encodable {
     public var cxxCompilerFlags: [String]
 
     /// Flags to pass to the Swift compiler.
-    public var swiftCompilerFlags: [String]
+    public var swiftCompilerFlags: [BuildFlag]
 
     /// Flags to pass to the linker.
     public var linkerFlags: [String]
@@ -30,13 +62,29 @@ public struct BuildFlags: Equatable, Encodable {
     public init(
         cCompilerFlags: [String] = [],
         cxxCompilerFlags: [String] = [],
-        swiftCompilerFlags: [String] = [],
+        swiftCompilerFlags: [BuildFlag] = [],
         linkerFlags: [String] = [],
         xcbuildFlags: [String] = []
     ) {
         self.cCompilerFlags = cCompilerFlags
         self.cxxCompilerFlags = cxxCompilerFlags
         self.swiftCompilerFlags = swiftCompilerFlags
+        self.linkerFlags = linkerFlags
+        self.xcbuildFlags = xcbuildFlags
+    }
+
+    // Kept to allow SourceKitLSP time to migrate to the new initializer.
+    @available(*, deprecated, message: "Use the overload which accepts swiftCompilerFlags as [BuildFlag] instead")
+    public init(
+        cCompilerFlags: [String],
+        cxxCompilerFlags: [String],
+        swiftCompilerFlags: [String],
+        linkerFlags: [String],
+        xcbuildFlags: [String] = []
+    ) {
+        self.cCompilerFlags = cCompilerFlags
+        self.cxxCompilerFlags = cxxCompilerFlags
+        self.swiftCompilerFlags = swiftCompilerFlags.constructBuildFlags(source: nil)
         self.linkerFlags = linkerFlags
         self.xcbuildFlags = xcbuildFlags
     }

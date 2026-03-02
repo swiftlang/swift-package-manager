@@ -166,7 +166,7 @@ extension Toolset {
         self.knownTools = [
             .cCompiler: .init(extraCLIOptions: buildFlags.cCompilerFlags),
             .cxxCompiler: .init(extraCLIOptions: buildFlags.cxxCompilerFlags),
-            .swiftCompiler: .init(extraCLIOptions: buildFlags.swiftCompilerFlags),
+            .swiftCompiler: .init(extraCLIOptions: buildFlags.swiftCompilerFlags.rawFlags),
             .linker: .init(extraCLIOptions: buildFlags.linkerFlags),
             .xcbuild: .init(extraCLIOptions: buildFlags.xcbuildFlags ?? []),
         ]
