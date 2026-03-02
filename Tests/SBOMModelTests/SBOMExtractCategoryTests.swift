@@ -29,7 +29,7 @@ struct SBOMExtractCategoryTests {
 
     struct ProductCategoryTestCase {
         let productType: ProductType
-        let moduleType: Module.Kind?
+        let moduleType: Module.Kind
         let expectedCategory: SBOMComponent.Category
         let description: String
     }
@@ -43,7 +43,7 @@ struct SBOMExtractCategoryTests {
         ),
         ProductCategoryTestCase(
             productType: .library(.automatic),
-            moduleType: nil,
+            moduleType: .library,
             expectedCategory: .library,
             description: "library"
         ),
@@ -55,19 +55,19 @@ struct SBOMExtractCategoryTests {
         ),
         ProductCategoryTestCase(
             productType: .snippet,
-            moduleType: nil,
+            moduleType: .library,
             expectedCategory: .library,
             description: "snippet"
         ),
         ProductCategoryTestCase(
             productType: .plugin,
-            moduleType: nil,
+            moduleType: .library,
             expectedCategory: .library,
             description: "plugin"
         ),
         ProductCategoryTestCase(
             productType: .macro,
-            moduleType: nil,
+            moduleType: .library,
             expectedCategory: .library,
             description: "macro"
         ),
@@ -75,19 +75,11 @@ struct SBOMExtractCategoryTests {
 
     @Test("extractCategoryFromProduct", arguments: productCategoryTestCases)
     func extractCategoryFromProduct(testCase: ProductCategoryTestCase) throws {
-        let resolvedProduct: ResolvedProduct
-        if let moduleType = testCase.moduleType {
-            resolvedProduct = try SBOMTestModulesGraph.createProduct(
-                name: "MyProduct",
-                type: testCase.productType,
-                moduleType: moduleType
-            )
-        } else {
-            resolvedProduct = try SBOMTestModulesGraph.createProduct(
-                name: "MyProduct",
-                type: testCase.productType
-            )
-        }
+        let resolvedProduct = try SBOMTestModulesGraph.createProduct(
+            name: "MyProduct",
+            type: testCase.productType,
+            moduleType: testCase.moduleType
+        )
         let category = try SBOMExtractor.extractCategory(from: resolvedProduct)
         #expect(category == testCase.expectedCategory)
     }
@@ -152,19 +144,11 @@ struct SBOMExtractCategoryTests {
     func extractCategoryFromPackage(testCase: PackageCategoryTestCase) throws {
         var products: [ResolvedProduct] = []
         for (index, (productType, moduleType)) in testCase.productTypes.enumerated() {
-            let product: ResolvedProduct
-            if let moduleType = moduleType {
-                product = try SBOMTestModulesGraph.createProduct(
-                    name: "Product\(index)",
-                    type: productType,
-                    moduleType: moduleType
-                )
-            } else {
-                product = try SBOMTestModulesGraph.createProduct(
-                    name: "Product\(index)",
-                    type: productType
-                )
-            }
+            let product = try SBOMTestModulesGraph.createProduct(
+                name: "Product\(index)",
+                type: productType,
+                moduleType: moduleType ?? .library
+            )
             products.append(product)
         }
         
