@@ -12,7 +12,7 @@ Generate SBOMs using either the [`swift build`](doc:SwiftBuild) command with SBO
 
 ### Use swift build
 
-Generate SBOMs through SwiftBuild to factor in build-time conditionals.
+Generate SBOMs through Swift Build to factor in build-time conditionals.
 
 Using the `--sbom-spec` and `--target` flags together causes an error.
 
@@ -24,7 +24,7 @@ swift build --build-system swiftbuild \
     --sbom-spec spdx
 ```
 
-The following examples generate SBOMs without using the Swift Build build backend.
+The following examples generate SBOMs without using the Swift Build build backend. SBOMs generated without Swift Build may not be fully accurate, as build-time conditionals aren't applied to the SBOMs.
 
 ```bash
 swift build --sbom-spec cyclonedx
@@ -36,9 +36,9 @@ swift build --sbom-spec cyclonedx \
 ### Use swift package generate-sbom
 
 [`swift package generate-sbom`](doc:PackageGenerateSBOM) generates an SBOM without building.
-This SBOM is less accurate than an SBOM from `swift build` because build-time conditionals aren't applied and the package graph might change before generation.
+This SBOM is less accurate than an SBOM generated from `swift build --build-system swiftbuild` because build-time conditionals aren't applied and the package graph might change before generation.
 
-For the highest accuracy, generate SBOMs through `swift build` whenever possible.
+For the highest accuracy, generate SBOMs through `swift build --build-system swiftbuild` whenever possible.
 
 Not specifying `--sbom-spec` will generate all SBOM specs supported by Swift Package Manager.
 
