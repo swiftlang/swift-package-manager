@@ -27,7 +27,7 @@ import Testing
 struct SBOMExtractScopeTests {
     struct ProductScopeTestCase {
         let productType: ProductType
-        let moduleType: Module.Kind?
+        let moduleType: Module.Kind
         let expectedScope: SBOMComponent.Scope
         let description: String
     }
@@ -41,7 +41,7 @@ struct SBOMExtractScopeTests {
         ),
         ProductScopeTestCase(
             productType: .library(.automatic),
-            moduleType: nil,
+            moduleType: .library,
             expectedScope: .runtime,
             description: "library"
         ),
@@ -61,19 +61,11 @@ struct SBOMExtractScopeTests {
 
     @Test("extractScopeFromProduct", arguments: productScopeTestCases)
     func extractScopeFromProduct(testCase: ProductScopeTestCase) throws {
-        let resolvedProduct: ResolvedProduct
-        if let moduleType = testCase.moduleType {
-            resolvedProduct = try SBOMTestModulesGraph.createProduct(
-                name: "MyProduct",
-                type: testCase.productType,
-                moduleType: moduleType
-            )
-        } else {
-            resolvedProduct = try SBOMTestModulesGraph.createProduct(
-                name: "MyProduct",
-                type: testCase.productType
-            )
-        }
+        let resolvedProduct = try SBOMTestModulesGraph.createProduct(
+            name: "MyProduct",
+            type: testCase.productType,
+            moduleType: testCase.moduleType
+        )
         let scope = try SBOMExtractor.extractScope(from: resolvedProduct)
         #expect(scope == testCase.expectedScope)
     }
@@ -128,19 +120,11 @@ struct SBOMExtractScopeTests {
     func extractScopeFromPackage(testCase: PackageScopeTestCase) throws {
         var products: [ResolvedProduct] = []
         for (index, (productType, moduleType)) in testCase.productTypes.enumerated() {
-            let product: ResolvedProduct
-            if let moduleType = moduleType {
-                product = try SBOMTestModulesGraph.createProduct(
-                    name: "Product\(index)",
-                    type: productType,
-                    moduleType: moduleType
-                )
-            } else {
-                product = try SBOMTestModulesGraph.createProduct(
-                    name: "Product\(index)",
-                    type: productType
-                )
-            }
+            let product = try SBOMTestModulesGraph.createProduct(
+                name: "Product\(index)",
+                type: productType,
+                moduleType: moduleType ?? .library
+            )
             products.append(product)
         }
         
