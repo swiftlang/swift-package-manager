@@ -110,4 +110,4 @@ SWIFTPM_BUILD_SBOM_SPEC=cyclonedx,spdx swift build \
     --build-system swiftbuild
 ```
 
-When you use environment variables, SBOM generation only triggers if you set `SWIFTPM_BUILD_SBOM_SPEC`. 
+When you use environment variables, SBOM generation only triggers if `SWIFTPM_BUILD_SBOM_SPEC` is set. 
