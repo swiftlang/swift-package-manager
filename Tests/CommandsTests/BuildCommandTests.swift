@@ -2407,5 +2407,174 @@ struct BuildSBOMCommandTests {
             }
         }
     }
+
+    @Test(
+        arguments: SupportedBuildSystemOnAllPlatforms, ["cyclonedx", "spdx"]
+    )
+    func sbomReproducibilityExcludingTimestampsAndUUIDs(
+        buildSystem: BuildSystemProvider.Kind,
+        sbomSpec: String
+    ) async throws {
+        try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
+            let customSBOMDir = fixturePath.appending("reproducibility-test-\(sbomSpec)")
+            
+            // Generate first SBOM
+            let sbomPath1 = try await generateSBOMAndExtractPath(
+                fixturePath: fixturePath,
+                sbomSpec: sbomSpec,
+                outputDir: customSBOMDir,
+                buildSystem: buildSystem
+            )
+            let content1 = try readSBOMContent(at: sbomPath1)
+            
+            // Small delay to ensure different timestamp
+            try await Task.sleep(for: .seconds(1))
+            
+            // Generate second SBOM
+            let sbomPath2 = try await generateSBOMAndExtractPath(
+                fixturePath: fixturePath,
+                sbomSpec: sbomSpec,
+                outputDir: customSBOMDir,
+                buildSystem: buildSystem
+            )
+            let content2 = try readSBOMContent(at: sbomPath2)
+            
+            // Verify the two SBOMs are different files (different timestamps in filename)
+            #expect(sbomPath1 != sbomPath2, "SBOM files should have different names due to timestamps")
+            
+            // Normalize both SBOMs by removing timestamps and UUIDs
+            let normalized1 = try normalizeJSONForComparison(content1)
+            let normalized2 = try normalizeJSONForComparison(content2)
+            
+            // Compare normalized content
+            #expect(normalized1 == normalized2, "SBOMs should be identical after normalizing timestamps and UUIDs")
+        }
+    }
+    
+    /// Generates an SBOM and extracts its path from stdout
+    private func generateSBOMAndExtractPath(
+        fixturePath: AbsolutePath,
+        sbomSpec: String,
+        outputDir: AbsolutePath,
+        buildSystem: BuildSystemProvider.Kind
+    ) async throws -> AbsolutePath {
+        let (stdout, _) = try await executeSwiftBuild(
+            fixturePath,
+            extraArgs: ["--sbom-spec", sbomSpec, "--sbom-output-dir", outputDir.pathString],
+            buildSystem: buildSystem
+        )
+        
+        return try extractSBOMPath(from: stdout)
+    }
+    
+    /// Extracts SBOM file path from build output
+    private func extractSBOMPath(from stdout: String) throws -> AbsolutePath {
+        let lines = stdout.split(separator: "\n")
+        guard let sbomLine = lines.first(where: { $0.contains(" SBOM at ") }),
+              let range = sbomLine.range(of: " SBOM at "),
+              let endRange = sbomLine[range.upperBound...].range(of: ".json") else {
+            throw NSError(domain: "TestError", code: 1, userInfo: [NSLocalizedDescriptionKey: "Could not find SBOM path in stdout"])
+        }
+        
+        let pathString = String(sbomLine[range.upperBound..<endRange.upperBound])
+        return try AbsolutePath(validating: pathString)
+    }
+    
+    /// Reads SBOM content from file
+    private func readSBOMContent(at path: AbsolutePath) throws -> String {
+        let data = try localFileSystem.readFileContents(path)
+        guard let content = String(data: Data(data.contents), encoding: .utf8) else {
+            throw NSError(domain: "TestError", code: 2, userInfo: [NSLocalizedDescriptionKey: "Could not read SBOM as UTF-8"])
+        }
+        return content
+    }
+    
+    /// Normalizes JSON content by replacing timestamps and UUIDs with placeholder values
+    /// This allows comparison of SBOM content while ignoring non-deterministic fields
+    private func normalizeJSONForComparison(_ jsonString: String) throws -> String {
+        guard let jsonData = jsonString.data(using: .utf8),
+              let jsonObject = try JSONSerialization.jsonObject(with: jsonData) as? [String: Any] else {
+            throw NSError(domain: "TestError", code: 1, userInfo: [NSLocalizedDescriptionKey: "Failed to parse JSON"])
+        }
+        
+        // Recursively normalize the JSON object
+        let normalizedObject = normalizeJSONValue(jsonObject)
+        
+        // Convert back to string with sorted keys for consistent comparison
+        let normalizedData = try JSONSerialization.data(withJSONObject: normalizedObject, options: [.sortedKeys, .prettyPrinted])
+        
+        guard let normalizedString = String(data: normalizedData, encoding: .utf8) else {
+            throw NSError(domain: "TestError", code: 2, userInfo: [NSLocalizedDescriptionKey: "Failed to convert normalized JSON to string"])
+        }
+        
+        return normalizedString
+    }
+    
+    private func normalizeJSONValue(_ value: Any) -> Any {
+        if let dict = value as? [String: Any] {
+            var normalizedDict: [String: Any] = [:]
+            for (key, val) in dict {
+                // Normalize timestamp fields
+                if key == "timestamp" || key == "created" || key.contains("Time") || key.contains("Date") {
+                    if val is String {
+                        normalizedDict[key] = "NORMALIZED_TIMESTAMP"
+                    } else {
+                        normalizedDict[key] = normalizeJSONValue(val)
+                    }
+                }
+                // Normalize UUID fields and URN-based identifiers
+                else if key == "serialNumber" || key == "bom-ref" || key == "spdxId" ||
+                        key == "creationInfo" || key == "createdBy" || key.contains("uuid") || key.contains("UUID") {
+                    normalizedDict[key] = normalizeUUIDValue(val)
+                }
+                else {
+                    normalizedDict[key] = normalizeJSONValue(val)
+                }
+            }
+            return normalizedDict
+        }
+        else if let array = value as? [Any] {
+            return array.map { normalizeJSONValue($0) }
+        }
+        else if let string = value as? String {
+            return normalizeStringWithUUIDs(string)
+        }
+        else {
+            return value
+        }
+    }
+    
+    /// Normalizes values that may contain UUIDs (strings or arrays of strings)
+    private func normalizeUUIDValue(_ value: Any) -> Any {
+        if let string = value as? String {
+            return normalizeStringWithUUIDs(string)
+        } else if let array = value as? [Any] {
+            return array.map { normalizeUUIDValue($0) }
+        } else {
+            return normalizeJSONValue(value)
+        }
+    }
+    
+    /// Replaces UUID patterns in strings with a normalized placeholder
+    private func normalizeStringWithUUIDs(_ string: String) -> String {
+        // Match UUID patterns in various formats:
+        // - Standard UUID: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+        // - URN format: urn:uuid:xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+        let uuidPattern = #"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"#
+        
+        guard let regex = try? NSRegularExpression(pattern: uuidPattern, options: .caseInsensitive) else {
+            return string
+        }
+        
+        let range = NSRange(string.startIndex..., in: string)
+        let normalized = regex.stringByReplacingMatches(
+            in: string,
+            options: [],
+            range: range,
+            withTemplate: "NORMALIZED-UUID"
+        )
+        
+        return normalized
+    }
 }
 
