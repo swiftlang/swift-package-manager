@@ -455,15 +455,16 @@ struct InitTests {
                 .Feature.Command.Build,
             ),
             arguments: SupportedBuildSystemOnAllPlatforms,
+            // arguments: [BuildSystemProvider.Kind.swiftbuild],
         )
         func nonC99NameExecutablePackage(
             buildSystem: BuildSystemProvider.Kind,
         ) async throws {
             let configuration = BuildConfiguration.debug
-            try await withTemporaryDirectory(removeTreeOnDeinit: true) { tempDirPath in
+            try await withTemporaryDirectory(removeTreeOnDeinit: false) { tempDirPath in
                 expectDirectoryExists(at: tempDirPath)
 
-                let packageRoot = tempDirPath.appending("Foo")
+                let packageRoot = tempDirPath.appending("PackageDirectoryName")
                 try localFileSystem.createDirectory(packageRoot)
                 expectDirectoryExists(at: packageRoot)
 
