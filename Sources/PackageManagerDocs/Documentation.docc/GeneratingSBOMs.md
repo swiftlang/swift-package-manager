@@ -40,7 +40,7 @@ This SBOM is less accurate than an SBOM from `swift build` because build-time co
 
 For the highest accuracy, generate SBOMs through `swift build` whenever possible.
 
-Not specifying `--sbom-spec` will generate both CycloneDX and SPDX SBOMs.
+Not specifying `--sbom-spec` will generate all SBOM specs supported by Swift Package Manager.
 
 ```bash
 swift package generate-sbom --sbom-spec cyclonedx
