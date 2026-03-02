@@ -133,7 +133,7 @@ struct SBOMValidationTests {
         let validator = try createTestValidator(for: testCase.inputSpec)
 
         if testCase.wantError {
-            await #expect(throws: (any Error).self) {
+            await #expect(throws: SBOMValidatorError.self) {
                 try await validator.validate(sbomJSONObject)
             }
         } else {
