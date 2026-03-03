@@ -63,7 +63,7 @@ swift package generate-sbom --product MyProduct \
     --sbom-spec spdx
 ```
 
-Filter an SBOM by packages or products. By default, the SBOM includes both packages and products. 
+Filter an SBOM by packages or products by using `--sbom-filter <type>`. By default, the SBOM includes both packages and products. 
 Swift Package Manager always includes the primary component, regardless of the applied filter.
 
 ```bash
