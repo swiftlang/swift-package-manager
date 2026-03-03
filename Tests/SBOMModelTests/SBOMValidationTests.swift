@@ -135,8 +135,7 @@ struct SBOMValidationTests {
     struct ValidateFileSBOMTestCase {
         let inputFilePath: String
         let inputSBOMSpec: SBOMSpec
-        let wantEncoderError: Bool
-        let wantValidatorError: Bool
+        let expectedEncoderErrorType: Error.Type?
     }
 
     static func getValidateFileSBOMTestCases() throws -> [ValidateFileSBOMTestCase] {
@@ -145,92 +144,78 @@ struct SBOMValidationTests {
             ValidateFileSBOMTestCase(
                 inputFilePath: "testfiles/valid-cyclonedx-1.7-empty-comps",
                 inputSBOMSpec: SBOMSpec(spec: .cyclonedx1),
-                wantEncoderError: false,
-                wantValidatorError: false,
+                expectedEncoderErrorType: nil,
             ),
             ValidateFileSBOMTestCase(
                 inputFilePath: "testfiles/valid-cyclonedx-1.7-minimal",
                 inputSBOMSpec: SBOMSpec(spec: .cyclonedx1),
-                wantEncoderError: false,
-                wantValidatorError: false,
+                expectedEncoderErrorType: nil,
             ),
             ValidateFileSBOMTestCase(
                 inputFilePath: "testfiles/valid-cyclonedx-1.7-unicode",
                 inputSBOMSpec: SBOMSpec(spec: .cyclonedx1),
-                wantEncoderError: false,
-                wantValidatorError: false,
+                expectedEncoderErrorType: nil,
             ),
             ValidateFileSBOMTestCase(
                 inputFilePath: "testfiles/valid-cyclonedx-1.7-spm",
                 inputSBOMSpec: SBOMSpec(spec: .cyclonedx1),
-                wantEncoderError: false,
-                wantValidatorError: false,
+                expectedEncoderErrorType: nil,
             ),
             ValidateFileSBOMTestCase(
                 inputFilePath: "testfiles/valid-cyclonedx-1.7-versions",
                 inputSBOMSpec: SBOMSpec(spec: .cyclonedx1),
-                wantEncoderError: false,
-                wantValidatorError: false,
+                expectedEncoderErrorType: nil,
             ),
 
             // valid SPDX SBOMs
             ValidateFileSBOMTestCase(
                 inputFilePath: "testfiles/valid-spdx-3.0.1-spm",
                 inputSBOMSpec: SBOMSpec(spec: .spdx3),
-                wantEncoderError: false,
-                wantValidatorError: false,
+                expectedEncoderErrorType: nil,
             ),
 
             // invalid CycloneDX SBOMs
             ValidateFileSBOMTestCase(
                 inputFilePath: "testfiles/invalid-cyclonedx-1-missing-fields",
                 inputSBOMSpec: SBOMSpec(spec: .cyclonedx1),
-                wantEncoderError: false,
-                wantValidatorError: true,
+                expectedEncoderErrorType: SBOMValidatorError.self,
             ),
             ValidateFileSBOMTestCase(
                 inputFilePath: "testfiles/invalid-cyclonedx-1-small",
                 inputSBOMSpec: SBOMSpec(spec: .cyclonedx1),
-                wantEncoderError: true,
-                wantValidatorError: false,
+                expectedEncoderErrorType: SBOMEncoderError.self,
             ),
             ValidateFileSBOMTestCase(
                 inputFilePath: "testfiles/invalid-cyclonedx-1.7-uppercase-uuid",
                 inputSBOMSpec: SBOMSpec(spec: .cyclonedx1),
-                wantEncoderError: false,
-                wantValidatorError: true,
+                expectedEncoderErrorType: SBOMValidatorError.self,
             ),
             ValidateFileSBOMTestCase(
                 inputFilePath: "testfiles/invalid-cyclonedx-1.7-wrong-bomformat",
                 inputSBOMSpec: SBOMSpec(spec: .cyclonedx1),
-                wantEncoderError: false,
-                wantValidatorError: true,
+                expectedEncoderErrorType: SBOMValidatorError.self,
             ),
 
             // invalid SPDX SBOMs
             ValidateFileSBOMTestCase(
                 inputFilePath: "testfiles/invalid-spdx-3-small",
                 inputSBOMSpec: SBOMSpec(spec: .spdx3),
-                wantEncoderError: true,
-                wantValidatorError: false,
+                expectedEncoderErrorType: SBOMEncoderError.self,
             ),
             ValidateFileSBOMTestCase(
                 inputFilePath: "testfiles/invalid-spdx-3.0.1-no-iri",
                 inputSBOMSpec: SBOMSpec(spec: .spdx3),
-                wantEncoderError: false,
-                wantValidatorError: true,
+                expectedEncoderErrorType: SBOMValidatorError.self,
             ),
             ValidateFileSBOMTestCase(
                 inputFilePath: "testfiles/invalid-spdx-3.0.1-spm",
                 inputSBOMSpec: SBOMSpec(spec: .spdx3),
-                wantEncoderError: false,
-                wantValidatorError: true,
+                expectedEncoderErrorType: SBOMValidatorError.self,
             ),
             ValidateFileSBOMTestCase(
                 inputFilePath: "testfiles/invalid-spdx-3.0.1-wrong-relationshiptype",
                 inputSBOMSpec: SBOMSpec(spec: .spdx3),
-                wantEncoderError: false,
-                wantValidatorError: true,
+                expectedEncoderErrorType: SBOMValidatorError.self,
             ),
         ]
     }
@@ -243,32 +228,15 @@ struct SBOMValidationTests {
             "Could not find \(testCase.inputFilePath).json test file"
         )
         let encodedData = try Data(contentsOf: fileURL)
-        
-        if testCase.wantEncoderError {
-            // For invalid files, we expect either JSON parsing errors (NSError) or validation errors (SBOMEncoderError)
-            // Try to parse the SBOM data - if this fails, that's expected
-            #expect(throws: SBOMEncoderError.self) {
-                do {
-                    guard let _ = try JSONSerialization.jsonObject(with: encodedData) as? [String: Any] else {
-                        throw SBOMEncoderError.jsonConversionFailed(message: "Unexpected encoding error in test")
-                    }
-                } catch let error as SBOMEncoderError {
-                    throw error
-                } catch let error as NSError {
-                    throw SBOMEncoderError.jsonConversionFailed(message: "JSON parsing failed: \(error.localizedDescription)")
-                }
-            }
-            return // Don't continue with validation if we expected an encoder error
-        }
-        guard let sbomJSONObject = try JSONSerialization.jsonObject(with: encodedData) as? [String: Any] else {
-            throw SBOMEncoderError.jsonConversionFailed(message: "Unexpected encoding error in test")
-        }
-        let validator = try createTestValidator(for: testCase.inputSBOMSpec)
-        if testCase.wantValidatorError {
-            await #expect(throws: SBOMValidatorError.self) {
+        if let errorType = testCase.expectedEncoderErrorType {
+            await #expect(throws: errorType) {
+                let sbomJSONObject = try JSONSerialization.jsonObject(with: encodedData) as? [String: Any]
+                let validator = try createTestValidator(for: testCase.inputSBOMSpec)
                 try await validator.validate(sbomJSONObject)
             }
         } else {
+            let sbomJSONObject = try JSONSerialization.jsonObject(with: encodedData) as? [String: Any]
+            let validator = try createTestValidator(for: testCase.inputSBOMSpec)
             try await validator.validate(sbomJSONObject)
         }
     }
