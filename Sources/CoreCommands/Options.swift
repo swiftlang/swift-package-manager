@@ -729,7 +729,7 @@ public struct TraitOptions: ParsableArguments {
     /// The traits to enable for the package.
     @Option(
         name: .customLong("traits"),
-        help: "Enables the passed traits of the package. Multiple traits can be specified by providing a comma separated list e.g. `--traits Trait1,Trait2`. When enabling specific traits the defaults traits need to explictily enabled as well by passing `defaults` to this command."
+        help: "Enables the passed traits of the package. Multiple traits can be specified by providing a comma separated list, for example `--traits Trait1,Trait2`. When enabling specific traits the default traits also need to explicitly enabled as well by passing `defaults` to this command."
     )
     package var _enabledTraits: String?
 
