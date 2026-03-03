@@ -82,7 +82,7 @@ struct BuildCommandOptions: ParsableArguments {
     /// Whether to enable code coverage.
     @Flag(name: .customLong("code-coverage"),
           inversion: .prefixedEnableDisable,
-          help: "Enable code coverage.")
+          help: "Determines whether the build measures code coverage.")
     var enableCodeCoverage: Bool = false
 
     /// If the binary output path should be printed.
@@ -115,7 +115,7 @@ struct BuildCommandOptions: ParsableArguments {
     var testLibraryOptions: TestLibraryOptions
 
     /// If should link the Swift stdlib statically.
-    @Flag(name: .customLong("static-swift-stdlib"), inversion: .prefixedNo, help: "Link Swift stdlib statically.")
+    @Flag(name: .customLong("static-swift-stdlib"), inversion: .prefixedNo, help: "Determines whether Swift stdlib links statically.")
     public var shouldLinkStaticSwiftStdlib: Bool = false
 
     @OptionGroup(title: "SBOM")
