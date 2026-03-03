@@ -183,7 +183,7 @@ struct SBOMValidationTests {
             ValidateFileSBOMTestCase(
                 inputFilePath: "testfiles/invalid-cyclonedx-1-small",
                 inputSBOMSpec: SBOMSpec(spec: .cyclonedx1),
-                expectedEncoderErrorType: SBOMEncoderError.self,
+                expectedEncoderErrorType: SBOMValidatorError.self,
             ),
             ValidateFileSBOMTestCase(
                 inputFilePath: "testfiles/invalid-cyclonedx-1.7-uppercase-uuid",
@@ -200,7 +200,7 @@ struct SBOMValidationTests {
             ValidateFileSBOMTestCase(
                 inputFilePath: "testfiles/invalid-spdx-3-small",
                 inputSBOMSpec: SBOMSpec(spec: .spdx3),
-                expectedEncoderErrorType: SBOMEncoderError.self,
+                expectedEncoderErrorType: NSError.self,
             ),
             ValidateFileSBOMTestCase(
                 inputFilePath: "testfiles/invalid-spdx-3.0.1-no-iri",
@@ -229,10 +229,12 @@ struct SBOMValidationTests {
         )
         let encodedData = try Data(contentsOf: fileURL)
         if let errorType = testCase.expectedEncoderErrorType {
-            await #expect(throws: errorType) {
+            await #expect {
                 let sbomJSONObject = try JSONSerialization.jsonObject(with: encodedData) as? [String: Any]
                 let validator = try createTestValidator(for: testCase.inputSBOMSpec)
                 try await validator.validate(sbomJSONObject)
+            } throws: { error in
+                type(of: error) == errorType
             }
         } else {
             let sbomJSONObject = try JSONSerialization.jsonObject(with: encodedData) as? [String: Any]
