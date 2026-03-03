@@ -244,7 +244,7 @@ public final class SwiftCommandState {
 
     /// Path to the shared configuration directory
     public let sharedConfigurationDirectory: AbsolutePath
-    
+
     /// Path to the package manager's own resources directory.
     public let packageManagerResourcesDirectory: AbsolutePath?
 
@@ -405,7 +405,7 @@ public final class SwiftCommandState {
                 warning: "`--experimental-swift-sdks-path` is deprecated and will be removed in a future version of SwiftPM. Use `--swift-sdks-path` instead."
             )
         }
-        
+
         if let packageManagerResourcesDirectory = options.locations.packageManagerResourcesDirectory {
             self.packageManagerResourcesDirectory = packageManagerResourcesDirectory
         } else if let cwd = localFileSystem.currentWorkingDirectory {
@@ -415,7 +415,7 @@ public final class SwiftCommandState {
             self.packageManagerResourcesDirectory = try? AbsolutePath(validating: CommandLine.arguments[0])
                 .parentDirectory.parentDirectory.appending(components: ["share", "pm"])
         }
-        
+
         self.sharedSwiftSDKsDirectory = try fileSystem.getSharedSwiftSDKsDirectory(
             explicitDirectory: options.locations.swiftSDKsDirectory ?? options.locations.deprecatedSwiftSDKsDirectory
         )
@@ -831,6 +831,21 @@ public final class SwiftCommandState {
         try self._hostToolchain.get()
     }
 
+    /// Fetch the tools version for the root package in the currently active
+    /// workspace.
+    ///
+    /// - Throws: If an error occurs when trying to resolve workspace details.
+    /// - Returns: The current tools version, nil if no manifests are found.
+    public func getToolsVersion() async throws -> ToolsVersion? {
+        let workspace = try self.getActiveWorkspace()
+        let root = try self.getWorkspaceRoot()
+        let rootManifests = try await workspace.loadRootManifests(
+            packages: root.packages,
+            observabilityScope: self.observabilityScope
+        )
+        return rootManifests.values.first.map { $0.toolsVersion }
+    }
+
     func getManifestLoader() throws -> ManifestLoader {
         try self._manifestLoader.get()
     }
@@ -1183,7 +1198,7 @@ public final class SwiftCommandState {
             if errno == EWOULDBLOCK {
                 let lockingPID = try? String(contentsOfFile: lockFile, encoding: .utf8)
                 let pidInfo = lockingPID.map { "(PID: \($0)) " } ?? ""
-                
+
                 if self.options.locations.ignoreLock {
                     self.outputStream
                         .write(
