@@ -36,6 +36,7 @@ add_library(SBOMModel STATIC
   CycloneDX/CycloneDXPedigree.swift
   CycloneDX/CycloneDXProperty.swift
   Encoder/SBOMEncoder.swift
+  Extractor/DependencySourceStrategy.swift
   Extractor/PURL.swift
   Extractor/SBOMCache.swift
   Extractor/SBOMDependenciesExtractor.swift
