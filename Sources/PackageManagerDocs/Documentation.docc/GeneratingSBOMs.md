@@ -10,11 +10,12 @@ Swift Package Manager currently supports two SBOM formats: CycloneDX and SPDX.
 
 Generate SBOMs using either the [`swift build`](doc:SwiftBuild) command with SBOM flags or the dedicated [`swift package generate-sbom`](doc:PackageGenerateSBOM) subcommand.
 
-### Use swift build
+### Use the build command to generate SBOMs
 
-Generate SBOMs through Swift Build to factor in build-time conditionals.
-
+Use the command `swift build` to compile your project and generate SBOMs.
 Using the `--sbom-spec` and `--target` flags together causes an error.
+
+Generating SBOMs through the Swift Build build backend factors in build-time conditionals.
 
 ```bash
 swift build --build-system swiftbuild --sbom-spec cyclonedx
@@ -33,14 +34,14 @@ swift build --sbom-spec cyclonedx \
     --sbom-spec spdx
 ```
 
-### Use swift package generate-sbom
+### Use the package command to generates SBOMs
 
 [`swift package generate-sbom`](doc:PackageGenerateSBOM) generates an SBOM without building.
 This SBOM is less accurate than an SBOM generated from `swift build --build-system swiftbuild` because build-time conditionals aren't applied and the package graph might change before generation.
 
-For the highest accuracy, generate SBOMs through `swift build --build-system swiftbuild` whenever possible.
+For the highest accuracy, generate SBOMs using the command `swift build --build-system swiftbuild`.
 
-Not specifying `--sbom-spec` will generate all SBOM specs supported by Swift Package Manager.
+Not specifying `--sbom-spec` generates all SBOM specs supported by Swift Package Manager.
 
 ```bash
 swift package generate-sbom --sbom-spec cyclonedx
@@ -50,7 +51,7 @@ swift package generate-sbom --sbom-spec cyclonedx \
 swift package generate-sbom
 ```
 
-### Configure Additional Flags
+### Configure additional flags
 
 The following flags apply to both `swift build` and `swift package generate-sbom`:
 
@@ -63,7 +64,7 @@ swift package generate-sbom --product MyProduct \
     --sbom-spec spdx
 ```
 
-Filter an SBOM by packages or products by using `--sbom-filter <type>`. By default, the SBOM includes both packages and products. 
+Filter an SBOM by packages or products by using `--sbom-filter <type>`. By default, an SBOM includes both packages and products. 
 Swift Package Manager always includes the primary component, regardless of the applied filter.
 
 ```bash
@@ -93,10 +94,10 @@ swift package generate-sbom --sbom-spec spdx \
     --sbom-output-dir / --sbom-warning-only
 ```
 
-### Configure Environment Variables
+### Configure environment variables
 
-Trigger and configure SBOM generation using environment variables.
-CLI flags take precedence over environment variables.
+Generating SBOMs can be triggered and configured using environment variables that you set prior to running `swift build`.
+When you use CLI flags, they take precedence over environment variables.
 
 Configure the following environment variables:
 

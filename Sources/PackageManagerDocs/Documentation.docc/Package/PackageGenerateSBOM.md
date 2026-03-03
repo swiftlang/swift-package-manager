@@ -100,7 +100,7 @@ specify more than one path.*
 
 - term **--disable-dependency-cache**:
 
-*Use a shared cache when fetching dependencies.*
+*Do not use a shared cache when fetching dependencies.*
 
 
 - term **--enable-build-manifest-caching**:
@@ -116,12 +116,12 @@ specify more than one path.*
 
 - term **--enable-experimental-prebuilts**:
 
-*Whether to use prebuilt swift-syntax libraries for macros.*
+*Use prebuilt swift-syntax libraries for macros.*
 
 
 - term **--disable-experimental-prebuilts**:
 
-*Whether to use prebuilt swift-syntax libraries for macros.*
+*Do not use prebuilt swift-syntax libraries for macros.*
 
 
 - term **--verbose**:
@@ -141,13 +141,13 @@ specify more than one path.*
 
 - term **--color-diagnostics**:
 
-*Enables or disables color diagnostics when printing to a TTY.
+*Enables color diagnostics when printing to a TTY.
 By default, color diagnostics are enabled when connected to a TTY and disabled otherwise.*
 
 
 - term **--no-color-diagnostics**:
 
-*Enables or disables color diagnostics when printing to a TTY.
+*Disables color diagnostics when printing to a TTY.
 By default, color diagnostics are enabled when connected to a TTY and disabled otherwise.*
 
 
@@ -168,7 +168,7 @@ By default, color diagnostics are enabled when connected to a TTY and disabled o
 
 - term **--disable-netrc**:
 
-*Load credentials from a netrc file.*
+*Do not load credentials from a netrc file.*
 
 
 - term **--netrc-file=\<netrc-file\>**:
@@ -183,7 +183,7 @@ By default, color diagnostics are enabled when connected to a TTY and disabled o
 
 - term **--disable-keychain**:
 
-*Search credentials in macOS keychain.*
+*Do not search credentials in macOS keychain.*
 
 
 - term **--resolver-fingerprint-checking=\<resolver-fingerprint-checking\>**:
@@ -199,7 +199,7 @@ By default, color diagnostics are enabled when connected to a TTY and disabled o
 
 - term **--disable-signature-validation**:
 
-*Validate signature of a signed package release downloaded from registry.*
+*Do not validate signature of a signed package release downloaded from registry.*
 
 
 - term **--enable-prefetching**:
@@ -340,7 +340,7 @@ By default, color diagnostics are enabled when connected to a TTY and disabled o
 
 - term **--traits=\<traits\>**:
 
-*Enables the passed traits of the package. Multiple traits can be specified by providing a comma separated list e.g. `--traits Trait1,Trait2`. When enabling specific traits the defaults traits need to explictily enabled as well by passing `defaults` to this command.*
+*Enables the passed traits of the package. Multiple traits can be specified by providing a comma separated list, for example, `--traits Trait1,Trait2`. When enabling specific traits the default traits also need to be explictily enabled as well by passing `defaults` to this command.*
 
 
 - term **--enable-all-traits**:
@@ -365,7 +365,7 @@ By default, color diagnostics are enabled when connected to a TTY and disabled o
 
 - term **--sbom-output-dir=\<sbom-output-dir\>**:
 
-*The absolute or relative directory path to generate the SBOM(s) in. Must be used with --sbom-spec. (default: <scratch_path>/sboms).*
+*The absolute or relative directory path to generate the SBOM(s) in. Must be used with --sbom-spec. (default: <build_output>/sboms).*
 
 
 - term **--sbom-filter=\<sbom-filter\>**:
