@@ -709,3 +709,18 @@ public func executableName(_ name: String) -> String {
   return name
 #endif
 }
+
+package func getCoveragePath(
+    _ path: AbsolutePath,
+    with buildData: BuildData,
+) async throws -> String {
+    return try await executeSwiftTest(
+            path,
+            configuration: buildData.config,
+            extraArgs: [
+                "--show-coverage-path",
+            ],
+            buildSystem: buildData.buildSystem,
+            throwIfCommandFails: true,
+        ).stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+}
