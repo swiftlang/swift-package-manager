@@ -43,7 +43,7 @@ private let destinationV1 = (
         "toolchain-bin-dir": "\#(bundleRootPath.appending(toolchainBinDir))",
         "target": "\#(linuxGNUTargetTriple.tripleString)",
         "extra-cc-flags": \#(extraFlags.cCompilerFlags),
-        "extra-swiftc-flags": \#(extraFlags.swiftCompilerFlags),
+        "extra-swiftc-flags": \#(extraFlags.swiftCompilerFlags.rawFlags),
         "extra-cpp-flags": \#(extraFlags.cxxCompilerFlags)
     }
     """# as SerializedJSON
@@ -59,7 +59,7 @@ private let destinationV2 = (
         "hostTriples": ["\#(hostTriple.tripleString)"],
         "targetTriples": ["\#(linuxGNUTargetTriple.tripleString)"],
         "extraCCFlags": \#(extraFlags.cCompilerFlags),
-        "extraSwiftCFlags": \#(extraFlags.swiftCompilerFlags),
+        "extraSwiftCFlags": \#(extraFlags.swiftCompilerFlags.rawFlags),
         "extraCXXFlags": \#(extraFlags.cxxCompilerFlags),
         "extraLinkerFlags": \#(extraFlags.linkerFlags)
     }

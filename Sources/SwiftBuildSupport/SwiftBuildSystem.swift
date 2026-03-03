@@ -919,11 +919,31 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                 + buildParameters.toolchain.extraFlags.cxxCompilerFlags.map { $0.shellEscaped() }
                 + buildParameters.flags.cxxCompilerFlags.map { $0.shellEscaped() }
         ).joined(separator: " ")
+
+        let otherSwiftFlags = (
+            buildParameters.toolchain.extraFlags.swiftCompilerFlags +
+            buildParameters.flags.swiftCompilerFlags
+        ).filter {
+            switch $0.source {
+            case .defaultSwiftTestingSearchPath:
+                // Swift Build computes these internally. It's important not to add them a second time here
+                // as it can break the intended search path ordering, for example, if the user is building
+                // Swift Testing as a package dependency.
+                return false
+            case .swiftSDK:
+                // Swift Build loads Swift SDK flags internally, and may introspect them to override build
+                // settings. Don't duplicate them here.
+                return false
+            case .commandLineOptions, nil:
+                return true
+            }
+        }.map {
+            $0.value.shellEscaped()
+        }
         settings["OTHER_SWIFT_FLAGS"] = (
             verboseFlag +
-            ["$(inherited)"]
-                + buildParameters.toolchain.extraFlags.swiftCompilerFlags.map { $0.shellEscaped() }
-                + buildParameters.flags.swiftCompilerFlags.map { $0.shellEscaped() }
+            ["$(inherited)"] +
+            otherSwiftFlags
         ).joined(separator: " ")
 
         let inherited = ["$(inherited)"]

@@ -542,10 +542,10 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         // similar to how we filter out the library search path unless
         // explicitly requested.
         var extraSwiftCFlags = self.destinationBuildParameters.toolchain.extraFlags.swiftCompilerFlags
-            .filter { !$0.starts(with: "-use-ld=") }
+            .filter { !$0.value.starts(with: "-use-ld=") }
         if !includeLibrarySearchPaths {
             for index in extraSwiftCFlags.indices.dropLast().reversed() {
-                if extraSwiftCFlags[index] == "-L" {
+                if extraSwiftCFlags[index].value == "-L" {
                     // Remove the flag
                     extraSwiftCFlags.remove(at: index)
                     // Remove the argument
@@ -553,7 +553,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                 }
             }
         }
-        arguments += extraSwiftCFlags
+        arguments += extraSwiftCFlags.rawFlags
 
         // Add search paths to the directories containing module maps and Swift modules.
         for target in self.targets {

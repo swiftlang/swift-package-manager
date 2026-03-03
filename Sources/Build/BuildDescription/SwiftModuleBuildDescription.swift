@@ -577,9 +577,9 @@ public final class SwiftModuleBuildDescription {
             ]
         }
 
-        args += self.buildParameters.toolchain.extraFlags.swiftCompilerFlags
+        args += self.buildParameters.toolchain.extraFlags.swiftCompilerFlags.rawFlags
         // User arguments (from -Xswiftc) should follow generated arguments to allow user overrides
-        args += self.buildParameters.flags.swiftCompilerFlags
+        args += self.buildParameters.flags.swiftCompilerFlags.rawFlags
 
         args += self.buildParameters.toolchain.extraFlags.cCompilerFlags.asSwiftcCCompilerFlags()
         // User arguments (from -Xcc) should follow generated arguments to allow user overrides
@@ -654,7 +654,7 @@ public final class SwiftModuleBuildDescription {
         args += try self.cxxInteroperabilityModeArguments(
             propagateFromCurrentModuleOtherSwiftFlags: true)
 
-        args += self.buildParameters.toolchain.extraFlags.swiftCompilerFlags
+        args += self.buildParameters.toolchain.extraFlags.swiftCompilerFlags.rawFlags
 
         // Include search paths determined during planning
         args += self.additionalFlags
@@ -1030,10 +1030,10 @@ public final class SwiftModuleBuildDescription {
         let queryFlags = ["-enable-experimental-feature", "Embedded"]
 
         let toolchainFlags = self.buildParameters.toolchain.extraFlags.swiftCompilerFlags
-        if toolchainFlags.contains(queryFlags) { return true }
+        if toolchainFlags.rawFlags.contains(queryFlags) { return true }
 
         let generalFlags = self.buildParameters.flags.swiftCompilerFlags
-        if generalFlags.contains(queryFlags) { return true }
+        if generalFlags.rawFlags.contains(queryFlags) { return true }
 
         return false
     }

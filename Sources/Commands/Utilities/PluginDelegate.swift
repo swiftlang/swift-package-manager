@@ -130,7 +130,7 @@ final class PluginDelegate: PluginInvocationDelegate {
         }
         buildParameters.flags.cCompilerFlags.append(contentsOf: parameters.otherCFlags)
         buildParameters.flags.cxxCompilerFlags.append(contentsOf: parameters.otherCxxFlags)
-        buildParameters.flags.swiftCompilerFlags.append(contentsOf: parameters.otherSwiftcFlags)
+        buildParameters.flags.swiftCompilerFlags.append(contentsOf: parameters.otherSwiftcFlags.constructBuildFlags(source: nil))
         buildParameters.flags.linkerFlags.append(contentsOf: parameters.otherLinkerFlags)
 
         // Configure the verbosity of the output.

@@ -203,9 +203,9 @@ public struct BuildParameters: Encodable {
             self.flags = flags.merging(triple.isWindows() ? BuildFlags(
                 cCompilerFlags: ["-gdwarf"],
                 cxxCompilerFlags: ["-gdwarf"],
-                swiftCompilerFlags: ["-g", "-use-ld=lld"],
+                swiftCompilerFlags: ["-g", "-use-ld=lld"].constructBuildFlags(source: nil),
                 linkerFlags: ["-debug:dwarf"]
-            ) : BuildFlags(cCompilerFlags: ["-g"], cxxCompilerFlags: ["-g"], swiftCompilerFlags: ["-g"]))
+            ) : BuildFlags(cCompilerFlags: ["-g"], cxxCompilerFlags: ["-g"], swiftCompilerFlags: [BuildFlag(value: "-g")]))
         case .codeview:
             if !triple.isWindows() {
                 throw StringError("CodeView debug information is currently not supported on \(triple.osName)")
@@ -214,7 +214,7 @@ public struct BuildParameters: Encodable {
             self.flags = flags.merging(BuildFlags(
                 cCompilerFlags: ["-g"],
                 cxxCompilerFlags: ["-g"],
-                swiftCompilerFlags: ["-g", "-debug-info-format=codeview"],
+                swiftCompilerFlags: ["-g", "-debug-info-format=codeview"].constructBuildFlags(source: nil),
                 linkerFlags: ["-debug"]
             ))
         case .none:
@@ -222,7 +222,7 @@ public struct BuildParameters: Encodable {
             self.flags = flags.merging(BuildFlags(
                 cCompilerFlags: ["-g0"],
                 cxxCompilerFlags: ["-g0"],
-                swiftCompilerFlags: ["-gnone"]
+                swiftCompilerFlags: [BuildFlag(value: "-gnone")]
             ))
         }
         self.pkgConfigDirectories = pkgConfigDirectories

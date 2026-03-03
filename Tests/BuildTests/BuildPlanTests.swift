@@ -5038,7 +5038,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         )
         let commonFlags = BuildFlags(
             cCompilerFlags: ["-clang-command-line-flag"],
-            swiftCompilerFlags: ["-swift-command-line-flag"]
+            swiftCompilerFlags: [BuildFlag(value: "-swift-command-line-flag")]
         )
 
         let result = try await BuildPlanResult(plan: mockBuildPlan(
@@ -5165,14 +5165,14 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         )
 
         XCTAssertEqual(
-            mockToolchain.extraFlags.swiftCompilerFlags,
+            mockToolchain.extraFlags.swiftCompilerFlags.rawFlags,
             [
                 "-plugin-path", "/fake/path/lib/swift/host/plugins/testing",
                 "-sdk", "/fake/sdk",
             ]
         )
         XCTAssertNoMatch(mockToolchain.extraFlags.linkerFlags, ["-rpath"])
-        XCTAssertNoMatch(mockToolchain.extraFlags.swiftCompilerFlags, [
+        XCTAssertNoMatch(mockToolchain.extraFlags.swiftCompilerFlags.rawFlags, [
             "-I", "/fake/path/lib/swift/macosx/testing",
             "-L", "/fake/path/lib/swift/macosx/testing",
         ])
@@ -5284,7 +5284,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         )
 
         XCTAssertEqual(
-            mockToolchain.extraFlags.swiftCompilerFlags,
+            mockToolchain.extraFlags.swiftCompilerFlags.rawFlags,
             [
                 "-I", "/fake/path/lib/swift/macosx/testing",
                 "-L", "/fake/path/lib/swift/macosx/testing",
@@ -5416,7 +5416,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             commonFlags: BuildFlags(
                 cCompilerFlags: [cliFlag(tool: .cCompiler)],
                 cxxCompilerFlags: [cliFlag(tool: .cxxCompiler)],
-                swiftCompilerFlags: [cliFlag(tool: .swiftCompiler)],
+                swiftCompilerFlags: [cliFlag(tool: .swiftCompiler)].constructBuildFlags(source: nil),
                 linkerFlags: [cliFlag(tool: .linker)]
             ),
             fileSystem: fileSystem,
