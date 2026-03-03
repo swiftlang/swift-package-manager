@@ -1325,6 +1325,52 @@ struct TestCommandTests {
     }
 
     @Test(
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func defaultInteropMode(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Miscellaneous/DefaultInteropMode") { fixturePath in
+            try await executeSwiftTest(
+                fixturePath,
+                buildSystem: buildSystem,
+                throwIfCommandFails: true,
+            )
+        }
+    }
+
+    @Test(
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func noDefaultInteropMode(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Miscellaneous/NoDefaultInteropMode") { fixturePath in
+            try await executeSwiftTest(
+                fixturePath,
+                buildSystem: buildSystem,
+                throwIfCommandFails: true,
+            )
+        }
+    }
+
+    @Test(
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func respectUserOverrideInteropMode(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Miscellaneous/RespectUserInteropMode") { fixturePath in
+            try await executeSwiftTest(
+                fixturePath,
+                env: ["SWIFT_TESTING_XCTEST_INTEROP_MODE": "none"],
+                buildSystem: buildSystem,
+                throwIfCommandFails: true,
+            )
+        }
+    }
+
+    @Test(
         .tags(
             .Feature.TargetType.Executable,
             .Feature.CommandLineArguments.TestDisableSwiftTesting,
