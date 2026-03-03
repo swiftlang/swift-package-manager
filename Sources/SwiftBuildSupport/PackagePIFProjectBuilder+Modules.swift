@@ -366,6 +366,9 @@ extension PackagePIFProjectBuilder {
         // Configure the target-wide build settings. The details depend on the kind of product we're building.
         var settings: BuildSettings = self.package.underlying.packageBaseBuildSettings
 
+        // Ensure the intermediates for this target don't clash with the intermediates of a target representing a package product with the same name
+        settings[.TARGET_TEMP_DIR_SUFFIX] = "-t"
+
         if sourceModule.platformConstraint == .host {
             settings[.SUPPORTED_PLATFORMS] = ["$(HOST_PLATFORM)"]
         }
