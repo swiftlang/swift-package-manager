@@ -368,9 +368,9 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         // building for Darwin in debug configuration.
         args += self.swiftASTs.flatMap { ["-Xlinker", "-add_ast_path", "-Xlinker", $0.pathString] }
 
-        args += self.buildParameters.toolchain.extraFlags.swiftCompilerFlags
+        args += self.buildParameters.toolchain.extraFlags.swiftCompilerFlags.rawFlags
         // User arguments (from -Xswiftc) should follow generated arguments to allow user overrides
-        args += self.buildParameters.flags.swiftCompilerFlags
+        args += self.buildParameters.flags.swiftCompilerFlags.rawFlags
 
         args += self.buildParameters.toolchain.extraFlags.linkerFlags.asSwiftcLinkerFlags()
         // User arguments (from -Xlinker) should follow generated arguments to allow user overrides

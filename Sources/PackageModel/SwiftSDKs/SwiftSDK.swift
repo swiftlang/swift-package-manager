@@ -239,7 +239,7 @@ public struct SwiftSDK: Equatable {
     /// Additional flags to be passed to the Swift compiler.
     @available(*, deprecated, message: "use `toolset` and its properties instead")
     public var extraSwiftCFlags: [String] {
-        extraFlags.swiftCompilerFlags
+        extraFlags.swiftCompilerFlags.rawFlags
     }
 
     /// Additional flags to be passed to the C++ compiler.
@@ -251,10 +251,11 @@ public struct SwiftSDK: Equatable {
     /// Additional flags to be passed to the build tools.
     @available(*, deprecated, message: "use `toolset` and its properties instead")
     public var extraFlags: BuildFlags {
-        .init(
+        let swiftCompilerFlags = (toolset.knownTools[.swiftCompiler]?.extraCLIOptions ?? []).constructBuildFlags(source: .swiftSDK)
+        return .init(
             cCompilerFlags: toolset.knownTools[.cCompiler]?.extraCLIOptions ?? [],
             cxxCompilerFlags: toolset.knownTools[.cxxCompiler]?.extraCLIOptions ?? [],
-            swiftCompilerFlags: toolset.knownTools[.swiftCompiler]?.extraCLIOptions ?? [],
+            swiftCompilerFlags: swiftCompilerFlags,
             linkerFlags: toolset.knownTools[.linker]?.extraCLIOptions ?? [],
             xcbuildFlags: toolset.knownTools[.xcbuild]?.extraCLIOptions ?? []
         )
@@ -448,6 +449,7 @@ public struct SwiftSDK: Equatable {
         extraSwiftCFlags: [String] = [],
         extraCPPFlags: [String] = []
     ) {
+        let extraSwiftCFlags = extraSwiftCFlags.constructBuildFlags(source: .swiftSDK)
         self.init(
             targetTriple: target,
             sdkRootDir: sdk,
@@ -1058,7 +1060,7 @@ extension SwiftSDK {
                     buildFlags: .init(
                         cCompilerFlags: serializedMetadata.extraCCFlags,
                         cxxCompilerFlags: serializedMetadata.extraCPPFlags,
-                        swiftCompilerFlags: serializedMetadata.extraSwiftCFlags
+                        swiftCompilerFlags: serializedMetadata.extraSwiftCFlags.constructBuildFlags(source: .swiftSDK)
                     )
                 ),
                 pathsConfiguration: .init(sdkRootPath: serializedMetadata.sdk)
@@ -1078,7 +1080,7 @@ extension SwiftSDK {
                     buildFlags: .init(
                         cCompilerFlags: serializedMetadata.extraCCFlags,
                         cxxCompilerFlags: serializedMetadata.extraCXXFlags,
-                        swiftCompilerFlags: serializedMetadata.extraSwiftCFlags,
+                        swiftCompilerFlags: serializedMetadata.extraSwiftCFlags.constructBuildFlags(source: .swiftSDK),
                         linkerFlags: serializedMetadata.extraLinkerFlags
                     )
                 ),

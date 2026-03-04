@@ -806,7 +806,7 @@ public final class UserToolchain: Toolchain {
 
         self.targetTriple = triple
 
-        var swiftCompilerFlags: [String] = []
+        var swiftCompilerFlags: [BuildFlag] = []
         var extraLinkerFlags: [String] = []
 
         let swiftTestingPath: AbsolutePath? = try Self.deriveSwiftTestingPath(
@@ -817,14 +817,15 @@ public final class UserToolchain: Toolchain {
             fileSystem: fileSystem
         )
 
+        var swiftTestingFlags: [String] = []
         if triple.isMacOSX, let swiftTestingPath {
             // Swift Testing is a framework (e.g. from CommandLineTools) so use -F.
             if swiftTestingPath.extension == "framework" {
-                swiftCompilerFlags += ["-F", swiftTestingPath.pathString]
+                swiftTestingFlags += ["-F", swiftTestingPath.pathString]
 
             // Otherwise Swift Testing is assumed to be a swiftmodule + library, so use -I and -L.
             } else {
-                swiftCompilerFlags += [
+                swiftTestingFlags += [
                     "-I", swiftTestingPath.pathString,
                     "-L", swiftTestingPath.pathString,
                 ]
@@ -837,15 +838,21 @@ public final class UserToolchain: Toolchain {
             derivedSwiftCompiler: swiftCompilers.compile,
             fileSystem: fileSystem
         ) {
-            swiftCompilerFlags += ["-plugin-path", swiftTestingPluginPath.pathString]
+            swiftTestingFlags += ["-plugin-path", swiftTestingPluginPath.pathString]
         }
+
+        swiftCompilerFlags.append(contentsOf: swiftTestingFlags.map {
+            BuildFlag(value: $0, source: .defaultSwiftTestingSearchPath)
+        })
 
         swiftCompilerFlags += try Self.deriveSwiftCFlags(
             triple: triple,
             swiftSDK: swiftSDK,
             environment: environment,
             fileSystem: fileSystem
-        )
+        ).map {
+            BuildFlag(value: $0, source: nil)
+        }
 
         extraLinkerFlags += swiftSDK.toolset.knownTools[.linker]?.extraCLIOptions ?? []
 
@@ -865,7 +872,7 @@ public final class UserToolchain: Toolchain {
             useXcrun: useXcrun,
             environment: environment,
             searchPaths: envSearchPaths,
-            extraSwiftFlags: self.extraFlags.swiftCompilerFlags,
+            extraSwiftFlags: self.extraFlags.swiftCompilerFlags.rawFlags,
             fileSystem: fileSystem
         )
 
@@ -936,7 +943,7 @@ public final class UserToolchain: Toolchain {
         self.configuration = .init(
             librarianPath: librarianPath,
             swiftCompilerPath: swiftCompilers.manifest,
-            swiftCompilerFlags: self.extraFlags.swiftCompilerFlags,
+            swiftCompilerFlags: self.extraFlags.swiftCompilerFlags.rawFlags,
             swiftCompilerEnvironment: environment,
             swiftPMLibrariesLocation: swiftPMLibrariesLocation,
             sdkRootPath: self.swiftSDK.pathsConfiguration.sdkRootPath,

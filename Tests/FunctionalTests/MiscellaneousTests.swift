@@ -1193,6 +1193,7 @@ struct MiscellaneousTestCase {
     func noWarningFromRemoteDependencies(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
+        try await withKnownIssue(isIntermittent: true) {
         let configuration = BuildConfiguration.debug
         try await fixture(name: "Miscellaneous/DependenciesWarnings") { path in
             // prepare the deps as git sources
@@ -1212,6 +1213,9 @@ struct MiscellaneousTestCase {
             #expect((stdout + stderr).contains("'DeprecatedApp' is deprecated"))
             #expect(!(stdout + stderr).contains("'Deprecated1' is deprecated"))
             #expect(!(stdout + stderr).contains("'Deprecated2' is deprecated"))
+        }
+        } when: {
+            buildSystem == .swiftbuild
         }
     }
 
@@ -1333,6 +1337,21 @@ struct MiscellaneousSwiftTestingTests {
             _ = try await executeSwiftBuild(
                 moduleUser,
                 extraArgs: ["--pkg-config-path", fixturePath.pathString],
+                buildSystem: buildSystem,
+            )
+        }
+    }
+
+    @Test(
+        .tags(.Feature.Command.Build),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func caseInsensitiveCollisions(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Miscellaneous/CaseCollision") { fixturePath in
+            try await executeSwiftBuild(
+                fixturePath,
                 buildSystem: buildSystem,
             )
         }

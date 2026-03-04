@@ -288,8 +288,8 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         ).joined(separator: " ")
         settings["OTHER_SWIFT_FLAGS"] = (
             ["$(inherited)"]
-                + buildParameters.toolchain.extraFlags.swiftCompilerFlags.map { $0.spm_shellEscaped() }
-                + buildParameters.flags.swiftCompilerFlags.map { $0.spm_shellEscaped() }
+            + buildParameters.toolchain.extraFlags.swiftCompilerFlags.rawFlags.map { $0.spm_shellEscaped() }
+            + buildParameters.flags.swiftCompilerFlags.rawFlags.map { $0.spm_shellEscaped() }
         ).joined(separator: " ")
         settings["OTHER_LDFLAGS"] = (
             ["$(inherited)"]

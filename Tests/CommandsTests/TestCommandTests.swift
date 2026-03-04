@@ -483,7 +483,7 @@ struct TestCommandTests {
                 #expect(stdout.contains("[3/3]"))
 
                 // Check the xUnit output.
-                #expect(localFileSystem.exists(xUnitOutput), "\(xUnitOutput) does not exist")
+                expectFileExists(at: xUnitOutput, "\(xUnitOutput) does not exist")
                 let contents: String = try localFileSystem.readFileContents(xUnitOutput)
                 #expect(contents.contains("tests=\"3\" failures=\"1\""))
                 let timeRegex = try Regex("time=\"[0-9]+\\.[0-9]+\"")
@@ -521,7 +521,7 @@ struct TestCommandTests {
                 ).stdout
 
                 // Check the xUnit output.
-                #expect(localFileSystem.exists(xUnitOutput))
+                expectFileExists(at: xUnitOutput)
                 let contents: String = try localFileSystem.readFileContents(xUnitOutput)
                 #expect(contents.contains("tests=\"0\" failures=\"0\""))
             }
@@ -709,7 +709,7 @@ struct TestCommandTests {
                 }
 
                 // THEN we expect \(xUnitUnderTest) to exists
-                #expect(FileManager.default.fileExists(atPath: xUnitUnderTest.pathString))
+                expectFileExists(at: xUnitUnderTest)
                 let contents: String = try localFileSystem.readFileContents(xUnitUnderTest)
                 // AND that the xUnit file has the expected contents
                 for match in tcdata.matchesPattern {

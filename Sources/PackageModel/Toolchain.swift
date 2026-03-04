@@ -154,7 +154,7 @@ extension Toolchain {
     }
     
     public var extraSwiftCFlags: [String] {
-        extraFlags.swiftCompilerFlags
+        extraFlags.swiftCompilerFlags.rawFlags
     }
 
     package static func toolchainLibDir(swiftCompilerPath: AbsolutePath) throws -> AbsolutePath {

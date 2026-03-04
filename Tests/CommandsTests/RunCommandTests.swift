@@ -40,7 +40,7 @@ struct RunCommandTests {
     ) async throws -> (stdout: String, stderr: String) {
         return try await executeSwiftRun(
             packagePath,
-            nil,
+            executable,
             extraArgs: args,
             buildSystem: buildSystem,
         )
@@ -127,8 +127,10 @@ struct RunCommandTests {
                 case .native:
                     #expect(stderr.contains("Compiling"))
                     #expect(stderr.contains("Linking"))
-                case .swiftbuild, .xcode:
+                case .swiftbuild:
                     break
+                case .xcode:
+                    Issue.record("Test expectations have not been implemented")
             }
         }
     }
@@ -159,8 +161,10 @@ struct RunCommandTests {
                 case .native:
                     #expect(stderr.contains("Compiling"))
                     #expect(stderr.contains("Linking"))
-                case .swiftbuild, .xcode:
+                case .swiftbuild:
                     break
+                case .xcode:
+                    Issue.record("Test expectations have not been implemented")
             }
         }
     }
