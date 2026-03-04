@@ -61,12 +61,6 @@ import enum SwiftBuild.ProjectModel
 
 // MARK: - PIF GUID Helpers
 
-/// Type aliases to clarify the distinction between PIF representations and Swift Package Manager names
-public typealias PIFTargetName = String
-public typealias PIFTargetGUID = GUID
-public typealias SwiftPackageModuleName = String
-public typealias SwiftPackageProductName = String
-
 public enum TargetSuffix: String, CaseIterable {
     case testable, dynamic
 
@@ -184,7 +178,7 @@ extension PackagePIFBuilder {
     ///
     /// - Parameter targetName: The PIF target name to parse
     /// - Returns: The Swift Package product name, or `nil` if this isn't a product target name
-    package static func productName(forTargetName targetName: PIFTargetName) -> SwiftPackageProductName? {
+    package static func productName(forTargetName targetName: String) -> String? {
         guard targetName.hasSuffix("-product") else {
             return nil
         }
@@ -203,7 +197,7 @@ extension PackagePIFBuilder {
     /// - Note: Resource bundle target names follow the pattern `packageName_moduleName`
     ///   (e.g., `swift-nio_NIOPosix`, `swift-crypto__CryptoExtras`) and are excluded.
     ///   However, module names can start with `_` (e.g., `_CryptoExtras`, `__AsyncFileSystem`).
-    package static func moduleName(forTargetName targetName: PIFTargetName) -> SwiftPackageModuleName? {
+    package static func moduleName(forTargetName targetName: String) -> String? {
         guard !targetName.hasSuffix("-product") else {
             return nil
         }
