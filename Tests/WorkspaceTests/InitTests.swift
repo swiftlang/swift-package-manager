@@ -462,11 +462,11 @@ struct InitTests {
         ) async throws {
             let configuration = BuildConfiguration.debug
             try await withTemporaryDirectory(removeTreeOnDeinit: false) { tempDirPath in
-                expectDirectoryExists(at: tempDirPath)
+                try requireDirectoryExists(at: tempDirPath)
 
                 let packageRoot = tempDirPath.appending("PackageDirectoryName")
                 try localFileSystem.createDirectory(packageRoot)
-                expectDirectoryExists(at: packageRoot)
+                try requireDirectoryExists(at: packageRoot)
 
                 // Create package with non c99name.
                 let initPackage = try InitPackage(
