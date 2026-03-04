@@ -30,6 +30,7 @@ target_link_libraries(SwiftBuildSupport PUBLIC
   PackageGraph
   SwiftBuild::SwiftBuild
   SwiftBuild::SWBBuildService
+  _StringProcessing
 )
 
 set_target_properties(SwiftBuildSupport PROPERTIES

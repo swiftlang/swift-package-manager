@@ -12,6 +12,8 @@
 
 import Foundation
 
+import _StringProcessing
+
 import protocol TSCBasic.FileSystem
 import struct TSCUtility.Version
 
