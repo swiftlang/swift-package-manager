@@ -599,6 +599,10 @@ public struct BuildOptions: ParsableArguments {
     @Flag(name: .customLong("experimental-task-backtraces"), help: .hidden)
     public var enableTaskBacktraces: Bool = false
 
+    // Whether to enable deduplication of diagnostics across parallel build jobs.
+    @Flag(name: .customLong("experimental-diagnostics-dedup"), help: .hidden)
+    public var enableDiagnosticsDedup: Bool = false
+
     // Build dynamic library targets as frameworks (only available for Darwin targets and only when using the 'swiftbuild' build-system (currently used for tests).
     @Flag(name: .customLong("experimental-build-dylibs-as-frameworks"), help: .hidden )
     public var shouldBuildDylibsAsFrameworks: Bool = false
