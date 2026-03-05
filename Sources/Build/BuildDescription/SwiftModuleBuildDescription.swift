@@ -509,6 +509,11 @@ public final class SwiftModuleBuildDescription {
         args += self.optimizationArguments
         args += self.testingArguments
 
+        if self.buildParameters.driverParameters.emitOptimizationRecord {
+            args += ["-save-optimization-record"]
+            args += ["-g"]
+        }
+
         args += ["-j\(self.buildParameters.workers)"]
         args += self.activeCompilationConditions
         args += self.additionalFlags
@@ -828,6 +833,33 @@ public final class SwiftModuleBuildDescription {
 
                 """#
 
+            if self.buildParameters.driverParameters.emitSILFiles {
+                let silPath = try self.silOutputPath()
+                content +=
+                    #"""
+                        "sil": "\#(silPath._nativePathString(escaped: true))",
+
+                    """#
+            }
+
+            if !self.useParallelWMO {
+                if self.buildParameters.driverParameters.emitIRFiles {
+                    let irPath = try self.irOutputPath()
+                    content +=
+                        #"""
+                            "llvm-ir": "\#(irPath._nativePathString(escaped: true))",
+
+                        """#
+                }
+
+                if self.buildParameters.driverParameters.emitOptimizationRecord {
+                    content +=
+                        #"""
+                            "yaml-opt-record": "\#(try self.optimizationRecordOutputPath()._nativePathString(escaped: true))",
+
+                        """#
+                }
+            }
         }
         content +=
             #"""
@@ -874,6 +906,36 @@ public final class SwiftModuleBuildDescription {
                     "swiftmodule": "\#(partialModulePath._nativePathString(escaped: true))",
                     "swift-dependencies": "\#(swiftDepsPath._nativePathString(escaped: true))",
                     "diagnostics": "\#(diagnosticsPath._nativePathString(escaped: true))"
+                """#
+
+            if self.buildParameters.driverParameters.emitSILFiles && !self.useWholeModuleOptimization {
+                let silPath = try self.silOutputPath(for: source)
+                content +=
+                    #"""
+                    ,
+                        "sil": "\#(silPath._nativePathString(escaped: true))"
+                    """#
+            }
+
+            if self.buildParameters.driverParameters.emitIRFiles {
+                let irPath = try self.irOutputPath(for: source)
+                content +=
+                    #"""
+                    ,
+                        "llvm-ir": "\#(irPath._nativePathString(escaped: true))"
+                    """#
+            }
+
+            if self.buildParameters.driverParameters.emitOptimizationRecord {
+                content +=
+                    #"""
+                    ,
+                        "yaml-opt-record": "\#(try self.optimizationRecordOutputPath(for: source)._nativePathString(escaped: true))"
+                    """#
+            }
+
+            content +=
+                #"""
                   }\#((idx + 1) < sources.count ? "," : "")
 
                 """#
@@ -881,8 +943,84 @@ public final class SwiftModuleBuildDescription {
 
         content += "}\n"
 
+        if let silOutputDir = self.buildParameters.driverParameters.silOutputDirectory {
+            do {
+                try fileSystem.createDirectory(silOutputDir, recursive: true)
+                observabilityScope.emit(info: "Writing SIL files to: \(silOutputDir)")
+            } catch {
+                throw StringError("Failed to create SIL output directory at \(silOutputDir): \(error)")
+            }
+        } else if self.buildParameters.driverParameters.emitSILFiles {
+            observabilityScope.emit(info: "Writing SIL files to: \(self.tempsPath)")
+        }
+
+        if let irOutputDir = self.buildParameters.driverParameters.irOutputDirectory {
+            do {
+                try fileSystem.createDirectory(irOutputDir, recursive: true)
+                observabilityScope.emit(info: "Writing LLVM IR files to: \(irOutputDir)")
+            } catch {
+                throw StringError("Failed to create LLVM IR output directory at \(irOutputDir): \(error)")
+            }
+        } else if self.buildParameters.driverParameters.emitIRFiles {
+            observabilityScope.emit(info: "Writing LLVM IR files to: \(self.tempsPath)")
+        }
+
+        if let optRecordDir = self.buildParameters.driverParameters.optimizationRecordDirectory {
+            do {
+                try fileSystem.createDirectory(optRecordDir, recursive: true)
+                observabilityScope.emit(info: "Writing optimization records to: \(optRecordDir)")
+            } catch {
+                throw StringError("Failed to create optimization record output directory at \(optRecordDir): \(error)")
+            }
+        } else if self.buildParameters.driverParameters.emitOptimizationRecord {
+            observabilityScope.emit(info: "Writing optimization records to: \(self.tempsPath)")
+        }
+
         try fileSystem.createDirectory(path.parentDirectory, recursive: true)
         try self.fileSystem.writeFileContents(path, bytes: .init(encodingAsUTF8: content), atomically: true)
+    }
+
+    /// Returns the path for SIL output file.
+    /// In WMO mode, returns the path for the whole module's SIL output.
+    /// In non-WMO mode, returns the path for the given source file's SIL output.
+    private func silOutputPath(for source: AbsolutePath? = nil) throws -> AbsolutePath {
+        let outputDir = self.buildParameters.driverParameters.silOutputDirectory ?? self.tempsPath
+        let baseName: String
+        if self.useWholeModuleOptimization {
+            baseName = self.target.c99name
+        } else {
+            guard let source = source else {
+                throw InternalError("Source file required for SIL output path in non-WMO mode")
+            }
+            baseName = source.basenameWithoutExt
+        }
+        return outputDir.appending(component: baseName + ".sil")
+    }
+
+    private func irOutputPath(for source: AbsolutePath? = nil) throws -> AbsolutePath {
+        let outputDir = self.buildParameters.driverParameters.irOutputDirectory ?? self.tempsPath
+        let baseName: String
+        if let source {
+            baseName = source.basenameWithoutExt
+        } else if self.useWholeModuleOptimization {
+            baseName = self.target.c99name
+        } else {
+            throw InternalError("Source file required for IR output path in non-WMO mode")
+        }
+        return outputDir.appending(component: baseName + ".ll")
+    }
+
+    private func optimizationRecordOutputPath(for source: AbsolutePath? = nil) throws -> AbsolutePath {
+        let outputDir = self.buildParameters.driverParameters.optimizationRecordDirectory ?? self.tempsPath
+        let baseName: String
+        if let source {
+            baseName = source.basenameWithoutExt
+        } else if self.useWholeModuleOptimization {
+            baseName = self.target.c99name
+        } else {
+            throw InternalError("Source file required for optimization record path in non-WMO mode")
+        }
+        return outputDir.appending(component: baseName + ".opt.yaml")
     }
 
     /// Directory for the the compatibility header and module map generated for this target.
@@ -1073,6 +1211,12 @@ public final class SwiftModuleBuildDescription {
         case .release:
             return true
         }
+    }
+
+    /// Whether the Swift driver will use multi-threaded WMO.
+    /// With only one source file, the driver treats it as single-threaded.
+    var useParallelWMO: Bool {
+        ProcessInfo.processInfo.activeProcessorCount > 1 && self.sources.count > 1
     }
 }
 

@@ -603,6 +603,14 @@ public struct BuildOptions: ParsableArguments {
     @Flag(name: .customLong("experimental-build-dylibs-as-frameworks"), help: .hidden )
     public var shouldBuildDylibsAsFrameworks: Bool = false
 
+    /// Enable code size profiling by emitting SIL, LLVM IR, and optimization records.
+    @Flag(name: .customLong("experimental-enable-codesize-profile"), help: "Generate SIL, LLVM IR, and optimization record files for code size profiling.")
+    public var enableCodesizeProfile: Bool = false
+
+    /// Directory for code size profiling output files (SIL, IR, optimization records).
+    @Option(name: .customLong("experimental-codesize-profile-output-dir"), help: "Directory to store code size profiling output files.")
+    public var codesizeProfileOutputDirectory: String?
+
     // @Flag works best when there is a default value present
     // if true, false aren't enough and a third state is needed
     // nil should not be the goto. Instead create an enum

@@ -7614,6 +7614,90 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             false
         )
     }
+
+    func testSupplementaryOutputsCompileArguments() async throws {
+        let fs = InMemoryFileSystem(
+            emptyFiles: "/Pkg/Sources/exe/main.swift"
+        )
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Pkg",
+                    path: "/Pkg",
+                    targets: [
+                        TargetDescription(name: "exe", type: .executable),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        var driverParameters = BuildParameters.Driver()
+        driverParameters.emitSILFiles = true
+        driverParameters.emitIRFiles = true
+        driverParameters.emitOptimizationRecord = true
+
+        let plan = try await mockBuildPlan(
+            config: .release,
+            graph: graph,
+            driverParameters: driverParameters,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+
+        let result = try BuildPlanResult(plan: plan)
+        let exe = try result.moduleBuildDescription(for: "exe").swift()
+
+        let args = try exe.emitCommandLine()
+        XCTAssertMatch(args, ["-save-optimization-record"])
+        XCTAssertMatch(args, ["-g"])
+    }
+
+    func testSupplementaryOutputsInWMOMode() async throws {
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                "/Pkg/Sources/lib/file1.swift",
+                "/Pkg/Sources/lib/file2.swift"
+        )
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Pkg",
+                    path: "/Pkg",
+                    targets: [
+                        TargetDescription(name: "lib"),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        var driverParameters = BuildParameters.Driver()
+        driverParameters.emitSILFiles = true
+        driverParameters.emitIRFiles = true
+        driverParameters.emitOptimizationRecord = true
+
+        let plan = try await mockBuildPlan(
+            config: .release,
+            graph: graph,
+            driverParameters: driverParameters,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+
+        let result = try BuildPlanResult(plan: plan)
+        let lib = try result.moduleBuildDescription(for: "lib").swift()
+
+        let args = try lib.emitCommandLine()
+        XCTAssertMatch(args, ["-whole-module-optimization"])
+        XCTAssertMatch(args, ["-save-optimization-record"])
+    }
 }
 
 class BuildPlanNativeTests: BuildPlanTestCase {
