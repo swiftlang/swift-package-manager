@@ -562,8 +562,8 @@ public final class PackagePIFBuilder {
         settings[.DRIVERKIT_DEPLOYMENT_TARGET] = builder.deploymentTargets[.driverKit] ?? nil
         settings[.XROS_DEPLOYMENT_TARGET] = builder.deploymentTargets[.visionOS] ?? nil
 
-        settings[.DYLIB_INSTALL_NAME_BASE] = "$(RPATH_ORIGIN)"
         for machoPlatform: ProjectModel.BuildSettings.Platform in [ProjectModel.BuildSettings.Platform.macOS, .macCatalyst, .iOS, .watchOS, .tvOS, .xrOS, .driverKit] {
+            settings[.DYLIB_INSTALL_NAME_BASE, machoPlatform] = "@rpath"
             settings[.CLANG_ENABLE_MODULES, machoPlatform] = "YES"
         }
 
