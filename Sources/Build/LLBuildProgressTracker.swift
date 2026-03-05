@@ -147,6 +147,11 @@ final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOut
     private let observabilityScope: ObservabilityScope
     private var cancelled: Bool = false
 
+    /// Diagnostic header lines already printed across all jobs, used to suppress duplicates.
+    /// Keyed by the full diagnostic header line (path:line:col: severity: message).
+    /// All access is serialized through `queue`.
+    private var seenDiagnosticHeaders: Set<String> = []
+
     /// Swift parsers keyed by llbuild command name.
     private var swiftParsers: [String: SwiftCompilerOutputParser] = [:]
 
@@ -453,8 +458,10 @@ final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOut
                     self.progressAnimation.clear()
                 }
 
-                self.outputStream.send(output)
-                self.outputStream.flush()
+                if !self.isDuplicateDiagnosticOutput(output) {
+                    self.outputStream.send(output)
+                    self.outputStream.flush()
+                }
 
                 // next we want to try and scoop out any errors from the output (if reasonable size, otherwise this
                 // will be very slow), so they can later be passed to the advice provider in case of failure.
@@ -474,6 +481,48 @@ final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOut
         let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         self.observabilityScope.emit(.swiftCompilerOutputParsingError(message))
         self.hadCommandFailure()
+    }
+
+    private func isDuplicateDiagnosticOutput(_ output: String) -> Bool {
+        guard self.buildExecutionContext.productsBuildParameters.outputParameters.enableDiagnosticsDedup else {
+            return false
+        }
+
+        return self.filteringDuplicateDiagnostics(output)
+    }
+
+    /// Returns `true` if the output is a duplicate and should be suppressed.
+    /// Records all diagnostic headers seen so far. Must be called from within `queue`.
+    ///
+    /// A diagnostic header line has the form:
+    ///   /path/file.swift:LINE:COL: (error|warning|note|remark): message
+    /// Deduplication key is the full header line, so identical file/line/col/message pairs
+    /// from multiple frontend jobs are printed only once.
+    private func filteringDuplicateDiagnostics(_ output: String) -> Bool {
+        var isDuplicate = false
+        for line in output.components(separatedBy: "\n") {
+            guard Self.isDiagnosticHeader(line) else { continue }
+            if seenDiagnosticHeaders.contains(line) {
+                isDuplicate = true
+            } else {
+                seenDiagnosticHeaders.insert(line)
+            }
+        }
+        return isDuplicate
+    }
+
+    /// Returns true if `line` is a Swift compiler diagnostic header of the form
+    ///   <path>:<line>:<col>: (error|warning|note|remark): <message>
+    /// Source-context lines (indented with spaces/pipes) and inline caret annotations
+    /// are intentionally excluded.
+    private static func isDiagnosticHeader(_ line: String) -> Bool {
+        // Fast pre-check: context lines always start with whitespace or a digit (source listing).
+        guard let first = line.first, first != " ", first != "\t", !first.isNumber else { return false }
+        // Match :LINE:COL: severity: anywhere in the line after a non-empty path prefix.
+        return line.range(
+            of: #":\d+:\d+: (?:error|warning|note|remark):"#,
+            options: .regularExpression
+        ) != nil
     }
 
     func buildStart(configuration: BuildConfiguration) {

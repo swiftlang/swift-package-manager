@@ -974,7 +974,8 @@ public final class SwiftCommandState {
             outputParameters: .init(
                 isColorized: self.options.logging.colorDiagnostics,
                 isVerbose: self.logLevel <= .info,
-                enableTaskBacktraces: self.options.build.enableTaskBacktraces
+                enableTaskBacktraces: self.options.build.enableTaskBacktraces,
+                enableDiagnosticsDedup: self.options.build.enableDiagnosticsDedup
             ),
             testingParameters: .init(
                 forceTestDiscovery: self.options.build.enableTestDiscovery,
