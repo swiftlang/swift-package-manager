@@ -342,7 +342,7 @@ struct PIFBuilderTests {
                 .target(id: "PACKAGE-TARGET:ConditionalBuildSettings")
                 .buildConfig(named: configuration)
 
-            let ldflags = targetConfig.settings[.OTHER_LDFLAGS]
+            let ldflags = try #require(targetConfig.settings[.OTHER_LDFLAGS], "OTHER_LDFLAGs was not expected to be nil")
             switch configuration {
             case .debug:
                 #expect(
