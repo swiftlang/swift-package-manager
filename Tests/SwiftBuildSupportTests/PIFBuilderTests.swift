@@ -345,16 +345,13 @@ struct PIFBuilderTests {
             let ldflags = targetConfig.settings[.OTHER_LDFLAGS]
             switch configuration {
             case .debug:
+               let debugFlags = try #require(ldflags, "Debug config requires OTHER_LDFLAGS")
                 #expect(
-                    ldflags?.contains("-Xlinker") == true && ldflags?.contains("-interposable") == true,
-                    "Debug config should contain -Xlinker and -interposable, but got: \(String(describing: ldflags))"
+                    debugFlags.contains("-Xlinker") && debugFlags.contains("-interposable"),
+                    "Debug config missing required flags: \(debugFlags)"
                 )
             case .release:
-                let hasInterposable = ldflags?.contains("-interposable") ?? false
-                #expect(
-                    !hasInterposable,
-                    "Release config should not contain -interposable, but got: \(String(describing: ldflags))"
-                )
+                #expect(ldflags == nil, "Release config should not have debug flags, but got \(ldflags)")
             }
         }
     }
