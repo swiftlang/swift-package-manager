@@ -55,7 +55,11 @@ final class SandboxTest: XCTestCase {
         stdin.write(sequence: testProgram.utf8)
         try stdin.close()
         let processResult = try process.waitUntilExit()
-        XCTAssertEqual(processResult.exitStatus, .terminated(code: 0), (try? processResult.utf8stderrOutput()) ?? "")
+        XCTAssertEqual(
+            processResult.exitStatus, .terminated(code: 0),
+            (try? processResult.utf8stderrOutput()) ?? "",
+            "Command is \(command)"
+        )
     }
 #endif
 
