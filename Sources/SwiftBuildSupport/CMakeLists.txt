@@ -30,9 +30,6 @@ target_link_libraries(SwiftBuildSupport PUBLIC
   PackageGraph
   SwiftBuild::SwiftBuild
   SwiftBuild::SWBBuildService
-  # PackageCollections
-#  PackageModel
-  SourceControl
 )
 
 set_target_properties(SwiftBuildSupport PROPERTIES
