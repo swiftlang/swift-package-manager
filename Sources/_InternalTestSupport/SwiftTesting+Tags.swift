@@ -161,6 +161,7 @@ extension Tag.Feature.Command.Package {
     @Tag public static var Resolve: Tag
     @Tag public static var ShowDependencies: Tag
     @Tag public static var ShowExecutables: Tag
+    @Tag public static var ShowTemplates: Tag
     @Tag public static var ShowTraits: Tag
     @Tag public static var ToolsVersion: Tag
     @Tag public static var Unedit: Tag
@@ -205,6 +206,7 @@ extension Tag.Feature.PackageType {
     @Tag public static var BuildToolPlugin: Tag
     @Tag public static var CommandPlugin: Tag
     @Tag public static var Macro: Tag
+    @Tag public static var LocalTemplate: Tag
 }
 
 extension Tag.Feature.Product {

@@ -383,6 +383,12 @@ extension InMemoryGitRepository: WorkingCheckout {
         }
     }
 
+    public func checkout(branch: String) throws {
+        self.lock.withLock {
+            self.history[branch] = head
+        }
+    }
+
     public func isAlternateObjectStoreValid(expected: AbsolutePath) -> Bool {
         return true
     }

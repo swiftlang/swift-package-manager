@@ -9,7 +9,6 @@
 add_library(Workspace
   CheckoutState.swift
   Diagnostics.swift
-  InitPackage.swift
   LoadableResult.swift
   ManagedArtifact.swift
   ManagedDependency.swift
@@ -26,6 +25,19 @@ add_library(Workspace
   PackageContainer/SourceControlPackageContainer.swift
   ResolvedFileWatcher.swift
   ResolverPrecomputationProvider.swift
+  TemplateWorkspaceUtilities/InitTemplatePackage.swift
+  TemplateWorkspaceUtilities/InitPackage.swift
+  TemplateWorkspaceUtilities/TemplateDirectoryManager.swift
+  TemplateWorkspaceUtilities/ArgumentProcessing/ArgumentProcessor.swift
+  TemplateWorkspaceUtilities/ArgumentProcessing/ArgumentResponse.swift
+  TemplateWorkspaceUtilities/CommandParsing/ParsedArgument.swift
+  TemplateWorkspaceUtilities/CommandParsing/SplitArguments.swift
+  TemplateWorkspaceUtilities/CommandParsing/TemplateCommandParser.swift
+  TemplateWorkspaceUtilities/Models/ErrorModels.swift
+  TemplateWorkspaceUtilities/Models/ParsingModels.swift
+  TemplateWorkspaceUtilities/Models/ProcessingModels.swift
+  TemplateWorkspaceUtilities/Models/TestTemplateResultModels.swift
+  TemplateWorkspaceUtilities/UserInteraction/InteractivePrompter.swift
   ToolsVersionSpecificationRewriter.swift
   Workspace.swift
   Workspace+BinaryArtifacts.swift
