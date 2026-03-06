@@ -249,7 +249,7 @@ struct MainAttrDetectionTests {
                 fileContent: """
                 /*
                 This is a multi-line comment
-                /* @main
+                */ @main
                 struct MyApp {
                     static func main() {
                         print("Hello, World!")
@@ -257,17 +257,28 @@ struct MainAttrDetectionTests {
                 }
                 """,
                 expected: true,
-                id: "Multi-line comment end on a line containing @main",
-            )
-
+                id: "Multi-line comment end on same line as @main",
+            ),
+            ContainsAtMainReturnsExpectedValueTestData(
+                fileContent: """
+                /*
+                This is a multi-line comment
+                /* @main
+                struct MyApp {
+                    static func main() {
+                        print("Hello, World!")
+                    }
+                }
+                """,
+                expected: false,
+                id: "Nested comment opening with @main (still inside comment)",
+            ),
         ],
     )
-    func containsAtMainReturnsExpectedValueCurrentlyFails(
+    func containsAtMainIssue9685(
         data: ContainsAtMainReturnsExpectedValueTestData,
     ) async throws {
-        await withKnownIssue {
-            try await self._testImplementation_containsAtMainReturnsExpectedValue(data: data)
-        }
+        try await self._testImplementation_containsAtMainReturnsExpectedValue(data: data)
     }
 
     fileprivate func _testImplementation_containsAtMainReturnsExpectedValue(
