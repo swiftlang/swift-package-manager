@@ -32,6 +32,7 @@ add_library(Basics
   Environment/EnvironmentShims.swift
   Errors.swift
   FileSystem/AbsolutePath.swift
+  FileSystem/CommonParentDirectory.swift
   FileSystem/FileSystem+Extensions.swift
   FileSystem/InMemoryFileSystem.swift
   FileSystem/NativePathExtensions.swift
