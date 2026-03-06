@@ -1631,11 +1631,16 @@ private func buildTestsIfNeeded(
     }
 
     if let testProductName = testProduct {
-        guard let selectedTestProduct = testProducts.first(where: { $0.productName == testProductName }) else {
-            throw TestError.testProductNotFound(productName: testProductName)
+        if let selectedTestProduct = testProducts.first(where: { $0.productName == testProductName }) {
+            return [selectedTestProduct]
         }
 
-        return [selectedTestProduct]
+        let selectedTestProducts = testProducts.filter({ $0.umbrellaProductName == testProductName })
+        if !selectedTestProducts.isEmpty {
+            return selectedTestProducts
+        }
+
+        throw TestError.testProductNotFound(productName: testProductName)
     } else {
         return testProducts
     }
