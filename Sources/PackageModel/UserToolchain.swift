@@ -201,10 +201,13 @@ public final class UserToolchain: Toolchain {
 
     private static func getTargetInfo(swiftCompiler: AbsolutePath) throws -> JSON {
         // Call the compiler to get the target info JSON.
+        let result: AsyncProcessResult
         let compilerOutput: String
+        let compilerStderr: String
         do {
-            let result = try AsyncProcess.popen(args: swiftCompiler.pathString, "-print-target-info")
+            result = try AsyncProcess.popen(args: swiftCompiler.pathString, "-print-target-info")
             compilerOutput = try result.utf8Output().spm_chomp()
+            compilerStderr = try result.utf8stderrOutput().spm_chomp()
         } catch {
             throw InternalError(
                 "Failed to load target info (\(error.interpolationDescription))"
@@ -215,7 +218,7 @@ public final class UserToolchain: Toolchain {
             return try JSON(string: compilerOutput)
         } catch {
             throw InternalError(
-                "Failed to parse target info (\(error.interpolationDescription)).\nRaw compiler output: \(compilerOutput)"
+                "Failed to parse target info (\(error.interpolationDescription)).\nCompiler exited with staus \(result.exitStatus).\nRaw compiler stdout: \(compilerOutput)\nRaw compiler stderr: \(compilerStderr)"
             )
         }
     }
