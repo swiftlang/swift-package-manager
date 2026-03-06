@@ -31,8 +31,8 @@ target_link_libraries(SwiftBuildSupport PUBLIC
   SwiftBuild::SwiftBuild
   SwiftBuild::SWBBuildService
   # PackageCollections
-  PackageModel
-#  SourceControl
+#  PackageModel
+  SourceControl
 )
 
 set_target_properties(SwiftBuildSupport PROPERTIES
