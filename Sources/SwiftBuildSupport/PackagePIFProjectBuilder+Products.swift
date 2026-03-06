@@ -1136,6 +1136,41 @@ extension PackagePIFProjectBuilder {
         )
         self.builtModulesAndProducts.append(testRunner)
     }
+
+    mutating func makePackageTestProduct() throws {
+        let productName = "\(packageManifest.displayName)PackageTests"
+        let packageIdentity = package.identity
+        let packageTestProductKeyPath = try project.addAggregateTarget { _ in
+            ProjectModel.AggregateTarget(
+                id: PackagePIFBuilder.targetGUID(forProductName: productName, withId: "\(packageIdentity.description)-\(productName)"),
+                name: PackagePIFBuilder.targetName(forProductName: productName)
+            )
+        }
+
+        for config in ["Debug", "Release"] {
+            project[keyPath: packageTestProductKeyPath].common.addBuildConfig { id in
+                BuildConfig(id: id, name: config, settings: BuildSettings())
+            }
+        }
+
+        for target in project.targets {
+            switch target {
+            case .target(let target):
+                switch target.productType {
+                case .unitTest, .swiftpmTestRunner:
+                    project[keyPath: packageTestProductKeyPath].common.addDependency(
+                        on: target.id,
+                        platformFilters: [],
+                        linkProduct: false
+                    )
+                default:
+                    break
+                }
+            case .aggregate:
+                break
+            }
+        }
+    }
 }
 
 // MARK: - Helper Types
