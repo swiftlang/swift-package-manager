@@ -311,9 +311,16 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             }
 
             if !self.options.shouldRunInParallel {
-                let (xctestArgs, testCount) = try xctestArgs(for: testProducts, swiftCommandState: swiftCommandState)
+                let (xctestArgs, testCount, testPaths) = try xctestArgs(for: testProducts, swiftCommandState: swiftCommandState)
+
+                // Tests have been filtered and/or skipped; assure that we only run test products
+                // of the tests we must run.
+                var filteredTestProducts = testProducts
+                if let testPaths, testProducts.count != testPaths.count {
+                    filteredTestProducts = testProducts.filter({ testPaths.contains($0.bundlePath) })
+                }
                 let result = try await runTestProducts(
-                    testProducts,
+                    filteredTestProducts,
                     additionalArguments: xctestArgs,
                     productsBuildParameters: buildParameters,
                     swiftCommandState: swiftCommandState,
@@ -412,13 +419,13 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         }
     }
 
-    private func xctestArgs(for testProducts: [BuiltTestProduct], swiftCommandState: SwiftCommandState) throws -> (arguments: [String], testCount: Int?) {
+    private func xctestArgs(for testProducts: [BuiltTestProduct], swiftCommandState: SwiftCommandState) throws -> (arguments: [String], testCount: Int?, testPaths: Set<AbsolutePath>?) {
         switch options.testCaseSpecifier {
         case .none:
             if case .skip = options.skippedTests(fileSystem: swiftCommandState.fileSystem) {
                 fallthrough
             } else {
-                return ([], nil)
+                return ([], nil, nil)
             }
 
         case .regex, .specific, .skip:
@@ -440,7 +447,8 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                 .filteredTests(specifier: options.testCaseSpecifier)
                 .skippedTests(specifier: options.skippedTests(fileSystem: swiftCommandState.fileSystem))
 
-            return (TestRunner.xctestArguments(forTestSpecifiers: tests.map(\.specifier)), tests.count)
+            // TODO bp tests: UnitTests , UnitTest.productPath == testSuite.bundlePath
+            return (TestRunner.xctestArguments(forTestSpecifiers: tests.map(\.specifier)), tests.count, Set(tests.map(\.productPath)))
         }
     }
 
