@@ -337,6 +337,30 @@ struct PIFBuilderTests {
     }
 
 
+    @Test(arguments: BuildConfiguration.allCases)
+    func conditionalLinkerSettings(configuration: BuildConfiguration) async throws {
+        try await withGeneratedPIF(fromFixture: "PIFBuilder/ConditionalBuildSettings") { pif, observabilitySystem in
+            let errors = observabilitySystem.diagnostics.filter { $0.severity == .error }
+            #expect(errors.isEmpty, "Expected no errors during PIF generation, but got: \(errors)")
+
+            let targetConfig = try pif.workspace
+                .project(named: "ConditionalBuildSettings")
+                .target(id: "PACKAGE-TARGET:ConditionalBuildSettings")
+                .buildConfig(named: configuration)
+
+            let ldflags = targetConfig.settings[.OTHER_LDFLAGS]
+            switch configuration {
+            case .debug:
+               let debugFlags = try #require(ldflags, "Debug config requires OTHER_LDFLAGS")
+                #expect(
+                    debugFlags.contains("-Xlinker") && debugFlags.contains("-interposable"),
+                    "Debug config missing required flags: \(debugFlags)"
+                )
+            case .release:
+                #expect(ldflags == nil, "Release config should not have debug flags, but got \(ldflags)")
+            }
+        }
+    }
 
     @Test func impartedModuleMaps() async throws {
         try await withGeneratedPIF(fromFixture: "CFamilyTargets/ModuleMapGenerationCases") { pif, observabilitySystem in
