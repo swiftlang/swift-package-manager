@@ -533,7 +533,11 @@ extension ManifestParseVisitor {
             }
             
             if argument.label?.text == "pkgConfig" {
-                self.pkgConfig = argument.expression.asStringLiteralValue(in: contextModel)
+                if let value = argument.expression.asStringLiteralValue(in: contextModel) {
+                    self.pkgConfig = value
+                } else {
+                    limitations.append(.unsupportedExpression(argument.expression, expected: "pkgConfig string"))
+                }
                 continue
             }
             
@@ -723,15 +727,33 @@ extension ManifestParseVisitor {
             } else if label == "dependencies" {
                 if let deps = argument.expression.parseArrayElements(parseTargetDependency) {
                     dependencies.append(contentsOf: deps)
+                } else {
+                    limitations.append(.unsupportedExpression(argument.expression, expected: "array of target dependencies"))
                 }
             } else if label == "path" {
-                path = argument.expression.asStringLiteralValue(in: contextModel)
+                if let value = argument.expression.asStringLiteralValue(in: contextModel) {
+                    path = value
+                } else {
+                    limitations.append(.unsupportedExpression(argument.expression, expected: "path string"))
+                }
             } else if label == "url" {
-                url = argument.expression.asStringLiteralValue(in: contextModel)
+                if let value = argument.expression.asStringLiteralValue(in: contextModel) {
+                    url = value
+                } else {
+                    limitations.append(.unsupportedExpression(argument.expression, expected: "url string"))
+                }
             } else if label == "checksum" {
-                checksum = argument.expression.asStringLiteralValue()
+                if let value = argument.expression.asStringLiteralValue() {
+                    checksum = value
+                } else {
+                    limitations.append(.unsupportedExpression(argument.expression, expected: "checksum string"))
+                }
             } else if label == "exclude" {
-                exclude = argument.expression.asStringArray(in: contextModel) ?? []
+                if let value = argument.expression.asStringArray(in: contextModel) {
+                    exclude = value
+                } else {
+                    limitations.append(.unsupportedExpression(argument.expression, expected: "array of excluded paths"))
+                }
             } else if label == "sources" {
                 if let parsed = argument.expression.asStringArray(in: contextModel) {
                     sources = parsed
@@ -739,9 +761,17 @@ extension ManifestParseVisitor {
                     limitations.append(.unsupportedExpression(argument.expression, expected: "array of source file paths"))
                 }
             } else if label == "publicHeadersPath" {
-                publicHeadersPath = argument.expression.asStringLiteralValue(in: contextModel)
+                if let value = argument.expression.asStringLiteralValue(in: contextModel) {
+                    publicHeadersPath = value
+                } else {
+                    limitations.append(.unsupportedExpression(argument.expression, expected: "publicHeadersPath string"))
+                }
             } else if label == "pkgConfig" {
-                pkgConfig = argument.expression.asStringLiteralValue()
+                if let value = argument.expression.asStringLiteralValue() {
+                    pkgConfig = value
+                } else {
+                    limitations.append(.unsupportedExpression(argument.expression, expected: "pkgConfig string"))
+                }
             } else if label == "providers" {
                 if let providersArray = argument.expression.as(ArrayExprSyntax.self) {
                     var parsedProviders: [SystemPackageProviderDescription] = []
@@ -751,34 +781,52 @@ extension ManifestParseVisitor {
                         }
                     }
                     providers = parsedProviders.isEmpty ? nil : parsedProviders
+                } else {
+                    limitations.append(.unsupportedExpression(argument.expression, expected: "array of system package providers"))
                 }
             } else if label == "resources" {
                 if let parsed = argument.expression.parseArrayElements(parseResource) {
                     resources.append(contentsOf: parsed)
+                } else {
+                    limitations.append(.unsupportedExpression(argument.expression, expected: "array of resources"))
                 }
             } else if label == "capability" {
                 pluginCapability = parsePluginCapability(argument.expression)
             } else if label == "cSettings" {
                 if let parsed = argument.expression.parseArrayElements({ parseBuildSetting($0, tool: .c) }) {
                     settings.append(contentsOf: parsed)
+                } else {
+                    limitations.append(.unsupportedExpression(argument.expression, expected: "array of C build settings"))
                 }
             } else if label == "cxxSettings" {
                 if let parsed = argument.expression.parseArrayElements({ parseBuildSetting($0, tool: .cxx) }) {
                     settings.append(contentsOf: parsed)
+                } else {
+                    limitations.append(.unsupportedExpression(argument.expression, expected: "array of C++ build settings"))
                 }
             } else if label == "swiftSettings" {
                 if let parsed = argument.expression.parseArrayElements({ parseBuildSetting($0, tool: .swift) }) {
                     settings.append(contentsOf: parsed)
+                } else {
+                    limitations.append(.unsupportedExpression(argument.expression, expected: "array of Swift build settings"))
                 }
             } else if label == "linkerSettings" {
                 if let parsed = argument.expression.parseArrayElements({ parseBuildSetting($0, tool: .linker) }) {
                     settings.append(contentsOf: parsed)
+                } else {
+                    limitations.append(.unsupportedExpression(argument.expression, expected: "array of linker settings"))
                 }
             } else if label == "plugins" {
-                pluginUsages = argument.expression.parseArrayElements(parsePluginUsage)
+                if let parsed = argument.expression.parseArrayElements(parsePluginUsage) {
+                    pluginUsages = parsed
+                } else {
+                    limitations.append(.unsupportedExpression(argument.expression, expected: "array of plugin usages"))
+                }
             } else if label == "packageAccess" {
                 if let boolValue = argument.expression.asBooleanLiteralValue() {
                     packageAccess = boolValue
+                } else {
+                    limitations.append(.unsupportedExpression(argument.expression, expected: "boolean literal for packageAccess"))
                 }
             } else {
                 // Unknown/unsupported argument - not a limitation, just skip it
@@ -920,12 +968,20 @@ extension ManifestParseVisitor {
                 hasPlatforms = true
                 if let parsed = argument.expression.parseArrayElements({ $0.asEnumMember() }) {
                     platformNames = parsed.map { $0.lowercased() }
+                } else {
+                    limitations.append(.unsupportedExpression(argument.expression, expected: "array of platform conditions"))
                 }
             } else if label == "configuration" {
-                config = argument.expression.asEnumMember()
+                if let value = argument.expression.asEnumMember() {
+                    config = value
+                } else {
+                    limitations.append(.unsupportedExpression(argument.expression, expected: "build configuration"))
+                }
             } else if label == "traits" {
                 if let parsed = argument.expression.asStringArray(in: contextModel) {
                     traits = parsed
+                } else {
+                    limitations.append(.unsupportedExpression(argument.expression, expected: "array of trait names"))
                 }
             }
         }
@@ -964,6 +1020,8 @@ extension ManifestParseVisitor {
                 if let keyString = element.key.asStringLiteralValue(in: contextModel),
                    let valueString = element.value.asStringLiteralValue(in: contextModel) {
                     aliases[keyString] = valueString
+                } else {
+                    limitations.append(.unsupportedExpression(element.key, expected: "string literal module alias key and value"))
                 }
             }
         }
@@ -1236,6 +1294,8 @@ extension ManifestParseVisitor {
         for element in arrayExpr.elements {
             if let packageName = element.expression.asStringLiteralValue(in: contextModel) {
                 packages.append(packageName)
+            } else {
+                limitations.append(.unsupportedExpression(element.expression, expected: "string literal package name"))
             }
         }
         
@@ -2346,27 +2406,29 @@ extension ManifestParseVisitor {
         // Handle .default(enabledTraits: [...])
         if method == "default" {
             var enabledTraits: [String] = []
-            
+
             for argument in functionCall.arguments {
                 if argument.label?.text == "enabledTraits" {
                     if let parsed = argument.expression.asStringArray(in: contextModel) {
                         enabledTraits = parsed
+                    } else {
+                        limitations.append(.unsupportedExpression(argument.expression, expected: "array of enabled trait names"))
                     }
                 }
             }
-            
+
             return TraitDescription(
                 name: "default",
                 description: "The default traits of this package.",
                 enabledTraits: enabledTraits
             )
         }
-        
+
         // Handle .trait(...) or Trait(...)
         var name: String?
         var description: String?
         var enabledTraits: [String] = []
-        
+
         for argument in functionCall.arguments {
             let label = argument.label?.text
             if label == "name" {
@@ -2376,6 +2438,8 @@ extension ManifestParseVisitor {
             } else if label == "enabledTraits" {
                 if let parsed = argument.expression.asStringArray(in: contextModel) {
                     enabledTraits = parsed
+                } else {
+                    limitations.append(.unsupportedExpression(argument.expression, expected: "array of enabled trait names"))
                 }
             }
         }
