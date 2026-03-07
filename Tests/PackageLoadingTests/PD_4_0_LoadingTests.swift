@@ -525,4 +525,92 @@ final class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
             result.check(diagnostic: "target 'B' referenced in product 'Product' could not be found; valid targets are: 'A'", severity: .error)
         }
     }
+
+    // Test the legacy system library package style: a package with pkgConfig
+    // (and optionally providers) at the Package level and a module.modulemap
+    // file on disk, but no explicit targets or products in the manifest. Both
+    // loaders must synthesize an equivalent system library target and product.
+    func testLegacySystemLibraryPackage() async throws {
+        let content = """
+            // swift-tools-version:4.0
+            import PackageDescription
+            let package = Package(
+                name: "CZLib",
+                pkgConfig: "zlib",
+                providers: [
+                    .brew(["zlib"]),
+                    .apt(["zlib1g-dev"]),
+                ]
+            )
+            """
+
+        for loader in self.testManifestLoaders {
+            let packagePath = AbsolutePath.root
+            let manifestPath = packagePath.appending(component: Manifest.filename)
+            let fileSystem = InMemoryFileSystem()
+            try fileSystem.writeFileContents(manifestPath, string: content)
+            // The presence of module.modulemap triggers the legacy system library path.
+            try fileSystem.writeFileContents(
+                packagePath.appending(component: "module.modulemap"),
+                string: "module CZLib { header \"zlib.h\" }"
+            )
+
+            let observability = ObservabilitySystem.makeForTesting()
+            let manifest = try await (loader ?? self.manifestLoader).load(
+                manifestPath: manifestPath,
+                packageKind: .fileSystem(packagePath),
+                toolsVersion: .v4,
+                fileSystem: fileSystem,
+                observabilityScope: observability.topScope
+            )
+            XCTAssertNoDiagnostics(observability.diagnostics)
+
+            // The parser must synthesize a system library target and product.
+            XCTAssertEqual(manifest.targets.count, 1)
+            let target = try XCTUnwrap(manifest.targets.first)
+            XCTAssertEqual(target.name, "CZLib")
+            XCTAssertEqual(target.type, .system)
+            XCTAssertEqual(target.pkgConfig, "zlib")
+            XCTAssertEqual(target.providers, [.brew(["zlib"]), .apt(["zlib1g-dev"])])
+            XCTAssertEqual(target.packageAccess, false)
+
+            XCTAssertEqual(manifest.products.count, 1)
+            let product = try XCTUnwrap(manifest.products.first)
+            XCTAssertEqual(product.name, "CZLib")
+            XCTAssertEqual(product.type, .library(.automatic))
+            XCTAssertEqual(product.targets, ["CZLib"])
+
+            // Package-level pkgConfig/providers must still be present.
+            XCTAssertEqual(manifest.pkgConfig, "zlib")
+            XCTAssertEqual(manifest.providers, [.brew(["zlib"]), .apt(["zlib1g-dev"])])
+        }
+    }
+
+    // Without a module.modulemap on disk the manifest must NOT synthesize a
+    // system library target, even when pkgConfig is set at the package level.
+    func testLegacySystemLibraryPackageWithoutModuleMap() async throws {
+        let content = """
+            // swift-tools-version:4.0
+            import PackageDescription
+            let package = Package(
+                name: "CZLib",
+                pkgConfig: "zlib"
+            )
+            """
+
+        // No module.modulemap on disk — let loadAndValidateManifest create a
+        // minimal filesystem with only the manifest file.
+        let observability = ObservabilitySystem.makeForTesting()
+        let (manifest, _) = try await loadAndValidateManifest(
+            content,
+            customManifestLoader: self.parsingManifestLoader,
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+        // No targets or products should be synthesized.
+        XCTAssertEqual(manifest.targets.count, 0)
+        XCTAssertEqual(manifest.products.count, 0)
+        XCTAssertEqual(manifest.pkgConfig, "zlib")
+    }
 }
+

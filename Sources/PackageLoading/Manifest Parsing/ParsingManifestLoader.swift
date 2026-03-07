@@ -229,6 +229,36 @@ public final class ParsingManifestLoader: ManifestLoaderProtocol {
             throw .missingPackageName
         }
 
+        // Convert legacy system library packages to the current target-based
+        // model, mirroring the same logic in ManifestLoader.load().
+        //
+        // An old-style system library package has no explicit targets or
+        // products in the manifest, but has a `module.modulemap` file at the
+        // package root. In that case we synthesize a system library target and
+        // an automatic library product that wraps it, carrying over the
+        // package-level pkgConfig and providers.
+        var products = visitor.products
+        var targets = visitor.targets
+        if products.isEmpty, targets.isEmpty,
+            fileSystem.isFile(manifestPath.parentDirectory.appending(component: moduleMapFilename)) {
+            // These initializers only throw for invalid argument combinations.
+            // The arguments below are always valid (matching what ManifestLoader
+            // synthesizes for legacy system library packages), so force-try is safe.
+            products.append(try! ProductDescription(
+                name: packageName,
+                type: .library(.automatic),
+                targets: [packageName])
+            )
+            targets.append(try! TargetDescription(
+                name: packageName,
+                path: "",
+                type: .system,
+                packageAccess: false,
+                pkgConfig: visitor.pkgConfig,
+                providers: visitor.providers
+            ))
+        }
+
         return Manifest(
             displayName: packageName,
             packageIdentity: packageIdentity,
@@ -246,8 +276,8 @@ public final class ParsingManifestLoader: ManifestLoaderProtocol {
             cxxLanguageStandard: visitor.cxxLanguageStandard,
             swiftLanguageVersions: visitor.swiftLanguageVersions,
             dependencies: visitor.dependencies,
-            products: visitor.products,
-            targets: visitor.targets,
+            products: products,
+            targets: targets,
             traits: visitor.traits,
             pruneDependencies: self.pruneDependencies
         )
