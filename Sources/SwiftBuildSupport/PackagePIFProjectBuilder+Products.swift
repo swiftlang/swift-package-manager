@@ -511,7 +511,7 @@ extension PackagePIFProjectBuilder {
 
         // Apply target-specific build settings defined in the manifest.
         let allBuildSettings = mainModule.computeAllBuildSettings(observabilityScope: pifBuilder.observabilityScope, forRemotePackage: pifBuilder.delegate.isRemote)
-        
+
         // Apply settings using the convenience methods
         allBuildSettings.apply(to: &debugSettings, for: .debug)
         allBuildSettings.apply(to: &releaseSettings, for: .release)
@@ -1135,6 +1135,41 @@ extension PackagePIFProjectBuilder {
             deploymentTargets: self.deploymentTargets
         )
         self.builtModulesAndProducts.append(testRunner)
+    }
+
+    mutating func makePackageTestProduct() throws {
+        let productName = "\(packageManifest.displayName)UmbrellaPackageTests"
+        let packageIdentity = package.identity
+        let packageTestProductKeyPath = try project.addAggregateTarget { _ in
+            ProjectModel.AggregateTarget(
+                id: PackagePIFBuilder.targetGUID(forProductName: productName, withId: "\(packageIdentity.description)-\(productName)"),
+                name: PackagePIFBuilder.targetName(forProductName: productName)
+            )
+        }
+
+        for config in ["Debug", "Release"] {
+            project[keyPath: packageTestProductKeyPath].common.addBuildConfig { id in
+                BuildConfig(id: id, name: config, settings: BuildSettings())
+            }
+        }
+
+        for target in project.targets {
+            switch target {
+            case .target(let target):
+                switch target.productType {
+                case .unitTest, .swiftpmTestRunner:
+                    project[keyPath: packageTestProductKeyPath].common.addDependency(
+                        on: target.id,
+                        platformFilters: [],
+                        linkProduct: false
+                    )
+                default:
+                    break
+                }
+            case .aggregate:
+                break
+            }
+        }
     }
 }
 

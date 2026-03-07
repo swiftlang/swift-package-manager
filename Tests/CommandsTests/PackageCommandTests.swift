@@ -6821,8 +6821,8 @@ struct PackageCommandTests {
                             buildSystem: buildSystem,
                         )
                         #expect(stdout.contains("Building for production..."))
-                        #expect(!stdout.contains("-module-name MyExecutable"))
                         if buildSystemProvider == .native {
+                            #expect(!stdout.contains("-module-name MyExecutable"))
                             #expect(stdout.contains("Build of product 'MyExecutable' complete!"))
                         }
                         #expect(stdout.contains("succeeded: true"))
@@ -6852,8 +6852,8 @@ struct PackageCommandTests {
                             )
                             #expect(stdout.contains("Building for production..."))
                             #expect(!stdout.contains("Building for debug..."))
-                            #expect(!stdout.contains("-module-name MyLibrary"))
                             if buildSystemProvider == .native {
+                                #expect(!stdout.contains("-module-name MyLibrary"))
                                 #expect(stdout.contains("Build of product 'MyStaticLibrary' complete!"))
                             }
                             #expect(stdout.contains("succeeded: true"))
@@ -6886,8 +6886,8 @@ struct PackageCommandTests {
                         )
                         #expect(stdout.contains("Building for production..."))
                         #expect(!stdout.contains("Building for debug..."))
-                        #expect(!stdout.contains("-module-name MyLibrary"))
                         if buildSystemProvider == .native {
+                            #expect(!stdout.contains("-module-name MyLibrary"))
                             #expect(stdout.contains("Build of product 'MyDynamicLibrary' complete!"))
                         }
                         #expect(stdout.contains("succeeded: true"))

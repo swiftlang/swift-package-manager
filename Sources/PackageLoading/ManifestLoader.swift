@@ -645,7 +645,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             manifestPreamble = ByteString("\nimport Foundation")
         }
 
-        return try await Basics.withTemporaryDirectory(removeTreeOnDeinit: true) { tempDir in
+        return try await Basics.withTemporaryDirectory(removeTreeOnDeinit: false) { tempDir in
             let manifestTempFilePath = tempDir.appending("manifest.swift")
             // Since this isn't overwriting the original file, append Foundation library
             // import to avoid having diagnostics being displayed on the incorrect line.
@@ -775,7 +775,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         cmd += self.extraManifestFlags
 
         // Compile the manifest in a temporary directory
-        return try await Basics.withTemporaryDirectory(removeTreeOnDeinit: true) { tmpDir in
+        return try await Basics.withTemporaryDirectory(removeTreeOnDeinit: false) { tmpDir in
             // Set path to compiled manifest executable.
             #if os(Windows)
             let executableSuffix = ".exe"
