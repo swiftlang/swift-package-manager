@@ -540,6 +540,8 @@ public final class PackagePIFBuilder {
         let customModulesAndProducts = try delegate.addCustomTargets(pifProject: &projectBuilder.project)
         projectBuilder.builtModulesAndProducts.append(contentsOf: customModulesAndProducts)
 
+        try projectBuilder.makePackageTestProduct()
+
         self._pifProject = projectBuilder.project
         return projectBuilder.builtModulesAndProducts
     }
