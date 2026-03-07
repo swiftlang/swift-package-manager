@@ -106,6 +106,8 @@ public final class ChainedParsingManifestLoader: ManifestLoaderProtocol {
             parsingEndTime = DispatchTime.now()
 
             if showLimitations {
+                print("Manifest parser encountered \(limitations.count) limitations that prevent its use for '\(manifestPath.pathString)'")
+
                 let formatter = DiagnosticsFormatter()
                 let filename = manifestPath.pathString
                 let locationConverter = SourceLocationConverter(
