@@ -57,7 +57,7 @@ extension Package {
 
         /// The dependencies traits configuration.
         @available(_PackageDescription, introduced: 6.1)
-        public let traits: Set<Trait>
+        public let traits: [Trait]
 
         /// The name of the dependency.
         ///
@@ -131,7 +131,7 @@ extension Package {
             name: String?,
             url: String,
             requirement: Requirement,
-            traits: Set<Trait>?
+            traits: [Trait]?
         ) {
             switch requirement {
             case .localPackageItem:
@@ -147,7 +147,7 @@ extension Package {
             }
         }
 
-        init(kind: Kind, traits: Set<Trait>?) {
+        init(kind: Kind, traits: [Trait]?) {
             self.kind = kind
             self.traits = traits ?? [.defaults]
         }
@@ -155,7 +155,7 @@ extension Package {
         convenience init(
             name: String?,
             path: String,
-            traits: Set<Trait>?
+            traits: [Trait]?
         ) {
             self.init(
                 kind: .fileSystem(
@@ -170,7 +170,7 @@ extension Package {
             name: String?,
             location: String,
             requirement: SourceControlRequirement,
-            traits: Set<Trait>?
+            traits: [Trait]?
         ) {
             self.init(
                 kind: .sourceControl(
@@ -185,7 +185,7 @@ extension Package {
         convenience init(
             id: String,
             requirement: RegistryRequirement,
-            traits: Set<Trait>?
+            traits: [Trait]?
         ) {
             self.init(
                 kind: .registry(
@@ -233,7 +233,7 @@ extension Package.Dependency {
     @available(_PackageDescription, introduced: 6.1)
     public static func package(
         path: String,
-        traits: Set<Trait> = [.defaults]
+        traits: [Trait] = [.defaults]
     ) -> Package.Dependency {
         return .init(name: nil, path: path, traits: traits)
     }
@@ -277,7 +277,7 @@ extension Package.Dependency {
     public static func package(
         name: String,
         path: String,
-        traits: Set<Trait> = [.defaults]
+        traits: [Trait] = [.defaults]
     ) -> Package.Dependency {
         return .init(name: name, path: path, traits: traits)
     }
@@ -344,7 +344,7 @@ extension Package.Dependency {
     public static func package(
         url: String,
         from version: Version,
-        traits: Set<Trait> = [.defaults]
+        traits: [Trait] = [.defaults]
     ) -> Package.Dependency {
         return .package(url: url, .upToNextMajor(from: version), traits: traits)
     }
@@ -421,7 +421,7 @@ extension Package.Dependency {
     public static func package(
         url: String,
         branch: String,
-        traits: Set<Trait> = [.defaults]
+        traits: [Trait] = [.defaults]
     ) -> Package.Dependency {
         return .package(url: url, requirement: .branch(branch), traits: traits)
     }
@@ -484,7 +484,7 @@ extension Package.Dependency {
     public static func package(
         url: String,
         revision: String,
-        traits: Set<Trait> = [.defaults]
+        traits: [Trait] = [.defaults]
     ) -> Package.Dependency {
         return .package(url: url, requirement: .revision(revision), traits: traits)
     }
@@ -554,7 +554,7 @@ extension Package.Dependency {
     public static func package(
         url: String,
         _ range: Range<Version>,
-        traits: Set<Trait> = [.defaults]
+        traits: [Trait] = [.defaults]
     ) -> Package.Dependency {
         return .package(name: nil, url: url, requirement: .range(range), traits: traits)
     }
@@ -630,7 +630,7 @@ extension Package.Dependency {
     public static func package(
         url: String,
         _ range: ClosedRange<Version>,
-        traits: Set<Trait> = [.defaults]
+        traits: [Trait] = [.defaults]
     ) -> Package.Dependency {
         return .package(name: nil, url: url, closedRange: range, traits: traits)
     }
@@ -729,7 +729,7 @@ extension Package.Dependency {
         name: String?,
         url: String,
         closedRange: ClosedRange<Version>,
-        traits: Set<Trait> = [.defaults]
+        traits: [Trait] = [.defaults]
     ) -> Package.Dependency {
         // Increase upperbound's patch version by one.
         let upper = closedRange.upperBound
@@ -798,7 +798,7 @@ extension Package.Dependency {
     public static func package(
         url: String,
         exact version: Version,
-        traits: Set<Trait> = [.defaults]
+        traits: [Trait] = [.defaults]
     ) -> Package.Dependency {
         return .package(url: url, requirement: .exact(version), traits: traits)
     }
@@ -851,7 +851,7 @@ extension Package.Dependency {
         name: String? = nil,
         url: String,
         requirement: Package.Dependency.SourceControlRequirement,
-        traits: Set<Trait>?
+        traits: [Trait]?
     ) -> Package.Dependency {
         return .init(name: name, location: url, requirement: requirement, traits: traits)
     }
@@ -919,7 +919,7 @@ extension Package.Dependency {
     public static func package(
         id: String,
         from version: Version,
-        traits: Set<Trait> = [.defaults]
+        traits: [Trait] = [.defaults]
     ) -> Package.Dependency {
         return .package(id: id, .upToNextMajor(from: version), traits: traits)
     }
@@ -975,7 +975,7 @@ extension Package.Dependency {
     public static func package(
         id: String,
         exact version: Version,
-        traits: Set<Trait> = [.defaults]
+        traits: [Trait] = [.defaults]
     ) -> Package.Dependency {
         return .package(id: id, requirement: .exact(version), traits: traits)
     }
@@ -1053,7 +1053,7 @@ extension Package.Dependency {
     public static func package(
         id: String,
         _ range: Range<Version>,
-        traits: Set<Trait> = [.defaults]
+        traits: [Trait] = [.defaults]
     ) -> Package.Dependency {
         return .package(id: id, requirement: .range(range), traits: traits)
     }
@@ -1109,7 +1109,7 @@ extension Package.Dependency {
     public static func package(
         id: String,
         _ range: ClosedRange<Version>,
-        traits: Set<Trait> = [.defaults]
+        traits: [Trait] = [.defaults]
     ) -> Package.Dependency {
         // Increase upperbound's patch version by one.
         let upper = range.upperBound
@@ -1124,7 +1124,7 @@ extension Package.Dependency {
     private static func package(
         id: String,
         requirement: Package.Dependency.RegistryRequirement,
-        traits: Set<Trait>?
+        traits: [Trait]?
     ) -> Package.Dependency {
         let pattern = #"\A[a-zA-Z\d](?:[a-zA-Z\d]|-(?=[a-zA-Z\d])){0,38}\.[a-zA-Z0-9](?:[a-zA-Z0-9]|[-_](?=[a-zA-Z0-9])){0,99}\z"#
         if id.range(of: pattern, options: .regularExpression) == nil {

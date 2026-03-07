@@ -52,17 +52,25 @@ final class PackageDescription5_7LoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        let observability = ObservabilitySystem.makeForTesting()
-        let (manifest, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
-        XCTAssertNoDiagnostics(observability.diagnostics)
-        XCTAssertNoDiagnostics(validationDiagnostics)
+        try await forEachManifestLoader { loader in
+            let observability = ObservabilitySystem.makeForTesting()
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                content,
+                customManifestLoader: loader,
+                observabilityScope: observability.topScope
+            )
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertNoDiagnostics(validationDiagnostics)
 
-        let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map{ ($0.identity.description, $0) })
-        XCTAssertEqual(deps["x.foo"], .registry(identity: "x.foo", requirement: .range("1.1.1" ..< "2.0.0")))
-        XCTAssertEqual(deps["x.bar"], .registry(identity: "x.bar", requirement: .exact("1.1.1")))
-        XCTAssertEqual(deps["x.baz"], .registry(identity: "x.baz", requirement: .range("1.1.1" ..< "2.0.0")))
-        XCTAssertEqual(deps["x.qux"], .registry(identity: "x.qux", requirement: .range("1.1.1" ..< "1.2.0")))
-        XCTAssertEqual(deps["x.quux"], .registry(identity: "x.quux", requirement: .range("1.1.1" ..< "3.0.0")))
+            let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map{ ($0.identity.description, $0) })
+            XCTAssertEqual(deps["x.foo"], .registry(identity: "x.foo", requirement: .range("1.1.1" ..< "2.0.0")))
+            XCTAssertEqual(deps["x.bar"], .registry(identity: "x.bar", requirement: .exact("1.1.1")))
+            XCTAssertEqual(deps["x.baz"], .registry(identity: "x.baz", requirement: .range("1.1.1" ..< "2.0.0")))
+            XCTAssertEqual(deps["x.qux"], .registry(identity: "x.qux", requirement: .range("1.1.1" ..< "1.2.0")))
+            XCTAssertEqual(deps["x.quux"], .registry(identity: "x.quux", requirement: .range("1.1.1" ..< "3.0.0")))
+            
+            return manifest
+        }
     }
 
     func testConditionalTargetDependencies() async throws {
@@ -82,14 +90,22 @@ final class PackageDescription5_7LoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        let observability = ObservabilitySystem.makeForTesting()
-        let (manifest, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
-        XCTAssertNoDiagnostics(observability.diagnostics)
-        XCTAssertNoDiagnostics(validationDiagnostics)
+        try await forEachManifestLoader { loader in
+            let observability = ObservabilitySystem.makeForTesting()
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                content,
+                customManifestLoader: loader,
+                observabilityScope: observability.topScope
+            )
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertNoDiagnostics(validationDiagnostics)
 
-        let dependencies = manifest.targets[0].dependencies
-        XCTAssertEqual(dependencies[0], .target(name: "Bar", condition: .none))
-        XCTAssertEqual(dependencies[1], .target(name: "Baz", condition: .init(platformNames: ["linux"], config: .none)))
+            let dependencies = manifest.targets[0].dependencies
+            XCTAssertEqual(dependencies[0], .target(name: "Bar", condition: .none))
+            XCTAssertEqual(dependencies[1], .target(name: "Baz", condition: .init(platformNames: ["linux"], config: .none)))
+            
+            return manifest
+        }
     }
 
     func testConditionalTargetDependenciesDeprecation() async throws {
@@ -157,19 +173,27 @@ final class PackageDescription5_7LoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        let observability = ObservabilitySystem.makeForTesting()
-        let (manifest, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
-        XCTAssertNoDiagnostics(observability.diagnostics)
-        XCTAssertNoDiagnostics(validationDiagnostics)
+        try await forEachManifestLoader { loader in
+            let observability = ObservabilitySystem.makeForTesting()
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                content,
+                customManifestLoader: loader,
+                observabilityScope: observability.topScope
+            )
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertNoDiagnostics(validationDiagnostics)
 
-        XCTAssertEqual(manifest.platforms, [
-            PlatformDescription(name: "macos", version: "13.0"),
-            PlatformDescription(name: "ios", version: "16.0"),
-            PlatformDescription(name: "tvos", version: "16.0"),
-            PlatformDescription(name: "watchos", version: "9.0"),
-            PlatformDescription(name: "maccatalyst", version: "16.0"),
-            PlatformDescription(name: "driverkit", version: "22.0"),
-        ])
+            XCTAssertEqual(manifest.platforms, [
+                PlatformDescription(name: "macos", version: "13.0"),
+                PlatformDescription(name: "ios", version: "16.0"),
+                PlatformDescription(name: "tvos", version: "16.0"),
+                PlatformDescription(name: "watchos", version: "9.0"),
+                PlatformDescription(name: "maccatalyst", version: "16.0"),
+                PlatformDescription(name: "driverkit", version: "22.0"),
+            ])
+            
+            return manifest
+        }
     }
 
     func testImportRestrictions() async throws {
@@ -212,13 +236,86 @@ final class PackageDescription5_7LoadingTests: PackageDescriptionLoadingTests {
                 )
                 """
 
-            let observability = ObservabilitySystem.makeForTesting()
-            let (_, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
-            XCTAssertNoDiagnostics(observability.diagnostics)
-            testDiagnostics(validationDiagnostics) { result in
-                result.checkUnordered(diagnostic: "unknown package 'org.baz' in dependencies of target 'Target1'; valid packages are: 'org.foo', 'org.bar'", severity: .error)
-                result.checkUnordered(diagnostic: "unknown dependency 'foos' in target 'Target2'; valid dependencies are: 'org.foo', 'org.bar'", severity: .error)
+            try await forEachManifestLoader { loader in
+                let observability = ObservabilitySystem.makeForTesting()
+                let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                    content,
+                    customManifestLoader: loader,
+                    observabilityScope: observability.topScope
+                )
+                XCTAssertNoDiagnostics(observability.diagnostics)
+                testDiagnostics(validationDiagnostics) { result in
+                    result.checkUnordered(diagnostic: "unknown package 'org.baz' in dependencies of target 'Target1'; valid packages are: 'org.foo', 'org.bar'", severity: .error)
+                    result.checkUnordered(diagnostic: "unknown dependency 'foos' in target 'Target2'; valid dependencies are: 'org.foo', 'org.bar'", severity: .error)
+                }
+                return manifest
             }
+        }
+    }
+
+    func testModuleAliases() async throws {
+        let content = """
+            import PackageDescription
+            let package = Package(
+                name: "Foo",
+                dependencies: [
+                    .package(path: "/Bar"),
+                    .package(path: "/Baz"),
+                ],
+                targets: [
+                    .target(
+                        name: "Foo",
+                        dependencies: [
+                            .product(
+                                name: "Bar",
+                                package: "Bar",
+                                moduleAliases: ["Logging": "BarLogging", "Utils": "BarUtils"]
+                            ),
+                            .product(
+                                name: "Baz",
+                                package: "Baz",
+                                moduleAliases: ["Logging": "BazLogging"]
+                            )
+                        ]
+                    ),
+                ]
+            )
+            """
+
+        try await forEachManifestLoader { loader in
+            let observability = ObservabilitySystem.makeForTesting()
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                content,
+                customManifestLoader: loader,
+                observabilityScope: observability.topScope
+            )
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertNoDiagnostics(validationDiagnostics)
+
+            let dependencies = manifest.targets[0].dependencies
+            XCTAssertEqual(dependencies.count, 2)
+            
+            XCTAssertEqual(
+                dependencies[0],
+                .product(
+                    name: "Bar",
+                    package: "Bar",
+                    moduleAliases: ["Logging": "BarLogging", "Utils": "BarUtils"],
+                    condition: nil
+                )
+            )
+            
+            XCTAssertEqual(
+                dependencies[1],
+                .product(
+                    name: "Baz",
+                    package: "Baz",
+                    moduleAliases: ["Logging": "BazLogging"],
+                    condition: nil
+                )
+            )
+            
+            return manifest
         }
     }
 }

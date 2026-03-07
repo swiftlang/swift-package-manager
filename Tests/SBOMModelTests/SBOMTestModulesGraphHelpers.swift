@@ -98,7 +98,7 @@ enum SBOMTestModulesGraph {
         modules: IdentifiableSet<ResolvedModule>,
         products: [ResolvedProduct],
         dependencies: [PackageIdentity] = [],
-        enabledTraits: Set<String>? = nil
+        enabledTraits: [String]? = nil
     ) -> ResolvedPackage {
         ResolvedPackage(
             underlying: package,

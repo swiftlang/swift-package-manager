@@ -1358,9 +1358,9 @@ extension Target.Dependency {
 /// A condition that limits the application of a target's dependency.
 public struct TargetDependencyCondition: Sendable {
     let platforms: [Platform]?
-    let traits: Set<String>?
+    let traits: [String]?
 
-    private init(platforms: [Platform]?, traits: Set<String>?) {
+    private init(platforms: [Platform]?, traits: [String]?) {
         self.platforms = platforms
         self.traits = traits
     }
@@ -1395,7 +1395,7 @@ public struct TargetDependencyCondition: Sendable {
     @available(_PackageDescription, introduced: 6.1)
     public static func when(
         platforms: [Platform],
-        traits: Set<String>
+        traits: [String]
     ) -> TargetDependencyCondition? {
         return TargetDependencyCondition(platforms: platforms, traits: traits)
     }
@@ -1405,7 +1405,7 @@ public struct TargetDependencyCondition: Sendable {
     /// - Parameter traits: The applicable traits for this target dependency condition.
     @available(_PackageDescription, introduced: 6.1)
     public static func when(
-        traits: Set<String>
+        traits: [String]
     ) -> TargetDependencyCondition? {
         return TargetDependencyCondition(platforms: nil, traits: traits)
     }

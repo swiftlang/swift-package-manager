@@ -112,7 +112,7 @@ extension PackageContainer {
         return true
     }
 
-    func getDependencies(at revision: String, productFilter: ProductFilter, _ enabledTraits: Set<String> = ["default"]) async throws -> [PackageContainerConstraint] {
+    func getDependencies(at revision: String, productFilter: ProductFilter, _ enabledTraits: [String] = ["default"]) async throws -> [PackageContainerConstraint] {
         return []
     }
 }

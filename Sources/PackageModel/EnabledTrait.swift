@@ -564,8 +564,8 @@ extension String: EnabledTraitConvertible {
 // MARK: - Collection + EnabledTrait
 
 extension Collection where Element == EnabledTrait {
-    public var names: Set<String> {
-        Set<String>(self.map(\.name))
+    public var names: [String] {
+        self.map(\.name)
     }
 
     public func contains(_ trait: String) -> Bool {

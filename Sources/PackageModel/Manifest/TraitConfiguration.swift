@@ -14,11 +14,11 @@
 public enum TraitConfiguration: Codable, Hashable {
     case enableAllTraits
     case disableAllTraits
-    case enabledTraits(Set<String>)
+    case enabledTraits([String])
     case `default`
 
     public init(
-        enabledTraits: Set<String>? = nil,
+        enabledTraits: [String]? = nil,
         enableAllTraits: Bool = false
     ) {
         // If all traits are enabled, then no other checks are necessary.

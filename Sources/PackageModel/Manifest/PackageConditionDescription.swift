@@ -14,9 +14,9 @@
 public struct PackageConditionDescription: Codable, Hashable, Sendable {
     public let platformNames: [String]
     public let config: String?
-    public let traits: Set<String>?
+    public let traits: [String]?
 
-    public init(platformNames: [String] = [], config: String? = nil, traits: Set<String>? = nil) {
+    public init(platformNames: [String] = [], config: String? = nil, traits: [String]? = nil) {
         assert(!(platformNames.isEmpty && config == nil && traits == nil))
         self.platformNames = platformNames
         self.config = config
@@ -118,9 +118,9 @@ public struct ConfigurationCondition: Hashable, Sendable {
 /// A configuration condition implies that an assignment is valid on
 /// a particular build configuration.
 public struct TraitCondition: Hashable, Sendable {
-    public let traits: Set<String>
+    public let traits: [String]
 
-    public init(traits: Set<String>) {
+    public init(traits: [String]) {
         self.traits = traits
     }
 
