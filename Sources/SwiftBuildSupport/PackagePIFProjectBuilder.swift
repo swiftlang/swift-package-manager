@@ -314,18 +314,26 @@ struct PackagePIFProjectBuilder {
             // Metal source code needs to be added to the source build phase.
             let isMetalFile = SwiftBuild.SwiftBuildFileType.metal.fileTypes.contains(resourcePath.pathExtension)
 
-            if isMetalFile {
+            if isMetalFile, case .process = resource.rule {
                 self.project[keyPath: targetForResourcesKeyPath].addSourceFile { id in
                     BuildFile(id: id, fileRef: ref)
                 }
             } else {
-                // FIXME: Handle additional rules here (e.g. `.copy`).
+                let swiftBuildResourceRule: BuildFile.ResourceRule
+                switch resource.rule {
+                case .process:
+                    swiftBuildResourceRule = .process
+                case .copy:
+                    swiftBuildResourceRule = .copy
+                case .embedInCode:
+                    swiftBuildResourceRule = .embedInCode
+                }
                 self.project[keyPath: targetForResourcesKeyPath].addResourceFile { id in
                     BuildFile(
                         id: id,
                         fileRef: ref,
                         platformFilters: [],
-                        resourceRule: resource.rule == .embedInCode ? .embedInCode : .process
+                        resourceRule: swiftBuildResourceRule
                     )
                 }
             }
