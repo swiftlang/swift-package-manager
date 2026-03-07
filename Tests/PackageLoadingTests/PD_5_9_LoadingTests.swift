@@ -127,4 +127,49 @@ final class PackageDescription5_9LoadingTests: PackageDescriptionLoadingTests {
             return manifest
         }
     }
+
+    func testBinaryTargetPackageAccess() async throws {
+        // Binary targets always have packageAccess: false. The PackageDescription
+        // binaryTarget(…) factory methods do not expose a packageAccess parameter,
+        // and they hardcode it to false. This must hold even at tools versions ≥ 5.9
+        // where the default packageAccess for regular targets is true.
+        let content = """
+            import PackageDescription
+            let package = Package(
+                name: "Foo",
+                targets: [
+                    .binaryTarget(
+                        name: "RemoteBinary",
+                        url: "https://example.com/RemoteBinary-1.0.0.zip",
+                        checksum: "abc123"),
+                    .binaryTarget(
+                        name: "LocalBinary",
+                        path: "LocalBinary.xcframework"),
+                ]
+            )
+            """
+
+        try await forEachManifestLoader { loader in
+            let observability = ObservabilitySystem.makeForTesting()
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                content,
+                customManifestLoader: loader,
+                observabilityScope: observability.topScope
+            )
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertNoDiagnostics(validationDiagnostics)
+
+            let targets = Dictionary(uniqueKeysWithValues: manifest.targets.map({ ($0.name, $0) }))
+
+            // Both binary targets must have packageAccess: false regardless of
+            // the tools version default (which is true at v5_9+).
+            XCTAssertEqual(targets["RemoteBinary"]?.type, .binary)
+            XCTAssertEqual(targets["RemoteBinary"]?.packageAccess, false)
+
+            XCTAssertEqual(targets["LocalBinary"]?.type, .binary)
+            XCTAssertEqual(targets["LocalBinary"]?.packageAccess, false)
+
+            return manifest
+        }
+    }
 }
