@@ -185,6 +185,9 @@ struct PrebuiltsPIFTests {
         ])
 
         let allPlatTargets = Set([
+            "MyRootUmbrellaPackageTests-product",
+            "MyPackageUmbrellaPackageTests-product",
+            "swift-syntaxUmbrellaPackageTests-product",
             "MacroLib-product",
             "MacroLibdynamic-product",
             "MacroLib",

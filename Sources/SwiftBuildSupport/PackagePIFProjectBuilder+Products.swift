@@ -511,7 +511,7 @@ extension PackagePIFProjectBuilder {
 
         // Apply target-specific build settings defined in the manifest.
         let allBuildSettings = mainModule.computeAllBuildSettings(observabilityScope: pifBuilder.observabilityScope, forRemotePackage: pifBuilder.delegate.isRemote)
-        
+
         // Apply settings using the convenience methods
         allBuildSettings.apply(to: &debugSettings, for: .debug)
         allBuildSettings.apply(to: &releaseSettings, for: .release)
@@ -1138,7 +1138,7 @@ extension PackagePIFProjectBuilder {
     }
 
     mutating func makePackageTestProduct() throws {
-        let productName = "\(packageManifest.displayName)PackageTests"
+        let productName = "\(packageManifest.displayName)UmbrellaPackageTests"
         let packageIdentity = package.identity
         let packageTestProductKeyPath = try project.addAggregateTarget { _ in
             ProjectModel.AggregateTarget(

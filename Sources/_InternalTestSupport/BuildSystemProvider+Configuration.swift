@@ -65,8 +65,10 @@ extension BuildSystemProvider.Kind {
         switch self {
         case .native:
             return scratchPath + [tripleString, "\(config)".lowercased()]
-        case .swiftbuild, .xcode:
+        case .swiftbuild:
             return scratchPath + ["out", "Products", "\(config)".capitalized + suffix]
+        case .xcode:
+            return scratchPath + ["apple", "Products", "\(config)".capitalized + suffix]
         }
     }
 
