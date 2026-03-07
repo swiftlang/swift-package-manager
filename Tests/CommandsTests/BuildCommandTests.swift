@@ -2419,24 +2419,38 @@ struct BuildSBOMCommandTests {
             let customSBOMDir = fixturePath.appending("reproducibility-test-\(sbomSpec)")
             
             // Generate first SBOM
-            let sbomPath1 = try await generateSBOMAndExtractPath(
+            try await generateSBOM(
                 fixturePath: fixturePath,
                 sbomSpec: sbomSpec,
                 outputDir: customSBOMDir,
                 buildSystem: buildSystem
             )
+            
+            // Get the first SBOM file from the output directory
+            let sbomFiles1 = try getSBOMFiles(in: customSBOMDir)
+            #expect(sbomFiles1.count == 1, "Expected exactly 1 SBOM file after first generation")
+            let sbomPath1 = sbomFiles1[0]
             let content1 = try readSBOMContent(at: sbomPath1)
             
             // Small delay to ensure different timestamp
             try await Task.sleep(for: .seconds(1))
             
             // Generate second SBOM
-            let sbomPath2 = try await generateSBOMAndExtractPath(
+            try await generateSBOM(
                 fixturePath: fixturePath,
                 sbomSpec: sbomSpec,
                 outputDir: customSBOMDir,
                 buildSystem: buildSystem
             )
+            
+            // Get all SBOM files from the output directory (should now have 2)
+            let sbomFiles2 = try getSBOMFiles(in: customSBOMDir)
+            #expect(sbomFiles2.count == 2, "Expected exactly 2 SBOM files after second generation")
+            
+            // Find the newly created file (the one that's not sbomPath1)
+            guard let sbomPath2 = sbomFiles2.first(where: { $0 != sbomPath1 }) else {
+                throw NSError(domain: "TestError", code: 1, userInfo: [NSLocalizedDescriptionKey: "Could not find second SBOM file"])
+            }
             let content2 = try readSBOMContent(at: sbomPath2)
             
             // Verify the two SBOMs are different files (different timestamps in filename)
@@ -2451,33 +2465,25 @@ struct BuildSBOMCommandTests {
         }
     }
     
-    /// Generates an SBOM and extracts its path from stdout
-    private func generateSBOMAndExtractPath(
+    /// Generates an SBOM in the specified output directory
+    private func generateSBOM(
         fixturePath: AbsolutePath,
         sbomSpec: String,
         outputDir: AbsolutePath,
         buildSystem: BuildSystemProvider.Kind
-    ) async throws -> AbsolutePath {
-        let (stdout, _) = try await executeSwiftBuild(
+    ) async throws {
+        let (_, _) = try await executeSwiftBuild(
             fixturePath,
             extraArgs: ["--sbom-spec", sbomSpec, "--sbom-output-dir", outputDir.pathString],
             buildSystem: buildSystem
         )
-        
-        return try extractSBOMPath(from: stdout)
     }
     
-    /// Extracts SBOM file path from build output
-    private func extractSBOMPath(from stdout: String) throws -> AbsolutePath {
-        let lines = stdout.split(separator: "\n")
-        guard let sbomLine = lines.first(where: { $0.contains(" SBOM at ") }),
-              let range = sbomLine.range(of: " SBOM at "),
-              let endRange = sbomLine[range.upperBound...].range(of: ".json") else {
-            throw NSError(domain: "TestError", code: 1, userInfo: [NSLocalizedDescriptionKey: "Could not find SBOM path in stdout"])
-        }
-        
-        let pathString = String(sbomLine[range.upperBound..<endRange.upperBound])
-        return try AbsolutePath(validating: pathString)
+    /// Gets all SBOM JSON files from the specified directory
+    private func getSBOMFiles(in directory: AbsolutePath) throws -> [AbsolutePath] {
+        let contents = try localFileSystem.getDirectoryContents(directory)
+        let sbomFiles = contents.filter { $0.hasSuffix(".json") }
+        return sbomFiles.map { directory.appending(component: $0) }.sorted()
     }
     
     /// Reads SBOM content from file
