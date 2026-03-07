@@ -62,10 +62,53 @@ final class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
 
             let testResources = manifest.targets[1].resources
             XCTAssertEqual(testResources[0], TargetDescription.Resource(rule: .process(localization: .none), path: "testfixture.txt"))
-            
+
             return manifest
         }
     }
+
+    func testResourcePathNormalization() async throws {
+        // Resource paths with trailing slashes must be normalized. The
+        // PackageDescription runtime routes paths through RelativePath before
+        // serializing them, so the executing loader always strips trailing
+        // slashes. The parsing loader must do the same.
+        let content = """
+            import PackageDescription
+            let package = Package(
+               name: "Foo",
+               targets: [
+                   .target(
+                       name: "Foo",
+                       resources: [
+                           .copy("Resources/"),
+                           .process("TestResources/"),
+                           .process("Localized/", localization: .base),
+                       ]
+                   ),
+               ]
+            )
+            """
+
+        try await forEachManifestLoader { loader in
+            let observability = ObservabilitySystem.makeForTesting()
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                content,
+                customManifestLoader: loader,
+                observabilityScope: observability.topScope
+            )
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertNoDiagnostics(validationDiagnostics)
+
+            let resources = manifest.targets[0].resources
+            // Trailing slashes must be stripped from all path forms.
+            XCTAssertEqual(resources[0], TargetDescription.Resource(rule: .copy, path: "Resources"))
+            XCTAssertEqual(resources[1], TargetDescription.Resource(rule: .process(localization: .none), path: "TestResources"))
+            XCTAssertEqual(resources[2], TargetDescription.Resource(rule: .process(localization: .base), path: "Localized"))
+
+            return manifest
+        }
+    }
+
 
     func testBinaryTargetsTrivial() async throws {
         let content = """

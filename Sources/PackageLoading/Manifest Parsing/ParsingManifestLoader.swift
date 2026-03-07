@@ -1293,7 +1293,7 @@ extension ManifestParseVisitor {
             return nil
         }
         
-        return TargetDescription.Resource(rule: rule, path: path)
+        return TargetDescription.Resource(rule: rule, path: (try? RelativePath(validating: path))?.pathString ?? path)
     }
     
     /// Parse a plugin capability like .buildTool() or .command(intent: .custom(verb: "foo", description: "bar"))
