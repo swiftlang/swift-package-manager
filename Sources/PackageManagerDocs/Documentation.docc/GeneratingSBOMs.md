@@ -92,7 +92,7 @@ swift package generate-sbom --sbom-spec spdx --sbom-warning-only
 
 ### Configure environment variables
 
-Generating SBOMs can be triggered and configured using environment variables that you set prior to running `swift build`.
+Generating SBOMs can be triggered and configured using environment variables that you set prior to running `swift build` or `swift package generate-sbom`.
 When you use CLI flags, they take precedence over environment variables.
 
 Configure the following environment variables:
@@ -104,6 +104,7 @@ Configure the following environment variables:
 
 ```bash
 SWIFTPM_BUILD_SBOM_SPEC=cyclonedx,spdx swift build --build-system swiftbuild
+SWIFTPM_BUILD_SBOM_SPEC=cyclonedx swift package generate-sbom
 ```
 
-When you use environment variables, SBOM generation only triggers if `SWIFTPM_BUILD_SBOM_SPEC` is set. 
+When you use environment variables, SBOM generation only triggers for `swift build` if `SWIFTPM_BUILD_SBOM_SPEC` is set.
