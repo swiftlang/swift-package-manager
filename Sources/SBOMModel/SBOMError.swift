@@ -16,7 +16,7 @@ import Foundation
 // MARK: - General SBOM Errors
 
 /// General errors that can occur across SBOM operations
-internal enum SBOMError: Error, LocalizedError, CustomStringConvertible {
+internal enum SBOMGenerationError: Error, LocalizedError, CustomStringConvertible {
     case unexpectedSpecType(expected: String, actual: SBOMSpec)
     case failedToWriteSBOM
     case noSpecsProvided

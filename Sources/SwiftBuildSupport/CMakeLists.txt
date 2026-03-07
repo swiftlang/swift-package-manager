@@ -22,6 +22,7 @@ add_library(SwiftBuildSupport STATIC
   SwiftBuildSystem.swift
   SwiftBuildSystemMessageHandler.swift)
 target_link_libraries(SwiftBuildSupport PUBLIC
+  Basics
   Build
   DriverSupport
   TSCBasic

@@ -17,7 +17,8 @@ import Testing
 
 @Suite(
     .tags(
-        .Feature.SBOM
+        .Feature.SBOM,
+        .TestSize.small
     )
 )
 struct SBOMExtractTests {

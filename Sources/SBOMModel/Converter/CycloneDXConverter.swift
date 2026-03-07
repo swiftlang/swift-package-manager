@@ -41,7 +41,7 @@ internal struct CycloneDXConverter {
         }
     }
 
-    internal static func convertToLicense(from license: SBOMLicense) -> CycloneDXLicense {
+    private static func convertToLicense(from license: SBOMLicense) -> CycloneDXLicense {
         return CycloneDXLicense(
             license: CycloneDXLicenseInfo(
                 id: license.name,
@@ -50,14 +50,14 @@ internal struct CycloneDXConverter {
         )
     }
 
-    internal static func convertToSchema(from spec: SBOMSpec) async throws -> String {
+    private static func convertToSchema(from spec: SBOMSpec) async throws -> String {
         switch spec.concreteSpec {
         case .cyclonedx1:
             return CycloneDXConstants.cyclonedx1Schema
         // case .cyclonedx2:
         //     return CycloneDXConstants.cyclonedx2Schema
         case .spdx3:
-            throw SBOMError.unexpectedSpecType(expected: "cyclonedx", actual: spec)
+            throw SBOMGenerationError.unexpectedSpecType(expected: "cyclonedx", actual: spec)
         }
     }
 
@@ -159,18 +159,18 @@ internal struct CycloneDXConverter {
         spec: SBOMSpec
     ) async throws -> CycloneDXDocument {
         guard spec.supportsCycloneDX else {
-            throw SBOMError.unexpectedSpecType(expected: "cyclonedx", actual: spec)
+            throw SBOMGenerationError.unexpectedSpecType(expected: "cyclonedx", actual: spec)
         }
 
         var components: [CycloneDXComponent] = []
-        for sbomComp in document.dependencies.components {
+        for sbomComp in document.dependencies.components.sorted() {
             let cyclonedxComp = try await convertToComponent(from: sbomComp)
             components.append(cyclonedxComp)
         }
 
         var dependencies: [CycloneDXDependency] = []
         if let documentDependencies = document.dependencies.relationships {
-            for sbomDep in documentDependencies {
+            for sbomDep in documentDependencies.sorted() {
                 let cyclonedxDep = try await convertToDependency(from: sbomDep)
                 dependencies.append(cyclonedxDep)
             }

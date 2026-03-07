@@ -25,79 +25,16 @@ import struct TSCUtility.Version
 
 @Suite(
     .tags(
-        .Feature.SBOM
+        .Feature.SBOM,
+        .TestSize.medium
     )
 )
 struct SBOMExtractComponentsTests {
-    struct TestExpectations {
-        let totalComponentCount: Int
-        let expectedPackageIds: Set<String>
-        let rootPackage: String
-        let rootPackagePrefix: String
-        let expectedRootProductCount: Int
-        let expectedRootProductNames: Set<String>
-    }
-
-    private static let simpleExpectations = TestExpectations(
-        totalComponentCount: 4,
-        expectedPackageIds: Set(["MyApp", "Utils"]),
-        rootPackage: "MyApp",
-        rootPackagePrefix: "MyApp:",
-        expectedRootProductCount: 1,
-        expectedRootProductNames: Set(["App"]),
-    )
-    private static let spmExpectations = TestExpectations(
-        totalComponentCount: 57,
-        expectedPackageIds: Set([
-            "swift-build", "swift-llbuild", "swift-driver", "swift-certificates", "swift-syntax",
-            "swift-tools-support-core",
-            "swift-crypto", "swift-argument-parser", "swift-asn1", "swift-collections", "swift-system",
-            "swift-package-manager",
-            "swift-toolchain-sqlite",
-        ]),
-        rootPackage: "swift-package-manager",
-        rootPackagePrefix: "swift-package-manager:",
-        expectedRootProductCount: 24,
-        expectedRootProductNames: Set([
-            "swift-package-registry", "PackageDescription", "PackageCollectionsModel", "swift-test",
-            "swift-package-collection",
-            "swift-sdk", "SwiftPMPackageCollections", "swift-experimental-sdk", "swift-package", "swift-run",
-            "PackagePlugin",
-            "swift-build-prebuilts", "SwiftPMDataModel", "swift-build", "package-info", "dummy-swiftc",
-            "SwiftPMDataModel-auto",
-            "XCBuildSupport", "swift-package-manager", "SwiftPM-auto", "AppleProductTypes", "swift-bootstrap",
-            "swiftpm-testing-helper",
-            "SwiftPM",
-        ]),
-    )
-
-    private static let swiftlyExpectations = TestExpectations(
-        totalComponentCount: 64,
-        expectedPackageIds: Set(["swift-nio-http2", "swift-tools-support-core",
-                                 "swift-nio-transport-services", "swiftly",
-                                 "swift-distributed-tracing", "swift-service-context", "swift-nio-ssl",
-                                 "swift-nio", "swift-collections", "swift-system", "swift-algorithms",
-                                 "swift-openapi-generator", "swift-openapi-async-http-client",
-                                 "swift-argument-parser", "openapikit", "yams", "swift-subprocess",
-                                 "async-http-client", "swift-log", "swift-atomics", "swift-numerics",
-                                 "swift-openapi-runtime", "swift-http-types", "swift-nio-extras"]),
-        rootPackage: "swiftly",
-        rootPackagePrefix: "swiftly:",
-        expectedRootProductCount: 6,
-        expectedRootProductNames: Set([
-            "test-swiftly",
-            "swiftly",
-            "generate-command-models",
-            "SwiftlyTests",
-            "build-swiftly-release",
-            "generate-docs-reference",
-        ]),
-    )
 
     private func verifyComponents(
         components: [SBOMComponent],
         graph: ModulesGraph,
-        expectations: TestExpectations,
+        expectations: SBOMTestCase.TestExpectations,
         filter: Filter = .all,
         product: String? = nil
     ) {
@@ -110,53 +47,57 @@ struct SBOMExtractComponentsTests {
     
     private func verifyComponentCounts(
         _ components: [SBOMComponent],
-        expectations: TestExpectations,
-        isFullExtraction: Bool
+        expectations: SBOMTestCase.TestExpectations,
+        isFullExtraction: Bool,
+        sourceLocation: SourceLocation = #_sourceLocation
     ) {
         if isFullExtraction {
-            #expect(components.count == expectations.totalComponentCount)
+            #expect(components.count == expectations.totalComponentCount, sourceLocation: sourceLocation)
         } else {
-            #expect(components.count <= expectations.totalComponentCount)
+            #expect(components.count <= expectations.totalComponentCount, sourceLocation: sourceLocation)
         }
     }
     
     private func verifyPackageIds(
         _ components: [SBOMComponent],
-        expectations: TestExpectations,
-        isFullExtraction: Bool
+        expectations: SBOMTestCase.TestExpectations,
+        isFullExtraction: Bool,
+        sourceLocation: SourceLocation = #_sourceLocation
     ) {
         let componentPackageIds = Set(components.compactMap { component in
             component.id.value.components(separatedBy: ":").first
         })
         if isFullExtraction {
-            #expect(componentPackageIds == expectations.expectedPackageIds, "Package IDs did not match")
+            #expect(componentPackageIds == expectations.expectedPackageIds, "Package IDs did not match", sourceLocation: sourceLocation)
         } else {
-            #expect(componentPackageIds.isSubset(of: expectations.expectedPackageIds), "Package IDs should be a subset")
+            #expect(componentPackageIds.isSubset(of: expectations.expectedPackageIds), "Package IDs should be a subset", sourceLocation: sourceLocation)
         }
     }
 
     private func verifyRootPackage(
         _ components: [SBOMComponent],
-        expectations: TestExpectations,
+        expectations: SBOMTestCase.TestExpectations,
         filter: Filter,
-        product: String?
+        product: String?,
+        sourceLocation: SourceLocation = #_sourceLocation
     ) {
         let rootPackageComponent = components.first { $0.id.value == expectations.rootPackage && $0.entity == .package }
         // If filter is product AND the primary component is a product, the root package should NOT be included
         if let productName = product {
             if filter == .product {
-                #expect(rootPackageComponent == nil, "Root package should not be included when filter is .product and primary component '\(productName)' is a product")
+                #expect(rootPackageComponent == nil, "Root package should not be included when filter is .product and primary component '\(productName)' is a product", sourceLocation: sourceLocation)
                 return
             }
         } // else it's always included
-         #expect(rootPackageComponent != nil, "Root package should be included")
+         #expect(rootPackageComponent != nil, "Root package should be included", sourceLocation: sourceLocation)
     }
     
     private func verifyRootProducts(
         _ components: [SBOMComponent],
-        expectations: TestExpectations,
+        expectations: SBOMTestCase.TestExpectations,
         filter: Filter,
-        product: String?
+        product: String?,
+        sourceLocation: SourceLocation = #_sourceLocation
     ) {
         let rootProducts = components.filter { $0.id.value.hasPrefix(expectations.rootPackagePrefix) }
         let rootProductComponents = rootProducts.filter { $0.entity == .product }
@@ -164,53 +105,53 @@ struct SBOMExtractComponentsTests {
         if let productName = product {
             // if product is primary component, it should always show up in components, regardless of filter
             let targetProduct = rootProductComponents.first { $0.name == productName }
-            #expect(targetProduct != nil, "Target product '\(productName)' should be included")
+            #expect(targetProduct != nil, "Target product '\(productName)' should be included", sourceLocation: sourceLocation)
         } else {
             if filter == .all || filter == .product {
                 // expect all root products if filter is .all or .product, and primary component is root package
-                #expect(rootProducts.count == expectations.expectedRootProductCount, "Filter.\(filter) should include all root products")
+                #expect(rootProducts.count == expectations.expectedRootProductCount, "Filter.\(filter) should include all root products", sourceLocation: sourceLocation)
                 let rootProductNames = Set(rootProductComponents.map(\.name))
-                #expect(rootProductNames == expectations.expectedRootProductNames, "Root product names should match expectations")
+                #expect(rootProductNames == expectations.expectedRootProductNames, "Root product names should match expectations", sourceLocation: sourceLocation)
             } else if filter == .package {
                 // no root products if filter is .package, and primary component is root package
-                #expect(rootProducts.count == 0, "Filter.\(filter) should include no root products")
+                #expect(rootProducts.count == 0, "Filter.\(filter) should include no root products", sourceLocation: sourceLocation)
             }
         }
     }
     
-    private func verifyComponentProperties(_ components: [SBOMComponent], filter: Filter) {
+    private func verifyComponentProperties(_ components: [SBOMComponent], filter: Filter, sourceLocation: SourceLocation = #_sourceLocation) {
         for component in components {
-            #expect(!component.id.value.isEmpty, "Component ID should not be empty")
-            #expect(!component.name.isEmpty, "Component name should not be empty")
-            #expect(!component.purl.description.isEmpty, "Component PURL should not be empty")
-            #expect(!component.version.revision.isEmpty, "Component version should not be empty")
+            #expect(!component.id.value.isEmpty, "Component ID should not be empty", sourceLocation: sourceLocation)
+            #expect(!component.name.isEmpty, "Component name should not be empty", sourceLocation: sourceLocation)
+            #expect(!component.purl.description.isEmpty, "Component PURL should not be empty", sourceLocation: sourceLocation)
+            #expect(!component.version.revision.isEmpty, "Component version should not be empty", sourceLocation: sourceLocation)
             #expect(
                 component.category == .application || component.category == .library,
-                "Component category should be application or library"
+                "Component category should be application or library",
+                sourceLocation: sourceLocation
             )
             #expect(
                 component.scope == .runtime || component.scope == .test,
-                "Component scope should be runtime or test"
+                "Component scope should be runtime or test",
+                sourceLocation: sourceLocation
             )
         }
     }
 
     @Test("extractComponents with sample SPM ModulesGraph")
     func extractComponentsFromSPMModulesGraph() async throws {
-        let graph = try SBOMTestModulesGraph.createSPMModulesGraph()
-        let store = try SBOMTestStore.createSPMResolvedPackagesStore()
-        let extractor = SBOMExtractor(modulesGraph: graph, dependencyGraph: nil, store: store)
+        let testCase = try SBOMTestCase.createSPMTestCase()
+        let extractor = SBOMExtractor(modulesGraph: testCase.graph, dependencyGraph: nil, store: testCase.store)
         let components = try await extractor.extractDependencies().components
-        self.verifyComponents(components: components, graph: graph, expectations: Self.spmExpectations)
+        self.verifyComponents(components: components, graph: testCase.graph, expectations: testCase.expectations)
     }
 
     @Test("extractComponents with sample Swiftly ModulesGraph")
     func extractComponentsFromSwiftlyModulesGraph() async throws {
-        let graph = try SBOMTestModulesGraph.createSwiftlyModulesGraph()
-        let store = try SBOMTestStore.createSwiftlyResolvedPackagesStore()
-        let extractor = SBOMExtractor(modulesGraph: graph, dependencyGraph: nil, store: store)
+        let testCase = try SBOMTestCase.createSwiftlyTestCase()
+        let extractor = SBOMExtractor(modulesGraph: testCase.graph, dependencyGraph: nil, store: testCase.store)
         let components = try await extractor.extractDependencies().components
-        self.verifyComponents(components: components, graph: graph, expectations: Self.swiftlyExpectations)
+        self.verifyComponents(components: components, graph: testCase.graph, expectations: testCase.expectations)
     }
 
     @Test("extractComponents fails with empty root packages")
@@ -231,9 +172,8 @@ struct SBOMExtractComponentsTests {
 
     @Test("extractComponents verifies commit extraction for non-main branch dependency")
     func extractComponentsForNonMainBranch() async throws {
-        let graph = try SBOMTestModulesGraph.createSPMModulesGraph()
-        let store = try SBOMTestStore.createSPMResolvedPackagesStore()
-        let extractor = SBOMExtractor(modulesGraph: graph, dependencyGraph: nil, store: store)
+        let testCase = try SBOMTestCase.createSPMTestCase()
+        let extractor = SBOMExtractor(modulesGraph: testCase.graph, dependencyGraph: nil, store: testCase.store)
         let components = try await extractor.extractDependencies().components
 
         let swiftLLBuildComponent = components.first { component in
@@ -250,7 +190,9 @@ struct SBOMExtractComponentsTests {
 
         let commit = commits[0]
         #expect(!commit.sha.isEmpty, "Commit SHA should not be empty")
-        #expect(commit.repository == "https://github.com/swiftlang/swift-llbuild.git", "Repository URL should match")
+        
+        let expectedRepository = try testCase.store.getRepositoryURL(for: "swift-llbuild")
+        #expect(commit.repository == expectedRepository, "Repository URL should match")
 
         let expectedMockRevision = SBOMTestStore.generateMockRevision(for: "swift-llbuild")
         #expect(commit.sha == expectedMockRevision, "Commit SHA should match the mock revision for swift-llbuild")
@@ -263,9 +205,8 @@ struct SBOMExtractComponentsTests {
 
     @Test("extractComponents uses version tag when available for version, but keeps pedigree as commit sha")
     func extractComponentsUsesVersionTagWhenAvailable() async throws {
-        let graph = try SBOMTestModulesGraph.createSPMModulesGraph()
-        let store = try SBOMTestStore.createSPMResolvedPackagesStore()
-        let extractor = SBOMExtractor(modulesGraph: graph, dependencyGraph: nil, store: store)
+        let testCase = try SBOMTestCase.createSPMTestCase()
+        let extractor = SBOMExtractor(modulesGraph: testCase.graph, dependencyGraph: nil, store: testCase.store)
         let components = try await extractor.extractDependencies().components
 
         // Find a version-based dependency (swift-argument-parser uses version "1.5.1")
@@ -281,8 +222,10 @@ struct SBOMExtractComponentsTests {
 
         let commit = commits[0]
         #expect(!commit.sha.isEmpty, "Commit SHA should not be empty")
+        
+        let expectedRepository = try testCase.store.getRepositoryURL(for: "swift-system")
         #expect(
-            commit.repository == "https://github.com/apple/swift-system.git",
+            commit.repository == expectedRepository,
             "Repository URL should match"
         )
 
@@ -298,9 +241,8 @@ struct SBOMExtractComponentsTests {
 
     @Test("extractComponents with product filter")
     func extractComponentsWithProductFilter() async throws {
-        let graph = try SBOMTestModulesGraph.createSPMModulesGraph()
-        let store = try SBOMTestStore.createSPMResolvedPackagesStore()
-        let extractor = SBOMExtractor(modulesGraph: graph, dependencyGraph: nil, store: store)
+        let testCase = try SBOMTestCase.createSPMTestCase()
+        let extractor = SBOMExtractor(modulesGraph: testCase.graph, dependencyGraph: nil, store: testCase.store)
         let productName = "SwiftPMDataModel"
         let components = try await extractor.extractDependencies(product: productName).components
         let allComponents = try await extractor.extractDependencies().components
@@ -308,8 +250,8 @@ struct SBOMExtractComponentsTests {
         // Verify using the helper function
         self.verifyComponents(
             components: components,
-            graph: graph,
-            expectations: Self.spmExpectations,
+            graph: testCase.graph,
+            expectations: testCase.expectations,
             filter: .all,
             product: productName
         )
@@ -415,76 +357,71 @@ struct SBOMExtractComponentsTests {
     // MARK: - Filter Tests
     @Test("Filter.all includes all components")
     func filterAllIncludesAllComponents() async throws {
-        let graph = try SBOMTestModulesGraph.createSimpleModulesGraph()
-        let store = try SBOMTestStore.createSimpleResolvedPackagesStore()
-        let extractor = SBOMExtractor(modulesGraph: graph, dependencyGraph: nil, store: store)
+        let testCase = try SBOMTestCase.createSimpleTestCase()
+        let extractor = SBOMExtractor(modulesGraph: testCase.graph, dependencyGraph: nil, store: testCase.store)
         let dependencies = try await extractor.extractDependencies(filter: .all)
         
         self.verifyComponents(
             components: dependencies.components,
-            graph: graph,
-            expectations: Self.simpleExpectations,
+            graph: testCase.graph,
+            expectations: testCase.expectations,
             filter: .all
         )
     }
     
     @Test("Filter.product includes only product components and primary component")
     func filterProductIncludesOnlyProductsAndPrimaryComponent() async throws {
-        let graph = try SBOMTestModulesGraph.createSPMModulesGraph()
-        let store = try SBOMTestStore.createSPMResolvedPackagesStore()
-        let extractor = SBOMExtractor(modulesGraph: graph, dependencyGraph: nil, store: store)
+        let testCase = try SBOMTestCase.createSPMTestCase()
+        let extractor = SBOMExtractor(modulesGraph: testCase.graph, dependencyGraph: nil, store: testCase.store)
         
         let dependencies = try await extractor.extractDependencies(filter: .product)
         
         self.verifyComponents(
             components: dependencies.components,
-            graph: graph,
-            expectations: Self.spmExpectations,
+            graph: testCase.graph,
+            expectations: testCase.expectations,
             filter: .product
         )
     }
     
     @Test("Filter.package includes only package components")
     func filterPackageIncludesOnlyPackages() async throws {
-        let graph = try SBOMTestModulesGraph.createSPMModulesGraph()
-        let store = try SBOMTestStore.createSPMResolvedPackagesStore()
-        let extractor = SBOMExtractor(modulesGraph: graph, dependencyGraph: nil, store: store)
+        let testCase = try SBOMTestCase.createSPMTestCase()
+        let extractor = SBOMExtractor(modulesGraph: testCase.graph, dependencyGraph: nil, store: testCase.store)
         let dependencies = try await extractor.extractDependencies(filter: .package)
         self.verifyComponents(
             components: dependencies.components,
-            graph: graph,
-            expectations: Self.spmExpectations,
+            graph: testCase.graph,
+            expectations: testCase.expectations,
             filter: .package
         )
     }
 
     @Test("Filter.all with SPM graph includes all entity types")
     func filterAllWithSPMGraph() async throws {
-        let graph = try SBOMTestModulesGraph.createSPMModulesGraph()
-        let store = try SBOMTestStore.createSPMResolvedPackagesStore()
-        let extractor = SBOMExtractor(modulesGraph: graph, dependencyGraph: nil, store: store)
+        let testCase = try SBOMTestCase.createSPMTestCase()
+        let extractor = SBOMExtractor(modulesGraph: testCase.graph, dependencyGraph: nil, store: testCase.store)
         let dependencies = try await extractor.extractDependencies(filter: .all)
         self.verifyComponents(
             components: dependencies.components,
-            graph: graph,
-            expectations: Self.spmExpectations,
-            filter: .all,
+            graph: testCase.graph,
+            expectations: testCase.expectations,
+            filter: .all
         )
     }
     
 
     @Test("Filter.product with specific product contains only product components")
     func filterProductWithSpecificProduct() async throws {
-        let graph = try SBOMTestModulesGraph.createSPMModulesGraph()
-        let store = try SBOMTestStore.createSPMResolvedPackagesStore()
-        let extractor = SBOMExtractor(modulesGraph: graph, dependencyGraph: nil, store: store)
+        let testCase = try SBOMTestCase.createSPMTestCase()
+        let extractor = SBOMExtractor(modulesGraph: testCase.graph, dependencyGraph: nil, store: testCase.store)
         
         let productName = "SwiftPMPackageCollections"
         let dependencies = try await extractor.extractDependencies(product: productName, filter: .product)
         self.verifyComponents(
             components: dependencies.components,
-            graph: graph,
-            expectations: Self.spmExpectations,
+            graph: testCase.graph,
+            expectations: testCase.expectations,
             filter: .product,
             product: productName
         )
@@ -492,16 +429,15 @@ struct SBOMExtractComponentsTests {
     
     @Test("Filter.package with specific product contains only package components and product primary component")
     func filterPackageWithSpecificProduct() async throws {
-        let graph = try SBOMTestModulesGraph.createSPMModulesGraph()
-        let store = try SBOMTestStore.createSPMResolvedPackagesStore()
-        let extractor = SBOMExtractor(modulesGraph: graph, dependencyGraph: nil, store: store)
+        let testCase = try SBOMTestCase.createSPMTestCase()
+        let extractor = SBOMExtractor(modulesGraph: testCase.graph, dependencyGraph: nil, store: testCase.store)
         
         let productName = "SwiftPMPackageCollections"
         let dependencies = try await extractor.extractDependencies(product: productName, filter: .package)
         self.verifyComponents(
             components: dependencies.components,
-            graph: graph,
-            expectations: Self.spmExpectations,
+            graph: testCase.graph,
+            expectations: testCase.expectations,
             filter: .package,
             product: productName
         )

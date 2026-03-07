@@ -14,12 +14,8 @@ import PackageGraph
 import PackageModel
 import SwiftBuildSupport
 
-// TODO: echeng3805, add this to PackagePIFBuilder+Helpers.swift?
-// These functions aren't used anywhere except for SBOMs.
-
 extension PackagePIFBuilder {
-
-    /// Helper function to consistently generate a target name string for a module in a product.
+        /// Helper function to consistently generate a target name string for a module in a product.
     package static func targetName(forModuleName name: String, suffix: TargetSuffix? = nil) -> String {
         let suffix = suffix?.rawValue ?? ""
         return "\(name)\(suffix)"
@@ -40,31 +36,46 @@ extension PackagePIFBuilder {
         return name
     }
 
-    /// Helper function to get a product name for a target name
-    package static func productName(forTargetName name: String) -> String? {
-        guard name.hasSuffix("-product") else {
+    /// Extracts a Swift Package product name from a PIF target name.
+    ///
+    /// This reverses the conversion performed by `targetName(forProductName:suffix:)`.
+    /// Returns `nil` if the target name doesn't represent a product (i.e., doesn't end with "-product").
+    ///
+    /// - Parameter targetName: The PIF target name to parse
+    /// - Returns: The Swift Package product name, or `nil` if this isn't a product target name
+    package static func productName(forTargetName targetName: String) -> String? {
+        guard targetName.hasSuffix("-product") else {
             return nil
         }
-        let nameWithoutProduct = String(name.dropLast("-product".count))
+        let nameWithoutProduct = String(targetName.dropLast("-product".count))
         return removeSuffix(from: nameWithoutProduct)
     }
 
-    /// Helper function to get a module name for a target name
-    package static func moduleName(forTargetName name: String) -> String? {
-        guard !name.hasSuffix("-product") else {
+    /// Extracts a Swift Package module name from a PIF target name.
+    ///
+    /// This reverses the conversion performed by `targetName(forModuleName:suffix:)`.
+    /// Returns `nil` if the target name represents a product or resource bundle.
+    ///
+    /// - Parameter targetName: The PIF target name to parse
+    /// - Returns: The Swift Package module name, or `nil` if this isn't a module target name
+    ///
+    /// - Note: Resource bundle target names follow the pattern `packageName_moduleName`
+    ///   (e.g., `swift-nio_NIOPosix`, `swift-crypto__CryptoExtras`) and are excluded.
+    ///   However, module names can start with `_` (e.g., `_CryptoExtras`, `__AsyncFileSystem`).
+    package static func moduleName(forTargetName targetName: String) -> String? {
+        guard !targetName.hasSuffix("-product") else {
             return nil
         }
         // Resource bundle target names follow the pattern packageName_moduleName
         // e.g., swift-nio_NIOPosix, swift-crypto__CryptoExtras
         // So should be ignored by moduleName()
         // But moduleName can start with _, like _CryptoExtras and __AsyncFileSystem
-        if name.contains("_") && !name.starts(with: "_") {
+        if targetName.contains("_") && !targetName.starts(with: "_") {
             return nil
         }
-        return removeSuffix(from: name)
+        return removeSuffix(from: targetName)
     }
 }
-
 /// Utilities for converting between ModulesGraph and dependency graph naming conventions.
 internal struct SBOMGraphsConverter {
 

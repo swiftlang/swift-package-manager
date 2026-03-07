@@ -22,7 +22,8 @@ import enum TSCUtility.Git
 
 @Suite(
     .tags(
-        .Feature.SBOM
+        .Feature.SBOM,
+        .TestSize.small
     )
 )
 struct SBOMExtractPrimaryComponentTests {
