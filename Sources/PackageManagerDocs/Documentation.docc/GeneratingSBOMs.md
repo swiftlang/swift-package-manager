@@ -51,6 +51,8 @@ swift package generate-sbom
 
 The following flags apply to both `swift build` and `swift package generate-sbom`:
 
+#### --product
+
 Generate an SBOM for a specific product in a package using the `--product` flag.
 
 ```bash
@@ -58,13 +60,17 @@ swift build --build-system swiftbuild --product MyProduct --sbom-spec cyclonedx
 swift package generate-sbom --product MyProduct --sbom-spec spdx
 ```
 
-Filter an SBOM by packages or products by using `--sbom-filter <type>`. By default, an SBOM includes both packages and products. 
+#### --sbom-filter
+
+Filter an SBOM by packages or products by using `--sbom-filter <type>`. By default, an SBOM includes both packages and products.
 Swift Package Manager always includes the primary component, regardless of the applied filter.
 
 ```bash
 swift build --build-system swiftbuild --sbom-spec cyclonedx --sbom-filter package
 swift package generate-sbom --sbom-spec spdx --sbom-filter product
 ```
+
+#### --sbom-output-dir
 
 Swift Package Manager places generated SBOMs in `<build_output>/sboms` by default.
 Use `--sbom-output-dir` to specify a different directory for generated SBOMs.
@@ -73,6 +79,8 @@ Use `--sbom-output-dir` to specify a different directory for generated SBOMs.
 swift build --build-system swiftbuild --sbom-spec cyclonedx --sbom-output-dir <path>
 swift package generate-sbom --sbom-spec spdx --sbom-output-dir <path>
 ```
+
+#### --sbom-warning-only
 
 By default, if SBOM generation fails, the `build` or `package` command also fails.
 The `--sbom-warning-only` flag converts all SBOM generation errors to warnings.
