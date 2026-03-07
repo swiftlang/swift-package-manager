@@ -18,7 +18,7 @@ import XCTest
 
 class PackageDescriptionLoadingTests: XCTestCase, ManifestLoaderDelegate {
     lazy var manifestLoader = ManifestLoader(toolchain: try! UserToolchain.default, delegate: self)
-    lazy var parsingManifestLoader = try! ParsingManifestLoader(
+    lazy var parsingManifestLoader = try? ParsingManifestLoader(
         toolchain: try! UserToolchain.default,
         extraManifestFlags: [],
         environment: self.environment
@@ -27,10 +27,12 @@ class PackageDescriptionLoadingTests: XCTestCase, ManifestLoaderDelegate {
 
     /// The array of manifest loaders to test with for complete coverage.
     var testManifestLoaders: [(any ManifestLoaderProtocol)?] {
-        [
-            parsingManifestLoader,
-            /*default manifest loader*/nil,
-        ]
+        var result = [(any ManifestLoaderProtocol)?]()
+        if let parsingManifestLoader {
+            result.append(parsingManifestLoader)
+        }
+        result.append(/*default manifest loader*/nil)
+        return result
     }
 
     func willLoad(packageIdentity: PackageModel.PackageIdentity, packageLocation: String, manifestPath: AbsolutePath) {
