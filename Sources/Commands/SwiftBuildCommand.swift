@@ -212,6 +212,15 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
         productsBuildParameters: BuildParameters,
         toolsBuildParameters: BuildParameters,
     ) async throws {
+        // Create stdout-based observability for build output consistency.
+        // All build output (progress and errors/diagnostics) should go to stdout for "swift build".
+        let buildOutputObservability = SwiftCommandObservabilityHandler(
+            outputStream: TSCBasic.stdoutStream,
+            logLevel: swiftCommandState.logLevel,
+            colorDiagnostics: swiftCommandState.options.logging.colorDiagnostics
+        )
+        let buildObservabilitySystem = ObservabilitySystem(buildOutputObservability)
+
         let buildSystem = try await swiftCommandState.createBuildSystem(
             explicitProduct: options.product,
             shouldLinkStaticSwiftStdlib: options.shouldLinkStaticSwiftStdlib,
@@ -219,7 +228,8 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
             toolsBuildParameters: toolsBuildParameters,
             // command result output goes on stdout
             // ie "swift build" should output to stdout
-            outputStream: TSCBasic.stdoutStream
+            outputStream: TSCBasic.stdoutStream,
+            observabilityScope: buildObservabilitySystem.topScope
         )
         let buildResult = try await buildSystem.build(subset: subset, buildOutputs: try await getBuildOutputs())
         try await processBuildResult(swiftCommandState, buildSystem: buildSystem, buildResult: buildResult)
