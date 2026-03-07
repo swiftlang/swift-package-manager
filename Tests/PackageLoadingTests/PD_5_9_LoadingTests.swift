@@ -172,4 +172,49 @@ final class PackageDescription5_9LoadingTests: PackageDescriptionLoadingTests {
             return manifest
         }
     }
+
+    func testSystemLibraryTargetPackageAccess() async throws {
+        // System library targets always have packageAccess: false. The
+        // PackageDescription systemLibrary(…) factory method does not expose a
+        // packageAccess parameter and hardcodes it to false. This must hold even
+        // at tools versions ≥ 5.9 where the default packageAccess for regular
+        // targets is true.
+        let content = """
+            import PackageDescription
+            let package = Package(
+                name: "Foo",
+                targets: [
+                    .systemLibrary(
+                        name: "CBar",
+                        pkgConfig: "bar",
+                        providers: [
+                            .brew(["bar"]),
+                            .apt(["libbar-dev"]),
+                        ]),
+                ]
+            )
+            """
+
+        try await forEachManifestLoader { loader in
+            let observability = ObservabilitySystem.makeForTesting()
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                content,
+                customManifestLoader: loader,
+                observabilityScope: observability.topScope
+            )
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertNoDiagnostics(validationDiagnostics)
+
+            let target = try XCTUnwrap(manifest.targetMap["CBar"])
+
+            // System library target must have packageAccess: false regardless
+            // of the tools version default (which is true at v5_9+).
+            XCTAssertEqual(target.type, .system)
+            XCTAssertEqual(target.packageAccess, false)
+            XCTAssertEqual(target.pkgConfig, "bar")
+            XCTAssertEqual(target.providers, [.brew(["bar"]), .apt(["libbar-dev"])])
+
+            return manifest
+        }
+    }
 }

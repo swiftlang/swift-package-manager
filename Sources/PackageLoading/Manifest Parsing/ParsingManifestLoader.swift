@@ -705,10 +705,11 @@ extension ManifestParseVisitor {
         var pluginCapability: TargetDescription.PluginCapability? = nil
         var settings: [TargetBuildSettingDescription.Setting] = []
         var pluginUsages: [TargetDescription.PluginUsage]? = nil
-        // Binary targets always have packageAccess: false; they don't expose
-        // package-access symbols and the PackageDescription API does not
-        // accept a packageAccess parameter for binaryTarget(…).
-        var packageAccess: Bool = targetType == .binary ? false : defaultPackageAccess
+        // Binary and system library targets always have packageAccess: false;
+        // neither exposes package-access symbols and the PackageDescription API
+        // does not accept a packageAccess parameter for binaryTarget(…) or
+        // systemLibrary(…).
+        var packageAccess: Bool = (targetType == .binary || targetType == .system) ? false : defaultPackageAccess
 
         for argument in functionCall.arguments {
             let label = argument.label?.text
