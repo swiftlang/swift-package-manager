@@ -613,7 +613,11 @@ extension ManifestParseVisitor {
             }
             
             if argument.label?.text == "defaultLocalization" {
-                self.defaultLocalization = argument.expression.asStringLiteralValue(in: contextModel)
+                if let value = argument.expression.asStringLiteralValue(in: contextModel) {
+                    self.defaultLocalization = value
+                } else {
+                    limitations.append(.unsupportedExpression(argument.expression, expected: "default localization language tag"))
+                }
                 continue
             }
             
