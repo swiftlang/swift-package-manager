@@ -729,7 +729,11 @@ extension ManifestParseVisitor {
             } else if label == "exclude" {
                 exclude = argument.expression.asStringArray(in: contextModel) ?? []
             } else if label == "sources" {
-                sources = argument.expression.asStringArray(in: contextModel)
+                if let parsed = argument.expression.asStringArray(in: contextModel) {
+                    sources = parsed
+                } else {
+                    limitations.append(.unsupportedExpression(argument.expression, expected: "array of source file paths"))
+                }
             } else if label == "publicHeadersPath" {
                 publicHeadersPath = argument.expression.asStringLiteralValue(in: contextModel)
             } else if label == "pkgConfig" {

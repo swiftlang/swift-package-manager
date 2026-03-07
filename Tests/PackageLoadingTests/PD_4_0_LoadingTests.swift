@@ -612,5 +612,40 @@ final class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
         XCTAssertEqual(manifest.products.count, 0)
         XCTAssertEqual(manifest.pkgConfig, "zlib")
     }
+
+    func testExplicitSourcesList() async throws {
+        // A target with an explicit sources list must be parsed identically by
+        // both the parsing loader and the executing loader.
+        let content = """
+            import PackageDescription
+            let package = Package(
+                name: "CLib",
+                targets: [
+                    .target(
+                        name: "CLib",
+                        sources: ["src/foo.c", "src/bar.c", "src/baz.c"]
+                    ),
+                ]
+            )
+            """
+
+        try await forEachManifestLoader { loader in
+            let observability = ObservabilitySystem.makeForTesting()
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                content,
+                customManifestLoader: loader,
+                observabilityScope: observability.topScope
+            )
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertNoDiagnostics(validationDiagnostics)
+
+            XCTAssertEqual(manifest.targets.count, 1)
+            let target = try XCTUnwrap(manifest.targets.first)
+            XCTAssertEqual(target.name, "CLib")
+            XCTAssertEqual(target.sources, ["src/foo.c", "src/bar.c", "src/baz.c"])
+
+            return manifest
+        }
+    }
 }
 
