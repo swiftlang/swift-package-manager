@@ -18,6 +18,16 @@ public enum TraitConfiguration: Codable, Hashable {
     case `default`
 
     public init(
+        enabledTraits: Set<String>? = nil,
+        enableAllTraits: Bool = false
+    ) {
+        self.init(
+            enabledTraits: enabledTraits.map { $0.sorted() },
+            enableAllTraits: enableAllTraits
+        )
+    }
+
+    public init(
         enabledTraits: [String]? = nil,
         enableAllTraits: Bool = false
     ) {

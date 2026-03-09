@@ -182,6 +182,11 @@ final class ParsingLoaderTests: PackageDescriptionLoadingTests {
     }
 
     func testEnvironment() async throws {
+        guard let parsingManifestLoader else {
+            XCTSkip("Host compiler doesn't support the static build configurations")
+            return
+        }
+
         let content =  """
             import PackageDescription
             let package = Package(
@@ -197,7 +202,7 @@ final class ParsingLoaderTests: PackageDescriptionLoadingTests {
         let observability = ObservabilitySystem.makeForTesting()
         let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
             content,
-            customManifestLoader: self.parsingManifestLoader,
+            customManifestLoader: parsingManifestLoader,
             observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
