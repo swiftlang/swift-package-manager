@@ -367,6 +367,30 @@ struct TestCommandTests {
     }
 
     @Test(
+        .IssueWindowsLongPath,
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func testProductFlag(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await withKnownIssue(isIntermittent: true) {
+            let configuration = BuildConfiguration.debug
+            try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
+                let (stdout, _) = try await executeSwiftTest(
+                    fixturePath,
+                    configuration: configuration,
+                    extraArgs: ["--test-product", "SimplePackageTests"],
+                    buildSystem: buildSystem,
+                    throwIfCommandFails: true,
+                )
+                #expect(stdout.contains("Executed 3 tests"))
+            }
+        } when: {
+            buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows
+        }
+    }
+
+    @Test(
         .tags(
             .Feature.Command.Run,
             .Feature.TargetType.Executable,

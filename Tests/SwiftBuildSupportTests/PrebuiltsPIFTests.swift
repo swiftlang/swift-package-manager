@@ -193,6 +193,9 @@ struct PrebuiltsPIFTests {
             "AllExcludingTests",
             "SwiftSyntaxMacros-product",
             "SwiftSyntaxMacrosdynamic-product",
+            "swift-syntaxPackageTests-product",
+            "MyRootPackageTests-product",
+            "MyPackagePackageTests-product",
         ])
 
         let targets = pif.workspace.projects.flatMap({ $0.underlying.targets })

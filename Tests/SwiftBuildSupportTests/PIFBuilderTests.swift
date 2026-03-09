@@ -61,14 +61,17 @@ fileprivate func withGeneratedPIF(
     let buildParameters = if let buildParameters {
         buildParameters
     } else {
-       mockBuildParameters(destination: .host)
+        mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
     }
     try await fixture(name: fixtureName) { fixturePath in
         let observabilitySystem: TestingObservability = ObservabilitySystem.makeForTesting(verbose: false)
         let toolchain = try UserToolchain.default
+        var config = WorkspaceConfiguration.default
+        config.shouldCreateMultipleTestProducts = true
         let workspace = try Workspace(
             fileSystem: localFileSystem,
             forRootPackage: fixturePath,
+            configuration: config,
             customManifestLoader: ManifestLoader(toolchain: toolchain),
             delegate: MockWorkspaceDelegate()
         )
@@ -536,7 +539,7 @@ struct PIFBuilderTests {
             observabilityScope: observability.topScope
         )
         let pif = try await pifBuilder.constructPIF(
-            buildParameters: mockBuildParameters(destination: .host)
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
         )
 
         let remoteProject = try pif.workspace.project(named: "remote-pkg")
@@ -597,7 +600,7 @@ struct PIFBuilderTests {
          ) async throws {
             try await withGeneratedPIF(
                 fromFixture: "PIFBuilder/Simple",
-                buildParameters: mockBuildParameters(destination: .host, indexStoreMode: indexStoreSettingUT),
+                buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild, indexStoreMode: indexStoreSettingUT),
             ) { pif, observabilitySystem in
                 // #expect(false, "fail purposefully...")
                 #expect(observabilitySystem.diagnostics.filter {
@@ -621,7 +624,7 @@ struct PIFBuilderTests {
 
                 let testTargetConfig = try pif.workspace
                     .project(named: "Simple")
-                    .target(named: "SimplePackageTests-product")
+                    .target(named: "SimpleTests-product")
                     .buildConfig(named: configuration)
                 switch indexStoreSettingUT {
                     case .on, .off:

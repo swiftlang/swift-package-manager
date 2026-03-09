@@ -246,6 +246,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                         builtProducts.append(
                             BuiltTestProduct(
                                 productName: product.name,
+                                umbrellaProductName: package.manifest.umbrellaPackageTestsProductName,
                                 binaryPath: binaryPath,
                                 packagePath: package.path,
                                 testEntryPointPath: product.underlying.testEntryPointPath
