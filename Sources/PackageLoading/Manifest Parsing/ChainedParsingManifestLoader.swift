@@ -69,6 +69,19 @@ public final class ChainedParsingManifestLoader: ManifestLoaderProtocol {
         observabilityScope: ObservabilityScope,
         delegateQueue: DispatchQueue
     ) async throws -> Manifest {
+        if crosscheck {
+            // When cross-checking, we're doing timings. Pre-load the file
+            // to warm the filesystem cache rather than charging it to
+            // a particular loader.
+            let manifestContents: ByteString
+            do {
+                manifestContents = try fileSystem.readFileContents(manifestPath)
+            } catch {
+                throw ManifestParserError.inaccessibleManifest(path: manifestPath, reason: String(describing: error))
+            }
+            _ = manifestContents
+        }
+
         // Parse the manifest directly with the parsing loader.
         let parsedManifest: Manifest?
         let parsingStartTime = DispatchTime.now()
@@ -151,6 +164,9 @@ public final class ChainedParsingManifestLoader: ManifestLoaderProtocol {
         )
         let executingEndTime = DispatchTime.now()
 
+        let parsingDuration = parsingStartTime.distance(to: parsingEndTime)
+        let executingDuration = executingStartTime.distance(to: executingEndTime)
+
         // If we have a parsed manifest, it means that we want to
         // cross-check the results. Do so now.
         if let parsedManifest {
@@ -159,14 +175,19 @@ public final class ChainedParsingManifestLoader: ManifestLoaderProtocol {
             let parsedJSON = try parsedManifest.toJSON()
             let executedJSON = try executedManifest.toJSON()
             guard parsedJSON == executedJSON else {
+                print("""
+                    Manifest loading cross-check failed for '\(manifestPath.pathString)':
+                      - Parsing took \(parsingDuration)
+                      - Executing took \(executingDuration)
+                    """
+                )
                 throw ChainedParsingError.manifestMismatch(
+                    manifestPath: manifestPath.pathString,
                     parsed: parsedJSON,
                     executed: executedJSON
                 )
             }
 
-            let parsingDuration = parsingStartTime.distance(to: parsingEndTime)
-            let executingDuration = executingStartTime.distance(to: executingEndTime)
             print("""
                 Manifest loading cross-check succeeded for '\(manifestPath.pathString)':
                   - Parsing took \(parsingDuration)
@@ -174,6 +195,13 @@ public final class ChainedParsingManifestLoader: ManifestLoaderProtocol {
                 """
             )
             return parsedManifest
+        } else {
+            print("""
+                Manifest loading encountered limitations for '\(manifestPath.pathString)':
+                  - Parsing took \(parsingDuration)
+                  - Executing took \(executingDuration)
+                """
+            )
         }
 
         return executedManifest
@@ -190,12 +218,12 @@ public final class ChainedParsingManifestLoader: ManifestLoaderProtocol {
     }
 
     enum ChainedParsingError: Error, CustomStringConvertible {
-        case manifestMismatch(parsed: String, executed: String)
+        case manifestMismatch(manifestPath: String, parsed: String, executed: String)
 
         var description: String {
             switch self {
-            case .manifestMismatch(parsed: let parsed, executed: let expected):
-                "The manifest produced by parsing does not match the one produced by executing: \(parsed) != \(expected)"
+            case .manifestMismatch(manifestPath: let manifestPath, parsed: let parsed, executed: let expected):
+                "The manifest produced by parsing '\(manifestPath)' does not match the one produced by executing: \(parsed) != \(expected)"
             }
         }
     }
