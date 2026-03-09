@@ -139,6 +139,48 @@ final class ParsingLoaderTests: PackageDescriptionLoadingTests {
         }
     }
 
+    func testBuildSettingCustomPlatformCondition() async throws {
+        // Platform conditions can include custom platform names via .custom("name"),
+        // e.g. .linkedLibrary("pthread", .when(platforms: [.linux, .custom("freebsd")])).
+        // The parsing loader must recognise .custom("name") and include its name in the
+        // condition, rather than silently dropping it.
+        let content = """
+            import PackageDescription
+            let package = Package(
+                name: "Foo",
+                targets: [
+                    .target(
+                        name: "Foo",
+                        linkerSettings: [
+                            .linkedLibrary("dl", .when(platforms: [.linux])),
+                            .linkedLibrary("pthread", .when(platforms: [.linux, .custom("freebsd")])),
+                            .linkedLibrary("unconditional"),
+                        ]
+                    ),
+                ]
+            )
+            """
+
+        try await forEachManifestLoader { loader in
+            let observability = ObservabilitySystem.makeForTesting()
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                content,
+                customManifestLoader: loader,
+                observabilityScope: observability.topScope
+            )
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertNoDiagnostics(validationDiagnostics)
+
+            let settings = manifest.targets[0].settings
+            XCTAssertEqual(settings[0], .init(tool: .linker, kind: .linkedLibrary("dl"),
+                                              condition: .init(platformNames: ["linux"])))
+            XCTAssertEqual(settings[1], .init(tool: .linker, kind: .linkedLibrary("pthread"),
+                                              condition: .init(platformNames: ["linux", "freebsd"])))
+            XCTAssertEqual(settings[2], .init(tool: .linker, kind: .linkedLibrary("unconditional")))
+            return manifest
+        }
+    }
+
     func testEnvironment() async throws {
         let content =  """
             import PackageDescription

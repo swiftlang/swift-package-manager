@@ -966,10 +966,16 @@ extension ManifestParseVisitor {
             
             if label == "platforms" {
                 hasPlatforms = true
-                if let parsed = argument.expression.parseArrayElements({ $0.asEnumMember() }) {
-                    platformNames = parsed.map { $0.lowercased() }
-                } else {
+                guard let arrayExpr = argument.expression.as(ArrayExprSyntax.self) else {
                     limitations.append(.unsupportedExpression(argument.expression, expected: "array of platform conditions"))
+                    continue
+                }
+                for element in arrayExpr.elements {
+                    if let name = element.expression.asPlatformConditionName() {
+                        platformNames.append(name.lowercased())
+                    } else {
+                        limitations.append(.unsupportedExpression(element.expression, expected: "known platform"))
+                    }
                 }
             } else if label == "configuration" {
                 if let value = argument.expression.asEnumMember() {
@@ -2943,6 +2949,27 @@ extension ExprSyntax {
             return nil
         }
         return memberName
+    }
+
+    /// Parse a platform name as used in a `.when(platforms: [...])` condition.
+    /// Handles both plain enum members (e.g. `.linux`) and custom platforms
+    /// (e.g. `.custom("freebsd")`).
+    fileprivate func asPlatformConditionName() -> String? {
+        if let name = self.asEnumMember() {
+            return name
+        }
+
+        // Handle .custom("platformName")
+        guard let functionCall = self.as(FunctionCallExprSyntax.self),
+              let memberAccess = functionCall.calledExpression.as(MemberAccessExprSyntax.self),
+              memberAccess.base == nil,
+              memberAccess.declName.baseName.identifier?.name == "custom",
+              let firstArg = functionCall.arguments.first,
+              firstArg.label == nil,
+              let customName = firstArg.expression.asStringLiteralValue() else {
+            return nil
+        }
+        return customName
     }
 }
 
