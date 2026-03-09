@@ -34,7 +34,7 @@ swift build --sbom-spec cyclonedx --sbom-spec spdx
 ### Use the package command to generates SBOMs
 
 [`swift package generate-sbom`](doc:PackageGenerateSBOM) generates an SBOM without building.
-This SBOM is less accurate than an SBOM generated from `swift build --build-system swiftbuild` because build-time conditionals aren't applied and the package graph might change before generation.
+This SBOM is less accurate than an SBOM generated from `swift build --build-system swiftbuild` because build-time conditionals aren't applied.
 
 For the highest accuracy, generate SBOMs using the command `swift build --build-system swiftbuild`.
 
@@ -51,7 +51,7 @@ swift package generate-sbom
 
 The following flags apply to both `swift build` and `swift package generate-sbom`:
 
-#### --product
+#### Generate SBOM for a single product
 
 Generate an SBOM for a specific product in a package using the `--product` flag.
 
@@ -60,7 +60,7 @@ swift build --build-system swiftbuild --product MyProduct --sbom-spec cyclonedx
 swift package generate-sbom --product MyProduct --sbom-spec spdx
 ```
 
-#### --sbom-filter
+#### Filter SBOM contents
 
 Filter an SBOM by packages or products by using `--sbom-filter <type>`. By default, an SBOM includes both packages and products.
 Swift Package Manager always includes the primary component, regardless of the applied filter.
@@ -70,7 +70,7 @@ swift build --build-system swiftbuild --sbom-spec cyclonedx --sbom-filter packag
 swift package generate-sbom --sbom-spec spdx --sbom-filter product
 ```
 
-#### --sbom-output-dir
+#### Output SBOM to custom directory
 
 Swift Package Manager places generated SBOMs in `<build_output>/sboms` by default.
 Use `--sbom-output-dir` to specify a different directory for generated SBOMs.
@@ -80,7 +80,7 @@ swift build --build-system swiftbuild --sbom-spec cyclonedx --sbom-output-dir <p
 swift package generate-sbom --sbom-spec spdx --sbom-output-dir <path>
 ```
 
-#### --sbom-warning-only
+#### Reduce SBOM generation errors to warnings
 
 By default, if SBOM generation fails, the `build` or `package` command also fails.
 The `--sbom-warning-only` flag converts all SBOM generation errors to warnings.
@@ -107,4 +107,4 @@ SWIFTPM_BUILD_SBOM_SPEC=cyclonedx,spdx swift build --build-system swiftbuild
 SWIFTPM_BUILD_SBOM_SPEC=cyclonedx swift package generate-sbom
 ```
 
-When you use environment variables, SBOM generation only triggers for `swift build` if `SWIFTPM_BUILD_SBOM_SPEC` is set.
+When generating SBOMs using `swift build` and environment variables, `swift build` will generate SBOMS if, and only if, the `SWIFTPM_BUILD_SBOM_SPEC` is set.
