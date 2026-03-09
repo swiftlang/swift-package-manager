@@ -834,6 +834,8 @@ public final class GitRepository: Repository, WorkingCheckout {
                 let alternateRepository = GitRepository(git: self.git, path: alternateRepositoryPath, isWorkingRepo: false)
                 try alternateRepository.fetchLFSIfNecessary()
                 try self.git.pullLFS(at: self.path)
+            } catch let error as CancellationError {
+                throw error
             } catch {
                 throw GitLFSError.pullFailed(underlyingError: error)
             }
