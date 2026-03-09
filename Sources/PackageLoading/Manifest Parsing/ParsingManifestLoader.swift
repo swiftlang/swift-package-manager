@@ -2606,16 +2606,13 @@ extension ExprSyntax {
 
     /// Extract the string literal value from the expression, if it is one.
     fileprivate func asStringLiteralValue() -> String? {
-        guard let stringLiteral = self.as(StringLiteralExprSyntax.self),
-              stringLiteral.segments.count == 1,
-              let segment = stringLiteral.segments.first,
-              case .stringSegment(let segmentContents) = segment else {
+        guard let stringLiteral = self.as(StringLiteralExprSyntax.self) else {
             return nil
         }
 
-        return segmentContents.content.text
+        return stringLiteral.representedLiteralValue
     }
-    
+
     /// Evaluate a string literal that may contain Context interpolations, or a direct Context expression.
     /// Returns the evaluated string, or nil if it cannot be evaluated.
     fileprivate func asStringLiteralValue(in contextModel: StaticContextModel) -> String? {
@@ -2623,26 +2620,25 @@ extension ExprSyntax {
         if let value = self.evaluateContextExpression(contextModel: contextModel) {
             return value
         }
-        
+
         // Otherwise, try to parse as a string literal
         guard let stringLiteral = self.as(StringLiteralExprSyntax.self) else {
             return nil
         }
-        
-        // Simple case: no interpolation
-        if stringLiteral.segments.count == 1,
-           let segment = stringLiteral.segments.first,
-           case .stringSegment(let segmentContents) = segment {
-            return segmentContents.content.text
+
+        // Simple case: no interpolation — use representedLiteralValue to correctly handle
+        // escape sequences (e.g. \" in a C preprocessor define value becomes ").
+        if let value = stringLiteral.representedLiteralValue {
+            return value
         }
-        
-        // Complex case: handle interpolations
+
+        // Complex case: handle interpolations with Context values
         var result = ""
         for segment in stringLiteral.segments {
             switch segment {
             case .stringSegment(let contents):
                 result += contents.content.text
-                
+
             case .expressionSegment(let exprSegment):
                 // Try to evaluate the interpolated expression
                 if let value = exprSegment.expressions.first?.expression.evaluateContextExpression(contextModel: contextModel) {
@@ -2653,7 +2649,7 @@ extension ExprSyntax {
                 }
             }
         }
-        
+
         return result
     }
     

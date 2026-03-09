@@ -96,6 +96,49 @@ final class ParsingLoaderTests: PackageDescriptionLoadingTests {
         }
     }
 
+    func testBuildSettingDefineWithEscapedQuotes() async throws {
+        // C preprocessor defines can have values with embedded quotes, e.g.:
+        //   .define("VERSION", to: "\"1.0.0\"")
+        // The value "\"1.0.0\"" is the Swift string literal for "1.0.0" (with
+        // actual double quotes). The parsing loader must interpret the escape
+        // sequences in the string literal rather than returning the raw source text.
+        let content = """
+            import PackageDescription
+            let package = Package(
+                name: "Foo",
+                targets: [
+                    .target(
+                        name: "Foo",
+                        cSettings: [
+                            .define("PLAIN"),
+                            .define("WITH_VALUE", to: "42"),
+                            .define("QUOTED_VALUE", to: "\\"hello\\""),
+                            .define("QUOTED_WITH_SPACES", to: "\\"hello world\\""),
+                        ]
+                    ),
+                ]
+            )
+            """
+
+        try await forEachManifestLoader { loader in
+            let observability = ObservabilitySystem.makeForTesting()
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                content,
+                customManifestLoader: loader,
+                observabilityScope: observability.topScope
+            )
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertNoDiagnostics(validationDiagnostics)
+
+            let settings = manifest.targets[0].settings
+            XCTAssertEqual(settings[0], .init(tool: .c, kind: .define("PLAIN")))
+            XCTAssertEqual(settings[1], .init(tool: .c, kind: .define("WITH_VALUE=42")))
+            XCTAssertEqual(settings[2], .init(tool: .c, kind: .define("QUOTED_VALUE=\"hello\"")))
+            XCTAssertEqual(settings[3], .init(tool: .c, kind: .define("QUOTED_WITH_SPACES=\"hello world\"")))
+            return manifest
+        }
+    }
+
     func testEnvironment() async throws {
         let content =  """
             import PackageDescription
