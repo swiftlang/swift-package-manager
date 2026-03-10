@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+import PackageLoading
 import PackageModel
 import SourceControl
 import _InternalTestSupport
@@ -334,5 +335,46 @@ final class ParsingLoaderTests: PackageDescriptionLoadingTests {
 
         XCTAssertEqual(manifest.targets.count, 1)
         XCTAssertEqual(manifest.targets[0].name, "MyTarget")
+    }
+
+    func testUnknownTargetArgumentRecordsLimitation() async throws {
+        guard let parsingManifestLoader else {
+            XCTSkip("Host compiler doesn't support the static build configurations")
+            return
+        }
+
+        // An unknown target argument must cause the parsing loader to record a
+        // limitation. Before this fix, the argument was silently ignored, which
+        // could produce a wrong manifest with no indication that something was
+        // wrong. This manifest is syntactically valid Swift (the parser can read
+        // it) but will not compile; we only need the parsing loader to see it.
+        let content = """
+            import PackageDescription
+            let package = Package(
+                name: "Foo",
+                targets: [
+                    .target(
+                        name: "Foo",
+                        unknownFutureArgument: "value"
+                    ),
+                ]
+            )
+            """
+
+        let observability = ObservabilitySystem.makeForTesting()
+        do {
+            _ = try await loadAndValidateManifest(
+                content,
+                customManifestLoader: parsingManifestLoader,
+                observabilityScope: observability.topScope
+            )
+            XCTFail("Expected a limitations error for the unknown target argument")
+        } catch let error as ManifestParserError {
+            guard case .limitations = error else {
+                XCTFail("Expected .limitations error, got: \(error)")
+                return
+            }
+            // The unknown argument was correctly reported as a limitation.
+        }
     }
 }

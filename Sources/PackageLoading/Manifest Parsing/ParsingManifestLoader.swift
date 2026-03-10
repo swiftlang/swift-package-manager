@@ -829,8 +829,7 @@ extension ManifestParseVisitor {
                     limitations.append(.unsupportedExpression(argument.expression, expected: "boolean literal for packageAccess"))
                 }
             } else {
-                // Unknown/unsupported argument - not a limitation, just skip it
-                continue
+                limitations.append(.unsupportedArgument(argument, callee: methodName))
             }
         }
         
