@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2022-2023 Apple Inc. and the Swift project authors
+// Copyright (c) 2022-2026 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -25,6 +25,7 @@ package struct SwiftSDKCommand: AsyncParsableCommand {
             InstallSwiftSDK.self,
             ListSwiftSDKs.self,
             RemoveSwiftSDK.self,
+            SwiftSDKAliasCommand.self,
         ],
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)]
     )

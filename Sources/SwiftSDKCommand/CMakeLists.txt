@@ -7,6 +7,9 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_library(SwiftSDKCommand
+  Alias/ListAliases.swift
+  Alias/SetAliasRemote.swift
+  Alias/SwiftSDKAliasCommand.swift
   Configuration/ConfigurationSubcommand.swift
   Configuration/DeprecatedSwiftSDKConfigurationCommand.swift
   Configuration/ResetConfiguration.swift
