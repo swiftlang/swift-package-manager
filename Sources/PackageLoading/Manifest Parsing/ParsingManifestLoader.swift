@@ -2318,6 +2318,18 @@ extension ManifestParseVisitor {
         case "android": canonicalName = "android"
         case "wasi": canonicalName = "wasi"
         case "openbsd": canonicalName = "openbsd"
+
+        case "custom":
+            // .custom("platformName", versionString: "1.0")
+            guard let nameArg = arguments.first(where: { $0.label == nil }),
+                  let customName = nameArg.expression.asStringLiteralValue(),
+                  let versionArg = arguments.first(where: { $0.label?.text == "versionString" }),
+                  let versionString = versionArg.expression.asStringLiteralValue() else {
+                limitations.append(.unsupportedExpression(expr, expected: "known platform"))
+                return nil
+            }
+            return PlatformDescription(name: customName, version: versionString, options: [])
+
         default:
             limitations.append(.unsupportedExpression(expr, expected: "known platform"))
             return nil

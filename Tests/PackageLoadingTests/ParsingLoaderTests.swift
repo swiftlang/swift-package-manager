@@ -25,6 +25,44 @@ final class ParsingLoaderTests: PackageDescriptionLoadingTests {
         ["SWIFT_TARGET_NAME": "MyTarget"]
     }
 
+    func testSupportedPlatformCustom() async throws {
+        // SupportedPlatform.custom(_:versionString:) lets packages declare a minimum
+        // deployment version for a platform not listed in the named-platform enum.
+        // The parser must recognise the .custom("name", versionString: "x.y") form
+        // in the Package's platforms: array.
+        let content = """
+            import PackageDescription
+            let package = Package(
+                name: "Foo",
+                platforms: [
+                    .macOS(.v13),
+                    .custom("otheros", versionString: "1.0"),
+                    .custom("embedded", versionString: "2.1"),
+                ],
+                targets: [
+                    .target(name: "Foo"),
+                ]
+            )
+            """
+
+        try await forEachManifestLoader { loader in
+            let observability = ObservabilitySystem.makeForTesting()
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                content,
+                customManifestLoader: loader,
+                observabilityScope: observability.topScope
+            )
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertNoDiagnostics(validationDiagnostics)
+
+            XCTAssertEqual(manifest.platforms.count, 3)
+            XCTAssertEqual(manifest.platforms[0], PlatformDescription(name: "macos", version: "13.0"))
+            XCTAssertEqual(manifest.platforms[1], PlatformDescription(name: "otheros", version: "1.0"))
+            XCTAssertEqual(manifest.platforms[2], PlatformDescription(name: "embedded", version: "2.1"))
+            return manifest
+        }
+    }
+
     func testPoundIf() async throws {
         let content =  """
             import PackageDescription
