@@ -159,7 +159,7 @@ extension PackagePIFBuilder {
     }
     
     /// Removes known TargetSuffix patterns from a name string.
-    private static func removeSuffix(from name: String) -> String {
+    package static func removeSuffix(from name: String) -> String {
         for suffix in TargetSuffix.allCases {
             let suffixPattern: String
             switch suffix {
