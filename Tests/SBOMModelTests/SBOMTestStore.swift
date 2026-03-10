@@ -170,3 +170,33 @@ enum SBOMTestStore {
         return String(format: "%040x", abs(hash)).prefix(40).padding(toLength: 40, withPad: "0", startingAt: 0)
     }
 }
+
+extension ResolvedPackagesStore {
+    /// Get the repository URL for a given package name from the store
+    package func getRepositoryURL(for packageName: String) throws -> String {
+        let identity = PackageIdentity.plain(packageName)
+        
+        guard let resolvedPackage = self.resolvedPackages[identity] else {
+            throw SBOMTestStoreError.packageNotFound(packageName)
+        }
+        
+        switch resolvedPackage.packageRef.kind {
+        case .remoteSourceControl(let url):
+            return url.absoluteString
+        case .localSourceControl(let path):
+            return path.pathString
+        case .registry:
+            throw SBOMTestStoreError.registryPackageHasNoURL(packageName)
+        case .fileSystem:
+            throw SBOMTestStoreError.fileSystemPackageHasNoURL(packageName)
+        case .root(let path):
+            return path.pathString
+        }
+    }
+}
+
+enum SBOMTestStoreError: Error {
+    case packageNotFound(String)
+    case registryPackageHasNoURL(String)
+    case fileSystemPackageHasNoURL(String)
+}

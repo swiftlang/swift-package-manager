@@ -729,7 +729,7 @@ public struct TraitOptions: ParsableArguments {
     /// The traits to enable for the package.
     @Option(
         name: .customLong("traits"),
-        help: "Enables the passed traits of the package. Multiple traits can be specified by providing a comma separated list e.g. `--traits Trait1,Trait2`. When enabling specific traits the defaults traits need to explictily enabled as well by passing `defaults` to this command."
+        help: "Enables the passed traits of the package. Multiple traits can be specified by providing a comma separated list, for example `--traits Trait1,Trait2`. When enabling specific traits the default traits also need to explicitly enabled as well by passing `defaults` to this command."
     )
     package var _enabledTraits: String?
 
@@ -782,7 +782,7 @@ public struct SBOMOptions: ParsableArguments {
     /// Directory path to generate SBOM(s) in.
     @Option(
         name: .customLong("sbom-output-dir"),
-        help: ArgumentHelp("The absolute or relative directory path to generate the SBOM(s) in. Must be used with --sbom-spec. (default: <scratch_path>/sboms)."),
+        help: ArgumentHelp("The absolute or relative directory path to generate the SBOM(s) in. Must be used with --sbom-spec."),
         completion: .directory
     )
     package var _sbomDirectory: AbsolutePath?
@@ -790,7 +790,7 @@ public struct SBOMOptions: ParsableArguments {
     /// Filter SBOM components and dependencies by entity.
     @Option(
         name: .customLong("sbom-filter"),
-        help: ArgumentHelp("Filter the SBOM components and dependencies by products and/or packages. Must be used with --sbom-spec.")
+        help: ArgumentHelp("Filter the SBOM components and dependencies by type. Must be used with --sbom-spec.")
     )
     package var _sbomFilter: SBOMModel.Filter? = nil
 
@@ -812,15 +812,15 @@ public struct SBOMOptions: ParsableArguments {
             }
             if let envSpecs = SPMBuildCore.ConfigurableEnvVar.SWIFTPM_BUILD_SBOM_SPEC.getEnvVar() {
                 let specStrings = envSpecs.components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) }
-                var specs: [SBOMModel.Spec] = []
+                var specs: Set<SBOMModel.Spec> = []
                 for specString in specStrings {
                     guard let spec = SBOMModel.Spec(rawValue: specString) else {
                         throw SBOMModel.SBOMCommandError.invalidSpecValue(value: specString)
                     }
-                    specs.append(spec)
+                    specs.insert(spec)
                 }
                 if !specs.isEmpty {
-                    return specs
+                    return specs.sorted { $0.rawValue < $1.rawValue }
                 }
             }
             return []

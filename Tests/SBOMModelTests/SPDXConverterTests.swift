@@ -16,7 +16,8 @@ import Testing
 
 @Suite(
     .tags(
-        .Feature.SBOM
+        .Feature.SBOM,
+        .TestSize.small
     )
 )
 struct SPDXConverterTests {
@@ -320,73 +321,77 @@ struct SPDXConverterTests {
         #expect(documentUnwrapped.rootElementIDs == [sbomUnwrapped.id])
     }
 
-    @Test("convertToPackage with all categories")
-    func convertToPackageWithAllCategories() async throws {
-        let categories: [(SBOMComponent.Category, SPDXPackage.Purpose)] = [
-            (.application, .application),
+    @Test(
+        "convertToPackage with category",
+        arguments: [
+            (SBOMComponent.Category.application, SPDXPackage.Purpose.application),
             (.framework, .framework),
             (.library, .library),
             (.file, .file),
         ]
+    )
+    func convertToPackageWithCategory(
+        sbomCategory: SBOMComponent.Category,
+        expectedSPDXPurpose: SPDXPackage.Purpose
+    ) async throws {
+        let component = SBOMComponent(
+            category: sbomCategory,
+            id: SBOMIdentifier(value: "test-id"),
+            purl: PURL(scheme: "pkg", type: "swift", name: "test", version: "1.0.0"),
+            name: "TestComponent",
+            version: SBOMComponent.Version(revision: "1.0.0"),
+            originator: SBOMOriginator(commits: nil),
+            description: "Test description",
+            scope: .runtime,
+            entity: .product
+        )
 
-        for (sbomCategory, expectedSPDXPurpose) in categories {
-            let component = SBOMComponent(
-                category: sbomCategory,
-                id: SBOMIdentifier(value: "test-id"),
-                purl: PURL(scheme: "pkg", type: "swift", name: "test", version: "1.0.0"),
-                name: "TestComponent",
-                version: SBOMComponent.Version(revision: "1.0.0"),
-                originator: SBOMOriginator(commits: nil),
-                description: "Test description",
-                scope: .runtime,
-                entity: .product
-            )
+        let result = try await SPDXConverter.convertToPackage(from: component)
 
-            let result = try await SPDXConverter.convertToPackage(from: component)
-
-            #expect(result.id == "urn:spdx:test-id")
-            #expect(result.type == .SoftwarePackage)
-            #expect(result.purpose == expectedSPDXPurpose)
-            #expect(result.purl == "pkg:swift/test@1.0.0")
-            #expect(result.name == "TestComponent")
-            #expect(result.version == "1.0.0")
-            #expect(result.creationInfoID == "_:creationInfo")
-            #expect(result.description == "Test description")
-        }
+        #expect(result.id == "urn:spdx:test-id")
+        #expect(result.type == .SoftwarePackage)
+        #expect(result.purpose == expectedSPDXPurpose)
+        #expect(result.purl == "pkg:swift/test@1.0.0")
+        #expect(result.name == "TestComponent")
+        #expect(result.version == "1.0.0")
+        #expect(result.creationInfoID == "_:creationInfo")
+        #expect(result.description == "Test description")
     }
 
-    @Test("convertToPackage with all entites")
-    func convertToPackageWithAllEntities() async throws {
-        let entities: [(SBOMComponent.Entity, String)] = [
-            (.package, SBOMComponent.Entity.package.rawValue),
+    @Test(
+        "convertToPackage with entity",
+        arguments: [
+            (SBOMComponent.Entity.package, SBOMComponent.Entity.package.rawValue),
             (.product, SBOMComponent.Entity.product.rawValue),
         ]
+    )
+    func convertToPackageWithEntity(
+        sbomEntity: SBOMComponent.Entity,
+        sbomEntityString: String
+    ) async throws {
+        let component = SBOMComponent(
+            category: .application,
+            id: SBOMIdentifier(value: "test-id"),
+            purl: PURL(scheme: "pkg", type: "swift", name: "test", version: "1.0.0"),
+            name: "TestComponent",
+            version: SBOMComponent.Version(revision: "1.0.0"),
+            originator: SBOMOriginator(commits: nil),
+            description: "Test description",
+            scope: .runtime,
+            entity: sbomEntity
+        )
 
-        for (sbomEntity, sbomEntityString) in entities {
-            let component = SBOMComponent(
-                category: .application,
-                id: SBOMIdentifier(value: "test-id"),
-                purl: PURL(scheme: "pkg", type: "swift", name: "test", version: "1.0.0"),
-                name: "TestComponent",
-                version: SBOMComponent.Version(revision: "1.0.0"),
-                originator: SBOMOriginator(commits: nil),
-                description: "Test description",
-                scope: .runtime,
-                entity: sbomEntity
-            )
+        let result = try await SPDXConverter.convertToPackage(from: component)
 
-            let result = try await SPDXConverter.convertToPackage(from: component)
-
-            #expect(result.id == "urn:spdx:test-id")
-            #expect(result.type == .SoftwarePackage)
-            #expect(result.purpose == .application)
-            #expect(result.purl == "pkg:swift/test@1.0.0")
-            #expect(result.name == "TestComponent")
-            #expect(result.version == "1.0.0")
-            #expect(result.creationInfoID == "_:creationInfo")
-            #expect(result.description == "Test description")
-            #expect(result.summary == sbomEntityString)
-        }
+        #expect(result.id == "urn:spdx:test-id")
+        #expect(result.type == .SoftwarePackage)
+        #expect(result.purpose == .application)
+        #expect(result.purl == "pkg:swift/test@1.0.0")
+        #expect(result.name == "TestComponent")
+        #expect(result.version == "1.0.0")
+        #expect(result.creationInfoID == "_:creationInfo")
+        #expect(result.description == "Test description")
+        #expect(result.summary == sbomEntityString)
     }
 
     @Test("convertToPackage with nil description")
@@ -477,21 +482,25 @@ struct SPDXConverterTests {
         let result = await SPDXConverter.convertToExternalIdentifiers(from: [component])
         #expect(result.count == 2)
 
-        let externalIdentifier = result[0] as? SPDXExternalIdentifier
-        let externalIdentifierUnwrapped = try #require(externalIdentifier)
-        #expect(externalIdentifierUnwrapped.identifier == "urn:spdx:abc123")
-        #expect(externalIdentifierUnwrapped.identifierLocator == ["https://github.com/swiftlang/swift-package-manager"])
-        #expect(externalIdentifierUnwrapped.type == .ExternalIdentifier)
-        #expect(externalIdentifierUnwrapped.category == .gitoid)
+        let externalIdentifiers = result.compactMap { $0 as? SPDXExternalIdentifier }
+        let relationships = result.compactMap { $0 as? SPDXRelationship }
+        
+        #expect(externalIdentifiers.count == 1)
+        #expect(relationships.count == 1)
+        
+        let externalIdentifier = externalIdentifiers[0]
+        #expect(externalIdentifier.identifier == "urn:spdx:abc123")
+        #expect(externalIdentifier.identifierLocator == ["https://github.com/swiftlang/swift-package-manager"])
+        #expect(externalIdentifier.type == .ExternalIdentifier)
+        #expect(externalIdentifier.category == .gitoid)
 
-        let relationship = result[1] as? SPDXRelationship
-        let relationshipUnwrapped = try #require(relationship)
-        #expect(relationshipUnwrapped.id == "urn:spdx:abc123-generates")
-        #expect(relationshipUnwrapped.type == .Relationship)
-        #expect(relationshipUnwrapped.category == .generates)
-        #expect(relationshipUnwrapped.creationInfoID == "_:creationInfo")
-        #expect(relationshipUnwrapped.parentID == "urn:spdx:abc123")
-        #expect(relationshipUnwrapped.childrenID == ["urn:spdx:test-id"])
+        let relationship = relationships[0]
+        #expect(relationship.id == "urn:spdx:abc123-generates")
+        #expect(relationship.type == .Relationship)
+        #expect(relationship.category == .generates)
+        #expect(relationship.creationInfoID == "_:creationInfo")
+        #expect(relationship.parentID == "urn:spdx:abc123")
+        #expect(relationship.childrenID == ["urn:spdx:test-id"])
     }
 
     @Test("convertToExternalIdentifiers with multiple commits")
@@ -570,23 +579,27 @@ struct SPDXConverterTests {
         let result = await SPDXConverter.convertToExternalIdentifiers(from: [component1, component2])
         #expect(result.count == 2) // 1 ExternalIdentifier and 1 Relationship
 
-        let externalIdentifier = result[0] as? SPDXExternalIdentifier
-        let externalIdentifierUnwrapped = try #require(externalIdentifier)
-        #expect(externalIdentifierUnwrapped.identifier == "urn:spdx:abc123")
-        #expect(externalIdentifierUnwrapped.identifierLocator == ["https://github.com/swiftlang/swift-package-manager"])
-        #expect(externalIdentifierUnwrapped.type == .ExternalIdentifier)
-        #expect(externalIdentifierUnwrapped.category == .gitoid)
+        let externalIdentifiers = result.compactMap { $0 as? SPDXExternalIdentifier }
+        let relationships = result.compactMap { $0 as? SPDXRelationship }
+        
+        #expect(externalIdentifiers.count == 1)
+        #expect(relationships.count == 1)
+        
+        let externalIdentifier = externalIdentifiers[0]
+        #expect(externalIdentifier.identifier == "urn:spdx:abc123")
+        #expect(externalIdentifier.identifierLocator == ["https://github.com/swiftlang/swift-package-manager"])
+        #expect(externalIdentifier.type == .ExternalIdentifier)
+        #expect(externalIdentifier.category == .gitoid)
 
-        let relationship = result[1] as? SPDXRelationship
-        let relationshipUnwrapped = try #require(relationship)
-        #expect(relationshipUnwrapped.type == .Relationship)
-        #expect(relationshipUnwrapped.category == .generates)
-        #expect(relationshipUnwrapped.creationInfoID == "_:creationInfo")
-        #expect(relationshipUnwrapped.parentID == "urn:spdx:abc123")
+        let relationship = relationships[0]
+        #expect(relationship.type == .Relationship)
+        #expect(relationship.category == .generates)
+        #expect(relationship.creationInfoID == "_:creationInfo")
+        #expect(relationship.parentID == "urn:spdx:abc123")
 
-        #expect(relationshipUnwrapped.childrenID.count == 2)
-        #expect(relationshipUnwrapped.childrenID.contains("urn:spdx:test-id-1"))
-        #expect(relationshipUnwrapped.childrenID.contains("urn:spdx:test-id-2"))
+        #expect(relationship.childrenID.count == 2)
+        #expect(relationship.childrenID.contains("urn:spdx:test-id-1"))
+        #expect(relationship.childrenID.contains("urn:spdx:test-id-2"))
     }
     @Test("convertToExternalIdentifiers with single registry entry")
     func convertToExternalIdentifiersWithSingleRegistryEntry() async throws {
@@ -610,21 +623,25 @@ struct SPDXConverterTests {
         let result = await SPDXConverter.convertToExternalIdentifiers(from: [component])
         #expect(result.count == 2) // 1 ExternalIdentifier + 1 Relationship
 
-        let externalIdentifier = result[0] as? SPDXExternalIdentifier
-        let externalIdentifierUnwrapped = try #require(externalIdentifier)
-        #expect(externalIdentifierUnwrapped.identifier == "urn:spdx:https://registry.example.com/package/1.0.0")
-        #expect(externalIdentifierUnwrapped.identifierLocator == ["https://registry.example.com/package/1.0.0"])
-        #expect(externalIdentifierUnwrapped.type == .ExternalIdentifier)
-        #expect(externalIdentifierUnwrapped.category == .urlScheme)
+        let externalIdentifiers = result.compactMap { $0 as? SPDXExternalIdentifier }
+        let relationships = result.compactMap { $0 as? SPDXRelationship }
+        
+        #expect(externalIdentifiers.count == 1)
+        #expect(relationships.count == 1)
+        
+        let externalIdentifier = externalIdentifiers[0]
+        #expect(externalIdentifier.identifier == "urn:spdx:https://registry.example.com/package/1.0.0")
+        #expect(externalIdentifier.identifierLocator == ["https://registry.example.com/package/1.0.0"])
+        #expect(externalIdentifier.type == .ExternalIdentifier)
+        #expect(externalIdentifier.category == .urlScheme)
 
-        let relationship = result[1] as? SPDXRelationship
-        let relationshipUnwrapped = try #require(relationship)
-        #expect(relationshipUnwrapped.id == "urn:spdx:example-package-1.0.0-availableFrom-urn:spdx:test-id")
-        #expect(relationshipUnwrapped.type == .Relationship)
-        #expect(relationshipUnwrapped.category == .availableFrom)
-        #expect(relationshipUnwrapped.creationInfoID == "_:creationInfo")
-        #expect(relationshipUnwrapped.parentID == "urn:spdx:test-id")
-        #expect(relationshipUnwrapped.childrenID == ["urn:spdx:https://registry.example.com/package/1.0.0"])
+        let relationship = relationships[0]
+        #expect(relationship.id == "urn:spdx:example-package-1.0.0-availableFrom-urn:spdx:test-id")
+        #expect(relationship.type == .Relationship)
+        #expect(relationship.category == .availableFrom)
+        #expect(relationship.creationInfoID == "_:creationInfo")
+        #expect(relationship.parentID == "urn:spdx:test-id")
+        #expect(relationship.childrenID == ["urn:spdx:https://registry.example.com/package/1.0.0"])
     }
 
     @Test("convertToExternalIdentifiers with multiple registry entries")

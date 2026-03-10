@@ -25,7 +25,9 @@ extension SwiftPackageCommand {
     
     struct GenerateSbom: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(
-            abstract: "Generate a Software Bill of Materials (SBOM).")
+            abstract: "Generate a Software Bill of Materials (SBOM).",
+            helpNames: [.short, .long, .customLong("help", withSingleDash: true)],
+        )
 
         @OptionGroup()
         var globalOptions: GlobalOptions
@@ -33,15 +35,11 @@ extension SwiftPackageCommand {
         @Option(help: "The product to generate an SBOM for.")
         var product: String?
 
-        @OptionGroup(title: "SBOM")
+        @OptionGroup(title: "Software Bill of Materials (SBOM)")
         var sbom: SBOMOptions
 
         func run(_ swiftCommandState: SwiftCommandState) async throws {
             do {
-                guard try !sbom.sbomSpecs.isEmpty else {
-                    throw SBOMModel.SBOMCommandError.noSpecArg
-                }
-                
                 let workspace = try swiftCommandState.getActiveWorkspace()
                 let packageGraph = try await workspace.loadPackageGraph(
                     rootInput: swiftCommandState.getWorkspaceRoot(),
@@ -51,13 +49,14 @@ extension SwiftPackageCommand {
                 )
                 let resolvedPackagesStore = try workspace.resolvedPackagesStore.load()
 
+                let specs = try self.sbom.sbomSpecs
                 let input = SBOMInput(
                     modulesGraph: packageGraph,
                     dependencyGraph: nil,
                     store: resolvedPackagesStore,
                     filter: try self.sbom.sbomFilter,
                     product: self.product,
-                    specs: try self.sbom.sbomSpecs,
+                    specs: specs.isEmpty ? Spec.allCases : specs,
                     dir: await SBOMCreator.resolveSBOMDirectory(from: self.sbom.sbomDirectory, withDefault: try swiftCommandState.productsBuildParameters.buildPath),
                     observabilityScope: swiftCommandState.observabilityScope
                 )

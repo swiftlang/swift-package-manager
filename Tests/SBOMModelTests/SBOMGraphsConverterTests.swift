@@ -18,7 +18,8 @@ import Testing
 
 @Suite(
     .tags(
-        .Feature.SBOM
+        .Feature.SBOM,
+        .TestSize.medium
     )
 )
 struct SBOMGraphsConverterTests {

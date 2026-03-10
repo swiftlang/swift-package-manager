@@ -63,8 +63,10 @@ Overview of package manager commands here...
 - <doc:PackageConfigUnsetMirror>
 - <doc:PackageConfigGetMirror>
 
-### Experimental commands
+### Generating SBOMs
+- <doc:PackageGenerateSBOM>
 
+### Experimental commands
 - <doc:PackageExperimentalInstall>
 - <doc:PackageExperimentalUninstall>
 

@@ -17,6 +17,113 @@ import PackageGraph
 import PackageModel
 @testable import SBOMModel
 
+/// A test case that bundles a ModulesGraph with its expected test outcomes
+struct SBOMTestCase {
+    let name: String
+    let graph: ModulesGraph
+    let store: ResolvedPackagesStore
+    let expectations: TestExpectations
+    
+    struct TestExpectations {
+        let totalComponentCount: Int
+        let expectedPackageIds: Set<String>
+        let rootPackage: String
+        let rootPackagePrefix: String
+        let expectedRootProductCount: Int
+        let expectedRootProductNames: Set<String>
+    }
+    
+    /// Creates a test case for the simple test graph
+    static func createSimpleTestCase() throws -> SBOMTestCase {
+        let graph = try SBOMTestModulesGraph.createSimpleModulesGraph()
+        let store = try SBOMTestStore.createSimpleResolvedPackagesStore()
+        let expectations = TestExpectations(
+            totalComponentCount: 4,
+            expectedPackageIds: Set(["MyApp", "Utils"]),
+            rootPackage: "MyApp",
+            rootPackagePrefix: "MyApp:",
+            expectedRootProductCount: 1,
+            expectedRootProductNames: Set(["App"])
+        )
+        return SBOMTestCase(
+            name: "Simple",
+            graph: graph,
+            store: store,
+            expectations: expectations
+        )
+    }
+    
+    /// Creates a test case for the SPM test graph
+    static func createSPMTestCase(rootPath: String = "/swift-package-manager") throws -> SBOMTestCase {
+        let graph = try SBOMTestModulesGraph.createSPMModulesGraph(rootPath: rootPath)
+        let store = try SBOMTestStore.createSPMResolvedPackagesStore()
+        let expectations = TestExpectations(
+            totalComponentCount: 57,
+            expectedPackageIds: Set([
+                "swift-build", "swift-llbuild", "swift-driver", "swift-certificates", "swift-syntax",
+                "swift-tools-support-core",
+                "swift-crypto", "swift-argument-parser", "swift-asn1", "swift-collections", "swift-system",
+                "swift-package-manager",
+                "swift-toolchain-sqlite",
+            ]),
+            rootPackage: "swift-package-manager",
+            rootPackagePrefix: "swift-package-manager:",
+            expectedRootProductCount: 24,
+            expectedRootProductNames: Set([
+                "swift-package-registry", "PackageDescription", "PackageCollectionsModel", "swift-test",
+                "swift-package-collection",
+                "swift-sdk", "SwiftPMPackageCollections", "swift-experimental-sdk", "swift-package", "swift-run",
+                "PackagePlugin",
+                "swift-build-prebuilts", "SwiftPMDataModel", "swift-build", "package-info", "dummy-swiftc",
+                "SwiftPMDataModel-auto",
+                "XCBuildSupport", "swift-package-manager", "SwiftPM-auto", "AppleProductTypes", "swift-bootstrap",
+                "swiftpm-testing-helper",
+                "SwiftPM",
+            ])
+        )
+        return SBOMTestCase(
+            name: "SPM",
+            graph: graph,
+            store: store,
+            expectations: expectations
+        )
+    }
+    
+    /// Creates a test case for the Swiftly test graph
+    static func createSwiftlyTestCase(rootPath: String = "/tmp/swiftly-mock") throws -> SBOMTestCase {
+        let graph = try SBOMTestModulesGraph.createSwiftlyModulesGraph(rootPath: rootPath)
+        let store = try SBOMTestStore.createSwiftlyResolvedPackagesStore()
+        let expectations = TestExpectations(
+            totalComponentCount: 64,
+            expectedPackageIds: Set(["swift-nio-http2", "swift-tools-support-core",
+                                     "swift-nio-transport-services", "swiftly",
+                                     "swift-distributed-tracing", "swift-service-context", "swift-nio-ssl",
+                                     "swift-nio", "swift-collections", "swift-system", "swift-algorithms",
+                                     "swift-openapi-generator", "swift-openapi-async-http-client",
+                                     "swift-argument-parser", "openapikit", "yams", "swift-subprocess",
+                                     "async-http-client", "swift-log", "swift-atomics", "swift-numerics",
+                                     "swift-openapi-runtime", "swift-http-types", "swift-nio-extras"]),
+            rootPackage: "swiftly",
+            rootPackagePrefix: "swiftly:",
+            expectedRootProductCount: 6,
+            expectedRootProductNames: Set([
+                "test-swiftly",
+                "swiftly",
+                "generate-command-models",
+                "SwiftlyTests",
+                "build-swiftly-release",
+                "generate-docs-reference",
+            ])
+        )
+        return SBOMTestCase(
+            name: "Swiftly",
+            graph: graph,
+            store: store,
+            expectations: expectations
+        )
+    }
+}
+
 enum SBOMTestModulesGraph {
     // MARK: - Helper functions
 
