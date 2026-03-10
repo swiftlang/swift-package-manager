@@ -172,6 +172,21 @@ extension PackagePIFBuilder {
         }
         return name
     }
+
+    /// Extracts a Swift Package product name from a PIF target name.
+    ///
+    /// This reverses the conversion performed by `targetName(forProductName:suffix:)`.
+    /// Returns `nil` if the target name doesn't represent a product (i.e., doesn't end with "-product").
+    ///
+    /// - Parameter targetName: The PIF target name to parse
+    /// - Returns: The Swift Package product name, or `nil` if this isn't a product target name
+    package static func productName(forTargetName targetName: String) -> String? {
+        guard targetName.hasSuffix("-product") else {
+            return nil
+        }
+        let nameWithoutProduct = String(targetName.dropLast("-product".count))
+        return removeSuffix(from: nameWithoutProduct)
+    }
 }
 
 // MARK: - SwiftPM PackageModel Helpers
