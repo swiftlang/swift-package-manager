@@ -17,6 +17,7 @@ public enum TraitConfiguration: Codable, Hashable {
     case enabledTraits([String])
     case `default`
 
+    @_disfavoredOverload
     public init(
         enabledTraits: Set<String>? = nil,
         enableAllTraits: Bool = false
