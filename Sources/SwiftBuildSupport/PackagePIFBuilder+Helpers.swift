@@ -12,7 +12,6 @@
 
 import Foundation
 
-import PackageGraph
 import PackageModel
 
 import protocol TSCBasic.FileSystem
