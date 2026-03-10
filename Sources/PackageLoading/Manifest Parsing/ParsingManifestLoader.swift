@@ -889,9 +889,11 @@ extension ManifestParseVisitor {
                     name = argument.expression.asStringLiteralValue(in: contextModel)
                 } else if label == "condition" {
                     condition = parsePackageCondition(argument.expression)
+                } else {
+                    limitations.append(.unsupportedArgument(argument, callee: "target"))
                 }
             }
-            
+
             if let targetName = name {
                 return .target(name: targetName, condition: condition)
             }
@@ -914,9 +916,11 @@ extension ManifestParseVisitor {
                     moduleAliases = parseModuleAliases(argument.expression)
                 } else if label == "condition" {
                     condition = parsePackageCondition(argument.expression)
+                } else {
+                    limitations.append(.unsupportedArgument(argument, callee: "product"))
                 }
             }
-            
+
             if let productName = name {
                 return .product(name: productName, package: package, moduleAliases: moduleAliases, condition: condition)
             }
@@ -933,9 +937,11 @@ extension ManifestParseVisitor {
                     name = argument.expression.asStringLiteralValue(in: contextModel)
                 } else if label == "condition" {
                     condition = parsePackageCondition(argument.expression)
+                } else {
+                    limitations.append(.unsupportedArgument(argument, callee: "byName"))
                 }
             }
-            
+
             if let depName = name {
                 return .byName(name: depName, condition: condition)
             }
@@ -988,9 +994,11 @@ extension ManifestParseVisitor {
                 } else {
                     limitations.append(.unsupportedExpression(argument.expression, expected: "array of trait names"))
                 }
+            } else {
+                limitations.append(.unsupportedArgument(argument, callee: "when"))
             }
         }
-        
+
         // If platforms is explicitly empty and no other conditions, return nil (no condition)
         if hasPlatforms && platformNames.isEmpty && config == nil && traits == nil {
             return nil
@@ -1350,17 +1358,20 @@ extension ManifestParseVisitor {
             var localization: TargetDescription.Resource.Localization? = nil
             for argument in arguments.dropFirst() {
                 if argument.label?.text == "localization" {
-                    if let memberAccess = argument.expression.as(MemberAccessExprSyntax.self),
-                       memberAccess.base == nil,
-                       let localizationName = memberAccess.declName.baseName.identifier?.name {
-                        switch localizationName {
-                        case "default":
-                            localization = .default
-                        case "base":
-                            localization = .base
-                        default:
-                            break
-                        }
+                    guard let memberAccess = argument.expression.as(MemberAccessExprSyntax.self),
+                          memberAccess.base == nil,
+                          let localizationName = memberAccess.declName.baseName.identifier?.name else {
+                        limitations.append(.unsupportedExpression(argument.expression, expected: "known localization type"))
+                        return nil
+                    }
+                    switch localizationName {
+                    case "default":
+                        localization = .default
+                    case "base":
+                        localization = .base
+                    default:
+                        limitations.append(.unsupportedExpression(argument.expression, expected: "known localization type"))
+                        return nil
                     }
                 }
             }
@@ -1396,6 +1407,8 @@ extension ManifestParseVisitor {
                     intent = parsePluginCommandIntent(argument.expression)
                 } else if label == "permissions" {
                     permissions = argument.expression.parseArrayElements(parsePluginPermission) ?? []
+                } else {
+                    limitations.append(.unsupportedArgument(argument, callee: "command"))
                 }
             }
             
@@ -1436,6 +1449,8 @@ extension ManifestParseVisitor {
                     verb = argument.expression.asStringLiteralValue(in: contextModel)
                 } else if label == "description" {
                     description = argument.expression.asStringLiteralValue(in: contextModel)
+                } else {
+                    limitations.append(.unsupportedArgument(argument, callee: "custom"))
                 }
             }
             
@@ -1476,6 +1491,8 @@ extension ManifestParseVisitor {
                     scope = parsePluginNetworkPermissionScope(argument.expression)
                 } else if label == "reason" {
                     reason = argument.expression.asStringLiteralValue(in: contextModel)
+                } else {
+                    limitations.append(.unsupportedArgument(argument, callee: "allowNetworkConnections"))
                 }
             }
             
@@ -1567,6 +1584,8 @@ extension ManifestParseVisitor {
                 name = argument.expression.asStringLiteralValue(in: contextModel)
             } else if label == "package" {
                 package = argument.expression.asStringLiteralValue(in: contextModel)
+            } else {
+                limitations.append(.unsupportedArgument(argument, callee: "plugin"))
             }
         }
         
@@ -1622,37 +1641,44 @@ extension ManifestParseVisitor {
                     case "static":
                         productType = .library(.static)
                     default:
-                        break
+                        limitations.append(.unsupportedExpression(argument.expression, expected: "known library type"))
                     }
+                } else {
+                    limitations.append(.unsupportedExpression(argument.expression, expected: "known library type"))
                 }
+            } else {
+                // For Apple product types, additional labels are handled below.
+                // On non-Apple builds any unrecognized label is a limitation.
+                #if ENABLE_APPLE_PRODUCT_TYPES
+                if label == "bundleIdentifier" {
+                    bundleIdentifier = argument.expression.asStringLiteralValueWithContextEvaluation(contextModel: contextModel)
+                } else if label == "teamIdentifier" {
+                    teamIdentifier = argument.expression.asStringLiteralValueWithContextEvaluation(contextModel: contextModel)
+                } else if label == "displayVersion" {
+                    displayVersion = argument.expression.asStringLiteralValueWithContextEvaluation(contextModel: contextModel)
+                } else if label == "bundleVersion" {
+                    bundleVersion = argument.expression.asStringLiteralValueWithContextEvaluation(contextModel: contextModel)
+                } else if label == "appIcon" {
+                    appIcon = parseAppIcon(argument.expression)
+                } else if label == "accentColor" {
+                    accentColor = parseAccentColor(argument.expression)
+                } else if label == "supportedDeviceFamilies" {
+                    supportedDeviceFamilies = parseDeviceFamilies(argument.expression)
+                } else if label == "supportedInterfaceOrientations" {
+                    supportedInterfaceOrientations = parseInterfaceOrientations(argument.expression)
+                } else if label == "capabilities" {
+                    capabilities = parseCapabilities(argument.expression)
+                } else if label == "appCategory" {
+                    appCategory = parseAppCategory(argument.expression)
+                } else if label == "additionalInfoPlistContentFilePath" {
+                    additionalInfoPlistContentFilePath = argument.expression.asStringLiteralValueWithContextEvaluation(contextModel: contextModel)
+                } else {
+                    limitations.append(.unsupportedArgument(argument, callee: methodName))
+                }
+                #else
+                limitations.append(.unsupportedArgument(argument, callee: methodName))
+                #endif
             }
-            
-            #if ENABLE_APPLE_PRODUCT_TYPES
-            // Parse iOS-specific product settings
-            if label == "bundleIdentifier" {
-                bundleIdentifier = argument.expression.asStringLiteralValueWithContextEvaluation(contextModel: contextModel)
-            } else if label == "teamIdentifier" {
-                teamIdentifier = argument.expression.asStringLiteralValueWithContextEvaluation(contextModel: contextModel)
-            } else if label == "displayVersion" {
-                displayVersion = argument.expression.asStringLiteralValueWithContextEvaluation(contextModel: contextModel)
-            } else if label == "bundleVersion" {
-                bundleVersion = argument.expression.asStringLiteralValueWithContextEvaluation(contextModel: contextModel)
-            } else if label == "appIcon" {
-                appIcon = parseAppIcon(argument.expression)
-            } else if label == "accentColor" {
-                accentColor = parseAccentColor(argument.expression)
-            } else if label == "supportedDeviceFamilies" {
-                supportedDeviceFamilies = parseDeviceFamilies(argument.expression)
-            } else if label == "supportedInterfaceOrientations" {
-                supportedInterfaceOrientations = parseInterfaceOrientations(argument.expression)
-            } else if label == "capabilities" {
-                capabilities = parseCapabilities(argument.expression)
-            } else if label == "appCategory" {
-                appCategory = parseAppCategory(argument.expression)
-            } else if label == "additionalInfoPlistContentFilePath" {
-                additionalInfoPlistContentFilePath = argument.expression.asStringLiteralValueWithContextEvaluation(contextModel: contextModel)
-            }
-            #endif
         }
         
         guard let productName = name else {
@@ -2106,14 +2132,14 @@ extension ManifestParseVisitor {
                 if let infixExpr = argument.expression.as(InfixOperatorExprSyntax.self),
                    let op = infixExpr.operator.as(BinaryOperatorExprSyntax.self) {
                     let opText = op.operator.text.trimmingCharacters(in: .whitespaces)
-                    
+
                     if opText == "..<" || opText == "..." {
                         // Parse the left and right operands as version strings
                         if let lowerString = infixExpr.leftOperand.asStringLiteralValue(),
                            let lowerVersion = Version(lowerString),
                            let upperString = infixExpr.rightOperand.asStringLiteralValue(),
                            let upperVersion = Version(upperString) {
-                            
+
                             if opText == "..." {
                                 // Closed range - convert to half-open range
                                 let upperNext = Version(
@@ -2136,7 +2162,11 @@ extension ManifestParseVisitor {
                                     requirement = .range(lowerVersion..<upperVersion)
                                 }
                             }
+                        } else {
+                            limitations.append(.unsupportedExpression(argument.expression, expected: "version range with string literal bounds"))
                         }
+                    } else {
+                        limitations.append(.unsupportedExpression(argument.expression, expected: "version range operator (..<  or ...)"))
                     }
                 } else if let rangeExpr = argument.expression.as(SequenceExprSyntax.self) {
                     // Fallback: Check for range operators in SequenceExprSyntax (for older syntax trees)
@@ -2144,7 +2174,7 @@ extension ManifestParseVisitor {
                     var lowerBound: Version?
                     var upperBound: Version?
                     var isClosedRange = false
-                    
+
                     for element in rangeExpr.elements {
                         if let stringLiteral = element.asStringLiteralValue(),
                            let version = Version(stringLiteral) {
@@ -2166,7 +2196,7 @@ extension ManifestParseVisitor {
                             }
                         }
                     }
-                    
+
                     if let lower = lowerBound, let upper = upperBound {
                         if isClosedRange {
                             // Convert closed range to open range by using next patch version
@@ -2189,6 +2219,8 @@ extension ManifestParseVisitor {
                                 requirement = .range(lower..<upper)
                             }
                         }
+                    } else {
+                        limitations.append(.unsupportedExpression(argument.expression, expected: "version range with two bounds"))
                     }
                 } else if let reqExpr = argument.expression.as(FunctionCallExprSyntax.self),
                    let reqMemberAccess = reqExpr.calledExpression.as(MemberAccessExprSyntax.self),
@@ -2236,7 +2268,11 @@ extension ManifestParseVisitor {
                     default:
                         limitations.append(.unsupportedExpression(argument.expression, expected: "package dependency requirement"))
                     }
+                } else {
+                    limitations.append(.unsupportedExpression(argument.expression, expected: "package dependency requirement"))
                 }
+            } else {
+                limitations.append(.unsupportedArgument(argument, callee: "package"))
             }
         }
 
@@ -2437,6 +2473,8 @@ extension ManifestParseVisitor {
                     } else {
                         limitations.append(.unsupportedExpression(argument.expression, expected: "array of enabled trait names"))
                     }
+                } else {
+                    limitations.append(.unsupportedArgument(argument, callee: "default"))
                 }
             }
 
@@ -2464,6 +2502,8 @@ extension ManifestParseVisitor {
                 } else {
                     limitations.append(.unsupportedExpression(argument.expression, expected: "array of enabled trait names"))
                 }
+            } else {
+                limitations.append(.unsupportedArgument(argument, callee: "trait"))
             }
         }
         
@@ -2535,6 +2575,8 @@ extension ManifestParseVisitor {
                 name = argument.expression.asStringLiteralValue(in: contextModel)
             } else if label == "condition" {
                 condition = parseDependencyTraitCondition(argument.expression)
+            } else {
+                limitations.append(.unsupportedArgument(argument, callee: "trait"))
             }
         }
         
@@ -2560,7 +2602,11 @@ extension ManifestParseVisitor {
             if argument.label?.text == "traits" {
                 if let parsed = argument.expression.asStringArray(in: contextModel) {
                     traits = parsed
+                } else {
+                    limitations.append(.unsupportedExpression(argument.expression, expected: "array of trait names"))
                 }
+            } else {
+                limitations.append(.unsupportedArgument(argument, callee: "when"))
             }
         }
         
