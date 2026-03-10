@@ -4954,7 +4954,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         var flags = BuildFlags()
-        flags.linkerFlags = ["-L", "/path/to/foo", "-L/path/to/foo", "-rpath=foo", "-rpath", "foo"]
+        flags.linkerFlags = ["-L", "/path/to/foo", "-L/path/to/foo", "-rpath=foo", "-rpath", "foo"].constructBuildFlags(source: nil)
         let result = try await BuildPlanResult(plan: mockBuildPlan(
             graph: graph,
             commonFlags: flags,
@@ -5037,8 +5037,8 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             fileSystem: fs
         )
         let commonFlags = BuildFlags(
-            cCompilerFlags: ["-clang-command-line-flag"],
-            swiftCompilerFlags: [BuildFlag(value: "-swift-command-line-flag")]
+            cCompilerFlags: [BuildFlag(value: "-clang-command-line-flag", source: nil)],
+            swiftCompilerFlags: [BuildFlag(value: "-swift-command-line-flag", source: nil)]
         )
 
         let result = try await BuildPlanResult(plan: mockBuildPlan(
@@ -5171,7 +5171,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                 "-sdk", "/fake/sdk",
             ]
         )
-        XCTAssertNoMatch(mockToolchain.extraFlags.linkerFlags, ["-rpath"])
+        XCTAssertNoMatch(mockToolchain.extraFlags.linkerFlags.rawFlags, ["-rpath"])
         XCTAssertNoMatch(mockToolchain.extraFlags.swiftCompilerFlags.rawFlags, [
             "-I", "/fake/path/lib/swift/macosx/testing",
             "-L", "/fake/path/lib/swift/macosx/testing",
@@ -5292,7 +5292,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                 "-sdk", "/fake/sdk",
             ]
         )
-        XCTAssertNoMatch(mockToolchain.extraFlags.linkerFlags, ["-rpath"])
+        XCTAssertNoMatch(mockToolchain.extraFlags.linkerFlags.rawFlags, ["-rpath"])
 
         let observability = ObservabilitySystem.makeForTesting()
         let graph = try loadModulesGraph(
@@ -5414,10 +5414,10 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             toolchain: toolchain,
             graph: graph,
             commonFlags: BuildFlags(
-                cCompilerFlags: [cliFlag(tool: .cCompiler)],
-                cxxCompilerFlags: [cliFlag(tool: .cxxCompiler)],
+                cCompilerFlags: [cliFlag(tool: .cCompiler)].constructBuildFlags(source: nil),
+                cxxCompilerFlags: [cliFlag(tool: .cxxCompiler)].constructBuildFlags(source: nil),
                 swiftCompilerFlags: [cliFlag(tool: .swiftCompiler)].constructBuildFlags(source: nil),
-                linkerFlags: [cliFlag(tool: .linker)]
+                linkerFlags: [cliFlag(tool: .linker)].constructBuildFlags(source: nil)
             ),
             fileSystem: fileSystem,
             observabilityScope: observability.topScope

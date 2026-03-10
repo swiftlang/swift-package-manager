@@ -16,14 +16,18 @@ public struct BuildFlag: Hashable, Sendable, Encodable {
     /// Describes the origin of this flag, for example if it was sourced from a Swift SDK, or added as a builtin option by SwiftPM.
     public var source: Source?
 
-    public init(value: String, source: Source? = nil) {
+    public init(value: String, source: Source?) {
         self.value = value
         self.source = source
     }
 
     public enum Source: Sendable, Hashable, Codable {
         case defaultSwiftTestingSearchPath
+        case defaultWindowsSettings
         case swiftSDK
+        case toolset
+        case debugging
+        case plugin
         case commandLineOptions
     }
 }
@@ -45,25 +49,25 @@ extension [String] {
 /// Build-tool independent flags.
 public struct BuildFlags: Equatable, Encodable {
     /// Flags to pass to the C compiler.
-    public var cCompilerFlags: [String]
+    public var cCompilerFlags: [BuildFlag]
 
     /// Flags to pass to the C++ compiler.
-    public var cxxCompilerFlags: [String]
+    public var cxxCompilerFlags: [BuildFlag]
 
     /// Flags to pass to the Swift compiler.
     public var swiftCompilerFlags: [BuildFlag]
 
     /// Flags to pass to the linker.
-    public var linkerFlags: [String]
+    public var linkerFlags: [BuildFlag]
 
     /// Flags to pass to xcbuild.
     public var xcbuildFlags: [String]?
 
     public init(
-        cCompilerFlags: [String] = [],
-        cxxCompilerFlags: [String] = [],
+        cCompilerFlags: [BuildFlag] = [],
+        cxxCompilerFlags: [BuildFlag] = [],
         swiftCompilerFlags: [BuildFlag] = [],
-        linkerFlags: [String] = [],
+        linkerFlags: [BuildFlag] = [],
         xcbuildFlags: [String] = []
     ) {
         self.cCompilerFlags = cCompilerFlags
@@ -73,8 +77,8 @@ public struct BuildFlags: Equatable, Encodable {
         self.xcbuildFlags = xcbuildFlags
     }
 
-    // Kept to allow SourceKitLSP time to migrate to the new initializer.
-    @available(*, deprecated, message: "Use the overload which accepts swiftCompilerFlags as [BuildFlag] instead")
+    // Kept to allow callers time to migrate to the new initializer.
+    @available(*, deprecated, message: "Use the overload which accepts compiler flags as [BuildFlag] instead")
     public init(
         cCompilerFlags: [String],
         cxxCompilerFlags: [String],
@@ -82,10 +86,10 @@ public struct BuildFlags: Equatable, Encodable {
         linkerFlags: [String],
         xcbuildFlags: [String] = []
     ) {
-        self.cCompilerFlags = cCompilerFlags
-        self.cxxCompilerFlags = cxxCompilerFlags
+        self.cCompilerFlags = cCompilerFlags.constructBuildFlags(source: nil)
+        self.cxxCompilerFlags = cxxCompilerFlags.constructBuildFlags(source: nil)
         self.swiftCompilerFlags = swiftCompilerFlags.constructBuildFlags(source: nil)
-        self.linkerFlags = linkerFlags
+        self.linkerFlags = linkerFlags.constructBuildFlags(source: nil)
         self.xcbuildFlags = xcbuildFlags
     }
 

@@ -581,11 +581,11 @@ public final class UserToolchain: Toolchain {
         swiftSDK: SwiftSDK,
         environment: Environment,
         fileSystem: any FileSystem
-    ) throws -> [String] {
-        var swiftCompilerFlags = swiftSDK.toolset.knownTools[.swiftCompiler]?.extraCLIOptions ?? []
+    ) throws -> [BuildFlag] {
+        var swiftCompilerFlags = (swiftSDK.toolset.knownTools[.swiftCompiler]?.extraCLIOptions ?? []).map { BuildFlag(value: $0, source: .toolset)}
 
         if let linker = swiftSDK.toolset.knownTools[.linker]?.path {
-            swiftCompilerFlags += ["-ld-path=\(linker)"]
+            swiftCompilerFlags += [BuildFlag(value: "-ld-path=\(linker)", source: .toolset)]
         }
 
         guard let sdkDir = swiftSDK.pathsConfiguration.sdkRootPath else {
@@ -594,10 +594,10 @@ public final class UserToolchain: Toolchain {
                 // the SDK.  This is not the same value as the SDKROOT parameter
                 // in Xcode, however, the value represents a similar concept.
                 if let sdkroot = environment.windowsSDKRoot {
-                    var runtime: [String] = []
-                    var xctest: [String] = []
-                    var swiftTesting: [String] = []
-                    var extraSwiftCFlags: [String] = []
+                    var runtime: [BuildFlag] = []
+                    var xctest: [BuildFlag] = []
+                    var swiftTesting: [BuildFlag] = []
+                    var extraSwiftCFlags: [BuildFlag] = []
 
                     if let settings = WindowsSDKSettings(
                         reading: sdkroot.appending("SDKSettings.plist"),
@@ -606,13 +606,21 @@ public final class UserToolchain: Toolchain {
                     ) {
                         switch settings.defaults.runtime {
                         case .multithreadedDebugDLL:
-                            runtime = ["-libc", "MDd"]
+                            runtime = ["-libc", "MDd"].map {
+                                BuildFlag(value: $0, source: .defaultWindowsSettings)
+                            }
                         case .multithreadedDLL:
-                            runtime = ["-libc", "MD"]
+                            runtime = ["-libc", "MD"].map {
+                                BuildFlag(value: $0, source: .defaultWindowsSettings)
+                            }
                         case .multithreadedDebug:
-                            runtime = ["-libc", "MTd"]
+                            runtime = ["-libc", "MTd"].map {
+                                BuildFlag(value: $0, source: .defaultWindowsSettings)
+                            }
                         case .multithreaded:
-                            runtime = ["-libc", "MT"]
+                            runtime = ["-libc", "MT"].map {
+                                BuildFlag(value: $0, source: .defaultWindowsSettings)
+                            }
                         }
                     }
 
@@ -659,7 +667,7 @@ public final class UserToolchain: Toolchain {
                                 validating: "usr/lib/swift/windows/\(triple.archName)",
                                 relativeTo: XCTestInstallation
                             ).pathString,
-                        ]
+                        ].map { BuildFlag(value: $0, source: .defaultWindowsSettings) }
 
                         // Migration Path
                         //
@@ -674,7 +682,9 @@ public final class UserToolchain: Toolchain {
                             relativeTo: XCTestInstallation
                         )
                         if fileSystem.exists(implib) {
-                            xctest.append(contentsOf: ["-L", implib.parentDirectory.pathString])
+                            xctest.append(contentsOf: ["-L", implib.parentDirectory.pathString].map {
+                                BuildFlag(value: $0, source: .defaultWindowsSettings)
+                            })
                         }
 
                         if let swiftTestingVersion = info.defaults.swiftTestingVersion {
@@ -694,13 +704,15 @@ public final class UserToolchain: Toolchain {
                                     validating: "usr/lib/swift/windows/\(triple.archName)",
                                     relativeTo: swiftTestingInstallation
                                 ).pathString
-                            ]
+                            ].map { BuildFlag(value: $0, source: .defaultWindowsSettings) }
                         }
 
-                        extraSwiftCFlags = info.defaults.extraSwiftCFlags ?? []
+                        extraSwiftCFlags = (info.defaults.extraSwiftCFlags ?? []).map {
+                            BuildFlag(value: $0, source: .defaultWindowsSettings)
+                        }
                     }
 
-                    return ["-sdk", sdkroot.pathString] + runtime + xctest + swiftTesting + extraSwiftCFlags
+                    return (["-sdk", sdkroot.pathString].map { BuildFlag(value: $0, source: .swiftSDK) } + runtime + xctest + swiftTesting + extraSwiftCFlags)
                 }
             }
 
@@ -709,7 +721,7 @@ public final class UserToolchain: Toolchain {
 
         return (
             triple.isDarwin() || triple.isAndroid() || triple.isWASI() || triple.isWindows()
-                ? ["-sdk", sdkDir.pathString]
+                ? ["-sdk", sdkDir.pathString].map { BuildFlag(value: $0, source: .swiftSDK) }
                 : []
         ) + swiftCompilerFlags
     }
@@ -810,7 +822,7 @@ public final class UserToolchain: Toolchain {
         self.targetTriple = triple
 
         var swiftCompilerFlags: [BuildFlag] = []
-        var extraLinkerFlags: [String] = []
+        var extraLinkerFlags: [BuildFlag] = []
 
         let swiftTestingPath: AbsolutePath? = try Self.deriveSwiftTestingPath(
             derivedSwiftCompiler: swiftCompilers.compile,
@@ -853,15 +865,13 @@ public final class UserToolchain: Toolchain {
             swiftSDK: swiftSDK,
             environment: environment,
             fileSystem: fileSystem
-        ).map {
-            BuildFlag(value: $0, source: nil)
-        }
+        )
 
-        extraLinkerFlags += swiftSDK.toolset.knownTools[.linker]?.extraCLIOptions ?? []
+        extraLinkerFlags += (swiftSDK.toolset.knownTools[.linker]?.extraCLIOptions ?? []).constructBuildFlags(source: .toolset)
 
         self.extraFlags = BuildFlags(
-            cCompilerFlags: swiftSDK.toolset.knownTools[.cCompiler]?.extraCLIOptions ?? [],
-            cxxCompilerFlags: swiftSDK.toolset.knownTools[.cxxCompiler]?.extraCLIOptions ?? [],
+            cCompilerFlags: (swiftSDK.toolset.knownTools[.cCompiler]?.extraCLIOptions ?? []).constructBuildFlags(source: .toolset),
+            cxxCompilerFlags: (swiftSDK.toolset.knownTools[.cxxCompiler]?.extraCLIOptions ?? []).constructBuildFlags(source: .toolset),
             swiftCompilerFlags: swiftCompilerFlags,
             linkerFlags: extraLinkerFlags,
             xcbuildFlags: swiftSDK.toolset.knownTools[.xcbuild]?.extraCLIOptions ?? [])
@@ -881,7 +891,7 @@ public final class UserToolchain: Toolchain {
 
         if let sdkDir = swiftSDK.pathsConfiguration.sdkRootPath {
             let sysrootFlags = [triple.isDarwin() ? "-isysroot" : "--sysroot", sdkDir.pathString]
-            self.extraFlags.cCompilerFlags.insert(contentsOf: sysrootFlags, at: 0)
+            self.extraFlags.cCompilerFlags.insert(contentsOf: sysrootFlags.constructBuildFlags(source: .swiftSDK), at: 0)
         }
 
         if triple.isWindows() {
@@ -901,22 +911,22 @@ public final class UserToolchain: Toolchain {
                             "-D_DLL",
                             "-Xclang",
                             "--dependent-lib=msvcrtd",
-                        ]
+                        ].constructBuildFlags(source: .defaultWindowsSettings)
 
                     case .multithreadedDLL:
                         // Defines _MT, and _DLL
                         // Linker uses MSVCRT.lib
-                        self.extraFlags.cCompilerFlags += ["-D_MT", "-D_DLL", "-Xclang", "--dependent-lib=msvcrt"]
+                        self.extraFlags.cCompilerFlags += ["-D_MT", "-D_DLL", "-Xclang", "--dependent-lib=msvcrt"].constructBuildFlags(source: .defaultWindowsSettings)
 
                     case .multithreadedDebug:
                         // Defines _DEBUG, and _MT
                         // Linker uses LIBCMTD.lib
-                        self.extraFlags.cCompilerFlags += ["-D_DEBUG", "-D_MT", "-Xclang", "--dependent-lib=libcmtd"]
+                        self.extraFlags.cCompilerFlags += ["-D_DEBUG", "-D_MT", "-Xclang", "--dependent-lib=libcmtd"].constructBuildFlags(source: .defaultWindowsSettings)
 
                     case .multithreaded:
                         // Defines _MT
                         // Linker uses LIBCMT.lib
-                        self.extraFlags.cCompilerFlags += ["-D_MT", "-Xclang", "--dependent-lib=libcmt"]
+                        self.extraFlags.cCompilerFlags += ["-D_MT", "-Xclang", "--dependent-lib=libcmt"].constructBuildFlags(source: .defaultWindowsSettings)
                     }
                 }
             }

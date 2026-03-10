@@ -610,15 +610,15 @@ public final class SwiftModuleBuildDescription {
         // User arguments (from -Xswiftc) should follow generated arguments to allow user overrides
         args += self.buildParameters.flags.swiftCompilerFlags.rawFlags
 
-        args += self.buildParameters.toolchain.extraFlags.cCompilerFlags.asSwiftcCCompilerFlags()
+        args += self.buildParameters.toolchain.extraFlags.cCompilerFlags.rawFlags.asSwiftcCCompilerFlags()
         // User arguments (from -Xcc) should follow generated arguments to allow user overrides
-        args += self.buildParameters.flags.cCompilerFlags.asSwiftcCCompilerFlags()
+        args += self.buildParameters.flags.cCompilerFlags.rawFlags.asSwiftcCCompilerFlags()
 
         // TODO: Pass -Xcxx flags to swiftc (#6491)
         // Uncomment when downstream support arrives.
-        // args += self.buildParameters.toolchain.extraFlags.cxxCompilerFlags.asSwiftcCXXCompilerFlags()
+        // args += self.buildParameters.toolchain.extraFlags.cxxCompilerFlags.rawFlags.asSwiftcCXXCompilerFlags()
         // // User arguments (from -Xcxx) should follow generated arguments to allow user overrides
-        // args += self.buildParameters.flags.cxxCompilerFlags.asSwiftcCXXCompilerFlags()
+        // args += self.buildParameters.flags.cxxCompilerFlags.rawFlags.asSwiftcCXXCompilerFlags()
 
         // Enable the correct LTO mode if requested.
         switch self.buildParameters.linkingParameters.linkTimeOptimizationMode {

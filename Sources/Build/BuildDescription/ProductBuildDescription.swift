@@ -372,9 +372,9 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         // User arguments (from -Xswiftc) should follow generated arguments to allow user overrides
         args += self.buildParameters.flags.swiftCompilerFlags.rawFlags
 
-        args += self.buildParameters.toolchain.extraFlags.linkerFlags.asSwiftcLinkerFlags()
+        args += self.buildParameters.toolchain.extraFlags.linkerFlags.rawFlags.asSwiftcLinkerFlags()
         // User arguments (from -Xlinker) should follow generated arguments to allow user overrides
-        args += self.buildParameters.flags.linkerFlags.asSwiftcLinkerFlags()
+        args += self.buildParameters.flags.linkerFlags.rawFlags.asSwiftcLinkerFlags()
 
         // Enable the correct lto mode if requested.
         switch self.buildParameters.linkingParameters.linkTimeOptimizationMode {

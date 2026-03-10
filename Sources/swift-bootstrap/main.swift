@@ -151,10 +151,10 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
 
     public var buildFlags: BuildFlags {
         BuildFlags(
-            cCompilerFlags: self.cCompilerFlags,
-            cxxCompilerFlags: self.cxxCompilerFlags,
+            cCompilerFlags: self.cCompilerFlags.constructBuildFlags(source: .commandLineOptions),
+            cxxCompilerFlags: self.cxxCompilerFlags.constructBuildFlags(source: .commandLineOptions),
             swiftCompilerFlags: self.swiftCompilerFlags.constructBuildFlags(source: .commandLineOptions),
-            linkerFlags: self.linkerFlags,
+            linkerFlags: self.linkerFlags.constructBuildFlags(source: .commandLineOptions),
             xcbuildFlags: self.xcbuildFlags
         )
     }
