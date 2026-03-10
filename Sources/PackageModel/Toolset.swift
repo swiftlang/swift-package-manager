@@ -164,10 +164,10 @@ extension Toolset {
     public init(toolchainBinDir: AbsolutePath, buildFlags: BuildFlags = .init()) {
         self.rootPaths = [toolchainBinDir]
         self.knownTools = [
-            .cCompiler: .init(extraCLIOptions: buildFlags.cCompilerFlags),
-            .cxxCompiler: .init(extraCLIOptions: buildFlags.cxxCompilerFlags),
+            .cCompiler: .init(extraCLIOptions: buildFlags.cCompilerFlags.rawFlags),
+            .cxxCompiler: .init(extraCLIOptions: buildFlags.cxxCompilerFlags.rawFlags),
             .swiftCompiler: .init(extraCLIOptions: buildFlags.swiftCompilerFlags.rawFlags),
-            .linker: .init(extraCLIOptions: buildFlags.linkerFlags),
+            .linker: .init(extraCLIOptions: buildFlags.linkerFlags.rawFlags),
             .xcbuild: .init(extraCLIOptions: buildFlags.xcbuildFlags ?? []),
         ]
     }

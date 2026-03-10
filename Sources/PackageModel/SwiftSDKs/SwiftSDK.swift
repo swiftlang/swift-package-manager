@@ -233,7 +233,7 @@ public struct SwiftSDK: Equatable {
     /// Additional flags to be passed to the C compiler.
     @available(*, deprecated, message: "use `toolset` and its properties instead")
     public var extraCCFlags: [String] {
-        extraFlags.cCompilerFlags
+        extraFlags.cCompilerFlags.rawFlags
     }
 
     /// Additional flags to be passed to the Swift compiler.
@@ -245,18 +245,17 @@ public struct SwiftSDK: Equatable {
     /// Additional flags to be passed to the C++ compiler.
     @available(*, deprecated, message: "use `toolset` and its properties instead")
     public var extraCPPFlags: [String] {
-        extraFlags.cxxCompilerFlags
+        extraFlags.cxxCompilerFlags.rawFlags
     }
 
     /// Additional flags to be passed to the build tools.
     @available(*, deprecated, message: "use `toolset` and its properties instead")
     public var extraFlags: BuildFlags {
-        let swiftCompilerFlags = (toolset.knownTools[.swiftCompiler]?.extraCLIOptions ?? []).constructBuildFlags(source: .swiftSDK)
         return .init(
-            cCompilerFlags: toolset.knownTools[.cCompiler]?.extraCLIOptions ?? [],
-            cxxCompilerFlags: toolset.knownTools[.cxxCompiler]?.extraCLIOptions ?? [],
-            swiftCompilerFlags: swiftCompilerFlags,
-            linkerFlags: toolset.knownTools[.linker]?.extraCLIOptions ?? [],
+            cCompilerFlags: (toolset.knownTools[.cCompiler]?.extraCLIOptions ?? []).constructBuildFlags(source: .toolset),
+            cxxCompilerFlags: (toolset.knownTools[.cxxCompiler]?.extraCLIOptions ?? []).constructBuildFlags(source: .toolset),
+            swiftCompilerFlags: (toolset.knownTools[.swiftCompiler]?.extraCLIOptions ?? []).constructBuildFlags(source: .toolset),
+            linkerFlags: (toolset.knownTools[.linker]?.extraCLIOptions ?? []).constructBuildFlags(source: .toolset),
             xcbuildFlags: toolset.knownTools[.xcbuild]?.extraCLIOptions ?? []
         )
     }
@@ -346,7 +345,7 @@ public struct SwiftSDK: Equatable {
         ///   - properties: properties of a Swift SDK for the given triple.
         ///   - swiftSDKDirectory: directory used for converting relative paths in `properties` to absolute paths.
         fileprivate init(
-            _ properties: SwiftSDKMetadataV4.TripleProperties, 
+            _ properties: SwiftSDKMetadataV4.TripleProperties,
             swiftSDKDirectory: Basics.AbsolutePath? = nil
         ) throws where Path == Basics.AbsolutePath {
             self.init(
@@ -449,15 +448,14 @@ public struct SwiftSDK: Equatable {
         extraSwiftCFlags: [String] = [],
         extraCPPFlags: [String] = []
     ) {
-        let extraSwiftCFlags = extraSwiftCFlags.constructBuildFlags(source: .swiftSDK)
         self.init(
             targetTriple: target,
             sdkRootDir: sdk,
             toolchainBinDir: binDir,
             extraFlags: BuildFlags(
-                cCompilerFlags: extraCCFlags,
-                cxxCompilerFlags: extraCPPFlags,
-                swiftCompilerFlags: extraSwiftCFlags
+                cCompilerFlags: extraCCFlags.constructBuildFlags(source: .swiftSDK),
+                cxxCompilerFlags: extraCPPFlags.constructBuildFlags(source: .swiftSDK),
+                swiftCompilerFlags: extraSwiftCFlags.constructBuildFlags(source: .swiftSDK)
             )
         )
     }
@@ -1049,7 +1047,7 @@ extension SwiftSDK {
         switch version.version {
         case 1:
             let serializedMetadata = try decoder.decode(
-                path: path, 
+                path: path,
                 fileSystem: fileSystem,
                 as: SerializedDestinationV1.self
             )
@@ -1058,8 +1056,8 @@ extension SwiftSDK {
                 toolset: .init(
                     toolchainBinDir: serializedMetadata.binDir,
                     buildFlags: .init(
-                        cCompilerFlags: serializedMetadata.extraCCFlags,
-                        cxxCompilerFlags: serializedMetadata.extraCPPFlags,
+                        cCompilerFlags: serializedMetadata.extraCCFlags.constructBuildFlags(source: .swiftSDK),
+                        cxxCompilerFlags: serializedMetadata.extraCPPFlags.constructBuildFlags(source: .swiftSDK),
                         swiftCompilerFlags: serializedMetadata.extraSwiftCFlags.constructBuildFlags(source: .swiftSDK)
                     )
                 ),
@@ -1078,10 +1076,10 @@ extension SwiftSDK {
                         relativeTo: swiftSDKDirectory
                     ),
                     buildFlags: .init(
-                        cCompilerFlags: serializedMetadata.extraCCFlags,
-                        cxxCompilerFlags: serializedMetadata.extraCXXFlags,
+                        cCompilerFlags: serializedMetadata.extraCCFlags.constructBuildFlags(source: .swiftSDK),
+                        cxxCompilerFlags: serializedMetadata.extraCXXFlags.constructBuildFlags(source: .swiftSDK),
                         swiftCompilerFlags: serializedMetadata.extraSwiftCFlags.constructBuildFlags(source: .swiftSDK),
-                        linkerFlags: serializedMetadata.extraLinkerFlags
+                        linkerFlags: serializedMetadata.extraLinkerFlags.constructBuildFlags(source: .swiftSDK)
                     )
                 ),
                 pathsConfiguration: .init(
@@ -1102,7 +1100,7 @@ extension SwiftSDK {
             guard let targetTriple = self.targetTriple, let sdkRootDir = self.pathsConfiguration.sdkRootPath else {
                 throw SwiftSDKError.unserializableMetadata
             }
-            
+
             return (
                 targetTriple,
                 .init(

@@ -357,15 +357,15 @@ public final class ClangModuleBuildDescription {
             args += ["-include", resourceAccessorHeaderFile.pathString]
         }
 
-        args += self.buildParameters.toolchain.extraFlags.cCompilerFlags
+        args += self.buildParameters.toolchain.extraFlags.cCompilerFlags.rawFlags
         // User arguments (from -Xcc) should follow generated arguments to allow user overrides
-        args += self.buildParameters.flags.cCompilerFlags
+        args += self.buildParameters.flags.cCompilerFlags.rawFlags
 
         // Add extra C++ flags if this target contains C++ files.
         if isCXX {
-            args += self.buildParameters.toolchain.extraFlags.cxxCompilerFlags
+            args += self.buildParameters.toolchain.extraFlags.cxxCompilerFlags.rawFlags
             // User arguments (from -Xcxx) should follow generated arguments to allow user overrides
-            args += self.buildParameters.flags.cxxCompilerFlags
+            args += self.buildParameters.flags.cxxCompilerFlags.rawFlags
         }
 
         // Enable the correct lto mode if requested.

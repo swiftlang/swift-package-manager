@@ -201,28 +201,28 @@ public struct BuildParameters: Encodable {
             var flags = flags
             // DWARF requires lld as link.exe expects CodeView debug info.
             self.flags = flags.merging(triple.isWindows() ? BuildFlags(
-                cCompilerFlags: ["-gdwarf"],
-                cxxCompilerFlags: ["-gdwarf"],
-                swiftCompilerFlags: ["-g", "-use-ld=lld"].constructBuildFlags(source: nil),
-                linkerFlags: ["-debug:dwarf"]
-            ) : BuildFlags(cCompilerFlags: ["-g"], cxxCompilerFlags: ["-g"], swiftCompilerFlags: [BuildFlag(value: "-g")]))
+                cCompilerFlags: ["-gdwarf"].constructBuildFlags(source: .debugging),
+                cxxCompilerFlags: ["-gdwarf"].constructBuildFlags(source: .debugging),
+                swiftCompilerFlags: ["-g", "-use-ld=lld"].constructBuildFlags(source: .debugging),
+                linkerFlags: ["-debug:dwarf"].constructBuildFlags(source: .debugging)
+            ) : BuildFlags(cCompilerFlags: ["-g"].constructBuildFlags(source: .debugging), cxxCompilerFlags: ["-g"].constructBuildFlags(source: .debugging), swiftCompilerFlags: [BuildFlag(value: "-g", source: .debugging)]))
         case .codeview:
             if !triple.isWindows() {
                 throw StringError("CodeView debug information is currently not supported on \(triple.osName)")
             }
             var flags = flags
             self.flags = flags.merging(BuildFlags(
-                cCompilerFlags: ["-g"],
-                cxxCompilerFlags: ["-g"],
-                swiftCompilerFlags: ["-g", "-debug-info-format=codeview"].constructBuildFlags(source: nil),
-                linkerFlags: ["-debug"]
+                cCompilerFlags: ["-g"].constructBuildFlags(source: .debugging),
+                cxxCompilerFlags: ["-g"].constructBuildFlags(source: .debugging),
+                swiftCompilerFlags: ["-g", "-debug-info-format=codeview"].constructBuildFlags(source: .debugging),
+                linkerFlags: ["-debug"].constructBuildFlags(source: .debugging)
             ))
         case .none:
             var flags = flags
             self.flags = flags.merging(BuildFlags(
-                cCompilerFlags: ["-g0"],
-                cxxCompilerFlags: ["-g0"],
-                swiftCompilerFlags: [BuildFlag(value: "-gnone")]
+                cCompilerFlags: ["-g0"].constructBuildFlags(source: .debugging),
+                cxxCompilerFlags: ["-g0"].constructBuildFlags(source: .debugging),
+                swiftCompilerFlags: [BuildFlag(value: "-gnone", source: .debugging)]
             ))
         }
         self.pkgConfigDirectories = pkgConfigDirectories

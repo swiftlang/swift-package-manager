@@ -904,44 +904,21 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         }
 
         settings["LIBRARY_SEARCH_PATHS"] = try "$(inherited) \(buildParameters.toolchain.toolchainLibDir.pathString)"
-        settings["OTHER_CFLAGS"] = (
-            verboseFlag +
-            ["$(inherited)"]
-                + buildParameters.toolchain.extraFlags.cCompilerFlags.map { $0.shellEscaped() }
-                + buildParameters.flags.cCompilerFlags.map { $0.shellEscaped() }
-        ).joined(separator: " ")
-        settings["OTHER_CPLUSPLUSFLAGS"] = (
-            verboseFlag +
-            ["$(inherited)"]
-                + buildParameters.toolchain.extraFlags.cxxCompilerFlags.map { $0.shellEscaped() }
-                + buildParameters.flags.cxxCompilerFlags.map { $0.shellEscaped() }
-        ).joined(separator: " ")
 
-        let otherSwiftFlags = (
-            buildParameters.toolchain.extraFlags.swiftCompilerFlags +
-            buildParameters.flags.swiftCompilerFlags
-        ).filter {
-            switch $0.source {
-            case .defaultSwiftTestingSearchPath:
-                // Swift Build computes these internally. It's important not to add them a second time here
-                // as it can break the intended search path ordering, for example, if the user is building
-                // Swift Testing as a package dependency.
-                return false
-            case .swiftSDK:
-                // Swift Build loads Swift SDK flags internally, and may introspect them to override build
-                // settings. Don't duplicate them here.
-                return false
-            case .commandLineOptions, nil:
-                return true
+        let compilerAndLinkerFlags = [
+            "OTHER_CFLAGS": buildParameters.toolchain.extraFlags.cCompilerFlags + buildParameters.flags.cCompilerFlags,
+            "OTHER_CPLUSPLUSFLAGS": buildParameters.toolchain.extraFlags.cxxCompilerFlags + buildParameters.flags.cxxCompilerFlags,
+            "OTHER_SWIFT_FLAGS": buildParameters.toolchain.extraFlags.swiftCompilerFlags + buildParameters.flags.swiftCompilerFlags,
+            "OTHER_LDFLAGS": (buildParameters.toolchain.extraFlags.linkerFlags + buildParameters.flags.linkerFlags)
+        ]
+        for (settingName, buildFlags) in compilerAndLinkerFlags {
+            var rawFlags = buildFlags.rawFlagsForSwiftBuild
+            if settingName == "OTHER_LDFLAGS" {
+                rawFlags = rawFlags.asSwiftcLinkerFlags()
             }
-        }.map {
-            $0.value.shellEscaped()
+            settings[settingName] = (verboseFlag + ["$(inherited)"] +
+                rawFlags.map { $0.shellEscaped() }).joined(separator: " ")
         }
-        settings["OTHER_SWIFT_FLAGS"] = (
-            verboseFlag +
-            ["$(inherited)"] +
-            otherSwiftFlags
-        ).joined(separator: " ")
 
         if buildParameters.driverParameters.emitSILFiles {
             settings["SWIFT_EMIT_SIL_FILES"] = "YES"
@@ -968,20 +945,6 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             // dSYM generation is required to attribute code size to source locations
             settings["DEBUG_INFORMATION_FORMAT"] = "dwarf-with-dsym"
         }
-
-        let inherited = ["$(inherited)"]
-
-        let buildParametersLinkFlags =
-            buildParameters.toolchain.extraFlags.linkerFlags.asSwiftcLinkerFlags().map { $0.shellEscaped() }
-            + buildParameters.flags.linkerFlags.asSwiftcLinkerFlags().map { $0.shellEscaped() }
-
-        var otherLdFlags =
-                verboseFlag  // clang will be invoked to link so the verbose flag is valid for it
-                + inherited
-
-        otherLdFlags += buildParametersLinkFlags
-
-        settings["OTHER_LDFLAGS"] = otherLdFlags.joined(separator: " ")
 
         // Optionally also set the list of architectures to build for.
         if let architectures = buildParameters.architectures, !architectures.isEmpty {
@@ -1347,5 +1310,35 @@ fileprivate extension Triple {
             components.removeLast()
         }
         return components.map { String($0) }.joined(separator: ".")
+    }
+}
+
+fileprivate extension [BuildFlag] {
+    var rawFlagsForSwiftBuild: [String] {
+        filter {
+            switch $0.source {
+            case .commandLineOptions:
+                // Flags specified by the user. These are generally the only ones that should be passed on.
+                return true
+            case .plugin, .debugging, .toolset:
+                // FIXME: Not yet handled
+                return true
+            case .defaultSwiftTestingSearchPath:
+                // Swift Build computes these internally. It's important not to add them a second time here
+                // as it can break the intended search path ordering, for example, if the user is building
+                // Swift Testing as a package dependency.
+                return false
+            case .defaultWindowsSettings:
+                // Swift Build computes these internally.
+                return false
+            case .swiftSDK:
+                // Swift Build loads Swift SDK flags internally, and may introspect them to override build
+                // settings. Don't duplicate them here.
+                return false
+            case nil:
+                // Remaining flags are legacy build system specific (one occurrence only), or in tests.
+                return false
+            }
+        }.map { $0.value }
     }
 }

@@ -146,11 +146,11 @@ extension Toolchain {
     }
 
     public var extraCCFlags: [String] {
-        extraFlags.cCompilerFlags
+        extraFlags.cCompilerFlags.rawFlags
     }
-    
+
     public var extraCPPFlags: [String] {
-        extraFlags.cxxCompilerFlags
+        extraFlags.cxxCompilerFlags.rawFlags
     }
     
     public var extraSwiftCFlags: [String] {
