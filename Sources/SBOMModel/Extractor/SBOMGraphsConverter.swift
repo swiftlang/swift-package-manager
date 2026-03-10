@@ -14,7 +14,7 @@ import PackageGraph
 import PackageModel
 import SwiftBuildSupport
 
-extension PIFBuilder {
+extension PackagePIFBuilder {
         /// Removes known TargetSuffix patterns from a name string.
     private static func removeSuffix(from name: String) -> String {
         for suffix in TargetSuffix.allCases {
