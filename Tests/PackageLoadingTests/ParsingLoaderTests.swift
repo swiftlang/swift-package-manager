@@ -139,6 +139,47 @@ final class ParsingLoaderTests: PackageDescriptionLoadingTests {
         }
     }
 
+    func testStrictMemorySafetyWithCondition() async throws {
+        // .strictMemorySafety() is unusual among build settings: it has no required value
+        // argument — its sole argument is the optional condition. The condition-parsing
+        // logic must not skip it when scanning for the condition.
+        let content = """
+            import PackageDescription
+            let package = Package(
+                name: "Foo",
+                targets: [
+                    .target(
+                        name: "Foo",
+                        swiftSettings: [
+                            .strictMemorySafety(),
+                            .strictMemorySafety(.when(platforms: [.linux])),
+                            .strictMemorySafety(.when(platforms: [.macOS, .linux])),
+                        ]
+                    ),
+                ]
+            )
+            """
+
+        try await forEachManifestLoader { loader in
+            let observability = ObservabilitySystem.makeForTesting()
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                content,
+                customManifestLoader: loader,
+                observabilityScope: observability.topScope
+            )
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertNoDiagnostics(validationDiagnostics)
+
+            let settings = manifest.targets[0].settings
+            XCTAssertEqual(settings[0], .init(tool: .swift, kind: .strictMemorySafety))
+            XCTAssertEqual(settings[1], .init(tool: .swift, kind: .strictMemorySafety,
+                                              condition: .init(platformNames: ["linux"])))
+            XCTAssertEqual(settings[2], .init(tool: .swift, kind: .strictMemorySafety,
+                                              condition: .init(platformNames: ["macos", "linux"])))
+            return manifest
+        }
+    }
+
     func testBuildSettingCustomPlatformCondition() async throws {
         // Platform conditions can include custom platform names via .custom("name"),
         // e.g. .linkedLibrary("pthread", .when(platforms: [.linux, .custom("freebsd")])).

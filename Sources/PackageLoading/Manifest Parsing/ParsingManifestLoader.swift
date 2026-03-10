@@ -1047,7 +1047,12 @@ extension ManifestParseVisitor {
         
         var kind: TargetBuildSettingDescription.Kind?
         var condition: PackageConditionDescription?
-        
+        // Most build settings have a required value as their first argument, followed by an
+        // optional condition. conditionArgumentOffset is how many leading arguments to skip
+        // before scanning for the condition. It is 0 only for strictMemorySafety, which has
+        // no value argument — its sole argument IS the condition.
+        var conditionArgumentOffset = 1
+
         // Parse the kind based on method name
         switch methodName {
         case "headerSearchPath":
@@ -1137,6 +1142,7 @@ extension ManifestParseVisitor {
             }
         case "strictMemorySafety":
             kind = .strictMemorySafety
+            conditionArgumentOffset = 0  // no value arg; the first (and only) arg is the condition
         case "swiftLanguageMode", "swiftLanguageVersion":
             // .swiftLanguageMode(.v5) or .swiftLanguageMode(.version("6"))
             // Also supports deprecated .swiftLanguageVersion() for backward compatibility
@@ -1226,8 +1232,11 @@ extension ManifestParseVisitor {
             return nil
         }
         
-        // Parse condition if present (last argument with no label or labeled as condition)
-        for argument in functionCall.arguments.dropFirst() {
+        // Parse condition if present (last argument with no label or labeled as condition).
+        // conditionArgumentOffset leading arguments are skipped because they belong to the
+        // build setting's value (e.g. the search path, the define name, the feature name).
+        // strictMemorySafety has no value argument, so its offset is 0.
+        for argument in functionCall.arguments.dropFirst(conditionArgumentOffset) {
             if argument.label == nil || argument.label?.text == "condition" {
                 if let parsedCondition = parsePackageCondition(argument.expression) {
                     condition = parsedCondition
