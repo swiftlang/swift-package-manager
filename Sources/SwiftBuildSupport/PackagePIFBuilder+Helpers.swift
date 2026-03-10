@@ -157,8 +157,21 @@ extension PackagePIFBuilder {
         let suffix = suffix?.rawValue ?? ""
         return "\(name)\(suffix)"
     }
-
-
+    
+    /// Removes known TargetSuffix patterns from a name string.
+    private static func removeSuffix(from name: String) -> String {
+        for suffix in TargetSuffix.allCases {
+            let suffixPattern: String
+            switch suffix {
+            case .testable, .dynamic:
+                suffixPattern = "-\(suffix.rawValue)"
+                if name.hasSuffix(suffixPattern) {
+                    return String(name.dropLast(suffixPattern.count))
+                }
+            }
+        }
+        return name
+    }
 }
 
 // MARK: - SwiftPM PackageModel Helpers

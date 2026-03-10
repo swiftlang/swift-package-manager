@@ -15,20 +15,7 @@ import PackageModel
 import SwiftBuildSupport
 
 extension PackagePIFBuilder {
-        /// Removes known TargetSuffix patterns from a name string.
-    private static func removeSuffix(from name: String) -> String {
-        for suffix in TargetSuffix.allCases {
-            let suffixPattern: String
-            switch suffix {
-            case .testable, .dynamic:
-                suffixPattern = "-\(suffix.rawValue)"
-                if name.hasSuffix(suffixPattern) {
-                    return String(name.dropLast(suffixPattern.count))
-                }
-            }
-        }
-        return name
-    }
+     
 
     /// Extracts a Swift Package product name from a PIF target name.
     ///
