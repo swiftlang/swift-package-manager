@@ -30,7 +30,9 @@ target_link_libraries(SwiftBuildSupport PUBLIC
   PackageGraph
   SwiftBuild::SwiftBuild
   SwiftBuild::SWBBuildService
-  _StringProcessing
+  PackageCollections
+  PackageModel
+  SourceControl
 )
 if(NOT APPLE)
   if(Foundation_FOUND)
