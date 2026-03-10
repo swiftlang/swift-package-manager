@@ -1212,19 +1212,16 @@ extension ManifestParseVisitor {
                 kind = .disableWarning(warning)
             }
         case "defaultIsolation":
-            // .defaultIsolation(.MainActor) or .defaultIsolation(.nonisolated)
-            if let firstArg = functionCall.arguments.first,
-               firstArg.label == nil,
-               let memberAccess = firstArg.expression.as(MemberAccessExprSyntax.self),
-               memberAccess.base == nil,
-               let isolationName = memberAccess.declName.baseName.identifier?.name {
-                switch isolationName {
-                case "MainActor":
-                    kind = .defaultIsolation(.MainActor)
-                case "nonisolated":
+            // .defaultIsolation(MainActor.self) → .MainActor isolation
+            // .defaultIsolation(nil)            → nonisolated (compiler default)
+            if let firstArg = functionCall.arguments.first, firstArg.label == nil {
+                if firstArg.expression.is(NilLiteralExprSyntax.self) {
                     kind = .defaultIsolation(.nonisolated)
-                default:
-                    break
+                } else if let memberAccess = firstArg.expression.as(MemberAccessExprSyntax.self),
+                          let base = memberAccess.base?.as(DeclReferenceExprSyntax.self),
+                          base.baseName.text == "MainActor",
+                          memberAccess.declName.baseName.text == "self" {
+                    kind = .defaultIsolation(.MainActor)
                 }
             }
         default:

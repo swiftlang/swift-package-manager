@@ -139,6 +139,51 @@ final class ParsingLoaderTests: PackageDescriptionLoadingTests {
         }
     }
 
+    func testDefaultIsolation() async throws {
+        // .defaultIsolation takes MainActor.Type? — not a leading-dot enum.
+        // The two valid call forms are:
+        //   .defaultIsolation(MainActor.self)  → MainActor isolation
+        //   .defaultIsolation(nil)             → nonisolated
+        // Both forms may also carry an optional platform/configuration condition.
+        let content = """
+            import PackageDescription
+            let package = Package(
+                name: "Foo",
+                targets: [
+                    .target(
+                        name: "Foo",
+                        swiftSettings: [
+                            .defaultIsolation(MainActor.self),
+                            .defaultIsolation(nil),
+                            .defaultIsolation(MainActor.self, .when(platforms: [.macOS])),
+                            .defaultIsolation(nil, .when(platforms: [.linux])),
+                        ]
+                    ),
+                ]
+            )
+            """
+
+        try await forEachManifestLoader { loader in
+            let observability = ObservabilitySystem.makeForTesting()
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                content,
+                customManifestLoader: loader,
+                observabilityScope: observability.topScope
+            )
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertNoDiagnostics(validationDiagnostics)
+
+            let settings = manifest.targets[0].settings
+            XCTAssertEqual(settings[0], .init(tool: .swift, kind: .defaultIsolation(.MainActor)))
+            XCTAssertEqual(settings[1], .init(tool: .swift, kind: .defaultIsolation(.nonisolated)))
+            XCTAssertEqual(settings[2], .init(tool: .swift, kind: .defaultIsolation(.MainActor),
+                                              condition: .init(platformNames: ["macos"])))
+            XCTAssertEqual(settings[3], .init(tool: .swift, kind: .defaultIsolation(.nonisolated),
+                                              condition: .init(platformNames: ["linux"])))
+            return manifest
+        }
+    }
+
     func testStrictMemorySafetyWithCondition() async throws {
         // .strictMemorySafety() is unusual among build settings: it has no required value
         // argument — its sole argument is the optional condition. The condition-parsing
