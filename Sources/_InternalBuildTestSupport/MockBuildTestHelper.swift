@@ -107,6 +107,7 @@ public func mockBuildPlan(
         config: config,
         toolchain: toolchain,
         flags: commonFlags,
+        buildSystemKind: .native,
         triple: inferredTriple,
         indexStoreMode: indexStoreMode,
         enableXCFrameworksOnLinux: enableXCFrameworksOnLinux
@@ -122,6 +123,7 @@ public func mockBuildPlan(
         config: config,
         toolchain: toolchain,
         flags: commonFlags,
+        buildSystemKind: .native,
         triple: inferredTriple,
         indexStoreMode: indexStoreMode,
         enableXCFrameworksOnLinux: enableXCFrameworksOnLinux
