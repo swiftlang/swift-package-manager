@@ -207,7 +207,8 @@ extension PackagePIFBuilder {
         // e.g., swift-nio_NIOPosix, swift-crypto__CryptoExtras
         // So should be ignored by moduleName()
         // But moduleName can start with _, like _CryptoExtras and __AsyncFileSystem
-        if targetName.contains("_") { // && !targetName.starts(with: "_") {
+        // if targetName.contains("_") {
+        if !targetName.starts(with: "_") {
             return nil
         }
         return removeSuffix(from: targetName)
