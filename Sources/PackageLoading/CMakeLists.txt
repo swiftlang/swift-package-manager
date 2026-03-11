@@ -21,7 +21,15 @@ add_library(PackageLoading
   RegistryReleaseMetadataSerialization.swift
   Target+PkgConfig.swift
   TargetSourcesBuilder.swift
-  ToolsVersionParser.swift)
+  ToolsVersionParser.swift
+
+  "Manifest Parsing/BuildConfiguration+HostToolchain.swift"
+  "Manifest Parsing/ChainedParsingManifestLoader.swift"
+  "Manifest Parsing/ManifestParseLimitation.swift"
+  "Manifest Parsing/ManifestParserError.swift"
+  "Manifest Parsing/ParsingManifestLoader.swift"
+)
+
 target_link_libraries(PackageLoading PUBLIC
   TSCBasic
   Basics
