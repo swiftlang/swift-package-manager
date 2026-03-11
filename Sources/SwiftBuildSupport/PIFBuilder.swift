@@ -209,8 +209,8 @@ public final class PIFBuilder {
     /// Constructs all `PackagePIFBuilder` objects used by the `constructPIF` function.
     /// In particular, this is useful for unit testing the complex `PIFBuilder` class.
     func makePIFBuilders(
-        buildParameters: BuildParameters 
-    ) async throws -> [(ResolvedPackage, PackagePIFBuilder, any PackagePIFBuilder.BuildDelegate)] { 
+        buildParameters: BuildParameters
+    ) async throws -> [(ResolvedPackage, PackagePIFBuilder, any PackagePIFBuilder.BuildDelegate)] {
         let pluginScriptRunner = self.parameters.pluginScriptRunner
         let outputDir = self.parameters.pluginWorkingDirectory.appending("outputs")
 
@@ -432,16 +432,13 @@ public final class PIFBuilder {
     }
 
     /// Constructs a `PIF.TopLevelObject` representing the package graph.
-    package func constructPIF( 
+    package func constructPIF(
         buildParameters: BuildParameters
     ) async throws -> PIF.TopLevelObject {
         return try await memoize(to: &self.cachedPIF) {
-            guard let rootPackage = self.graph.rootPackages.only else {
-                if self.graph.rootPackages.isEmpty {
-                    throw PIFGenerationError.rootPackageNotFound
-                } else {
-                    throw PIFGenerationError.multipleRootPackagesFound
-                }
+            let rootPackages = self.graph.rootPackages
+            guard !rootPackages.isEmpty else {
+                throw PIFGenerationError.rootPackageNotFound
             }
 
             let packagesAndPIFBuilders = try await makePIFBuilders(buildParameters: buildParameters)
@@ -462,10 +459,14 @@ public final class PIFBuilder {
                 )
             )
 
+            let rootPackagesSorted = rootPackages.sorted()
+            let rootPackagesPaths = rootPackagesSorted.map { $0.path }
+            let ids: String = rootPackagesPaths.map { $0.pathString}.joined(separator: ",")
+            let names = rootPackagesSorted.map { $0.manifest.displayName }.joined(separator: ",")
             let workspace = PIF.Workspace(
-                id: "Workspace:\(rootPackage.path.pathString)",
-                name: rootPackage.manifest.displayName, // TODO: use identity instead?
-                path: rootPackage.path,
+                id: "Workspace:\(ids)",
+                name: names,
+                path: try getCommonParentDirectory(paths: rootPackagesPaths),
                 projects: pifProjects
             )
             return PIF.TopLevelObject(workspace: workspace)
@@ -565,11 +566,11 @@ public final class PIFBuilder {
 
 fileprivate final class PackagePIFBuilderDelegate: PackagePIFBuilder.BuildDelegate {
     let package: ResolvedPackage
-    
+
     init(package: ResolvedPackage) {
         self.package = package
     }
-    
+
     var isRootPackage: Bool {
         self.package.manifest.packageKind.isRoot
     }
@@ -577,27 +578,27 @@ fileprivate final class PackagePIFBuilderDelegate: PackagePIFBuilder.BuildDelega
     var isRemote: Bool {
         self.package.manifest.packageKind.isRemote
     }
-    
+
     var hostsOnlyPackages: Bool {
         false
     }
-    
+
     var isUserManaged: Bool {
         true
     }
-    
+
     var isBranchOrRevisionBased: Bool {
         false
     }
-    
+
     func customProductType(forExecutable product: PackageModel.Product) -> ProjectModel.Target.ProductType? {
         nil
     }
-    
+
     func deviceFamilyIDs() -> Set<Int> {
         []
     }
-    
+
     func shouldPackagesBuildForARM64e(platform: PackageModel.Platform) -> Bool {
         false
     }
@@ -605,43 +606,43 @@ fileprivate final class PackagePIFBuilderDelegate: PackagePIFBuilder.BuildDelega
     var isPluginExecutionSandboxingDisabled: Bool {
         false
     }
-    
+
     func configureProjectBuildSettings(_ buildSettings: inout ProjectModel.BuildSettings) {
         /* empty */
     }
-    
+
     func configureSourceModuleBuildSettings(sourceModule: ResolvedModule, settings: inout ProjectModel.BuildSettings) {
         settings[.SYMBOL_GRAPH_EXTRACTOR_OUTPUT_DIR] = "$(TARGET_BUILD_DIR)/$(CURRENT_ARCH)/\(sourceModule.name).symbolgraphs"
     }
-    
+
     func customInstallPath(product: PackageModel.Product) -> String? {
         nil
     }
-    
+
     func customExecutableName(product: PackageModel.Product) -> String? {
         nil
     }
-    
+
     func customLibraryType(product: PackageModel.Product) -> PackageModel.ProductType.LibraryType? {
         nil
     }
-    
+
     func customSDKOptions(forPlatform: PackageModel.Platform) -> [String] {
         []
     }
-    
+
     func addCustomTargets(pifProject: inout SwiftBuild.ProjectModel.Project) throws -> [PackagePIFBuilder.ModuleOrProduct] {
         return []
     }
-    
+
     func shouldSuppressProductDependency(product: PackageModel.Product, buildSettings: inout SwiftBuild.ProjectModel.BuildSettings) -> Bool {
         false
     }
-    
+
     func shouldSetInstallPathForDynamicLib(productName: String) -> Bool {
         false
     }
-    
+
     func configureLibraryProduct(
         product: PackageModel.Product,
         project: inout ProjectModel.Project,
@@ -650,11 +651,11 @@ fileprivate final class PackagePIFBuilderDelegate: PackagePIFBuilder.BuildDelega
     ) {
         /* empty */
     }
-    
+
     func suggestAlignedPlatformVersionGiveniOSVersion(platform: PackageModel.Platform, iOSVersion: PackageModel.PlatformVersion) -> String? {
         nil
     }
-    
+
     func validateMacroFingerprint(for macroModule: ResolvedModule) -> Bool {
         true
     }
@@ -667,7 +668,7 @@ fileprivate func buildAggregatePIFProject(
     buildParameters: BuildParameters
 ) throws -> ProjectModel.Project {
     precondition(!packagesAndProjects.isEmpty)
-    
+
     var aggregateProject = ProjectModel.Project(
         id: "AGGREGATE",
         path: packagesAndProjects[0].project.path,
@@ -676,17 +677,17 @@ fileprivate func buildAggregatePIFProject(
         developmentRegion: "en"
     )
     observabilityScope.logPIF(.debug, "Created project '\(aggregateProject.id)' with name '\(aggregateProject.name)'")
-    
+
     var settings = ProjectModel.BuildSettings()
     settings[.PRODUCT_NAME] = "$(TARGET_NAME)"
     settings[.SUPPORTED_PLATFORMS] = ["$(AVAILABLE_PLATFORMS)"]
     settings[.SDKROOT] = "auto"
     settings[.SDK_VARIANT] = "auto"
     settings[.SKIP_INSTALL] = "YES"
-    
+
     aggregateProject.addBuildConfig { id in BuildConfig(id: id, name: "Debug", settings: settings) }
     aggregateProject.addBuildConfig { id in BuildConfig(id: id, name: "Release", settings: settings) }
-    
+
     func addEmptyBuildConfig(
         to targetKeyPath: WritableKeyPath<ProjectModel.Project, ProjectModel.AggregateTarget>,
         name: String
@@ -696,7 +697,7 @@ fileprivate func buildAggregatePIFProject(
             BuildConfig(id: id, name: name, settings: emptySettings)
         }
     }
-    
+
     let allIncludingTestsTargetKeyPath = try aggregateProject.addAggregateTarget { _ in
         ProjectModel.AggregateTarget(
             id: "ALL-INCLUDING-TESTS",
@@ -705,7 +706,7 @@ fileprivate func buildAggregatePIFProject(
     }
     addEmptyBuildConfig(to: allIncludingTestsTargetKeyPath, name: "Debug")
     addEmptyBuildConfig(to: allIncludingTestsTargetKeyPath, name: "Release")
-    
+
     let allExcludingTestsTargetKeyPath = try aggregateProject.addAggregateTarget { _ in
         ProjectModel.AggregateTarget(
             id: "ALL-EXCLUDING-TESTS",
@@ -714,7 +715,7 @@ fileprivate func buildAggregatePIFProject(
     }
     addEmptyBuildConfig(to: allExcludingTestsTargetKeyPath, name: "Debug")
     addEmptyBuildConfig(to: allExcludingTestsTargetKeyPath, name: "Release")
-    
+
     for (package, packageProject) in packagesAndProjects where package.manifest.packageKind.isRoot {
         for target in packageProject.targets {
             switch target {
@@ -750,11 +751,11 @@ fileprivate func buildAggregatePIFProject(
             }
         }
     }
-    
+
     do {
         let allIncludingTests = aggregateProject[keyPath: allIncludingTestsTargetKeyPath]
         let allExcludingTests = aggregateProject[keyPath: allExcludingTestsTargetKeyPath]
-        
+
         observabilityScope.logPIF(
             .debug,
             indent: 1,
@@ -768,13 +769,13 @@ fileprivate func buildAggregatePIFProject(
             "and \(allExcludingTests.common.dependencies.count) (unlinked) dependencies"
         )
     }
-    
+
     return aggregateProject
 }
 
 public enum PIFGenerationError: Error {
-    case rootPackageNotFound, multipleRootPackagesFound
-    
+    case rootPackageNotFound
+
     case unsupportedSwiftLanguageVersions(
         targetName: String,
         versions: [SwiftLanguageVersion],
@@ -790,9 +791,6 @@ extension PIFGenerationError: CustomStringConvertible {
         switch self {
         case .rootPackageNotFound:
             "No root package was found"
-
-        case .multipleRootPackagesFound:
-            "Multiple root packages were found, making the PIF generation (root packages) ordering sensitive"
 
         case .unsupportedSwiftLanguageVersions(
             targetName: let target,

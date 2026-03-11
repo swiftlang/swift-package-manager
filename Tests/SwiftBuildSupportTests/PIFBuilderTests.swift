@@ -192,6 +192,210 @@ extension BuildConfiguration {
 )
 struct PIFBuilderTests {
 
+    struct RootPackagesTestData {
+        let id: String
+        let rootPackages: [(name: String, path: Basics.AbsolutePath)]
+        let expectedData: (pifPath: Basics.AbsolutePath, pifName: String, pifId: String)
+    }
+    @Test(
+        arguments:[
+            RootPackagesTestData(
+                id: "Single root package, package path at root",
+                rootPackages: [
+                    (name: "fooPackage", path: AbsolutePath("/fooPackage")),
+                ],
+                expectedData: (
+                    pifPath: "/fooPackage",
+                    pifName: "fooPackage",
+                    pifId: "/fooPackage",
+                ),
+            ),
+            RootPackagesTestData(
+                id: "Single root package, package path nested ",
+                rootPackages: [
+                    (name: "fooPackage", path: AbsolutePath("/a/b/c/d/fooPackage")),
+                ],
+                expectedData: (
+                    pifPath: "/a/b/c/d/fooPackage",
+                    pifName: "fooPackage",
+                    pifId: "/a/b/c/d/fooPackage",
+                ),
+            ),
+            RootPackagesTestData(
+                id: "Two root packages, unordered, no common parent directory",
+                rootPackages: [
+                    (name: "fooPackage", path: AbsolutePath("/fooPackage")),
+                    (name: "barPackage", path: AbsolutePath("/barPackage")),
+                ],
+                expectedData: (
+                    pifPath: Basics.AbsolutePath.root,
+                    pifName: "barPackage,fooPackage",
+                    pifId: "/barPackage,/fooPackage",
+                ),
+            ),
+            RootPackagesTestData(
+                id: "Two root packages, ordered, no common parent directory",
+                rootPackages: [
+                    (name: "barPackage", path: AbsolutePath("/barPackage")),
+                    (name: "fooPackage", path: AbsolutePath("/fooPackage")),
+                ],
+                expectedData: (
+                    pifPath: Basics.AbsolutePath.root,
+                    pifName: "barPackage,fooPackage",
+                    pifId: "/barPackage,/fooPackage",
+                ),
+            ),
+            RootPackagesTestData(
+                id: "Two root packages, unordered, no common parent directory",
+                rootPackages: [
+                    (name: "fooPackage", path: AbsolutePath("/fooPackage")),
+                    (name: "barPackage", path: AbsolutePath("/barPackage")),
+                    (name: "bazPackage", path: AbsolutePath("/bazPackage")),
+                ],
+                expectedData: (
+                    pifPath: Basics.AbsolutePath.root,
+                    pifName: "barPackage,bazPackage,fooPackage",
+                    pifId: "/barPackage,/bazPackage,/fooPackage",
+                ),
+            ),
+            RootPackagesTestData(
+                id: "Multiple root packages, ordered, no common parent directory",
+                rootPackages: [
+                    (name: "barPackage", path: AbsolutePath("/barPackage")),
+                    (name: "bazPackage", path: AbsolutePath("/bazPackage")),
+                    (name: "fooPackage", path: AbsolutePath("/fooPackage")),
+                ],
+                expectedData: (
+                    pifPath: Basics.AbsolutePath.root,
+                    pifName: "barPackage,bazPackage,fooPackage",
+                    pifId: "/barPackage,/bazPackage,/fooPackage",
+                ),
+            ),
+            RootPackagesTestData(
+                id: "Two root packages, unordered, contains common directory, packages are sibling",
+                rootPackages: [
+                    (name: "fooPackage", path: AbsolutePath("/a/b/c/fooPackage")),
+                    (name: "barPackage", path: AbsolutePath("/a/b/c/barPackage")),
+                ],
+                expectedData: (
+                    pifPath: Basics.AbsolutePath("/a/b/c"),
+                    pifName: "barPackage,fooPackage",
+                    pifId: "/a/b/c/barPackage,/a/b/c/fooPackage",
+                ),
+            ),
+            RootPackagesTestData(
+                id: "Two root packages, ordered, contains common directory, packages are sibling",
+                rootPackages: [
+                    (name: "barPackage", path: AbsolutePath("/a/b/c/barPackage")),
+                    (name: "fooPackage", path: AbsolutePath("/a/b/c/fooPackage")),
+                ],
+                expectedData: (
+                    pifPath: Basics.AbsolutePath("/a/b/c"),
+                    pifName: "barPackage,fooPackage",
+                    pifId: "/a/b/c/barPackage,/a/b/c/fooPackage",
+                ),
+            ),
+            RootPackagesTestData(
+                id: "Two root packages, ybordered, contains common directory, packages are not siblings",
+                rootPackages: [
+                    (name: "fooPackage", path: AbsolutePath("/a/b/c/pink/fuzz/fooPackage")),
+                    (name: "barPackage", path: AbsolutePath("/a/b/c/absolute/zero/barPackage")),
+                ],
+                expectedData: (
+                    pifPath: Basics.AbsolutePath("/a/b/c"),
+                    pifName: "barPackage,fooPackage",
+                    pifId: "/a/b/c/absolute/zero/barPackage,/a/b/c/pink/fuzz/fooPackage",
+                ),
+            ),
+            RootPackagesTestData(
+                id: "Two root packages, ordered, contains common directory, packages are not siblings",
+                rootPackages: [
+                    (name: "barPackage", path: AbsolutePath("/a/b/c/absolute/zero/barPackage")),
+                    (name: "fooPackage", path: AbsolutePath("/a/b/c/pink/fuzz/fooPackage")),
+                ],
+                expectedData: (
+                    pifPath: Basics.AbsolutePath("/a/b/c"),
+                    pifName: "barPackage,fooPackage",
+                    pifId: "/a/b/c/absolute/zero/barPackage,/a/b/c/pink/fuzz/fooPackage",
+                ),
+            ),
+
+            RootPackagesTestData(
+                id: "Many root packages, unordered, contains common directory, packages are not siblings",
+                rootPackages: [
+                    (name: "fooPackage", path: AbsolutePath("/a/b/c/pink/fuzz/fooPackage")),
+                    (name: "barPackage", path: AbsolutePath("/a/b/c/absolute/zero/barPackage")),
+                    (name: "bazPackage", path: AbsolutePath("/a/b/c/absolute/legend/bazPackage")),
+                ],
+                expectedData: (
+                    pifPath: Basics.AbsolutePath("/a/b/c"),
+                    pifName: "barPackage,bazPackage,fooPackage",
+                    pifId: "/a/b/c/absolute/zero/barPackage,/a/b/c/absolute/legend/bazPackage,/a/b/c/pink/fuzz/fooPackage",
+                ),
+            ),
+            RootPackagesTestData(
+                id: "Many root packages, ordered, contains common directory, packages are not siblings",
+                rootPackages: [
+                    (name: "barPackage", path: AbsolutePath("/a/b/c/absolute/zero/barPackage")),
+                    (name: "bazPackage", path: AbsolutePath("/a/b/c/absolute/legend/bazPackage")),
+                    (name: "fooPackage", path: AbsolutePath("/a/b/c/pink/fuzz/fooPackage")),
+                ],
+                expectedData: (
+                    pifPath: Basics.AbsolutePath("/a/b/c"),
+                    pifName: "barPackage,bazPackage,fooPackage",
+                    pifId: "/a/b/c/absolute/zero/barPackage,/a/b/c/absolute/legend/bazPackage,/a/b/c/pink/fuzz/fooPackage",
+                ),
+            ),
+        ],
+    )
+    func multipleRootPackages(
+        testData: RootPackagesTestData,
+    ) async throws {
+        // Arrange
+        try #require(testData.rootPackages.count >= 1, "Test configuration data error.  No root packages are specified.")
+
+        let fs = InMemoryFileSystem()
+        let observabilityScope = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: testData.rootPackages.map { rootPackage in
+                Manifest.createRootManifest(
+                    displayName: rootPackage.name,
+                    path: rootPackage.path,
+                    products: [],
+                    targets: [],
+                )
+            },
+            observabilityScope: observabilityScope.topScope
+        )
+
+        let pifBuilder = PIFBuilder(
+            graph: graph,
+            parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
+                temporaryDirectory: AbsolutePath.root.appending("tmp"),
+                addLocalRpaths: true,
+            ),
+            fileSystem: fs,
+            observabilityScope: observabilityScope.topScope,
+        )
+
+        // Act
+        let pif = try await pifBuilder.constructPIF(
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild),
+        )
+
+        // Assert
+        #expect(
+            pif.workspace.path == testData.expectedData.pifPath,
+            "Actual path is not as expected",
+        )
+        #expect(
+            pif.workspace.name == testData.expectedData.pifName,
+            "Actual pif name is not as expected",
+        )
+
+    }
+
     @Test func platformExecutableModuleLibrarySearchPath() async throws {
         try await withGeneratedPIF(fromFixture: "PIFBuilder/BasicExecutable") { pif, observabilitySystem in
             let releaseConfig = try pif.workspace
