@@ -19,30 +19,7 @@ extension PackagePIFBuilder {
 
     
 
-    /// Extracts a Swift Package module name from a PIF target name.
-    ///
-    /// This reverses the conversion performed by `targetName(forModuleName:suffix:)`.
-    /// Returns `nil` if the target name represents a product or resource bundle.
-    ///
-    /// - Parameter targetName: The PIF target name to parse
-    /// - Returns: The Swift Package module name, or `nil` if this isn't a module target name
-    ///
-    /// - Note: Resource bundle target names follow the pattern `packageName_moduleName`
-    ///   (e.g., `swift-nio_NIOPosix`, `swift-crypto__CryptoExtras`) and are excluded.
-    ///   However, module names can start with `_` (e.g., `_CryptoExtras`, `__AsyncFileSystem`).
-    package static func moduleName(forTargetName targetName: String) -> String? {
-        guard !targetName.hasSuffix("-product") else {
-            return nil
-        }
-        // Resource bundle target names follow the pattern packageName_moduleName
-        // e.g., swift-nio_NIOPosix, swift-crypto__CryptoExtras
-        // So should be ignored by moduleName()
-        // But moduleName can start with _, like _CryptoExtras and __AsyncFileSystem
-        if targetName.contains("_") && !targetName.starts(with: "_") {
-            return nil
-        }
-        return removeSuffix(from: targetName)
-    }
+
 }
 
 /// Utilities for converting between ModulesGraph and dependency graph naming conventions.
