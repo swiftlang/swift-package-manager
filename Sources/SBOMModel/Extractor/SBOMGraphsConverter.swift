@@ -14,14 +14,6 @@ import PackageGraph
 import PackageModel
 import SwiftBuildSupport
 
-extension PackagePIFBuilder {
-     
-
-    
-
-
-}
-
 /// Utilities for converting between ModulesGraph and dependency graph naming conventions.
 internal struct SBOMGraphsConverter {
 
