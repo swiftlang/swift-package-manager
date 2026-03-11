@@ -463,7 +463,6 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                 .filteredTests(specifier: options.testCaseSpecifier)
                 .skippedTests(specifier: options.skippedTests(fileSystem: swiftCommandState.fileSystem))
 
-            // TODO bp tests: UnitTests , UnitTest.productPath == testSuite.bundlePath
             return (TestRunner.xctestArguments(forTestSpecifiers: tests.map(\.specifier)), tests.count, Set(tests.map(\.productPath)))
         }
     }
