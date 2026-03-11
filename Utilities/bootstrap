@@ -257,6 +257,15 @@ def parse_global_args(args):
         args.sysroot = None
 
 @log_entry_exit
+def get_configuration_build_output(configuration, targetTriple: str) -> str:
+    value = [configuration]
+    if "linux" in targetTriple:
+        value.append("linux")
+    elif "windows" in targetTriple:
+        value.append("windows")
+    return "-".join(value).capitalize()
+
+@log_entry_exit
 def parse_build_args(args):
     """Parses and cleans arguments necessary for build-related actions."""
     parse_global_args(args)
@@ -282,20 +291,23 @@ def parse_build_args(args):
     args.ranlib_path = get_tool_path(args, "ranlib")
     if args.cross_compile_hosts:
         if re.match("macosx-", args.cross_compile_hosts):
-            # Use XCBuild target directory when building for multiple arches.
-            args.target_dir = os.path.join(args.build_dir, "apple/Products")
+            # Use Swift Build target directory when building for multiple arches.
+            args.target_dir = os.path.join(args.build_dir, 'out', 'Products')
         elif re.match('android-', args.cross_compile_hosts):
             args.target_dir = os.path.join(
-                                  args.build_dir,
-                                  get_build_target(args,cross_compile=True))
+                                    args.build_dir,
+                                    'out',
+                                    'Products',
+                                    'Debug-android',
+                                )
     else:
         if platform.system() == 'FreeBSD':
             args.target_dir = os.path.join(args.build_dir, get_unversioned_build_target(args))
         else:
-            args.target_dir = os.path.join(args.build_dir, get_build_target(args))
+            args.target_dir = os.path.join(args.build_dir, 'out', 'Products')
     args.bootstrap_dir = os.path.join(args.target_dir, "bootstrap")
     args.conf = 'release' if args.release else 'debug'
-    args.bin_dir = os.path.join(args.target_dir, args.conf)
+    args.bin_dir = os.path.join(args.target_dir, get_configuration_build_output(args.conf, get_build_target(args)))
     args.bootstrap = not args.skip_cmake_bootstrap or \
                      not os.path.exists(os.path.join(os.path.split(args.swiftc_path)[0], "swift-build"))
 
@@ -583,14 +595,13 @@ def install_dylib(args, library_name, install_dir, module_names):
         if args.cross_compile_hosts and re.match("macosx-", args.cross_compile_hosts):
             install_binary(args, module + ".swiftmodule", install_dir, ['Project', '*.swiftmodule'])
         elif args.cross_compile_hosts:
-            install_binary(args, module + ".swiftmodule", install_dir, ['Project', '*.swiftmodule'], subpath="Modules")
+            install_binary(args, module + ".swiftmodule", install_dir, ['Project', '*.swiftmodule'],)
         else:
             # Otherwise we have either a .swiftinterface or a .swiftmodule, plus a .swiftdoc.
             if os.path.exists(os.path.join(args.bin_dir, module + ".swiftinterface")):
-                install_binary(args, module + ".swiftinterface", install_dir, subpath="Modules")
+                install_binary(args, module + ".swiftinterface", install_dir,)
             else:
-                install_binary(args, module + ".swiftmodule", install_dir, subpath="Modules")
-            install_binary(args, module + ".swiftdoc", install_dir, subpath="Modules")
+                install_binary(args, module + ".swiftmodule", install_dir,)
 
 
 # Helper function that installs a single built artifact to a particular directory. The source may be either a file or a directory.
@@ -990,6 +1001,9 @@ def get_swiftpm_flags(args):
         else:
             logging.error("cannot cross-compile for %s", cross_compile_hosts)
             raise SystemExit(1)
+    else:
+        if '-apple-macosx' in args.build_target:
+            build_flags += ["--arch", call_output(["uname", "-m"], verbose=args.verbose)]
 
     # Ensure we are not sharing the module cache with concurrent builds in CI
     local_module_cache_path=os.path.join(args.build_dir, "module-cache")
