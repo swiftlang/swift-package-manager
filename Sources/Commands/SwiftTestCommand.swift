@@ -378,9 +378,25 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
 
             lazy var testEntryPointPath = testProducts.lazy.compactMap(\.testEntryPointPath).first
             if options.testLibraryOptions.isExplicitlyEnabled(.swiftTesting, swiftCommandState: swiftCommandState) || testEntryPointPath == nil {
+                // Filter test products to swift testing suites.
+                let testSuites = try TestingSupport.getSwiftTestingSuites(
+                    in: testProducts,
+                    swiftCommandState: swiftCommandState,
+                    enableCodeCoverage: options.enableCodeCoverage,
+                    shouldSkipBuilding: options.sharedOptions.shouldSkipBuilding,
+                    sanitizers: globalOptions.build.sanitizers
+                )
+
+                // Filter test cases based on specifiers.
+                let tests = try testSuites
+                    .filteredTests(specifier: options.testCaseSpecifier)
+                    .skippedTests(specifier: options.skippedTests(fileSystem: swiftCommandState.fileSystem))
+
+                let filteredTestProducts = testProducts.filter { tests[$0.binaryPath] != nil }
+
                 results.append(
                     try await runTestProducts(
-                        testProducts,
+                        filteredTestProducts,
                         additionalArguments: [],
                         productsBuildParameters: buildParameters,
                         swiftCommandState: swiftCommandState,
@@ -1426,6 +1442,49 @@ fileprivate extension Array where Element == UnitTest {
                 }
             }
             return result
+        case .regex, .specific:
+            throw InternalError("Tests to filter should never have been passed here.")
+        }
+    }
+}
+
+fileprivate extension Dictionary where Key == AbsolutePath, Value == [String] {
+    /// Return Swift Testing test IDs matching the provided specifier.
+    func filteredTests(specifier: TestCaseSpecifier) throws -> [AbsolutePath: [String]] {
+        switch specifier {
+        case .none:
+            return self
+        case .regex(let patterns):
+            return self.mapValues { testIDs in
+                testIDs.filter { testID in
+                    patterns.contains { pattern in
+                        testID.range(of: pattern, options: .regularExpression) != nil
+                    }
+                }
+            }.filter { !$0.value.isEmpty }
+        case .specific(let name):
+            return self.mapValues { $0.filter { $0 == name } }
+                .filter { !$0.value.isEmpty }
+        case .skip:
+            throw InternalError("Tests to skip should never have been passed here.")
+        }
+    }
+
+    /// Skip Swift Testing test IDs matching the provided specifier.
+    func skippedTests(specifier: TestCaseSpecifier) throws -> [AbsolutePath: [String]] {
+        switch specifier {
+        case .none:
+            return self
+        case .skip(let skippedTests):
+            return self.mapValues { testIDs in
+                var result = testIDs
+                for skippedTest in skippedTests {
+                    result = result.filter {
+                        $0.range(of: skippedTest, options: .regularExpression) == nil
+                    }
+                }
+                return result
+            }.filter { !$0.value.isEmpty }
         case .regex, .specific:
             throw InternalError("Tests to filter should never have been passed here.")
         }
