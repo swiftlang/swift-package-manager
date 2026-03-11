@@ -30,20 +30,7 @@ target_link_libraries(SwiftBuildSupport PUBLIC
   PackageGraph
   SwiftBuild::SwiftBuild
   SwiftBuild::SWBBuildService
-  PackageCollections
-  PackageModel
-  SourceControl
 )
-# if(NOT APPLE)
-#   if(Foundation_FOUND)
-#     target_link_directories(SwiftBuildSupport PRIVATE
-#       $<TARGET_LINKER_FILE_DIR:Fooundation>)
-#   endif()
-#   if(dispatch_FOUND)
-#     target_link_directories(SwiftBuildSupport PRIVATE
-#       $<TARGET_LINKER_FILE_DIR:dispatch>)
-#   endif()
-# endif()
 
 set_target_properties(SwiftBuildSupport PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})

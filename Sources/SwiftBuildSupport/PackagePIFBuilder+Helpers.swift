@@ -12,8 +12,6 @@
 
 import Foundation
 
-import PackageModel
-
 import protocol TSCBasic.FileSystem
 import struct TSCUtility.Version
 
