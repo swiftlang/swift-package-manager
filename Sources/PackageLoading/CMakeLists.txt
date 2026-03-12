@@ -34,7 +34,15 @@ target_link_libraries(PackageLoading PUBLIC
   TSCBasic
   Basics
   PackageModel
-  TSCUtility)
+  TSCUtility
+
+  SwiftSyntax::SwiftDiagnostics
+  SwiftSyntax::SwiftIfConfig
+  SwiftSyntax::SwiftOperators
+  SwiftSyntax::SwiftParser
+  SwiftSyntax::SwiftParserDiagnostics
+  SwiftSyntax::SwiftSyntax
+)
 target_link_libraries(PackageLoading PUBLIC
   $<$<NOT:$<PLATFORM_ID:Darwin>>:Foundation>)
 target_link_libraries(PackageLoading PRIVATE
