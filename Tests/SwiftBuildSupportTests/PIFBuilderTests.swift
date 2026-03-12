@@ -682,6 +682,23 @@ struct PIFBuilderTests {
         }
     }
 
+    @Test(arguments: [true, false])
+    func testRunnerAlwaysHasLocalRpath(addLocalRpaths: Bool) async throws {
+        try await withGeneratedPIF(fromFixture: "PIFBuilder/Simple", addLocalRpaths: addLocalRpaths) { pif, observabilitySystem in
+            #expect(observabilitySystem.diagnostics.filter { $0.severity == .error }.isEmpty)
+            for configuration in BuildConfiguration.allCases {
+                let config = try pif.workspace
+                    .project(named: "Simple")
+                    .target(named: "SimpleTests-test-runner")
+                    .buildConfig(named: configuration)
+
+                // Test runners should have an rpath even if addLocalRpaths=false
+                #expect(config.settings[.LD_RUNPATH_SEARCH_PATHS] == ["$(inherited)", "$(RPATH_ORIGIN)"],
+                        "unexpected rpath setting (config: \(configuration), rpathSetting: \(addLocalRpaths))")
+            }
+        }
+    }
+
     @Test func warningSettingsInRemotePackage() async throws {
         let observability = ObservabilitySystem.makeForTesting()
 

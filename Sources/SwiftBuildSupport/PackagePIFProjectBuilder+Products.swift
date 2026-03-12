@@ -1074,12 +1074,12 @@ extension PackagePIFProjectBuilder {
 
         // A test-runner should always be adjacent to the dynamic library containing the tests,
         // so add the appropriate rpaths.
-        if pifBuilder.addLocalRpaths {
-            settings[.LD_RUNPATH_SEARCH_PATHS] = [
-                "$(inherited)",
-                "$(RPATH_ORIGIN)"
-            ]
-        }
+        // We intentionally ignore the value of addLocalRpaths here, because test runners are generally
+        // not designed to be relocatable and `swift test` will not work without this local rpath.
+        settings[.LD_RUNPATH_SEARCH_PATHS] = [
+            "$(inherited)",
+            "$(RPATH_ORIGIN)"
+        ]
 
         let deploymentTargets = unitTestProduct.deploymentTargets
         settings[.MACOSX_DEPLOYMENT_TARGET] = deploymentTargets?[.macOS] ?? nil
