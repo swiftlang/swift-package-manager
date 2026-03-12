@@ -1076,11 +1076,13 @@ extension ProjectModel.BuildSettings {
         self[.PRODUCT_BUNDLE_IDENTIFIER] = "\(packageIdentity).\(productName)".spm_mangledToBundleIdentifier()
         self[.SWIFT_PACKAGE_NAME] = packageName ?? nil
 
-        // This should really be swift-build defaults set in the .xcspec files, but changing that requires
-        // some extensive testing to ensure xcode projects are not affected.
-        // So for now lets just force it here.
-        self[.EXECUTABLE_PREFIX] = "lib"
-        self[.EXECUTABLE_PREFIX, Platform.windows] = ""
+        if createDylibForDynamicProducts {
+            // This should really be swift-build defaults set in the .xcspec files, but changing that requires
+            // some extensive testing to ensure xcode projects are not affected.
+            // So for now lets just force it here.
+            self[.EXECUTABLE_PREFIX] = "lib"
+            self[.EXECUTABLE_PREFIX, Platform.windows] = ""
+        }
 
         if !createDylibForDynamicProducts {
             self[.GENERATE_INFOPLIST_FILE] = "YES"

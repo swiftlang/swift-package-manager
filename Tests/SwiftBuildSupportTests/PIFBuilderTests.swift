@@ -29,12 +29,13 @@ extension PIFBuilderParameters {
     static func constructDefaultParametersForTesting(
         temporaryDirectory: Basics.AbsolutePath,
         addLocalRpaths: Bool,
+        shouldCreateDylibForDynamicProducts: Bool = false,
         pluginScriptRunner: PluginScriptRunner? = nil
     ) throws -> Self {
         try self.init(
             isPackageAccessModifierSupported: true,
             enableTestability: false,
-            shouldCreateDylibForDynamicProducts: false,
+            shouldCreateDylibForDynamicProducts: shouldCreateDylibForDynamicProducts,
             materializeStaticArchiveProductsForRootPackages: true,
             toolchainLibDir: temporaryDirectory.appending(component: "toolchain-lib-dir"),
             pkgConfigDirectories: [],
@@ -55,6 +56,7 @@ extension PIFBuilderParameters {
 fileprivate func withGeneratedPIF(
     fromFixture fixtureName: String,
     addLocalRpaths: Bool = true,
+    shouldCreateDylibForDynamicProducts: Bool = true,
     buildParameters: BuildParameters? = nil,
     do doIt: (SwiftBuildSupport.PIF.TopLevelObject, TestingObservability) async throws -> ()
 ) async throws {
@@ -84,7 +86,8 @@ fileprivate func withGeneratedPIF(
             graph: graph,
             parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
                 temporaryDirectory: fixturePath,
-                addLocalRpaths: addLocalRpaths
+                addLocalRpaths: addLocalRpaths,
+                shouldCreateDylibForDynamicProducts: shouldCreateDylibForDynamicProducts
             ),
             fileSystem: localFileSystem,
             observabilityScope: observabilitySystem.topScope
@@ -289,6 +292,49 @@ struct PIFBuilderTests {
                 $0.message.contains("found binary artifact")
             }
             #expect(binaryArtifactMessages.count > 0, "Expected to find binary artifact processing messages")
+        }
+    }
+
+    @Test(
+        arguments: BuildConfiguration.allCases,
+    )
+    func dynamicLibraryProductExecutablePrefix(
+        configuration: BuildConfiguration,
+    ) async throws {
+        try await withGeneratedPIF(
+            fromFixture: "PIFBuilder/Library",
+            shouldCreateDylibForDynamicProducts: true
+        ) { pif, observabilitySystem in
+            let errors: [Diagnostic] = observabilitySystem.diagnostics.filter { $0.severity == .error }
+            #expect(errors.isEmpty, "Expected no errors during PIF generation, but got: \(errors)")
+
+            let target = try pif.workspace
+                .project(named: "Library")
+                .target(named: "LibraryDynamic-product")
+
+            guard case .target(let concreteTarget) = target else {
+                Issue.record("Expected a regular target, got \(target)")
+                return
+            }
+            #expect(concreteTarget.productType == .dynamicLibrary)
+            let config = try target.buildConfig(named: configuration)
+            #expect(config.settings[.EXECUTABLE_PREFIX] == "lib")
+            #expect(config.settings[.EXECUTABLE_PREFIX, .windows] == "")
+        }
+
+        try await withGeneratedPIF(
+            fromFixture: "PIFBuilder/Library",
+            shouldCreateDylibForDynamicProducts: false
+        ) { pif, observabilitySystem in
+            let errors: [Diagnostic] = observabilitySystem.diagnostics.filter { $0.severity == .error }
+            #expect(errors.isEmpty, "Expected no errors during PIF generation, but got: \(errors)")
+
+            let target = try pif.workspace
+                .project(named: "Library")
+                .target(named: "LibraryDynamic-product")
+
+            let config = try target.buildConfig(named: configuration)
+            #expect(config.settings[.EXECUTABLE_PREFIX] == nil)
         }
     }
 
