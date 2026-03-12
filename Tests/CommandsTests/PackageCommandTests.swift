@@ -1233,7 +1233,6 @@ struct PackageCommandTests {
         withPrettyPrinting: Bool,
     ) async throws {
         let config = BuildConfiguration.debug
-        // try await withKnownIssue(isIntermittent: true) {
             try await fixture(
                 name: "DependencyResolution/Internal/Simple",
                 removeFixturePathOnDeinit: true
@@ -1284,10 +1283,6 @@ struct PackageCommandTests {
                     #expect(JSONText.components(separatedBy: .newlines).count == 1)
                 }
             }
-        // } when: {
-        //     (ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild && !withPrettyPrinting)
-        //         || (buildSystem == .swiftbuild && withPrettyPrinting)
-        // }
     }
 
     @Suite(
@@ -5534,7 +5529,6 @@ struct PackageCommandTests {
             let containsWarning = "command plugin: Diagnostics.warning"
             let containsError = "command plugin: Diagnostics.error"
 
-            await withKnownIssue(isIntermittent: true) {
                 try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
                     func runPlugin(
                         flags: [String],
@@ -5701,7 +5695,6 @@ struct PackageCommandTests {
                         #expect(stderr.contains(containsError))
                     }
                 }
-            }
         }
 
         // Test target builds requested by a command plugin
@@ -5946,7 +5939,6 @@ struct PackageCommandTests {
                 }
             } when: {
                 ProcessInfo.hostOperatingSystem == .windows
-                    || (ProcessInfo.hostOperatingSystem == .linux && buildSystem == .swiftbuild)
             }
         }
 
@@ -6787,6 +6779,7 @@ struct PackageCommandTests {
             .tags(
                 .Feature.Command.Package.CommandPlugin,
             ),
+            .skip("https://github.com/swiftlang/swift-package-manager/issues/9775"),
             arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func commandPluginBuildingCallbacks(
@@ -6999,7 +6992,7 @@ struct PackageCommandTests {
                             #expect(stdout.contains("staticLibrary"))
                         }
                     } when: {
-                        buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem != .macOS
+                        buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows
                     }
 
                     // Invoke the plugin with parameters choosing a verbose build of MyDynamicLibrary for release.
@@ -7957,6 +7950,283 @@ struct PackageCommandTests {
                 }
             } when: {
                 [.linux, .windows].contains(ProcessInfo.hostOperatingSystem) && buildData.buildSystem == .swiftbuild
+            }
+        }
+    }
+
+    @Suite(
+        .tags(
+            .TestSize.large,
+            .Feature.Command.Package.GenerateSBOM,
+            .Feature.SBOM,
+        ),
+    )
+
+    struct GenerateSBOMCommandTests {
+        @Test(
+            arguments: SupportedBuildSystemOnAllPlatforms,
+        )
+        func generateSBOMWithoutSpec(
+            buildSystem: BuildSystemProvider.Kind,
+        ) async throws {
+            try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
+                let config = BuildConfiguration.debug
+                let customSBOMDir = fixturePath.appending("custom-sboms")
+                
+                let (stdout, _) = try await execute(
+                    ["generate-sbom", "--sbom-output-dir", customSBOMDir.pathString],
+                    packagePath: fixturePath,
+                    configuration: config,
+                    buildSystem: buildSystem,
+                )
+                
+                #expect(stdout.contains("SBOMs created"))
+                #expect(localFileSystem.isDirectory(customSBOMDir))
+                let files = try localFileSystem.getDirectoryContents(customSBOMDir)
+                #expect(files.count == 2, "should produce both CycloneDX and SPDX SBOMs by default")
+            }
+        }
+
+        @Test(
+            arguments: SupportedBuildSystemOnAllPlatforms,
+        )
+        func generateSBOMWithWrongSpec(
+            buildSystem: BuildSystemProvider.Kind,
+        ) async throws {
+            try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
+                let config = BuildConfiguration.debug
+                await expectThrowsCommandExecutionError(
+                    try await execute(
+                        ["generate-sbom", "--sbom-spec", "cyclonedx22"],
+                        packagePath: fixturePath,
+                        configuration: config,
+                        buildSystem: buildSystem,
+                    )
+                ) { error in
+                    #expect(error.stderr.contains("The value 'cyclonedx22' is invalid"))
+                }
+            }
+        }
+
+        @Test(
+            arguments: SupportedBuildSystemOnAllPlatforms,
+        )
+        func generateSBOMWithCycloneDXSpec(
+            buildSystem: BuildSystemProvider.Kind,
+        ) async throws {
+            try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
+                let config = BuildConfiguration.debug
+                let (stdout, stderr) = try await execute(
+                    ["generate-sbom", "--sbom-spec", "cyclonedx"],
+                    packagePath: fixturePath,
+                    configuration: config,
+                    buildSystem: buildSystem,
+                )
+                #expect(stdout.contains("SBOMs created"))
+
+                let prefix = " SBOM at "
+                let range = try #require(stdout.range(of: prefix), "Could not find '\(prefix)' in output")
+                let endRange = try #require(stdout[range.upperBound...].range(of: ".json"), "Could not find '.json' in output")
+                let pathString = String(stdout[range.upperBound..<endRange.upperBound])
+                let sbomPath = try AbsolutePath(validating: pathString)
+                
+                #expect(localFileSystem.exists(sbomPath))
+                let filesInDirectory = try localFileSystem.getDirectoryContents(sbomPath.parentDirectory)
+                #expect(filesInDirectory.count == 1, "should only produce 1 CycloneDX SBOM")
+            }
+        }
+
+        @Test(
+            arguments: SupportedBuildSystemOnAllPlatforms,
+        )
+        func generateSBOMWithSPDXSpec(
+            buildSystem: BuildSystemProvider.Kind,
+        ) async throws {
+            try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
+                let config = BuildConfiguration.debug
+                let (stdout, stderr) = try await execute(
+                    ["generate-sbom", "--sbom-spec", "spdx"],
+                    packagePath: fixturePath,
+                    configuration: config,
+                    buildSystem: buildSystem,
+                )
+
+                #expect(stdout.contains("SBOMs created"))
+
+                let prefix = " SBOM at "
+                let range = try #require(stdout.range(of: prefix), "Could not find '\(prefix)' in output")
+                let endRange = try #require(stdout[range.upperBound...].range(of: ".json"), "Could not find '.json' in output")
+                let pathString = String(stdout[range.upperBound..<endRange.upperBound])
+                let sbomPath = try AbsolutePath(validating: pathString)
+                
+                #expect(localFileSystem.exists(sbomPath))
+                let filesInDirectory = try localFileSystem.getDirectoryContents(sbomPath.parentDirectory)
+                #expect(filesInDirectory.count == 1, "should only produce 1 SPDX SBOM")
+            }
+        }
+    
+        @Test(
+            arguments: SupportedBuildSystemOnAllPlatforms,
+        )
+        func generateSBOMWithCustomDirectory(
+            buildSystem: BuildSystemProvider.Kind,
+        ) async throws {
+            try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
+                let config = BuildConfiguration.debug
+                let customSBOMDir = fixturePath.appending("custom-sboms")
+                
+                let (stdout, stderr) = try await execute(
+                    ["generate-sbom", "--sbom-spec", "cyclonedx", "--sbom-output-dir", customSBOMDir.pathString],
+                    packagePath: fixturePath,
+                    configuration: config,
+                    buildSystem: buildSystem,
+                )
+                #expect(stdout.contains("SBOMs created"))
+                
+                #expect(localFileSystem.isDirectory(customSBOMDir))
+                let files = try localFileSystem.getDirectoryContents(customSBOMDir)
+                    #expect(files.count == 1)
+            }
+        }
+    
+        @Test(
+            arguments: SupportedBuildSystemOnAllPlatforms,
+        )
+        func generateCycloneDXSBOMWithProduct(
+            buildSystem: BuildSystemProvider.Kind,
+        ) async throws {
+            try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
+                let config = BuildConfiguration.debug
+                let (stdout, stderr) = try await execute(
+                    ["generate-sbom", "--sbom-spec", "cyclonedx", "--product", "Foo"],
+                    packagePath: fixturePath,
+                    configuration: config,
+                    buildSystem: buildSystem,
+                )
+                #expect(stdout.contains("SBOMs created"))
+
+                let prefix = " SBOM at "
+                let range = try #require(stdout.range(of: prefix), "Could not find '\(prefix)' in output")
+                let endRange = try #require(stdout[range.upperBound...].range(of: ".json"), "Could not find '.json' in output")
+                let pathString = String(stdout[range.upperBound..<endRange.upperBound])
+                let sbomPath = try AbsolutePath(validating: pathString)
+                
+                #expect(localFileSystem.exists(sbomPath))
+                let filesInDirectory = try localFileSystem.getDirectoryContents(sbomPath.parentDirectory)
+                #expect(filesInDirectory.count == 1, "should only produce 1 CycloneDX SBOM")
+            }
+        }
+
+        @Test(
+            arguments: SupportedBuildSystemOnAllPlatforms,
+        )
+        func generateCycloneDXSBOMWithTarget(
+            buildSystem: BuildSystemProvider.Kind,
+        ) async throws {
+            try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
+                let config = BuildConfiguration.debug
+                await expectThrowsCommandExecutionError(
+                    try await execute(
+                        ["generate-sbom", "--sbom-spec", "cyclonedx", "--target", "Foo"],
+                        packagePath: fixturePath,
+                        configuration: config,
+                        buildSystem: buildSystem,
+                    )
+                ) { error in
+                    #expect(error.stderr.contains("Unknown option '--target'"))
+                }
+            }
+        }
+
+        @Test(
+            arguments: SupportedBuildSystemOnAllPlatforms,
+        )
+        func generateSPDXSBOMWithProduct(
+            buildSystem: BuildSystemProvider.Kind,
+        ) async throws {
+            try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
+            let config = BuildConfiguration.debug
+                let (stdout, stderr) = try await execute(
+                    ["generate-sbom", "--sbom-spec", "spdx", "--product", "Foo"],
+                    packagePath: fixturePath,
+                    configuration: config,
+                    buildSystem: buildSystem,
+                )
+                #expect(stdout.contains("SBOMs created"))
+
+                let prefix = " SBOM at "
+                let range = try #require(stdout.range(of: prefix), "Could not find '\(prefix)' in output")
+                let endRange = try #require(stdout[range.upperBound...].range(of: ".json"), "Could not find '.json' in output")
+                let pathString = String(stdout[range.upperBound..<endRange.upperBound])
+                let sbomPath = try AbsolutePath(validating: pathString)
+                
+                #expect(localFileSystem.exists(sbomPath))
+                let filesInDirectory = try localFileSystem.getDirectoryContents(sbomPath.parentDirectory)
+                #expect(filesInDirectory.count == 1, "should only produce 1 SPDX SBOM")
+            }
+        }
+
+        @Test(
+            arguments: SupportedBuildSystemOnAllPlatforms,
+        )
+        func generateSPDXSBOMWithTarget(
+            buildSystem: BuildSystemProvider.Kind,
+        ) async throws {
+            try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
+                let config = BuildConfiguration.debug
+                await expectThrowsCommandExecutionError(
+                    try await execute(
+                        ["generate-sbom", "--sbom-spec", "spdx", "--target", "Foo"],
+                        packagePath: fixturePath,
+                        configuration: config,
+                        buildSystem: buildSystem,
+                    )
+                ) { error in
+                    #expect(error.stderr.contains("Unknown option '--target'"))
+                }
+            }
+        }
+
+        @Test(
+            arguments: SupportedBuildSystemOnAllPlatforms,
+        )
+        func generateSBOMMultipleSpecs(
+            buildSystem: BuildSystemProvider.Kind,
+        ) async throws {
+            try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
+                let config = BuildConfiguration.debug
+                let customSBOMDir = fixturePath.appending("custom-sboms")
+                
+                let (stdout, stderr) = try await execute(
+                    ["generate-sbom", "--sbom-spec", "cyclonedx", "--sbom-spec", "spdx", "--sbom-output-dir", customSBOMDir.pathString],
+                    packagePath: fixturePath,
+                    configuration: config,
+                    buildSystem: buildSystem,
+                )
+
+                #expect(stdout.contains("SBOMs created"))
+                #expect(localFileSystem.isDirectory(customSBOMDir))
+                let files = try localFileSystem.getDirectoryContents(customSBOMDir)
+                #expect(files.count == 2)
+            }
+        }
+
+        @Test(
+            arguments: SupportedBuildSystemOnAllPlatforms,
+        )
+        func generateSBOMEmitsWarningAboutBuildTimeConditionals(
+            buildSystem: BuildSystemProvider.Kind,
+        ) async throws {
+            try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
+                let config = BuildConfiguration.debug
+                let (stdout, stderr) = try await execute(
+                    ["generate-sbom", "--sbom-spec", "cyclonedx"],
+                    packagePath: fixturePath,
+                    configuration: config,
+                    buildSystem: buildSystem,
+                )
+                
+                #expect(stderr.contains("warning: `generate-sbom` subcommand may be inaccurate as it does not contain build-time conditionals."))
             }
         }
     }

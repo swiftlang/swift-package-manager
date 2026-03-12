@@ -60,7 +60,7 @@ struct APIDiff: AsyncSwiftCommand {
     @Option(help: """
     The path to a text file containing breaking changes which should be ignored by the API comparison. \
     Each ignored breaking change in the file should appear on its own line and contain the exact message \
-    to be ignored (e.g. 'API breakage: func foo() has been removed').
+    to be ignored (for example, 'API breakage: func foo() has been removed').
     """)
     var breakageAllowlistPath: Basics.AbsolutePath?
 

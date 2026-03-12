@@ -542,10 +542,10 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         // similar to how we filter out the library search path unless
         // explicitly requested.
         var extraSwiftCFlags = self.destinationBuildParameters.toolchain.extraFlags.swiftCompilerFlags
-            .filter { !$0.starts(with: "-use-ld=") }
+            .filter { !$0.value.starts(with: "-use-ld=") }
         if !includeLibrarySearchPaths {
             for index in extraSwiftCFlags.indices.dropLast().reversed() {
-                if extraSwiftCFlags[index] == "-L" {
+                if extraSwiftCFlags[index].value == "-L" {
                     // Remove the flag
                     extraSwiftCFlags.remove(at: index)
                     // Remove the argument
@@ -553,7 +553,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                 }
             }
         }
-        arguments += extraSwiftCFlags
+        arguments += extraSwiftCFlags.rawFlags
 
         // Add search paths to the directories containing module maps and Swift modules.
         for target in self.targets {
@@ -795,9 +795,9 @@ extension BuildPlan {
             if package.manifest.toolsVersion >= .v6_0 {
                 // Set up dummy observability because we don't want to emit diagnostics for this before the actual
                 // build.
-                let observability = ObservabilitySystem({ _, _ in }, outputStream: nil, logLevel: .debug)
+                let observability = ObservabilitySystem { _, _ in }
                 // Compute the generated files based on all results we have computed so far.
-                (pluginDerivedSources, pluginDerivedResources) = ModulesGraph.computePluginGeneratedFiles(
+                let pluginGeneratedFiles = ModulesGraph.computePluginGeneratedFiles(
                     target: module,
                     toolsVersion: package.manifest.toolsVersion,
                     additionalFileRules: additionalFileRules,
@@ -806,6 +806,11 @@ extension BuildPlan {
                     prebuildCommandResults: [],
                     observabilityScope: observability.topScope
                 )
+                pluginDerivedSources = Sources(
+                    paths: pluginGeneratedFiles.sources.map(\.self),
+                    root: buildParameters.dataPath
+                )
+                pluginDerivedResources = pluginGeneratedFiles.resources.values.map(\.self)
             } else {
                 pluginDerivedSources = .init(paths: [], root: package.path)
                 pluginDerivedResources = []
@@ -1369,12 +1374,7 @@ extension Basics.Triple {
 
 extension ResolvedPackage {
     var isRemote: Bool {
-        switch self.underlying.manifest.packageKind {
-        case .registry, .remoteSourceControl, .localSourceControl:
-            return true
-        case .root, .fileSystem:
-            return false
-        }
+        self.underlying.manifest.packageKind.isRemote
     }
 }
 

@@ -12,4 +12,4 @@ services:
       # Mount the main git repo dir and the current worktree dir at the same absolute path as the host
       - ${GIT_REPO}:${GIT_REPO}:rw
       - ${WORKSPACE_DIR}:${WORKSPACE_DIR}:rw
-    command: sleep infinityg
+    command: sleep infinity

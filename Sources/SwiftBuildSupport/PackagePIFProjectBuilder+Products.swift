@@ -18,6 +18,8 @@ import struct Basics.AbsolutePath
 import class Basics.ObservabilitySystem
 import struct Basics.SourceControlURL
 
+import PackageLoading
+
 import class PackageModel.BinaryModule
 import class PackageModel.Manifest
 import enum PackageModel.PackageCondition
@@ -29,6 +31,7 @@ import struct PackageModel.RegistryReleaseMetadata
 import struct PackageGraph.ResolvedModule
 import struct PackageGraph.ResolvedPackage
 import struct PackageGraph.ResolvedProduct
+import PackageLoading
 
 import enum SwiftBuild.ProjectModel
 
@@ -98,12 +101,12 @@ extension PackagePIFProjectBuilder {
         }
 
         // Deal with any generated source files or resource files.
-        let (generatedSourceFiles, pluginGeneratedResourceFiles) = computePluginGeneratedFiles(
+        let generatedFiles = computePluginGeneratedFiles(
             module: mainModule,
             targetKeyPath: mainModuleTargetKeyPath,
             addBuildToolPluginCommands: pifProductType == .application
         )
-        if mainModule.resources.hasContent || pluginGeneratedResourceFiles.hasContent {
+        if mainModule.resources.hasContent || generatedFiles.resources.hasContent {
             mainModuleTargetNamesWithResources.insert(mainModule.name)
         }
 
@@ -111,6 +114,7 @@ extension PackagePIFProjectBuilder {
         // but are in general the ones that are suitable for end-product artifacts such as executables and test bundles.
         var settings: ProjectModel.BuildSettings = package.underlying.packageBaseBuildSettings
         settings[.TARGET_NAME] = product.name
+        settings[.TARGET_TEMP_DIR_SUFFIX] = "-p"
         settings[.PACKAGE_RESOURCE_TARGET_KIND] = "regular"
         settings[.PRODUCT_NAME] = "$(TARGET_NAME)"
         // We must use the main module name here instead of the product name, because they're not guranteed to be the same, and the users may have authored e.g. tests which rely on an executable's module name.
@@ -178,10 +182,18 @@ extension PackagePIFProjectBuilder {
         settings[.XROS_DEPLOYMENT_TARGET] = mainTargetDeploymentTargets[.visionOS] ?? nil
 
         // If the main module includes C headers, then we need to set up the HEADER_SEARCH_PATHS setting appropriately.
+        var headerSearchPaths: [AbsolutePath] = []
         if let includeDirAbsolutePath = mainModule.includeDirAbsolutePath {
+            headerSearchPaths.append(includeDirAbsolutePath)
+        }
+        headerSearchPaths += generatedFiles.publicHeaderPaths
+
+        if !headerSearchPaths.isEmpty {
             // Let the main module itself find its own headers.
-            settings[.HEADER_SEARCH_PATHS] = [includeDirAbsolutePath.pathString, "$(inherited)"]
-            log(.debug, indent: 1, "Added '\(includeDirAbsolutePath)' to HEADER_SEARCH_PATHS")
+            settings[.HEADER_SEARCH_PATHS] = headerSearchPaths.map(\.pathString) + ["$(inherited)"]
+            for path in headerSearchPaths {
+                log(.debug, indent: 1, "Added '\(path)' to HEADER_SEARCH_PATHS")
+            }
         }
 
         // Set the appropriate language versions.
@@ -229,7 +241,7 @@ extension PackagePIFProjectBuilder {
         let headerFiles = Set(mainModule.headerFileAbsolutePaths)
 
         // Add any additional source files emitted by custom build commands.
-        for path in generatedSourceFiles {
+        for path in generatedFiles.sources {
             let sourceFileRef = self.project.mainGroup[keyPath: mainTargetSourceFileGroupKeyPath]
                 .addFileReference { id in
                     FileReference(
@@ -246,7 +258,7 @@ extension PackagePIFProjectBuilder {
 
         // Add any additional resource files emitted by synthesized build commands
         let generatedResourceFiles: [String] = {
-            var generatedResourceFiles = pluginGeneratedResourceFiles
+            var generatedResourceFiles = generatedFiles.resources.keys.map(\.pathString)
             generatedResourceFiles.append(
                 contentsOf: addBuildToolCommands(
                     from: synthesizedResourceGeneratingPluginInvocationResults,
@@ -331,8 +343,8 @@ extension PackagePIFProjectBuilder {
                     module: mainModule,
                     sourceModuleTargetKeyPath: mainModuleTargetKeyPath,
                     resourceBundleTargetKeyPath: resourceBundleTargetKeyPath,
-                    sourceFilePaths: generatedSourceFiles,
-                    resourceFilePaths: generatedResourceFiles
+                    sourceFilePaths: generatedFiles.sources.map(\.self),
+                    resourceFilePaths: generatedFiles.resources.keys.map(\.pathString)
                 )
             } else {
                 // Generated resources always trigger the creation of a bundle accessor.
@@ -348,8 +360,8 @@ extension PackagePIFProjectBuilder {
                     module: mainModule,
                     sourceModuleTargetKeyPath: mainModuleTargetKeyPath,
                     resourceBundleTargetKeyPath: mainModuleTargetKeyPath,
-                    sourceFilePaths: generatedSourceFiles,
-                    resourceFilePaths: generatedResourceFiles
+                    sourceFilePaths: generatedFiles.sources.map(\.self),
+                    resourceFilePaths: generatedFiles.resources.keys.map(\.pathString)
                 )
             }
         }
@@ -499,7 +511,7 @@ extension PackagePIFProjectBuilder {
         var releaseSettings: ProjectModel.BuildSettings = settings
 
         // Apply target-specific build settings defined in the manifest.
-        let allBuildSettings = mainModule.computeAllBuildSettings(observabilityScope: pifBuilder.observabilityScope)
+        let allBuildSettings = mainModule.computeAllBuildSettings(observabilityScope: pifBuilder.observabilityScope, forRemotePackage: pifBuilder.delegate.isRemote)
         
         // Apply settings using the convenience methods
         allBuildSettings.apply(to: &debugSettings, for: .debug)
@@ -721,6 +733,7 @@ extension PackagePIFProjectBuilder {
             }
         } else if productType == .staticArchive {
             settings[.TARGET_NAME] = product.targetName()
+            settings[.TARGET_TEMP_DIR_SUFFIX] = "-p"
             settings[.PRODUCT_NAME] = product.name
 
             // This should really be swift-build defaults set in the .xcspec files, but changing that requires
@@ -1123,6 +1136,41 @@ extension PackagePIFProjectBuilder {
             deploymentTargets: self.deploymentTargets
         )
         self.builtModulesAndProducts.append(testRunner)
+    }
+
+    mutating func makePackageTestProduct() throws {
+        let productName = packageManifest.umbrellaPackageTestsProductName
+        let packageIdentity = package.identity
+        let packageTestProductKeyPath = try project.addAggregateTarget { _ in
+            ProjectModel.AggregateTarget(
+                id: PackagePIFBuilder.targetGUID(forProductName: productName, withId: "\(packageIdentity.description)-\(productName)"),
+                name: PackagePIFBuilder.targetName(forProductName: productName)
+            )
+        }
+
+        for config in ["Debug", "Release"] {
+            project[keyPath: packageTestProductKeyPath].common.addBuildConfig { id in
+                BuildConfig(id: id, name: config, settings: BuildSettings())
+            }
+        }
+
+        for target in project.targets {
+            switch target {
+            case .target(let target):
+                switch target.productType {
+                case .unitTest, .swiftpmTestRunner:
+                    project[keyPath: packageTestProductKeyPath].common.addDependency(
+                        on: target.id,
+                        platformFilters: [],
+                        linkProduct: false
+                    )
+                default:
+                    break
+                }
+            case .aggregate:
+                break
+            }
+        }
     }
 }
 

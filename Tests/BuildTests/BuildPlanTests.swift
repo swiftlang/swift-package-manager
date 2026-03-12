@@ -4954,7 +4954,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         var flags = BuildFlags()
-        flags.linkerFlags = ["-L", "/path/to/foo", "-L/path/to/foo", "-rpath=foo", "-rpath", "foo"]
+        flags.linkerFlags = ["-L", "/path/to/foo", "-L/path/to/foo", "-rpath=foo", "-rpath", "foo"].constructBuildFlags(source: nil)
         let result = try await BuildPlanResult(plan: mockBuildPlan(
             graph: graph,
             commonFlags: flags,
@@ -5037,8 +5037,8 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             fileSystem: fs
         )
         let commonFlags = BuildFlags(
-            cCompilerFlags: ["-clang-command-line-flag"],
-            swiftCompilerFlags: ["-swift-command-line-flag"]
+            cCompilerFlags: [BuildFlag(value: "-clang-command-line-flag", source: nil)],
+            swiftCompilerFlags: [BuildFlag(value: "-swift-command-line-flag", source: nil)]
         )
 
         let result = try await BuildPlanResult(plan: mockBuildPlan(
@@ -5165,14 +5165,14 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         )
 
         XCTAssertEqual(
-            mockToolchain.extraFlags.swiftCompilerFlags,
+            mockToolchain.extraFlags.swiftCompilerFlags.rawFlags,
             [
                 "-plugin-path", "/fake/path/lib/swift/host/plugins/testing",
                 "-sdk", "/fake/sdk",
             ]
         )
-        XCTAssertNoMatch(mockToolchain.extraFlags.linkerFlags, ["-rpath"])
-        XCTAssertNoMatch(mockToolchain.extraFlags.swiftCompilerFlags, [
+        XCTAssertNoMatch(mockToolchain.extraFlags.linkerFlags.rawFlags, ["-rpath"])
+        XCTAssertNoMatch(mockToolchain.extraFlags.swiftCompilerFlags.rawFlags, [
             "-I", "/fake/path/lib/swift/macosx/testing",
             "-L", "/fake/path/lib/swift/macosx/testing",
         ])
@@ -5284,7 +5284,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         )
 
         XCTAssertEqual(
-            mockToolchain.extraFlags.swiftCompilerFlags,
+            mockToolchain.extraFlags.swiftCompilerFlags.rawFlags,
             [
                 "-I", "/fake/path/lib/swift/macosx/testing",
                 "-L", "/fake/path/lib/swift/macosx/testing",
@@ -5292,7 +5292,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                 "-sdk", "/fake/sdk",
             ]
         )
-        XCTAssertNoMatch(mockToolchain.extraFlags.linkerFlags, ["-rpath"])
+        XCTAssertNoMatch(mockToolchain.extraFlags.linkerFlags.rawFlags, ["-rpath"])
 
         let observability = ObservabilitySystem.makeForTesting()
         let graph = try loadModulesGraph(
@@ -5414,10 +5414,10 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             toolchain: toolchain,
             graph: graph,
             commonFlags: BuildFlags(
-                cCompilerFlags: [cliFlag(tool: .cCompiler)],
-                cxxCompilerFlags: [cliFlag(tool: .cxxCompiler)],
-                swiftCompilerFlags: [cliFlag(tool: .swiftCompiler)],
-                linkerFlags: [cliFlag(tool: .linker)]
+                cCompilerFlags: [cliFlag(tool: .cCompiler)].constructBuildFlags(source: nil),
+                cxxCompilerFlags: [cliFlag(tool: .cxxCompiler)].constructBuildFlags(source: nil),
+                swiftCompilerFlags: [cliFlag(tool: .swiftCompiler)].constructBuildFlags(source: nil),
+                linkerFlags: [cliFlag(tool: .linker)].constructBuildFlags(source: nil)
             ),
             fileSystem: fileSystem,
             observabilityScope: observability.topScope
@@ -7645,6 +7645,90 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             result.plan.graph.module(for: "ASystemLib")?.implicit,
             false
         )
+    }
+
+    func testSupplementaryOutputsCompileArguments() async throws {
+        let fs = InMemoryFileSystem(
+            emptyFiles: "/Pkg/Sources/exe/main.swift"
+        )
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Pkg",
+                    path: "/Pkg",
+                    targets: [
+                        TargetDescription(name: "exe", type: .executable),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        var driverParameters = BuildParameters.Driver()
+        driverParameters.emitSILFiles = true
+        driverParameters.emitIRFiles = true
+        driverParameters.emitOptimizationRecord = true
+
+        let plan = try await mockBuildPlan(
+            config: .release,
+            graph: graph,
+            driverParameters: driverParameters,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+
+        let result = try BuildPlanResult(plan: plan)
+        let exe = try result.moduleBuildDescription(for: "exe").swift()
+
+        let args = try exe.emitCommandLine()
+        XCTAssertMatch(args, ["-save-optimization-record"])
+        XCTAssertMatch(args, ["-g"])
+    }
+
+    func testSupplementaryOutputsInWMOMode() async throws {
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                "/Pkg/Sources/lib/file1.swift",
+                "/Pkg/Sources/lib/file2.swift"
+        )
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Pkg",
+                    path: "/Pkg",
+                    targets: [
+                        TargetDescription(name: "lib"),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        var driverParameters = BuildParameters.Driver()
+        driverParameters.emitSILFiles = true
+        driverParameters.emitIRFiles = true
+        driverParameters.emitOptimizationRecord = true
+
+        let plan = try await mockBuildPlan(
+            config: .release,
+            graph: graph,
+            driverParameters: driverParameters,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+
+        let result = try BuildPlanResult(plan: plan)
+        let lib = try result.moduleBuildDescription(for: "lib").swift()
+
+        let args = try lib.emitCommandLine()
+        XCTAssertMatch(args, ["-whole-module-optimization"])
+        XCTAssertMatch(args, ["-save-optimization-record"])
     }
 }
 

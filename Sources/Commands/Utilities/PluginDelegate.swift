@@ -137,10 +137,10 @@ final class PluginDelegate: PluginInvocationDelegate {
             // --configuration command line parameter.   We don't need to do anything to inherit it.
             break
         }
-        buildParameters.flags.cCompilerFlags.append(contentsOf: parameters.otherCFlags)
-        buildParameters.flags.cxxCompilerFlags.append(contentsOf: parameters.otherCxxFlags)
-        buildParameters.flags.swiftCompilerFlags.append(contentsOf: parameters.otherSwiftcFlags)
-        buildParameters.flags.linkerFlags.append(contentsOf: parameters.otherLinkerFlags)
+        buildParameters.flags.cCompilerFlags.append(contentsOf: parameters.otherCFlags.constructBuildFlags(source: .plugin))
+        buildParameters.flags.cxxCompilerFlags.append(contentsOf: parameters.otherCxxFlags.constructBuildFlags(source: .plugin))
+        buildParameters.flags.swiftCompilerFlags.append(contentsOf: parameters.otherSwiftcFlags.constructBuildFlags(source: .plugin))
+        buildParameters.flags.linkerFlags.append(contentsOf: parameters.otherLinkerFlags.constructBuildFlags(source: .plugin))
 
         // Configure the verbosity of the output.
         let logLevel: Basics.Diagnostic.Severity

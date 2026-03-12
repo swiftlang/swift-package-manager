@@ -347,6 +347,20 @@ let package = Package(
         ),
 
         .target(
+            /** SBOM (Software Bill of Materials) model objects */
+            name: "SBOMModel",
+            dependencies: ["Basics", "PackageCollections", "PackageGraph", "PackageModel", "SourceControl", "SwiftBuildSupport"],
+            exclude: ["CMakeLists.txt", "README.md"],
+            resources: [
+                .copy("CycloneDX/Resources/cyclonedx-1.7.schema.json"),
+                .copy("SPDX/Resources/spdx-3.0.1.schema.json"),
+            ],
+            swiftSettings: commonExperimentalFeatures + [
+                .unsafeFlags(["-static"]),
+            ]
+        ),
+
+        .target(
             /** Package model conventions and loading support */
             name: "PackageLoading",
             dependencies: [
@@ -590,6 +604,7 @@ let package = Package(
                 "Workspace",
                 "XCBuildSupport",
                 "SwiftBuildSupport",
+                "SBOMModel",
             ],
             exclude: ["CMakeLists.txt"],
             swiftSettings: commonExperimentalFeatures + [
@@ -609,6 +624,7 @@ let package = Package(
                 "Build",
                 "CoreCommands",
                 "PackageGraph",
+                "SBOMModel",
                 "SourceControl",
                 "Workspace",
                 "XCBuildSupport",
@@ -988,6 +1004,13 @@ let package = Package(
         .testTarget(
             name: "PackageSigningTests",
             dependencies: ["_InternalTestSupport", "PackageSigning"]
+        ),
+        .testTarget(
+            name: "SBOMModelTests",
+            dependencies: ["SBOMModel", "_InternalTestSupport"],
+            resources: [
+                .copy("testfiles"),
+            ]
         ),
         .testTarget(
             name: "QueryEngineTests",

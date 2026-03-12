@@ -31,6 +31,10 @@ import enum TSCUtility.Diagnostics
 import func TSCUtility.getClangVersion
 import struct TSCUtility.Version
 
+import Foundation
+import SBOMModel
+import Workspace
+
 extension BuildSubset {
     var argumentName: String {
         switch self {
@@ -78,7 +82,7 @@ struct BuildCommandOptions: ParsableArguments {
     /// Whether to enable code coverage.
     @Flag(name: .customLong("code-coverage"),
           inversion: .prefixedEnableDisable,
-          help: "Enable code coverage.")
+          help: "Determines whether the build measures code coverage.")
     var enableCodeCoverage: Bool = false
 
     /// If the binary output path should be printed.
@@ -104,8 +108,11 @@ struct BuildCommandOptions: ParsableArguments {
     var product: String?
 
     /// If should link the Swift stdlib statically.
-    @Flag(name: .customLong("static-swift-stdlib"), inversion: .prefixedNo, help: "Link Swift stdlib statically.")
+    @Flag(name: .customLong("static-swift-stdlib"), inversion: .prefixedNo, help: "Determines whether Swift stdlib links statically.")
     public var shouldLinkStaticSwiftStdlib: Bool = false
+
+    @OptionGroup(title: "Software Bill of Materials (SBOM)")
+    var sbom: SBOMOptions
 }
 
 /// swift-build command namespace
@@ -156,21 +163,39 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
             productsBuildParameters.testingParameters.enableCodeCoverage = true
             toolsBuildParameters.testingParameters.enableCodeCoverage = true
         }
-
+
         if self.options.printPIFManifestGraphviz {
             productsBuildParameters.printPIFManifestGraphviz = true
             toolsBuildParameters.printPIFManifestGraphviz = true
         }
-
+
+        if swiftCommandState.options.build.enableCodesizeProfile {
+            var driverParameters = productsBuildParameters.driverParameters
+            driverParameters.codesizeProfileEnabled = true
+            driverParameters.emitSILFiles = true
+            driverParameters.emitIRFiles = true
+            driverParameters.emitOptimizationRecord = true
+
+            if let outputDir = swiftCommandState.options.build.codesizeProfileOutputDirectory {
+                let outputPath = try AbsolutePath(validating: outputDir, relativeTo: swiftCommandState.originalWorkingDirectory)
+                driverParameters.silOutputDirectory = outputPath
+                driverParameters.irOutputDirectory = outputPath
+                driverParameters.optimizationRecordDirectory = outputPath
+            }
+            productsBuildParameters.driverParameters = driverParameters
+        }
+
         do {
             try await build(
                 swiftCommandState,
                 subset: subset,
                 productsBuildParameters: productsBuildParameters,
-                toolsBuildParameters: toolsBuildParameters
+                toolsBuildParameters: toolsBuildParameters,
             )
         } catch SwiftBuildSupport.PIFGenerationError.printedPIFManifestGraphviz {
             throw ExitCode.success
+        } catch _ as Diagnostics {
+            throw ExitCode.failure
         }
     }
 
@@ -178,7 +203,7 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
         _ swiftCommandState: SwiftCommandState,
         subset: BuildSubset,
         productsBuildParameters: BuildParameters,
-        toolsBuildParameters: BuildParameters
+        toolsBuildParameters: BuildParameters,
     ) async throws {
         let buildSystem = try await swiftCommandState.createBuildSystem(
             explicitProduct: options.product,
@@ -189,10 +214,56 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
             // ie "swift build" should output to stdout
             outputStream: TSCBasic.stdoutStream
         )
+        let buildResult = try await buildSystem.build(subset: subset, buildOutputs: try await getBuildOutputs())
+        try await processBuildResult(swiftCommandState, buildSystem: buildSystem, buildResult: buildResult)
+    }
+
+    private func getBuildOutputs() async throws -> [BuildOutput] {
+        return try self.options.sbom.sbomSpecs.isEmpty ? [] : [.dependencyGraph]
+    }
+
+    private func processBuildResult(
+        _ swiftCommandState: SwiftCommandState,
+        buildSystem: any BuildSystem,
+        buildResult: BuildResult) async throws {
+        if try !self.options.sbom.sbomSpecs.isEmpty {
+            try await generateSBOMs(swiftCommandState, buildSystem, buildResult)
+        }
+    }
+
+    private func generateSBOMs(
+        _ swiftCommandState: SwiftCommandState,
+        _ buildSystem: any BuildSystem,
+        _ buildResult: BuildResult) async throws {
         do {
-            try await buildSystem.build(subset: subset, buildOutputs: [])
-        } catch _ as Diagnostics {
-            throw ExitCode.failure
+            guard try self.options.sbom.sbomSpecs.isEmpty || options.target == nil else {
+                throw SBOMModel.SBOMCommandError.targetFlagNotSupported
+            }
+            let workspace = try swiftCommandState.getActiveWorkspace()
+            let packageGraph = try await buildSystem.getPackageGraph()
+            let resolvedPackagesStore = try workspace.resolvedPackagesStore.load()
+            let input = SBOMInput(
+                modulesGraph: packageGraph,
+                dependencyGraph: buildResult.dependencyGraph,
+                store: resolvedPackagesStore,
+                filter: try self.options.sbom.sbomFilter,
+                product: options.product,
+                specs: try self.options.sbom.sbomSpecs,
+                dir: await SBOMCreator.resolveSBOMDirectory(from: self.options.sbom.sbomDirectory, withDefault: try swiftCommandState.productsBuildParameters.buildPath),
+                observabilityScope: swiftCommandState.observabilityScope
+            )
+
+            let creator = SBOMCreator(input: input)
+            try await creator.createSBOMsWithLogging()
+            if self.globalOptions.build.buildSystem != .swiftbuild {
+                swiftCommandState.observabilityScope.emit(warning: "generating SBOM(s) without `--build-system swiftbuild` flag creates SBOM(s) without build-time conditionals.")
+            }
+        } catch {
+            if self.options.sbom.sbomWarningOnly {
+                swiftCommandState.observabilityScope.emit(warning: "SBOM generation failed: \(error.localizedDescription)")
+            } else {
+                throw error
+            }
         }
     }
 

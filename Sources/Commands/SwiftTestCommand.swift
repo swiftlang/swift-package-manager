@@ -154,7 +154,7 @@ struct TestCommandOptions: ParsableArguments {
     /// If tests should run in parallel mode.
     @Flag(name: .customLong("parallel"),
           inversion: .prefixedNo,
-          help: "Run the tests in parallel.")
+          help: "Determines whether tests run in parallel.")
     var shouldRunInParallel: Bool = false
 
     /// Number of tests to execute in parallel
@@ -170,7 +170,7 @@ struct TestCommandOptions: ParsableArguments {
 
     /// List the tests and exit.
     @Flag(name: [.customLong("list-tests"), .customShort("l")],
-          help: "Lists test methods in specifier format.")
+          help: "List test methods in specifier format.")
     var _deprecated_shouldListTests: Bool = false
 
     /// If the path of the exported code coverage JSON should be printed.
@@ -190,13 +190,13 @@ struct TestCommandOptions: ParsableArguments {
     var _testCaseSpecifier: String?
 
     @Option(help: """
-        Run test cases that match a regular expression, Format: '<test-target>.<test-case>' \
-        or '<test-target>.<test-case>/<test>'.
+        Run test cases that match a regular expression. \
+        Format: <test-target>.<test-case> or <test-target>.<test-case>/<test>.
         """)
     var filter: [String] = []
 
     @Option(name: .customLong("skip"),
-            help: "Skip test cases that match a regular expression, Example: '--skip PerformanceTests'.")
+            help: "Skip test cases that match a regular expression. For example: '--skip PerformanceTests'.")
     var _testCaseSkip: [String] = []
 
     /// Path where the xUnit xml file should be generated.
@@ -214,13 +214,13 @@ struct TestCommandOptions: ParsableArguments {
     var shouldShowDetailedFailureMessage: Bool = false
 
     /// Generate LinuxMain entries and exit.
-    @Flag(name: .customLong("testable-imports"), inversion: .prefixedEnableDisable, help: "Enable or disable testable imports. Enabled by default.")
+    @Flag(name: .customLong("testable-imports"), inversion: .prefixedEnableDisable, help: "Determines whether test modules use @testable imports.")
     var enableTestableImports: Bool = true
 
     /// Whether to enable code coverage.
     @Flag(name: .customLong("code-coverage"),
           inversion: .prefixedEnableDisable,
-          help: "Enable code coverage.")
+          help: "Determines whether testing measures code coverage.")
     var enableCodeCoverage: Bool = false
 
     /// Configure test output.
@@ -1631,11 +1631,16 @@ private func buildTestsIfNeeded(
     }
 
     if let testProductName = testProduct {
-        guard let selectedTestProduct = testProducts.first(where: { $0.productName == testProductName }) else {
-            throw TestError.testProductNotFound(productName: testProductName)
+        if let selectedTestProduct = testProducts.first(where: { $0.productName == testProductName }) {
+            return [selectedTestProduct]
         }
 
-        return [selectedTestProduct]
+        let selectedTestProducts = testProducts.filter({ $0.umbrellaProductName == testProductName })
+        if !selectedTestProducts.isEmpty {
+            return selectedTestProducts
+        }
+
+        throw TestError.testProductNotFound(productName: testProductName)
     } else {
         return testProducts
     }

@@ -58,7 +58,7 @@ extension SwiftPackageCommand {
         var testLibraryOptions: TestLibraryOptions
 
         /// Provide custom package name.
-        @Option(name: .customLong("name"), help: "Provide custom package name.")
+        @Option(name: .customLong("name"), help: "Provide a custom package name.")
         var packageName: String?
 
         @OptionGroup(visibility: .hidden)

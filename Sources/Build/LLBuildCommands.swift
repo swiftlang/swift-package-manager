@@ -444,12 +444,13 @@ final class PackageStructureCommand: CustomLLBuildCommand {
         buildParameters.workers = 1
 
         let optionTable = OptionTable()
-        let parsedOptions = try optionTable.parse(Array(buildParameters.flags.swiftCompilerFlags), for: .batch)
+        let parsedOptions = try optionTable.parse(Array(buildParameters.flags.swiftCompilerFlags.rawFlags), for: .batch)
         let buildRecordInfoHash = BuildRecordArguments.computeHash(parsedOptions)
 
         // Replace the swiftCompilerFlags with a hash of themselves where arguments that
         // do not affect incremental builds are removed.
-        buildParameters.flags.swiftCompilerFlags = [buildRecordInfoHash]
+        // FIXME: This should use a type other than BuildFlags
+        buildParameters.flags.swiftCompilerFlags = [buildRecordInfoHash].constructBuildFlags(source: nil)
 
         return buildParameters
     }

@@ -58,7 +58,7 @@ final class RepositoryManagerTests: XCTestCase {
                 XCTAssertDirectoryExists(checkoutPath)
                 XCTAssertFileExists(checkoutPath.appending("README.txt"))
 
-                try delegate.wait(timeout: .now() + 2)
+                try await delegate.wait(timeout: .now() + 2)
                 XCTAssertEqual(delegate.willFetch.map { $0.repository }, [dummyRepo])
                 XCTAssertEqual(delegate.didFetch.map { $0.repository }, [dummyRepo])
             }
@@ -72,7 +72,7 @@ final class RepositoryManagerTests: XCTestCase {
 
                 XCTAssertNotNil(prevHandle)
 
-                try delegate.wait(timeout: .now() + 2)
+                try await delegate.wait(timeout: .now() + 2)
                 XCTAssertEqual(delegate.willFetch.map { $0.repository }, [dummyRepo, badDummyRepo])
                 XCTAssertEqual(delegate.didFetch.map { $0.repository }, [dummyRepo, badDummyRepo])
                 // We shouldn't have made any update call yet.
@@ -89,7 +89,7 @@ final class RepositoryManagerTests: XCTestCase {
 
                 // We should always get back the same handle once fetched.
                 // Since we looked up this repo again, we should have made a fetch call.
-                try delegate.wait(timeout: .now() + 2)
+                try await delegate.wait(timeout: .now() + 2)
                 XCTAssertEqual(provider.numFetches, 1)
                 XCTAssertEqual(delegate.willUpdate, [dummyRepo])
                 XCTAssertEqual(delegate.didUpdate, [dummyRepo])
@@ -113,7 +113,7 @@ final class RepositoryManagerTests: XCTestCase {
                 XCTAssertEqual(handle.repository, dummyRepo)
 
                 // We should have tried fetching these two.
-                try delegate.wait(timeout: .now() + 2)
+                try await delegate.wait(timeout: .now() + 2)
                 XCTAssertEqual(delegate.willFetch.map { $0.repository }, [dummyRepo, badDummyRepo, dummyRepo])
                 XCTAssertEqual(delegate.didFetch.map { $0.repository }, [dummyRepo, badDummyRepo, dummyRepo])
                 XCTAssertEqual(delegate.willUpdate, [dummyRepo])
@@ -149,7 +149,7 @@ final class RepositoryManagerTests: XCTestCase {
             XCTAssertNoDiagnostics(observability.diagnostics)
             try XCTAssertDirectoryExists(cachePath.appending(repo.storagePath()))
             try XCTAssertDirectoryExists(repositoriesPath.appending(repo.storagePath()))
-            try delegate.wait(timeout: .now() + 2)
+            try await delegate.wait(timeout: .now() + 2)
             XCTAssertEqual(delegate.willFetch[0].details,
                            RepositoryManager.FetchDetails(fromCache: false, updatedCache: false))
             XCTAssertEqual(try delegate.didFetch[0].result.get(),
@@ -163,7 +163,7 @@ final class RepositoryManagerTests: XCTestCase {
             _ = try await manager.lookup(repository: repo, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
             try XCTAssertDirectoryExists(repositoriesPath.appending(repo.storagePath()))
-            try delegate.wait(timeout: .now() + 2)
+            try await delegate.wait(timeout: .now() + 2)
             XCTAssertEqual(delegate.willFetch[1].details,
                            RepositoryManager.FetchDetails(fromCache: true, updatedCache: false))
             XCTAssertEqual(try delegate.didFetch[1].result.get(),
@@ -179,7 +179,7 @@ final class RepositoryManagerTests: XCTestCase {
             XCTAssertNoDiagnostics(observability.diagnostics)
             try XCTAssertDirectoryExists(cachePath.appending(repo.storagePath()))
             try XCTAssertDirectoryExists(repositoriesPath.appending(repo.storagePath()))
-            try delegate.wait(timeout: .now() + 2)
+            try await delegate.wait(timeout: .now() + 2)
             XCTAssertEqual(delegate.willFetch[2].details,
                            RepositoryManager.FetchDetails(fromCache: false, updatedCache: false))
             XCTAssertEqual(try delegate.didFetch[2].result.get(),
@@ -189,7 +189,7 @@ final class RepositoryManagerTests: XCTestCase {
             delegate.prepare(fetchExpected: false, updateExpected: true)
             _ = try await manager.lookup(repository: repo, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
-            try delegate.wait(timeout: .now() + 2)
+            try await delegate.wait(timeout: .now() + 2)
             try XCTAssertEqual(delegate.willUpdate[0].storagePath(), repo.storagePath())
             try XCTAssertEqual(delegate.didUpdate[0].storagePath(), repo.storagePath())
         }
@@ -220,7 +220,7 @@ final class RepositoryManagerTests: XCTestCase {
             delegate.prepare(fetchExpected: false, updateExpected: true)
             _ = try await manager.lookup(repository: dummyRepo, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
-            try delegate.wait(timeout: .now() + 2)
+            try await delegate.wait(timeout: .now() + 2)
             XCTAssertEqual(delegate.willFetch.count, 1)
             XCTAssertEqual(delegate.didFetch.count, 1)
 
@@ -233,7 +233,7 @@ final class RepositoryManagerTests: XCTestCase {
             delegate.prepare(fetchExpected: true, updateExpected: false)
             _ = try await manager.lookup(repository: dummyRepo, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
-            try delegate.wait(timeout: .now() + 2)
+            try await delegate.wait(timeout: .now() + 2)
             XCTAssertEqual(delegate.willFetch.count, 2)
             XCTAssertEqual(delegate.didFetch.count, 2)
         }
@@ -261,7 +261,7 @@ final class RepositoryManagerTests: XCTestCase {
                 delegate.prepare(fetchExpected: true, updateExpected: false)
                 _ = try await manager.lookup(repository: dummyRepo, observabilityScope: observability.topScope)
                 XCTAssertNoDiagnostics(observability.diagnostics)
-                try delegate.wait(timeout: .now() + 2)
+                try await delegate.wait(timeout: .now() + 2)
                 XCTAssertEqual(delegate.willFetch.map { $0.repository }, [dummyRepo])
                 XCTAssertEqual(delegate.didFetch.map { $0.repository }, [dummyRepo])
             }
@@ -283,7 +283,7 @@ final class RepositoryManagerTests: XCTestCase {
                 _ = try await manager.lookup(repository: dummyRepo, observabilityScope: observability.topScope)
                 XCTAssertNoDiagnostics(observability.diagnostics)
                 // This time fetch shouldn't be called.
-                try delegate.wait(timeout: .now() + 2)
+                try await delegate.wait(timeout: .now() + 2)
                 XCTAssertEqual(delegate.willFetch.map { $0.repository }, [])
             }
             // We shouldn't have done a new fetch.
@@ -311,7 +311,7 @@ final class RepositoryManagerTests: XCTestCase {
                 delegate.prepare(fetchExpected: true, updateExpected: false)
                 _ = try await manager.lookup(repository: dummyRepo, observabilityScope: observability.topScope)
                 XCTAssertNoDiagnostics(observability.diagnostics)
-                try delegate.wait(timeout: .now() + 2)
+                try await delegate.wait(timeout: .now() + 2)
                 XCTAssertEqual(delegate.willFetch.map { $0.repository }, [dummyRepo])
                 XCTAssertEqual(delegate.didFetch.map { $0.repository }, [dummyRepo])
             }
@@ -367,7 +367,7 @@ final class RepositoryManagerTests: XCTestCase {
 
             XCTAssertNoDiagnostics(observability.diagnostics)
 
-            try delegate.wait(timeout: .now() + 2)
+            try await delegate.wait(timeout: .now() + 2)
             XCTAssertEqual(delegate.willFetch.count, 1)
             XCTAssertEqual(delegate.didFetch.count, 1)
             XCTAssertEqual(delegate.willUpdate.count, concurrency - 1)
@@ -402,7 +402,7 @@ final class RepositoryManagerTests: XCTestCase {
             delegate.prepare(fetchExpected: true, updateExpected: false)
             _ = try await manager.lookup(repository: dummyRepo, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
-            try delegate.wait(timeout: .now() + 2)
+            try await delegate.wait(timeout: .now() + 2)
             XCTAssertEqual(delegate.willFetch.count, 1)
             XCTAssertEqual(delegate.didFetch.count, 1)
             XCTAssertEqual(delegate.willUpdate.count, 0)
@@ -414,7 +414,7 @@ final class RepositoryManagerTests: XCTestCase {
             delegate.prepare(fetchExpected: false, updateExpected: true)
             _ = try await manager.lookup(repository: dummyRepo, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
-            try delegate.wait(timeout: .now() + 2)
+            try await delegate.wait(timeout: .now() + 2)
             XCTAssertEqual(delegate.willFetch.count, 1)
             XCTAssertEqual(delegate.didFetch.count, 1)
             XCTAssertEqual(delegate.willUpdate.count, 2)
@@ -423,7 +423,7 @@ final class RepositoryManagerTests: XCTestCase {
             delegate.prepare(fetchExpected: false, updateExpected: false)
             _ = try await manager.lookup(repository: dummyRepo, updateStrategy: .never, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
-            try delegate.wait(timeout: .now() + 2)
+            try await delegate.wait(timeout: .now() + 2)
             XCTAssertEqual(delegate.willFetch.count, 1)
             XCTAssertEqual(delegate.didFetch.count, 1)
             XCTAssertEqual(delegate.willUpdate.count, 2)
@@ -518,7 +518,11 @@ final class RepositoryManagerTests: XCTestCase {
                     self.outstandingGroup.enter()
                     defer { self.outstandingGroup.leave() }
                     print("\(repository) waiting to be cancelled")
-                    XCTAssertEqual(.success, self.terminatedGroup.wait(timeout: .now() + 5), "timeout waiting on terminated signal")
+                    await withCheckedContinuation { continuation in
+                        self.terminatedGroup.notify(queue: DispatchQueue.sharedConcurrent) {
+                            continuation.resume()
+                        }
+                    }
                 }
                 print("\(repository) okay")
             }
@@ -878,12 +882,11 @@ fileprivate class DummyRepositoryManagerDelegate: RepositoryManager.Delegate, @u
         self._didUpdate = .init()
     }
 
-    public func wait(timeout: DispatchTime) throws {
-        switch self.group.wait(timeout: timeout) {
-        case .success:
-            return
-        case .timedOut:
-            throw StringError("timeout")
+    public func wait(timeout: DispatchTime) async throws {
+        try await withCheckedThrowingContinuation { continuation in
+            self.group.notify(queue: DispatchQueue.sharedConcurrent) {
+                continuation.resume()
+            }
         }
     }
 
