@@ -1275,6 +1275,8 @@ fileprivate extension Triple {
             return "WATCHOS_DEPLOYMENT_TARGET"
         case (_, .android):
             return "ANDROID_DEPLOYMENT_TARGET"
+        case (.freebsd, _):
+            return "FREEBSD_DEPLOYMENT_TARGET"
         default:
             return nil
         }
