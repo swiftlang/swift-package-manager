@@ -20,7 +20,7 @@ import SwiftSyntax
 /// Every limitation will have a corresponding syntax node and can be
 /// treated as a `DiagnosticMessage` so that it can be shown to the user.
 public enum ManifestParseLimitation {
-    /// An nexpected syntax node of any kind.
+    /// An unexpected syntax node of any kind.
     case unexpectedSyntax(Syntax)
 
     /// An import declaration that refers to an unknown module.

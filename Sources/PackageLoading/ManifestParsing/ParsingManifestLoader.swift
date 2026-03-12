@@ -1668,13 +1668,13 @@ extension ManifestParseVisitor {
                 // On non-Apple builds any unrecognized label is a limitation.
                 #if ENABLE_APPLE_PRODUCT_TYPES
                 if label == "bundleIdentifier" {
-                    bundleIdentifier = argument.expression.asStringLiteralValueWithContextEvaluation(contextModel: contextModel)
+                    bundleIdentifier = argument.expression.asStringLiteralValue(in: contextModel)
                 } else if label == "teamIdentifier" {
-                    teamIdentifier = argument.expression.asStringLiteralValueWithContextEvaluation(contextModel: contextModel)
+                    teamIdentifier = argument.expression.asStringLiteralValue(in: contextModel)
                 } else if label == "displayVersion" {
-                    displayVersion = argument.expression.asStringLiteralValueWithContextEvaluation(contextModel: contextModel)
+                    displayVersion = argument.expression.asStringLiteralValue(in: contextModel)
                 } else if label == "bundleVersion" {
-                    bundleVersion = argument.expression.asStringLiteralValueWithContextEvaluation(contextModel: contextModel)
+                    bundleVersion = argument.expression.asStringLiteralValue(in: contextModel)
                 } else if label == "appIcon" {
                     appIcon = parseAppIcon(argument.expression)
                 } else if label == "accentColor" {
@@ -1688,7 +1688,7 @@ extension ManifestParseVisitor {
                 } else if label == "appCategory" {
                     appCategory = parseAppCategory(argument.expression)
                 } else if label == "additionalInfoPlistContentFilePath" {
-                    additionalInfoPlistContentFilePath = argument.expression.asStringLiteralValueWithContextEvaluation(contextModel: contextModel)
+                    additionalInfoPlistContentFilePath = argument.expression.asStringLiteralValue(in: contextModel)
                 } else {
                     limitations.append(.unsupportedArgument(argument, callee: methodName))
                 }
@@ -1829,7 +1829,7 @@ extension ManifestParseVisitor {
         
         switch methodName {
         case "asset":
-            if let name = arguments.first?.expression.asStringLiteralValueWithContextEvaluation(contextModel: contextModel) {
+            if let name = arguments.first?.expression.asStringLiteralValue(in: contextModel) {
                 return .asset(name: name)
             }
         case "placeholder":
@@ -1854,7 +1854,7 @@ extension ManifestParseVisitor {
         
         switch methodName {
         case "asset":
-            if let name = arguments.first?.expression.asStringLiteralValueWithContextEvaluation(contextModel: contextModel) {
+            if let name = arguments.first?.expression.asStringLiteralValue(in: contextModel) {
                 return .asset(name: name)
             }
         case "presetColor":
@@ -1999,9 +1999,9 @@ extension ManifestParseVisitor {
             let label = argument.label?.text
             
             if label == "purposeString" {
-                purposeString = argument.expression.asStringLiteralValueWithContextEvaluation(contextModel: contextModel)
+                purposeString = argument.expression.asStringLiteralValue(in: contextModel)
             } else if label == "bonjourServiceTypes" {
-                bonjourServiceTypes = argument.expression.asStringArray()
+                bonjourServiceTypes = argument.expression.asStringArray(in: contextModel)
             } else if label == nil {
                 // Unlabeled argument could be a condition
                 if let cond = parseDeviceFamilyCondition(argument.expression) {

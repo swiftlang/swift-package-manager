@@ -457,7 +457,7 @@ public struct EnabledTraits: Hashable {
     }
 
     public static func ==(_ lhs: EnabledTraits, _ rhs: EnabledTraits) -> Bool {
-        lhs._traits.names == rhs._traits.names
+        Set(lhs._traits.names) == Set(rhs._traits.names)
     }
 }
 
