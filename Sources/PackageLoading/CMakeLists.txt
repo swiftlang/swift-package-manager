@@ -23,11 +23,11 @@ add_library(PackageLoading
   TargetSourcesBuilder.swift
   ToolsVersionParser.swift
 
-  "Manifest Parsing/BuildConfiguration+HostToolchain.swift"
-  "Manifest Parsing/ChainedParsingManifestLoader.swift"
-  "Manifest Parsing/ManifestParseLimitation.swift"
-  "Manifest Parsing/ManifestParserError.swift"
-  "Manifest Parsing/ParsingManifestLoader.swift"
+  ManifestParsing/BuildConfiguration+HostToolchain.swift
+  ManifestParsing/ChainedParsingManifestLoader.swift
+  ManifestParsing/ManifestParseLimitation.swift
+  ManifestParsing/ManifestParserError.swift
+  ManifestParsing/ParsingManifestLoader.swift
 )
 
 target_link_libraries(PackageLoading PUBLIC
