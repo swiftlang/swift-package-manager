@@ -48,7 +48,8 @@ enum TemplateBuildSupport {
         let buildSystem = try await makeBuildSystem(
             swiftCommandState: swiftCommandState,
             folder: packageRoot,
-            buildOptions: buildOptions
+            buildOptions: buildOptions,
+            outputStream: TSCBasic.stderrStream,
         )
 
         guard let subset = buildOptions.buildSubset(observabilityScope: swiftCommandState.observabilityScope) else {
@@ -110,6 +111,7 @@ enum TemplateBuildSupport {
         swiftCommandState: SwiftCommandState,
         folder: Basics.AbsolutePath,
         buildOptions: BuildCommandOptions,
+        outputStream: OutputByteStream = TSCBasic.stdoutStream,
         forTesting: Bool = false
     ) async throws -> BuildSystem {
         var productsParams = try swiftCommandState.productsBuildParameters
@@ -133,7 +135,7 @@ enum TemplateBuildSupport {
                 shouldLinkStaticSwiftStdlib: buildOptions.shouldLinkStaticSwiftStdlib,
                 productsBuildParameters: productsParams,
                 toolsBuildParameters: toolsParams,
-                outputStream: TSCBasic.stdoutStream
+                outputStream: outputStream,
             )
         }
     }

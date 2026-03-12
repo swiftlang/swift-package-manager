@@ -90,10 +90,20 @@ struct TemplatePackageInitializer: PackageInitializer {
             self.swiftCommandState.observabilityScope
                 .emit(debug: "Inferring initial type of consumer's package based on template's specifications.")
 
-            let resolvedTemplateName: String = if self.templateName == nil {
-                try await self.resolveTemplateNameInPackage(from: resolvedTemplatePath)
+            var resolvedTemplateName: String
+            if self.templateName == nil {
+                do {
+                    resolvedTemplateName = try await self.resolveTemplateNameInPackage(from: resolvedTemplatePath)
+                } catch TemplatePackageInitializerError.multipleTemplatesFound(let names) {
+                     if self.args.contains("--experimental-dump-help") || self.args.contains("--dump-help") {
+                         let encoder = JSONEncoder()
+                         print(String(data: try encoder.encode(names), encoding: .utf8)!)
+                         return
+                     }
+                     throw TemplatePackageInitializerError.multipleTemplatesFound(names)
+                }
             } else {
-                self.templateName!
+                resolvedTemplateName = self.templateName!
             }
 
             let packageType = try await TemplatePackageInitializer.inferPackageType(
@@ -277,7 +287,7 @@ struct TemplatePackageInitializer: PackageInitializer {
             case .noTemplatesInManifest:
                 "No templates with packageInit options were found in the manifest."
             case .multipleTemplatesFound(let templates):
-                "Multiple templates found: \(templates.joined(separator: ", ")). Please specify one using --template."
+                "Multiple templates found: \(templates.joined(separator: ", ")). Please choose one using --type and try again."
             }
         }
     }
