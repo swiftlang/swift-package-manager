@@ -47,18 +47,35 @@ public final class ParsingManifestLoader: ManifestLoaderProtocol {
     let config: StaticBuildConfiguration
     let environment: [String: String]?
 
+    /// Initialize the manifest loader with the given static build
+    /// configuration, which will be used to evaluate `#if` conditions in
+    /// the manifest.
     public init(
+        configuration: StaticBuildConfiguration,
+        pruneDependencies: Bool = false,
+        environment: [String: String]?
+    ) {
+        self.pruneDependencies = pruneDependencies
+        self.config = configuration
+        self.environment = environment
+    }
+
+    /// Initialize the manifest loader using the given host toolchain.
+    /// The toolchain will be used to derive the static build configuration.
+    public convenience init(
         toolchain: UserToolchain,
         pruneDependencies: Bool = false,
         extraManifestFlags: [String],
         environment: [String: String]?
     ) throws {
-        self.pruneDependencies = pruneDependencies
-        self.config = try StaticBuildConfiguration.getHostConfiguration(
-            usingSwiftCompiler: toolchain.swiftCompilerPathForManifests,
-            extraManifestFlags: extraManifestFlags
+        self.init(
+            configuration: try StaticBuildConfiguration.getHostConfiguration(
+                usingSwiftCompiler: toolchain.swiftCompilerPathForManifests,
+                extraManifestFlags: extraManifestFlags
+            ),
+            pruneDependencies: pruneDependencies,
+            environment: environment
         )
-        self.environment = environment
     }
 
     public func resetCache(observabilityScope: Basics.ObservabilityScope) async {
