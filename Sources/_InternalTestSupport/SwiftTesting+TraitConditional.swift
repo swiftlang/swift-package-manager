@@ -87,8 +87,17 @@ extension Trait where Self == Testing.ConditionTrait {
 
     // Enabled if the toolchain has supported features
     public static var supportsSupportedFeatures: Self {
-        enabled("skipping because test environment compiler doesn't support `-print-supported-features`") {
-            (try? UserToolchain.default)!.supportsSupportedFeatures
+        let isEnabled: Bool
+        let errorInfo: String
+        do {
+            isEnabled = try UserToolchain.default.supportsSupportedFeatures
+            errorInfo = ""
+        } catch {
+            isEnabled = false
+            errorInfo = "Error: \(error)"
+        }
+        return enabled("Skipping because test environment compiler doesn't support `-print-supported-features`.\(errorInfo)") {
+            isEnabled
         }
     }
 
