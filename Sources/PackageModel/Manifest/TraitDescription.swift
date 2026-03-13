@@ -20,7 +20,7 @@ public struct TraitDescription: Sendable, Hashable, Codable, ExpressibleByString
     public var description: String?
 
     /// A set of other traits of this package that this trait enables.
-    public var enabledTraits: Set<String>
+    public var enabledTraits: [String]
 
     /// Initializes a new trait.
     ///
@@ -31,7 +31,7 @@ public struct TraitDescription: Sendable, Hashable, Codable, ExpressibleByString
     public init(
         name: String,
         description: String? = nil,
-        enabledTraits: Set<String> = []
+        enabledTraits: [String] = []
     ) {
         self.name = name
         self.description = description

@@ -457,7 +457,7 @@ public struct EnabledTraits: Hashable {
     }
 
     public static func ==(_ lhs: EnabledTraits, _ rhs: EnabledTraits) -> Bool {
-        lhs._traits.names == rhs._traits.names
+        Set(lhs._traits.names) == Set(rhs._traits.names)
     }
 }
 
@@ -564,8 +564,8 @@ extension String: EnabledTraitConvertible {
 // MARK: - Collection + EnabledTrait
 
 extension Collection where Element == EnabledTrait {
-    public var names: Set<String> {
-        Set<String>(self.map(\.name))
+    public var names: [String] {
+        self.map(\.name)
     }
 
     public func contains(_ trait: String) -> Bool {

@@ -62,9 +62,9 @@ public struct BuildSettingCondition: Sendable {
     /// The applicable build configuration for this build setting condition.
     let config: BuildConfiguration?
     /// The applicable traits for this build setting condition.
-    let traits: Set<String>?
+    let traits: [String]?
 
-    private init(platforms: [Platform]?, config: BuildConfiguration?, traits: Set<String>?) {
+    private init(platforms: [Platform]?, config: BuildConfiguration?, traits: [String]?) {
         self.platforms = platforms
         self.config = config
         self.traits = traits
@@ -89,7 +89,7 @@ public struct BuildSettingCondition: Sendable {
     public static func when(
         platforms: [Platform]? = nil,
         configuration: BuildConfiguration? = nil,
-        traits: Set<String>? = nil
+        traits: [String]? = nil
     ) -> BuildSettingCondition {
         precondition(!(platforms == nil && configuration == nil && traits == nil))
         return BuildSettingCondition(platforms: platforms, config: configuration, traits: traits)

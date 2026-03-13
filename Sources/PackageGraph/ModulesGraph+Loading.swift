@@ -1192,10 +1192,10 @@ private func calculateEnabledTraits(
     parentPackage: PackageIdentity?,
     identity: PackageIdentity,
     manifest: Manifest,
-    explictlyEnabledTraits: Set<String>?
+    explictlyEnabledTraits: [String]?
 ) throws -> Set<String> {
     // This the point where we flatten the enabled traits and resolve the recursive traits
-    var recursiveEnabledTraits = explictlyEnabledTraits ?? []
+    var recursiveEnabledTraits = Set(explictlyEnabledTraits ?? [])
     let areDefaultsEnabled = recursiveEnabledTraits.remove("default") != nil
 
     // We are going to calculate which traits are actually enabled for a node here. To do this

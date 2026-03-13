@@ -99,7 +99,7 @@ public final class Package {
 
     /// The set of traits this package provides.
     @available(_PackageDescription, introduced: 6.1)
-    public var traits: Set<Trait>
+    public var traits: [Trait]
 
     /// The list of package dependencies.
     public var dependencies: [Dependency]
@@ -358,7 +358,7 @@ public final class Package {
         pkgConfig: String? = nil,
         providers: [SystemPackageProvider]? = nil,
         products: [Product] = [],
-        traits: Set<Trait> = [],
+        traits: [Trait] = [],
         dependencies: [Dependency] = [],
         targets: [Target] = [],
         swiftLanguageModes: [SwiftLanguageMode]? = nil,

@@ -1104,7 +1104,7 @@ public final class PackageBuilder {
 
         // Process each setting.
         for setting in target.settings {
-            if let traits = setting.condition?.traits, traits.intersection(self.enabledTraits.names).isEmpty {
+            if let traits = setting.condition?.traits, Set(traits).intersection(self.enabledTraits.names).isEmpty {
                 // The setting is currently not enabled so we should skip it
                 continue
             }

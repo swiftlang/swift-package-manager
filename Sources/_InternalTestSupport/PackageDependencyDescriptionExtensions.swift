@@ -22,7 +22,7 @@ package extension PackageDependency {
         deprecatedName: String? = nil,
         path: AbsolutePath,
         productFilter: ProductFilter = .everything,
-        traits: Set<Trait> = [.init(name: "default")]
+        traits: [Trait] = [.init(name: "default")]
     ) -> Self {
         let identity = identity ?? PackageIdentity(path: path)
         return .fileSystem(
@@ -40,7 +40,7 @@ package extension PackageDependency {
         path: AbsolutePath,
         requirement: SourceControl.Requirement,
         productFilter: ProductFilter = .everything,
-        traits: Set<Trait> = [.init(name: "default")]
+        traits: [Trait] = [.init(name: "default")]
     ) -> Self {
         let identity = identity ?? PackageIdentity(path: path)
         return .localSourceControl(
@@ -59,7 +59,7 @@ package extension PackageDependency {
         url: SourceControlURL,
         requirement: SourceControl.Requirement,
         productFilter: ProductFilter = .everything,
-        traits: Set<Trait> = [.init(name: "default")]
+        traits: [Trait] = [.init(name: "default")]
     ) -> Self {
         let identity = identity ?? PackageIdentity(url: url)
         return .remoteSourceControl(
@@ -76,7 +76,7 @@ package extension PackageDependency {
         identity: String,
         requirement: Registry.Requirement,
         productFilter: ProductFilter = .everything,
-        traits: Set<Trait> = [.init(name: "default")]
+        traits: [Trait] = [.init(name: "default")]
     ) -> Self {
         return .registry(
             identity: .plain(identity),
@@ -95,6 +95,15 @@ extension PackageDependency.SourceControl.Requirement {
     }
     public static func upToNextMinor(from version: Version) -> Self {
         return .range(.upToNextMinor(from: version))
+    }
+    public static func upToNextMajor(from versionString: String) -> Self {
+        return .range(.upToNextMajor(from: Version(stringLiteral: versionString)))
+    }
+    public static func upToNextMinor(from versionString: String) -> Self {
+        return .range(.upToNextMinor(from: Version(stringLiteral: versionString)))
+    }
+    public static func exact(_ versionString: String) -> Self {
+        return .exact(Version(stringLiteral: versionString))
     }
 }
 

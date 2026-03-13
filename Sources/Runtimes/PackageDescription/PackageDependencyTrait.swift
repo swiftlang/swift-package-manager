@@ -20,7 +20,7 @@ extension Package.Dependency {
         /// A condition that limits the application of a trait for a dependency.
         public struct Condition: Hashable, Sendable {
             /// The set of traits that enable the dependencies trait.
-            let traits: Set<String>?
+            let traits: [String]?
 
             /// Creates a package dependency trait condition.
             ///
@@ -28,7 +28,7 @@ extension Package.Dependency {
             ///
             /// - Parameter traits: The set of traits that enable the dependencies trait.
             public static func when(
-                traits: Set<String>
+                traits: [String]
             ) -> Self? {
                 return !traits.isEmpty ? Self(traits: traits) : nil
             }

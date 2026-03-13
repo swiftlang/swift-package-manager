@@ -24,16 +24,16 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
         /// A condition that limits the application of a dependencies trait.
         package struct Condition: Hashable, Sendable, Codable {
             /// The set of traits of this package that enable the dependency's trait.
-            package let traits: Set<String>?
+            package let traits: [String]?
 
-            public init(traits: Set<String>?) {
+            public init(traits: [String]?) {
                 self.traits = traits
             }
 
-            public func isSatisfied(by enabledTraits: Set<String>) -> Bool {
+            public func isSatisfied(by enabledTraits: [String]) -> Bool {
                 // If there are no traits in this condition, default to true.
                 guard let traits else { return true }
-                return !traits.intersection(enabledTraits).isEmpty
+                return !Set(traits).intersection(enabledTraits).isEmpty
             }
         }
 
@@ -102,7 +102,7 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
         public let nameForTargetDependencyResolutionOnly: String?
         public let path: AbsolutePath
         public let productFilter: ProductFilter
-        package let traits: Set<Trait>?
+        package let traits: [Trait]?
     }
 
     public struct SourceControl: Equatable, Hashable, Encodable, Sendable {
@@ -111,7 +111,7 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
         public let location: Location
         public let requirement: Requirement
         public let productFilter: ProductFilter
-        package let traits: Set<Trait>?
+        package let traits: [Trait]?
 
         public enum Requirement: Equatable, Hashable, Sendable {
             case exact(Version)
@@ -130,7 +130,7 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
         public let identity: PackageIdentity
         public let requirement: Requirement
         public let productFilter: ProductFilter
-        package let traits: Set<Trait>?
+        package let traits: [Trait]?
 
         /// The dependency requirement.
         public enum Requirement: Equatable, Hashable, Sendable {
@@ -141,7 +141,7 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
 
     /// Describes the traits that are enabled for this package, and overrides this dependency's manifest's
     /// default traits.
-    package var traits: Set<Trait>? {
+    package var traits: [Trait]? {
         switch self {
         case .fileSystem(let settings):
             return settings.traits
@@ -254,7 +254,7 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
         nameForTargetDependencyResolutionOnly: String?,
         path: AbsolutePath,
         productFilter: ProductFilter,
-        traits: Set<Trait>?
+        traits: [Trait]?
     ) -> Self {
         .fileSystem(
             .init(
@@ -290,7 +290,7 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
         path: AbsolutePath,
         requirement: SourceControl.Requirement,
         productFilter: ProductFilter,
-        traits: Set<Trait>?
+        traits: [Trait]?
     ) -> Self {
         .sourceControl(
             identity: identity,
@@ -325,7 +325,7 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
         url: SourceControlURL,
         requirement: SourceControl.Requirement,
         productFilter: ProductFilter,
-        traits: Set<Trait>?
+        traits: [Trait]?
     ) -> Self {
         .sourceControl(
             identity: identity,
@@ -360,7 +360,7 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
         location: SourceControl.Location,
         requirement: SourceControl.Requirement,
         productFilter: ProductFilter,
-        traits: Set<Trait>?
+        traits: [Trait]?
     ) -> Self {
         .sourceControl(
             .init(
@@ -391,7 +391,7 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
         identity: PackageIdentity,
         requirement: Registry.Requirement,
         productFilter: ProductFilter,
-        traits: Set<Trait>?
+        traits: [Trait]?
     ) -> Self {
         .registry(
             .init(

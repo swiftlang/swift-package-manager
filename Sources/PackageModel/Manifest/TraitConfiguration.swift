@@ -14,11 +14,22 @@
 public enum TraitConfiguration: Codable, Hashable {
     case enableAllTraits
     case disableAllTraits
-    case enabledTraits(Set<String>)
+    case enabledTraits([String])
     case `default`
 
+    @_disfavoredOverload
     public init(
         enabledTraits: Set<String>? = nil,
+        enableAllTraits: Bool = false
+    ) {
+        self.init(
+            enabledTraits: enabledTraits.map { $0.sorted() },
+            enableAllTraits: enableAllTraits
+        )
+    }
+
+    public init(
+        enabledTraits: [String]? = nil,
         enableAllTraits: Bool = false
     ) {
         // If all traits are enabled, then no other checks are necessary.
