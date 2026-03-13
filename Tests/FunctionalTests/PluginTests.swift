@@ -44,7 +44,7 @@ struct PluginTests {
     func testUseOfBuildToolPluginTargetByExecutableInSamePackage(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        try await fixture(name: "Miscellaneous/Plugins/MySourceGenPlugin", createGitRepo: false) { fixturePath in
+        try await fixture(name: "Miscellaneous/Plugins/MySourceGenPlugin") { fixturePath in
             let (stdout, _) = try await executeSwiftBuild(
                 fixturePath,
                 configuration: .debug,
@@ -80,7 +80,7 @@ struct PluginTests {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         try await withKnownIssue(isIntermittent: true) {
-            try await fixture(name: "Miscellaneous/Plugins/MySourceGenPluginNoPreBuildCommands", createGitRepo: false) { fixturePath in
+            try await fixture(name: "Miscellaneous/Plugins/MySourceGenPluginNoPreBuildCommands") { fixturePath in
                 let (_, stderr) = try await executeSwiftTest(
                     fixturePath,
                     buildSystem: buildSystem,
@@ -104,7 +104,7 @@ struct PluginTests {
     func testUseOfBuildToolPluginProductByExecutableAcrossPackages(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        try await fixture(name: "Miscellaneous/Plugins", createGitRepo: false) { fixturePath in
+        try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
             let (stdout, _) = try await executeSwiftBuild(
                 fixturePath.appending("MySourceGenClient"),
                 configuration: .debug,
@@ -137,7 +137,7 @@ struct PluginTests {
     func testUseOfPrebuildPluginTargetByExecutableAcrossPackages(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        try await fixture(name: "Miscellaneous/Plugins/MySourceGenPlugin", createGitRepo: false) { fixturePath in
+        try await fixture(name: "Miscellaneous/Plugins/MySourceGenPlugin") { fixturePath in
             let (stdout, _) = try await executeSwiftBuild(
                 fixturePath,
                 configuration: .debug,
@@ -166,7 +166,7 @@ struct PluginTests {
     func testUseOfPluginWithInternalExecutable(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        try await fixture(name: "Miscellaneous/Plugins", createGitRepo: false) { fixturePath in
+        try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
             let (stdout, _) = try await executeSwiftBuild(
                 fixturePath.appending("ClientOfPluginWithInternalExecutable"),
                 buildSystem: buildSystem,
@@ -198,7 +198,7 @@ struct PluginTests {
     func testInternalExecutableAvailableOnlyToPlugin(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        try await fixture(name: "Miscellaneous/Plugins", createGitRepo: false) { fixturePath in
+        try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
             let error = try await #require(throws: SwiftPMError.self, "Illegally used internal executable") {
                 try await executeSwiftBuild(
                     fixturePath.appending("InvalidUseOfInternalPluginExecutable"),
@@ -228,7 +228,7 @@ struct PluginTests {
     func testLocalBuildToolPluginUsingRemoteExecutable(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        try await fixture(name: "Miscellaneous/Plugins", createGitRepo: false) { fixturePath in
+        try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
             let (stdout, _) = try await executeSwiftBuild(
                 fixturePath.appending("LibraryWithLocalBuildToolPluginUsingRemoteTool"),
                 buildSystem: buildSystem,
@@ -256,7 +256,7 @@ struct PluginTests {
     func testBuildToolPluginDependencies(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        try await fixture(name: "Miscellaneous/Plugins/MyBuildToolPluginDependencies", createGitRepo: false) { fixturePath in
+        try await fixture(name: "Miscellaneous/Plugins/MyBuildToolPluginDependencies") { fixturePath in
             let (stdout, _) = try await executeSwiftBuild(
                 fixturePath,
                 buildSystem: buildSystem,
@@ -283,7 +283,7 @@ struct PluginTests {
     func testContrivedTestCases(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        try await fixture(name: "Miscellaneous/Plugins/ContrivedTestPlugin", createGitRepo: false) { fixturePath in
+        try await fixture(name: "Miscellaneous/Plugins/ContrivedTestPlugin") { fixturePath in
             let buildSpecificArgs: [String] = switch buildSystem {
                 case .native, .xcode:
                     []
@@ -318,7 +318,7 @@ struct PluginTests {
     func testPluginScriptSandbox(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        try await fixture(name: "Miscellaneous/Plugins/SandboxTesterPlugin", createGitRepo: false) { fixturePath in
+        try await fixture(name: "Miscellaneous/Plugins/SandboxTesterPlugin") { fixturePath in
             let (stdout, _) = try await executeSwiftBuild(
                 fixturePath,
                 configuration: .debug,
@@ -343,7 +343,7 @@ struct PluginTests {
         arguments: [BuildSystemProvider.Kind.native, .swiftbuild]
     )
     func testUseOfVendedBinaryTool(buildSystem: BuildSystemProvider.Kind) async throws {
-        try await fixture(name: "Miscellaneous/Plugins/MyBinaryToolPlugin", createGitRepo: false) { fixturePath in
+        try await fixture(name: "Miscellaneous/Plugins/MyBinaryToolPlugin") { fixturePath in
             let (stdout, _) = try await executeSwiftBuild(
                 fixturePath,
                 configuration: .debug,
@@ -370,7 +370,7 @@ struct PluginTests {
     func testUseOfBinaryToolVendedAsProduct(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        try await fixture(name: "Miscellaneous/Plugins/BinaryToolProductPlugin", createGitRepo: false) { fixturePath in
+        try await fixture(name: "Miscellaneous/Plugins/BinaryToolProductPlugin") { fixturePath in
             let (stdout, _) = try await executeSwiftBuild(
                 fixturePath,
                 configuration: .debug,
@@ -1326,7 +1326,7 @@ struct PluginTests {
             buildSystem: BuildSystemProvider.Kind,
         ) async throws {
             let config = BuildConfiguration.debug
-            try await fixture(name: "Miscellaneous/Plugins/PluginsAndSnippets", createGitRepo: false) { fixturePath in
+            try await fixture(name: "Miscellaneous/Plugins/PluginsAndSnippets") { fixturePath in
                 let (stdout, stderr) = try await executeSwiftPackage(
                     fixturePath,
                     configuration: config,
@@ -1349,7 +1349,7 @@ struct PluginTests {
             buildSystem: BuildSystemProvider.Kind,
         ) async throws {
             let config = BuildConfiguration.debug
-            try await fixture(name: "Miscellaneous/Plugins/PluginsAndSnippets", createGitRepo: false) { fixturePath in
+            try await fixture(name: "Miscellaneous/Plugins/PluginsAndSnippets") { fixturePath in
                 await #expect(throws: Never.self) {
                     let _ = try await executeSwiftBuild(
                         fixturePath,
@@ -1383,7 +1383,7 @@ struct PluginTests {
             targetPath: RelativePath,
         ) async throws {
             let config = BuildConfiguration.debug
-            try await fixture(name: "Miscellaneous/Plugins/PluginsAndSnippets", createGitRepo: false) { fixturePath in
+            try await fixture(name: "Miscellaneous/Plugins/PluginsAndSnippets") { fixturePath in
                 let targetName = targetPath.basenameWithoutExt
                 await #expect(throws: Never.self) {
                     let _ = try await executeSwiftBuild(
@@ -1407,7 +1407,7 @@ struct PluginTests {
         ) async throws {
             let config = BuildConfiguration.debug
             let targetName = targetPath.basenameWithoutExt
-            try await fixture(name: "Miscellaneous/Plugins/PluginsAndSnippets", createGitRepo: false) { fixturePath in
+            try await fixture(name: "Miscellaneous/Plugins/PluginsAndSnippets") { fixturePath in
                 let (stdout, stderr) = try await executeSwiftRun(
                     fixturePath,
                     targetName,
@@ -1512,7 +1512,7 @@ struct PluginTests {
     func testBuildToolPluginSwiftFileExecutable(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        try await fixture(name: "Miscellaneous/Plugins/SwiftFilePlugin", createGitRepo: false) { fixturePath in
+        try await fixture(name: "Miscellaneous/Plugins/SwiftFilePlugin") { fixturePath in
             let (stdout, stderr) = try await executeSwiftBuild(
                 fixturePath,
                 configuration: .debug,
@@ -1541,7 +1541,7 @@ struct PluginTests {
     func testTransitivePluginOnlyDependency(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        try await fixture(name: "Miscellaneous/Plugins/TransitivePluginOnlyDependency", createGitRepo: false) { fixturePath in
+        try await fixture(name: "Miscellaneous/Plugins/TransitivePluginOnlyDependency") { fixturePath in
             let (stdout, _) = try await executeSwiftBuild(
                 fixturePath,
                 buildSystem: buildSystem,
@@ -1566,7 +1566,7 @@ struct PluginTests {
     func testMissingPlugin(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        try await fixture(name: "Miscellaneous/Plugins/MissingPlugin", createGitRepo: false) { fixturePath in
+        try await fixture(name: "Miscellaneous/Plugins/MissingPlugin") { fixturePath in
             print(fixturePath)
             do {
                 try await executeSwiftBuild(
@@ -1590,7 +1590,7 @@ struct PluginTests {
     func testPluginCanBeReferencedByProductName(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        try await fixture(name: "Miscellaneous/Plugins/PluginCanBeReferencedByProductName", createGitRepo: false) { fixturePath in
+        try await fixture(name: "Miscellaneous/Plugins/PluginCanBeReferencedByProductName") { fixturePath in
             let (stdout, _) = try await executeSwiftBuild(
                 fixturePath,
                 buildSystem: buildSystem,
@@ -1621,7 +1621,7 @@ struct PluginTests {
     func testPluginCanBeAffectedByXBuildToolsParameters(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        try await fixture(name: "Miscellaneous/Plugins/MySourceGenPlugin", createGitRepo: false) { fixturePath in
+        try await fixture(name: "Miscellaneous/Plugins/MySourceGenPlugin") { fixturePath in
             let buildArgs: [String] = switch buildSystem {
                 case .native, .xcode: []
                 case .swiftbuild: ["-v"]
@@ -1657,7 +1657,7 @@ struct PluginTests {
     func testURLBasedPluginAPI(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        try await fixture(name: "Miscellaneous/Plugins/MySourceGenPluginUsingURLBasedAPI", createGitRepo: false) { fixturePath in
+        try await fixture(name: "Miscellaneous/Plugins/MySourceGenPluginUsingURLBasedAPI") { fixturePath in
             let (stdout, _) = try await executeSwiftBuild(
                 fixturePath,
                 configuration: .debug,
@@ -1674,7 +1674,7 @@ struct PluginTests {
     func testDependentPlugins(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        try await fixture(name: "Miscellaneous/Plugins/DependentPlugins", createGitRepo: false) { fixturePath in
+        try await fixture(name: "Miscellaneous/Plugins/DependentPlugins") { fixturePath in
             let (stdout, _) = try await executeSwiftBuild(
                 fixturePath,
                 buildSystem: buildSystem,
