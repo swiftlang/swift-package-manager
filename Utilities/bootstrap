@@ -551,7 +551,11 @@ def install_swiftpm(prefix, args):
     if os.path.exists(os.path.join(args.bin_dir, "swiftpm-testing-helper")):
         install_binary(args, "swiftpm-testing-helper", aux_tool_dest)
 
-    for tool in ["swift-build", "swift-test", "swift-run", "swift-package-collection", "swift-package-registry", "swift-sdk", "swift-experimental-sdk"]:
+    # `swiftpm-playground-helper` only exists on Darwin platforms
+    if os.path.exists(os.path.join(args.bin_dir, "swiftpm-playground-helper")):
+        install_binary(args, "swiftpm-playground-helper", aux_tool_dest)
+
+    for tool in ["swift-build", "swift-test", "swift-run", "swift-play", "swift-package-collection", "swift-package-registry", "swift-sdk", "swift-experimental-sdk"]:
         src = "swift-package"
         dest = os.path.join(cli_tool_dest, tool)
         logging.info("Creating tool symlink from %s to %s", src, dest)
