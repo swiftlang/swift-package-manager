@@ -454,6 +454,7 @@ extension PackagePIFProjectBuilder {
 
         if desiredModuleType == .dynamicLibrary {
             settings.configureDynamicSettings(
+                product: nil,
                 productName: sourceModule.name,
                 targetName: sourceModule.name,
                 packageIdentity: package.identity,

@@ -1059,8 +1059,9 @@ extension ProjectModel.BuildSettings.Platform {
 }
 
 extension ProjectModel.BuildSettings {
-    /// Configure necessary settings for a dynamic library/framework.
+    /// Configure necessary settings for a *dynamic library* or *framework*.
     mutating func configureDynamicSettings(
+        product: PackageModel.Product?,
         productName: String,
         targetName: String,
         packageIdentity: PackageIdentity,
@@ -1069,11 +1070,13 @@ extension ProjectModel.BuildSettings {
         installPath: String,
         delegate: PackagePIFBuilder.BuildDelegate,
     ) {
+        let productBundleIdentifier = "\(packageIdentity).\(productName)"
+
         self[.TARGET_NAME] = targetName
         self[.TARGET_TEMP_DIR_SUFFIX] = "-t"
         self[.PRODUCT_NAME] = productName
         self[.PRODUCT_MODULE_NAME] = productName
-        self[.PRODUCT_BUNDLE_IDENTIFIER] = "\(packageIdentity).\(productName)".spm_mangledToBundleIdentifier()
+        self[.PRODUCT_BUNDLE_IDENTIFIER] = productBundleIdentifier.spm_mangledToBundleIdentifier()
         self[.SWIFT_PACKAGE_NAME] = packageName ?? nil
 
         if createDylibForDynamicProducts {
@@ -1084,7 +1087,20 @@ extension ProjectModel.BuildSettings {
             self[.EXECUTABLE_PREFIX, Platform.windows] = ""
         }
 
+        // Are we building a framework?
         if !createDylibForDynamicProducts {
+            // Apply delegate overrides for *executable name* and *bundle identifier prefix* on frameworks.
+            // This can be used by SwiftPM clients to disambiguate framework names and bundle IDs, if necessary.
+            if let product {
+                if let customProductName = delegate.customProductName(forFramework: product) {
+                    self[.PRODUCT_NAME] = customProductName
+                }
+                if let customBundleIdPrefix = delegate.customBundleIdentifierPrefix(forFramework: product) {
+                    self[.PRODUCT_BUNDLE_IDENTIFIER] = "\(customBundleIdPrefix)\(productBundleIdentifier)"
+                        .spm_mangledToBundleIdentifier()
+                }
+            }
+
             self[.GENERATE_INFOPLIST_FILE] = "YES"
             // If the built framework is named same as one of the target in the package,
             // it can be picked up automatically during indexing since the build system always adds a -F flag
