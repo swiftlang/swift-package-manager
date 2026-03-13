@@ -37,6 +37,8 @@ import Foundation
 import SWBBuildService
 import SwiftBuild
 import enum SWBCore.SwiftAPIDigesterMode
+import struct SWBUtil.XcodeVersionInfo
+import struct SWBUtil.Path
 
 struct SessionFailedError: Error {
     var error: Error
@@ -74,10 +76,27 @@ public func createSession(
     }
     let toolchainPath = try toolchain.toolchainDir
 
+    // Users often rename Xcode.app, and in Swift.org CI on macOS we construct the toolchain under a nonfunctioning shell
+    // of Xcode.app. Instead of just checking the app name, see if we can find the app's version.plist at the expected
+    // location.
+    let toolchainIsEmbeddedInXcode: Bool
+    let xcodeVersionPlistPath = toolchainPath
+        .parentDirectory // Remove 'XcodeDefault.xctoolchain'
+        .parentDirectory // Remove 'Toolchains'
+        .parentDirectory // Remove 'Developer'
+        .appending(component: "version.plist")
+    if (try? XcodeVersionInfo.versionInfo(versionPath: SWBUtil.Path(xcodeVersionPlistPath.pathString))) != nil {
+        toolchainIsEmbeddedInXcode = true
+    } else {
+        toolchainIsEmbeddedInXcode = false
+    }
+
     // SWIFT_EXEC and SWIFT_EXEC_MANIFEST may need to be overridden in debug scenarios in order to pick up Open Source toolchains
-    let sessionResult = if toolchainPath.components.contains(where: { $0.hasSuffix(".app") }) {
+    let sessionResult = if toolchainIsEmbeddedInXcode {
+        // If this toolchain is bundled with Xcode.app, let the build service handle toolchain registration.
         await service.createSession(name: name, developerPath: nil, resourceSearchPaths: packageManagerResourcesDirectory.map { [$0.pathString] } ?? [], cachePath: nil, inferiorProductsPath: nil, environment: buildSessionEnv)
     } else {
+        // Otherwise, treat this toolchain as standalone when initializing the build service.
         await service.createSession(name: name, swiftToolchainPath: toolchainPath.pathString, resourceSearchPaths: packageManagerResourcesDirectory.map { [$0.pathString] } ?? [], cachePath: nil, inferiorProductsPath: nil, environment: buildSessionEnv)
     }
     switch sessionResult {
