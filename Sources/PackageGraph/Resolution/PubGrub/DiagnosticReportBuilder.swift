@@ -275,7 +275,7 @@ struct DiagnosticReportBuilder {
         switch term.requirement {
         case .any:
             return true
-        case .empty, .exact, .ranges:
+        case .empty, .exact, .exactLiteral, .ranges:
             return false
         case .range(let range):
             // container expected to be cached at this point
@@ -317,6 +317,11 @@ struct DiagnosticReportBuilder {
         case .empty: return "no version of \(name)"
         case .exact(let version):
             // For the root package, don't output the useless version 1.0.0.
+            if term.node == self.rootNode {
+                return "root"
+            }
+            return "\(name) \(version)"
+        case .exactLiteral(let version):
             if term.node == self.rootNode {
                 return "root"
             }

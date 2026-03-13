@@ -210,8 +210,8 @@ extension PackageDependency.SourceControl.Requirement {
             return .revision(name)
         case .exact(let version):
             return .versionSet(.exact(version))
-        case .exactLiteral:
-            fatalError("exactLiteral is not implemented yet")
+        case .exactLiteral(let version):
+            return .versionSet(.exactLiteral(version))
         }
     }
 }
@@ -224,8 +224,8 @@ extension PackageDependency.Registry.Requirement {
             return .versionSet(.range(range))
         case .exact(let version):
             return .versionSet(.exact(version))
-        case .exactLiteral:
-            fatalError("exactLiteral is not implemented yet")
+        case .exactLiteral(let version):
+            return .versionSet(.exactLiteral(version))
         }
     }
 }

@@ -250,6 +250,8 @@ public struct PubGrubDependencyResolver {
             switch assignment.term.requirement {
             case .exact(let version):
                 boundVersion = .version(version)
+            case .exactLiteral(let version):
+                boundVersion = .version(version)
             case .range, .any, .empty, .ranges:
                 throw InternalError("unexpected requirement value for assignment \(assignment.term)")
             }
