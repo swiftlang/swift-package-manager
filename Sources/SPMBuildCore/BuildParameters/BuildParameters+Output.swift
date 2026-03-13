@@ -16,11 +16,13 @@ extension BuildParameters {
         public init(
             isColorized: Bool = false,
             isVerbose: Bool = false,
-            enableTaskBacktraces: Bool = false
+            enableTaskBacktraces: Bool = false,
+            enableDiagnosticsDedup: Bool = false
         ) {
             self.isColorized = isColorized
             self.isVerbose = isVerbose
             self.enableTaskBacktraces = enableTaskBacktraces
+            self.enableDiagnosticsDedup = enableDiagnosticsDedup
         }
 
         public var isColorized: Bool
@@ -28,5 +30,7 @@ extension BuildParameters {
         public var isVerbose: Bool
 
         public var enableTaskBacktraces: Bool
+
+        public var enableDiagnosticsDedup: Bool
     }
 }

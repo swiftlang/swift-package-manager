@@ -147,6 +147,11 @@ final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOut
     private let observabilityScope: ObservabilityScope
     private var cancelled: Bool = false
 
+    /// Diagnostic header lines already printed across all jobs, used to suppress duplicates.
+    /// Keyed by the full diagnostic header line (path:line:col: severity: message).
+    /// All access is serialized through `queue`.
+    private var seenDiagnosticHeaders: Set<String> = []
+
     /// Swift parsers keyed by llbuild command name.
     private var swiftParsers: [String: SwiftCompilerOutputParser] = [:]
 
@@ -453,7 +458,15 @@ final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOut
                     self.progressAnimation.clear()
                 }
 
-                self.outputStream.send(output)
+                if let filtered = self.filteringDuplicateDiagnostics(output) {
+                    for line in filtered {
+                        self.outputStream.send(line)
+                        self.outputStream.send("\n")
+                    }
+                } else {
+                    // No filtering, emit every output as-is
+                    self.outputStream.send(output)
+                }
                 self.outputStream.flush()
 
                 // next we want to try and scoop out any errors from the output (if reasonable size, otherwise this
@@ -474,6 +487,57 @@ final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOut
         let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         self.observabilityScope.emit(.swiftCompilerOutputParsingError(message))
         self.hadCommandFailure()
+    }
+
+    /// Filters out diagnostic blocks whose header has already been seen. Returns the deduplicated output.
+    /// A diagnostic block starts with a header line matching `:LINE:COL: severity:` and continues
+    /// until the next header line. ANSI escape codes are stripped before matching.
+    /// 
+    /// Returns nil if filtering is not enabled at all, and an empty array if the entire output should be filtered out.
+    /// The resulting array, if not empty, should be printed line-by-line and is the filtered output.
+    func filteringDuplicateDiagnostics(_ output: String) -> [String]? {
+        guard self.buildExecutionContext.productsBuildParameters.outputParameters.enableDiagnosticsDedup else {
+            return nil // pass-through unless de-dup was enabled \
+        }
+
+        var resultLines: [String] = []
+        var skipBlock = false
+
+        for line in output.components(separatedBy: "\n") {
+            let stripped = Self.stripANSI(line)
+            if Self.isDiagnosticHeader(stripped) {
+                if seenDiagnosticHeaders.contains(stripped) {
+                    self.observabilityScope.emit(.swiftCompilerOutputDuplicateDiagnosticSwallowed(stripped))
+                    skipBlock = true
+                } else {
+                    seenDiagnosticHeaders.insert(stripped)
+                    skipBlock = false
+                }
+            }
+            if !skipBlock {
+                resultLines.append(line)
+            }
+        }
+
+        return resultLines
+    }
+
+    private static func stripANSI(_ s: String) -> String {
+        s.replacing(#/\u{1b}\[[0-9;]*[a-zA-Z]/#, with: "")
+    }
+
+    /// Returns true if `line` is a Swift compiler diagnostic header of the form
+    ///   <path>:<line>:<col>: (error|warning|note|remark): <message>
+    /// Source-context lines (indented with spaces/pipes) and inline caret annotations
+    /// are intentionally excluded.
+    private static func isDiagnosticHeader(_ line: String) -> Bool {
+        // Fast pre-check: context lines always start with whitespace or a digit (source listing).
+        guard let first = line.first, first != " ", first != "\t", !first.isNumber else { return false }
+        // Match :LINE:COL: severity: anywhere in the line after a non-empty path prefix.
+        return line.range(
+            of: #":\d+:\d+: (?:error|warning|note|remark):"#,
+            options: .regularExpression
+        ) != nil
     }
 
     func buildStart(configuration: BuildConfiguration) {
@@ -675,6 +739,10 @@ extension Basics.Diagnostic {
 
     fileprivate static func swiftCompilerOutputParsingError(_ error: String) -> Self {
         .error("failed parsing the Swift compiler output: \(error)")
+    }
+
+    fileprivate static func swiftCompilerOutputDuplicateDiagnosticSwallowed(_ diagnosticHeader: String) -> Self {
+        .debug("prevented emission of duplicate diagnostic: \(diagnosticHeader)")
     }
 }
 
