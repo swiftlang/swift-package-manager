@@ -237,11 +237,12 @@ final class PluginDelegate: PluginInvocationDelegate {
         }
 
         // Construct the environment we'll pass down to the tests.
-        let testEnvironment = try TestingSupport.constructTestEnvironment(
+        let testEnvironment = try await TestingSupport.constructTestEnvironment(
             toolchain: toolchain,
             destinationBuildParameters: toolsBuildParameters,
             sanitizers: swiftCommandState.options.build.sanitizers,
-            library: .xctest // FIXME: support both libraries
+            library: .xctest, // FIXME: support both libraries
+            testProductPaths: buildSystem.builtTestProducts.map(\.bundlePath)
         )
 
         // Iterate over the tests and run those that match the filter.
