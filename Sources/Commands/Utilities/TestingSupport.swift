@@ -123,7 +123,8 @@ enum TestingSupport {
                     experimentalTestOutput: experimentalTestOutput
                 ).productsBuildParameters,
                 sanitizers: sanitizers,
-                library: .xctest
+                library: .xctest,
+                testProductPaths: [path]
             )
             try Self.runProcessWithExistenceCheck(
                 path: path,
@@ -143,7 +144,8 @@ enum TestingSupport {
                 shouldSkipBuilding: shouldSkipBuilding
             ).productsBuildParameters,
             sanitizers: sanitizers,
-            library: .xctest
+            library: .xctest,
+            testProductPaths: [path]
         )
         args = [path.description, "--dump-tests-json"]
         let data = try Self.runProcessWithExistenceCheck(
@@ -181,7 +183,8 @@ enum TestingSupport {
         toolchain: UserToolchain,
         destinationBuildParameters buildParameters: BuildParameters,
         sanitizers: [Sanitizer],
-        library: TestingLibrary
+        library: TestingLibrary,
+        testProductPaths: [AbsolutePath]
     ) throws -> Environment {
         var env = Environment.current
 
@@ -191,6 +194,13 @@ enum TestingSupport {
         // codes to their output. SEE: https://www.no-color.org
         if !stdoutStream.isTTY || !stderrStream.isTTY {
             env["NO_COLOR"] = "1"
+        }
+
+        // Add library paths so that test runner executables are able to find the
+        // corresponding test libraries, even if local rpaths were disabled in the
+        // build.
+        for path in testProductPaths {
+            env.appendPath(key: .libraryPath, value: path.parentDirectory.pathString)
         }
 
         // Add the code coverage related variables.

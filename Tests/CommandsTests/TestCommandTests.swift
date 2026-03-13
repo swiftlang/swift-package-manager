@@ -1210,6 +1210,34 @@ struct TestCommandTests {
         .tags(
             .Feature.TargetType.Executable,
         ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func testingWithLocalRpathsDisabled(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        let configuration = BuildConfiguration.debug
+        try await withKnownIssue("Fails to find the test executable") {
+            try await fixture(name: "Miscellaneous/TestDiscovery/SwiftTesting") { fixturePath in
+                let (stdout, stderr) = try await execute(
+                    ["--disable-local-rpath"],
+                    packagePath: fixturePath,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                )
+                #expect(
+                    stdout.contains(#"Test "SOME TEST FUNCTION" started"#),
+                    "Expectation not met.  got '\(stdout)'\nstderr: '\(stderr)'"
+                )
+            }
+        } when: {
+            buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows
+        }
+    }
+
+    @Test(
+        .tags(
+            .Feature.TargetType.Executable,
+        ),
         .skipHostOS(.macOS),  // because this was guarded with `#if !canImport(Darwin)`
         .SWBINTTODO("This is a PIF builder missing GUID problem. Further investigation is needed."),
         .IssueWindowsPathNoEntry,
