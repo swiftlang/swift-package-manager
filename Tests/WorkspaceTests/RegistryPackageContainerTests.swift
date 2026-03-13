@@ -340,6 +340,55 @@ final class RegistryPackageContainerTests: XCTestCase {
         }
     }
 
+    func testMetadataDistinctVersionsAreDeterministicallyOrdered() async throws {
+        let fs = InMemoryFileSystem()
+        try fs.createMockToolchain()
+
+        let packageIdentity = PackageIdentity.plain("org.foo")
+        let packagePath = AbsolutePath.root
+
+        let registryClient = try makeRegistryClient(
+            packageIdentity: packageIdentity,
+            packageVersion: "1.0.0+debug",
+            packagePath: packagePath,
+            fileSystem: fs,
+            releasesRequestHandler: { _, _ in
+                let metadata = RegistryClient.Serialization.PackageMetadata(
+                    releases: [
+                        "1.0.0+release": .init(url: .none, problem: .none),
+                        "1.0.0+debug": .init(url: .none, problem: .none),
+                        "1.0.1": .init(url: .none, problem: .none),
+                    ]
+                )
+                return HTTPClientResponse(
+                    statusCode: 200,
+                    headers: [
+                        "Content-Version": "1",
+                        "Content-Type": "application/json",
+                    ],
+                    body: try! JSONEncoder.makeWithDefaults().encode(metadata)
+                )
+            }
+        )
+
+        let provider = try Workspace._init(
+            fileSystem: fs,
+            environment: .mockEnvironment,
+            location: .init(forRootPackage: packagePath, fileSystem: fs),
+            customHostToolchain: .mockHostToolchain(fs),
+            customManifestLoader: MockManifestLoader(manifests: [:]),
+            customRegistryClient: registryClient
+        )
+
+        let ref = PackageReference.registry(identity: packageIdentity)
+        let container = try await provider.getContainer(for: ref)
+        let versions = try await container.versionsDescending()
+        XCTAssertEqual(versions, ["1.0.1", "1.0.0+release", "1.0.0+debug"])
+
+        let selected = versions.first { VersionSetSpecifier.exactLiteral("1.0.0+release").contains($0) }
+        XCTAssertEqual(selected, "1.0.0+release")
+    }
+
     func makeRegistryClient(
         packageIdentity: PackageIdentity,
         packageVersion: Version,
