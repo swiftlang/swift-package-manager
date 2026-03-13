@@ -1092,12 +1092,11 @@ extension ProjectModel.BuildSettings {
             // Apply delegate overrides for *executable name* and *bundle identifier prefix* on frameworks.
             // This can be used by SwiftPM clients to disambiguate framework names and bundle IDs, if necessary.
             if let product {
-                if let executableName = delegate.customExecutableName(forFramework: product) {
-                    self[.PRODUCT_NAME] = executableName
-                    self[.EXECUTABLE_NAME] = executableName
+                if let customProductName = delegate.customProductName(forFramework: product) {
+                    self[.PRODUCT_NAME] = customProductName
                 }
-                if let bundleIdPrefix = delegate.customBundleIdentifierPrefix(forFramework: product) {
-                    self[.PRODUCT_BUNDLE_IDENTIFIER] = "\(bundleIdPrefix)\(productBundleIdentifier)"
+                if let customBundleIdPrefix = delegate.customBundleIdentifierPrefix(forFramework: product) {
+                    self[.PRODUCT_BUNDLE_IDENTIFIER] = "\(customBundleIdPrefix)\(productBundleIdentifier)"
                         .spm_mangledToBundleIdentifier()
                 }
             }

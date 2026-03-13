@@ -619,7 +619,7 @@ fileprivate final class PackagePIFBuilderDelegate: PackagePIFBuilder.BuildDelega
         nil
     }
 
-    func customExecutableName(forFramework product: PackageModel.Product) -> String? {
+    func customProductName(forFramework product: PackageModel.Product) -> String? {
         nil
     }
 

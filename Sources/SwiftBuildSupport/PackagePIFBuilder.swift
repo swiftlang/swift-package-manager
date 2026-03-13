@@ -120,8 +120,8 @@ public final class PackagePIFBuilder {
         /// Custom install path for the specified product, if any.
         func customInstallPath(product: PackageModel.Product) -> String?
 
-        /// Custom executable name for the specified framework product, if any.
-        func customExecutableName(forFramework product: PackageModel.Product) -> String?
+        /// Custom product name for the specified framework product, if any.
+        func customProductName(forFramework product: PackageModel.Product) -> String?
 
         /// Custom bundle identifier prefix for the specified framework product, if any.
         func customBundleIdentifierPrefix(forFramework product: PackageModel.Product) -> String?
