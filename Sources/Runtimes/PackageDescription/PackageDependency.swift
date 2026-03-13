@@ -109,6 +109,8 @@ extension Package {
                         return .branchItem(branch)
                     case .exact(let version):
                         return .exactItem(version)
+                    case .exactLiteral:
+                        fatalError("exactLiteral is not implemented yet")
                     case .range(let range):
                         return .rangeItem(range)
                     case .revision(let revision):
@@ -118,6 +120,8 @@ extension Package {
                     switch requirement {
                     case .exact(let version):
                         return .exactItem(version)
+                    case .exactLiteral:
+                        fatalError("exactLiteral is not implemented yet")
                     case .range(let range):
                         return .rangeItem(range)
                     }
@@ -803,6 +807,39 @@ extension Package.Dependency {
         return .package(url: url, requirement: .exact(version), traits: traits)
     }
 
+    /// Adds a remote package dependency with a version requirement.
+    ///
+    /// - Parameters:
+    ///   - url: The valid Git URL of the package.
+    ///   - requirement: A dependency requirement.
+    ///
+    /// - Returns: A `Package.Dependency` instance.
+    @available(_PackageDescription, introduced: 999)
+    public static func package(
+        url: String,
+        _ requirement: Package.Dependency.SourceControlRequirement
+    ) -> Package.Dependency {
+        .package(url: url, requirement: requirement)
+    }
+
+    /// Adds a remote package dependency with a version requirement.
+    ///
+    /// - Parameters:
+    ///   - url: The valid Git URL of the package.
+    ///   - requirement: A dependency requirement.
+    ///   - traits: The trait configuration of this dependency. The default value enables the default traits of the
+    /// package.
+    ///
+    /// - Returns: A `Package.Dependency` instance.
+    @available(_PackageDescription, introduced: 999)
+    public static func package(
+        url: String,
+        _ requirement: Package.Dependency.SourceControlRequirement,
+        traits: Set<Trait> = [.defaults]
+    ) -> Package.Dependency {
+        .package(url: url, requirement: requirement, traits: traits)
+    }
+
     /// Adds a remote package dependency given a version requirement.
     ///
     /// - Parameters:
@@ -978,6 +1015,39 @@ extension Package.Dependency {
         traits: Set<Trait> = [.defaults]
     ) -> Package.Dependency {
         return .package(id: id, requirement: .exact(version), traits: traits)
+    }
+
+    /// Adds a remote package dependency with a registry requirement.
+    ///
+    /// - Parameters:
+    ///   - id: The identity of the package.
+    ///   - requirement: A dependency requirement.
+    ///
+    /// - Returns: A `Package.Dependency` instance.
+    @available(_PackageDescription, introduced: 999)
+    public static func package(
+        id: String,
+        _ requirement: Package.Dependency.RegistryRequirement
+    ) -> Package.Dependency {
+        .package(id: id, requirement: requirement, traits: nil)
+    }
+
+    /// Adds a remote package dependency with a registry requirement.
+    ///
+    /// - Parameters:
+    ///   - id: The identity of the package.
+    ///   - requirement: A dependency requirement.
+    ///   - traits: The trait configuration of this dependency. The default value enables the default traits of the
+    /// package.
+    ///
+    /// - Returns: A `Package.Dependency` instance.
+    @available(_PackageDescription, introduced: 999)
+    public static func package(
+        id: String,
+        _ requirement: Package.Dependency.RegistryRequirement,
+        traits: Set<Trait> = [.defaults]
+    ) -> Package.Dependency {
+        .package(id: id, requirement: requirement, traits: traits)
     }
 
     /// Adds a remote package dependency starting with a specific minimum version, up to

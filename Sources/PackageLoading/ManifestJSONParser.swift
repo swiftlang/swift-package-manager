@@ -277,6 +277,8 @@ extension PackageDependency.SourceControl.Requirement {
         switch requirement {
         case .exact(let version):
             self = .exact(.init(version))
+        case .exactLiteral:
+            fatalError("exactLiteral is not implemented yet")
         case .range(let lowerBound, let upperBound):
             let lower: TSCUtility.Version = .init(lowerBound)
             let upper: TSCUtility.Version = .init(upperBound)
@@ -294,6 +296,8 @@ extension PackageDependency.Registry.Requirement {
         switch requirement {
         case .exact(let version):
             self = .exact(.init(version))
+        case .exactLiteral:
+            fatalError("exactLiteral is not implemented yet")
         case .range(let lowerBound, let upperBound):
             let lower: TSCUtility.Version = .init(lowerBound)
             let upper: TSCUtility.Version = .init(upperBound)
