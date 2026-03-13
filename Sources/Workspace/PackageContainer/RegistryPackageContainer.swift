@@ -121,6 +121,14 @@ public class RegistryPackageContainer: PackageContainer {
         return self.package
     }
 
+    public func loadPackageTraits(at boundVersion: BoundVersion) async throws -> Set<TraitDescription> {
+        guard case .version(let version) = boundVersion else {
+            throw InternalError("loadPackageTraits expects an exact version")
+        }
+        let manifest = try await self.loadManifest(version: version)
+        return manifest.traits
+    }
+
     // marked internal for testing
     internal func loadManifest(version: Version) async throws -> Manifest {
         let result = try await self.getAvailableManifestsFilesystem(version: version)
