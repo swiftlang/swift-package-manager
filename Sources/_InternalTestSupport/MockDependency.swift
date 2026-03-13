@@ -77,6 +77,8 @@ public struct MockDependency {
                     throw StringError("invalid mapping of source control to registry, requirement information mismatch.")
                 case .exact(let value):
                     requirement = .exact(value)
+                case .exactLiteral(let value):
+                    requirement = .exactLiteral(value)
                 case .range(let value):
                     requirement = .range(value)
                 }
@@ -116,6 +118,8 @@ public struct MockDependency {
                 switch _requirement {
                 case .exact(let value):
                     requirement = .exact(value)
+                case .exactLiteral(let value):
+                    requirement = .exactLiteral(value)
                 case .range(let value):
                     requirement = .range(value)
                 }

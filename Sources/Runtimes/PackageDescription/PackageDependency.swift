@@ -109,8 +109,8 @@ extension Package {
                         return .branchItem(branch)
                     case .exact(let version):
                         return .exactItem(version)
-                    case .exactLiteral:
-                        fatalError("exactLiteral is not implemented yet")
+                    case .exactLiteral(let version):
+                        return .exactItem(version)
                     case .range(let range):
                         return .rangeItem(range)
                     case .revision(let revision):
@@ -120,8 +120,8 @@ extension Package {
                     switch requirement {
                     case .exact(let version):
                         return .exactItem(version)
-                    case .exactLiteral:
-                        fatalError("exactLiteral is not implemented yet")
+                    case .exactLiteral(let version):
+                        return .exactItem(version)
                     case .range(let range):
                         return .rangeItem(range)
                     }

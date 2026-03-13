@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Basics
 import struct TSCUtility.Version
 
 /// An abstract definition for a set of versions.

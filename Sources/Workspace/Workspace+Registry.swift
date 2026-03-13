@@ -199,7 +199,7 @@ extension Workspace {
                         // this helps de-dupe across source control and registry dependencies
                         // and also encourages use of registry over source control
                         switch settings.requirement {
-                        case .exact, .range:
+                        case .exact, .exactLiteral, .range:
                             let requirement = try settings.requirement.asRegistryRequirement()
                             observabilityScope
                                 .emit(
@@ -381,6 +381,8 @@ extension PackageDependency.SourceControl.Requirement {
             return .range(versions)
         case .exact(let version):
             return .exact(version)
+        case .exactLiteral(let version):
+            return .exactLiteral(version)
         case .branch, .revision:
             throw InternalError("invalid source control to registry requirement transformation")
         }
