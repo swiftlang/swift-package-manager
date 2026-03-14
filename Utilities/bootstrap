@@ -1003,6 +1003,9 @@ def get_swiftpm_flags(args):
         else:
             logging.error("cannot cross-compile for %s", cross_compile_hosts)
             raise SystemExit(1)
+    else:
+        if '-apple-macosx' in args.build_target:
+            build_flags += ["--arch", call_output(["uname", "-m"], verbose=args.verbose)]
 
     # Ensure we are not sharing the module cache with concurrent builds in CI
     local_module_cache_path=os.path.join(args.build_dir, "module-cache")
