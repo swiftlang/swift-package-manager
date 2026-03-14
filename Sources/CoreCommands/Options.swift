@@ -448,6 +448,10 @@ public struct BuildOptions: ParsableArguments {
         self._buildToolsSwiftCFlags
     }
 
+    var hostSwiftCFlags: [String] {
+        self._buildToolsSwiftCFlags
+    }
+
     public var buildFlags: BuildFlags {
         BuildFlags(
             cCompilerFlags: self.cCompilerFlags.constructBuildFlags(source: .commandLineOptions),
@@ -455,6 +459,16 @@ public struct BuildOptions: ParsableArguments {
             swiftCompilerFlags: self.swiftCompilerFlags.constructBuildFlags(source: .commandLineOptions),
             linkerFlags: self.linkerFlags.constructBuildFlags(source: .commandLineOptions),
             xcbuildFlags: self.xcbuildFlags
+        )
+    }
+
+    public var hostBuildFlags: BuildFlags {
+        BuildFlags(
+            cCompilerFlags: [],
+            cxxCompilerFlags: [],
+            swiftCompilerFlags: self.hostSwiftCFlags,
+            linkerFlags: [],
+            xcbuildFlags: []
         )
     }
 

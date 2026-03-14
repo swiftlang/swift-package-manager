@@ -1,5 +1,9 @@
 import Foundation
 
+#if SHOULD_NOT_BE_SET
+#error("SHOULD_NOT_BE_SET was passed to macro compilation, but should only affect the target build.")
+#endif
+
 @main
 struct MacroPlugin {
     static func main() throws {
@@ -38,9 +42,14 @@ struct MacroPlugin {
                     try writeMessage(responseData, to: FileHandle.standardOutput)
                 }
             } else if json.keys.contains("expandFreestandingMacro") {
+                #if USE_CUSTOM_EXPANSION
+                let expandedSource = "\"custom_expanded\""
+                #else
+                let expandedSource = "\"expanded\""
+                #endif
                 let response: [String: Any] = [
                     "expandMacroResult": [
-                        "expandedSource": "\"expanded\"",
+                        "expandedSource": expandedSource,
                         "diagnostics": []
                     ]
                 ]

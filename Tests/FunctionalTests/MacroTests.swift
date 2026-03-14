@@ -66,4 +66,45 @@ struct MacroTests {
             #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
         }
     }
+
+    @Test(
+        .tags(
+            Tag.Feature.Command.Build,
+            Tag.Feature.CommandLineArguments.XbuildToolsSwiftc,
+        ),
+        arguments: [BuildSystemProvider.Kind.native],
+    )
+    func macroCanBeAffectedByXBuildToolsSwiftcParameters(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Macros/MinimalMacroPackage") { fixturePath in
+            let (stdout, _) = try await executeSwiftRun(
+                fixturePath,
+                "MacroClient",
+                extraArgs: ["-Xbuild-tools-swiftc", "-DUSE_CUSTOM_EXPANSION"],
+                buildSystem: buildSystem,
+            )
+            #expect(stdout.contains("Macro result: custom_expanded"), "stdout:\n\(stdout)")
+        }
+    }
+
+    @Test(
+        .tags(
+            Tag.Feature.Command.Build,
+            Tag.Feature.CommandLineArguments.XbuildToolsSwiftc,
+        ),
+        arguments: [BuildSystemProvider.Kind.native],
+    )
+    func macroIsNotAffectedByXswiftcParameters(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Macros/MinimalMacroPackage") { fixturePath in
+            let (stdout, _) = try await executeSwiftBuild(
+                fixturePath,
+                Xswiftc: ["-DSHOULD_NOT_BE_SET"],
+                buildSystem: buildSystem,
+            )
+            #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+        }
+    }
 }
