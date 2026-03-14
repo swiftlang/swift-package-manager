@@ -960,11 +960,6 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             }
         }
 
-        if buildParameters.driverParameters.codesizeProfileEnabled {
-            // dSYM generation is required to attribute code size to source locations
-            settings["DEBUG_INFORMATION_FORMAT"] = "dwarf-with-dsym"
-        }
-
         // Optionally also set the list of architectures to build for.
         if let architectures = buildParameters.architectures, !architectures.isEmpty {
             settings["ARCHS"] = architectures.joined(separator: " ")
@@ -1015,6 +1010,11 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         try settings.merge(self.constructLinkerSettingsOverrides(from: buildParameters.linkingParameters, triple: buildParameters.triple), uniquingKeysWith: reportConflict)
         try settings.merge(Self.constructTestingSettingsOverrides(from: buildParameters.testingParameters), uniquingKeysWith: reportConflict)
         try settings.merge(Self.constructAPIDigesterSettingsOverrides(from: buildParameters.apiDigesterMode), uniquingKeysWith: reportConflict)
+
+        if buildParameters.driverParameters.codesizeProfileEnabled {
+            // dSYM generation is required to attribute code size to source locations
+            settings["DEBUG_INFORMATION_FORMAT"] = "dwarf-with-dsym"
+        }
 
         // Generate the build parameters.
         var params = SwiftBuild.SWBBuildParameters()
@@ -1086,11 +1086,28 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
     private static func constructDebuggingSettingsOverrides(from parameters: BuildParameters.Debugging) -> [String: String] {
         var settings: [String: String] = [:]
-        // TODO: debugInfoFormat: https://github.com/swiftlang/swift-build/issues/560
         if parameters.shouldEnableDebuggingEntitlement {
             settings["DEPLOYMENT_POSTPROCESSING"] = "NO"
         }
-        // TODO: omitFramePointer: https://github.com/swiftlang/swift-build/issues/561
+        // Set DEBUG_INFORMATION_FORMAT based on debugInfoFormat
+        switch parameters.debugInfoFormat {
+        case .dwarf:
+            settings["DEBUG_INFORMATION_FORMAT"] = "dwarf"
+        case .codeview:
+            settings["DEBUG_INFORMATION_FORMAT"] = "codeview"
+        case .none:
+            settings["GCC_GENERATE_DEBUGGING_SYMBOLS"] = "NO"
+            break
+        }
+        if let omitFramePointers = parameters.omitFramePointers {
+            if omitFramePointers {
+                settings["CLANG_OMIT_FRAME_POINTERS"] = "YES"
+                settings["SWIFT_OMIT_FRAME_POINTERS"] = "YES"
+            } else {
+                settings["CLANG_OMIT_FRAME_POINTERS"] = "NO"
+                settings["SWIFT_OMIT_FRAME_POINTERS"] = "NO"
+            }
+        }
         return settings
     }
 
@@ -1341,7 +1358,9 @@ fileprivate extension [BuildFlag] {
             case .commandLineOptions:
                 // Flags specified by the user. These are generally the only ones that should be passed on.
                 return true
-            case .plugin, .debugging, .toolset:
+            case .debugging:
+                return false
+            case .plugin, .toolset:
                 // FIXME: Not yet handled
                 return true
             case .defaultSwiftTestingSearchPath:
