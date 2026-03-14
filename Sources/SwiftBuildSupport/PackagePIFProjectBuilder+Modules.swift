@@ -788,6 +788,8 @@ extension PackagePIFProjectBuilder {
         // Custom source module build settings, if any.
         pifBuilder.delegate.configureSourceModuleBuildSettings(sourceModule: sourceModule, settings: &settings)
 
+        applyPackageCompatibilityWorkarounds(for: sourceModule, to: &settings)
+
         // Until this point the build settings for the target have been the same between debug and release
         // configurations.
         // The custom manifest settings might cause them to diverge.
@@ -870,6 +872,21 @@ extension PackagePIFProjectBuilder {
         )
 
         return (moduleOrProduct, resourceBundleName)
+    }
+
+    private func applyPackageCompatibilityWorkarounds(for sourceModule: ResolvedModule, to settings: inout BuildSettings) {
+        // Package specific compatibility workarounds. Don't add to these without a very good reason!
+
+        // swift-corelibs-foundation is unique in that it builds minimal stubs of XCTest/Testing to avoid introducing dependency
+        // cycles in the toolchain components. When building for Windows, we need to apply a workaround so they export symbols from the tests
+        // dll for the test runner to reference. The native build system didn't hit this edge case because
+        // it statically linked the test content into the runner.
+        // These targets should be able to set a manifest property indicating their symbols should be exported,
+        // at which point we should remove this workaround.
+        if sourceModule.packageName == "swift_corelibs_foundation" && ["XCTest", "Testing"].contains(sourceModule.name) {
+            settings[.SWIFT_COMPILE_FOR_STATIC_LINKING] = "NO"
+            log(.warning, "Applying swift-corelibs-foundation test library stubs linkage package compatibility workaround")
+        }
     }
 
     // MARK: - System Library Targets

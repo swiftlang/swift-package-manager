@@ -174,7 +174,7 @@ struct PrebuiltsPIFTests {
             observabilityScope: observability.topScope
         )
         let pif = try await pifBuilder.constructPIF(
-            buildParameters: mockBuildParameters(destination: .host)
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
         )
 
         let hostTargets = Set([
@@ -185,6 +185,9 @@ struct PrebuiltsPIFTests {
         ])
 
         let allPlatTargets = Set([
+            "MyRootPackageTests-product",
+            "MyPackagePackageTests-product",
+            "swift-syntaxPackageTests-product",
             "MacroLib-product",
             "MacroLibdynamic-product",
             "MacroLib",
@@ -370,7 +373,7 @@ struct PrebuiltsPIFTests {
             observabilityScope: observability.topScope
         )
         let pif = try await pifBuilder.constructPIF(
-            buildParameters: mockBuildParameters(destination: .host)
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
         )
 
         let targets = pif.workspace.projects.flatMap({ $0.underlying.targets })
