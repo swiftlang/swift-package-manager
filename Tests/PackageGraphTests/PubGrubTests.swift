@@ -1487,6 +1487,38 @@ final class PubGrubTests: XCTestCase {
         ])
     }
 
+    func testPinnedResolvedPackagePreservesMetadataVariant() async throws {
+        try builder.serve("a", at: v1, with: ["a": ["b": (.versionSet(.exact(v1)), .specific(["b"]))]])
+        try builder.serve("b", at: "1.0.0+debug")
+        try builder.serve("b", at: "1.0.0+release")
+
+        let dependencies = try builder.create(dependencies: [
+            "a": (.versionSet(.exact(v1)), .specific(["a"])),
+            "b": (.versionSet(.exact(v1)), .specific(["b"])),
+        ])
+
+        let resolvedPackagesStore = try builder.create(resolvedPackages: [
+            "a": (.version(v1), .specific(["a"])),
+            "b": (.version("1.0.0+debug"), .specific(["b"])),
+        ])
+
+        let resolver = builder.create(resolvedPackages: resolvedPackagesStore.resolvedPackages)
+        let result = try await resolver.solve(root: rootNode, constraints: dependencies)
+
+        AssertResult(Result.success(result.bindings), [
+            ("a", .version(v1)),
+            ("b", .version("1.0.0+debug")),
+        ])
+
+        let pinnedBinding = try XCTUnwrap(result.bindings.first { $0.package.identity == .plain("b") })
+        switch pinnedBinding.boundVersion {
+        case .version(let version):
+            XCTAssertEqual(version.description, "1.0.0+debug")
+        default:
+            XCTFail("Expected version binding for pinned package")
+        }
+    }
+
     func testBranchBasedResolvedPackage() async throws {
         // This test ensures that we get the SHA listed in Package.resolved for branch-based
         // dependencies.
