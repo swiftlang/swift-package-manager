@@ -3040,6 +3040,86 @@ final class PubGrubBacktrackTests: XCTestCase {
             ("b", .version("1.9.9-prerelease-20240702"))
         ])
     }
+
+    func testExactLiteralChoosesRequestedMetadataVariant() async throws {
+        try builder.serve("foo", at: "1.0.0+debug")
+        try builder.serve("foo", at: "1.0.0+release")
+
+        let resolver = builder.create()
+        let dependencies = try builder.create(dependencies: [
+            "foo": (.versionSet(.exactLiteral("1.0.0+debug")), .specific(["foo"])),
+        ])
+
+        let result = await resolver.solve(constraints: dependencies)
+        AssertResult(result, [
+            ("foo", .version("1.0.0+debug")),
+        ])
+
+        let bindings = try XCTUnwrap(result.get())
+        let fooBinding = try XCTUnwrap(bindings.first { $0.package.identity == .plain("foo") })
+        switch fooBinding.boundVersion {
+        case .version(let version):
+            XCTAssertEqual(version.description, "1.0.0+debug")
+        default:
+            XCTFail("Expected version binding for foo")
+        }
+    }
+
+    func testExactRequirementCompatibleWithExactLiteralSelectsLiteralVariant() async throws {
+        try builder.serve("a", at: "1.0.0", with: [
+            "a": [
+                "c": (.versionSet(.exactLiteral("1.0.0+debug")), .specific(["c"])),
+            ],
+        ])
+        try builder.serve("c", at: "1.0.0+debug")
+        try builder.serve("c", at: "1.0.0+release")
+
+        let resolver = builder.create()
+        let dependencies = try builder.create(dependencies: [
+            "a": (.versionSet(.exact("1.0.0")), .specific(["a"])),
+            "c": (.versionSet(.exact("1.0.0")), .specific(["c"])),
+        ])
+
+        let result = await resolver.solve(constraints: dependencies)
+        AssertResult(result, [
+            ("a", .version("1.0.0")),
+            ("c", .version("1.0.0+debug")),
+        ])
+
+        let bindings = try XCTUnwrap(result.get())
+        let cBinding = try XCTUnwrap(bindings.first { $0.package.identity == .plain("c") })
+        switch cBinding.boundVersion {
+        case .version(let version):
+            XCTAssertEqual(version.description, "1.0.0+debug")
+        default:
+            XCTFail("Expected version binding for c")
+        }
+    }
+
+    func testExactLiteralConflictsForDifferentMetadataVariants() async throws {
+        try builder.serve("a", at: "1.0.0", with: [
+            "a": [
+                "c": (.versionSet(.exactLiteral("1.0.0+debug")), .specific(["c"])),
+            ],
+        ])
+        try builder.serve("b", at: "1.0.0", with: [
+            "b": [
+                "c": (.versionSet(.exactLiteral("1.0.0+release")), .specific(["c"])),
+            ],
+        ])
+        try builder.serve("c", at: "1.0.0+debug")
+        try builder.serve("c", at: "1.0.0+release")
+
+        let resolver = builder.create()
+        let dependencies = try builder.create(dependencies: [
+            "a": (.versionSet(.exact("1.0.0")), .specific(["a"])),
+            "b": (.versionSet(.exact("1.0.0")), .specific(["b"])),
+        ])
+
+        let result = await resolver.solve(constraints: dependencies)
+        XCTAssertMatch(result.errorMsg, .contains("1.0.0+debug"))
+        XCTAssertMatch(result.errorMsg, .contains("1.0.0+release"))
+    }
 }
 
 fileprivate extension ResolvedPackagesStore.ResolutionState {
