@@ -14,7 +14,7 @@ import Foundation
 import TSCUtility
 import XCTest
 
-import PackageGraph
+@testable import PackageGraph
 
 final class VersionSetSpecifierTests: XCTestCase {
     func testUnion() {
@@ -153,6 +153,41 @@ final class VersionSetSpecifierTests: XCTestCase {
         XCTAssertTrue(VersionSetSpecifier.ranges(["2.0.1"..<"2.0.2"]) == VersionSetSpecifier.range("2.0.1"..<"2.0.2"))
     }
 
+    func testExactLiteral() {
+        let literalDebug: VersionSetSpecifier = .exactLiteral("1.0.0+debug")
+        let literalRelease: VersionSetSpecifier = .exactLiteral("1.0.0+release")
+
+        XCTAssertTrue(literalDebug.contains("1.0.0+debug"))
+        XCTAssertFalse(literalDebug.contains("1.0.0+release"))
+        XCTAssertFalse(literalDebug.contains("1.0.0"))
+
+        XCTAssertEqual(literalDebug.intersection(.exact("1.0.0")), literalDebug)
+        XCTAssertEqual(VersionSetSpecifier.exact("1.0.0").intersection(literalDebug), literalDebug)
+        XCTAssertEqual(VersionSetSpecifier.range("1.0.0" ..< "2.0.0").intersection(literalDebug), literalDebug)
+        XCTAssertEqual(literalDebug.intersection(literalRelease), .empty)
+        XCTAssertEqual(literalDebug.union(literalRelease), .exact("1.0.0"))
+        XCTAssertEqual(VersionSetSpecifier.exact("1.0.0").difference(literalDebug), .exact("1.0.0"))
+        XCTAssertEqual(literalDebug.difference(.exact("1.0.0")), .empty)
+        XCTAssertEqual(literalDebug.difference(literalRelease), literalDebug)
+        XCTAssertEqual(
+            VersionSetSpecifier.range("1.0.0" ..< "2.0.0").difference(literalDebug),
+            .range("1.0.0" ..< "2.0.0")
+        )
+        XCTAssertEqual(
+            VersionSetSpecifier.ranges(["1.0.0" ..< "2.0.0", "3.0.0" ..< "4.0.0"]).difference(literalDebug),
+            .ranges(["1.0.0" ..< "2.0.0", "3.0.0" ..< "4.0.0"])
+        )
+
+        XCTAssertTrue(VersionSetSpecifier.exact("1.0.0").contains("1.0.0+debug"))
+        XCTAssertNotEqual(VersionSetSpecifier.exact("1.0.0"), literalDebug)
+
+        var set = Set<VersionSetSpecifier>()
+        set.insert(literalDebug)
+        set.insert(.exactLiteral("1.0.0+debug"))
+        set.insert(literalRelease)
+        XCTAssertEqual(set.count, 2)
+    }
+
     func testPrereleases() {
         XCTAssertFalse(VersionSetSpecifier.any.supportsPrereleases)
         XCTAssertFalse(VersionSetSpecifier.empty.supportsPrereleases)
@@ -176,5 +211,79 @@ final class VersionSetSpecifierTests: XCTestCase {
             "0.0.1" ..< "0.0.2",
             "0.0.1" ..< "2.0.0",
         ]).supportsPrereleases)
+
+        XCTAssertFalse(VersionSetSpecifier.exactLiteral("1.0.0+debug").supportsPrereleases)
+        XCTAssertTrue(VersionSetSpecifier.exactLiteral("1.0.0-beta+debug").supportsPrereleases)
+        XCTAssertEqual(
+            VersionSetSpecifier.exactLiteral("1.0.0-beta+debug").withoutPrereleases,
+            .exactLiteral("1.0.0+debug")
+        )
+        XCTAssertEqual(
+            VersionSetSpecifier.exactLiteral("1.0.0+debug").withoutPrereleases,
+            .exactLiteral("1.0.0+debug")
+        )
+    }
+
+    func testIsExactAndIsExactLiteral() {
+        XCTAssertFalse(VersionSetSpecifier.any.isExact)
+        XCTAssertFalse(VersionSetSpecifier.empty.isExact)
+        XCTAssertFalse(VersionSetSpecifier.range("1.0.0" ..< "2.0.0").isExact)
+        XCTAssertFalse(VersionSetSpecifier.ranges(["1.0.0" ..< "2.0.0"]).isExact)
+        XCTAssertTrue(VersionSetSpecifier.exact("1.0.0").isExact)
+        XCTAssertTrue(VersionSetSpecifier.exactLiteral("1.0.0+debug").isExact)
+
+        XCTAssertFalse(VersionSetSpecifier.any.isExactLiteral)
+        XCTAssertFalse(VersionSetSpecifier.empty.isExactLiteral)
+        XCTAssertFalse(VersionSetSpecifier.exact("1.0.0").isExactLiteral)
+        XCTAssertFalse(VersionSetSpecifier.range("1.0.0" ..< "2.0.0").isExactLiteral)
+        XCTAssertTrue(VersionSetSpecifier.exactLiteral("1.0.0+debug").isExactLiteral)
+        XCTAssertTrue(VersionSetSpecifier.exactLiteral("1.0.0").isExactLiteral)
+    }
+
+    func testExactLiteralDescription() {
+        XCTAssertEqual(VersionSetSpecifier.exactLiteral("1.2.3+debug").description, "1.2.3+debug")
+        XCTAssertEqual(VersionSetSpecifier.exactLiteral("2.0.0+vendor.42").description, "2.0.0+vendor.42")
+        XCTAssertEqual(VersionSetSpecifier.exactLiteral("1.0.0").description, "1.0.0")
+    }
+
+    func testExactLiteralEdgeCases() {
+        let debug: VersionSetSpecifier = .exactLiteral("1.0.0+debug")
+        let release: VersionSetSpecifier = .exactLiteral("1.0.0+release")
+        let exact100: VersionSetSpecifier = .exact("1.0.0")
+        let exact200: VersionSetSpecifier = .exact("2.0.0")
+
+        XCTAssertEqual(debug.intersection(.any), debug)
+        XCTAssertEqual(VersionSetSpecifier.any.intersection(debug), debug)
+
+        XCTAssertEqual(debug.intersection(.empty), .empty)
+        XCTAssertEqual(VersionSetSpecifier.empty.intersection(debug), .empty)
+
+        XCTAssertEqual(debug.intersection(debug), debug)
+        XCTAssertEqual(debug.intersection(.exactLiteral("1.0.0+debug")), debug)
+
+        let literal200debug: VersionSetSpecifier = .exactLiteral("2.0.0+debug")
+        let unionResult = debug.union(literal200debug)
+        XCTAssertTrue(unionResult.contains("1.0.0+debug"))
+        XCTAssertTrue(unionResult.contains("2.0.0+debug"))
+
+        let unionExact = debug.union(exact200)
+        XCTAssertTrue(unionExact.contains("1.0.0"))
+        XCTAssertTrue(unionExact.contains("2.0.0"))
+
+        XCTAssertEqual(debug.difference(debug), .empty)
+        XCTAssertEqual(debug.difference(.exactLiteral("1.0.0+debug")), .empty)
+
+        let wideRanges: VersionSetSpecifier = .ranges(["0.5.0" ..< "1.5.0", "2.0.0" ..< "3.0.0"])
+        XCTAssertEqual(debug.difference(wideRanges), .empty)
+
+        let missRanges: VersionSetSpecifier = .ranges(["2.0.0" ..< "3.0.0"])
+        XCTAssertEqual(debug.difference(missRanges), debug)
+
+        XCTAssertTrue(exact100.contains("1.0.0+debug"))
+        XCTAssertTrue(exact100.contains("1.0.0+release"))
+
+        XCTAssertNotEqual(debug, exact100)
+        XCTAssertNotEqual(exact100, debug)
+        XCTAssertNotEqual(debug, release)
     }
 }

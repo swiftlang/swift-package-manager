@@ -1487,6 +1487,38 @@ final class PubGrubTests: XCTestCase {
         ])
     }
 
+    func testPinnedResolvedPackagePreservesMetadataVariant() async throws {
+        try builder.serve("a", at: v1, with: ["a": ["b": (.versionSet(.exact(v1)), .specific(["b"]))]])
+        try builder.serve("b", at: "1.0.0+debug")
+        try builder.serve("b", at: "1.0.0+release")
+
+        let dependencies = try builder.create(dependencies: [
+            "a": (.versionSet(.exact(v1)), .specific(["a"])),
+            "b": (.versionSet(.exact(v1)), .specific(["b"])),
+        ])
+
+        let resolvedPackagesStore = try builder.create(resolvedPackages: [
+            "a": (.version(v1), .specific(["a"])),
+            "b": (.version("1.0.0+debug"), .specific(["b"])),
+        ])
+
+        let resolver = builder.create(resolvedPackages: resolvedPackagesStore.resolvedPackages)
+        let result = try await resolver.solve(root: rootNode, constraints: dependencies)
+
+        AssertResult(Result.success(result.bindings), [
+            ("a", .version(v1)),
+            ("b", .version("1.0.0+debug")),
+        ])
+
+        let pinnedBinding = try XCTUnwrap(result.bindings.first { $0.package.identity == .plain("b") })
+        switch pinnedBinding.boundVersion {
+        case .version(let version):
+            XCTAssertEqual(version.description, "1.0.0+debug")
+        default:
+            XCTFail("Expected version binding for pinned package")
+        }
+    }
+
     func testBranchBasedResolvedPackage() async throws {
         // This test ensures that we get the SHA listed in Package.resolved for branch-based
         // dependencies.
@@ -3039,6 +3071,86 @@ final class PubGrubBacktrackTests: XCTestCase {
             ("a", .version("1.0.0")),
             ("b", .version("1.9.9-prerelease-20240702"))
         ])
+    }
+
+    func testExactLiteralChoosesRequestedMetadataVariant() async throws {
+        try builder.serve("foo", at: "1.0.0+debug")
+        try builder.serve("foo", at: "1.0.0+release")
+
+        let resolver = builder.create()
+        let dependencies = try builder.create(dependencies: [
+            "foo": (.versionSet(.exactLiteral("1.0.0+debug")), .specific(["foo"])),
+        ])
+
+        let result = await resolver.solve(constraints: dependencies)
+        AssertResult(result, [
+            ("foo", .version("1.0.0+debug")),
+        ])
+
+        let bindings = try XCTUnwrap(result.get())
+        let fooBinding = try XCTUnwrap(bindings.first { $0.package.identity == .plain("foo") })
+        switch fooBinding.boundVersion {
+        case .version(let version):
+            XCTAssertEqual(version.description, "1.0.0+debug")
+        default:
+            XCTFail("Expected version binding for foo")
+        }
+    }
+
+    func testExactRequirementCompatibleWithExactLiteralSelectsLiteralVariant() async throws {
+        try builder.serve("a", at: "1.0.0", with: [
+            "a": [
+                "c": (.versionSet(.exactLiteral("1.0.0+debug")), .specific(["c"])),
+            ],
+        ])
+        try builder.serve("c", at: "1.0.0+debug")
+        try builder.serve("c", at: "1.0.0+release")
+
+        let resolver = builder.create()
+        let dependencies = try builder.create(dependencies: [
+            "a": (.versionSet(.exact("1.0.0")), .specific(["a"])),
+            "c": (.versionSet(.exact("1.0.0")), .specific(["c"])),
+        ])
+
+        let result = await resolver.solve(constraints: dependencies)
+        AssertResult(result, [
+            ("a", .version("1.0.0")),
+            ("c", .version("1.0.0+debug")),
+        ])
+
+        let bindings = try XCTUnwrap(result.get())
+        let cBinding = try XCTUnwrap(bindings.first { $0.package.identity == .plain("c") })
+        switch cBinding.boundVersion {
+        case .version(let version):
+            XCTAssertEqual(version.description, "1.0.0+debug")
+        default:
+            XCTFail("Expected version binding for c")
+        }
+    }
+
+    func testExactLiteralConflictsForDifferentMetadataVariants() async throws {
+        try builder.serve("a", at: "1.0.0", with: [
+            "a": [
+                "c": (.versionSet(.exactLiteral("1.0.0+debug")), .specific(["c"])),
+            ],
+        ])
+        try builder.serve("b", at: "1.0.0", with: [
+            "b": [
+                "c": (.versionSet(.exactLiteral("1.0.0+release")), .specific(["c"])),
+            ],
+        ])
+        try builder.serve("c", at: "1.0.0+debug")
+        try builder.serve("c", at: "1.0.0+release")
+
+        let resolver = builder.create()
+        let dependencies = try builder.create(dependencies: [
+            "a": (.versionSet(.exact("1.0.0")), .specific(["a"])),
+            "b": (.versionSet(.exact("1.0.0")), .specific(["b"])),
+        ])
+
+        let result = await resolver.solve(constraints: dependencies)
+        XCTAssertMatch(result.errorMsg, .contains("1.0.0+debug"))
+        XCTAssertMatch(result.errorMsg, .contains("1.0.0+release"))
     }
 }
 

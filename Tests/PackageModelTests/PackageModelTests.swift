@@ -60,6 +60,42 @@ final class PackageModelTests: XCTestCase {
         }()
     }
 
+    func testPackageDependencyExactLiteralRequirementEqualityHashingAndEncoding() throws {
+        let sourceDebug: PackageDependency.SourceControl.Requirement = .exactLiteral("1.2.3+debug")
+        let sourceDebugDuplicate: PackageDependency.SourceControl.Requirement = .exactLiteral("1.2.3+debug")
+        let sourceRelease: PackageDependency.SourceControl.Requirement = .exactLiteral("1.2.3+release")
+
+        XCTAssertEqual(sourceDebug, sourceDebugDuplicate)
+        XCTAssertNotEqual(sourceDebug, sourceRelease)
+
+        var sourceRequirements: Set<PackageDependency.SourceControl.Requirement> = []
+        sourceRequirements.insert(sourceDebug)
+        sourceRequirements.insert(sourceDebugDuplicate)
+        sourceRequirements.insert(sourceRelease)
+        XCTAssertEqual(sourceRequirements.count, 2)
+
+        let encodedSource = try String(decoding: JSONEncoder.makeWithDefaults().encode(sourceDebug), as: UTF8.self)
+        XCTAssertMatch(encodedSource, .contains(#""exactLiteral""#))
+        XCTAssertMatch(encodedSource, .contains(#""1.2.3+debug""#))
+
+        let registryDebug: PackageDependency.Registry.Requirement = .exactLiteral("1.2.3+debug")
+        let registryDebugDuplicate: PackageDependency.Registry.Requirement = .exactLiteral("1.2.3+debug")
+        let registryRelease: PackageDependency.Registry.Requirement = .exactLiteral("1.2.3+release")
+
+        XCTAssertEqual(registryDebug, registryDebugDuplicate)
+        XCTAssertNotEqual(registryDebug, registryRelease)
+
+        var registryRequirements: Set<PackageDependency.Registry.Requirement> = []
+        registryRequirements.insert(registryDebug)
+        registryRequirements.insert(registryDebugDuplicate)
+        registryRequirements.insert(registryRelease)
+        XCTAssertEqual(registryRequirements.count, 2)
+
+        let encodedRegistry = try String(decoding: JSONEncoder.makeWithDefaults().encode(registryDebug), as: UTF8.self)
+        XCTAssertMatch(encodedRegistry, .contains(#""exactLiteral""#))
+        XCTAssertMatch(encodedRegistry, .contains(#""1.2.3+debug""#))
+    }
+
     func testAndroidCompilerFlags() throws {
         let triple = try Triple("x86_64-unknown-linux-android")
         let fileSystem = InMemoryFileSystem()

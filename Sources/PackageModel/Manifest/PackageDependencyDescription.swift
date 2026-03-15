@@ -115,6 +115,7 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
 
         public enum Requirement: Equatable, Hashable, Sendable {
             case exact(Version)
+            case exactLiteral(Version)
             case range(Range<Version>)
             case revision(String)
             case branch(String)
@@ -135,6 +136,7 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
         /// The dependency requirement.
         public enum Requirement: Equatable, Hashable, Sendable {
             case exact(Version)
+            case exactLiteral(Version)
             case range(Range<Version>)
         }
     }
@@ -432,6 +434,8 @@ extension PackageDependency.SourceControl.Requirement: CustomStringConvertible {
         switch self {
         case .exact(let version):
             return version.description
+        case .exactLiteral(let version):
+            return "exactLiteral[\(version)]"
         case .range(let range):
             return range.description
         case .revision(let revision):
@@ -442,13 +446,99 @@ extension PackageDependency.SourceControl.Requirement: CustomStringConvertible {
     }
 }
 
+extension PackageDependency.SourceControl.Requirement {
+    public static func == (
+        lhs: PackageDependency.SourceControl.Requirement,
+        rhs: PackageDependency.SourceControl.Requirement
+    ) -> Bool {
+        switch (lhs, rhs) {
+        case (.exact(let lhs), .exact(let rhs)):
+            lhs == rhs
+        case (.exactLiteral(let lhs), .exactLiteral(let rhs)):
+            lhs.literalEqual(to: rhs)
+        case (.range(let lhs), .range(let rhs)):
+            lhs == rhs
+        case (.revision(let lhs), .revision(let rhs)):
+            lhs == rhs
+        case (.branch(let lhs), .branch(let rhs)):
+            lhs == rhs
+        default:
+            false
+        }
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        switch self {
+        case .exact(let version):
+            hasher.combine(0)
+            hasher.combine(version)
+        case .exactLiteral(let version):
+            hasher.combine(1)
+            hasher.combine(version.major)
+            hasher.combine(version.minor)
+            hasher.combine(version.patch)
+            hasher.combine(version.prereleaseIdentifiers)
+            hasher.combine(version.buildMetadataIdentifiers)
+        case .range(let range):
+            hasher.combine(2)
+            hasher.combine(range.lowerBound)
+            hasher.combine(range.upperBound)
+        case .revision(let revision):
+            hasher.combine(3)
+            hasher.combine(revision)
+        case .branch(let branch):
+            hasher.combine(4)
+            hasher.combine(branch)
+        }
+    }
+}
+
 extension PackageDependency.Registry.Requirement: CustomStringConvertible {
     public var description: String {
         switch self {
         case .exact(let version):
             return version.description
+        case .exactLiteral(let version):
+            return "exactLiteral[\(version)]"
         case .range(let range):
             return range.description
+        }
+    }
+}
+
+extension PackageDependency.Registry.Requirement {
+    public static func == (
+        lhs: PackageDependency.Registry.Requirement,
+        rhs: PackageDependency.Registry.Requirement
+    ) -> Bool {
+        switch (lhs, rhs) {
+        case (.exact(let lhs), .exact(let rhs)):
+            lhs == rhs
+        case (.exactLiteral(let lhs), .exactLiteral(let rhs)):
+            lhs.literalEqual(to: rhs)
+        case (.range(let lhs), .range(let rhs)):
+            lhs == rhs
+        default:
+            false
+        }
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        switch self {
+        case .exact(let version):
+            hasher.combine(0)
+            hasher.combine(version)
+        case .exactLiteral(let version):
+            hasher.combine(1)
+            hasher.combine(version.major)
+            hasher.combine(version.minor)
+            hasher.combine(version.patch)
+            hasher.combine(version.prereleaseIdentifiers)
+            hasher.combine(version.buildMetadataIdentifiers)
+        case .range(let range):
+            hasher.combine(2)
+            hasher.combine(range.lowerBound)
+            hasher.combine(range.upperBound)
         }
     }
 }
@@ -476,7 +566,7 @@ extension PackageDependency: Encodable {
 
 extension PackageDependency.SourceControl.Requirement: Encodable {
     private enum CodingKeys: String, CodingKey {
-        case exact, range, revision, branch
+        case exact, exactLiteral, range, revision, branch
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -484,6 +574,9 @@ extension PackageDependency.SourceControl.Requirement: Encodable {
         switch self {
         case let .exact(a1):
             var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .exact)
+            try unkeyedContainer.encode(a1)
+        case .exactLiteral(let a1):
+            var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .exactLiteral)
             try unkeyedContainer.encode(a1)
         case let .range(a1):
             var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .range)
@@ -518,7 +611,7 @@ extension PackageDependency.SourceControl.Location: Encodable {
 
 extension PackageDependency.Registry.Requirement: Encodable {
     private enum CodingKeys: String, CodingKey {
-        case exact, range
+        case exact, exactLiteral, range
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -526,6 +619,9 @@ extension PackageDependency.Registry.Requirement: Encodable {
         switch self {
         case let .exact(a1):
             var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .exact)
+            try unkeyedContainer.encode(a1)
+        case .exactLiteral(let a1):
+            var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .exactLiteral)
             try unkeyedContainer.encode(a1)
         case let .range(a1):
             var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .range)

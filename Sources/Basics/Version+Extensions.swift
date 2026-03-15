@@ -23,4 +23,12 @@ extension Version {
             try? self.init(versionString: tag, usesLenientParsing: true)
         }
     }
+
+    package func literalEqual(to other: Version) -> Bool {
+        self.major == other.major &&
+            self.minor == other.minor &&
+            self.patch == other.patch &&
+            self.prereleaseIdentifiers == other.prereleaseIdentifiers &&
+            self.buildMetadataIdentifiers == other.buildMetadataIdentifiers
+    }
 }
