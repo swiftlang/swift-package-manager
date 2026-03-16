@@ -935,6 +935,7 @@ public final class SwiftCommandState {
             flags: options.build.buildFlags,
             buildSystemKind: options.build.buildSystem,
             pkgConfigDirectories: options.locations.pkgConfigDirectories,
+            customToolsetPaths: options.locations.toolsetPaths,
             architectures: options.build.architectures,
             workers: options.build.jobs,
             shouldCreateDylibForDynamicProducts: !self.options.build.shouldBuildDylibsAsFrameworks,

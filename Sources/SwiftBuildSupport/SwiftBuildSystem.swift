@@ -912,6 +912,12 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             }
         }
 
+        if !buildParameters.customToolsetPaths.isEmpty {
+            settings["SWIFT_SDK_TOOLSETS"] =
+                (["$(inherited)"] + buildParameters.customToolsetPaths.map { $0.pathString })
+                .joined(separator: " ")
+        }
+
         let normalizedTriple = Triple(buildParameters.triple.triple, normalizing: true)
         if let deploymentTargetSettingName = normalizedTriple.deploymentTargetSettingName, let value = normalizedTriple.deploymentTargetVersionString {
             // Only override the deployment target if a version is explicitly specified;
@@ -1347,9 +1353,17 @@ fileprivate extension [BuildFlag] {
             case .commandLineOptions:
                 // Flags specified by the user. These are generally the only ones that should be passed on.
                 return true
-            case .plugin, .debugging, .toolset:
+            case .plugin:
                 // FIXME: Not yet handled
                 return true
+            case .debugging:
+                // FIXME: Not yet handled
+                return true
+            case .toolset:
+                // Swift Build loads toolset flags internally as part of loading Swift SDKs, or by passing the custom toolsets
+                // via the SWIFT_SDK_TOOLSETS build setting, and may introspect them to override build settings.
+                // Don't duplicate them here.
+                return false
             case .defaultSwiftTestingSearchPath:
                 // Swift Build computes these internally. It's important not to add them a second time here
                 // as it can break the intended search path ordering, for example, if the user is building
