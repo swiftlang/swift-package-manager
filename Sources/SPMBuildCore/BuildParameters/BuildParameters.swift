@@ -72,6 +72,9 @@ public struct BuildParameters: Encodable {
     /// An array of paths to search for pkg-config `.pc` files.
     public var pkgConfigDirectories: [Basics.AbsolutePath]
 
+    /// Paths to toolset files specified on the command line via `--toolset`.
+    public var customToolsetPaths: [Basics.AbsolutePath]
+
     /// The architectures to build for.
     // FIXME: this may be inconsistent with `targetTriple`.
     public var architectures: [String]?
@@ -162,6 +165,7 @@ public struct BuildParameters: Encodable {
         flags: BuildFlags,
         buildSystemKind: BuildSystemProvider.Kind,
         pkgConfigDirectories: [Basics.AbsolutePath] = [],
+        customToolsetPaths: [Basics.AbsolutePath] = [],
         architectures: [String]? = nil,
         workers: UInt32 = UInt32(ProcessInfo.processInfo.activeProcessorCount),
         shouldCreateDylibForDynamicProducts: Bool = true,
@@ -226,6 +230,7 @@ public struct BuildParameters: Encodable {
             ))
         }
         self.pkgConfigDirectories = pkgConfigDirectories
+        self.customToolsetPaths = customToolsetPaths
         self.architectures = architectures
         self.workers = workers
         self.shouldCreateDylibForDynamicProducts = shouldCreateDylibForDynamicProducts
