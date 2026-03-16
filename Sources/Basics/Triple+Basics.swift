@@ -185,7 +185,9 @@ extension Triple {
 
     public var executableExtension: String {
         guard !self.isWasm else {
-            return ".wasm"
+            // emcc produces a .js entry point (plus a companion .wasm);
+            // other WebAssembly targets use .wasm directly.
+            return self.os == .emscripten ? ".js" : ".wasm"
         }
 
         guard let os = self.os else {
