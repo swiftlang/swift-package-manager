@@ -653,6 +653,11 @@ extension SwiftBuildSystemMessageHandler.BuildState {
         }
 
         self.diagnosticTaskIDs.insert(taskID)
+        // Swift compiler subtasks may also contribute diagnostics, mark their parents
+        // as containing diagnostics so that they get printed.
+        if let task = activeTasks[taskID], let parentID = task.parentTaskID {
+            self.diagnosticTaskIDs.insert(parentID)
+        }
     }
 
     /// Retrieves all diagnostic information for a completed task.

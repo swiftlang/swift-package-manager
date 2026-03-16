@@ -1187,6 +1187,28 @@ struct MiscellaneousTestCase {
         .tags(
             .Feature.Command.Build,
         ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func warningWithinFunction(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        let configuration = BuildConfiguration.debug
+        try await fixture(name: "Miscellaneous/WarningWithinFunction") { path in
+            let (stdout, stderr) = try await executeSwiftBuild(
+                path,
+                configuration: configuration,
+                buildSystem: buildSystem,
+            )
+            let buildOutput = try path.appending(components: buildSystem.binPath(for: configuration))
+            expectDirectoryExists(at: buildOutput)
+            #expect((stdout + stderr).contains("initialization of variable 'myvariable' was never used"))
+        }
+    }
+
+    @Test(
+        .tags(
+            .Feature.Command.Build,
+        ),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/9078", relationship: .defect),
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
