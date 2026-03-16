@@ -74,7 +74,15 @@ public func createSession(
     if let metalToolchainPath = toolchain.metalToolchainPath {
         buildSessionEnv = ["EXTERNAL_TOOLCHAINS_DIR": metalToolchainPath.pathString]
     }
-    let toolchainPath = try toolchain.toolchainDir
+    var toolchainPath = try toolchain.toolchainDir
+
+    // On Windows, the "developer dir" is two levels up from the toolchain dir,
+    // unlike Swift.org toolchains on other platforms where they are both the same.
+    if ProcessInfo.hostOperatingSystem == .windows {
+        toolchainPath = toolchainPath
+            .parentDirectory
+            .parentDirectory
+    }
 
     // Users often rename Xcode.app, and in Swift.org CI on macOS we construct the toolchain under a nonfunctioning shell
     // of Xcode.app. Instead of just checking the app name, see if we can find the app's version.plist at the expected
@@ -921,8 +929,6 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                 settings["LLVM_TARGET_TRIPLE_SUFFIX"] = "-" + buildParameters.triple.environmentName
             }
         }
-
-        settings["LIBRARY_SEARCH_PATHS"] = try "$(inherited) \(buildParameters.toolchain.toolchainLibDir.pathString)"
 
         let compilerAndLinkerFlags = [
             "OTHER_CFLAGS": buildParameters.toolchain.extraFlags.cCompilerFlags + buildParameters.flags.cCompilerFlags,
