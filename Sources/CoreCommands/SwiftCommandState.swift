@@ -1141,6 +1141,9 @@ public final class SwiftCommandState {
     }
 
     private func acquireLockIfNeeded() throws {
+        guard !options.locations.skipAcquiringLock else {
+            return
+        }
         guard self.packageRoot != nil else {
             return
         }

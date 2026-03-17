@@ -164,6 +164,9 @@ public struct LocationOptions: ParsableArguments {
 
     @Flag(name: .customLong("ignore-lock"), help: .hidden)
     public var ignoreLock: Bool = false
+
+    @Flag(name: .customLong("experimental-skip-acquiring-lock"), help: .hidden)
+    public var skipAcquiringLock: Bool = false
 }
 
 public struct CachingOptions: ParsableArguments {
