@@ -247,7 +247,7 @@ struct RunCommandTests {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         try await withKnownIssue(isIntermittent: true) {
-            try await fixture(name: "Miscellaneous/UnreachableTargets") { fixturePath in
+            try await fixture(name: "Miscellaneous/UnreachableTargets", createGitRepo: true) { fixturePath in
                 let (output, _) = try await execute(["bexec"], packagePath: fixturePath.appending("A"), buildSystem: buildSystem)
                 let outputLines = output.split(whereSeparator: { $0.isNewline })
                 #expect(String(outputLines[0]).contains("BTarget2"))

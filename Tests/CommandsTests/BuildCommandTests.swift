@@ -696,7 +696,7 @@ struct BuildCommandTestCases {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let config = BuildConfiguration.debug
-        try await fixture(name: "Miscellaneous/UnreachableTargets") { fixturePath in
+        try await fixture(name: "Miscellaneous/UnreachableTargets", createGitRepo: true) { fixturePath in
             let aPath = fixturePath.appending("A")
 
             let result = try await build(
@@ -722,7 +722,7 @@ struct BuildCommandTestCases {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let config = BuildConfiguration.debug
-            try await fixture(name: "Miscellaneous/UnreachableTargets", removeFixturePathOnDeinit: false) { fixturePath in
+            try await fixture(name: "Miscellaneous/UnreachableTargets", createGitRepo: true) { fixturePath in
                 let aPath = fixturePath.appending("A")
 
                 // Dependency contains a dependent product
@@ -1936,7 +1936,7 @@ extension Triple {
     .tags(
         .TestSize.large,
         Tag.Feature.SBOM
-    ), 
+    ),
 )
 struct BuildSBOMCommandTests {
 
@@ -1964,12 +1964,12 @@ struct BuildSBOMCommandTests {
             Issue.record("No SBOM paths found in stdout")
             return
         }
-        
+
         // Verify expected count if specified
         if let expectedCount = expectedCount {
             #expect(sbomPaths.count == expectedCount, "Expected \(expectedCount) SBOM(s) but found \(sbomPaths.count)", sourceLocation: sourceLocation)
         }
-        
+
         for pathString in sbomPaths {
             let absolutePath = try AbsolutePath(validating: pathString)
             #expect(localFileSystem.exists(absolutePath), "Reported SBOM should exist at \(absolutePath)", sourceLocation: sourceLocation)
@@ -1977,7 +1977,7 @@ struct BuildSBOMCommandTests {
                 #expect(absolutePath.parentDirectory == expectedDir, "SBOM should be created in the expected directory: \(expectedDir)", sourceLocation: sourceLocation)
             }
         }
-        
+
         // If expected directory is specified, verify only the expected number of SBOM files exist there
         if let expectedDir = expectedDirectory, let expectedCount = expectedCount {
             let dirContents = try localFileSystem.getDirectoryContents(expectedDir)
@@ -2124,13 +2124,13 @@ struct BuildSBOMCommandTests {
         try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
             let customSBOMDir = fixturePath.appending("env-sboms")
 
-            
+
             let (stdout, _) = try await executeSwiftBuild(
                 fixturePath,
                 extraArgs: ["--sbom-spec", "cyclonedx", "--sbom-output-dir", customSBOMDir.pathString],
                 buildSystem: buildSystem,
             )
-            
+
             #expect(stdout.contains("SBOMs created"))
             try verifySBOMCreated(
                 in: stdout,
@@ -2149,7 +2149,7 @@ struct BuildSBOMCommandTests {
     ) async throws {
         try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
             let customSBOMDir = fixturePath.appending("env-sboms")
-            
+
             let (stdout, stderr) = try await executeSwiftBuild(
                 fixturePath,
                 extraArgs: [],
@@ -2159,7 +2159,7 @@ struct BuildSBOMCommandTests {
                 ],
                 buildSystem: buildSystem,
             )
-            
+
             #expect(stdout.contains("SBOMs created"))
             try verifySBOMCreated(
                 in: stdout,
@@ -2205,13 +2205,13 @@ struct BuildSBOMCommandTests {
                 env: ["SWIFTPM_BUILD_SBOM_SPEC": "cyclonedx"],
                 buildSystem: buildSystem,
             )
- 
+
             #expect(stdout.contains("SBOMs created"))
-            
+
             // Verify that command line flag overrides environment variable by checking SBOM path
             let spdxRegex = try Regex(#"created spdx.* v.* SBOM at .*\.json"#)
             let cyclonedxRegex = try Regex(#"created cyclonedx.* v.* SBOM at .*\.json"#)
-            
+
             #expect(stdout.contains(spdxRegex), "should create SPDX SBOM from command line, not CycloneDX from environment")
             #expect(!stdout.contains(cyclonedxRegex), "should not create CycloneDX SBOM from environment variable")
         }
@@ -2237,7 +2237,7 @@ struct BuildSBOMCommandTests {
                 ],
                 buildSystem: buildSystem,
             )
-            
+
             try verifySBOMCreated(in: stdout, expectedCount: 2, expectedDirectory: customSBOMDir, message: "should produce at least 2 SBOMs")
         }
     }
@@ -2262,7 +2262,7 @@ struct BuildSBOMCommandTests {
             default:
                 invalidPath = "/invalid/readonlypath"
             }
-            
+
             await expectThrowsCommandExecutionError(
                 try await executeSwiftBuild(
                     fixturePath,
@@ -2399,7 +2399,7 @@ struct BuildSBOMCommandTests {
                 extraArgs: ["--sbom-spec", "cyclonedx"],
                 buildSystem: buildSystem,
             )
-            
+
             if buildSystem != .swiftbuild {
                 #expect(stderr.contains("warning: generating SBOM(s) without `--build-system swiftbuild` flag creates SBOM(s) without build-time conditionals."))
             } else {
@@ -2417,7 +2417,7 @@ struct BuildSBOMCommandTests {
     ) async throws {
         try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
             let customSBOMDir = fixturePath.appending("reproducibility-test-\(sbomSpec)")
-            
+
             // Generate first SBOM
             try await generateSBOM(
                 fixturePath: fixturePath,
@@ -2425,16 +2425,16 @@ struct BuildSBOMCommandTests {
                 outputDir: customSBOMDir,
                 buildSystem: buildSystem
             )
-            
+
             // Get the first SBOM file from the output directory
             let sbomFiles1 = try getSBOMFiles(in: customSBOMDir)
             #expect(sbomFiles1.count == 1, "Expected exactly 1 SBOM file after first generation")
             let sbomPath1 = sbomFiles1[0]
             let content1 = try readSBOMContent(at: sbomPath1)
-            
+
             // Small delay to ensure different timestamp
             try await Task.sleep(for: .seconds(1))
-            
+
             // Generate second SBOM
             try await generateSBOM(
                 fixturePath: fixturePath,
@@ -2442,29 +2442,29 @@ struct BuildSBOMCommandTests {
                 outputDir: customSBOMDir,
                 buildSystem: buildSystem
             )
-            
+
             // Get all SBOM files from the output directory (should now have 2)
             let sbomFiles2 = try getSBOMFiles(in: customSBOMDir)
             #expect(sbomFiles2.count == 2, "Expected exactly 2 SBOM files after second generation")
-            
+
             // Find the newly created file (the one that's not sbomPath1)
             guard let sbomPath2 = sbomFiles2.first(where: { $0 != sbomPath1 }) else {
                 throw NSError(domain: "TestError", code: 1, userInfo: [NSLocalizedDescriptionKey: "Could not find second SBOM file"])
             }
             let content2 = try readSBOMContent(at: sbomPath2)
-            
+
             // Verify the two SBOMs are different files (different timestamps in filename)
             #expect(sbomPath1 != sbomPath2, "SBOM files should have different names due to timestamps")
-            
+
             // Normalize both SBOMs by removing timestamps and UUIDs
             let normalized1 = try normalizeJSONForComparison(content1)
             let normalized2 = try normalizeJSONForComparison(content2)
-            
+
             // Compare normalized content
             #expect(normalized1 == normalized2, "SBOMs should be identical after normalizing timestamps and UUIDs")
         }
     }
-    
+
     /// Generates an SBOM in the specified output directory
     private func generateSBOM(
         fixturePath: AbsolutePath,
@@ -2478,14 +2478,14 @@ struct BuildSBOMCommandTests {
             buildSystem: buildSystem
         )
     }
-    
+
     /// Gets all SBOM JSON files from the specified directory
     private func getSBOMFiles(in directory: AbsolutePath) throws -> [AbsolutePath] {
         let contents = try localFileSystem.getDirectoryContents(directory)
         let sbomFiles = contents.filter { $0.hasSuffix(".json") }
         return sbomFiles.map { directory.appending(component: $0) }.sorted()
     }
-    
+
     /// Reads SBOM content from file
     private func readSBOMContent(at path: AbsolutePath) throws -> String {
         let data = try localFileSystem.readFileContents(path)
@@ -2494,7 +2494,7 @@ struct BuildSBOMCommandTests {
         }
         return content
     }
-    
+
     /// Normalizes JSON content by replacing timestamps and UUIDs with placeholder values
     /// This allows comparison of SBOM content while ignoring non-deterministic fields
     private func normalizeJSONForComparison(_ jsonString: String) throws -> String {
@@ -2502,20 +2502,20 @@ struct BuildSBOMCommandTests {
               let jsonObject = try JSONSerialization.jsonObject(with: jsonData) as? [String: Any] else {
             throw NSError(domain: "TestError", code: 1, userInfo: [NSLocalizedDescriptionKey: "Failed to parse JSON"])
         }
-        
+
         // Recursively normalize the JSON object
         let normalizedObject = normalizeJSONValue(jsonObject)
-        
+
         // Convert back to string with sorted keys for consistent comparison
         let normalizedData = try JSONSerialization.data(withJSONObject: normalizedObject, options: [.sortedKeys, .prettyPrinted])
-        
+
         guard let normalizedString = String(data: normalizedData, encoding: .utf8) else {
             throw NSError(domain: "TestError", code: 2, userInfo: [NSLocalizedDescriptionKey: "Failed to convert normalized JSON to string"])
         }
-        
+
         return normalizedString
     }
-    
+
     private func normalizeJSONValue(_ value: Any) -> Any {
         if let dict = value as? [String: Any] {
             var normalizedDict: [String: Any] = [:]
@@ -2549,7 +2549,7 @@ struct BuildSBOMCommandTests {
             return value
         }
     }
-    
+
     /// Normalizes values that may contain UUIDs (strings or arrays of strings)
     private func normalizeUUIDValue(_ value: Any) -> Any {
         if let string = value as? String {
@@ -2560,18 +2560,18 @@ struct BuildSBOMCommandTests {
             return normalizeJSONValue(value)
         }
     }
-    
+
     /// Replaces UUID patterns in strings with a normalized placeholder
     private func normalizeStringWithUUIDs(_ string: String) -> String {
         // Match UUID patterns in various formats:
         // - Standard UUID: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
         // - URN format: urn:uuid:xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
         let uuidPattern = #"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"#
-        
+
         guard let regex = try? NSRegularExpression(pattern: uuidPattern, options: .caseInsensitive) else {
             return string
         }
-        
+
         let range = NSRange(string.startIndex..., in: string)
         let normalized = regex.stringByReplacingMatches(
             in: string,
@@ -2579,8 +2579,7 @@ struct BuildSBOMCommandTests {
             range: range,
             withTemplate: "NORMALIZED-UUID"
         )
-        
+
         return normalized
     }
 }
-
