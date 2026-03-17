@@ -135,6 +135,7 @@ extension PackageModel.Sanitizer {
     .tags(
         .TestSize.medium,
     ),
+    .requireCompiledWith6_3OrLater("https://github.com/swiftlang/swift-corelibs-foundation/pull/5269")
 )
 struct SwiftBuildSystemTests {
 

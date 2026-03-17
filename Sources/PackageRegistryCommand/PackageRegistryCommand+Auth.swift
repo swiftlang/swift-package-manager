@@ -149,7 +149,7 @@ extension PackageRegistryCommand {
         )
         var tokenFilePath: AbsolutePath?
 
-        @Flag(help: "Allow writing to netrc file without confirmation.")
+        @Flag(help: "Write to the netrc file without asking for confirmation.")
         var noConfirm: Bool = false
 
         private static let PLACEHOLDER_TOKEN_USER = "token"
@@ -326,13 +326,13 @@ extension PackageRegistryCommand {
 
     struct Logout: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(
-            abstract: "Log out from a registry"
+            abstract: "Log out from a registry."
         )
 
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
-        @Argument(help: "The registry URL")
+        @Argument(help: "The registry URL.")
         var url: URL?
 
         var registryURL: URL? {

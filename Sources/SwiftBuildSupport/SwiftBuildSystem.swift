@@ -37,6 +37,8 @@ import Foundation
 import SWBBuildService
 import SwiftBuild
 import enum SWBCore.SwiftAPIDigesterMode
+import struct SWBUtil.XcodeVersionInfo
+import struct SWBUtil.Path
 
 struct SessionFailedError: Error {
     var error: Error
@@ -72,12 +74,37 @@ public func createSession(
     if let metalToolchainPath = toolchain.metalToolchainPath {
         buildSessionEnv = ["EXTERNAL_TOOLCHAINS_DIR": metalToolchainPath.pathString]
     }
-    let toolchainPath = try toolchain.toolchainDir
+    var toolchainPath = try toolchain.toolchainDir
+
+    // On Windows, the "developer dir" is two levels up from the toolchain dir,
+    // unlike Swift.org toolchains on other platforms where they are both the same.
+    if ProcessInfo.hostOperatingSystem == .windows {
+        toolchainPath = toolchainPath
+            .parentDirectory
+            .parentDirectory
+    }
+
+    // Users often rename Xcode.app, and in Swift.org CI on macOS we construct the toolchain under a nonfunctioning shell
+    // of Xcode.app. Instead of just checking the app name, see if we can find the app's version.plist at the expected
+    // location.
+    let toolchainIsEmbeddedInXcode: Bool
+    let xcodeVersionPlistPath = toolchainPath
+        .parentDirectory // Remove 'XcodeDefault.xctoolchain'
+        .parentDirectory // Remove 'Toolchains'
+        .parentDirectory // Remove 'Developer'
+        .appending(component: "version.plist")
+    if (try? XcodeVersionInfo.versionInfo(versionPath: SWBUtil.Path(xcodeVersionPlistPath.pathString))) != nil {
+        toolchainIsEmbeddedInXcode = true
+    } else {
+        toolchainIsEmbeddedInXcode = false
+    }
 
     // SWIFT_EXEC and SWIFT_EXEC_MANIFEST may need to be overridden in debug scenarios in order to pick up Open Source toolchains
-    let sessionResult = if toolchainPath.components.contains(where: { $0.hasSuffix(".app") }) {
+    let sessionResult = if toolchainIsEmbeddedInXcode {
+        // If this toolchain is bundled with Xcode.app, let the build service handle toolchain registration.
         await service.createSession(name: name, developerPath: nil, resourceSearchPaths: packageManagerResourcesDirectory.map { [$0.pathString] } ?? [], cachePath: nil, inferiorProductsPath: nil, environment: buildSessionEnv)
     } else {
+        // Otherwise, treat this toolchain as standalone when initializing the build service.
         await service.createSession(name: name, swiftToolchainPath: toolchainPath.pathString, resourceSearchPaths: packageManagerResourcesDirectory.map { [$0.pathString] } ?? [], cachePath: nil, inferiorProductsPath: nil, environment: buildSessionEnv)
     }
     switch sessionResult {
@@ -119,17 +146,39 @@ func withSession(
 }
 
 package final class SwiftBuildSystemPlanningOperationDelegate: SWBPlanningOperationDelegate, SWBIndexingDelegate, Sendable {
-    package init() {}
+    private let shouldEnableDebuggingEntitlement: Bool
+
+    package init(shouldEnableDebuggingEntitlement: Bool) {
+        self.shouldEnableDebuggingEntitlement = shouldEnableDebuggingEntitlement
+    }
 
     public func provisioningTaskInputs(
         targetGUID: String,
         provisioningSourceData: SWBProvisioningTaskInputsSourceData
     ) async -> SWBProvisioningTaskInputs {
-        let identity = provisioningSourceData.signingCertificateIdentifier
+        let identity = if provisioningSourceData.signingCertificateIdentifier.isEmpty && shouldEnableDebuggingEntitlement {
+            "-"
+        } else {
+            provisioningSourceData.signingCertificateIdentifier
+        }
+
         if identity == "-" {
-            let signedEntitlements = provisioningSourceData.entitlementsDestination == "Signature"
-                ? provisioningSourceData.productTypeEntitlements.merging(
-                    ["application-identifier": .plString(provisioningSourceData.bundleIdentifier)],
+            let getTaskAllowEntitlementKey: String
+            let applicationIdentifierEntitlementKey: String
+
+            if provisioningSourceData.sdkRoot.contains("macos") || provisioningSourceData.sdkRoot
+                .contains("simulator")
+            {
+                getTaskAllowEntitlementKey = "com.apple.security.get-task-allow"
+                applicationIdentifierEntitlementKey = "com.apple.application-identifier"
+            } else {
+                getTaskAllowEntitlementKey = "get-task-allow"
+                applicationIdentifierEntitlementKey = "application-identifier"
+            }
+
+            let signedEntitlements = provisioningSourceData
+                .entitlementsDestination == "Signature" ? provisioningSourceData.productTypeEntitlements.merging(
+                    [applicationIdentifierEntitlementKey: .plString(provisioningSourceData.bundleIdentifier)],
                     uniquingKeysWith: { _, new in new }
                 ).merging(provisioningSourceData.projectEntitlements ?? [:], uniquingKeysWith: { _, new in new })
                 : [:]
@@ -141,6 +190,12 @@ package final class SwiftBuildSystemPlanningOperationDelegate: SWBPlanningOperat
                 ).merging(provisioningSourceData.projectEntitlements ?? [:], uniquingKeysWith: { _, new in new })
                 : [:]
 
+            var additionalEntitlements: [String: SWBPropertyListItem] = [:]
+
+            if shouldEnableDebuggingEntitlement {
+                additionalEntitlements[getTaskAllowEntitlementKey] = .plBool(true)
+            }
+
             return SWBProvisioningTaskInputs(
                 identityHash: "-",
                 identityName: "-",
@@ -149,7 +204,7 @@ package final class SwiftBuildSystemPlanningOperationDelegate: SWBPlanningOperat
                 profilePath: nil,
                 designatedRequirements: nil,
                 signedEntitlements: signedEntitlements.merging(
-                    provisioningSourceData.sdkRoot.contains("simulator") ? ["get-task-allow": .plBool(true)] : [:],
+                    additionalEntitlements,
                     uniquingKeysWith: { _, new in new }
                 ),
                 simulatedEntitlements: simulatedEntitlements,
@@ -218,6 +273,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                         builtProducts.append(
                             BuiltTestProduct(
                                 productName: product.name,
+                                umbrellaProductName: package.manifest.umbrellaPackageTestsProductName,
                                 binaryPath: binaryPath,
                                 packagePath: package.path,
                                 testEntryPointPath: product.underlying.testEntryPointPath
@@ -548,6 +604,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
         var replArguments: CLIArguments?
         var artifacts: [(String, PluginInvocationBuildResult.BuiltArtifact)]?
+        var dependencyGraph: [String: [String]]?
         return try await withService(connectionMode: .inProcessStatic(swiftbuildServiceEntryPoint)) { service in
             let derivedDataPath = self.buildParameters.dataPath
 
@@ -573,10 +630,9 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                     }
 
                     // Find the targets to build.
+                    let workspaceInfo = try await session.workspaceInfo()
                     let configuredTargets: [SWBTargetGUID]
                     do {
-                        let workspaceInfo = try await session.workspaceInfo()
-
                         configuredTargets = try [pifTargetName].map { targetName in
                             // TODO we filter dynamic targets until Swift Build doesn't give them to us anymore
                             let infos = workspaceInfo.targetInfos.filter { $0.targetName == targetName && !TargetSuffix.dynamic.hasSuffix(id: GUID($0.guid)) }
@@ -600,7 +656,9 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
                     let operation = try await session.createBuildOperation(
                         request: request,
-                        delegate: SwiftBuildSystemPlanningOperationDelegate(),
+                        delegate: SwiftBuildSystemPlanningOperationDelegate(shouldEnableDebuggingEntitlement: self.buildParameters
+                            .debuggingParameters.shouldEnableDebuggingEntitlement
+                        ),
                         retainBuildDescription: true
                     )
 
@@ -641,6 +699,25 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
                     if buildOutputs.contains(.replArguments) {
                         replArguments = try await self.createREPLArguments(session: session, request: request)
+                    }
+
+                    if buildOutputs.contains(.dependencyGraph) {
+                        let depGraph = try await session.computeDependencyGraph(
+                            targetGUIDs: request.configuredTargets.map { SWBTargetGUID(rawValue: $0.guid) },
+                            buildParameters: request.parameters,
+                            includeImplicitDependencies: true
+                        )
+                        // SWBTargetGUID wraps the GUID that PIFBuilder generates
+                        var result: [String: [String]] = [:]
+                        for (target, dependencies) in depGraph {
+                            let targetInfo = workspaceInfo.targetInfos.first { $0.guid == target.rawValue }
+                            guard let targetName = targetInfo?.targetName else { continue }
+                            let depNames = dependencies.compactMap { depGUID in
+                                workspaceInfo.targetInfos.first { $0.guid == depGUID.rawValue }?.targetName
+                            }
+                            result[targetName] = depNames
+                        }
+                        dependencyGraph = result
                     }
 
                     if buildOutputs.contains(.builtArtifacts) {
@@ -697,7 +774,8 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                     }
                 ),
                 replArguments: replArguments,
-                builtArtifacts: artifacts
+                builtArtifacts: artifacts,
+                dependencyGraph: dependencyGraph
             )
         }
     }
@@ -835,15 +913,11 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         }
 
         let normalizedTriple = Triple(buildParameters.triple.triple, normalizing: true)
-        if let deploymentTargetSettingName = normalizedTriple.deploymentTargetSettingName {
-            let value = normalizedTriple.deploymentTargetVersion
-
+        if let deploymentTargetSettingName = normalizedTriple.deploymentTargetSettingName, let value = normalizedTriple.deploymentTargetVersionString {
             // Only override the deployment target if a version is explicitly specified;
             // for Apple platforms this normally comes from the package manifest and may
             // not be set to the same value for all packages in the package graph.
-            if value != .zero {
-                settings[deploymentTargetSettingName] = value.description
-            }
+            settings[deploymentTargetSettingName] = value
         }
 
         // FIXME: "none" triples get a placeholder SDK/platform and don't support any specific triple by default. Unlike most platforms, where the vendor and environment is implied as a function of the arch and "platform", bare metal operates in terms of triples directly. We need to replace this bringup convenience with a more idiomatic mechanism, perhaps in the build request.
@@ -856,39 +930,46 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             }
         }
 
-        settings["LIBRARY_SEARCH_PATHS"] = try "$(inherited) \(buildParameters.toolchain.toolchainLibDir.pathString)"
-        settings["OTHER_CFLAGS"] = (
-            verboseFlag +
-            ["$(inherited)"]
-                + buildParameters.toolchain.extraFlags.cCompilerFlags.map { $0.shellEscaped() }
-                + buildParameters.flags.cCompilerFlags.map { $0.shellEscaped() }
-        ).joined(separator: " ")
-        settings["OTHER_CPLUSPLUSFLAGS"] = (
-            verboseFlag +
-            ["$(inherited)"]
-                + buildParameters.toolchain.extraFlags.cxxCompilerFlags.map { $0.shellEscaped() }
-                + buildParameters.flags.cxxCompilerFlags.map { $0.shellEscaped() }
-        ).joined(separator: " ")
-        settings["OTHER_SWIFT_FLAGS"] = (
-            verboseFlag +
-            ["$(inherited)"]
-                + buildParameters.toolchain.extraFlags.swiftCompilerFlags.map { $0.shellEscaped() }
-                + buildParameters.flags.swiftCompilerFlags.map { $0.shellEscaped() }
-        ).joined(separator: " ")
+        let compilerAndLinkerFlags = [
+            "OTHER_CFLAGS": buildParameters.toolchain.extraFlags.cCompilerFlags + buildParameters.flags.cCompilerFlags,
+            "OTHER_CPLUSPLUSFLAGS": buildParameters.toolchain.extraFlags.cxxCompilerFlags + buildParameters.flags.cxxCompilerFlags,
+            "OTHER_SWIFT_FLAGS": buildParameters.toolchain.extraFlags.swiftCompilerFlags + buildParameters.flags.swiftCompilerFlags,
+            "OTHER_LDFLAGS": (buildParameters.toolchain.extraFlags.linkerFlags + buildParameters.flags.linkerFlags)
+        ]
+        for (settingName, buildFlags) in compilerAndLinkerFlags {
+            var rawFlags = buildFlags.rawFlagsForSwiftBuild
+            if settingName == "OTHER_LDFLAGS" {
+                rawFlags = rawFlags.asSwiftcLinkerFlags()
+            }
+            settings[settingName] = (verboseFlag + ["$(inherited)"] +
+                rawFlags.map { $0.shellEscaped() }).joined(separator: " ")
+        }
 
-        let inherited = ["$(inherited)"]
+        if buildParameters.driverParameters.emitSILFiles {
+            settings["SWIFT_EMIT_SIL_FILES"] = "YES"
+            if let outputDir = buildParameters.driverParameters.silOutputDirectory {
+                settings["SWIFT_SIL_OUTPUT_DIR"] = outputDir.pathString
+            }
+        }
 
-        let buildParametersLinkFlags =
-            buildParameters.toolchain.extraFlags.linkerFlags.asSwiftcLinkerFlags().map { $0.shellEscaped() }
-            + buildParameters.flags.linkerFlags.asSwiftcLinkerFlags().map { $0.shellEscaped() }
+        if buildParameters.driverParameters.emitIRFiles {
+            settings["SWIFT_EMIT_IR_FILES"] = "YES"
+            if let outputDir = buildParameters.driverParameters.irOutputDirectory {
+                settings["SWIFT_IR_OUTPUT_DIR"] = outputDir.pathString
+            }
+        }
 
-        var otherLdFlags =
-                verboseFlag  // clang will be invoked to link so the verbose flag is valid for it
-                + inherited
+        if buildParameters.driverParameters.emitOptimizationRecord {
+            settings["SWIFT_EMIT_OPT_RECORDS"] = "YES"
+            if let outputDir = buildParameters.driverParameters.optimizationRecordDirectory {
+                settings["SWIFT_OPT_RECORD_OUTPUT_DIR"] = outputDir.pathString
+            }
+        }
 
-        otherLdFlags += buildParametersLinkFlags
-
-        settings["OTHER_LDFLAGS"] = otherLdFlags.joined(separator: " ")
+        if buildParameters.driverParameters.codesizeProfileEnabled {
+            // dSYM generation is required to attribute code size to source locations
+            settings["DEBUG_INFORMATION_FORMAT"] = "dwarf-with-dsym"
+        }
 
         // Optionally also set the list of architectures to build for.
         if let architectures = buildParameters.architectures, !architectures.isEmpty {
@@ -1012,7 +1093,9 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
     private static func constructDebuggingSettingsOverrides(from parameters: BuildParameters.Debugging) -> [String: String] {
         var settings: [String: String] = [:]
         // TODO: debugInfoFormat: https://github.com/swiftlang/swift-build/issues/560
-        // TODO: shouldEnableDebuggingEntitlement: Enable/Disable get-task-allow
+        if parameters.shouldEnableDebuggingEntitlement {
+            settings["DEPLOYMENT_POSTPROCESSING"] = "NO"
+        }
         // TODO: omitFramePointer: https://github.com/swiftlang/swift-build/issues/561
         return settings
     }
@@ -1064,10 +1147,6 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             } else {
                 settings["SWIFT_FORCE_STATIC_LINK_STDLIB"] = "NO"
             }
-        }
-
-        if let resourcesPath = self.buildParameters.toolchain.swiftResourcesPath(isStatic: parameters.shouldLinkStaticSwiftStdlib) {
-            settings["SWIFT_RESOURCE_DIR"] = resourcesPath.pathString
         }
 
         return settings
@@ -1221,6 +1300,8 @@ fileprivate extension Triple {
             return "WATCHOS_DEPLOYMENT_TARGET"
         case (_, .android):
             return "ANDROID_DEPLOYMENT_TARGET"
+        case (.freebsd, _):
+            return "FREEBSD_DEPLOYMENT_TARGET"
         default:
             return nil
         }
@@ -1243,5 +1324,48 @@ fileprivate extension Triple {
             return Version(parse: environmentName)
         }
         return osVersion
+    }
+
+    var deploymentTargetVersionString: String? {
+        let v = deploymentTargetVersion
+        guard v != .zero else {
+            return nil
+        }
+        var components = [v.major, v.minor, v.micro]
+        let minimumComponentCount = isApple() ? 2 : 1
+        while components.last == 0 && components.count > minimumComponentCount {
+            components.removeLast()
+        }
+        return components.map { String($0) }.joined(separator: ".")
+    }
+}
+
+fileprivate extension [BuildFlag] {
+    var rawFlagsForSwiftBuild: [String] {
+        filter {
+            switch $0.source {
+            case .commandLineOptions:
+                // Flags specified by the user. These are generally the only ones that should be passed on.
+                return true
+            case .plugin, .debugging, .toolset:
+                // FIXME: Not yet handled
+                return true
+            case .defaultSwiftTestingSearchPath:
+                // Swift Build computes these internally. It's important not to add them a second time here
+                // as it can break the intended search path ordering, for example, if the user is building
+                // Swift Testing as a package dependency.
+                return false
+            case .defaultWindowsSettings:
+                // Swift Build computes these internally.
+                return false
+            case .swiftSDK:
+                // Swift Build loads Swift SDK flags internally, and may introspect them to override build
+                // settings. Don't duplicate them here.
+                return false
+            case nil:
+                // Remaining flags are legacy build system specific (one occurrence only), or in tests.
+                return false
+            }
+        }.map { $0.value }
     }
 }

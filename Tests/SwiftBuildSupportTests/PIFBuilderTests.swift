@@ -21,19 +21,26 @@ import SwiftBuildSupport
 import _InternalTestSupport
 import Workspace
 
+@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly) import PackageGraph
+
 // MARK: - Helpers
 
 extension PIFBuilderParameters {
-    static func constructDefaultParametersForTesting(temporaryDirectory: Basics.AbsolutePath, addLocalRpaths: Bool) throws -> Self {
-        self.init(
+    static func constructDefaultParametersForTesting(
+        temporaryDirectory: Basics.AbsolutePath,
+        addLocalRpaths: Bool,
+        shouldCreateDylibForDynamicProducts: Bool = false,
+        pluginScriptRunner: PluginScriptRunner? = nil
+    ) throws -> Self {
+        try self.init(
             isPackageAccessModifierSupported: true,
             enableTestability: false,
-            shouldCreateDylibForDynamicProducts: false,
+            shouldCreateDylibForDynamicProducts: shouldCreateDylibForDynamicProducts,
             materializeStaticArchiveProductsForRootPackages: true,
             toolchainLibDir: temporaryDirectory.appending(component: "toolchain-lib-dir"),
             pkgConfigDirectories: [],
             supportedSwiftVersions: [.v4, .v4_2, .v5, .v6],
-            pluginScriptRunner: DefaultPluginScriptRunner(
+            pluginScriptRunner: pluginScriptRunner ?? DefaultPluginScriptRunner(
                 fileSystem: localFileSystem,
                 cacheDir: temporaryDirectory.appending(component: "plugin-cache-dir"),
                 toolchain: try UserToolchain.default
@@ -49,20 +56,24 @@ extension PIFBuilderParameters {
 fileprivate func withGeneratedPIF(
     fromFixture fixtureName: String,
     addLocalRpaths: Bool = true,
+    shouldCreateDylibForDynamicProducts: Bool = true,
     buildParameters: BuildParameters? = nil,
     do doIt: (SwiftBuildSupport.PIF.TopLevelObject, TestingObservability) async throws -> ()
 ) async throws {
     let buildParameters = if let buildParameters {
         buildParameters
     } else {
-       mockBuildParameters(destination: .host)
+        mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
     }
     try await fixture(name: fixtureName) { fixturePath in
         let observabilitySystem: TestingObservability = ObservabilitySystem.makeForTesting(verbose: false)
         let toolchain = try UserToolchain.default
+        var config = WorkspaceConfiguration.default
+        config.shouldCreateMultipleTestProducts = true
         let workspace = try Workspace(
             fileSystem: localFileSystem,
             forRootPackage: fixturePath,
+            configuration: config,
             customManifestLoader: ManifestLoader(toolchain: toolchain),
             delegate: MockWorkspaceDelegate()
         )
@@ -75,7 +86,8 @@ fileprivate func withGeneratedPIF(
             graph: graph,
             parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
                 temporaryDirectory: fixturePath,
-                addLocalRpaths: addLocalRpaths
+                addLocalRpaths: addLocalRpaths,
+                shouldCreateDylibForDynamicProducts: shouldCreateDylibForDynamicProducts
             ),
             fileSystem: localFileSystem,
             observabilityScope: observabilitySystem.topScope
@@ -183,6 +195,210 @@ extension BuildConfiguration {
 )
 struct PIFBuilderTests {
 
+    struct RootPackagesTestData {
+        let id: String
+        let rootPackages: [(name: String, path: Basics.AbsolutePath)]
+        let expectedData: (pifPath: Basics.AbsolutePath, pifName: String, pifId: String)
+    }
+    @Test(
+        arguments:[
+            RootPackagesTestData(
+                id: "Single root package, package path at root",
+                rootPackages: [
+                    (name: "fooPackage", path: AbsolutePath("/fooPackage")),
+                ],
+                expectedData: (
+                    pifPath: "/fooPackage",
+                    pifName: "fooPackage",
+                    pifId: "/fooPackage",
+                ),
+            ),
+            RootPackagesTestData(
+                id: "Single root package, package path nested ",
+                rootPackages: [
+                    (name: "fooPackage", path: AbsolutePath("/a/b/c/d/fooPackage")),
+                ],
+                expectedData: (
+                    pifPath: "/a/b/c/d/fooPackage",
+                    pifName: "fooPackage",
+                    pifId: "/a/b/c/d/fooPackage",
+                ),
+            ),
+            RootPackagesTestData(
+                id: "Two root packages, unordered, no common parent directory",
+                rootPackages: [
+                    (name: "fooPackage", path: AbsolutePath("/fooPackage")),
+                    (name: "barPackage", path: AbsolutePath("/barPackage")),
+                ],
+                expectedData: (
+                    pifPath: Basics.AbsolutePath.root,
+                    pifName: "barPackage,fooPackage",
+                    pifId: "/barPackage,/fooPackage",
+                ),
+            ),
+            RootPackagesTestData(
+                id: "Two root packages, ordered, no common parent directory",
+                rootPackages: [
+                    (name: "barPackage", path: AbsolutePath("/barPackage")),
+                    (name: "fooPackage", path: AbsolutePath("/fooPackage")),
+                ],
+                expectedData: (
+                    pifPath: Basics.AbsolutePath.root,
+                    pifName: "barPackage,fooPackage",
+                    pifId: "/barPackage,/fooPackage",
+                ),
+            ),
+            RootPackagesTestData(
+                id: "Two root packages, unordered, no common parent directory",
+                rootPackages: [
+                    (name: "fooPackage", path: AbsolutePath("/fooPackage")),
+                    (name: "barPackage", path: AbsolutePath("/barPackage")),
+                    (name: "bazPackage", path: AbsolutePath("/bazPackage")),
+                ],
+                expectedData: (
+                    pifPath: Basics.AbsolutePath.root,
+                    pifName: "barPackage,bazPackage,fooPackage",
+                    pifId: "/barPackage,/bazPackage,/fooPackage",
+                ),
+            ),
+            RootPackagesTestData(
+                id: "Multiple root packages, ordered, no common parent directory",
+                rootPackages: [
+                    (name: "barPackage", path: AbsolutePath("/barPackage")),
+                    (name: "bazPackage", path: AbsolutePath("/bazPackage")),
+                    (name: "fooPackage", path: AbsolutePath("/fooPackage")),
+                ],
+                expectedData: (
+                    pifPath: Basics.AbsolutePath.root,
+                    pifName: "barPackage,bazPackage,fooPackage",
+                    pifId: "/barPackage,/bazPackage,/fooPackage",
+                ),
+            ),
+            RootPackagesTestData(
+                id: "Two root packages, unordered, contains common directory, packages are sibling",
+                rootPackages: [
+                    (name: "fooPackage", path: AbsolutePath("/a/b/c/fooPackage")),
+                    (name: "barPackage", path: AbsolutePath("/a/b/c/barPackage")),
+                ],
+                expectedData: (
+                    pifPath: Basics.AbsolutePath("/a/b/c"),
+                    pifName: "barPackage,fooPackage",
+                    pifId: "/a/b/c/barPackage,/a/b/c/fooPackage",
+                ),
+            ),
+            RootPackagesTestData(
+                id: "Two root packages, ordered, contains common directory, packages are sibling",
+                rootPackages: [
+                    (name: "barPackage", path: AbsolutePath("/a/b/c/barPackage")),
+                    (name: "fooPackage", path: AbsolutePath("/a/b/c/fooPackage")),
+                ],
+                expectedData: (
+                    pifPath: Basics.AbsolutePath("/a/b/c"),
+                    pifName: "barPackage,fooPackage",
+                    pifId: "/a/b/c/barPackage,/a/b/c/fooPackage",
+                ),
+            ),
+            RootPackagesTestData(
+                id: "Two root packages, ybordered, contains common directory, packages are not siblings",
+                rootPackages: [
+                    (name: "fooPackage", path: AbsolutePath("/a/b/c/pink/fuzz/fooPackage")),
+                    (name: "barPackage", path: AbsolutePath("/a/b/c/absolute/zero/barPackage")),
+                ],
+                expectedData: (
+                    pifPath: Basics.AbsolutePath("/a/b/c"),
+                    pifName: "barPackage,fooPackage",
+                    pifId: "/a/b/c/absolute/zero/barPackage,/a/b/c/pink/fuzz/fooPackage",
+                ),
+            ),
+            RootPackagesTestData(
+                id: "Two root packages, ordered, contains common directory, packages are not siblings",
+                rootPackages: [
+                    (name: "barPackage", path: AbsolutePath("/a/b/c/absolute/zero/barPackage")),
+                    (name: "fooPackage", path: AbsolutePath("/a/b/c/pink/fuzz/fooPackage")),
+                ],
+                expectedData: (
+                    pifPath: Basics.AbsolutePath("/a/b/c"),
+                    pifName: "barPackage,fooPackage",
+                    pifId: "/a/b/c/absolute/zero/barPackage,/a/b/c/pink/fuzz/fooPackage",
+                ),
+            ),
+
+            RootPackagesTestData(
+                id: "Many root packages, unordered, contains common directory, packages are not siblings",
+                rootPackages: [
+                    (name: "fooPackage", path: AbsolutePath("/a/b/c/pink/fuzz/fooPackage")),
+                    (name: "barPackage", path: AbsolutePath("/a/b/c/absolute/zero/barPackage")),
+                    (name: "bazPackage", path: AbsolutePath("/a/b/c/absolute/legend/bazPackage")),
+                ],
+                expectedData: (
+                    pifPath: Basics.AbsolutePath("/a/b/c"),
+                    pifName: "barPackage,bazPackage,fooPackage",
+                    pifId: "/a/b/c/absolute/zero/barPackage,/a/b/c/absolute/legend/bazPackage,/a/b/c/pink/fuzz/fooPackage",
+                ),
+            ),
+            RootPackagesTestData(
+                id: "Many root packages, ordered, contains common directory, packages are not siblings",
+                rootPackages: [
+                    (name: "barPackage", path: AbsolutePath("/a/b/c/absolute/zero/barPackage")),
+                    (name: "bazPackage", path: AbsolutePath("/a/b/c/absolute/legend/bazPackage")),
+                    (name: "fooPackage", path: AbsolutePath("/a/b/c/pink/fuzz/fooPackage")),
+                ],
+                expectedData: (
+                    pifPath: Basics.AbsolutePath("/a/b/c"),
+                    pifName: "barPackage,bazPackage,fooPackage",
+                    pifId: "/a/b/c/absolute/zero/barPackage,/a/b/c/absolute/legend/bazPackage,/a/b/c/pink/fuzz/fooPackage",
+                ),
+            ),
+        ],
+    )
+    func multipleRootPackages(
+        testData: RootPackagesTestData,
+    ) async throws {
+        // Arrange
+        try #require(testData.rootPackages.count >= 1, "Test configuration data error.  No root packages are specified.")
+
+        let fs = InMemoryFileSystem()
+        let observabilityScope = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: testData.rootPackages.map { rootPackage in
+                Manifest.createRootManifest(
+                    displayName: rootPackage.name,
+                    path: rootPackage.path,
+                    products: [],
+                    targets: [],
+                )
+            },
+            observabilityScope: observabilityScope.topScope
+        )
+
+        let pifBuilder = PIFBuilder(
+            graph: graph,
+            parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
+                temporaryDirectory: AbsolutePath.root.appending("tmp"),
+                addLocalRpaths: true,
+            ),
+            fileSystem: fs,
+            observabilityScope: observabilityScope.topScope,
+        )
+
+        // Act
+        let pif = try await pifBuilder.constructPIF(
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild),
+        )
+
+        // Assert
+        #expect(
+            pif.workspace.path == testData.expectedData.pifPath,
+            "Actual path is not as expected",
+        )
+        #expect(
+            pif.workspace.name == testData.expectedData.pifName,
+            "Actual pif name is not as expected",
+        )
+
+    }
+
     @Test func platformExecutableModuleLibrarySearchPath() async throws {
         try await withGeneratedPIF(fromFixture: "PIFBuilder/BasicExecutable") { pif, observabilitySystem in
             let releaseConfig = try pif.workspace
@@ -286,6 +502,49 @@ struct PIFBuilderTests {
     @Test(
         arguments: BuildConfiguration.allCases,
     )
+    func dynamicLibraryProductExecutablePrefix(
+        configuration: BuildConfiguration,
+    ) async throws {
+        try await withGeneratedPIF(
+            fromFixture: "PIFBuilder/Library",
+            shouldCreateDylibForDynamicProducts: true
+        ) { pif, observabilitySystem in
+            let errors: [Diagnostic] = observabilitySystem.diagnostics.filter { $0.severity == .error }
+            #expect(errors.isEmpty, "Expected no errors during PIF generation, but got: \(errors)")
+
+            let target = try pif.workspace
+                .project(named: "Library")
+                .target(named: "LibraryDynamic-product")
+
+            guard case .target(let concreteTarget) = target else {
+                Issue.record("Expected a regular target, got \(target)")
+                return
+            }
+            #expect(concreteTarget.productType == .dynamicLibrary)
+            let config = try target.buildConfig(named: configuration)
+            #expect(config.settings[.EXECUTABLE_PREFIX] == "lib")
+            #expect(config.settings[.EXECUTABLE_PREFIX, .windows] == "")
+        }
+
+        try await withGeneratedPIF(
+            fromFixture: "PIFBuilder/Library",
+            shouldCreateDylibForDynamicProducts: false
+        ) { pif, observabilitySystem in
+            let errors: [Diagnostic] = observabilitySystem.diagnostics.filter { $0.severity == .error }
+            #expect(errors.isEmpty, "Expected no errors during PIF generation, but got: \(errors)")
+
+            let target = try pif.workspace
+                .project(named: "Library")
+                .target(named: "LibraryDynamic-product")
+
+            let config = try target.buildConfig(named: configuration)
+            #expect(config.settings[.EXECUTABLE_PREFIX] == nil)
+        }
+    }
+
+    @Test(
+        arguments: BuildConfiguration.allCases,
+    )
     func executablePrefixIsSetCorrectly(
         configuration: BuildConfiguration,
     ) async throws {
@@ -331,6 +590,30 @@ struct PIFBuilderTests {
     }
 
 
+    @Test(arguments: BuildConfiguration.allCases)
+    func conditionalLinkerSettings(configuration: BuildConfiguration) async throws {
+        try await withGeneratedPIF(fromFixture: "PIFBuilder/ConditionalBuildSettings") { pif, observabilitySystem in
+            let errors = observabilitySystem.diagnostics.filter { $0.severity == .error }
+            #expect(errors.isEmpty, "Expected no errors during PIF generation, but got: \(errors)")
+
+            let targetConfig = try pif.workspace
+                .project(named: "ConditionalBuildSettings")
+                .target(id: "PACKAGE-TARGET:ConditionalBuildSettings")
+                .buildConfig(named: configuration)
+
+            let ldflags = targetConfig.settings[.OTHER_LDFLAGS]
+            switch configuration {
+            case .debug:
+               let debugFlags = try #require(ldflags, "Debug config requires OTHER_LDFLAGS")
+                #expect(
+                    debugFlags.contains("-Xlinker") && debugFlags.contains("-interposable"),
+                    "Debug config missing required flags: \(debugFlags)"
+                )
+            case .release:
+                #expect(ldflags == nil, "Release config should not have debug flags, but got \(ldflags)")
+            }
+        }
+    }
 
     @Test func impartedModuleMaps() async throws {
         try await withGeneratedPIF(fromFixture: "CFamilyTargets/ModuleMapGenerationCases") { pif, observabilitySystem in
@@ -399,6 +682,157 @@ struct PIFBuilderTests {
         }
     }
 
+    @Test func warningSettingsInRemotePackage() async throws {
+        let observability = ObservabilitySystem.makeForTesting()
+
+        let fs = InMemoryFileSystem(emptyFiles: [
+            "/Root/Sources/RootLib/RootLib.swift",
+            "/RemotePkg/Sources/swiftLib/swiftLib.swift",
+            "/RemotePkg/Sources/cLib/cLib.c",
+            "/RemotePkg/Sources/cLib/include/cLib.h",
+            "/RemotePkg/Sources/cxxLib/cxxLib.cpp",
+            "/RemotePkg/Sources/cxxLib/include/cxxLib.h",
+            "/LocalPkg/Sources/localLib/localLib.swift",
+        ])
+
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Root",
+                    path: "/Root",
+                    toolsVersion: .v6_2,
+                    dependencies: [
+                        .remoteSourceControl(
+                            url: "https://example.com/remote-pkg",
+                            requirement: .upToNextMajor(from: "1.0.0")
+                        ),
+                        .fileSystem(path: "/LocalPkg"),
+                    ],
+                    products: [],
+                    targets: [
+                        TargetDescription(
+                            name: "RootLib",
+                            dependencies: [
+                                .product(name: "RemoteLib", package: "remote-pkg"),
+                                .product(name: "RemoteCLib", package: "remote-pkg"),
+                                .product(name: "RemoteCXXLib", package: "remote-pkg"),
+                                .product(name: "LocalLib", package: "LocalPkg"),
+                            ]
+                        ),
+                    ]
+                ),
+                Manifest.createRemoteSourceControlManifest(
+                    displayName: "remote-pkg",
+                    url: "https://example.com/remote-pkg",
+                    path: "/RemotePkg",
+                    toolsVersion: .v6_2,
+                    products: [
+                        ProductDescription(name: "RemoteLib", type: .library(.automatic), targets: ["swiftLib"]),
+                        ProductDescription(name: "RemoteCLib", type: .library(.automatic), targets: ["cLib"]),
+                        ProductDescription(name: "RemoteCXXLib", type: .library(.automatic), targets: ["cxxLib"]),
+                    ],
+                    targets: [
+                        TargetDescription(
+                            name: "swiftLib",
+                            settings: [
+                                .init(tool: .swift, kind: .treatAllWarnings(.warning), condition: .init(config: "debug")),
+                                .init(tool: .swift, kind: .treatAllWarnings(.error), condition: .init(config: "release")),
+                                .init(tool: .swift, kind: .treatWarning("DeprecatedDeclaration", .error), condition: .init(config: "release")),
+                            ]
+                        ),
+                        TargetDescription(
+                            name: "cLib",
+                            settings: [
+                                .init(tool: .c, kind: .enableWarning("implicit-fallthrough"), condition: .init(config: "debug")),
+                                .init(tool: .c, kind: .treatAllWarnings(.error), condition: .init(config: "release")),
+                                .init(tool: .c, kind: .treatWarning("deprecated-declarations", .error), condition: .init(config: "release")),
+                            ]
+                        ),
+                        TargetDescription(
+                            name: "cxxLib",
+                            settings: [
+                                .init(tool: .cxx, kind: .enableWarning("implicit-fallthrough"), condition: .init(config: "debug")),
+                                .init(tool: .cxx, kind: .treatAllWarnings(.error), condition: .init(config: "release")),
+                                .init(tool: .cxx, kind: .treatWarning("deprecated-declarations", .error), condition: .init(config: "release")),
+                            ]
+                        ),
+                    ]
+                ),
+                Manifest.createFileSystemManifest(
+                    displayName: "LocalPkg",
+                    path: "/LocalPkg",
+                    toolsVersion: .v6_2,
+                    products: [
+                        ProductDescription(name: "LocalLib", type: .library(.automatic), targets: ["localLib"]),
+                    ],
+                    targets: [
+                        TargetDescription(
+                            name: "localLib",
+                            settings: [
+                                .init(tool: .swift, kind: .treatAllWarnings(.error)),
+                            ]
+                        ),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        let pifBuilder = PIFBuilder(
+            graph: graph,
+            parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
+                temporaryDirectory: AbsolutePath.root,
+                addLocalRpaths: true
+            ),
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+        let pif = try await pifBuilder.constructPIF(
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+        )
+
+        let remoteProject = try pif.workspace.project(named: "remote-pkg")
+        for config in [BuildConfiguration.debug, .release] {
+            #expect(try remoteProject.buildConfig(named: config).settings[.SUPPRESS_WARNINGS] == "YES")
+        }
+
+        let swiftLibTarget = try remoteProject.target(named: "swiftLib")
+        let strippedSwiftFlags = ["-warnings-as-errors", "-no-warnings-as-errors", "-Wwarning", "-Werror", "DeprecatedDeclaration"]
+        for config in [BuildConfiguration.debug, .release] {
+            let swiftLibConfig = try swiftLibTarget.buildConfig(named: config)
+            if let swiftFlags = swiftLibConfig.settings[.OTHER_SWIFT_FLAGS] {
+                for flag in strippedSwiftFlags {
+                    #expect(!swiftFlags.contains(flag))
+                }
+            }
+        }
+
+        for clangLibTargetName in ["cLib", "cxxLib"] {
+            let cLibTarget = try remoteProject.target(named: clangLibTargetName)
+            for config in [BuildConfiguration.debug, .release] {
+                let cLibConfig = try cLibTarget.buildConfig(named: config)
+                if let cFlags = cLibConfig.settings[.OTHER_CFLAGS] {
+                    #expect(cFlags.filter { $0.count > 2 && $0.hasPrefix("-W") }.isEmpty)
+                }
+                if let cPlusPlusFlags = cLibConfig.settings[.OTHER_CPLUSPLUSFLAGS] {
+                    #expect(cPlusPlusFlags.filter { $0.count > 2 && $0.hasPrefix("-W") }.isEmpty)
+                }
+            }
+        }
+
+        let localProject = try pif.workspace.project(named: "LocalPkg")
+
+        for config in [BuildConfiguration.debug, .release] {
+            #expect(try localProject.buildConfig(named: config).settings[.SUPPRESS_WARNINGS] == nil)
+        }
+
+        let localLibTarget = try localProject.target(named: "localLib")
+        for config in [BuildConfiguration.debug, .release] {
+            #expect(try localLibTarget.buildConfig(named: config).settings[.OTHER_SWIFT_FLAGS]?.contains("-warnings-as-errors") == true)
+        }
+    }
+
     @Suite(
         .tags(
             .FunctionalArea.IndexMode
@@ -416,7 +850,7 @@ struct PIFBuilderTests {
          ) async throws {
             try await withGeneratedPIF(
                 fromFixture: "PIFBuilder/Simple",
-                buildParameters: mockBuildParameters(destination: .host, indexStoreMode: indexStoreSettingUT),
+                buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild, indexStoreMode: indexStoreSettingUT),
             ) { pif, observabilitySystem in
                 // #expect(false, "fail purposefully...")
                 #expect(observabilitySystem.diagnostics.filter {
@@ -440,7 +874,7 @@ struct PIFBuilderTests {
 
                 let testTargetConfig = try pif.workspace
                     .project(named: "Simple")
-                    .target(named: "SimplePackageTests-product")
+                    .target(named: "SimpleTests-product")
                     .buildConfig(named: configuration)
                 switch indexStoreSettingUT {
                     case .on, .off:

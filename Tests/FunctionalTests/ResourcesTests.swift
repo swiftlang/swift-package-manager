@@ -62,6 +62,25 @@ struct ResourcesTests{
     }
 
     @Test(
+        .requireHostOS(.macOS),
+        .tags(
+            .Feature.Command.Run,
+        ),
+    )
+    func swiftBuildResourceRules() async throws {
+        let config = BuildConfiguration.debug
+        try await fixture(name: "Resources/ResourceRules") { fixturePath in
+            let (output, _) = try await executeSwiftRun(
+                fixturePath,
+                "ResourceRules",
+                configuration: config,
+                buildSystem: .swiftbuild,
+            )
+            #expect(output.contains("succeeded"))
+        }
+    }
+
+    @Test(
         .tags(
             .Feature.Command.Build,
         ),
@@ -92,8 +111,6 @@ struct ResourcesTests{
 
     @Test(
         .requireHostOS(.macOS),  // originally macOS only
-        // .skipHostOS(.linux), // currently failing on Ubuntu
-        .issue("https://github.com/swiftlang/swift-package-manager/issues/9533", relationship: .defect),
         .tags(
             .Feature.Command.Build,
         ),

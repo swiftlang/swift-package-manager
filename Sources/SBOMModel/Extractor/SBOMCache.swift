@@ -1,0 +1,112 @@
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift open source project
+//
+// Copyright (c) 2025 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
+
+import Basics
+import Foundation
+import PackageCollections
+import PackageGraph
+import PackageModel
+import SourceControl
+import TSCUtility
+
+internal struct SBOMVersionInfo {
+    internal let version: SBOMComponent.Version
+    internal let originator: SBOMOriginator
+
+    internal init(version: SBOMComponent.Version, originator: SBOMOriginator) {
+        self.version = version
+        self.originator = originator
+    }
+}
+
+/// Cache for storing root package version info (to minimize calls to Git)
+internal actor SBOMVersionCache {
+    private var cache: [PackageIdentity: SBOMVersionInfo] = [:]
+    internal func get(_ identity: PackageIdentity) -> SBOMVersionInfo? {
+        self.cache[identity]
+    }
+
+    internal func set(_ identity: PackageIdentity, versionInfo: SBOMVersionInfo) {
+        self.cache[identity] = versionInfo
+    }
+}
+
+/// Key for product cache entries
+internal struct ProductCacheKey: Hashable {
+    internal let packageIdentity: PackageIdentity
+    internal let productName: String
+    
+    internal init(packageIdentity: PackageIdentity, productName: String) {
+        self.packageIdentity = packageIdentity
+        self.productName = productName
+    }
+}
+
+/// Cache for storing extracted components (to avoid redundant extraction)
+internal actor SBOMComponentCache {
+    private var packageCache: [PackageIdentity: SBOMComponent] = [:]
+    private var productCache: [ProductCacheKey: SBOMComponent] = [:]
+
+    internal func getPackage(_ identity: PackageIdentity) -> SBOMComponent? {
+        self.packageCache[identity]
+    }
+
+    internal func setPackage(_ identity: PackageIdentity, component: SBOMComponent) {
+        self.packageCache[identity] = component
+    }
+
+    internal func getProduct(_ packageIdentity: PackageIdentity, productName: String) -> SBOMComponent? {
+        let key = ProductCacheKey(packageIdentity: packageIdentity, productName: productName)
+        return self.productCache[key]
+    }
+
+    internal func setProduct(_ packageIdentity: PackageIdentity, productName: String, component: SBOMComponent) {
+        let key = ProductCacheKey(packageIdentity: packageIdentity, productName: productName)
+        self.productCache[key] = component
+    }
+}
+
+/// Cache for storing module-to-target-name mappings from the build graph
+internal actor SBOMTargetNameCache {
+    private var cache: [ResolvedModule.ID: String] = [:]
+
+    internal func get(_ moduleID: ResolvedModule.ID) -> String? {
+        self.cache[moduleID]
+    }
+
+    internal func set(_ moduleID: ResolvedModule.ID, targetName: String) {
+        self.cache[moduleID] = targetName
+    }
+}
+
+/// Consolidated container for all SBOM extraction caches
+internal struct SBOMCaches {
+    internal let version: SBOMVersionCache
+    internal let component: SBOMComponentCache
+    internal let targetName: SBOMTargetNameCache
+
+    internal init() {
+        self.version = SBOMVersionCache()
+        self.component = SBOMComponentCache()
+        self.targetName = SBOMTargetNameCache()
+    }
+
+    internal init(
+        version: SBOMVersionCache,
+        component: SBOMComponentCache,
+        targetName: SBOMTargetNameCache
+    ) {
+        self.version = version
+        self.component = component
+        self.targetName = targetName
+    }
+}
