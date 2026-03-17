@@ -28,10 +28,10 @@ private let linuxMuslTargetTriple = try! Triple("x86_64-unknown-linux-musl")
 private let androidTargetTriple = try! Triple("aarch64-unknown-linux-android28")
 private let wasiTargetTriple = try! Triple("wasm32-unknown-wasi")
 private let extraFlags = BuildFlags(
-    cCompilerFlags: ["-fintegrated-as"],
-    cxxCompilerFlags: ["-fno-exceptions"],
-    swiftCompilerFlags: ["-enable-experimental-cxx-interop", "-use-ld=lld"],
-    linkerFlags: ["-R/usr/lib/swift/linux/"]
+    cCompilerFlags: ["-fintegrated-as"].constructBuildFlags(source: .swiftSDK),
+    cxxCompilerFlags: ["-fno-exceptions"].constructBuildFlags(source: .swiftSDK),
+    swiftCompilerFlags: ["-enable-experimental-cxx-interop", "-use-ld=lld"].constructBuildFlags(source: .swiftSDK),
+    linkerFlags: ["-R/usr/lib/swift/linux/"].constructBuildFlags(source: .swiftSDK)
 )
 
 private let destinationV1 = (
@@ -42,9 +42,9 @@ private let destinationV1 = (
         "sdk": "\#(bundleRootPath.appending(sdkRootDir))",
         "toolchain-bin-dir": "\#(bundleRootPath.appending(toolchainBinDir))",
         "target": "\#(linuxGNUTargetTriple.tripleString)",
-        "extra-cc-flags": \#(extraFlags.cCompilerFlags),
-        "extra-swiftc-flags": \#(extraFlags.swiftCompilerFlags),
-        "extra-cpp-flags": \#(extraFlags.cxxCompilerFlags)
+        "extra-cc-flags": \#(extraFlags.cCompilerFlags.rawFlags),
+        "extra-swiftc-flags": \#(extraFlags.swiftCompilerFlags.rawFlags),
+        "extra-cpp-flags": \#(extraFlags.cxxCompilerFlags.rawFlags)
     }
     """# as SerializedJSON
 )
@@ -58,10 +58,10 @@ private let destinationV2 = (
         "toolchainBinDir": "\#(toolchainBinDir)",
         "hostTriples": ["\#(hostTriple.tripleString)"],
         "targetTriples": ["\#(linuxGNUTargetTriple.tripleString)"],
-        "extraCCFlags": \#(extraFlags.cCompilerFlags),
-        "extraSwiftCFlags": \#(extraFlags.swiftCompilerFlags),
-        "extraCXXFlags": \#(extraFlags.cxxCompilerFlags),
-        "extraLinkerFlags": \#(extraFlags.linkerFlags)
+        "extraCCFlags": \#(extraFlags.cCompilerFlags.rawFlags),
+        "extraSwiftCFlags": \#(extraFlags.swiftCompilerFlags.rawFlags),
+        "extraCXXFlags": \#(extraFlags.cxxCompilerFlags.rawFlags),
+        "extraLinkerFlags": \#(extraFlags.linkerFlags.rawFlags)
     }
     """# as SerializedJSON
 )

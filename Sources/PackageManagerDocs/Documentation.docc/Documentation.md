@@ -27,6 +27,9 @@ The Swift Package Manager lets you share your code as a package, depend on and u
 - <doc:SettingSwiftToolsVersion>
 - <doc:UsingBuildConfigurations>
 - <doc:SwiftVersionSpecificPackaging>
+- <doc:BundlingResources>
+- <doc:ReleasingPublishingAPackage>
+- <doc:GeneratingSBOMs>
 - <doc:UsingShellCompletion>
 - <doc:ContinuousIntegration>
 

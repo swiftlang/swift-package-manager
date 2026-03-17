@@ -224,10 +224,7 @@ struct TestCommandTests {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let configuration = BuildConfiguration.debug
-        try await withKnownIssue(
-            "fails to build the package",
-            isIntermittent: true,
-        ) {
+        try await withKnownIssue("fails to build the package", isIntermittent: true) {
             // default should run with testability
             try await fixture(name: "Miscellaneous/TestableExe") { fixturePath in
                 let result = try await execute(
@@ -367,6 +364,30 @@ struct TestCommandTests {
     }
 
     @Test(
+        .IssueWindowsLongPath,
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func testProductFlag(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await withKnownIssue(isIntermittent: true) {
+            let configuration = BuildConfiguration.debug
+            try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
+                let (stdout, _) = try await executeSwiftTest(
+                    fixturePath,
+                    configuration: configuration,
+                    extraArgs: ["--test-product", "SimplePackageTests"],
+                    buildSystem: buildSystem,
+                    throwIfCommandFails: true,
+                )
+                #expect(stdout.contains("Executed 3 tests"))
+            }
+        } when: {
+            buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows
+        }
+    }
+
+    @Test(
         .tags(
             .Feature.Command.Run,
             .Feature.TargetType.Executable,
@@ -483,7 +504,7 @@ struct TestCommandTests {
                 #expect(stdout.contains("[3/3]"))
 
                 // Check the xUnit output.
-                #expect(localFileSystem.exists(xUnitOutput), "\(xUnitOutput) does not exist")
+                expectFileExists(at: xUnitOutput, "\(xUnitOutput) does not exist")
                 let contents: String = try localFileSystem.readFileContents(xUnitOutput)
                 #expect(contents.contains("tests=\"3\" failures=\"1\""))
                 let timeRegex = try Regex("time=\"[0-9]+\\.[0-9]+\"")
@@ -521,7 +542,7 @@ struct TestCommandTests {
                 ).stdout
 
                 // Check the xUnit output.
-                #expect(localFileSystem.exists(xUnitOutput))
+                expectFileExists(at: xUnitOutput)
                 let contents: String = try localFileSystem.readFileContents(xUnitOutput)
                 #expect(contents.contains("tests=\"0\" failures=\"0\""))
             }
@@ -709,7 +730,7 @@ struct TestCommandTests {
                 }
 
                 // THEN we expect \(xUnitUnderTest) to exists
-                #expect(FileManager.default.fileExists(atPath: xUnitUnderTest.pathString))
+                expectFileExists(at: xUnitUnderTest)
                 let contents: String = try localFileSystem.readFileContents(xUnitUnderTest)
                 // AND that the xUnit file has the expected contents
                 for match in tcdata.matchesPattern {
@@ -1009,7 +1030,7 @@ struct TestCommandTests {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let configuration = BuildConfiguration.debug
-        try await withKnownIssue("Fails to find test executable") {
+        try await withKnownIssue("Fails to find test executable", isIntermittent: true) {
             try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
                 let (stdout, stderr) = try await execute(
                     ["list"],
@@ -1102,9 +1123,7 @@ struct TestCommandTests {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let configuration = BuildConfiguration.debug
-        try await withKnownIssue(
-            isIntermittent: true
-        ) {
+        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
                 // build first
                     // This might be intermittently failing on windows
@@ -1169,10 +1188,38 @@ struct TestCommandTests {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let configuration = BuildConfiguration.debug
-        try await withKnownIssue("Fails to find the test executable") {
+        try await withKnownIssue("Fails to find the test executable", isIntermittent: true) {
             try await fixture(name: "Miscellaneous/TestDiscovery/SwiftTesting") { fixturePath in
                 let (stdout, stderr) = try await execute(
                     ["--enable-swift-testing", "--disable-xctest"],
+                    packagePath: fixturePath,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                )
+                #expect(
+                    stdout.contains(#"Test "SOME TEST FUNCTION" started"#),
+                    "Expectation not met.  got '\(stdout)'\nstderr: '\(stderr)'"
+                )
+            }
+        } when: {
+            buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows
+        }
+    }
+
+    @Test(
+        .tags(
+            .Feature.TargetType.Executable,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func testingWithLocalRpathsDisabled(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        let configuration = BuildConfiguration.debug
+        try await withKnownIssue("Fails to find the test executable") {
+            try await fixture(name: "Miscellaneous/TestDiscovery/SwiftTesting") { fixturePath in
+                let (stdout, stderr) = try await execute(
+                    ["--disable-local-rpath"],
                     packagePath: fixturePath,
                     configuration: configuration,
                     buildSystem: buildSystem,

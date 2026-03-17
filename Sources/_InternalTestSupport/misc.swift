@@ -116,7 +116,7 @@ public func testWithTemporaryDirectory<Result>(
 @available(*, deprecated, message: "Migrate test to Swift Testing and use 'fixture' instead")
 @discardableResult public func fixtureXCTest<T>(
     name: String,
-    createGitRepo: Bool = true,
+    createGitRepo: Bool = false,
     file: StaticString = #file,
     line: UInt = #line,
     body: (AbsolutePath) throws -> T
@@ -154,7 +154,7 @@ public func testWithTemporaryDirectory<Result>(
 
 @discardableResult public func fixture<T>(
     name: String,
-    createGitRepo: Bool = true,
+    createGitRepo: Bool = false,
     removeFixturePathOnDeinit: Bool = true,
     file: StaticString = #file,
     line: UInt = #line,
@@ -204,7 +204,7 @@ public enum TestError: Error {
 @available(*, deprecated, message: "Migrate test to Swift Testing and use 'fixture' instead")
 @discardableResult public func fixtureXCTest<T>(
     name: String,
-    createGitRepo: Bool = true,
+    createGitRepo: Bool = false,
     file: StaticString = #file,
     line: UInt = #line,
     body: (AbsolutePath) async throws -> T
@@ -242,7 +242,7 @@ public enum TestError: Error {
 
 @discardableResult public func fixture<T>(
     name: String,
-    createGitRepo: Bool = true,
+    createGitRepo: Bool = false,
     removeFixturePathOnDeinit: Bool = true,
     file: StaticString = #file,
     line: UInt = #line,
@@ -252,7 +252,7 @@ public enum TestError: Error {
     do {
         // Make a suitable test directory name from the fixture subpath.
         let fixtureSubpath = try RelativePath(validating: name)
-        let copyName = fixtureSubpath.components.joined(separator: "_")
+        let copyName = fixtureSubpath.components.last!
 
         // Create a temporary directory for the duration of the block.
         return try await withTemporaryDirectory(
@@ -314,15 +314,46 @@ fileprivate func setup(
     fixtureDir: AbsolutePath,
     in tmpDirPath: AbsolutePath,
     copyName: String,
-    createGitRepo: Bool = true
+    createGitRepo: Bool,
 ) throws -> AbsolutePath {
     func copy(from srcDir: AbsolutePath, to dstDir: AbsolutePath) throws {
-        #if os(Windows)
-        try localFileSystem.copy(from: srcDir, to: dstDir)
-        #else
-        try Process.checkNonZeroExit(args: "cp", "-R", "-H", srcDir.pathString, dstDir.pathString)
-        #endif
 
+        // Pure Swift copy implementation that follows symlinks
+        func copyItem(from source: AbsolutePath, to destination: AbsolutePath) throws {
+            // Resolve symlinks to follow them
+            let resolvedSource: AbsolutePath
+            if localFileSystem.isSymlink(source) {
+                resolvedSource = try resolveSymlinks(source)
+            } else {
+                resolvedSource = source
+            }
+
+            if localFileSystem.isDirectory(resolvedSource) {
+                // Create destination directory if it doesn't exist
+                if !localFileSystem.exists(destination) {
+                    try localFileSystem.createDirectory(destination, recursive: true)
+                }
+
+                // Recursively copy directory contents
+                let contents = try localFileSystem.getDirectoryContents(resolvedSource)
+                for item in contents {
+                    let sourcePath = resolvedSource.appending(component: item)
+                    let destPath = destination.appending(component: item)
+                    try copyItem(from: sourcePath, to: destPath)
+                }
+            } else if localFileSystem.isFile(resolvedSource) {
+                try localFileSystem.copy(from: resolvedSource, to: destination)
+
+                // Preserve executable permission if the source file is executable
+                #if !os(Windows)
+                if localFileSystem.isExecutableFile(resolvedSource) {
+                    try localFileSystem.chmod(.executable, path: destination, options: [])
+                }
+                #endif
+            }
+        }
+
+        try copyItem(from: srcDir, to: dstDir)
         // Ensure we get a clean test fixture.
         try localFileSystem.removeFileTree(dstDir.appending(component: ".build"))
         try localFileSystem.removeFileTree(dstDir.appending(component: ".swiftpm"))
@@ -708,4 +739,19 @@ public func executableName(_ name: String) -> String {
 #else
   return name
 #endif
+}
+
+package func getCoveragePath(
+    _ path: AbsolutePath,
+    with buildData: BuildData,
+) async throws -> String {
+    return try await executeSwiftTest(
+            path,
+            configuration: buildData.config,
+            extraArgs: [
+                "--show-coverage-path",
+            ],
+            buildSystem: buildData.buildSystem,
+            throwIfCommandFails: true,
+        ).stdout.trimmingCharacters(in: .whitespacesAndNewlines)
 }
