@@ -20,7 +20,6 @@ import CoreCommands
 import Foundation
 import PackageGraph
 import SwiftPMBuildServer
-import SPMBuildCore
 import SwiftBuildSupport
 import SystemPackage
 
