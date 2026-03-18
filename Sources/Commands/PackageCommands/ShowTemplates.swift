@@ -187,7 +187,7 @@ struct ShowTemplates: AsyncSwiftCommand {
 
         if let target = targets.first(where: { $0.name == template }),
            let options = target.templateInitializationOptions,
-           case .packageInit(_, _, let description) = options
+           case .packageInit(_, let description) = options
         {
             return description
         }

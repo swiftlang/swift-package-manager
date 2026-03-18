@@ -636,29 +636,8 @@ extension TargetDescription.PluginUsage {
 extension TargetDescription.TemplateInitializationOptions {
     init (_ usage: Serialization.TemplateInitializationOptions, identityResolver: IdentityResolver) throws {
         switch usage {
-        case .packageInit(let templateType, let templatePermissions, let description):
-            self = .packageInit(templateType: .init(templateType), templatePermissions: templatePermissions?.map { .init($0) }, description: description)
-        }
-    }
-}
-
-extension TargetDescription.TemplateType {
-    init(_ type: Serialization.TemplateType) {
-        switch type {
-        case .library:
-            self = .library
-        case .executable:
-            self = .executable
-        case .tool:
-            self = .tool
-        case .buildToolPlugin:
-            self = .buildToolPlugin
-        case .commandPlugin:
-            self = .commandPlugin
-        case .macro:
-            self = .macro
-        case .empty:
-            self = .empty
+        case .packageInit(let templatePermissions, let description):
+            self = .packageInit(templatePermissions: templatePermissions?.map { .init($0) }, description: description)
         }
     }
 }

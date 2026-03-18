@@ -232,21 +232,10 @@ public final class Target {
     /// Options for how a template generates a Swift project.
     public var templateInitializationOptions: TemplateInitializationOptions?
 
-    /// The base package structure SwiftPM will set up before invoking a template's executable.
-    public enum TemplateType: String {
-        case executable
-        case `macro`
-        case library
-        case tool
-        case buildToolPlugin
-        case commandPlugin
-        case empty
-    }
-
     /// Options for how a template generates a Swift project.
     @available(_PackageDescription, introduced: 6.3)
     public enum TemplateInitializationOptions {
-        case packageInit(templateType: TemplateType, templatePermissions: [TemplatePermissions]? = nil, description: String)
+        case packageInit(templatePermissions: [TemplatePermissions]? = nil, description: String)
     }
 
     /// Construct a target.
@@ -1290,7 +1279,6 @@ public extension [Target] {
         swiftSettings: [SwiftSetting]? = nil,
         linkerSettings: [LinkerSetting]? = nil,
         plugins: [Target.PluginUsage]? = nil,
-        initialPackageType: Target.TemplateType = .empty,
         templatePermissions: [TemplatePermissions]? = nil,
         description: String
     ) -> [Target] {
@@ -1320,7 +1308,6 @@ public extension [Target] {
         }()
 
         let templateInitializationOptions = Target.TemplateInitializationOptions.packageInit(
-            templateType: initialPackageType,
             templatePermissions: templatePermissions,
             description: description
         )

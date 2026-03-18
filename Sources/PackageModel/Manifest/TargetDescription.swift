@@ -199,18 +199,7 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
 
     /// The options available to initialize a template.
     public enum TemplateInitializationOptions: Hashable, Sendable {
-        case packageInit(templateType: TemplateType, templatePermissions: [TemplatePermission]?, description: String)
-    }
-
-    /// The base package structure SwiftPM will set up before invoking a template's executable.
-    public enum TemplateType: String, Hashable, Codable, Sendable {
-        case library
-        case executable
-        case tool
-        case buildToolPlugin
-        case commandPlugin
-        case `macro`
-        case empty
+        case packageInit(templatePermissions: [TemplatePermission]?, description: String)
     }
 
     /// Network permissions that a template may require.
@@ -713,15 +702,14 @@ extension TargetDescription.TemplateInitializationOptions: Codable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {
-        case let .packageInit(a1, a2, a3):
+        case let .packageInit(a1, a2):
             var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .packageInit)
-            try unkeyedContainer.encode(a1)
-            if let permissions = a2 {
+            if let permissions = a1 {
                 try unkeyedContainer.encode(permissions)
             } else {
                 try unkeyedContainer.encodeNil()
             }
-            try unkeyedContainer.encode(a3)
+            try unkeyedContainer.encode(a2)
         }
     }
 
@@ -733,10 +721,9 @@ extension TargetDescription.TemplateInitializationOptions: Codable {
         switch key {
         case .packageInit:
             var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
-            let templateType = try unkeyedValues.decode(TargetDescription.TemplateType.self)
             let templatePermissions = try unkeyedValues.decodeIfPresent([TargetDescription.TemplatePermission].self)
             let description = try unkeyedValues.decode(String.self)
-            self = .packageInit(templateType: templateType, templatePermissions: templatePermissions ?? nil, description: description)
+            self = .packageInit(templatePermissions: templatePermissions ?? nil, description: description)
         }
     }
 }

@@ -299,21 +299,8 @@ extension Serialization.TemplateInitializationOptions {
     init(_ usage: PackageDescription.Target.TemplateInitializationOptions) {
         switch usage {
 
-        case .packageInit(let templateType, let templatePermissions, let description):
-            self = .packageInit(templateType: .init(templateType), templatePermissions: templatePermissions?.map { .init($0) }, description: description)
-        }
-    }
-}
-extension Serialization.TemplateType {
-    init(_ type: PackageDescription.Target.TemplateType) {
-        switch type {
-        case .executable: self = .executable
-        case .macro: self = .macro
-        case .library: self = .library
-        case .tool: self = .tool
-        case .buildToolPlugin: self = .buildToolPlugin
-        case .commandPlugin: self = .commandPlugin
-        case .empty: self = .empty
+        case .packageInit(let templatePermissions, let description):
+            self = .packageInit(templatePermissions: templatePermissions?.map { .init($0) }, description: description)
         }
     }
 }

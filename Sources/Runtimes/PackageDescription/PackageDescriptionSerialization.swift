@@ -211,17 +211,7 @@ enum Serialization {
     }
 
     enum TemplateInitializationOptions: Codable {
-        case packageInit(templateType: TemplateType, templatePermissions: [TemplatePermissions]?, description: String)
-    }
-
-    enum TemplateType: Codable {
-        case library
-        case executable
-        case tool
-        case buildToolPlugin
-        case commandPlugin
-        case `macro`
-        case empty
+        case packageInit(templatePermissions: [TemplatePermissions]?, description: String)
     }
 
     enum TemplateNetworkPermissionScope: Codable {

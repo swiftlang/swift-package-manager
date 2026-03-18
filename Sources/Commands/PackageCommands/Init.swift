@@ -151,27 +151,6 @@ extension SwiftPackageCommand {
     }
 }
 
-extension InitPackage.PackageType {
-    init(from templateType: TargetDescription.TemplateType) throws {
-        switch templateType {
-        case .executable:
-            self = .executable
-        case .library:
-            self = .library
-        case .tool:
-            self = .tool
-        case .macro:
-            self = .macro
-        case .buildToolPlugin:
-            self = .buildToolPlugin
-        case .commandPlugin:
-            self = .commandPlugin
-        case .empty:
-            self = .empty
-        }
-    }
-}
-
 /// Holds the configuration needed to initialize a package.
 struct PackageInitConfiguration {
     let packageName: String

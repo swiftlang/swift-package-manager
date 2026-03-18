@@ -26,9 +26,6 @@ public class TemplateTesterContext {
     /// The Swift command state containing build configuration and observability scope.
     let swiftCommandState: SwiftCommandState
 
-    /// The base package structure type before invoking the template's executable
-    let initialPackageType: InitPackage.PackageType
-
     /// The current working directory.
     let cwd: Basics.AbsolutePath
 
@@ -48,7 +45,6 @@ public class TemplateTesterContext {
     ///
     /// - Parameters:
     ///   - swiftCommandState: The Swift command state containing build configuration and observability.
-    ///   - initialPackageType: The type of package to create when initializing the template.
     ///   - cwd: The working directory from which the template is executed.
     ///   - buildSystem: The build system to use for compiling the generated template.
     ///   - outputDirectory: The directory where generated files will be placed.
@@ -56,7 +52,6 @@ public class TemplateTesterContext {
     ///   - format: Format for displaying test output (`matrix` or `json`).
     init(
         swiftCommandState: SwiftCommandState,
-        initialPackageType: InitPackage.PackageType,
         cwd: Basics.AbsolutePath,
         buildSystem: BuildSystemProvider.Kind,
         outputDirectory: Basics.AbsolutePath,
@@ -64,7 +59,6 @@ public class TemplateTesterContext {
         format: ShowTestTemplateOutput
     ) {
         self.swiftCommandState = swiftCommandState
-        self.initialPackageType = initialPackageType
         self.cwd = cwd
         self.buildSystem = buildSystem
         self.outputDirectory = outputDirectory
@@ -83,9 +77,6 @@ public class TemplateTesterContext {
 public struct TemplateTester {
     /// The Swift command state containing build configuration and observability scope.
     let swiftCommandState: SwiftCommandState
-
-    /// The base package structure type before invoking the template's executable
-    private let initialPackageType: InitPackage.PackageType
 
     /// The resolved command-line  plugin module.
     private let commandPlugin: ResolvedModule
@@ -115,7 +106,6 @@ public struct TemplateTester {
         templateTesterContext: TemplateTesterContext
     ) {
         self.swiftCommandState = templateTesterContext.swiftCommandState
-        self.initialPackageType = templateTesterContext.initialPackageType
         self.commandPlugin = commandPlugin
         self.cwd = templateTesterContext.cwd
         self.buildSystem = templateTesterContext.buildSystem
@@ -177,7 +167,6 @@ public struct TemplateTester {
             destinationAbsolutePath: destinationPath,
             testingFolderName: decisionPath,
             argumentPath: args,
-            initialPackageType: self.initialPackageType,
             cwd: self.cwd,
             buildSystem: self.buildSystem
         )
@@ -192,7 +181,6 @@ public struct TemplateTester {
     ///   - destinationAbsolutePath: Directory where the template will be generated.
     ///   - testingFolderName: Name of the folder corresponding to this test branch.
     ///   - argumentPath: Command-line arguments for the template plugin.
-    ///   - initialPackageType: The package type to use for initializing the template.
     ///   - cwd: Current working directory.
     ///   - buildSystem: The build system provider to use for compiling the template.
     /// - Returns: `TestTemplateInfo` containing durations, success flags, and optional log file path.
@@ -204,7 +192,6 @@ public struct TemplateTester {
         destinationAbsolutePath: AbsolutePath,
         testingFolderName: String,
         argumentPath: [String],
-        initialPackageType: InitPackage.PackageType,
         cwd: AbsolutePath,
         buildSystem: BuildSystemProvider.Kind
     ) async throws -> TestTemplateResult {
@@ -226,8 +213,6 @@ public struct TemplateTester {
                 name: testingFolderName,
                 initMode: .fileSystem(.init(path: cwd.pathString)),
                 fileSystem: swiftCommandState.fileSystem,
-                packageType: initialPackageType,
-                supportedTestingLibraries: [],
                 destinationPath: destinationAbsolutePath,
                 installedSwiftPMConfiguration: swiftCommandState.getHostToolchain().installedSwiftPMConfiguration
             )

@@ -120,12 +120,13 @@ extension SwiftTestCommand {
                     self.templateName!
                 }
 
-                let initialPackageType = try await inferPackageType(swiftCommandState: swiftCommandState, from: cwd)
-
                 let templateTesterContext = TemplateTesterContext(
-                    swiftCommandState: swiftCommandState, initialPackageType: initialPackageType, cwd: cwd,
-                    buildSystem: buildSystem, outputDirectory: outputDirectory,
-                    buildCommandOptions: self.buildOptions, format: self.format
+                    swiftCommandState: swiftCommandState,
+                    cwd: cwd,
+                    buildSystem: buildSystem,
+                    outputDirectory: outputDirectory,
+                    buildCommandOptions: self.buildOptions,
+                    format: self.format
                 )
 
                 try await TemplateTesterPluginManager(
@@ -138,18 +139,6 @@ extension SwiftTestCommand {
             } catch {
                 swiftCommandState.observabilityScope.emit(error)
             }
-        }
-
-        /// Infers the package type from a template at the given path.
-        private func inferPackageType(
-            swiftCommandState: SwiftCommandState,
-            from templatePath: Basics.AbsolutePath
-        ) async throws -> InitPackage.PackageType {
-            try await TemplatePackageInitializer.inferPackageType(
-                from: templatePath,
-                templateName: self.templateName,
-                swiftCommandState: swiftCommandState
-            )
         }
 
         /// Finds the template name from a template path.
