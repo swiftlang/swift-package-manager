@@ -1210,6 +1210,12 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
     private func getPIFBuilder() async throws -> PIFBuilder {
         try await pifBuilder.memoize {
             let graph = try await getPackageGraph()
+            // materializeStaticArchiveProductsForRootPackages currently has some minor compatibility
+            // issues when building interdependent root packages on Windows, primarily where projects
+            // like swift-corelibs-foundation relied on specific linkage patterns when using
+            // @_dynamicReplacement(for:). For now, disable this option if there is more than one
+            // root package, but we should reconsider this decision in the future.
+            let materializeStaticArchiveProductsForRootPackages = graph.rootPackages.count == 1
             let pifBuilder = try PIFBuilder(
                 graph: graph,
                 parameters: .init(
@@ -1220,7 +1226,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                     pluginWorkingDirectory: self.pluginConfiguration.workDirectory,
                     additionalFileRules: additionalFileRules,
                     addLocalRpaths: !self.buildParameters.linkingParameters.shouldDisableLocalRpath,
-                    materializeStaticArchiveProductsForRootPackages: true
+                    materializeStaticArchiveProductsForRootPackages: materializeStaticArchiveProductsForRootPackages
                 ),
                 fileSystem: self.fileSystem,
                 observabilityScope: self.observabilityScope,
