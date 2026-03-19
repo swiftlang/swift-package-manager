@@ -49,6 +49,9 @@ package struct PIFBuilderParameters {
     /// Eagerly materialize static archive products.
     let materializeStaticArchiveProductsForRootPackages: Bool
 
+    /// Create dynamic library variants for automatic library products.
+    let createDynamicVariantsForLibraryProducts: Bool
+
     /// The path to the library directory of the active toolchain.
     let toolchainLibDir: AbsolutePath
 
@@ -75,11 +78,12 @@ package struct PIFBuilderParameters {
     /// the build products to a different location.
     let addLocalRpaths: Bool
 
-    package init(isPackageAccessModifierSupported: Bool, enableTestability: Bool, shouldCreateDylibForDynamicProducts: Bool, materializeStaticArchiveProductsForRootPackages: Bool, toolchainLibDir: AbsolutePath, pkgConfigDirectories: [AbsolutePath], supportedSwiftVersions: [SwiftLanguageVersion], pluginScriptRunner: PluginScriptRunner, disableSandbox: Bool, pluginWorkingDirectory: AbsolutePath, additionalFileRules: [FileRuleDescription], addLocalRPaths: Bool) {
+    package init(isPackageAccessModifierSupported: Bool, enableTestability: Bool, shouldCreateDylibForDynamicProducts: Bool, materializeStaticArchiveProductsForRootPackages: Bool, createDynamicVariantsForLibraryProducts: Bool, toolchainLibDir: AbsolutePath, pkgConfigDirectories: [AbsolutePath], supportedSwiftVersions: [SwiftLanguageVersion], pluginScriptRunner: PluginScriptRunner, disableSandbox: Bool, pluginWorkingDirectory: AbsolutePath, additionalFileRules: [FileRuleDescription], addLocalRPaths: Bool) {
         self.isPackageAccessModifierSupported = isPackageAccessModifierSupported
         self.enableTestability = enableTestability
         self.shouldCreateDylibForDynamicProducts = shouldCreateDylibForDynamicProducts
         self.materializeStaticArchiveProductsForRootPackages = materializeStaticArchiveProductsForRootPackages
+        self.createDynamicVariantsForLibraryProducts = createDynamicVariantsForLibraryProducts
         self.toolchainLibDir = toolchainLibDir
         self.pkgConfigDirectories = pkgConfigDirectories
         self.supportedSwiftVersions = supportedSwiftVersions
@@ -418,6 +422,7 @@ public final class PIFBuilder {
                 buildToolPluginResultsByTargetName: buildToolPluginResultsByTargetName,
                 createDylibForDynamicProducts: self.parameters.shouldCreateDylibForDynamicProducts,
                 materializeStaticArchiveProductsForRootPackages: self.parameters.materializeStaticArchiveProductsForRootPackages,
+                createDynamicVariantsForLibraryProducts: self.parameters.createDynamicVariantsForLibraryProducts,
                 addLocalRpaths: self.parameters.addLocalRpaths,
                 packageDisplayVersion: package.manifest.displayName,
                 pkgConfigDirectories: self.parameters.pkgConfigDirectories,
@@ -542,7 +547,8 @@ public final class PIFBuilder {
         pkgConfigDirectories: [Basics.AbsolutePath],
         additionalFileRules: [FileRuleDescription],
         addLocalRpaths: Bool,
-        materializeStaticArchiveProductsForRootPackages: Bool
+        materializeStaticArchiveProductsForRootPackages: Bool,
+        createDynamicVariantsForLibraryProducts: Bool
     ) async throws -> String {
         let parameters = PIFBuilderParameters(
             buildParameters,
@@ -552,7 +558,9 @@ public final class PIFBuilder {
             pluginWorkingDirectory: pluginWorkingDirectory,
             additionalFileRules: additionalFileRules,
             addLocalRpaths: addLocalRpaths,
-            materializeStaticArchiveProductsForRootPackages: materializeStaticArchiveProductsForRootPackages
+            materializeStaticArchiveProductsForRootPackages: materializeStaticArchiveProductsForRootPackages,
+            createDynamicVariantsForLibraryProducts: createDynamicVariantsForLibraryProducts
+
         )
         let builder = Self(
             graph: packageGraph,
@@ -818,12 +826,14 @@ extension PIFBuilderParameters {
         additionalFileRules: [FileRuleDescription],
         addLocalRpaths: Bool,
         materializeStaticArchiveProductsForRootPackages: Bool,
+        createDynamicVariantsForLibraryProducts: Bool
     ) {
         self.init(
             isPackageAccessModifierSupported: buildParameters.driverParameters.isPackageAccessModifierSupported,
             enableTestability: buildParameters.enableTestability,
             shouldCreateDylibForDynamicProducts: buildParameters.shouldCreateDylibForDynamicProducts,
             materializeStaticArchiveProductsForRootPackages: materializeStaticArchiveProductsForRootPackages,
+            createDynamicVariantsForLibraryProducts: createDynamicVariantsForLibraryProducts,
             toolchainLibDir: (try? buildParameters.toolchain.toolchainLibDir) ?? .root,
             pkgConfigDirectories: buildParameters.pkgConfigDirectories,
             supportedSwiftVersions: supportedSwiftVersions,
