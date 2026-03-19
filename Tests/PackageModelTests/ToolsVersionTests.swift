@@ -121,4 +121,26 @@ struct ToolsVersionTests {
         let version = try #require(ToolsVersion(string: version))
         #expect(version.swiftLanguageVersion.description == expectedSwiftLanguageVersion)
     }
+
+    @Test
+    func decodingWithoutExperimentalFeatures() throws {
+
+        let json = #"{"_version":"5.8.0"}"#
+        let decoded = try JSONDecoder().decode(
+            ToolsVersion.self,
+            from: Data(json.utf8)
+        )
+        #expect(decoded == ToolsVersion.v5_8)
+        #expect(decoded.experimentalFeatures.isEmpty)
+    }
+
+    @Test
+    func decodingWithExperimentalFeatures() throws {
+
+        let original = ToolsVersion(string: "6.3.0", experimentalFeatures: [.experimentalCGen])!
+        let data = try JSONEncoder().encode(original)
+        let decoded = try JSONDecoder().decode(ToolsVersion.self, from: data)
+        #expect(decoded == original)
+        #expect(decoded.experimentalFeatures == [.experimentalCGen])
+    }
 }

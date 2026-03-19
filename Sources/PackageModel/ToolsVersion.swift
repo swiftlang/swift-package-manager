@@ -123,6 +123,16 @@ public struct ToolsVersion: Equatable, Hashable, Codable, Sendable {
         experimentalFeatures = []
     }
 
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self._version = try container.decode(Version.self, forKey: ._version)
+        self.experimentalFeatures = try container.decodeIfPresent(
+            Set<ExperimentalFeature>.self,
+            forKey: .experimentalFeatures
+        ) ?? []
+    }
+
     /// Override equality to ignore experimental features
     public static func == (lhs: ToolsVersion, rhs: ToolsVersion) -> Bool {
         lhs._version == rhs._version
