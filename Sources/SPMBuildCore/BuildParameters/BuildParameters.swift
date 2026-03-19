@@ -121,6 +121,8 @@ public struct BuildParameters: Encodable {
             return .openbsd
         } else if self.triple.isFreeBSD() {
             return .freebsd
+        } else if self.triple.isNoneOS() {
+            return .custom(name: self.triple.osNameUnversioned, oldestSupportedVersion: .unknown)
         } else {
             return .linux
         }
