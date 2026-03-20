@@ -13,6 +13,7 @@
 @testable import Basics
 @testable import PackageLoading
 import PackageModel
+import SourceControl
 import _InternalTestSupport
 import XCTest
 
@@ -586,6 +587,72 @@ final class ManifestLoaderCacheTests: XCTestCase {
             let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map{ ($0.identity.description, $0) })
             XCTAssertEqual(deps["foo"], .remoteSourceControl(url: "https://scm.com/foo", requirement: .upToNextMajor(from: "1.0.0")))
             XCTAssertEqual(deps["bar"], .remoteSourceControl(url: "https://scm.com/bar", requirement: .upToNextMajor(from: "2.1.0")))
+        }
+    }
+
+    func testCacheInvalidationOnGitDirectoryCreation() async throws {
+        try await testWithTemporaryDirectory { path in
+            let fileSystem = localFileSystem
+            let observability = ObservabilitySystem.makeForTesting()
+
+            let manifestPath = path.appending(components: "pkg", "Package.swift")
+            try fileSystem.createDirectory(manifestPath.parentDirectory, recursive: true)
+            try fileSystem.writeFileContents(
+                manifestPath,
+                string: """
+                    import PackageDescription
+                    let package = Package(
+                        name: "Trivial",
+                        targets: [
+                            .target(
+                                name: "foo",
+                                dependencies: []),
+                        ]
+                    )
+                    """
+            )
+
+            let delegate = ManifestTestDelegate()
+
+            let manifestLoader = ManifestLoader(
+                toolchain: try UserToolchain.default,
+                useInMemoryCache: false,
+                cacheDir: path,
+                delegate: delegate
+            )
+
+            func check(loader: ManifestLoader, expectCached: Bool) async throws {
+                delegate.clear()
+
+                let manifest = try await XCTAsyncUnwrap(try await loader.load(
+                    manifestPath: manifestPath,
+                    packageKind: .root(manifestPath.parentDirectory),
+                    toolsVersion: .current,
+                    fileSystem: fileSystem,
+                    observabilityScope: observability.topScope
+                ))
+
+                XCTAssertNoDiagnostics(observability.diagnostics)
+                try await XCTAssertAsyncEqual(try await delegate.loaded(timeout: .seconds(1)), [manifestPath])
+                try await XCTAssertAsyncEqual(try await delegate.parsed(timeout: .seconds(1)).count, (expectCached ? 0 : 1))
+                XCTAssertEqual(manifest.displayName, "Trivial")
+                XCTAssertEqual(manifest.targets[0].name, "foo")
+            }
+
+            try await check(loader: manifestLoader, expectCached: false)
+            try await check(loader: manifestLoader, expectCached: true)
+
+            let repo = GitRepository(path: manifestPath.parentDirectory)
+            try repo.create()
+            try repo.stage(file: manifestPath.pathString)
+            try repo.commit(message: "initial")
+
+            try await check(loader: manifestLoader, expectCached: false)
+            try await check(loader: manifestLoader, expectCached: true)
+
+            await manifestLoader.purgeCache(observabilityScope: observability.topScope)
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            try fileSystem.removeFileTree(path)
         }
     }
 }
