@@ -131,7 +131,7 @@ struct ToolsVersionTests {
             from: Data(json.utf8)
         )
         #expect(decoded == ToolsVersion.v5_8)
-        #expect(decoded.experimentalFeatures.isEmpty)
+        #expect(decoded.experimentalFeatures == nil)
     }
 
     @Test

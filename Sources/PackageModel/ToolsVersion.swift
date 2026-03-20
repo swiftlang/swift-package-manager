@@ -90,15 +90,15 @@ public struct ToolsVersion: Equatable, Hashable, Codable, Sendable {
     public enum ExperimentalFeature: String, Sendable, Codable {
         case experimentalCGen
     }
-    public let experimentalFeatures: Set<ExperimentalFeature>
+    public let experimentalFeatures: Set<ExperimentalFeature>?
 
     /// Helpers for experimental
     public var experimentalCGen: Bool {
-        self >= .v6_3 && experimentalFeatures.contains(.experimentalCGen)
+        self >= .v6_3 && experimentalFeatures?.contains(.experimentalCGen) == true
     }
 
     /// Create an instance of tools version from a given string.
-    public init?(string: String, experimentalFeatures: Set<ExperimentalFeature> = []) {
+    public init?(string: String, experimentalFeatures: Set<ExperimentalFeature>) {
         guard let match = ToolsVersion.toolsVersionRegex.firstMatch(
             in: string, options: [], range: NSRange(location: 0, length: string.count)) else {
             return nil
@@ -112,7 +112,25 @@ public struct ToolsVersion: Equatable, Hashable, Codable, Sendable {
         let patch = patchRange.location != NSNotFound ? Int(string.substring(with: patchRange))! : 0
         // We ignore storing pre-release and build identifiers for now.
         _version = Version(major, minor, patch)
-        self.experimentalFeatures = experimentalFeatures
+        self.experimentalFeatures = experimentalFeatures.isEmpty ? nil : experimentalFeatures
+    }
+
+    /// Create an instance of tools version from a given string.
+    public init?(string: String) {
+        guard let match = ToolsVersion.toolsVersionRegex.firstMatch(
+            in: string, options: [], range: NSRange(location: 0, length: string.count)) else {
+            return nil
+        }
+        // The regex succeeded, compute individual components.
+        assert(match.numberOfRanges == 6)
+        let string = NSString(string: string)
+        let major = Int(string.substring(with: match.range(at: 1)))!
+        let minor = Int(string.substring(with: match.range(at: 2)))!
+        let patchRange = match.range(at: 3)
+        let patch = patchRange.location != NSNotFound ? Int(string.substring(with: patchRange))! : 0
+        // We ignore storing pre-release and build identifiers for now.
+        _version = Version(major, minor, patch)
+        self.experimentalFeatures = nil
     }
 
     /// Create instance of tools version from a given version.
@@ -120,17 +138,7 @@ public struct ToolsVersion: Equatable, Hashable, Codable, Sendable {
     /// - precondition: prereleaseIdentifiers and buildMetadataIdentifier should not be present.
     public init(version: Version) {
         _version = version
-        experimentalFeatures = []
-    }
-
-
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        self._version = try container.decode(Version.self, forKey: ._version)
-        self.experimentalFeatures = try container.decodeIfPresent(
-            Set<ExperimentalFeature>.self,
-            forKey: .experimentalFeatures
-        ) ?? []
+        experimentalFeatures = nil
     }
 
     /// Override equality to ignore experimental features
