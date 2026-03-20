@@ -20,9 +20,9 @@ import CoreCommands
 import Foundation
 import PackageGraph
 import SwiftPMBuildServer
-import SPMBuildCore
 import SwiftBuildSupport
 import SystemPackage
+import SPMBuildCore
 
 struct BuildServer: AsyncSwiftCommand {
     static let configuration = CommandConfiguration(
@@ -51,8 +51,9 @@ struct BuildServer: AsyncSwiftCommand {
             sendMirrorFile: nil
         )
 
-        guard let buildSystem = try await swiftCommandState.createBuildSystem() as? SwiftBuildSystem else {
-            throw ArgumentParser.ValidationError("Build server requires --build-system swiftbuild")
+        let buildSystem = try await swiftCommandState.createBuildSystem(explicitBuildSystem: .swiftbuild)
+        guard let swiftBuildSystem = buildSystem as? SwiftBuildSystem else {
+            throw ArgumentParser.ValidationError("Failed to initialize the '--build-system swiftbuild' backend; expected a 'SwiftBuildSystem' but got '\(buildSystem)'")
         }
 
         guard let packagePath = try swiftCommandState.getWorkspaceRoot().packages.first else {
@@ -61,7 +62,7 @@ struct BuildServer: AsyncSwiftCommand {
 
         let server = try await SwiftPMBuildServer(
             packageRoot: packagePath,
-            buildSystem: buildSystem,
+            buildSystem: swiftBuildSystem,
             workspace: swiftCommandState.getActiveWorkspace(),
             connectionToClient: clientConnection,
             exitHandler: {_ in clientConnection.close() }
