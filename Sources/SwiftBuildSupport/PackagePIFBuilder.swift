@@ -180,6 +180,9 @@ public final class PackagePIFBuilder {
     /// built from source in the same build to consume it without eagerly linking it into a product.
     let materializeStaticArchiveProductsForRootPackages: Bool
 
+    /// Create dynamic library variants for automatic library products, for use by development-time features such as Previews and Swift Playgrounds.
+    let createDynamicVariantsForLibraryProducts: Bool
+
     /// Add rpaths which allow loading libraries adjacent to the current image at runtime. This is desirable
     /// when launching build products from the build directory, but should often be disabled when deploying
     /// the build products to a different location.
@@ -215,6 +218,7 @@ public final class PackagePIFBuilder {
         buildToolPluginResultsByTargetName: [String: [BuildToolPluginInvocationResult]],
         createDylibForDynamicProducts: Bool = false,
         materializeStaticArchiveProductsForRootPackages: Bool = false,
+        createDynamicVariantsForLibraryProducts: Bool = true,
         addLocalRpaths: Bool = true,
         packageDisplayVersion: String?,
         pkgConfigDirectories: [AbsolutePath],
@@ -228,6 +232,7 @@ public final class PackagePIFBuilder {
         self.buildToolPluginResultsByTargetName = buildToolPluginResultsByTargetName
         self.createDylibForDynamicProducts = createDylibForDynamicProducts
         self.materializeStaticArchiveProductsForRootPackages = materializeStaticArchiveProductsForRootPackages
+        self.createDynamicVariantsForLibraryProducts = createDynamicVariantsForLibraryProducts
         self.packageDisplayVersion = packageDisplayVersion
         self.pkgConfigDirectories = pkgConfigDirectories
         self.fileSystem = fileSystem
@@ -243,6 +248,7 @@ public final class PackagePIFBuilder {
         buildToolPluginResultsByTargetName: [String: BuildToolPluginInvocationResult],
         createDylibForDynamicProducts: Bool = false,
         materializeStaticArchiveProductsForRootPackages: Bool = false,
+        createDynamicVariantsForLibraryProducts: Bool = true,
         addLocalRpaths: Bool = true,
         packageDisplayVersion: String?,
         pkgConfigDirectories: [AbsolutePath],
@@ -256,6 +262,7 @@ public final class PackagePIFBuilder {
         self.buildToolPluginResultsByTargetName = buildToolPluginResultsByTargetName.mapValues { [$0] }
         self.createDylibForDynamicProducts = createDylibForDynamicProducts
         self.materializeStaticArchiveProductsForRootPackages = materializeStaticArchiveProductsForRootPackages
+        self.createDynamicVariantsForLibraryProducts = createDynamicVariantsForLibraryProducts
         self.addLocalRpaths = addLocalRpaths
         self.packageDisplayVersion = packageDisplayVersion
         self.pkgConfigDirectories = pkgConfigDirectories

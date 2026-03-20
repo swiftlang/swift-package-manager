@@ -512,7 +512,7 @@ extension PackagePIFProjectBuilder {
 
         // Apply target-specific build settings defined in the manifest.
         let allBuildSettings = mainModule.computeAllBuildSettings(observabilityScope: pifBuilder.observabilityScope, forRemotePackage: pifBuilder.delegate.isRemote)
-        
+
         // Apply settings using the convenience methods
         allBuildSettings.apply(to: &debugSettings, for: .debug)
         allBuildSettings.apply(to: &releaseSettings, for: .release)
@@ -592,7 +592,7 @@ extension PackagePIFProjectBuilder {
 
         // Also create a dynamic product for use by development-time features such as Previews and Swift Playgrounds.
         // If all targets this product is comprised of are binaries, we should *not* create a dynamic variant.
-        if libraryType == .automatic && libraryProduct.hasSourceTargets {
+        if libraryType == .automatic && libraryProduct.hasSourceTargets && pifBuilder.createDynamicVariantsForLibraryProducts {
             var dynamicLibraryVariant = try self.buildLibraryProduct(
                 libraryProduct,
                 type: .dynamic,
@@ -730,6 +730,13 @@ extension PackagePIFProjectBuilder {
             // An empty sources phase is required in order to trigger linking.
             self.project[keyPath: libraryUmbrellaTargetKeyPath].common.addSourcesBuildPhase { id in
                 ProjectModel.SourcesBuildPhase(id: id)
+            }
+
+            // For dynamic libraries, track which source modules are DIRECT dependencies so we can set
+            // SWIFT_COMPILE_FOR_STATIC_LINKING=NO on Windows for those modules.
+            // Collect only DIRECT module dependencies (not recursive)
+            for module in product.modules where module.isSourceModule {
+                self.modulesInDynamicLibraries.insert(module.name)
             }
         } else if productType == .staticArchive {
             settings[.TARGET_NAME] = product.targetName()
@@ -1188,4 +1195,3 @@ private struct PackageRegistrySignature: Encodable {
     let source: Source
     let formatVersion = 2
 }
-

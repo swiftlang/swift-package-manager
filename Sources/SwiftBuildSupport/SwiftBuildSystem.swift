@@ -360,7 +360,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             return uniquePaths
         }
 
-        // TODO: Need to determine how to get the inlude path of package system library dependencies
+        // TODO: Need to determine how to get the include path of package system library dependencies
         let includePaths = try await getUniqueBuildSettingsIncludingDependencies(
             of: request.configuredTargets,
             buildSettings: [
@@ -1226,7 +1226,8 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                     pluginWorkingDirectory: self.pluginConfiguration.workDirectory,
                     additionalFileRules: additionalFileRules,
                     addLocalRpaths: !self.buildParameters.linkingParameters.shouldDisableLocalRpath,
-                    materializeStaticArchiveProductsForRootPackages: materializeStaticArchiveProductsForRootPackages
+                    materializeStaticArchiveProductsForRootPackages: materializeStaticArchiveProductsForRootPackages,
+                    createDynamicVariantsForLibraryProducts: false,
                 ),
                 fileSystem: self.fileSystem,
                 observabilityScope: self.observabilityScope,

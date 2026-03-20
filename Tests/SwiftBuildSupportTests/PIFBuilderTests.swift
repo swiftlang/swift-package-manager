@@ -37,6 +37,7 @@ extension PIFBuilderParameters {
             enableTestability: false,
             shouldCreateDylibForDynamicProducts: shouldCreateDylibForDynamicProducts,
             materializeStaticArchiveProductsForRootPackages: true,
+            createDynamicVariantsForLibraryProducts: false,
             toolchainLibDir: temporaryDirectory.appending(component: "toolchain-lib-dir"),
             pkgConfigDirectories: [],
             supportedSwiftVersions: [.v4, .v4_2, .v5, .v6],
@@ -883,6 +884,86 @@ struct PIFBuilderTests {
                         #expect(testTargetConfig.settings[.SWIFT_INDEX_STORE_ENABLE] == "YES")
                 }
             }
+        }
+    }
+
+    @Test func swiftCompileForStaticLinkingInDynamicLibraries() async throws {
+        let observability = ObservabilitySystem.makeForTesting()
+
+        let fs = InMemoryFileSystem(emptyFiles: [
+            "/Root/Sources/ModuleA/ModuleA.swift",
+            "/Root/Sources/ModuleB/ModuleB.swift",
+            "/Root/Sources/ModuleC/ModuleC.swift",
+        ])
+
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Root",
+                    path: "/Root",
+                    toolsVersion: .v6_0,
+                    products: [
+                        ProductDescription(name: "DynamicLib", type: .library(.dynamic), targets: ["ModuleA", "ModuleB"]),
+                        ProductDescription(name: "StaticLib", type: .library(.static), targets: ["ModuleC"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "ModuleA"),
+                        TargetDescription(name: "ModuleB"),
+                        TargetDescription(name: "ModuleC"),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        let pifBuilder = PIFBuilder(
+            graph: graph,
+            parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
+                temporaryDirectory: AbsolutePath.root.appending("tmp"),
+                addLocalRpaths: true
+            ),
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+
+        let pif = try await pifBuilder.constructPIF(
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+        )
+
+        let project = try pif.workspace.project(named: "Root")
+
+        // Modules that are direct dependencies of dynamic library products should have
+        // SWIFT_COMPILE_FOR_STATIC_LINKING = "NO" on Windows
+        for moduleName in ["ModuleA", "ModuleB"] {
+            let moduleTarget = try project.target(named: moduleName)
+            let config = try moduleTarget.buildConfig(named: .release)
+
+            // Check that the setting is "NO" on Windows
+            #expect(
+                config.settings[.SWIFT_COMPILE_FOR_STATIC_LINKING, .windows] == "NO",
+                "Module \(moduleName) in dynamic library should have SWIFT_COMPILE_FOR_STATIC_LINKING=NO on Windows"
+            )
+
+            // Check that the setting is not set on other platforms
+            for platform in SwiftBuild.ProjectModel.BuildSettings.Platform.allCases where platform != .windows {
+                #expect(
+                    config.settings[.SWIFT_COMPILE_FOR_STATIC_LINKING, platform] == nil,
+                    "Module \(moduleName) should not have SWIFT_COMPILE_FOR_STATIC_LINKING on platform \(platform)"
+                )
+            }
+        }
+
+        // Modules that are NOT in dynamic library products should not have this setting
+        let moduleC = try project.target(named: "ModuleC")
+        let moduleCConfig = try moduleC.buildConfig(named: .release)
+
+        for platform in ProjectModel.BuildSettings.Platform.allCases {
+            let setting = moduleCConfig.settings[.SWIFT_COMPILE_FOR_STATIC_LINKING, platform]
+            #expect(
+                setting == nil,
+                "Module ModuleC (not in dynamic library) should not have SWIFT_COMPILE_FOR_STATIC_LINKING on platform \(platform)"
+            )
         }
     }
 }
