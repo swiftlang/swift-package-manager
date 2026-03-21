@@ -383,4 +383,283 @@ struct SwiftBuildSystemTests {
             }
         }
     }
+
+    @Suite
+    struct DebuggingSettingsTests {
+
+        private static let isMacOS: Bool = {
+            #if os(macOS)
+            return true
+            #else
+            return false
+            #endif
+        }()
+
+        @Test(
+            .disabled(if: !Self.isMacOS, "shouldEnableDebuggingEntitlement is only effective on macOS"),
+            arguments: [true, false]
+        )
+        func shouldEnableDebuggingEntitlementSetsDeploymentPostprocessing(
+            shouldEnableDebuggingEntitlement: Bool
+        ) async throws {
+            // Note: shouldEnableDebuggingEntitlement is only effective on macOS
+            // (see BuildParameters.Debugging.init where it checks triple.isMacOSX)
+            try await withInstantiatedSwiftBuildSystem(
+                fromFixture: "PIFBuilder/Simple",
+                buildParameters: mockBuildParameters(
+                    destination: .host,
+                    triple: .x86_64MacOS,
+                    shouldEnableDebuggingEntitlement: shouldEnableDebuggingEntitlement
+                ),
+            ) { swiftBuild, session, observabilityScope, buildParameters in
+                let buildSettings = try await swiftBuild.makeBuildParameters(
+                    session: session,
+                    symbolGraphOptions: nil,
+                    setToolchainSetting: false
+                )
+
+                let synthesizedArgs = try #require(buildSettings.overrides.synthesized)
+
+                if shouldEnableDebuggingEntitlement {
+                    #expect(synthesizedArgs.table["DEPLOYMENT_POSTPROCESSING"] == "NO")
+                } else {
+                    #expect(synthesizedArgs.table["DEPLOYMENT_POSTPROCESSING"] == nil)
+                }
+            }
+        }
+
+        @Test(
+            arguments: [
+                (debugInfoFormat: BuildParameters.DebugInfoFormat.dwarf, expectedSetting: "DEBUG_INFORMATION_FORMAT", expectedValue: "dwarf"),
+                (debugInfoFormat: BuildParameters.DebugInfoFormat.none, expectedSetting: "GCC_GENERATE_DEBUGGING_SYMBOLS", expectedValue: "NO"),
+            ]
+        )
+        func debugInfoFormatSetsCorrectBuildSettings(
+            debugInfoFormat: BuildParameters.DebugInfoFormat,
+            expectedSetting: String,
+            expectedValue: String
+        ) async throws {
+            try await withInstantiatedSwiftBuildSystem(
+                fromFixture: "PIFBuilder/Simple",
+                buildParameters: mockBuildParameters(
+                    destination: .host,
+                    debugInfoFormat: debugInfoFormat
+                ),
+            ) { swiftBuild, session, observabilityScope, buildParameters in
+                let buildSettings = try await swiftBuild.makeBuildParameters(
+                    session: session,
+                    symbolGraphOptions: nil,
+                    setToolchainSetting: false
+                )
+
+                let synthesizedArgs = try #require(buildSettings.overrides.synthesized)
+                #expect(synthesizedArgs.table[expectedSetting] == expectedValue)
+            }
+        }
+
+        #if os(Windows)
+        @Test
+        func debugInfoFormatCodeViewOnWindows() async throws {
+            // Test CodeView format separately as it's only supported on Windows
+            try await withInstantiatedSwiftBuildSystem(
+                fromFixture: "PIFBuilder/Simple",
+                buildParameters: mockBuildParameters(
+                    destination: .host,
+                    triple: .windows,
+                    debugInfoFormat: .codeview
+                ),
+            ) { swiftBuild, session, observabilityScope, buildParameters in
+                let buildSettings = try await swiftBuild.makeBuildParameters(
+                    session: session,
+                    symbolGraphOptions: nil,
+                    setToolchainSetting: false
+                )
+
+                let synthesizedArgs = try #require(buildSettings.overrides.synthesized)
+                #expect(synthesizedArgs.table["DEBUG_INFORMATION_FORMAT"] == "codeview")
+            }
+        }
+        #endif
+
+        @Test(
+            arguments: [
+                (omitFramePointers: true, expectedValue: "YES"),
+                (omitFramePointers: false, expectedValue: "NO"),
+            ]
+        )
+        func omitFramePointersSetsCorrectBuildSettings(
+            omitFramePointers: Bool,
+            expectedValue: String
+        ) async throws {
+            try await withInstantiatedSwiftBuildSystem(
+                fromFixture: "PIFBuilder/Simple",
+                buildParameters: mockBuildParameters(
+                    destination: .host,
+                    omitFramePointers: omitFramePointers
+                ),
+            ) { swiftBuild, session, observabilityScope, buildParameters in
+                let buildSettings = try await swiftBuild.makeBuildParameters(
+                    session: session,
+                    symbolGraphOptions: nil,
+                    setToolchainSetting: false
+                )
+
+                let synthesizedArgs = try #require(buildSettings.overrides.synthesized)
+                #expect(synthesizedArgs.table["CLANG_OMIT_FRAME_POINTERS"] == expectedValue)
+                #expect(synthesizedArgs.table["SWIFT_OMIT_FRAME_POINTERS"] == expectedValue)
+            }
+        }
+
+        @Test
+        func omitFramePointersNilDoesNotSetBuildSettings() async throws {
+            try await withInstantiatedSwiftBuildSystem(
+                fromFixture: "PIFBuilder/Simple",
+                buildParameters: mockBuildParameters(
+                    destination: .host,
+                    omitFramePointers: nil
+                ),
+            ) { swiftBuild, session, observabilityScope, buildParameters in
+                let buildSettings = try await swiftBuild.makeBuildParameters(
+                    session: session,
+                    symbolGraphOptions: nil,
+                    setToolchainSetting: false
+                )
+
+                let synthesizedArgs = try #require(buildSettings.overrides.synthesized)
+
+                // Note: On Linux, omitFramePointers=nil is converted to false by BuildParameters.Debugging.init
+                // to preserve frame pointers for better backtraces (see BuildParameters+Debugging.swift:34-36)
+                #if os(Linux)
+                #expect(synthesizedArgs.table["CLANG_OMIT_FRAME_POINTERS"] == "NO")
+                #expect(synthesizedArgs.table["SWIFT_OMIT_FRAME_POINTERS"] == "NO")
+                #else
+                #expect(synthesizedArgs.table["CLANG_OMIT_FRAME_POINTERS"] == nil)
+                #expect(synthesizedArgs.table["SWIFT_OMIT_FRAME_POINTERS"] == nil)
+                #endif
+            }
+        }
+
+        @Test
+        func allDebuggingSettingsCombinedWork() async throws {
+            // Test that all debugging settings work together correctly
+            try await withInstantiatedSwiftBuildSystem(
+                fromFixture: "PIFBuilder/Simple",
+                buildParameters: mockBuildParameters(
+                    destination: .host,
+                    debugInfoFormat: .dwarf,
+                    shouldEnableDebuggingEntitlement: true,
+                    omitFramePointers: false
+                ),
+            ) { swiftBuild, session, observabilityScope, buildParameters in
+                let buildSettings = try await swiftBuild.makeBuildParameters(
+                    session: session,
+                    symbolGraphOptions: nil,
+                    setToolchainSetting: false
+                )
+
+                let synthesizedArgs = try #require(buildSettings.overrides.synthesized)
+
+                // Check all settings are present
+                #if os(macOS)
+                #expect(synthesizedArgs.table["DEPLOYMENT_POSTPROCESSING"] == "NO")
+                #endif
+                #expect(synthesizedArgs.table["DEBUG_INFORMATION_FORMAT"] == "dwarf")
+                #expect(synthesizedArgs.table["CLANG_OMIT_FRAME_POINTERS"] == "NO")
+                #expect(synthesizedArgs.table["SWIFT_OMIT_FRAME_POINTERS"] == "NO")
+            }
+        }
+
+        @Test
+        func debuggingFlagsAreFilteredFromCompilerFlags() async throws {
+            // Verify that flags with source: .debugging are properly filtered out by rawFlagsForSwiftBuild
+            // and don't appear in OTHER_CFLAGS, OTHER_CPLUSPLUSFLAGS, OTHER_SWIFT_FLAGS, or OTHER_LDFLAGS
+
+            let debuggingCFlags = [
+                BuildFlag(value: "-g", source: .debugging),
+                BuildFlag(value: "-fomit-frame-pointer", source: .debugging)
+            ]
+            let debuggingSwiftFlags = [
+                BuildFlag(value: "-g", source: .debugging),
+                BuildFlag(value: "-Xcc", source: .debugging),
+                BuildFlag(value: "-fno-omit-frame-pointer", source: .debugging)
+            ]
+            let userCFlags = [
+                BuildFlag(value: "-DUSER_DEFINE", source: .commandLineOptions)
+            ]
+            let userSwiftFlags = [
+                BuildFlag(value: "-DSWIFT_USER", source: .commandLineOptions)
+            ]
+
+            let flags = BuildFlags(
+                cCompilerFlags: debuggingCFlags + userCFlags,
+                cxxCompilerFlags: debuggingCFlags,
+                swiftCompilerFlags: debuggingSwiftFlags + userSwiftFlags,
+                linkerFlags: []
+            )
+
+            try await withInstantiatedSwiftBuildSystem(
+                fromFixture: "PIFBuilder/Simple",
+                buildParameters: mockBuildParameters(
+                    destination: .host,
+                    flags: flags,
+                    debugInfoFormat: .dwarf,
+                    omitFramePointers: false
+                ),
+            ) { swiftBuild, session, observabilityScope, buildParameters in
+                let buildSettings = try await swiftBuild.makeBuildParameters(
+                    session: session,
+                    symbolGraphOptions: nil,
+                    setToolchainSetting: false
+                )
+
+                let synthesizedArgs = try #require(buildSettings.overrides.synthesized)
+
+                // Check OTHER_CFLAGS
+                let otherCFlags = synthesizedArgs.table["OTHER_CFLAGS"] ?? ""
+                #expect(
+                    !otherCFlags.contains("-g"),
+                    "OTHER_CFLAGS should not contain debug flags with source: .debugging"
+                )
+                #expect(
+                    !otherCFlags.contains("-fomit-frame-pointer"),
+                    "OTHER_CFLAGS should not contain frame pointer flags with source: .debugging"
+                )
+                #expect(
+                    otherCFlags.contains("-DUSER_DEFINE"),
+                    "OTHER_CFLAGS should contain user flags with source: .commandLineOptions"
+                )
+
+                // Check OTHER_CPLUSPLUSFLAGS
+                let otherCPlusPlusFlags = synthesizedArgs.table["OTHER_CPLUSPLUSFLAGS"] ?? ""
+                #expect(
+                    !otherCPlusPlusFlags.contains("-g"),
+                    "OTHER_CPLUSPLUSFLAGS should not contain debug flags with source: .debugging"
+                )
+                #expect(
+                    !otherCPlusPlusFlags.contains("-fomit-frame-pointer"),
+                    "OTHER_CPLUSPLUSFLAGS should not contain frame pointer flags with source: .debugging"
+                )
+
+                // Check OTHER_SWIFT_FLAGS
+                let otherSwiftFlags = synthesizedArgs.table["OTHER_SWIFT_FLAGS"] ?? ""
+                #expect(
+                    !otherSwiftFlags.contains("-g"),
+                    "OTHER_SWIFT_FLAGS should not contain debug flags with source: .debugging"
+                )
+                #expect(
+                    !otherSwiftFlags.contains("-fno-omit-frame-pointer"),
+                    "OTHER_SWIFT_FLAGS should not contain frame pointer flags with source: .debugging"
+                )
+                #expect(
+                    otherSwiftFlags.contains("-DSWIFT_USER"),
+                    "OTHER_SWIFT_FLAGS should contain user flags with source: .commandLineOptions"
+                )
+
+                // Verify that dedicated build settings are still set correctly
+                #expect(synthesizedArgs.table["DEBUG_INFORMATION_FORMAT"] == "dwarf")
+                #expect(synthesizedArgs.table["CLANG_OMIT_FRAME_POINTERS"] == "NO")
+                #expect(synthesizedArgs.table["SWIFT_OMIT_FRAME_POINTERS"] == "NO")
+            }
+        }
+    }
 }
