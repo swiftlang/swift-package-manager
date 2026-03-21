@@ -123,8 +123,10 @@ public struct BuildParameters: Encodable {
             return .freebsd
         } else if self.triple.isNoneOS() {
             return .custom(name: self.triple.osNameUnversioned, oldestSupportedVersion: .unknown)
-        } else {
+        } else if self.triple.isLinux() {
             return .linux
+        } else {
+            return .custom(name: "unknown", oldestSupportedVersion: .unknown)
         }
     }
 
