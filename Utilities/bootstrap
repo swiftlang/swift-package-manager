@@ -523,7 +523,7 @@ def install_dylib(args, library_name, install_dir, module_names, bin_dir):
 
     # Install the swiftmodule/swiftinterface and swiftdoc files for all the modules.
     for module in module_names:
-        install_binary(args, module + ".swiftmodule", install_dir, bin_dir, ignored_patterns=['Project', '*.swiftmodule'])
+        install_binary(args, module + ".swiftmodule", install_dir, bin_dir, ignored_patterns=['Project'])
 
 # Helper function that installs a single built artifact to a particular directory. The source may be either a file or a directory.
 @log_entry_exit
