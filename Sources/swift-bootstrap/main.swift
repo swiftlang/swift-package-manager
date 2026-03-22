@@ -112,6 +112,10 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
     @Flag(name: [.long, .customLong("vv")], help: "Increase verbosity to include debug output.")
     public var veryVerbose: Bool = false
 
+    /// If the binary output path should be printed.
+    @Flag(name: .customLong("show-bin-path"), help: "Print the binary output path.")
+    var shouldPrintBinPath: Bool = false
+
     /// Whether to use the integrated Swift driver rather than shelling out
     /// to a separate process.
     @Flag()
@@ -201,6 +205,23 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
                 logLevel: self.logLevel
             )
 
+            if shouldPrintBinPath {
+                let parameters = try builder.createBuildParameters(
+                    packagePath: packagePath,
+                    scratchDirectory: scratchDirectory,
+                    buildSystem: self.buildSystem,
+                    configuration: self.configuration,
+                    architectures: self.architectures,
+                    buildFlags: self.buildFlags,
+                    manifestBuildFlags: self.manifestFlags,
+                    useIntegratedSwiftDriver: self.useIntegratedSwiftDriver,
+                    explicitTargetDependencyImportCheck: self.explicitTargetDependencyImportCheck,
+                    shouldDisableLocalRpath: self.shouldDisableLocalRpath,
+                    logLevel: self.logLevel
+                )
+                return print(parameters.buildPath.description)
+            }
+
             try await builder.build(
                 packagePath: packagePath,
                 scratchDirectory: scratchDirectory,
@@ -272,7 +293,7 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
             try await buildSystem.build(subset: .allExcludingTests, buildOutputs: [])
         }
 
-        func createBuildSystem(
+        func createBuildParameters(
             packagePath: AbsolutePath,
             scratchDirectory: AbsolutePath,
             buildSystem: BuildSystemProvider.Kind,
@@ -284,12 +305,12 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
             explicitTargetDependencyImportCheck: TargetDependencyImportCheckingMode,
             shouldDisableLocalRpath: Bool,
             logLevel: Basics.Diagnostic.Severity
-        ) throws -> BuildSystem {
+        ) throws -> BuildParameters {
             let dataPath = scratchDirectory.appending(
                 component: self.targetToolchain.targetTriple.platformBuildPathComponent(buildSystem: buildSystem)
             )
 
-            let buildParameters = try BuildParameters(
+            return try BuildParameters(
                 destination: .target,
                 dataPath: dataPath,
                 configuration: configuration,
@@ -312,6 +333,34 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
                 outputParameters: .init(
                     isVerbose: logLevel <= .info
                 )
+            )
+        }
+
+        func createBuildSystem(
+            packagePath: AbsolutePath,
+            scratchDirectory: AbsolutePath,
+            buildSystem: BuildSystemProvider.Kind,
+            configuration: BuildConfiguration,
+            architectures: [String],
+            buildFlags: BuildFlags,
+            manifestBuildFlags: [String],
+            useIntegratedSwiftDriver: Bool,
+            explicitTargetDependencyImportCheck: TargetDependencyImportCheckingMode,
+            shouldDisableLocalRpath: Bool,
+            logLevel: Basics.Diagnostic.Severity
+        ) throws -> BuildSystem {
+            let buildParameters = try createBuildParameters(
+                packagePath: packagePath,
+                scratchDirectory: scratchDirectory,
+                buildSystem: buildSystem,
+                configuration: configuration,
+                architectures: architectures,
+                buildFlags: buildFlags,
+                manifestBuildFlags: manifestBuildFlags,
+                useIntegratedSwiftDriver: useIntegratedSwiftDriver,
+                explicitTargetDependencyImportCheck: explicitTargetDependencyImportCheck,
+                shouldDisableLocalRpath: shouldDisableLocalRpath,
+                logLevel: logLevel
             )
 
             let manifestLoader = createManifestLoader(manifestBuildFlags: manifestBuildFlags)
