@@ -474,6 +474,7 @@ struct SwiftBuildSystemTests {
                 fromFixture: "PIFBuilder/Simple",
                 buildParameters: mockBuildParameters(
                     destination: .host,
+                    buildSystemKind: .swiftbuild,
                     triple: .windows,
                     debugInfoFormat: .codeview
                 ),
