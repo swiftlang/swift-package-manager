@@ -415,6 +415,7 @@ struct SwiftBuildSystemTests {
                 fromFixture: "PIFBuilder/Simple",
                 buildParameters: mockBuildParameters(
                     destination: .host,
+                    buildSystemKind: .swiftbuild,
                     triple: .x86_64MacOS,
                     shouldEnableDebuggingEntitlement: shouldEnableDebuggingEntitlement
                 ),
@@ -450,6 +451,7 @@ struct SwiftBuildSystemTests {
                 fromFixture: "PIFBuilder/Simple",
                 buildParameters: mockBuildParameters(
                     destination: .host,
+                    buildSystemKind: .swiftbuild,
                     debugInfoFormat: debugInfoFormat
                 ),
             ) { swiftBuild, session, observabilityScope, buildParameters in
@@ -502,6 +504,7 @@ struct SwiftBuildSystemTests {
                 fromFixture: "PIFBuilder/Simple",
                 buildParameters: mockBuildParameters(
                     destination: .host,
+                    buildSystemKind: .swiftbuild,
                     omitFramePointers: omitFramePointers
                 ),
             ) { swiftBuild, session, observabilityScope, buildParameters in
@@ -523,6 +526,7 @@ struct SwiftBuildSystemTests {
                 fromFixture: "PIFBuilder/Simple",
                 buildParameters: mockBuildParameters(
                     destination: .host,
+                    buildSystemKind: .swiftbuild,
                     omitFramePointers: nil
                 ),
             ) { swiftBuild, session, observabilityScope, buildParameters in
@@ -553,6 +557,7 @@ struct SwiftBuildSystemTests {
                 fromFixture: "PIFBuilder/Simple",
                 buildParameters: mockBuildParameters(
                     destination: .host,
+                    buildSystemKind: .swiftbuild,
                     debugInfoFormat: .dwarf,
                     shouldEnableDebuggingEntitlement: true,
                     omitFramePointers: false
@@ -609,6 +614,7 @@ struct SwiftBuildSystemTests {
                 buildParameters: mockBuildParameters(
                     destination: .host,
                     flags: flags,
+                    buildSystemKind: .swiftbuild,
                     debugInfoFormat: .dwarf,
                     omitFramePointers: false
                 ),
