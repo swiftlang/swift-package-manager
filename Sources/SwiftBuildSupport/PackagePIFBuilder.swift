@@ -611,6 +611,9 @@ public final class PackagePIFBuilder {
         // Defer to the build system for linker driver selection.
         settings[.LINKER_DRIVER] = "auto"
 
+        // Don't emit warnings when a target exports no symbols (e.g. the empty library template)
+        settings[.LIBTOOL_NO_WARNING_FOR_NO_SYMBOLS] = "YES"
+
         // Hook to customize the project-wide build settings.
         self.delegate.configureProjectBuildSettings(&settings)
 
