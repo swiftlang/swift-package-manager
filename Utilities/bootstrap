@@ -123,6 +123,7 @@ def add_global_args(parser):
         help="whether to always reconfigure cmake")
     parser.add_argument(
         "--install-only",
+        dest="install_only",
         action="store_true",
         default=False)
 
