@@ -295,6 +295,39 @@ extension Serialization.PluginUsage {
     }
 }
 
+extension Serialization.TemplateInitializationOptions {
+    init(_ usage: PackageDescription.Target.TemplateInitializationOptions) {
+        switch usage {
+
+        case .packageInit(let templatePermissions, let description):
+            self = .packageInit(templatePermissions: templatePermissions?.map { .init($0) }, description: description)
+        }
+    }
+}
+
+extension Serialization.TemplatePermissions {
+    init(_ permission: PackageDescription.TemplatePermissions) {
+        switch permission {
+        case .allowNetworkConnections(let scope, let reason): self = .allowNetworkConnections(
+                scope: .init(scope),
+                reason: reason
+            )
+        }
+    }
+}
+
+extension Serialization.TemplateNetworkPermissionScope {
+    init(_ scope: PackageDescription.TemplateNetworkPermissionScope) {
+        switch scope {
+        case .none: self = .none
+        case .local(let ports): self = .local(ports: ports)
+        case .all(let ports): self = .all(ports: ports)
+        case .docker: self = .docker
+        case .unixDomainSocket: self = .unixDomainSocket
+        }
+    }
+}
+
 extension Serialization.Target {
     init(_ target: PackageDescription.Target) {
         self.name = target.name
@@ -316,6 +349,7 @@ extension Serialization.Target {
         self.linkerSettings = target.linkerSettings?.map { .init($0) }
         self.checksum = target.checksum
         self.pluginUsages = target.plugins?.map { .init($0) }
+        self.templateInitializationOptions = target.templateInitializationOptions.map { .init($0) }
     }
 }
 
