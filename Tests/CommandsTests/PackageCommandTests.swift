@@ -3107,7 +3107,7 @@ struct PackageCommandTests {
             )
             expectFileDoesNotExists(at: binFile)
             try #expect(
-                !localFileSystem.getDirectoryContents(buildPath.appending("repositories")).isEmpty
+                localFileSystem.getDirectoryContents(buildPath.appending("repositories")).isEmpty == false
             )
 
             // Fully clean.
@@ -3117,7 +3117,7 @@ struct PackageCommandTests {
                 configuration: config,
                 buildSystem: buildSystem,
             )
-            #expect(!localFileSystem.isDirectory(buildPath))
+            #expect(localFileSystem.isDirectory(buildPath) == false)
 
             // Test that we can successfully run reset again.
             _ = try await execute(
