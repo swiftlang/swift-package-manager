@@ -959,7 +959,7 @@ struct PackageRegistryCommandTests {
             let intermediateCertificatePath = temporaryDirectory.appending(component: "intermediate.cer")
             let privateKeyPath = temporaryDirectory.appending(component: "private-key.p8")
 
-            try fixture(name: "Signing", createGitRepo: false) { fixturePath in
+            try fixture(name: "Signing") { fixturePath in
                 try localFileSystem.copy(
                     from: fixturePath.appending(components: "Certificates", "Test_ec.cer"),
                     to: certificatePath
@@ -1072,7 +1072,7 @@ struct PackageRegistryCommandTests {
             let intermediateCertificatePath = temporaryDirectory.appending(component: "intermediate.cer")
             let privateKeyPath = temporaryDirectory.appending(component: "private-key.p8")
 
-            try fixture(name: "Signing", createGitRepo: false) { fixturePath in
+            try fixture(name: "Signing") { fixturePath in
                 try localFileSystem.copy(
                     from: fixturePath.appending(components: "Certificates", "Test_ec.cer"),
                     to: certificatePath
@@ -1181,7 +1181,7 @@ struct PackageRegistryCommandTests {
             let intermediateCertificatePath = temporaryDirectory.appending(component: "intermediate.cer")
             let privateKeyPath = temporaryDirectory.appending(component: "private-key.p8")
 
-            try fixture(name: "Signing", createGitRepo: false) { fixturePath in
+            try fixture(name: "Signing") { fixturePath in
                 try localFileSystem.copy(
                     from: fixturePath.appending(components: "Certificates", "Test_ec.cer"),
                     to: certificatePath
@@ -1325,7 +1325,7 @@ struct PackageRegistryCommandTests {
     }
 
     private func getRoots() throws -> [[UInt8]] {
-        try fixture(name: "Signing", createGitRepo: false) { fixturePath in
+        try fixture(name: "Signing") { fixturePath in
             let rootCA = try localFileSystem
                 .readFileContents(fixturePath.appending(components: "Certificates", "TestRootCA.cer")).contents
             return [rootCA]

@@ -23,6 +23,7 @@ add_library(Commands
   PackageCommands/DumpCommands.swift
   PackageCommands/EditCommands.swift
   PackageCommands/Format.swift
+  PackageCommands/GenerateSBOM.swift
   PackageCommands/Init.swift
   PackageCommands/Install.swift
   PackageCommands/Learn.swift
@@ -70,13 +71,20 @@ target_link_libraries(Commands PUBLIC
   CoreCommands
   LLBuildManifest
   PackageGraph
+  SBOMModel
   SourceControl
+  SPMBuildCore
+  SwiftBuildSupport
   SwiftFixIt
   SwiftPMBuildServer
   TSCBasic
   TSCUtility
   Workspace
-  XCBuildSupport)
+  XCBuildSupport
+  SwiftBuild::SwiftBuild
+  SwiftToolsProtocols::BuildServerProtocol
+  SwiftToolsProtocols::LanguageServerProtocol
+  SwiftToolsProtocols::LanguageServerProtocolTransport)
 target_link_libraries(Commands PRIVATE
   DriverSupport
   $<$<NOT:$<PLATFORM_ID:Darwin>>:FoundationXML>)

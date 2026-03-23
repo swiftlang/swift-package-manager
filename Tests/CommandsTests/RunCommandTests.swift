@@ -40,7 +40,7 @@ struct RunCommandTests {
     ) async throws -> (stdout: String, stderr: String) {
         return try await executeSwiftRun(
             packagePath,
-            nil,
+            executable,
             extraArgs: args,
             buildSystem: buildSystem,
         )
@@ -101,7 +101,7 @@ struct RunCommandTests {
             .Feature.CommandLineArguments.BuildSystem,
             .Feature.CommandLineArguments.Configuration,
         ),
-        arguments: SupportedBuildSystemOnPlatform,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func toolsetDebugger(
         buildSystem: BuildSystemProvider.Kind,
@@ -127,8 +127,10 @@ struct RunCommandTests {
                 case .native:
                     #expect(stderr.contains("Compiling"))
                     #expect(stderr.contains("Linking"))
-                case .swiftbuild, .xcode:
+                case .swiftbuild:
                     break
+                case .xcode:
+                    Issue.record("Test expectations have not been implemented")
             }
         }
     }
@@ -137,7 +139,9 @@ struct RunCommandTests {
          .tags(
             .Feature.TargetType.Executable,
         ),
-        arguments: SupportedBuildSystemOnPlatform,
+        .IssueWindowsPathTestsFailures,
+        .IssueWindowsRelativePathAssert,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func productArgumentPassing(
         buildSystem: BuildSystemProvider.Kind,
@@ -159,8 +163,10 @@ struct RunCommandTests {
                 case .native:
                     #expect(stderr.contains("Compiling"))
                     #expect(stderr.contains("Linking"))
-                case .swiftbuild, .xcode:
+                case .swiftbuild:
                     break
+                case .xcode:
+                    Issue.record("Test expectations have not been implemented")
             }
         }
     }
@@ -241,7 +247,7 @@ struct RunCommandTests {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         try await withKnownIssue(isIntermittent: true) {
-            try await fixture(name: "Miscellaneous/UnreachableTargets") { fixturePath in
+            try await fixture(name: "Miscellaneous/UnreachableTargets", createGitRepo: true) { fixturePath in
                 let (output, _) = try await execute(["bexec"], packagePath: fixturePath.appending("A"), buildSystem: buildSystem)
                 let outputLines = output.split(whereSeparator: { $0.isNewline })
                 #expect(String(outputLines[0]).contains("BTarget2"))

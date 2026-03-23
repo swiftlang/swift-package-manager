@@ -79,6 +79,9 @@ public final class PackagePIFBuilder {
         /// Is this the root package?
         var isRootPackage: Bool { get }
 
+        /// Is this a remote package?
+        var isRemote: Bool { get }
+
         // TODO: Maybe move these 3-4 properties to the `PIFBuilder.PIFBuilderParameters` struct.
 
         /// If a pure Swift package is open in the workspace.
@@ -177,6 +180,9 @@ public final class PackagePIFBuilder {
     /// built from source in the same build to consume it without eagerly linking it into a product.
     let materializeStaticArchiveProductsForRootPackages: Bool
 
+    /// Create dynamic library variants for automatic library products, for use by development-time features such as Previews and Swift Playgrounds.
+    let createDynamicVariantsForLibraryProducts: Bool
+
     /// Add rpaths which allow loading libraries adjacent to the current image at runtime. This is desirable
     /// when launching build products from the build directory, but should often be disabled when deploying
     /// the build products to a different location.
@@ -212,6 +218,7 @@ public final class PackagePIFBuilder {
         buildToolPluginResultsByTargetName: [String: [BuildToolPluginInvocationResult]],
         createDylibForDynamicProducts: Bool = false,
         materializeStaticArchiveProductsForRootPackages: Bool = false,
+        createDynamicVariantsForLibraryProducts: Bool = true,
         addLocalRpaths: Bool = true,
         packageDisplayVersion: String?,
         pkgConfigDirectories: [AbsolutePath],
@@ -225,6 +232,7 @@ public final class PackagePIFBuilder {
         self.buildToolPluginResultsByTargetName = buildToolPluginResultsByTargetName
         self.createDylibForDynamicProducts = createDylibForDynamicProducts
         self.materializeStaticArchiveProductsForRootPackages = materializeStaticArchiveProductsForRootPackages
+        self.createDynamicVariantsForLibraryProducts = createDynamicVariantsForLibraryProducts
         self.packageDisplayVersion = packageDisplayVersion
         self.pkgConfigDirectories = pkgConfigDirectories
         self.fileSystem = fileSystem
@@ -240,6 +248,7 @@ public final class PackagePIFBuilder {
         buildToolPluginResultsByTargetName: [String: BuildToolPluginInvocationResult],
         createDylibForDynamicProducts: Bool = false,
         materializeStaticArchiveProductsForRootPackages: Bool = false,
+        createDynamicVariantsForLibraryProducts: Bool = true,
         addLocalRpaths: Bool = true,
         packageDisplayVersion: String?,
         pkgConfigDirectories: [AbsolutePath],
@@ -253,6 +262,7 @@ public final class PackagePIFBuilder {
         self.buildToolPluginResultsByTargetName = buildToolPluginResultsByTargetName.mapValues { [$0] }
         self.createDylibForDynamicProducts = createDylibForDynamicProducts
         self.materializeStaticArchiveProductsForRootPackages = materializeStaticArchiveProductsForRootPackages
+        self.createDynamicVariantsForLibraryProducts = createDynamicVariantsForLibraryProducts
         self.addLocalRpaths = addLocalRpaths
         self.packageDisplayVersion = packageDisplayVersion
         self.pkgConfigDirectories = pkgConfigDirectories
@@ -537,6 +547,8 @@ public final class PackagePIFBuilder {
         let customModulesAndProducts = try delegate.addCustomTargets(pifProject: &projectBuilder.project)
         projectBuilder.builtModulesAndProducts.append(contentsOf: customModulesAndProducts)
 
+        try projectBuilder.makePackageTestProduct()
+
         self._pifProject = projectBuilder.project
         return projectBuilder.builtModulesAndProducts
     }
@@ -571,7 +583,7 @@ public final class PackagePIFBuilder {
         // (If we want to be extra careful with differences to the existing PIF in the SwiftPM.)
         settings[.OTHER_CFLAGS] = ["$(inherited)", "-DXcode"]
 
-        if !self.delegate.isRootPackage {
+        if self.delegate.isRemote {
             if self.suppressWarningsForPackageDependencies {
                 settings[.SUPPRESS_WARNINGS] = "YES"
             }
@@ -668,6 +680,7 @@ public final class PackagePIFBuilder {
         releaseSettings[.DEBUG_INFORMATION_FORMAT] = "dwarf-with-dsym"
         releaseSettings[.GCC_OPTIMIZATION_LEVEL] = "s"
         releaseSettings[.SWIFT_OPTIMIZATION_LEVEL] = "-Owholemodule"
+        releaseSettings[.DEPLOYMENT_POSTPROCESSING] = "YES"
         builder.project.addBuildConfig { id in BuildConfig(id: id, name: "Release", settings: releaseSettings) }
     }
 

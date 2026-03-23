@@ -49,7 +49,7 @@ extension SwiftPackageCommand {
         @OptionGroup()
         var testLibraryOptions: TestLibraryOptions
 
-        @Option(name: .customLong("name"), help: "Provide custom package name.")
+        @Option(name: .customLong("name"), help: "Provide a custom package name.")
         var packageName: String?
 
         // This command should support creating the supplied --package-path if it isn't created.

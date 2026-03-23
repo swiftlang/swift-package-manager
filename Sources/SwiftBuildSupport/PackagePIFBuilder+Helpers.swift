@@ -61,7 +61,7 @@ import enum SwiftBuild.ProjectModel
 
 // MARK: - PIF GUID Helpers
 
-public enum TargetSuffix: String {
+public enum TargetSuffix: String, CaseIterable {
     case testable, dynamic
 
     func hasSuffix(id: GUID) -> Bool {
@@ -145,9 +145,70 @@ extension PackagePIFBuilder {
     ///
     /// This format helps make sure that modules and products with the same name (as they often have)
     /// have different target names in the PIF.
-    static func targetName(forProductName name: String, suffix: TargetSuffix? = nil) -> String {
+    public static func targetName(forProductName name: String, suffix: TargetSuffix? = nil) -> String {
         let suffix = suffix?.rawValue ?? ""
         return "\(name)\(suffix)-product"
+    }
+
+    /// Helper function to consistently generate a target name string for a module in a product.
+    package static func targetName(forModuleName name: String, suffix: TargetSuffix? = nil) -> String {
+        let suffix = suffix?.rawValue ?? ""
+        return "\(name)\(suffix)"
+    }
+    
+    /// Removes known TargetSuffix patterns from a name string.
+    private static func removeSuffix(from name: String) -> String {
+        for suffix in TargetSuffix.allCases {
+            let suffixPattern: String
+            switch suffix {
+            case .testable, .dynamic:
+                suffixPattern = "-\(suffix.rawValue)"
+                if name.hasSuffix(suffixPattern) {
+                    return String(name.dropLast(suffixPattern.count))
+                }
+            }
+        }
+        return name
+    }
+
+    /// Extracts a Swift Package product name from a PIF target name.
+    ///
+    /// This reverses the conversion performed by `targetName(forProductName:suffix:)`.
+    /// Returns `nil` if the target name doesn't represent a product (i.e., doesn't end with "-product").
+    ///
+    /// - Parameter targetName: The PIF target name to parse
+    /// - Returns: The Swift Package product name, or `nil` if this isn't a product target name
+    package static func productName(forTargetName targetName: String) -> String? {
+        guard targetName.hasSuffix("-product") else {
+            return nil
+        }
+        let nameWithoutProduct = String(targetName.dropLast("-product".count))
+        return removeSuffix(from: nameWithoutProduct)
+    }
+
+        /// Extracts a Swift Package module name from a PIF target name.
+    ///
+    /// This reverses the conversion performed by `targetName(forModuleName:suffix:)`.
+    /// Returns `nil` if the target name represents a product or resource bundle.
+    ///
+    /// - Parameter targetName: The PIF target name to parse
+    /// - Returns: The Swift Package module name, or `nil` if this isn't a module target name
+    ///
+    /// - Note: Resource bundle target names follow the pattern `packageName_moduleName`
+    ///   (e.g., `swift-nio_NIOPosix`, `swift-crypto__CryptoExtras`) and are excluded.
+    ///   However, module names can start with `_` (e.g., `_CryptoExtras`, `__AsyncFileSystem`).
+    package static func moduleName(forTargetName targetName: String) -> String? {
+        guard !targetName.hasSuffix("-product") else {
+            return nil
+        }
+        // Resource bundle target names follow the pattern packageName_moduleName
+        // e.g., swift-nio_NIOPosix, swift-crypto__CryptoExtras
+        // So should be ignored by moduleName()
+        // But moduleName can start with _, like _CryptoExtras and __AsyncFileSystem
+        if targetName.contains("_") && targetName.first != "_" {
+            return nil
+        }
+        return removeSuffix(from: targetName)
     }
 }
 
@@ -615,7 +676,7 @@ extension PackageGraph.ResolvedModule {
     /// Collect the build settings defined in the package manifest.
     /// Some of them apply *only* to the target itself, while others are also imparted to clients.
     /// Note that the platform is *optional*; unconditional settings have no platform condition.
-    func computeAllBuildSettings(observabilityScope: ObservabilityScope) -> AllBuildSettings {
+    func computeAllBuildSettings(observabilityScope: ObservabilityScope, forRemotePackage: Bool) -> AllBuildSettings {
         var allSettings = AllBuildSettings()
 
         for (declaration, settingsAssigments) in self.underlying.buildSettings.assignments {
@@ -651,6 +712,22 @@ extension PackageGraph.ResolvedModule {
                     singleValueSetting = nil
                     multipleValueSetting = .OTHER_LDFLAGS
                     values = settingAssignment.values.map { "-l\($0)" }
+                case .OTHER_SWIFT_FLAGS:
+                    singleValueSetting = nil
+                    multipleValueSetting = .OTHER_SWIFT_FLAGS
+                    if forRemotePackage {
+                        values = WarningControlFlags.filterSwiftWarningControlFlags(settingAssignment.values)
+                    } else {
+                        values = settingAssignment.values
+                    }
+                case .OTHER_CFLAGS, .OTHER_CPLUSPLUSFLAGS:
+                    singleValueSetting = nil
+                    multipleValueSetting = ProjectModel.BuildSettings.MultipleValueSetting(from: declaration)
+                    if forRemotePackage {
+                        values = WarningControlFlags.filterClangWarningControlFlags(settingAssignment.values)
+                    } else {
+                        values = settingAssignment.values
+                    }
                 default:
                     if declaration.allowsMultipleValues {
                         singleValueSetting = nil
@@ -1054,16 +1131,19 @@ extension ProjectModel.BuildSettings {
         delegate: PackagePIFBuilder.BuildDelegate,
     ) {
         self[.TARGET_NAME] = targetName
+        self[.TARGET_TEMP_DIR_SUFFIX] = "-t"
         self[.PRODUCT_NAME] = productName
         self[.PRODUCT_MODULE_NAME] = productName
         self[.PRODUCT_BUNDLE_IDENTIFIER] = "\(packageIdentity).\(productName)".spm_mangledToBundleIdentifier()
         self[.SWIFT_PACKAGE_NAME] = packageName ?? nil
 
-        // This should really be swift-build defaults set in the .xcspec files, but changing that requires
-        // some extensive testing to ensure xcode projects are not affected.
-        // So for now lets just force it here.
-        self[.EXECUTABLE_PREFIX] = "lib"
-        self[.EXECUTABLE_PREFIX, Platform.windows] = ""
+        if createDylibForDynamicProducts {
+            // This should really be swift-build defaults set in the .xcspec files, but changing that requires
+            // some extensive testing to ensure xcode projects are not affected.
+            // So for now lets just force it here.
+            self[.EXECUTABLE_PREFIX] = "lib"
+            self[.EXECUTABLE_PREFIX, Platform.windows] = ""
+        }
 
         if !createDylibForDynamicProducts {
             self[.GENERATE_INFOPLIST_FILE] = "YES"
