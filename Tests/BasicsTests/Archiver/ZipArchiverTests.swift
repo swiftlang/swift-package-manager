@@ -21,12 +21,8 @@ import struct TSCBasic.FileSystemError
 final class ZipArchiverTests: XCTestCase {
     override func setUp() async throws {
         let archiver = ZipArchiver(fileSystem: localFileSystem)
-        #if os(Windows)
-            try XCTRequires(executable: archiver.windowsTar)
-        #else
-            try XCTRequires(executable: archiver.unzip)
-            try XCTRequires(executable: archiver.zip)
-        #endif
+        try XCTRequires(executable: archiver.unzip)
+        try XCTRequires(executable: archiver.zip)
         #if os(FreeBSD)
             try XCTRequires(executable: archiver.tar)
         #endif
@@ -76,7 +72,7 @@ final class ZipArchiverTests: XCTestCase {
             let inputArchivePath = AbsolutePath(#file).parentDirectory
                 .appending(components: "Inputs", "invalid_archive.zip")
             await XCTAssertAsyncThrowsError(try await archiver.extract(from: inputArchivePath, to: tmpdir)) { error in
-#if os(Windows) || os(FreeBSD)
+#if os(FreeBSD)
                 // On FreeBSD, unzip (bsdunzip) is backed by libarchive
                 XCTAssertMatch((error as? StringError)?.description, .contains("Unrecognized archive format"))
 #else
@@ -170,7 +166,7 @@ final class ZipArchiverTests: XCTestCase {
                  try? localFileSystem.readFileContents(extractedDir2.appending("file4.txt")),
                  "Hello World 4!"
              )
-            
+
              XCTAssertTrue(localFileSystem.isSymlink(extractedDir2.appending("file5.txt")))
              XCTAssertEqual(
                  try? localFileSystem.readFileContents(extractedDir2.appending("file5.txt")),

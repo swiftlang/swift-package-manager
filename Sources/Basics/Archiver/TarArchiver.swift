@@ -14,9 +14,17 @@ import class Dispatch.DispatchQueue
 import struct Dispatch.DispatchTime
 import struct TSCBasic.FileSystemError
 
+#if os(Windows)
+import WinSDK
+#endif
+
 /// An `Archiver` that handles Tar archives using the command-line `tar` tool.
 public struct TarArchiver: Archiver {
+#if os(Windows)
+    public let supportedExtensions: Set<String> = ["tar", "tar.gz", "zip"]
+#else
     public let supportedExtensions: Set<String> = ["tar", "tar.gz"]
+#endif
 
     /// The file-system implementation used for various file-system operations and checks.
     private let fileSystem: FileSystem
@@ -37,7 +45,16 @@ public struct TarArchiver: Archiver {
         self.cancellator = cancellator ?? Cancellator(observabilityScope: .none)
 
         #if os(Windows)
-        self.tarCommand = "tar.exe"
+        var tarPath: PWSTR?
+        defer { CoTaskMemFree(tarPath) }
+        let hr = withUnsafePointer(to: FOLDERID_System) { id in
+            SHGetKnownFolderPath(id, DWORD(KF_FLAG_DEFAULT.rawValue), nil, &tarPath)
+        }
+        if hr == S_OK, let tarPath {
+            self.tarCommand = String(decodingCString: tarPath, as: UTF16.self) + "\\tar.exe"
+        } else {
+            self.tarCommand = "tar.exe"
+        }
         #else
         self.tarCommand = "tar"
         #endif
@@ -48,6 +65,7 @@ public struct TarArchiver: Archiver {
         to destinationPath: AbsolutePath,
         completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
+        print("Running", tarCommand)
         do {
             guard self.fileSystem.exists(archivePath) else {
                 throw FileSystemError(.noEntry, archivePath.underlying)
@@ -58,7 +76,7 @@ public struct TarArchiver: Archiver {
             }
 
             let process = AsyncProcess(
-                arguments: [self.tarCommand, "zxf", archivePath.pathString, "-C", destinationPath.pathString]
+                arguments: [self.tarCommand, "xf", archivePath.pathString, "-C", destinationPath.pathString]
             )
 
             guard let registrationKey = self.cancellator.register(process) else {
