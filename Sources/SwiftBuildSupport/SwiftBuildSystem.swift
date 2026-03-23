@@ -1108,6 +1108,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         var settings: [String: String] = [:]
         if parameters.shouldEnableDebuggingEntitlement {
             settings["DEPLOYMENT_POSTPROCESSING"] = "NO"
+            settings["CODE_SIGN_IDENTITY"] = "-"
         }
         // Set DEBUG_INFORMATION_FORMAT based on debugInfoFormat
         switch parameters.debugInfoFormat {
