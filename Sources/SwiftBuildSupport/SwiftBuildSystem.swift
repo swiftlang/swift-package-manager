@@ -936,10 +936,11 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             }
         }
 
+        let swiftCompilerFlags = buildParameters.toolchain.extraFlags.swiftCompilerFlags + buildParameters.flags.swiftCompilerFlags
         let compilerAndLinkerFlags = [
             "OTHER_CFLAGS": buildParameters.toolchain.extraFlags.cCompilerFlags + buildParameters.flags.cCompilerFlags,
             "OTHER_CPLUSPLUSFLAGS": buildParameters.toolchain.extraFlags.cxxCompilerFlags + buildParameters.flags.cxxCompilerFlags,
-            "OTHER_SWIFT_FLAGS": buildParameters.toolchain.extraFlags.swiftCompilerFlags + buildParameters.flags.swiftCompilerFlags,
+            "OTHER_SWIFT_FLAGS": swiftCompilerFlags,
             "OTHER_LDFLAGS": (buildParameters.toolchain.extraFlags.linkerFlags + buildParameters.flags.linkerFlags)
         ]
         for (settingName, buildFlags) in compilerAndLinkerFlags {
@@ -949,6 +950,16 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             }
             settings[settingName] = (verboseFlag + ["$(inherited)"] +
                 rawFlags.map { $0.shellEscaped() }).joined(separator: " ")
+        }
+
+        // Historically, SwiftPM passed -Xswiftc flags to swiftc when used as a linker driver.
+        // To maintain compatibility, forward swift compiler flags to OTHER_LDFLAGS when using
+        // swiftc to link.
+        if !swiftCompilerFlags.rawFlagsForSwiftBuild.isEmpty {
+            settings["OTHER_LDFLAGS_SWIFTC_LINKER_DRIVER_swiftc"] =
+            (["$(inherited)"] + swiftCompilerFlags.rawFlagsForSwiftBuild.map { $0.shellEscaped() }).joined(separator: " ")
+            settings["OTHER_LDFLAGS"] =
+                (settings["OTHER_LDFLAGS"] ?? "$(inherited)") + " $(OTHER_LDFLAGS_SWIFTC_LINKER_DRIVER_$(LINKER_DRIVER))"
         }
 
         if buildParameters.driverParameters.emitSILFiles {

@@ -676,4 +676,36 @@ struct SwiftBuildSystemTests {
             }
         }
     }
+
+    @Test
+    func swiftCompilerFlagsForwardedToLinkerDriver() async throws {
+        let flags = BuildFlags(
+            swiftCompilerFlags: [
+                BuildFlag(value: "-no-toolchain-stdlib-rpath", source: .commandLineOptions)
+            ]
+        )
+
+        try await withInstantiatedSwiftBuildSystem(
+            fromFixture: "PIFBuilder/Simple",
+            buildParameters: mockBuildParameters(
+                destination: .host,
+                flags: flags,
+                buildSystemKind: .swiftbuild,
+            ),
+        ) { swiftBuild, session, observabilityScope, buildParameters in
+            let buildSettings = try await swiftBuild.makeBuildParameters(
+                session: session,
+                symbolGraphOptions: nil,
+                setToolchainSetting: false
+            )
+
+            let synthesizedArgs = try #require(buildSettings.overrides.synthesized)
+            let otherSwiftFlags = try #require(synthesizedArgs.table["OTHER_SWIFT_FLAGS"])
+            #expect(otherSwiftFlags.contains("-no-toolchain-stdlib-rpath"))
+            let ldFlagsSwiftc = try #require(synthesizedArgs.table["OTHER_LDFLAGS_SWIFTC_LINKER_DRIVER_swiftc"])
+            #expect(ldFlagsSwiftc.contains("-no-toolchain-stdlib-rpath"))
+            let otherLDFlags = try #require(synthesizedArgs.table["OTHER_LDFLAGS"])
+            #expect(otherLDFlags.contains("$(OTHER_LDFLAGS_SWIFTC_LINKER_DRIVER_$(LINKER_DRIVER))"))
+        }
+    }
 }
