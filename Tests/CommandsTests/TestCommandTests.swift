@@ -38,8 +38,8 @@ fileprivate func execute(
         packagePath,
         configuration: configuration,
         extraArgs: args,
-        throwIfCommandFails: throwIfCommandFails,
         buildSystem: buildSystem,
+        throwIfCommandFails: throwIfCommandFails,
     )
 }
 
@@ -325,7 +325,7 @@ struct TestCommandTests {
         let configuration = BuildConfiguration.debug
         try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/TestableExeWithDifferentProductName") { fixturePath in
-                let result = try await execute(
+                _ = try await execute(
                     ["--vv"],
                     packagePath: fixturePath,
                     configuration: configuration,
@@ -1636,7 +1636,7 @@ struct TestCommandTests {
             let configuration = BuildConfiguration.debug
             try await withKnownIssue(isIntermittent: true) {
                 try await fixture(name: "Miscellaneous/TestableExeWithResources") { fixturePath in
-                    let result = try await execute(
+                    _ = try await execute(
                         ["--vv"],
                         packagePath: fixturePath,
                         configuration: configuration,
@@ -1653,6 +1653,22 @@ struct TestCommandTests {
 
     @Suite
     struct LLDBTests {
+        private func execute(
+            _ args: [String],
+            packagePath: AbsolutePath? = nil,
+            configuration: BuildConfiguration = .debug,
+            buildSystem: BuildSystemProvider.Kind,
+            throwIfCommandFails: Bool = true
+        ) async throws -> (stdout: String, stderr: String) {
+            try await executeSwiftTest(
+                packagePath,
+                configuration: configuration,
+                extraArgs: args,
+                buildSystem: buildSystem,
+                throwIfCommandFails: throwIfCommandFails
+            )
+        }
+
         @Test(arguments: SupportedBuildSystemOnAllPlatforms)
         func lldbWithParallelThrowsError(buildSystem: BuildSystemProvider.Kind) async throws {
             let args = args(["--debugger", "--parallel"], for: buildSystem)
