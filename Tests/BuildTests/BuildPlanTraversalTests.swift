@@ -71,10 +71,12 @@ struct BuildPlanTraversalTests {
         let plan = try await BuildPlan(
             destinationBuildParameters: mockBuildParameters(
                 destination: .target,
+                buildSystemKind: .native,
                 triple: destinationTriple
             ),
             toolsBuildParameters: mockBuildParameters(
                 destination: .host,
+                buildSystemKind: .native,
                 triple: toolsTriple
             ),
             graph: graph,
@@ -101,10 +103,12 @@ struct BuildPlanTraversalTests {
         let plan = try await BuildPlan(
             destinationBuildParameters: mockBuildParameters(
                 destination: .target,
+                buildSystemKind: .native,
                 triple: destinationTriple
             ),
             toolsBuildParameters: mockBuildParameters(
                 destination: .host,
+                buildSystemKind: .native,
                 triple: toolsTriple
             ),
             graph: graph,
@@ -132,10 +136,12 @@ struct BuildPlanTraversalTests {
         let plan = try await BuildPlan(
             destinationBuildParameters: mockBuildParameters(
                 destination: .target,
+                buildSystemKind: .native,
                 triple: destinationTriple
             ),
             toolsBuildParameters: mockBuildParameters(
                 destination: .host,
+                buildSystemKind: .native,
                 triple: toolsTriple
             ),
             graph: graph,
@@ -169,10 +175,12 @@ struct BuildPlanTraversalTests {
         let plan = try await BuildPlan(
             destinationBuildParameters: mockBuildParameters(
                 destination: .target,
+                buildSystemKind: .native,
                 triple: destinationTriple
             ),
             toolsBuildParameters: mockBuildParameters(
                 destination: .host,
+                buildSystemKind: .native,
                 triple: toolsTriple
             ),
             graph: graph,
@@ -255,10 +263,12 @@ struct BuildPlanTraversalTests {
         let plan = try await BuildPlan(
             destinationBuildParameters: mockBuildParameters(
                 destination: .target,
+                buildSystemKind: .native,
                 triple: destinationTriple
             ),
             toolsBuildParameters: mockBuildParameters(
                 destination: .host,
+                buildSystemKind: .native,
                 triple: toolsTriple
             ),
             graph: graph,

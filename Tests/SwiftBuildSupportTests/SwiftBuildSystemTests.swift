@@ -40,7 +40,7 @@ func withInstantiatedSwiftBuildSystem(
             let buildParameters = if let buildParameters {
                 buildParameters
             } else {
-                mockBuildParameters(destination: .host)
+                mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
             }
             let observabilitySystem: TestingObservability = ObservabilitySystem.makeForTesting()
             let toolchain = try UserToolchain.default
@@ -156,6 +156,7 @@ struct SwiftBuildSystemTests {
                 fromFixture: "PIFBuilder/Simple",
                 buildParameters: mockBuildParameters(
                     destination: .host,
+                    buildSystemKind: .swiftbuild,
                     sanitizers: [sanitizer],
                 ),
             ) { swiftBuild, session, observabilityScope, buildParameters in
@@ -183,6 +184,7 @@ struct SwiftBuildSystemTests {
                 fromFixture: "PIFBuilder/Simple",
                 buildParameters: mockBuildParameters(
                     destination: .host,
+                    buildSystemKind: .swiftbuild,
                     sanitizers: [sanitizer],
                 ),
             ) { swiftBuild, session, observabilityScope, buildParameters in
@@ -213,6 +215,7 @@ struct SwiftBuildSystemTests {
                 fromFixture: "PIFBuilder/Simple",
                 buildParameters: mockBuildParameters(
                     destination: .host,
+                    buildSystemKind: .swiftbuild,
                     shouldLinkStaticSwiftStdlib: shouldLinkStaticSwiftStdlib,
                     triple: triple,
                 ),
@@ -254,6 +257,7 @@ struct SwiftBuildSystemTests {
                 fromFixture: "PIFBuilder/Simple",
                 buildParameters: mockBuildParameters(
                     destination: .host,
+                    buildSystemKind: .swiftbuild,
                     shouldLinkStaticSwiftStdlib: shouldLinkStaticSwiftStdlib,
                     triple: nonDarwinTriple,
                 ),
@@ -289,6 +293,7 @@ struct SwiftBuildSystemTests {
             fromFixture: "PIFBuilder/Simple",
             buildParameters: mockBuildParameters(
                 destination: .host,
+                buildSystemKind: .swiftbuild,
                 indexStoreMode: indexStoreSettingUT,
             ),
         ) { swiftBuild, session, observabilityScope, buildParameters in
@@ -332,6 +337,7 @@ struct SwiftBuildSystemTests {
             fromFixture: "PIFBuilder/Simple",
             buildParameters: mockBuildParameters(
                 destination: .host,
+                buildSystemKind: .swiftbuild,
                 linkerDeadStrip: linkerDeadStripUT,
             ),
         ) { swiftBuild, session, observabilityScope, buildParameters in
@@ -368,6 +374,7 @@ struct SwiftBuildSystemTests {
                 fromFixture: "PIFBuilder/Simple",
                 buildParameters: mockBuildParameters(
                     destination: .host,
+                    buildSystemKind: .swiftbuild,
                     numberOfWorkers: expectedNumberOfWorkers,
                 ),
             ) { swiftBuild, session, observabilityScope, buildParameters in
@@ -408,6 +415,7 @@ struct SwiftBuildSystemTests {
                 fromFixture: "PIFBuilder/Simple",
                 buildParameters: mockBuildParameters(
                     destination: .host,
+                    buildSystemKind: .swiftbuild,
                     triple: .x86_64MacOS,
                     shouldEnableDebuggingEntitlement: shouldEnableDebuggingEntitlement
                 ),
@@ -443,6 +451,7 @@ struct SwiftBuildSystemTests {
                 fromFixture: "PIFBuilder/Simple",
                 buildParameters: mockBuildParameters(
                     destination: .host,
+                    buildSystemKind: .swiftbuild,
                     debugInfoFormat: debugInfoFormat
                 ),
             ) { swiftBuild, session, observabilityScope, buildParameters in
@@ -465,6 +474,7 @@ struct SwiftBuildSystemTests {
                 fromFixture: "PIFBuilder/Simple",
                 buildParameters: mockBuildParameters(
                     destination: .host,
+                    buildSystemKind: .swiftbuild,
                     triple: .windows,
                     debugInfoFormat: .codeview
                 ),
@@ -495,6 +505,7 @@ struct SwiftBuildSystemTests {
                 fromFixture: "PIFBuilder/Simple",
                 buildParameters: mockBuildParameters(
                     destination: .host,
+                    buildSystemKind: .swiftbuild,
                     omitFramePointers: omitFramePointers
                 ),
             ) { swiftBuild, session, observabilityScope, buildParameters in
@@ -516,6 +527,7 @@ struct SwiftBuildSystemTests {
                 fromFixture: "PIFBuilder/Simple",
                 buildParameters: mockBuildParameters(
                     destination: .host,
+                    buildSystemKind: .swiftbuild,
                     omitFramePointers: nil
                 ),
             ) { swiftBuild, session, observabilityScope, buildParameters in
@@ -546,6 +558,7 @@ struct SwiftBuildSystemTests {
                 fromFixture: "PIFBuilder/Simple",
                 buildParameters: mockBuildParameters(
                     destination: .host,
+                    buildSystemKind: .swiftbuild,
                     debugInfoFormat: .dwarf,
                     shouldEnableDebuggingEntitlement: true,
                     omitFramePointers: false
@@ -602,6 +615,7 @@ struct SwiftBuildSystemTests {
                 buildParameters: mockBuildParameters(
                     destination: .host,
                     flags: flags,
+                    buildSystemKind: .swiftbuild,
                     debugInfoFormat: .dwarf,
                     omitFramePointers: false
                 ),
@@ -660,6 +674,38 @@ struct SwiftBuildSystemTests {
                 #expect(synthesizedArgs.table["CLANG_OMIT_FRAME_POINTERS"] == "NO")
                 #expect(synthesizedArgs.table["SWIFT_OMIT_FRAME_POINTERS"] == "NO")
             }
+        }
+    }
+
+    @Test
+    func swiftCompilerFlagsForwardedToLinkerDriver() async throws {
+        let flags = BuildFlags(
+            swiftCompilerFlags: [
+                BuildFlag(value: "-no-toolchain-stdlib-rpath", source: .commandLineOptions)
+            ]
+        )
+
+        try await withInstantiatedSwiftBuildSystem(
+            fromFixture: "PIFBuilder/Simple",
+            buildParameters: mockBuildParameters(
+                destination: .host,
+                flags: flags,
+                buildSystemKind: .swiftbuild,
+            ),
+        ) { swiftBuild, session, observabilityScope, buildParameters in
+            let buildSettings = try await swiftBuild.makeBuildParameters(
+                session: session,
+                symbolGraphOptions: nil,
+                setToolchainSetting: false
+            )
+
+            let synthesizedArgs = try #require(buildSettings.overrides.synthesized)
+            let otherSwiftFlags = try #require(synthesizedArgs.table["OTHER_SWIFT_FLAGS"])
+            #expect(otherSwiftFlags.contains("-no-toolchain-stdlib-rpath"))
+            let ldFlagsSwiftc = try #require(synthesizedArgs.table["OTHER_LDFLAGS_SWIFTC_LINKER_DRIVER_swiftc"])
+            #expect(ldFlagsSwiftc.contains("-no-toolchain-stdlib-rpath"))
+            let otherLDFlags = try #require(synthesizedArgs.table["OTHER_LDFLAGS"])
+            #expect(otherLDFlags.contains("$(OTHER_LDFLAGS_SWIFTC_LINKER_DRIVER_$(LINKER_DRIVER))"))
         }
     }
 }

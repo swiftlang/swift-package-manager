@@ -232,12 +232,14 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
         let plan = try await BuildPlan(
             destinationBuildParameters: mockBuildParameters(
                 destination: .target,
+                buildSystemKind: .native,
                 shouldLinkStaticSwiftStdlib: true,
                 triple: destinationTriple
             ),
             toolsBuildParameters: mockBuildParameters(
                 destination: .host,
-                triple: toolsTriple
+                buildSystemKind: .native,
+                triple: toolsTriple,
             ),
             graph: graph,
             fileSystem: fs,
@@ -284,11 +286,13 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
         let plan = try await BuildPlan(
             destinationBuildParameters: mockBuildParameters(
                 destination: .target,
+                buildSystemKind: .native,
                 shouldLinkStaticSwiftStdlib: true,
                 triple: destinationTriple
             ),
             toolsBuildParameters: mockBuildParameters(
                 destination: .host,
+                buildSystemKind: .native,
                 triple: toolsTriple
             ),
             graph: graph,
@@ -349,11 +353,13 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
             let plan = try await BuildPlan(
                 destinationBuildParameters: mockBuildParameters(
                     destination: .target,
+                    buildSystemKind: .native,
                     shouldLinkStaticSwiftStdlib: true,
                     triple: destinationTriple
                 ),
                 toolsBuildParameters: mockBuildParameters(
                     destination: .host,
+                    buildSystemKind: .native,
                     triple: toolsTriple
                 ),
                 graph: graph,

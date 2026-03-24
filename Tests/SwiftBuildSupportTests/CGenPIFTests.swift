@@ -191,7 +191,10 @@ import SwiftBuild
         )
 
         return try await pifBuilder.constructPIF(
-            buildParameters: mockBuildParameters(destination: .host)
+            buildParameters: mockBuildParameters(
+                destination: .host,
+                buildSystemKind: .swiftbuild,
+            )
         )
     }
 
