@@ -745,7 +745,8 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                 toolchain: toolchain,
                 destinationBuildParameters: productsBuildParameters,
                 sanitizers: globalOptions.build.sanitizers,
-                library: .xctest // TODO
+                library: .xctest, // TODO
+                testProductPaths: testProducts.map(\.bundlePath)
             ),
             cancellator: swiftCommandState.cancellator,
             fileSystem: swiftCommandState.fileSystem,
