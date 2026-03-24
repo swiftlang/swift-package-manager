@@ -442,6 +442,44 @@ extension ToolsVersion {
     }
 }
 
+/// A safe wrapper around TSCBasic.exec that resets signal masks and
+/// configures file descriptors before replacing the current process.
+///
+/// Dispatch disables almost all asynchronous signals on its worker threads.
+/// When called from async context, we must reset signal handlers and unblock
+/// all signals before exec so the child process starts with clean state.
+/// We also mark all non-standard file descriptors as close-on-exec to avoid
+/// leaking them to the new process.
+func safeExec(path: String, args: [String]) throws -> Never {
+    #if !os(Windows)
+    for i in 1..<NSIG {
+        signal(i, SIG_DFL)
+    }
+    var sig_set_all = sigset_t()
+    sigfillset(&sig_set_all)
+    sigprocmask(SIG_UNBLOCK, &sig_set_all, nil)
+
+    #if os(FreeBSD) || os(OpenBSD)
+    #if os(FreeBSD)
+    pthread_suspend_all_np()
+    #endif
+    closefrom(3)
+    #else
+    #if os(Android)
+    let number_fds = Int32(sysconf(_SC_OPEN_MAX))
+    #else
+    let number_fds = getdtablesize()
+    #endif
+
+    for i in 3..<number_fds {
+        _ = fcntl(i, F_SETFD, FD_CLOEXEC)
+    }
+    #endif
+    #endif
+
+    try exec(path: path, args: args)
+}
+
 /// A class to run tests under LLDB debugger.
 final class DebugTestRunner {
     private let target: DebuggableTestSession
@@ -520,7 +558,7 @@ final class DebugTestRunner {
 
         // Normal interactive mode - use exec to replace the current process with LLDB
         // This avoids PTY issues that interfere with LLDB's command line editing
-        try exec(path: lldbPath.pathString, args: [lldbPath.pathString] + lldbArgs)
+        try safeExec(path: lldbPath.pathString, args: [lldbPath.pathString] + lldbArgs)
     }
 
     /// Returns the path to the Python script file.
