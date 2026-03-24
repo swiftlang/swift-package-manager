@@ -546,13 +546,10 @@ final class DebugTestRunner {
         let lldbCommandFile = tempDir.appending("lldb-commands.txt")
 
         var lldbCommands: [String] = []
-        if target.isMultiSession {
-            try setupMultipleTargets(&lldbCommands)
-        } else if let library = target.targets.first {
-            try setupSingleTarget(&lldbCommands, for: library)
-        } else {
+        guard !target.targets.isEmpty else {
             throw StringError("No testing libraries found for debugging")
         }
+        try setupTargets(&lldbCommands)
 
         // Clear the screen of all the previous commands to unclutter the users initial state.
         // Skip clearing in verbose mode so startup commands remain visible
@@ -567,14 +564,13 @@ final class DebugTestRunner {
         return ["-s", lldbCommandFile.pathString]
     }
 
-    /// Sets up multiple targets when both XCTest and Swift Testing are available
-    private func setupMultipleTargets(_ lldbCommands: inout [String]) throws {
+    private func setupTargets(_ lldbCommands: inout [String]) throws {
         var hasSwiftTesting = false
         var hasXCTest = false
 
         for testingLibrary in target.targets {
             let (executable, args) = try getExecutableAndArgs(for: testingLibrary)
-            lldbCommands.append("target create \(executable.pathString)")
+            lldbCommands.append("target create \"\(executable.pathString)\"")
             lldbCommands.append("settings clear target.run-args")
 
             for arg in args {
@@ -593,31 +589,11 @@ final class DebugTestRunner {
 
         setupCommandAliases(&lldbCommands, hasSwiftTesting: hasSwiftTesting, hasXCTest: hasXCTest)
 
-        // Create the target switching Python script
-        let scriptPath = try createTargetSwitchingScript()
-        lldbCommands.append("command script import \"\(scriptPath.pathString)\"")
-
-        // Select the first target and launch with pause on main
-        lldbCommands.append("target select 0")
-    }
-
-    /// Sets up a single target when only one testing library is available
-    private func setupSingleTarget(_ lldbCommands: inout [String], for target: DebuggableTestSession.Target) throws {
-        let (executable, args) = try getExecutableAndArgs(for: target)
-        // Create target
-        lldbCommands.append("target create \(executable.pathString)")
-        lldbCommands.append("settings clear target.run-args")
-
-        // Add arguments
-        for arg in args {
-            lldbCommands.append("settings append target.run-args \"\(arg)\"")
+        if target.isMultiSession {
+            let scriptPath = try createTargetSwitchingScript()
+            lldbCommands.append("command script import \"\(scriptPath.pathString)\"")
+            lldbCommands.append("target select 0")
         }
-
-        // Load symbols for the test bundle
-        let modulePath = getModulePath(for: target)
-        lldbCommands.append("target modules add \"\(modulePath.pathString)\"")
-
-        setupCommandAliases(&lldbCommands, hasSwiftTesting: target.library == .swiftTesting, hasXCTest: target.library == .xctest)
     }
 
     private func setupCommandAliases(_ lldbCommands: inout [String], hasSwiftTesting: Bool, hasXCTest: Bool) {
@@ -686,6 +662,7 @@ final class DebugTestRunner {
         let pythonScript = """
 # target_switcher.py
 import lldb
+import re
 import threading
 import time
 import sys
@@ -693,7 +670,6 @@ import sys
 current_target_index = 0
 max_targets = 0
 debugger_ref = None
-known_breakpoints = set()
 sequence_active = True  # Start active by default
 
 def sync_breakpoints_to_target(source_target, dest_target):
@@ -722,7 +698,6 @@ def sync_breakpoints_to_target(source_target, dest_target):
                 # If no names found, check the description for pending breakpoints
                 if names.GetSize() == 0:
                     bp_desc = str(existing_bp).strip()
-                    import re
                     match = re.search(r"name = '([^']+)'", bp_desc)
                     if match and match.group(1) == function_name:
                         return True
@@ -766,8 +741,6 @@ def sync_breakpoints_to_target(source_target, dest_target):
                     function_names_to_sync.append(function_name)
         else:
             # Parse function name from description for pending breakpoints
-            # Description format: "1: name = 'failureBreakpoint()', module = Testing, locations = 0 (pending)"
-            import re
             match = re.search(r"name = '([^']+)'", bp_desc)
             if match:
                 function_name = match.group(1)
@@ -829,7 +802,7 @@ def sync_breakpoints_to_all_targets():
 
 def monitor_breakpoints():
     \"\"\"Monitor breakpoint changes and sync them across targets.\"\"\"
-    global debugger_ref, known_breakpoints, max_targets
+    global debugger_ref, max_targets
 
     if max_targets <= 1:
         return
@@ -903,7 +876,7 @@ def check_process_status():
                                     current_target_index = i
                                     break
 
-        time.sleep(0.1)  # Check every second
+        time.sleep(0.1)  # Check every 100ms
 
 def __lldb_init_module(debugger, internal_dict):
     global max_targets, debugger_ref

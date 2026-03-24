@@ -652,7 +652,6 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         }
 
         try await runTestLibrariesWithLLDB(
-            testProduct: testProduct,
             target: DebuggableTestSession(
                 targets: librariesToRun.map {
                     DebuggableTestSession.Target(
@@ -667,17 +666,6 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             swiftCommandState: swiftCommandState,
             toolchain: toolchain
         )
-
-        // Clean up Python script file after all sessions complete
-        // (Breakpoint file cleanup is handled by DebugTestRunner based on SessionState)
-        if librariesToRun.count > 1 {
-            let tempDir = try swiftCommandState.fileSystem.tempDirectory
-            let pythonScriptFile = tempDir.appending("save_breakpoints.py")
-
-            if swiftCommandState.fileSystem.exists(pythonScriptFile) {
-                try? swiftCommandState.fileSystem.removeFileTree(pythonScriptFile)
-            }
-        }
 
         return .success
     }
@@ -697,7 +685,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                 // Only pass arguments after the "--" separator
                 swiftTestingArgs += Array(commandLineArguments.dropFirst(separatorIndex + 1))
             }
-            return  swiftTestingArgs
+            return swiftTestingArgs
         }
     }
 
@@ -710,18 +698,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         }
     }
 
-    /// Runs a single testing library under LLDB debugger.
-    ///
-    /// - Parameters:
-    ///   - testProduct: The test product to debug
-    ///   - library: The testing library to run
-    ///   - testProducts: All built test products (for XCTest args generation)
-    ///   - productsBuildParameters: Build parameters for the products
-    ///   - swiftCommandState: The Swift command state
-    ///   - toolchain: The toolchain to use
-    ///   - sessionState: The debugging session state for breakpoint persistence
     private func runTestLibrariesWithLLDB(
-        testProduct: BuiltTestProduct,
         target: DebuggableTestSession,
         testProducts: [BuiltTestProduct],
         productsBuildParameters: BuildParameters,

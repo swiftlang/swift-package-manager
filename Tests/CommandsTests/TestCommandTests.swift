@@ -27,22 +27,6 @@ import struct ArgumentParser.ExitCode
 import protocol ArgumentParser.AsyncParsableCommand
 import class TSCBasic.BufferedOutputByteStream
 
-fileprivate func execute(
-    _ args: [String],
-    packagePath: AbsolutePath? = nil,
-    configuration: BuildConfiguration = .debug,
-    buildSystem: BuildSystemProvider.Kind,
-    throwIfCommandFails: Bool = true
-) async throws -> (stdout: String, stderr: String) {
-    try await executeSwiftTest(
-        packagePath,
-        configuration: configuration,
-        extraArgs: args,
-        buildSystem: buildSystem,
-        throwIfCommandFails: throwIfCommandFails,
-    )
-}
-
 @Suite(
     .serialized,  // to limit the number of swift executable running.
     .tags(
