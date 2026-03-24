@@ -63,6 +63,32 @@ package func withService<T>(
     return result
 }
 
+/// Determines the effective toolchain path and whether it is embedded in an Xcode installation.
+///
+/// On Windows, the "developer dir" is two levels up from the toolchain dir, unlike Swift.org
+/// toolchains on other platforms where they are both the same.
+///
+/// Users often rename Xcode.app, and in Swift.org CI on macOS we construct the toolchain under
+/// a nonfunctioning shell of Xcode.app. Instead of just checking the app name, see if we can
+/// find the app's version.plist at the expected location.
+func toolchainDeveloperPathInfo(toolchain: Toolchain) throws -> (toolchainPath: Basics.AbsolutePath, isEmbeddedInXcode: Bool) {
+    let toolchainPath = try toolchain.toolchainDir
+
+    // On Windows, the "developer dir" is two levels up from the toolchain dir,
+    // unlike Swift.org toolchains on other platforms where they are both the same.
+    if ProcessInfo.hostOperatingSystem == .windows {
+        return (toolchainPath.parentDirectory.parentDirectory, false)
+    }
+
+    let xcodeVersionPlistPath = toolchainPath
+        .parentDirectory // Remove 'XcodeDefault.xctoolchain'
+        .parentDirectory // Remove 'Toolchains'
+        .parentDirectory // Remove 'Developer'
+        .appending(component: "version.plist")
+    let isEmbeddedInXcode = (try? XcodeVersionInfo.versionInfo(versionPath: SWBUtil.Path(xcodeVersionPlistPath.pathString))) != nil
+    return (toolchainPath, isEmbeddedInXcode)
+}
+
 public func createSession(
     service: SWBBuildService,
     name: String,
@@ -74,30 +100,7 @@ public func createSession(
     if let metalToolchainPath = toolchain.metalToolchainPath {
         buildSessionEnv = ["EXTERNAL_TOOLCHAINS_DIR": metalToolchainPath.pathString]
     }
-    var toolchainPath = try toolchain.toolchainDir
-
-    // On Windows, the "developer dir" is two levels up from the toolchain dir,
-    // unlike Swift.org toolchains on other platforms where they are both the same.
-    if ProcessInfo.hostOperatingSystem == .windows {
-        toolchainPath = toolchainPath
-            .parentDirectory
-            .parentDirectory
-    }
-
-    // Users often rename Xcode.app, and in Swift.org CI on macOS we construct the toolchain under a nonfunctioning shell
-    // of Xcode.app. Instead of just checking the app name, see if we can find the app's version.plist at the expected
-    // location.
-    let toolchainIsEmbeddedInXcode: Bool
-    let xcodeVersionPlistPath = toolchainPath
-        .parentDirectory // Remove 'XcodeDefault.xctoolchain'
-        .parentDirectory // Remove 'Toolchains'
-        .parentDirectory // Remove 'Developer'
-        .appending(component: "version.plist")
-    if (try? XcodeVersionInfo.versionInfo(versionPath: SWBUtil.Path(xcodeVersionPlistPath.pathString))) != nil {
-        toolchainIsEmbeddedInXcode = true
-    } else {
-        toolchainIsEmbeddedInXcode = false
-    }
+    let (toolchainPath, toolchainIsEmbeddedInXcode) = try toolchainDeveloperPathInfo(toolchain: toolchain)
 
     // SWIFT_EXEC and SWIFT_EXEC_MANIFEST may need to be overridden in debug scenarios in order to pick up Open Source toolchains
     let sessionResult = if toolchainIsEmbeddedInXcode {
@@ -652,7 +655,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                         throw error
                     }
 
-                    let request = try await self.makeBuildRequest(session: session, configuredTargets: configuredTargets, derivedDataPath: derivedDataPath, symbolGraphOptions: symbolGraphOptions)
+                    let request = try await self.makeBuildRequest(service: service, session: session, configuredTargets: configuredTargets, derivedDataPath: derivedDataPath, symbolGraphOptions: symbolGraphOptions)
 
                     let operation = try await session.createBuildOperation(
                         request: request,
@@ -780,7 +783,16 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         }
     }
 
-    private func makeRunDestination() -> SwiftBuild.SWBRunDestinationInfo {
+    private func buildTargetInfo(service: SWBBuildService) async throws -> SWBBuildTargetInfo {
+        let (toolchainPath, isEmbeddedInXcode) = try toolchainDeveloperPathInfo(toolchain: buildParameters.toolchain)
+        if isEmbeddedInXcode {
+            return try await service.buildTargetInfo(triple: buildParameters.triple.tripleString, developerPath: nil)
+        } else {
+            return try await service.buildTargetInfo(triple: buildParameters.triple.tripleString, swiftToolchainPath: toolchainPath.pathString)
+        }
+    }
+
+    private func makeRunDestination(service: SWBBuildService) async throws -> SwiftBuild.SWBRunDestinationInfo {
         if let sdkManifestPath = self.buildParameters.toolchain.swiftSDK.swiftSDKManifest {
             return SwiftBuild.SWBRunDestinationInfo(
                 buildTarget: .swiftSDK(sdkManifestPath: sdkManifestPath.pathString, triple: self.buildParameters.triple.tripleString),
@@ -789,30 +801,13 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                 disableOnlyActiveArch: (buildParameters.architectures?.count ?? 1) > 1,
             )
         } else {
-            let platformName: String
-            let sdkName: String
-
-            if self.buildParameters.triple.isAndroid() {
-                // Android triples are identified by the environment part of the triple
-                platformName = "android"
-                sdkName = platformName
-            } else {
-                platformName = self.buildParameters.triple.darwinPlatform?.platformName ?? self.buildParameters.triple.osNameUnversioned
-                sdkName = platformName
-            }
-
-            let sdkVariant: String?
-            if self.buildParameters.triple.environment == .macabi {
-                sdkVariant = "iosmac"
-            } else {
-                sdkVariant = nil
-            }
+            let buildTargetInfo = try await self.buildTargetInfo(service: service)
 
             return SwiftBuild.SWBRunDestinationInfo(
                 buildTarget: .toolchainSDK(
-                    platform: platformName,
-                    sdk: sdkName,
-                    sdkVariant: sdkVariant
+                    platform: buildTargetInfo.platformName,
+                    sdk: buildTargetInfo.sdkName,
+                    sdkVariant: buildTargetInfo.sdkVariant
                 ),
                 targetArchitecture: buildParameters.triple.archName,
                 supportedArchitectures: [],
@@ -823,12 +818,13 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
     }
 
     internal func makeBuildParameters(
+        service: SWBBuildService,
         session: SWBBuildServiceSession,
         symbolGraphOptions: BuildOutput.SymbolGraphOptions?,
         setToolchainSetting: Bool = true,
     ) async throws -> SwiftBuild.SWBBuildParameters {
         // Generate the run destination parameters.
-        let runDestination = makeRunDestination()
+        let runDestination = try await makeRunDestination(service: service)
 
         var verboseFlag: [String] = []
         if self.logLevel == .debug {
@@ -918,8 +914,8 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                 .joined(separator: " ")
         }
 
-        let normalizedTriple = Triple(buildParameters.triple.triple, normalizing: true)
-        if let deploymentTargetSettingName = normalizedTriple.deploymentTargetSettingName, let value = normalizedTriple.deploymentTargetVersionString {
+        let buildTargetInfo = try await self.buildTargetInfo(service: service)
+        if let deploymentTargetSettingName = buildTargetInfo.deploymentTargetSettingName, let value = buildTargetInfo.deploymentTarget {
             // Only override the deployment target if a version is explicitly specified;
             // for Apple platforms this normally comes from the package manifest and may
             // not be set to the same value for all packages in the package graph.
@@ -1061,6 +1057,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
     }
 
     public func makeBuildRequest(
+        service: SWBBuildService,
         session: SWBBuildServiceSession,
         configuredTargets: [SWBTargetGUID],
         derivedDataPath: Basics.AbsolutePath,
@@ -1069,6 +1066,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         ) async throws -> SWBBuildRequest {
         var request = SWBBuildRequest()
         request.parameters = try await makeBuildParameters(
+            service: service,
             session: session,
             symbolGraphOptions: symbolGraphOptions,
             setToolchainSetting: setToolchainSetting,
@@ -1292,6 +1290,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
     }
 
     package struct LongLivedBuildServiceSession {
+        package var service: SWBBuildService
         package var session: SWBBuildServiceSession
         package var diagnostics: [SwiftBuildMessage.DiagnosticInfo]
         package var teardownHandler: () async throws -> Void
@@ -1305,7 +1304,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                 try await session.close()
                 await service.close()
             }
-            return LongLivedBuildServiceSession(session: session, diagnostics: diagnostics, teardownHandler: teardownHandler)
+            return LongLivedBuildServiceSession(service: service, session: session, diagnostics: diagnostics, teardownHandler: teardownHandler)
         } catch {
             await service.close()
             throw error
@@ -1335,59 +1334,6 @@ extension String {
         #else
         return self.spm_shellEscaped()
         #endif
-    }
-}
-
-fileprivate extension Triple {
-    var deploymentTargetSettingName: String? {
-        switch (self.os, self.environment) {
-        case (.macosx, _):
-            return "MACOSX_DEPLOYMENT_TARGET"
-        case (.ios, _):
-            return "IPHONEOS_DEPLOYMENT_TARGET"
-        case (.tvos, _):
-            return "TVOS_DEPLOYMENT_TARGET"
-        case (.watchos, _):
-            return "WATCHOS_DEPLOYMENT_TARGET"
-        case (_, .android):
-            return "ANDROID_DEPLOYMENT_TARGET"
-        case (.freebsd, _):
-            return "FREEBSD_DEPLOYMENT_TARGET"
-        default:
-            return nil
-        }
-    }
-
-    var deploymentTargetVersion: Version {
-        if isAndroid() {
-            // Android triples store the version in the environment
-            var environmentName = self.environmentName[...]
-            if environment != nil {
-                let prefixes = ["androideabi", "android"]
-                for prefix in prefixes {
-                    if environmentName.hasPrefix(prefix) {
-                        environmentName = environmentName.dropFirst(prefix.count)
-                        break
-                    }
-                }
-            }
-
-            return Version(parse: environmentName)
-        }
-        return osVersion
-    }
-
-    var deploymentTargetVersionString: String? {
-        let v = deploymentTargetVersion
-        guard v != .zero else {
-            return nil
-        }
-        var components = [v.major, v.minor, v.micro]
-        let minimumComponentCount = isApple() ? 2 : 1
-        while components.last == 0 && components.count > minimumComponentCount {
-            components.removeLast()
-        }
-        return components.map { String($0) }.joined(separator: ".")
     }
 }
 
