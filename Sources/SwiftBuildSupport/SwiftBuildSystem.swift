@@ -975,6 +975,11 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         // Optionally also set the list of architectures to build for.
         if let architectures = buildParameters.architectures, !architectures.isEmpty {
             settings["ARCHS"] = architectures.joined(separator: " ")
+        } else {
+            // If the user did not explicitly specify a list of architectures, build only the active arch.
+            // We may want to consider building universal binaries by default in Apple-platform release builds
+            // in the future, but for now we maintain compatibility with the old build system.
+            settings["ONLY_ACTIVE_ARCH"] = "YES"
         }
 
         // When building with the CLI for macOS, test bundles should generate entrypoints for compatibility with swiftpm-testing-helper.

@@ -16,9 +16,11 @@ import Basics
 import _InternalTestSupport
 import XCTest
 
+import struct TSCBasic.ByteString
 import struct TSCBasic.FileSystemError
 import func TSCBasic.makeDirectories
 import class Basics.AsyncProcess
+import Foundation
 
 import enum TSCUtility.Git
 
@@ -31,6 +33,87 @@ class GitRepositoryTests: XCTestCase {
 
     override func tearDown() {
         Git.environmentBlock = .init(Environment.current)
+    }
+
+    private func requireGitLFS() async throws {
+        Git.environmentBlock = .init(Environment.current)
+        var environment = Git.environmentBlock
+        environment["GIT_ALLOW_PROTOCOL"] = "file"
+        Git.environmentBlock = environment
+
+        do {
+            try await AsyncProcess.checkNonZeroExit(
+                args: Git.tool, "lfs", "version",
+                environment: .init(Git.environmentBlock)
+            )
+        } catch {
+            throw XCTSkip("git-lfs not accessible to SPM's git binary, skipping test")
+        }
+    }
+
+    private func addLFSTrackedBinaryFile(
+        to repositoryPath: AbsolutePath,
+        fileName: String = "test.bin",
+        tag: String = "1.0.0"
+    ) async throws -> Data {
+        try await AsyncProcess.checkNonZeroExit(
+            args: Git.tool, "-C", repositoryPath.pathString, "lfs", "install", "--local", "--force",
+            environment: .init(Git.environmentBlock)
+        )
+        try await AsyncProcess.checkNonZeroExit(
+            args: Git.tool, "-C", repositoryPath.pathString, "lfs", "track", "*.bin",
+            environment: .init(Git.environmentBlock)
+        )
+
+        let binaryData = Data([0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46])
+        try localFileSystem.writeFileContents(
+            repositoryPath.appending(fileName),
+            bytes: ByteString(binaryData)
+        )
+
+        let repository = GitRepository(path: repositoryPath)
+        try repository.stageEverything()
+        try repository.commit(message: "Add binary file tracked by LFS")
+        try repository.tag(name: tag)
+
+        return binaryData
+    }
+
+    private func createLFSRepository(
+        at repositoryPath: AbsolutePath,
+        tag: String = "1.0.0"
+    ) async throws -> Data {
+        try makeDirectories(repositoryPath)
+        initGitRepo(repositoryPath)
+        return try await self.addLFSTrackedBinaryFile(to: repositoryPath, tag: tag)
+    }
+
+    private func assertFileIsLFSPointer(
+        _ path: AbsolutePath,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) throws {
+        let contents = try localFileSystem.readFileContents(path).description
+        XCTAssertTrue(
+            contents.contains("version https://git-lfs.github.com/spec/"),
+            "Expected LFS pointer at \(path)",
+            file: file,
+            line: line
+        )
+    }
+
+    private func assertFileMatchesBinaryData(
+        _ path: AbsolutePath,
+        expected: Data,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) throws {
+        XCTAssertEqual(
+            try localFileSystem.readFileContents(path),
+            ByteString(expected),
+            file: file,
+            line: line
+        )
     }
 
     /// Test the basic provider functions.
@@ -947,4 +1030,287 @@ class GitRepositoryTests: XCTestCase {
         XCTAssertTrue(error.description.contains("Failed to clone"), "Description should contain the message")
         XCTAssertFalse(error.description.hasSuffix(":\n"), "Description should not end with a colon and newline if output is empty")
     }
+
+    // MARK: - Git LFS Tests
+
+    /// Test LFS detection when repository has .gitattributes with filter=lfs
+    func testHasLFSTrackedFiles() async throws {
+        try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8564", skipSelfHostedCI: true)
+        try await testWithTemporaryDirectory { path in
+            // Create a repo without LFS
+            let testRepoPath = path.appending("test-repo")
+            try makeDirectories(testRepoPath)
+            initGitRepo(testRepoPath)
+
+            let repo = GitRepository(path: testRepoPath)
+
+            // Repository without .gitattributes should not have LFS tracked files
+            XCTAssertFalse(try repo.hasLFSTrackedFiles())
+
+            // Add a .gitattributes file without LFS
+            try localFileSystem.writeFileContents(testRepoPath.appending(".gitattributes"), string: "*.txt text\n")
+            try repo.stage(file: ".gitattributes")
+            try repo.commit()
+
+            // Clear cache to re-detect
+            repo.clearLFSCache()
+
+            // Should still not have LFS tracked files
+            XCTAssertFalse(try repo.hasLFSTrackedFiles())
+
+            // Add .gitattributes with filter=lfs in a comment (should be ignored)
+            try localFileSystem.writeFileContents(
+                testRepoPath.appending(".gitattributes"),
+                string: "# This file uses filter=lfs for large files\n*.txt text\n"
+            )
+            try repo.stage(file: ".gitattributes")
+            try repo.commit()
+
+            // Clear cache to re-detect
+            repo.clearLFSCache()
+
+            // Should still not have LFS tracked files (comment should be ignored)
+            XCTAssertFalse(try repo.hasLFSTrackedFiles())
+
+            // Now add actual LFS tracking
+            try localFileSystem.writeFileContents(
+                testRepoPath.appending(".gitattributes"),
+                string: "*.bin filter=lfs diff=lfs merge=lfs -text\n"
+            )
+            try repo.stage(file: ".gitattributes")
+            try repo.commit()
+
+            // Clear cache to re-detect
+            repo.clearLFSCache()
+
+            // Should now detect LFS tracked files
+            XCTAssertTrue(try repo.hasLFSTrackedFiles())
+        }
+    }
+
+    /// Test that LFS detection results are cached
+    func testLFSDetectionCaching() async throws {
+        try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8564", skipSelfHostedCI: true)
+        try await testWithTemporaryDirectory { path in
+            // Create a repo with LFS
+            let testRepoPath = path.appending("test-repo")
+            try makeDirectories(testRepoPath)
+            initGitRepo(testRepoPath)
+
+            // Add .gitattributes with LFS
+            try localFileSystem.writeFileContents(
+                testRepoPath.appending(".gitattributes"),
+                string: "*.bin filter=lfs diff=lfs merge=lfs -text\n"
+            )
+            let repo = GitRepository(path: testRepoPath)
+            try repo.stage(file: ".gitattributes")
+            try repo.commit()
+
+            // First call should detect LFS
+            XCTAssertTrue(try repo.hasLFSTrackedFiles())
+
+            // Second call should return cached result (same value)
+            XCTAssertTrue(try repo.hasLFSTrackedFiles())
+
+            // Clear cache
+            repo.clearLFSCache()
+
+            // After clearing, it should still detect correctly
+            XCTAssertTrue(try repo.hasLFSTrackedFiles())
+        }
+    }
+
+    /// Test GitLFSError descriptions
+    func testGitLFSErrorDescription() {
+        // Test notInstalled error
+        let notInstalledError = GitLFSError.notInstalled
+        XCTAssertTrue(notInstalledError.description.contains("Git LFS is not installed"))
+        XCTAssertTrue(notInstalledError.description.contains("brew install git-lfs"))
+
+        // Test fetchFailed error
+        let fetchError = GitLFSError.fetchFailed(underlyingError: NSError(domain: "test", code: 1, userInfo: [NSLocalizedDescriptionKey: "fetch failed"]))
+        XCTAssertTrue(fetchError.description.contains("Git LFS fetch failed"))
+
+        // Test pullFailed error
+        let pullError = GitLFSError.pullFailed(underlyingError: NSError(domain: "test", code: 1, userInfo: [NSLocalizedDescriptionKey: "pull failed"]))
+        XCTAssertTrue(pullError.description.contains("Git LFS pull failed"))
+    }
+
+    /// Test that provider fetches LFS objects into the bare cache so working copies
+    /// can still materialize files even after the original remote is gone.
+    func testGitRepositoryProviderWithLFS() async throws {
+        try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8564", skipSelfHostedCI: true)
+        try await self.requireGitLFS()
+        try await testWithTemporaryDirectory { path in
+            let testRepoPath = path.appending("test-repo")
+            let binaryData = try await self.createLFSRepository(at: testRepoPath)
+            let provider = GitRepositoryProvider()
+            let testClonePath = path.appending("clone")
+            let repoSpec = RepositorySpecifier(path: testRepoPath)
+            try await provider.fetch(repository: repoSpec, to: testClonePath)
+
+            // If the bare cache did not fetch LFS objects, checkout can no longer
+            // materialize the file once the original repository disappears.
+            try localFileSystem.removeFileTree(testRepoPath)
+
+            let checkoutPath = path.appending("checkout")
+            let workingCopy = try await provider.createWorkingCopy(
+                repository: repoSpec,
+                sourcePath: testClonePath,
+                at: checkoutPath,
+                editable: false
+            )
+
+            try workingCopy.checkout(tag: "1.0.0")
+
+            let binaryFilePath = checkoutPath.appending("test.bin")
+            XCTAssertFileExists(binaryFilePath)
+            try self.assertFileMatchesBinaryData(binaryFilePath, expected: binaryData)
+        }
+    }
+
+    /// Test that a checkout created before SwiftPM knew about LFS gets fixed on a
+    /// subsequent checkout without recloning the cache or the working copy.
+    func testGitLFSUpgradePathPullsObjectsIntoExistingCheckout() async throws {
+        try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8564", skipSelfHostedCI: true)
+        try await self.requireGitLFS()
+
+        try await testWithTemporaryDirectory { path in
+            let lfsRepoPath = path.appending("lfs-repo")
+            let binaryData = try await self.createLFSRepository(at: lfsRepoPath)
+
+            let bareClonePath = path.appending("bare-clone")
+            try await AsyncProcess.checkNonZeroExit(
+                args: Git.tool, "clone", "--mirror", lfsRepoPath.pathString, bareClonePath.pathString,
+                environment: .init(Git.environmentBlock)
+            )
+
+            let checkoutPath = path.appending("checkout")
+            try await AsyncProcess.checkNonZeroExit(
+                args: Git.tool, "clone", "--shared", "--no-checkout", bareClonePath.pathString, checkoutPath.pathString,
+                environment: .init(Git.environmentBlock)
+            )
+
+            var skipSmudgeEnvironment = Git.environmentBlock
+            skipSmudgeEnvironment["GIT_LFS_SKIP_SMUDGE"] = "1"
+            try await AsyncProcess.checkNonZeroExit(
+                args: Git.tool, "-C", checkoutPath.pathString, "checkout", "-f", "1.0.0",
+                environment: .init(skipSmudgeEnvironment)
+            )
+
+            let binaryFilePath = checkoutPath.appending("test.bin")
+            XCTAssertFileExists(binaryFilePath)
+            try self.assertFileIsLFSPointer(binaryFilePath)
+
+            let revision = try GitRepository(path: lfsRepoPath).resolveRevision(tag: "1.0.0")
+            let workingCopy = GitRepository(path: checkoutPath)
+            try workingCopy.checkout(revision: revision)
+
+            try self.assertFileMatchesBinaryData(binaryFilePath, expected: binaryData)
+        }
+    }
+
+    func testGitLFSCheckoutRespectsSkipSmudge() async throws {
+        try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8564", skipSelfHostedCI: true)
+        try await self.requireGitLFS()
+
+        try await testWithTemporaryDirectory { path in
+            let lfsRepoPath = path.appending("lfs-repo")
+            _ = try await self.createLFSRepository(at: lfsRepoPath)
+
+            let provider = GitRepositoryProvider()
+            let repoSpec = RepositorySpecifier(path: lfsRepoPath)
+            let clonePath = path.appending("clone")
+            try await provider.fetch(repository: repoSpec, to: clonePath)
+
+            let checkoutPath = path.appending("checkout")
+            let workingCopy = try await provider.createWorkingCopy(
+                repository: repoSpec,
+                sourcePath: clonePath,
+                at: checkoutPath,
+                editable: false
+            )
+
+            let originalEnvironment = Git.environmentBlock
+            defer { Git.environmentBlock = originalEnvironment }
+
+            var skipSmudgeEnvironment = originalEnvironment
+            skipSmudgeEnvironment["GIT_LFS_SKIP_SMUDGE"] = "1"
+            Git.environmentBlock = skipSmudgeEnvironment
+
+            try workingCopy.checkout(tag: "1.0.0")
+
+            let binaryFilePath = checkoutPath.appending("test.bin")
+            XCTAssertFileExists(binaryFilePath)
+            try self.assertFileIsLFSPointer(binaryFilePath)
+        }
+    }
+
+    func testGitLFSCheckoutClearsDetectionCacheAcrossRevisions() async throws {
+        try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8564", skipSelfHostedCI: true)
+        try await self.requireGitLFS()
+
+        try await testWithTemporaryDirectory { path in
+            let lfsRepoPath = path.appending("lfs-repo")
+            try makeDirectories(lfsRepoPath)
+            initGitRepo(lfsRepoPath, tag: "before-lfs")
+            _ = try await self.addLFSTrackedBinaryFile(to: lfsRepoPath, tag: "after-lfs")
+
+            let provider = GitRepositoryProvider()
+            let repoSpec = RepositorySpecifier(path: lfsRepoPath)
+            let clonePath = path.appending("clone")
+            try await provider.fetch(repository: repoSpec, to: clonePath)
+
+            let checkoutPath = path.appending("checkout")
+            let workingCopy = try await provider.createWorkingCopy(
+                repository: repoSpec,
+                sourcePath: clonePath,
+                at: checkoutPath,
+                editable: false
+            )
+            let gitWorkingCopy = try XCTUnwrap(workingCopy as? GitRepository)
+
+            try gitWorkingCopy.checkout(tag: "before-lfs")
+            XCTAssertFalse(try gitWorkingCopy.hasLFSTrackedFiles())
+
+            try gitWorkingCopy.checkout(tag: "after-lfs")
+            XCTAssertTrue(try gitWorkingCopy.hasLFSTrackedFiles())
+        }
+    }
+
+    /// Test full Git LFS workflow: fetch LFS objects and verify content is not a pointer.
+    /// This test requires git-lfs to be installed and will skip if unavailable.
+    func testGitLFSFetchAndPull() async throws {
+        try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8564", skipSelfHostedCI: true)
+        try await self.requireGitLFS()
+
+        try await testWithTemporaryDirectory { path in
+            let lfsRepoPath = path.appending("lfs-repo")
+            let binaryData = try await self.createLFSRepository(at: lfsRepoPath)
+
+            // Create provider (LFS is auto-detected)
+            let provider = GitRepositoryProvider()
+
+            // Fetch to bare clone (this should also fetch LFS objects since repo has .gitattributes)
+            let clonePath = path.appending("clone")
+            let repoSpec = RepositorySpecifier(path: lfsRepoPath)
+            try await provider.fetch(repository: repoSpec, to: clonePath)
+
+            // Create working copy and checkout (this should pull LFS files)
+            let checkoutPath = path.appending("checkout")
+            let workingCopy = try await provider.createWorkingCopy(
+                repository: repoSpec,
+                sourcePath: clonePath,
+                at: checkoutPath,
+                editable: false
+            )
+            try workingCopy.checkout(tag: "1.0.0")
+
+            // Verify the binary file exists
+            let binaryFilePath = checkoutPath.appending("test.bin")
+            XCTAssertFileExists(binaryFilePath)
+            try self.assertFileMatchesBinaryData(binaryFilePath, expected: binaryData)
+        }
+    }
+
 }
