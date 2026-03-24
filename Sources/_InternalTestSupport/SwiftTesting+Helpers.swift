@@ -297,15 +297,9 @@ public func waitForOutputStreamToContain(
     timeout: TimeInterval = 3.0,
     retryInterval: TimeInterval = 0.05
 ) async throws -> Bool {
-    let description = outputStream.bytes.description
-    if description.contains(needle) {
-        return true
-    }
-
     let startTime = Date()
     while Date().timeIntervalSince(startTime) < timeout {
-        let description = outputStream.bytes.description
-        if description.contains(needle) {
+        if outputStream.bytes.description.contains(needle) {
             return true
         }
 
