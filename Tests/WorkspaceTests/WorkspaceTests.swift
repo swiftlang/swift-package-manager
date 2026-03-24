@@ -8070,13 +8070,9 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testArtifactChecksum() async throws {
-        try XCTSkipOnWindows(because: #"""
-        threw error "\tmp\ws doesn't exist in file system" because there is an issue with InMemoryFileSystem readFileContents(...) on Windows
-        """#)
-
         let fs = InMemoryFileSystem()
         try fs.createMockToolchain()
-        let sandbox = AbsolutePath("/tmp/ws/")
+        let sandbox = AbsolutePath.root.appending(components: ["tmp", "ws"])
 
         try fs.createDirectory(sandbox, recursive: true)
 
