@@ -31,7 +31,7 @@ func withInstantiatedSwiftBuildSystem(
     fromFixture fixtureName: String,
     buildParameters: BuildParameters? = nil,
     logLevel: Basics.Diagnostic.Severity = .warning,
-    do doIt: @escaping (SwiftBuildSupport.SwiftBuildSystem, SWBBuildServiceSession, TestingObservability, BuildParameters,) async throws -> (),
+    do doIt: @escaping (SwiftBuildSupport.SwiftBuildSystem, SWBBuildService, SWBBuildServiceSession, TestingObservability, BuildParameters,) async throws -> (),
 ) async throws {
     let fileSystem = Basics.localFileSystem
 
@@ -101,7 +101,7 @@ func withInstantiatedSwiftBuildSystem(
                 }
 
                 do {
-                    try await doIt(swBuild, buildSession, observabilitySystem, buildParameters)
+                    try await doIt(swBuild, service, buildSession, observabilitySystem, buildParameters)
                     try await buildSession.close()
                 } catch {
                     try await buildSession.close()
@@ -159,8 +159,9 @@ struct SwiftBuildSystemTests {
                     buildSystemKind: .swiftbuild,
                     sanitizers: [sanitizer],
                 ),
-            ) { swiftBuild, session, observabilityScope, buildParameters in
+            ) { swiftBuild, service, session, observabilityScope, buildParameters in
                 let buildSettings: SWBBuildParameters = try await swiftBuild.makeBuildParameters(
+                    service: service,
                     session: session,
                     symbolGraphOptions: nil,
                     setToolchainSetting: false, // Set this to false as SwiftBuild checks the toolchain path
@@ -187,9 +188,10 @@ struct SwiftBuildSystemTests {
                     buildSystemKind: .swiftbuild,
                     sanitizers: [sanitizer],
                 ),
-            ) { swiftBuild, session, observabilityScope, buildParameters in
+            ) { swiftBuild, service, session, observabilityScope, buildParameters in
                 await #expect(throws: (any Error).self) {
                     try await swiftBuild.makeBuildParameters(
+                        service: service,
                         session: session,
                         symbolGraphOptions: nil,
                         setToolchainSetting: false, // Set this to false as SwiftBuild checks the toolchain path
@@ -219,9 +221,10 @@ struct SwiftBuildSystemTests {
                     shouldLinkStaticSwiftStdlib: shouldLinkStaticSwiftStdlib,
                     triple: triple,
                 ),
-            ) { swiftBuild, session, observabilityScope, buildParameters in
+            ) { swiftBuild, service, session, observabilityScope, buildParameters in
                 // WHEN we make the build parameter
                 let _: SWBBuildParameters = try await swiftBuild.makeBuildParameters(
+                    service: service,
                     session: session,
                     symbolGraphOptions: nil,
                     setToolchainSetting: false, // Set this to false as SwiftBuild checks the toolchain path
@@ -261,9 +264,10 @@ struct SwiftBuildSystemTests {
                     shouldLinkStaticSwiftStdlib: shouldLinkStaticSwiftStdlib,
                     triple: nonDarwinTriple,
                 ),
-            ) { swiftBuild, session, observabilityScope, buildParameters in
+            ) { swiftBuild, service, session, observabilityScope, buildParameters in
                 // WHEN we make the build parameter
                 let buildSettings = try await swiftBuild.makeBuildParameters(
+                    service: service,
                     session: session,
                     symbolGraphOptions: nil,
                     setToolchainSetting: false, // Set this to false as SwiftBuild checks the toolchain path
@@ -296,8 +300,9 @@ struct SwiftBuildSystemTests {
                 buildSystemKind: .swiftbuild,
                 indexStoreMode: indexStoreSettingUT,
             ),
-        ) { swiftBuild, session, observabilityScope, buildParameters in
+        ) { swiftBuild, service, session, observabilityScope, buildParameters in
             let buildSettings = try await swiftBuild.makeBuildParameters(
+                service: service,
                 session: session,
                 symbolGraphOptions: nil,
                 setToolchainSetting: false, // Set this to false as SwiftBuild checks the toolchain path
@@ -340,9 +345,10 @@ struct SwiftBuildSystemTests {
                 buildSystemKind: .swiftbuild,
                 linkerDeadStrip: linkerDeadStripUT,
             ),
-        ) { swiftBuild, session, observabilityScope, buildParameters in
+        ) { swiftBuild, service, session, observabilityScope, buildParameters in
 
             let buildSettings = try await swiftBuild.makeBuildParameters(
+                service: service,
                 session: session,
                 symbolGraphOptions: nil,
                 setToolchainSetting: false, // Set this to false as SwiftBuild checks the toolchain path
@@ -377,8 +383,9 @@ struct SwiftBuildSystemTests {
                     buildSystemKind: .swiftbuild,
                     numberOfWorkers: expectedNumberOfWorkers,
                 ),
-            ) { swiftBuild, session, observabilityScope, buildParameters in
+            ) { swiftBuild, service, session, observabilityScope, buildParameters in
                 let buildRequest = try await swiftBuild.makeBuildRequest(
+                    service: service,
                     session: session,
                     configuredTargets: [],
                     derivedDataPath: tempDir,
@@ -419,8 +426,9 @@ struct SwiftBuildSystemTests {
                     triple: .x86_64MacOS,
                     shouldEnableDebuggingEntitlement: shouldEnableDebuggingEntitlement
                 ),
-            ) { swiftBuild, session, observabilityScope, buildParameters in
+            ) { swiftBuild, service, session, observabilityScope, buildParameters in
                 let buildSettings = try await swiftBuild.makeBuildParameters(
+                    service: service,
                     session: session,
                     symbolGraphOptions: nil,
                     setToolchainSetting: false
@@ -454,8 +462,9 @@ struct SwiftBuildSystemTests {
                     buildSystemKind: .swiftbuild,
                     debugInfoFormat: debugInfoFormat
                 ),
-            ) { swiftBuild, session, observabilityScope, buildParameters in
+            ) { swiftBuild, service, session, observabilityScope, buildParameters in
                 let buildSettings = try await swiftBuild.makeBuildParameters(
+                    service: service,
                     session: session,
                     symbolGraphOptions: nil,
                     setToolchainSetting: false
@@ -478,8 +487,9 @@ struct SwiftBuildSystemTests {
                     triple: .windows,
                     debugInfoFormat: .codeview
                 ),
-            ) { swiftBuild, session, observabilityScope, buildParameters in
+            ) { swiftBuild, service, session, observabilityScope, buildParameters in
                 let buildSettings = try await swiftBuild.makeBuildParameters(
+                    service: service,
                     session: session,
                     symbolGraphOptions: nil,
                     setToolchainSetting: false
@@ -508,8 +518,9 @@ struct SwiftBuildSystemTests {
                     buildSystemKind: .swiftbuild,
                     omitFramePointers: omitFramePointers
                 ),
-            ) { swiftBuild, session, observabilityScope, buildParameters in
+            ) { swiftBuild, service, session, observabilityScope, buildParameters in
                 let buildSettings = try await swiftBuild.makeBuildParameters(
+                    service: service,
                     session: session,
                     symbolGraphOptions: nil,
                     setToolchainSetting: false
@@ -530,8 +541,9 @@ struct SwiftBuildSystemTests {
                     buildSystemKind: .swiftbuild,
                     omitFramePointers: nil
                 ),
-            ) { swiftBuild, session, observabilityScope, buildParameters in
+            ) { swiftBuild, service, session, observabilityScope, buildParameters in
                 let buildSettings = try await swiftBuild.makeBuildParameters(
+                    service: service,
                     session: session,
                     symbolGraphOptions: nil,
                     setToolchainSetting: false
@@ -563,8 +575,9 @@ struct SwiftBuildSystemTests {
                     shouldEnableDebuggingEntitlement: true,
                     omitFramePointers: false
                 ),
-            ) { swiftBuild, session, observabilityScope, buildParameters in
+            ) { swiftBuild, service, session, observabilityScope, buildParameters in
                 let buildSettings = try await swiftBuild.makeBuildParameters(
+                    service: service,
                     session: session,
                     symbolGraphOptions: nil,
                     setToolchainSetting: false
@@ -619,8 +632,9 @@ struct SwiftBuildSystemTests {
                     debugInfoFormat: .dwarf,
                     omitFramePointers: false
                 ),
-            ) { swiftBuild, session, observabilityScope, buildParameters in
+            ) { swiftBuild, service, session, observabilityScope, buildParameters in
                 let buildSettings = try await swiftBuild.makeBuildParameters(
+                    service: service,
                     session: session,
                     symbolGraphOptions: nil,
                     setToolchainSetting: false
@@ -692,8 +706,9 @@ struct SwiftBuildSystemTests {
                 flags: flags,
                 buildSystemKind: .swiftbuild,
             ),
-        ) { swiftBuild, session, observabilityScope, buildParameters in
+        ) { swiftBuild, service, session, observabilityScope, buildParameters in
             let buildSettings = try await swiftBuild.makeBuildParameters(
+                service: service,
                 session: session,
                 symbolGraphOptions: nil,
                 setToolchainSetting: false
