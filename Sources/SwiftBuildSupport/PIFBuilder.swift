@@ -600,7 +600,11 @@ fileprivate final class PackagePIFBuilderDelegate: PackagePIFBuilder.BuildDelega
     }
 
     func customProductType(forExecutable product: PackageModel.Product) -> ProjectModel.Target.ProductType? {
-        nil
+        if product.isPlaygroundRunner {
+            return .swiftpmPlaygroundRunner
+        } else {
+            return nil
+        }
     }
 
     func deviceFamilyIDs() -> Set<Int> {

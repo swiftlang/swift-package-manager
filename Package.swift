@@ -1235,7 +1235,8 @@ if !shouldUseSwiftBuildFramework {
 
     if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         package.dependencies += [
-            .package(url: "https://github.com/swiftlang/swift-build.git", branch: relatedDependenciesBranch),
+            // TODO: Revert to default swift-build url+branch when support for building the playground runner & entry point lands.
+            .package(url: "https://github.com/chrismiles/swift-build.git", branch: "chrismiles/swift_play_support"),
             .package(url: "https://github.com/swiftlang/swift-tools-protocols.git", branch: relatedDependenciesBranch),
         ]
     } else {

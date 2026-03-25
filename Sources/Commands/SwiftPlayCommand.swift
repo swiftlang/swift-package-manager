@@ -172,9 +172,14 @@ public struct SwiftPlayCommand: AsyncSwiftCommand {
             throw ExitCode.failure
         }
         verboseLog("Choosing product \"\(playgroundExecutableProduct.name)\", type: \(playgroundExecutableProduct.type)")
+        verboseLog("Product's module dependencies:")
+        for moduleDependency in try playgroundExecutableProduct.recursiveModuleDependencies() {
+            verboseLog("- \(moduleDependency)")
+        }
 
         // Build the playground runner executable product
         do {
+            verboseLog("Building product named \"\(playgroundExecutableProduct.name)\"...")
             try await buildSystem.build(subset: .product(playgroundExecutableProduct.name), buildOutputs: [])
             return Result.success(playgroundExecutableProduct.name)
         } catch {
