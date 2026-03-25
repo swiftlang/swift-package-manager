@@ -86,7 +86,7 @@ public struct SwiftPlayCommand: AsyncSwiftCommand {
         // Append additional build flags from the environment
         if let envSwiftcOptions = ProcessInfo.processInfo.environment["SWIFTC_FLAGS"] {
             var flags = productsBuildParameters.flags
-            let additionalFlags = envSwiftcOptions.components(separatedBy: CharacterSet.whitespaces)
+            let additionalFlags = envSwiftcOptions.components(separatedBy: CharacterSet.whitespaces).map { BuildFlag(value: $0, source: nil) }
             flags.swiftCompilerFlags += additionalFlags
             productsBuildParameters.flags = flags
         }
@@ -98,7 +98,10 @@ public struct SwiftPlayCommand: AsyncSwiftCommand {
         // "runtimeLibraryPaths" it doesn't get included.)
         let toolchainDir = try productsBuildParameters.toolchain.toolchainDir
         let playgroundsLibPath = toolchainDir.appending(components: ["usr", "lib", "swift", "macosx"])
-        productsBuildParameters.flags.linkerFlags.append(contentsOf: ["-rpath", playgroundsLibPath.pathString])
+        productsBuildParameters.flags.linkerFlags.append(
+            contentsOf: ["-rpath", playgroundsLibPath.pathString]
+                .map { BuildFlag(value: $0, source: nil) }
+        )
         #endif
 
         var buildAndPlayAgain: Bool = false
