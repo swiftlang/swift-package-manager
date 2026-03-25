@@ -1117,6 +1117,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
     private static func constructDebuggingSettingsOverrides(from parameters: BuildParameters.Debugging) -> [String: String] {
         var settings: [String: String] = [:]
+        settings["CODE_SIGN_IDENTITY"] = "-"
         if parameters.shouldEnableDebuggingEntitlement {
             settings["DEPLOYMENT_POSTPROCESSING"] = "NO"
         }

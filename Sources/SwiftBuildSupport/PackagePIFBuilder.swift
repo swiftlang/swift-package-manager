@@ -615,7 +615,7 @@ public final class PackagePIFBuilder {
         settings[.LINKER_DRIVER] = "auto"
 
         // Don't emit warnings when a target exports no symbols (e.g. the empty library template)
-        settings[.LIBTOOL_NO_WARNING_FOR_NO_SYMBOLS] = "YES"
+        settings[single: "LIBTOOL_NO_WARNING_FOR_NO_SYMBOLS"] = "YES"
 
         // Hook to customize the project-wide build settings.
         self.delegate.configureProjectBuildSettings(&settings)
