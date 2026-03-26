@@ -1030,6 +1030,10 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             break
         }
 
+        // Added for compatibility with --build-system native, but we should try to phase these out in the future
+        settings["ADD_TOOLCHAIN_CONCURRENCY_BACK_DEPLOY_RPATH"] = "YES"
+        settings["ADD_TOOLCHAIN_SPAN_BACK_DEPLOY_RPATH"] = "YES"
+
         func reportConflict(_ a: String, _ b: String) throws -> String {
             throw StringError("Build parameters constructed conflicting settings overrides '\(a)' and '\(b)'")
         }
