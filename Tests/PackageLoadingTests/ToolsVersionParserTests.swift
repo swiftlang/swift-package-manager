@@ -841,10 +841,10 @@ final class ToolsVersionParserTests: XCTestCase {
     func testExperimentalFlag() throws {
         let version = try ToolsVersionParser.parse(utf8String: "// swift-tools-version: 6.3;(experimentalCGen)")
         XCTAssertEqual(version, ToolsVersion(version: .init(6, 3, 0)))
-        XCTAssertTrue(version.experimentalFeatures.contains(.experimentalCGen))
+        XCTAssertTrue(version.experimentalFeatures?.contains(.experimentalCGen) == true)
 
         let version2 = try ToolsVersionParser.parse(utf8String: "// swift-tools-version: 6.3;(experimentalIgnored)")
         XCTAssertEqual(version2, ToolsVersion(version: .init(6, 3, 0)))
-        XCTAssertTrue(version2.experimentalFeatures.isEmpty)
+        XCTAssertNil(version2.experimentalFeatures)
     }
 }
