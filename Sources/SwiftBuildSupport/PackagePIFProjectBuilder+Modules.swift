@@ -387,7 +387,7 @@ extension PackagePIFProjectBuilder {
         // Generate a module map file, if needed.
         var moduleMapFileContents = ""
         let generatedModuleMapDir = "$(GENERATED_MODULEMAP_DIR)"
-        let generatedModuleMapPath = try RelativePath(validating:"\(generatedModuleMapDir)/\(sourceModule.name).modulemap").pathString
+        var generatedModuleMapPath = try RelativePath(validating:"\(generatedModuleMapDir)/\(sourceModule.name).modulemap").pathString
 
         if sourceModule.usesSwift && desiredModuleType != .macro {
             // Generate ObjC compatibility header for Swift library targets.
@@ -404,18 +404,19 @@ extension PackagePIFProjectBuilder {
             impartedSettings[.OTHER_CFLAGS] = ["-fmodule-map-file=\(generatedModuleMapPath)", "$(inherited)"]
         } else {
             // Otherwise, this is a C library module and we generate a modulemap if one is already not provided.
-            if let generatedModuleMapPath = generatedFiles.moduleMaps.first {
+            if let pluginGeneratedModuleMapPath = generatedFiles.moduleMaps.first {
                 // Warn about ignored generated module maps if more than one
                 if generatedFiles.moduleMaps.count > 1 {
-                    let ignoredFiles = generatedFiles.moduleMaps.filter({ $0 != generatedModuleMapPath })
+                    let ignoredFiles = generatedFiles.moduleMaps.filter({ $0 != pluginGeneratedModuleMapPath })
                     pifBuilder.observabilityScope.emit(
                         severity: .warning,
-                        message: "Plugins generated multiple module maps. Selected \(generatedModuleMapPath) and ignored \(ignoredFiles.map(\.pathString).joined(separator: " "))"
+                        message: "Plugins generated multiple module maps. Selected \(pluginGeneratedModuleMapPath) and ignored \(ignoredFiles.map(\.pathString).joined(separator: " "))"
                     )
                 }
                 // The modulemap was already generated, we should explicitly impart it on dependents,
-                impartedSettings[.OTHER_CFLAGS] = ["-fmodule-map-file=\(generatedModuleMapPath)", "$(inherited)"]
-                impartedSettings[.OTHER_SWIFT_FLAGS] = ["-Xcc", "-fmodule-map-file=\(generatedModuleMapPath)", "$(inherited)"]
+                impartedSettings[.OTHER_CFLAGS] = ["-fmodule-map-file=\(pluginGeneratedModuleMapPath)", "$(inherited)"]
+                impartedSettings[.OTHER_SWIFT_FLAGS] = ["-Xcc", "-fmodule-map-file=\(pluginGeneratedModuleMapPath)", "$(inherited)"]
+                generatedModuleMapPath = pluginGeneratedModuleMapPath.pathString
             } else {
                 switch sourceModule.moduleMapType {
                 case nil, .some(.none):
@@ -454,6 +455,7 @@ extension PackagePIFProjectBuilder {
 
         if desiredModuleType == .dynamicLibrary {
             settings.configureDynamicSettings(
+                product: nil,
                 productName: sourceModule.name,
                 targetName: sourceModule.name,
                 packageIdentity: package.identity,
@@ -794,6 +796,8 @@ extension PackagePIFProjectBuilder {
         // Custom source module build settings, if any.
         pifBuilder.delegate.configureSourceModuleBuildSettings(sourceModule: sourceModule, settings: &settings)
 
+        applyPackageCompatibilityWorkarounds(for: sourceModule, to: &settings)
+
         // Until this point the build settings for the target have been the same between debug and release
         // configurations.
         // The custom manifest settings might cause them to diverge.
@@ -876,6 +880,21 @@ extension PackagePIFProjectBuilder {
         )
 
         return (moduleOrProduct, resourceBundleName)
+    }
+
+    private func applyPackageCompatibilityWorkarounds(for sourceModule: ResolvedModule, to settings: inout BuildSettings) {
+        // Package specific compatibility workarounds. Don't add to these without a very good reason!
+
+        // swift-corelibs-foundation is unique in that it builds minimal stubs of XCTest/Testing to avoid introducing dependency
+        // cycles in the toolchain components. When building for Windows, we need to apply a workaround so they export symbols from the tests
+        // dll for the test runner to reference. The native build system didn't hit this edge case because
+        // it statically linked the test content into the runner.
+        // These targets should be able to set a manifest property indicating their symbols should be exported,
+        // at which point we should remove this workaround.
+        if sourceModule.packageName == "swift_corelibs_foundation" && ["XCTest", "Testing"].contains(sourceModule.name) {
+            settings[.SWIFT_COMPILE_FOR_STATIC_LINKING] = "NO"
+            log(.warning, "Applying swift-corelibs-foundation test library stubs linkage package compatibility workaround")
+        }
     }
 
     // MARK: - System Library Targets

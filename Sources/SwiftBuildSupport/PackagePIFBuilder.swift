@@ -120,8 +120,11 @@ public final class PackagePIFBuilder {
         /// Custom install path for the specified product, if any.
         func customInstallPath(product: PackageModel.Product) -> String?
 
-        /// Custom executable name for the specified product, if any.
-        func customExecutableName(product: PackageModel.Product) -> String?
+        /// Custom product name for the specified framework product, if any.
+        func customProductName(forFramework product: PackageModel.Product) -> String?
+
+        /// Custom bundle identifier prefix for the specified framework product, if any.
+        func customBundleIdentifierPrefix(forFramework product: PackageModel.Product) -> String?
 
         /// Custom library type for the specified product.
         func customLibraryType(product: PackageModel.Product) -> PackageModel.ProductType.LibraryType?
@@ -610,6 +613,9 @@ public final class PackagePIFBuilder {
 
         // Defer to the build system for linker driver selection.
         settings[.LINKER_DRIVER] = "auto"
+
+        // Don't emit warnings when a target exports no symbols (e.g. the empty library template)
+        settings[.LIBTOOL_NO_WARNING_FOR_NO_SYMBOLS] = "YES"
 
         // Hook to customize the project-wide build settings.
         self.delegate.configureProjectBuildSettings(&settings)

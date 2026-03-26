@@ -719,6 +719,7 @@ extension PackagePIFProjectBuilder {
         // Add other build settings when we're building an actual dylib.
         if desiredProductType == .dynamic {
             settings.configureDynamicSettings(
+                product: product.underlying,
                 productName: product.name,
                 targetName: product.targetName(),
                 packageIdentity: package.identity,

@@ -121,8 +121,12 @@ public struct BuildParameters: Encodable {
             return .openbsd
         } else if self.triple.isFreeBSD() {
             return .freebsd
-        } else {
+        } else if self.triple.isNoneOS() {
+            return .custom(name: self.triple.osNameUnversioned, oldestSupportedVersion: .unknown)
+        } else if self.triple.isLinux() {
             return .linux
+        } else {
+            return .custom(name: "unknown", oldestSupportedVersion: .unknown)
         }
     }
 
@@ -201,7 +205,7 @@ public struct BuildParameters: Encodable {
         self.triple = triple
         self.buildSystemKind = buildSystemKind
         switch self.debuggingParameters.debugInfoFormat {
-        case .dwarf:
+        case .dwarf, nil:
             var flags = flags
             // DWARF requires lld as link.exe expects CodeView debug info.
             self.flags = flags.merging(triple.isWindows() ? BuildFlags(
@@ -221,7 +225,7 @@ public struct BuildParameters: Encodable {
                 swiftCompilerFlags: ["-g", "-debug-info-format=codeview"].constructBuildFlags(source: .debugging),
                 linkerFlags: ["-debug"].constructBuildFlags(source: .debugging)
             ))
-        case .none:
+        case .none?:
             var flags = flags
             self.flags = flags.merging(BuildFlags(
                 cCompilerFlags: ["-g0"].constructBuildFlags(source: .debugging),
