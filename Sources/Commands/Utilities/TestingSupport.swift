@@ -363,11 +363,10 @@ enum TestingSupport {
         #else
         // Add path to swift-testing override if there is one
         if let swiftTestingPath = toolchain.swiftTestingPath {
-            if swiftTestingPath.extension == "framework" {
-                env.appendPath(key: "DYLD_FRAMEWORK_PATH", value: swiftTestingPath.pathString)
-            } else {
-                env.appendPath(key: "DYLD_LIBRARY_PATH", value: swiftTestingPath.pathString)
-            }
+            env.appendPath(
+                key: (swiftTestingPath.extension == "framework") ? "DYLD_FRAMEWORK_PATH" : "DYLD_LIBRARY_PATH",
+                value: swiftTestingPath.pathString,
+            )
         }
 
         // Add the sdk platform path if we have it.
