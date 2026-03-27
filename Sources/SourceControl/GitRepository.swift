@@ -1363,11 +1363,8 @@ package struct GitShellError: Error, CustomStringConvertible {
     let result: AsyncProcessResult
 
     public var description: String {
-        let stdout = (try? self.result.utf8Output()) ?? ""
-        let stderr = (try? self.result.utf8stderrOutput()) ?? ""
-        let output = (stdout + stderr).spm_chomp()
         let command = self.result.arguments.joined(separator: " ")
-        return "Git command '\(command)' failed: \(output)"
+        return formatErrorDescription(result: self.result, message: "Git command '\(command)' failed")
     }
 }
 
@@ -1424,10 +1421,7 @@ public struct GitRepositoryError: Error, CustomStringConvertible, DiagnosticLoca
     }
 
     public var description: String {
-        let stdout = (try? self.result.utf8Output()) ?? ""
-        let stderr = (try? self.result.utf8stderrOutput()) ?? ""
-        let output = (stdout + stderr).spm_chomp().spm_multilineIndent(count: 4)
-        return "\(self.message):\n\(output)"
+        formatErrorDescription(result: self.result, message: self.message)
     }
 }
 
@@ -1448,10 +1442,7 @@ public struct GitCloneError: Error, CustomStringConvertible, DiagnosticLocationP
     }
 
     public var description: String {
-        let stdout = (try? self.result.utf8Output()) ?? ""
-        let stderr = (try? self.result.utf8stderrOutput()) ?? ""
-        let output = (stdout + stderr).spm_chomp().spm_multilineIndent(count: 4)
-        return "\(self.message):\n\(output)"
+        formatErrorDescription(result: self.result, message: self.message)
     }
 }
 
@@ -1639,4 +1630,21 @@ extension RepositorySpecifier.Location {
             return url.absoluteString
         }
     }
+}
+
+fileprivate func formatErrorDescription(result: AsyncProcessResult, message: String) -> String {
+    var output = ""
+    switch (result.output, result.stderrOutput) {
+    case (.failure(let error), _), (_, .failure(let error)):
+        output = String(describing: error)
+    default:
+        let stdout = (try? result.utf8Output()) ?? ""
+        let stderr = (try? result.utf8stderrOutput()) ?? ""
+        output = (stdout + stderr).spm_chomp()
+    }
+    let indentedOutput = output.spm_multilineIndent(count: 4)
+    if indentedOutput.isEmpty {
+        return message
+    }
+    return "\(message):\n\(indentedOutput)"
 }
