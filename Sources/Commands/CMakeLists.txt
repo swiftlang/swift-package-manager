@@ -46,6 +46,7 @@ add_library(Commands
   Snippets/Colorful.swift
   SwiftBuildCommand.swift
   SwiftRunCommand.swift
+  SwiftPlayCommand.swift
   SwiftTestCommand.swift
   CommandWorkspaceDelegate.swift
   Utilities/APIDigester.swift
