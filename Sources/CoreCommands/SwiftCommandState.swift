@@ -128,6 +128,9 @@ extension SwiftCommand {
             workspaceLoaderProvider: self.workspaceLoaderProvider,
             createPackagePath: self.createPackagePath
         )
+        defer {
+            _ = createCacheDirFile(atDirectory: swiftCommandState.scratchDirectory)
+        }
 
         // We use this to attempt to catch misuse of the locking APIs since we only release the lock from here.
         swiftCommandState.setNeedsLocking()
@@ -154,12 +157,36 @@ extension SwiftCommand {
     }
 }
 
+package func createCacheDirFile(
+    atDirectory directory: AbsolutePath,
+    _ fileSystem: FileSystem = localFileSystem) -> AbsolutePath? {
+    // https://bford.info/cachedir/
+    let path = directory.appending("CACHEDIR.TAG")
+    do {
+        let contents = """
+            Signature: 8a477f597d28d172789f06886806bc55
+            # This file is a cache directory tag created by (Swift Package Manager).
+            # For information about cache directory tags, see:
+            #.   http://www.brynosaurus.com/cachedir/
+            """
+        try fileSystem.createDirectory(path.parentDirectory, recursive: true)
+        try fileSystem.writeFileContents(path, string: contents)
+        return path
+    } catch {
+        // Don't error out if we fail to create the CACHEDIR.TAG file, as this is not critical to the functioning of the tool.
+        return nil
+    }
+
+}
 public protocol AsyncSwiftCommand: AsyncParsableCommand, _SwiftCommand {
     func run(_ swiftCommandState: SwiftCommandState) async throws
+    var addCacheDirTagFile: Bool { get }
 }
 
 extension AsyncSwiftCommand {
     public static var _errorLabel: String { "error" }
+
+    public var addCacheDirTagFile: Bool { true }
 
     // FIXME: It doesn't seem great to have this be duplicated with `SwiftCommand`.
     public func run() async throws {
@@ -170,6 +197,11 @@ extension AsyncSwiftCommand {
             workspaceLoaderProvider: self.workspaceLoaderProvider,
             createPackagePath: self.createPackagePath
         )
+        defer {
+            if self.addCacheDirTagFile {
+                _ = createCacheDirFile(atDirectory: swiftCommandState.scratchDirectory)
+            }
+        }
 
         // We use this to attempt to catch misuse of the locking APIs since we only release the lock from here.
         swiftCommandState.setNeedsLocking()
@@ -244,7 +276,7 @@ public final class SwiftCommandState {
 
     /// Path to the shared configuration directory
     public let sharedConfigurationDirectory: AbsolutePath
-    
+
     /// Path to the package manager's own resources directory.
     public let packageManagerResourcesDirectory: AbsolutePath?
 
@@ -405,7 +437,7 @@ public final class SwiftCommandState {
                 warning: "`--experimental-swift-sdks-path` is deprecated and will be removed in a future version of SwiftPM. Use `--swift-sdks-path` instead."
             )
         }
-        
+
         if let packageManagerResourcesDirectory = options.locations.packageManagerResourcesDirectory {
             self.packageManagerResourcesDirectory = packageManagerResourcesDirectory
         } else if let cwd = localFileSystem.currentWorkingDirectory {
@@ -415,7 +447,7 @@ public final class SwiftCommandState {
             self.packageManagerResourcesDirectory = try? AbsolutePath(validating: CommandLine.arguments[0])
                 .parentDirectory.parentDirectory.appending(components: ["share", "pm"])
         }
-        
+
         self.sharedSwiftSDKsDirectory = try fileSystem.getSharedSwiftSDKsDirectory(
             explicitDirectory: options.locations.swiftSDKsDirectory ?? options.locations.deprecatedSwiftSDKsDirectory
         )
@@ -1169,7 +1201,7 @@ public final class SwiftCommandState {
             if errno == EWOULDBLOCK {
                 let lockingPID = try? String(contentsOfFile: lockFile, encoding: .utf8)
                 let pidInfo = lockingPID.map { "(PID: \($0)) " } ?? ""
-                
+
                 if self.options.locations.ignoreLock {
                     self.outputStream
                         .write(
