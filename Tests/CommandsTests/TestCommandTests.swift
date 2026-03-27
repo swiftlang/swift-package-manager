@@ -1434,6 +1434,7 @@ struct TestCommandTests {
     }
 
     @Test(
+        .IssueWindowsPathNoEntry,
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func defaultInteropMode(
@@ -1455,6 +1456,7 @@ struct TestCommandTests {
     }
 
     @Test(
+        .IssueWindowsPathNoEntry,
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func noDefaultInteropMode(
@@ -1476,6 +1478,7 @@ struct TestCommandTests {
     }
 
     @Test(
+        .IssueWindowsPathNoEntry,
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func respectUserOverrideInteropMode(

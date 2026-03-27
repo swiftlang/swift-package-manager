@@ -1269,7 +1269,7 @@ struct BuildCommandTestCases {
     @Test(
         // Windows builds of ExecutableNew using swiftbuild can fail because of problem with handling long paths which
         // is root cause of linked issue
-        .issue("https://github.com/swiftlang/swift-package-manager/issues/9420", relationship: .defect),
+        .IssueWindowsPathNoEntry,
         .issue("https://github.com/swiftlang/swift-package-manager/issues/9745", relationship: .defect),
         .tags(
             .Feature.CommandLineArguments.DisableGetTaskAllowEntitlement,
