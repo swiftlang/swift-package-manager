@@ -887,6 +887,23 @@ struct PIFBuilderTests {
         }
     }
 
+    #if ENABLE_APPLE_PRODUCT_TYPES
+    @Test func playgroundsProjectWithUnitTests() async throws {
+        try await withGeneratedPIF(fromFixture: "PIFBuilder/PlaygroundsProjectWithUnitTests.swiftpm") { pif, observabilitySystem in
+            let errors = observabilitySystem.diagnostics.filter { $0.severity == .error }
+            #expect(errors.isEmpty, "Expected no errors during PIF generation, but got: \(errors)")
+
+            let project = try pif.workspace.project(named: "AppPlaygroundWithTests")
+
+            let appTarget = try project.target(named: "AppPlaygroundWithTests")
+            #expect(appTarget.common.name == "AppPlaygroundWithTests")
+
+            let testTarget = try project.target(named: "AppTests")
+            #expect(testTarget.common.name == "AppTests")
+        }
+    }
+    #endif
+  
     @Test func swiftCompileForStaticLinkingInDynamicLibraries() async throws {
         let observability = ObservabilitySystem.makeForTesting()
 

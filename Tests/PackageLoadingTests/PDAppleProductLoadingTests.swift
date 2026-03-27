@@ -23,7 +23,7 @@ class PackageDescriptionAppleProductLoadingTests: PackageDescriptionLoadingTests
         .v6_0 // TODO: confirm this value
     }
 
-    func testApplicationProducts() throws {
+    func testApplicationProducts() async throws {
       #if ENABLE_APPLE_PRODUCT_TYPES
         let content = """
             import PackageDescription
@@ -59,7 +59,7 @@ class PackageDescriptionAppleProductLoadingTests: PackageDescriptionLoadingTests
             """
 
         let observability = ObservabilitySystem.makeForTesting()
-        let (manifest, _) = try loadAndValidateManifest(content, observabilityScope: observability.topScope)
+        let (manifest, _) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         // Check the targets.  We expect to have a single executable target.

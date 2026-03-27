@@ -563,7 +563,7 @@ final class ManifestSourceGenerationTests: XCTestCase {
     }
 
     /// Tests a fully customized iOSApplication (one that exercises every parameter in at least some way).
-    func testAppleProductSettings() throws {
+    func testAppleProductSettings() async throws {
       #if ENABLE_APPLE_PRODUCT_TYPES
         let manifestContents = """
             // swift-tools-version: 999.0
@@ -640,7 +640,7 @@ final class ManifestSourceGenerationTests: XCTestCase {
                 ]
             )
             """
-        try testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_5)
+        try await testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_5)
       #else
         throw XCTSkip("ENABLE_APPLE_PRODUCT_TYPES is not set")
       #endif
@@ -648,7 +648,7 @@ final class ManifestSourceGenerationTests: XCTestCase {
 
     /// Tests loading an iOSApplication product configured with the `.asset(_)` variant of the
     /// appIcon and accentColor parameters.
-    func testAssetBasedAccentColorAndAppIconAppleProductSettings() throws {
+    func testAssetBasedAccentColorAndAppIconAppleProductSettings() async throws {
       #if ENABLE_APPLE_PRODUCT_TYPES
         let manifestContents = """
             // swift-tools-version: 999.0
@@ -670,14 +670,14 @@ final class ManifestSourceGenerationTests: XCTestCase {
                 ]
             )
             """
-        try testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_5)
+        try await testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_5)
       #else
         throw XCTSkip("ENABLE_APPLE_PRODUCT_TYPES is not set")
       #endif
     }
 
     /// Tests loading an iOSApplication product configured with legacy 'iconAssetName' and 'accentColorAssetName' parameters.
-    func testLegacyAccentColorAndAppIconAppleProductSettings() throws {
+    func testLegacyAccentColorAndAppIconAppleProductSettings() async throws {
       #if ENABLE_APPLE_PRODUCT_TYPES
         let manifestContents = """
             // swift-tools-version: 999.0
@@ -699,14 +699,14 @@ final class ManifestSourceGenerationTests: XCTestCase {
                 ]
             )
             """
-        try testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_5)
+        try await testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_5)
       #else
         throw XCTSkip("ENABLE_APPLE_PRODUCT_TYPES is not set")
       #endif
     }
 
     /// Tests the smallest allowed iOSApplication (one that has default values for everything not required). Make sure no defaults get added to it.
-    func testMinimalAppleProductSettings() throws {
+    func testMinimalAppleProductSettings() async throws {
       #if ENABLE_APPLE_PRODUCT_TYPES
         let manifestContents = """
             // swift-tools-version: 999.0
@@ -733,7 +733,7 @@ final class ManifestSourceGenerationTests: XCTestCase {
                 ]
             )
             """
-        try testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_5)
+        try await testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_5)
       #else
         throw XCTSkip("ENABLE_APPLE_PRODUCT_TYPES is not set")
       #endif
