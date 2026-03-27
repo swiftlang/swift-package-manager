@@ -1370,6 +1370,28 @@ struct TestCommandTests {
         }
     }
 
+    /// This is a rare scenario: if you have a workspace with multiple packages
+    /// and conflicting tools-version, we base the interop mode on the lowest
+    /// found tools version.
+    @Test(
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func multiRootWorkspaceChoosesLowestToolsVersionInteropMode(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Miscellaneous/MultiRootInteropMode") { fixturePath in
+            let workspacePath = fixturePath.appending(
+                components: "Workspace.xcworkspace"
+            ).pathString
+            try await executeSwiftTest(
+                fixturePath,
+                extraArgs: ["--multiroot-data-file", workspacePath],
+                buildSystem: buildSystem,
+                throwIfCommandFails: true,
+            )
+        }
+    }
+
     @Test(
         .tags(
             .Feature.TargetType.Executable,
