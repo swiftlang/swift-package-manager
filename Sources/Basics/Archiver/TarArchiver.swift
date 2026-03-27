@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Foundation
 import class Dispatch.DispatchQueue
 import struct Dispatch.DispatchTime
 import struct TSCBasic.FileSystemError
@@ -44,20 +45,12 @@ public struct TarArchiver: Archiver {
         self.fileSystem = fileSystem
         self.cancellator = cancellator ?? Cancellator(observabilityScope: .none)
 
-        #if os(Windows)
-        var tarPath: PWSTR?
-        defer { CoTaskMemFree(tarPath) }
-        let hr = withUnsafePointer(to: FOLDERID_System) { id in
-            SHGetKnownFolderPath(id, DWORD(KF_FLAG_DEFAULT.rawValue), nil, &tarPath)
-        }
-        if hr == S_OK, let tarPath {
-            self.tarCommand = String(decodingCString: tarPath, as: UTF16.self) + "\\tar.exe"
+        if let system32 = URL.system32 {
+            // Use the Windows tar which is based on libarchive
+            self.tarCommand = system32.appending(component: "tar.exe").path
         } else {
             self.tarCommand = "tar.exe"
         }
-        #else
-        self.tarCommand = "tar"
-        #endif
     }
 
     public func extract(
