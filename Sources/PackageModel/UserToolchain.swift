@@ -217,8 +217,14 @@ public final class UserToolchain: Toolchain {
         do {
             return try JSON(string: compilerOutput)
         } catch {
+            let trimmedOutput = compilerOutput.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmedOutput.hasPrefix("{") && !trimmedOutput.hasPrefix("[") {
+                // It's plain text, throw cleanly without the JSON error
+                throw StringError("Failed to parse target info: \(trimmedOutput)")
+            }
+
             throw InternalError(
-                "Failed to parse target info (\(error.interpolationDescription)).\nCompiler exited with staus \(result.exitStatus).\nRaw compiler stdout: \(compilerOutput)\nRaw compiler stderr: \(compilerStderr)"
+                "Failed to parse target info (\(error.interpolationDescription)).\nCompiler exited with status \(result.exitStatus).\nRaw compiler stdout: \(compilerOutput)\nRaw compiler stderr: \(compilerStderr)"
             )
         }
     }
