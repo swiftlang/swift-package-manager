@@ -27,6 +27,13 @@ enum Serialization {
         let platforms: [Platform]?
         let config: BuildConfiguration?
         let traits: Set<String>?
+
+        func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encodeIfPresent(platforms, forKey: .platforms)
+            try container.encodeIfPresent(config, forKey: .config)
+            try container.encodeIfPresent(traits?.sorted(), forKey: .traits)
+        }
     }
 
     struct BuildSettingData: Codable {
@@ -120,6 +127,11 @@ enum Serialization {
         struct Trait: Hashable, Codable {
             struct Condition: Hashable, Codable {
                 let traits: Set<String>?
+
+                func encode(to encoder: Encoder) throws {
+                    var container = encoder.container(keyedBy: CodingKeys.self)
+                    try container.encodeIfPresent(traits?.sorted(), forKey: .traits)
+                }
             }
 
             var name: String
@@ -146,6 +158,13 @@ enum Serialization {
         let kind: Kind
         let moduleAliases: [String: String]?
         let traits: Set<Trait>?
+
+        func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(kind, forKey: .kind)
+            try container.encodeIfPresent(moduleAliases, forKey: .moduleAliases)
+            try container.encodeIfPresent(traits?.sorted(by: { $0.name < $1.name }), forKey: .traits)
+        }
     }
 
     // MARK: - platforms serialization
@@ -165,6 +184,12 @@ enum Serialization {
         struct Condition: Codable {
             let platforms: [Platform]?
             let traits: Set<String>?
+
+            func encode(to encoder: Encoder) throws {
+                var container = encoder.container(keyedBy: CodingKeys.self)
+                try container.encodeIfPresent(platforms, forKey: .platforms)
+                try container.encodeIfPresent(traits?.sorted(), forKey: .traits)
+            }
         }
 
         case target(name: String, condition: Condition?)
@@ -275,6 +300,13 @@ enum Serialization {
         let name: String
         let description: String?
         let enabledTraits: Set<String>
+
+        func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(name, forKey: .name)
+            try container.encodeIfPresent(description, forKey: .description)
+            try container.encode(enabledTraits.sorted(), forKey: .enabledTraits)
+        }
     }
 
     // MARK: - package serialization
@@ -303,6 +335,22 @@ enum Serialization {
         let swiftLanguageVersions: [SwiftVersion]?
         let cLanguageStandard: CLanguageStandard?
         let cxxLanguageStandard: CXXLanguageStandard?
+
+        func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(name, forKey: .name)
+            try container.encodeIfPresent(platforms, forKey: .platforms)
+            try container.encodeIfPresent(defaultLocalization, forKey: .defaultLocalization)
+            try container.encodeIfPresent(pkgConfig, forKey: .pkgConfig)
+            try container.encodeIfPresent(providers, forKey: .providers)
+            try container.encode(targets, forKey: .targets)
+            try container.encode(products, forKey: .products)
+            try container.encodeIfPresent(traits?.sorted(by: { $0.name < $1.name }), forKey: .traits)
+            try container.encode(dependencies, forKey: .dependencies)
+            try container.encodeIfPresent(swiftLanguageVersions, forKey: .swiftLanguageVersions)
+            try container.encodeIfPresent(cLanguageStandard, forKey: .cLanguageStandard)
+            try container.encodeIfPresent(cxxLanguageStandard, forKey: .cxxLanguageStandard)
+        }
     }
 }
 
