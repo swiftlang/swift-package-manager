@@ -45,12 +45,17 @@ public struct TarArchiver: Archiver {
         self.fileSystem = fileSystem
         self.cancellator = cancellator ?? Cancellator(observabilityScope: .none)
 
+#if os(Windows)
+        let command = "tar.exe"
         if let system32 = URL.system32 {
             // Use the Windows tar which is based on libarchive
-            self.tarCommand = system32.appending(component: "tar.exe").path
+            self.tarCommand = system32.appending(component: command).path
         } else {
-            self.tarCommand = "tar.exe"
+            self.tarCommand = command
         }
+#else
+        self.tarCommand = "tar"
+#endif
     }
 
     public func extract(
@@ -58,7 +63,6 @@ public struct TarArchiver: Archiver {
         to destinationPath: AbsolutePath,
         completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
-        print("Running", tarCommand)
         do {
             guard self.fileSystem.exists(archivePath) else {
                 throw FileSystemError(.noEntry, archivePath.underlying)
