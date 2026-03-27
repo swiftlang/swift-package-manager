@@ -834,6 +834,8 @@ public final class SwiftCommandState {
     /// Fetch the tools version for the root package in the currently active
     /// workspace.
     ///
+    /// If there are multiple root packages, returns the lowest tools version.
+    ///
     /// - Throws: If an error occurs when trying to resolve workspace details.
     /// - Returns: The current tools version, nil if no manifests are found.
     public func getToolsVersion() async throws -> ToolsVersion? {
@@ -843,7 +845,7 @@ public final class SwiftCommandState {
             packages: root.packages,
             observabilityScope: self.observabilityScope
         )
-        return rootManifests.values.first.map { $0.toolsVersion }
+        return rootManifests.values.map { $0.toolsVersion }.min()
     }
 
     func getManifestLoader() throws -> ManifestLoader {
