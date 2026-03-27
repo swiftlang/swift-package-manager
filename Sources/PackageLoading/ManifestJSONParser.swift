@@ -544,7 +544,7 @@ extension PackageConditionDescription {
     init(_ condition: Serialization.TargetDependency.Condition) {
         self.init(
             platformNames: condition.platforms?.map { $0.name } ?? [],
-            traits: condition.traits
+            traits: condition.traits.map { Set($0) }
         )
     }
 }
@@ -805,7 +805,7 @@ extension TargetBuildSettingDescription.Kind {
 
 extension PackageConditionDescription {
     init(_ condition: Serialization.BuildSettingCondition) {
-        self.init(platformNames: condition.platforms?.map { $0.name } ?? [], config: condition.config?.config, traits: condition.traits)
+        self.init(platformNames: condition.platforms?.map { $0.name } ?? [], config: condition.config?.config, traits: condition.traits.map { Set($0) })
     }
 }
 
@@ -848,7 +848,7 @@ extension TraitDescription {
         self.init(
             name: trait.name,
             description: trait.description,
-            enabledTraits: trait.enabledTraits
+            enabledTraits: Set(trait.enabledTraits)
         )
     }
 }
@@ -865,7 +865,7 @@ extension PackageDependency.Trait {
 
 extension PackageDependency.Trait.Condition {
     init(_ condition: Serialization.PackageDependency.Trait.Condition) {
-        self.init(traits: condition.traits)
+        self.init(traits: condition.traits.map { Set($0) })
     }
 }
 
