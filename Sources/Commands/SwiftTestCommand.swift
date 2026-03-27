@@ -344,6 +344,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                     result = .noMatchingTests
                 } else {
                     // Run the tests using the parallel runner.
+                    let toolsVersion = try await swiftCommandState.getToolsVersion()
                     let runner = ParallelTestRunner(
                         bundlePaths: testProducts.map { $0.bundlePath },
                         cancellator: swiftCommandState.cancellator,
@@ -351,6 +352,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                         numJobs: options.numberOfWorkers ?? ProcessInfo.processInfo.activeProcessorCount,
                         buildOptions: globalOptions.build,
                         productsBuildParameters: buildParameters,
+                        toolsVersion: toolsVersion,
                         shouldOutputSuccess: swiftCommandState.logLevel <= .info,
                         observabilityScope: swiftCommandState.observabilityScope
                     )
@@ -538,12 +540,14 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         }
 
         let toolchain = try swiftCommandState.getTargetToolchain()
+        let toolsVersion = try await swiftCommandState.getToolsVersion()
         let testEnv = try TestingSupport.constructTestEnvironment(
             toolchain: toolchain,
             destinationBuildParameters: productsBuildParameters,
             sanitizers: globalOptions.build.sanitizers,
             library: library,
-            testProductPaths: testProducts.map(\.bundlePath)
+            testProductPaths: testProducts.map(\.bundlePath),
+            interopMode: toolsVersion?.defaultInteropMode
         )
 
         let runnerPaths: [AbsolutePath] = switch library {
@@ -825,12 +829,14 @@ extension SwiftTestCommand {
             )
 
             let toolchain = try swiftCommandState.getTargetToolchain()
+            let toolsVersion = try await swiftCommandState.getToolsVersion()
             let testEnv = try TestingSupport.constructTestEnvironment(
                 toolchain: toolchain,
                 destinationBuildParameters: productsBuildParameters,
                 sanitizers: globalOptions.build.sanitizers,
                 library: .swiftTesting,
-                testProductPaths: testProducts.map(\.bundlePath)
+                testProductPaths: testProducts.map(\.bundlePath),
+                interopMode: toolsVersion?.defaultInteropMode
             )
 
             if testLibraryOptions.isEnabled(.xctest, swiftCommandState: swiftCommandState) {
@@ -1140,6 +1146,9 @@ final class ParallelTestRunner {
     private let buildOptions: BuildOptions
     private let productsBuildParameters: BuildParameters
 
+    /// Tools version of the root package.
+    private let toolsVersion: ToolsVersion?
+
     /// Number of tests to execute in parallel.
     private let numJobs: Int
 
@@ -1156,6 +1165,7 @@ final class ParallelTestRunner {
         numJobs: Int,
         buildOptions: BuildOptions,
         productsBuildParameters: BuildParameters,
+        toolsVersion: ToolsVersion?,
         shouldOutputSuccess: Bool,
         observabilityScope: ObservabilityScope
     ) {
@@ -1163,6 +1173,7 @@ final class ParallelTestRunner {
         self.cancellator = cancellator
         self.toolchain = toolchain
         self.numJobs = numJobs
+        self.toolsVersion = toolsVersion
         self.shouldOutputSuccess = shouldOutputSuccess
         self.observabilityScope = observabilityScope.makeChildScope(description: "Parallel Test Runner")
 
@@ -1216,7 +1227,8 @@ final class ParallelTestRunner {
             destinationBuildParameters: self.productsBuildParameters,
             sanitizers: self.buildOptions.sanitizers,
             library: .xctest, // swift-testing does not use ParallelTestRunner
-            testProductPaths: bundlePaths
+            testProductPaths: bundlePaths,
+            interopMode: self.toolsVersion?.defaultInteropMode
         )
 
         // Enqueue all the tests.
