@@ -153,6 +153,78 @@ final class ResolvedPackagesStoreTests: XCTestCase {
             XCTAssertEqual(resolution.state, .version("1.2.3", revision: .none))
             XCTAssertEqual(resolution.state.description, "1.2.3")
         }
+
+        // Test registry resolution with SemVer build metadata.
+
+        do {
+            let identity = PackageIdentity.plain("baz.meta") // FIXME: use scope identifier
+
+            var store = try ResolvedPackagesStore(
+                packageResolvedFile: packageResolvedFile,
+                workingDirectory: .root,
+                fileSystem: fs,
+                mirrors: .init()
+            )
+            store.track(
+                packageRef: .registry(identity: identity),
+                state: .version("1.2.3+debug", revision: .none)
+            )
+            try store.saveState(toolsVersion: ToolsVersion.current, originHash: .none)
+
+            let resolvedFileContents = try fs.readFileContents(packageResolvedFile).cString
+            XCTAssertMatch(resolvedFileContents, .contains(#""identity" : "baz.meta""#))
+            XCTAssertMatch(resolvedFileContents, .contains(#""kind" : "registry""#))
+            XCTAssertMatch(resolvedFileContents, .contains(#""version" : "1.2.3+debug""#))
+
+            store = try ResolvedPackagesStore(
+                packageResolvedFile: packageResolvedFile,
+                workingDirectory: .root,
+                fileSystem: fs,
+                mirrors: .init()
+            )
+
+            let resolution = store.resolvedPackages[identity]!
+            XCTAssertEqual(resolution.packageRef, .registry(identity: identity))
+            XCTAssertEqual(resolution.state, .version("1.2.3+debug", revision: .none))
+            XCTAssertEqual(resolution.state.description, "1.2.3+debug")
+        }
+
+        // Test source control version resolution with SemVer build metadata.
+
+        do {
+            let path = AbsolutePath("/foo-meta")
+            let identity = PackageIdentity(path: path)
+            let revision = UUID().uuidString
+
+            var store = try ResolvedPackagesStore(
+                packageResolvedFile: packageResolvedFile,
+                workingDirectory: .root,
+                fileSystem: fs,
+                mirrors: .init()
+            )
+            store.track(
+                packageRef: .localSourceControl(identity: identity, path: path),
+                state: .version("1.2.3+debug", revision: revision)
+            )
+            try store.saveState(toolsVersion: ToolsVersion.current, originHash: .none)
+
+            let resolvedFileContents = try fs.readFileContents(packageResolvedFile).cString
+            XCTAssertMatch(resolvedFileContents, .contains(#""identity" : "foo-meta""#))
+            XCTAssertMatch(resolvedFileContents, .contains(#""kind" : "localSourceControl""#))
+            XCTAssertMatch(resolvedFileContents, .contains(#""version" : "1.2.3+debug""#))
+
+            store = try ResolvedPackagesStore(
+                packageResolvedFile: packageResolvedFile,
+                workingDirectory: .root,
+                fileSystem: fs,
+                mirrors: .init()
+            )
+
+            let resolution = store.resolvedPackages[identity]!
+            XCTAssertEqual(resolution.packageRef, .localSourceControl(identity: identity, path: path))
+            XCTAssertEqual(resolution.state, .version("1.2.3+debug", revision: revision))
+            XCTAssertEqual(resolution.state.description, "1.2.3+debug")
+        }
     }
 
     func testLoadingSchema1() throws {

@@ -272,6 +272,8 @@ fileprivate extension PackageDependency.Registry.Requirement {
             throw DependencyMappingError.invalidMapping("mapping of source control (\(location)) to registry (\(identity)) is invalid due to requirement information mismatch: cannot map branch or revision based dependencies to registry.")
         case .exact(let value):
             self = .exact(value)
+        case .exactLiteral(let value):
+            self = .exactLiteral(value)
         case .range(let value):
             self = .range(value)
         }
@@ -283,6 +285,8 @@ fileprivate extension PackageDependency.SourceControl.Requirement {
         switch requirement {
         case .exact(let value):
             self = .exact(value)
+        case .exactLiteral(let value):
+            self = .exactLiteral(value)
         case .range(let value):
             self = .range(value)
         }

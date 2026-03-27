@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Basics
 import struct TSCUtility.Version
 
 /// An abstract definition for a set of versions.
@@ -25,6 +26,9 @@ public enum VersionSetSpecifier: Hashable {
 
     /// The exact version that is required.
     case exact(Version)
+
+    /// The exact version that is required, including build metadata.
+    case exactLiteral(Version)
 
     /// A range of disjoint versions (sorted).
     case ranges([Range<Version>])
@@ -42,6 +46,8 @@ extension VersionSetSpecifier: Equatable {
             return lhsRange == rhsRange
         case (let .exact(lhsExact), let .exact(rhsExact)):
             return lhsExact == rhsExact
+        case (let .exactLiteral(lhsExact), .exactLiteral(let rhsExact)):
+            return lhsExact.literalEqual(to: rhsExact)
         case (let .ranges(lhsRanges), let .ranges(rhsRanges)):
             return lhsRanges == rhsRanges
 
@@ -82,13 +88,52 @@ extension VersionSetSpecifier: Equatable {
 }
 
 extension VersionSetSpecifier {
+    public func hash(into hasher: inout Hasher) {
+        switch self {
+        case .any:
+            hasher.combine(0)
+        case .empty:
+            hasher.combine(1)
+        case .range(let range):
+            hasher.combine(2)
+            hasher.combine(range.lowerBound)
+            hasher.combine(range.upperBound)
+        case .exact(let version):
+            hasher.combine(3)
+            hasher.combine(version)
+        case .exactLiteral(let version):
+            hasher.combine(4)
+            hasher.combine(version.major)
+            hasher.combine(version.minor)
+            hasher.combine(version.patch)
+            hasher.combine(version.prereleaseIdentifiers)
+            hasher.combine(version.buildMetadataIdentifiers)
+        case .ranges(let ranges):
+            hasher.combine(5)
+            hasher.combine(ranges.count)
+            for range in ranges {
+                hasher.combine(range.lowerBound)
+                hasher.combine(range.upperBound)
+            }
+        }
+    }
+}
+
+extension VersionSetSpecifier {
     var isExact: Bool {
         switch self {
         case .any, .empty, .range, .ranges:
             return false
-        case .exact:
+        case .exact, .exactLiteral:
             return true
         }
+    }
+
+    var isExactLiteral: Bool {
+        if case .exactLiteral = self {
+            return true
+        }
+        return false
     }
 }
 
@@ -157,13 +202,38 @@ extension VersionSetSpecifier {
                 return self
             }
             return VersionSetSpecifier.union(from: [v1..<v1, v2..<v2])
+        case (.exactLiteral(let v1), .exactLiteral(let v2)):
+            if v1.literalEqual(to: v2) {
+                return self
+            }
+            if v1 == v2 {
+                return .exact(v1)
+            }
+            return VersionSetSpecifier.union(from: [v1 ..< v1, v2 ..< v2])
+        case (.exact(let exact), .exactLiteral(let literal)),
+             (.exactLiteral(let literal), .exact(let exact)):
+            if exact == literal {
+                return .exact(exact)
+            }
+            return VersionSetSpecifier.union(from: [exact ..< exact, literal ..< literal])
 
         case (.range(let v2), .exact(let v1)),
              (.exact(let v1), .range(let v2)):
             return VersionSetSpecifier.union(from: [v1..<v1, v2])
+        case (.range(let range), .exactLiteral(let literal)),
+             (.exactLiteral(let literal), .range(let range)):
+            if range.contains(version: literal) {
+                return .range(range)
+            }
+            return VersionSetSpecifier.union(from: [literal ..< literal, range])
 
         case (.ranges(let ranges), .exact(let exact)), (.exact(let exact), .ranges(let ranges)):
             return VersionSetSpecifier.union(from: [exact..<exact] + ranges)
+        case (.ranges(let ranges), .exactLiteral(let exact)), (.exactLiteral(let exact), .ranges(let ranges)):
+            if ranges.contains(where: { $0.contains(version: exact) }) {
+                return .ranges(ranges)
+            }
+            return VersionSetSpecifier.union(from: [exact ..< exact] + ranges)
 
         case (.range(let lhs), .range(let rhs)):
             return VersionSetSpecifier.union(from: [lhs, rhs])
@@ -192,6 +262,16 @@ extension VersionSetSpecifier {
         case (.range(let lhs), .range(let rhs)):
             if let result = VersionSetSpecifier.intersection(lhs, rhs) {
                 return .range(result)
+            }
+            return .empty
+        case (.exactLiteral(let v), _):
+            if rhs.containsLiteral(v) {
+                return self
+            }
+            return .empty
+        case (_, .exactLiteral(let v)):
+            if containsLiteral(v) {
+                return rhs
             }
             return .empty
         case (.exact(let v), _):
@@ -264,12 +344,32 @@ extension VersionSetSpecifier {
                 return .empty
             }
             return self
+        case (.exactLiteral(let v1), .exactLiteral(let v2)):
+            if v1.literalEqual(to: v2) {
+                return .empty
+            }
+            return self
+        case (.exactLiteral(let v1), .exact(let v2)):
+            if v1 == v2 {
+                return .empty
+            }
+            return self
+        case (.exact, .exactLiteral):
+            // A semantic exact requirement still permits other metadata variants with the same
+            // SemVer core, and we cannot represent "all semantic matches except this literal".
+            // Preserve the broader requirement rather than over-constraining it to empty.
+            return self
 
         case (.exact(let lhs), .range(let rhs)):
             if rhs.contains(version: lhs) {
                 return .empty
             }
             return .exact(lhs)
+        case (.exactLiteral(let lhs), .range(let rhs)):
+            if rhs.contains(version: lhs) {
+                return .empty
+            }
+            return .exactLiteral(lhs)
         case (.range(let lhs), .exact(let rhs)):
             if !lhs.contains(version: rhs) {
                 return .range(lhs)
@@ -288,6 +388,15 @@ extension VersionSetSpecifier {
             }
 
             return .union(from: [lhs.lowerBound..<rhs, rhs.nextPatch()..<lhs.upperBound])
+        case (.range(let lhs), .exactLiteral(let rhs)):
+            if !lhs.contains(version: rhs) {
+                return .range(lhs)
+            }
+
+            // Ranges also admit metadata variants semantically. Since the current representation
+            // cannot exclude a single literal variant from a broader semantic range, keep the
+            // original range instead of removing all semantic matches.
+            return .range(lhs)
 
         case (.ranges(let ranges), .exact(let exact)):
             var result = [Range<Version>]()
@@ -312,8 +421,23 @@ extension VersionSetSpecifier {
                 }
             }
             return .union(from: result)
+        case (.ranges(let ranges), .exactLiteral(let exact)):
+            if !VersionSetSpecifier.ranges(ranges).contains(exact) {
+                return .ranges(ranges)
+            }
+
+            // As with a single range, subtracting one literal variant from a semantic ranges set
+            // would require a more precise representation than we currently have.
+            return .ranges(ranges)
 
         case (.exact(let exact), .ranges(let ranges)):
+            for range in ranges {
+                if range.contains(version: exact) {
+                    return .empty
+                }
+            }
+            return self
+        case (.exactLiteral(let exact), .ranges(let ranges)):
             for range in ranges {
                 if range.contains(version: exact) {
                     return .empty
@@ -351,6 +475,8 @@ extension VersionSetSpecifier {
                     fatalError("unexpected any result")
                 case .exact(let v):
                     lhs = v..<v.nextPatch()
+                case .exactLiteral(let v):
+                    lhs = v ..< v.nextPatch()
                 case .range(let r):
                     lhs = r
                 case .ranges(let rs):
@@ -417,12 +543,14 @@ extension VersionSetSpecifier {
                 // Transform exact to a range so it is handled in the range case below.
                 if case .exact(let v) = diff {
                     diff = .range(v..<v.nextPatch())
+                } else if case .exactLiteral(let v) = diff {
+                    diff = .range(v ..< v.nextPatch())
                 }
 
                 switch diff {
                 case .empty:
                     if !moveLHS(addCurrentLHS: false) { break outer }
-                case .any, .exact:
+                case .any, .exact, .exactLiteral:
                     fatalError("Unexpected result \(diff)")
                 case .range(let r):
                     currentLHS = r
@@ -462,6 +590,18 @@ extension VersionSetSpecifier {
             return true
         case .exact(let v):
             return v == version
+        case .exactLiteral(let v):
+            return v.literalEqual(to: version)
+        }
+    }
+
+    /// Check if the set contains a version with strict literal comparison.
+    private func containsLiteral(_ version: Version) -> Bool {
+        switch self {
+        case .exactLiteral(let candidate):
+            candidate.literalEqual(to: version)
+        default:
+            self.contains(version)
         }
     }
 }
@@ -472,6 +612,8 @@ extension VersionSetSpecifier {
         case .empty, .any:
             false
         case .exact(let version):
+            version.supportsPrerelease
+        case .exactLiteral(let version):
             version.supportsPrerelease
         case .range(let range):
             range.supportsPrereleases
@@ -494,6 +636,8 @@ extension VersionSetSpecifier {
             .ranges(ranges.map { $0.withoutPrerelease })
         case .exact(let version):
             .exact(version.withoutPrerelease)
+        case .exactLiteral(let version):
+            .exactLiteral(version.withoutPrerelease)
         }
     }
 }
@@ -524,6 +668,8 @@ extension VersionSetSpecifier: CustomStringConvertible {
             }
             return range.lowerBound.description + "..<" + upperBound.description
         case .exact(let version):
+            return version.description
+        case .exactLiteral(let version):
             return version.description
         }
     }

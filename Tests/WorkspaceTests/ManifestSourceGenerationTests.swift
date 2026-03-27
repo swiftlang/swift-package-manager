@@ -1008,4 +1008,25 @@ final class ManifestSourceGenerationTests: XCTestCase {
             """
         try await testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v6_1)
     }
+
+    func testExactLiteralDependencyRoundTrip() async throws {
+        let manifestContents = """
+        // swift-tools-version: 999.0
+        import PackageDescription
+
+        let package = Package(
+            name: "MyPackage",
+            dependencies: [
+                .package(url: "https://example.com/MyPkg1", .exactLiteral("1.2.3+debug")),
+                .package(id: "org.foo", .exactLiteral("1.2.3+debug")),
+            ]
+        )
+        """
+
+        let generatedContents = try await testManifestWritingRoundTrip(
+            manifestContents: manifestContents,
+            toolsVersion: .vNext
+        )
+        XCTAssertMatch(generatedContents, .contains(#".exactLiteral("1.2.3+debug")"#))
+    }
 }

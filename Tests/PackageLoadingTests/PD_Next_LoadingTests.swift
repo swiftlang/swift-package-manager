@@ -39,4 +39,39 @@ final class PackageDescriptionNextLoadingTests: PackageDescriptionLoadingTests {
             }
         }
     }
+
+    func testExactLiteralDependencies() async throws {
+        let content = """
+        import PackageDescription
+        let package = Package(
+           name: "MyPackage",
+           dependencies: [
+               .package(url: "http://localhost/foo", .exactLiteral("1.1.1+debug")),
+               .package(id: "org.foo", .exactLiteral("1.1.1+debug")),
+           ]
+        )
+        """
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+            content,
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+        XCTAssertNoDiagnostics(validationDiagnostics)
+
+        let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map { ($0.identity.description, $0) })
+        XCTAssertEqual(
+            deps["foo"],
+            .remoteSourceControl(
+                identity: .plain("foo"),
+                url: "http://localhost/foo",
+                requirement: .exactLiteral("1.1.1+debug")
+            )
+        )
+        XCTAssertEqual(
+            deps["org.foo"],
+            .registry(identity: "org.foo", requirement: .exactLiteral("1.1.1+debug"))
+        )
+    }
 }

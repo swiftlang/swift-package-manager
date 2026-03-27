@@ -22,7 +22,6 @@ import SourceControl
 
 import struct TSCBasic.RegEx
 
-import enum TSCUtility.Git
 import struct TSCUtility.Version
 
 /// Adaptor to expose an individual repository as a package container.
@@ -69,13 +68,13 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
     private var dependenciesCache = [String: [ProductFilter: (Manifest, [Constraint])]]()
     private var dependenciesCacheLock = NSLock()
 
-    private var knownVersionsCache = ThreadSafeBox<[Version: String]?>()
+    private var knownVersionsCache = ThreadSafeBox<[KnownVersionTag]?>()
     private var manifestsCache = ThrowingAsyncKeyValueMemoizer<String, Manifest>()
-    private var toolsVersionsCache = ThreadSafeKeyValueStore<Version, ToolsVersion>()
+    private var toolsVersionsCache = ThreadSafeKeyValueStore<String, ToolsVersion>()
 
     /// This is used to remember if tools version of a particular version is
     /// valid or not.
-    internal var validToolsVersionsCache = ThreadSafeKeyValueStore<Version, Bool>()
+    var validToolsVersionsCache = ThreadSafeKeyValueStore<String, Bool>()
 
     init(
         package: PackageReference,
@@ -104,37 +103,26 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
     }
 
     // Compute the map of known versions.
-    private func knownVersions() throws -> [Version: String] {
+    private func knownVersions() throws -> [KnownVersionTag] {
         try self.knownVersionsCache.memoize {
-            let knownVersionsWithDuplicates = Git.convertTagsToVersionMap(tags: try repository.getTags(), toolsVersion: self.currentToolsVersion)
+            let knownVersionsWithDuplicates = try Self.convertTagsToVersionMap(
+                tags: repository.getTags(),
+                toolsVersion: self.currentToolsVersion
+            )
 
-            return knownVersionsWithDuplicates.mapValues { tags -> String in
-                if tags.count > 1 {
-                    // FIXME: Warn if the two tags point to different git references.
-
-                    // If multiple tags are present with the same semantic version (e.g. v1.0.0, 1.0.0, 1.0) reconcile which one we prefer.
-                    // Prefer the most specific tag, e.g. 1.0.0 is preferred over 1.0.
-                    // Sort the tags so the most specific tag is first, order is ascending so the most specific tag will be last
-                    let tagsSortedBySpecificity = tags.sorted {
-                        let componentCounts = ($0.components(separatedBy: ".").count, $1.components(separatedBy: ".").count)
-                        if componentCounts.0 == componentCounts.1 {
-                            // if they are both have the same number of components, favor the one without a v prefix.
-                            // this matches previously defined behavior
-                            // this assumes we can only enter this situation because one tag has a v prefix and the other does not.
-                            return $0.hasPrefix("v")
-                        }
-                        return componentCounts.0 < componentCounts.1
-                    }
-                    return tagsSortedBySpecificity.last!
-                }
-                assert(tags.count == 1, "Unexpected number of tags")
-                return tags[0]
+            return knownVersionsWithDuplicates.values.map { value in
+                KnownVersionTag(
+                    version: value.version,
+                    tag: Self.reconcilePreferredTag(value.tags)
+                )
             }
         }
     }
 
     public func versionsAscending() throws -> [Version] {
-        [Version](try self.knownVersions().keys).sorted()
+        try self.knownVersions()
+            .map(\.version)
+            .sorted(by: Self.versionAscending)
     }
 
     /// The available version list (in reverse order).
@@ -142,19 +130,19 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         let reversedVersions = try await self.versionsDescending()
         return reversedVersions.lazy.filter {
             // If we have the result cached, return that.
-            if let result = self.validToolsVersionsCache[$0] {
+            if let result = self.validToolsVersionsCache[$0.description] {
                 return result
             }
 
             // Otherwise, compute and cache the result.
             let isValid = (try? self.toolsVersion(for: $0)).flatMap(self.isValidToolsVersion(_:)) ?? false
-            self.validToolsVersionsCache[$0] = isValid
+            self.validToolsVersionsCache[$0.description] = isValid
             return isValid
         }
     }
 
     public func getTag(for version: Version) -> String? {
-        return try? self.knownVersions()[version]
+        return try? self.tag(for: version)
     }
 
     func checkIntegrity(version: Version, revision: Revision) throws {
@@ -230,8 +218,8 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
 
     /// Returns the tools version of the given version of the package.
     public func toolsVersion(for version: Version) throws -> ToolsVersion {
-        try self.toolsVersionsCache.memoize(version) {
-            guard let tag = try self.knownVersions()[version] else {
+        try self.toolsVersionsCache.memoize(version.description) {
+            guard let tag = try self.tag(for: version) else {
                 throw StringError("unknown tag \(version)")
             }
             let fileSystem = try repository.openFileView(tag: tag)
@@ -244,7 +232,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
     public func getDependencies(at version: Version, productFilter: ProductFilter, _ enabledTraits: EnabledTraits = ["default"]) async throws -> [Constraint] {
         do {
             return try await self.getCachedDependencies(forIdentifier: version.description, productFilter: productFilter) {
-                guard let tag = try self.knownVersions()[version] else {
+                guard let tag = try self.tag(for: version) else {
                     throw StringError("unknown tag \(version)")
                 }
                 return try await self.loadDependencies(tag: tag, version: version, productFilter: productFilter, enabledTraits: enabledTraits)
@@ -350,7 +338,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         var version: Version?
         switch boundVersion {
         case .version(let v):
-            guard let tag = try self.knownVersions()[v] else {
+            guard let tag = try self.tag(for: v) else {
                 throw StringError("unknown tag \(v)")
             }
             version = v
@@ -412,34 +400,63 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         )
     }
 
-    public var isRemoteContainer: Bool? {
-        return true
+    private func tag(for version: Version) throws -> String? {
+        let knownVersions = try self.knownVersions()
+        if !version.buildMetadataIdentifiers.isEmpty {
+            if let exact = knownVersions.first(where: { $0.version.literalEqual(to: version) }) {
+                return exact.tag
+            }
+        }
+
+        let semanticMatches = knownVersions.filter { $0.version == version }
+        guard !semanticMatches.isEmpty else {
+            return nil
+        }
+        if semanticMatches.count == 1 {
+            return semanticMatches[0].tag
+        }
+
+        return semanticMatches.sorted(by: { lhs, rhs in
+            Self.versionAscending(lhs.version, rhs.version)
+        }).first?.tag
     }
 
-    public var description: String {
-        return "SourceControlPackageContainer(\(self.repositorySpecifier))"
+    private static func versionAscending(_ lhs: Version, _ rhs: Version) -> Bool {
+        if lhs == rhs {
+            return lhs.literalSortKey < rhs.literalSortKey
+        }
+        return lhs < rhs
     }
-}
 
-extension Git {
-    fileprivate static func convertTagsToVersionMap(tags: [String], toolsVersion: ToolsVersion) -> [Version: [String]] {
+    private static func convertTagsToVersionMap(
+        tags: [String],
+        toolsVersion: ToolsVersion
+    ) -> [LiteralVersionKey: (version: Version, tags: [String])] {
         // First, check if we need to restrict the tag set to version-specific tags.
-        var knownVersions: [Version: [String]] = [:]
-        var versionSpecificKnownVersions: [Version: [String]] = [:]
+        var knownVersions: [LiteralVersionKey: (version: Version, tags: [String])] = [:]
+        var versionSpecificKnownVersions: [LiteralVersionKey: (version: Version, tags: [String])] = [:]
 
         for tag in tags {
             for versionSpecificKey in toolsVersion.versionSpecificKeys {
                 if tag.hasSuffix(versionSpecificKey) {
                     let trimmedTag = String(tag.dropLast(versionSpecificKey.count))
                     if let version = Version(tag: trimmedTag) {
-                        versionSpecificKnownVersions[version, default: []].append(tag)
+                        let key = LiteralVersionKey(version)
+                        if versionSpecificKnownVersions[key] == nil {
+                            versionSpecificKnownVersions[key] = (version, [])
+                        }
+                        versionSpecificKnownVersions[key]?.tags.append(tag)
                     }
                     break
                 }
             }
 
             if let version = Version(tag: tag) {
-                knownVersions[version, default: []].append(tag)
+                let key = LiteralVersionKey(version)
+                if knownVersions[key] == nil {
+                    knownVersions[key] = (version, [])
+                }
+                knownVersions[key]?.tags.append(tag)
             }
         }
         // Check if any version specific tags were found.
@@ -450,5 +467,65 @@ extension Git {
         } else {
             return knownVersions
         }
+    }
+
+    private static func reconcilePreferredTag(_ tags: [String]) -> String {
+        if tags.count > 1 {
+            // FIXME: Warn if the two tags point to different git references.
+            // If multiple tags are present with the same semantic version (e.g. v1.0.0, 1.0.0, 1.0) reconcile which one
+            // we prefer.
+            // Prefer the most specific tag, e.g. 1.0.0 is preferred over 1.0.
+            let tagsSortedBySpecificity = tags.sorted {
+                let componentCounts = ($0.components(separatedBy: ".").count, $1.components(separatedBy: ".").count)
+                if componentCounts.0 == componentCounts.1 {
+                    // If they have the same number of components, favor the one without a `v` prefix.
+                    // This matches previously defined behavior.
+                    return $0.hasPrefix("v")
+                }
+                return componentCounts.0 < componentCounts.1
+            }
+            return tagsSortedBySpecificity.last!
+        }
+
+        assert(tags.count == 1, "Unexpected number of tags")
+        return tags[0]
+    }
+
+    public var isRemoteContainer: Bool? {
+        true
+    }
+
+    public var description: String {
+        "SourceControlPackageContainer(\(self.repositorySpecifier))"
+    }
+}
+
+private struct KnownVersionTag {
+    let version: Version
+    let tag: String
+}
+
+private struct LiteralVersionKey: Hashable {
+    let major: Int
+    let minor: Int
+    let patch: Int
+    let prereleaseIdentifiers: [String]
+    let buildMetadataIdentifiers: [String]
+
+    init(_ version: Version) {
+        self.major = version.major
+        self.minor = version.minor
+        self.patch = version.patch
+        self.prereleaseIdentifiers = version.prereleaseIdentifiers
+        self.buildMetadataIdentifiers = version.buildMetadataIdentifiers
+    }
+}
+
+extension Version {
+    fileprivate var literalSortKey: String {
+        if self.buildMetadataIdentifiers.isEmpty {
+            return ""
+        }
+        return self.buildMetadataIdentifiers.joined(separator: ".")
     }
 }

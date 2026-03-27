@@ -86,7 +86,7 @@ public class RegistryPackageContainer: PackageContainer {
                 package: self.package.identity,
                 observabilityScope: self.observabilityScope
             )
-            return metadata.versions.sorted(by: >)
+            return metadata.versions.sorted(by: Self.versionDescending)
         }
     }
 
@@ -217,5 +217,19 @@ public class RegistryPackageContainer: PackageContainer {
 extension RegistryPackageContainer: CustomStringConvertible {
     public var description: String {
         return "RegistryPackageContainer(\(package.identity))"
+    }
+}
+
+extension RegistryPackageContainer {
+    private static func versionDescending(_ lhs: Version, _ rhs: Version) -> Bool {
+        if lhs == rhs {
+            if lhs.buildMetadataIdentifiers == rhs.buildMetadataIdentifiers {
+                return lhs.description > rhs.description
+            }
+            return rhs.buildMetadataIdentifiers.lexicographicallyPrecedes(
+                lhs.buildMetadataIdentifiers
+            )
+        }
+        return lhs > rhs
     }
 }

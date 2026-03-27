@@ -181,6 +181,8 @@ fileprivate extension SourceCodeFragment {
             switch settings.requirement {
             case .exact(let version):
                 params.append(SourceCodeFragment(enum: "exact", string: "\(version)"))
+            case .exactLiteral(let version):
+                params.append(SourceCodeFragment(enum: "exactLiteral", string: "\(version)"))
             case .range(let range):
                 params.append(SourceCodeFragment("\"\(range.lowerBound)\"..<\"\(range.upperBound)\""))
             case .revision(let revision):
@@ -189,10 +191,12 @@ fileprivate extension SourceCodeFragment {
                 params.append(SourceCodeFragment(enum: "branch", string: branch))
             }
         case .registry(let settings):
-            params.append(SourceCodeFragment(key: "identity", string: settings.identity.description))
+            params.append(SourceCodeFragment(key: "id", string: settings.identity.description))
             switch settings.requirement {
             case .exact(let version):
                 params.append(SourceCodeFragment(enum: "exact", string: "\(version)"))
+            case .exactLiteral(let version):
+                params.append(SourceCodeFragment(enum: "exactLiteral", string: "\(version)"))
             case .range(let range):
                 params.append(SourceCodeFragment("\"\(range.lowerBound)\"..<\"\(range.upperBound)\""))
             }

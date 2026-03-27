@@ -324,6 +324,164 @@ final class SourceControlPackageContainerTests: XCTestCase {
         XCTAssertEqual(v, ["1.0.4-alpha", "1.0.2-dev.2", "1.0.2-dev", "1.0.1", "1.0.0", "1.0.0-beta.1", "1.0.0-alpha.1"])
     }
 
+    func testMetadataDistinctTagsAreDiscoverable() async throws {
+        try XCTSkipOnWindows(because: """
+        https://github.com/swiftlang/swift-package-manager/issues/8578
+        """)
+
+        let fs = InMemoryFileSystem()
+        try fs.createMockToolchain()
+
+        let repoPath = AbsolutePath.root
+        let filePath = repoPath.appending("Package.swift")
+
+        let specifier = RepositorySpecifier(path: repoPath)
+        let repo = InMemoryGitRepository(path: repoPath, fs: fs)
+        try repo.createDirectory(repoPath, recursive: true)
+        try repo.writeFileContents(filePath, string: "// swift-tools-version:\(ToolsVersion.current)\n")
+        try repo.commit()
+        try repo.tag(name: "1.0.0+debug")
+        try repo.tag(name: "1.0.0+release")
+
+        let inMemRepoProvider = InMemoryGitRepositoryProvider()
+        inMemRepoProvider.add(specifier: specifier, repository: repo)
+
+        let p = AbsolutePath.root.appending("repoManager")
+        try fs.createDirectory(p, recursive: true)
+        let repositoryManager = RepositoryManager(
+            fileSystem: fs,
+            path: p,
+            provider: inMemRepoProvider,
+            delegate: MockRepositoryManagerDelegate()
+        )
+
+        let provider = try Workspace._init(
+            fileSystem: fs,
+            environment: .mockEnvironment,
+            location: .init(forRootPackage: repoPath, fileSystem: fs),
+            customHostToolchain: .mockHostToolchain(fs),
+            customManifestLoader: MockManifestLoader(manifests: [:]),
+            customRepositoryManager: repositoryManager
+        )
+
+        let ref = PackageReference.localSourceControl(identity: PackageIdentity(path: repoPath), path: repoPath)
+        let container = try await provider.getContainer(for: ref) as! SourceControlPackageContainer
+        let versions = try await container.versionsDescending()
+        XCTAssertEqual(versions.count, 2)
+        XCTAssertTrue(versions.contains("1.0.0+debug"))
+        XCTAssertTrue(versions.contains("1.0.0+release"))
+        XCTAssertEqual(container.getTag(for: "1.0.0+debug"), "1.0.0+debug")
+        XCTAssertEqual(container.getTag(for: "1.0.0+release"), "1.0.0+release")
+    }
+
+    func testMetadataLiteralTagLookupPrefersExactMatch() async throws {
+        try XCTSkipOnWindows(because: """
+        https://github.com/swiftlang/swift-package-manager/issues/8578
+        """)
+
+        let fs = InMemoryFileSystem()
+        try fs.createMockToolchain()
+
+        let repoPath = AbsolutePath.root
+        let filePath = repoPath.appending("Package.swift")
+
+        let specifier = RepositorySpecifier(path: repoPath)
+        let repo = InMemoryGitRepository(path: repoPath, fs: fs)
+        try repo.createDirectory(repoPath, recursive: true)
+
+        try repo.writeFileContents(filePath, string: "// swift-tools-version:\(ToolsVersion.current)\n")
+        try repo.commit()
+        try repo.tag(name: "1.0.0+debug")
+
+        try repo.writeFileContents(filePath, string: "// swift-tools-version:\(ToolsVersion.current)\n// updated\n")
+        try repo.commit()
+        try repo.tag(name: "1.0.0+release")
+
+        let inMemRepoProvider = InMemoryGitRepositoryProvider()
+        inMemRepoProvider.add(specifier: specifier, repository: repo)
+
+        let p = AbsolutePath.root.appending("repoManager")
+        try fs.createDirectory(p, recursive: true)
+        let repositoryManager = RepositoryManager(
+            fileSystem: fs,
+            path: p,
+            provider: inMemRepoProvider,
+            delegate: MockRepositoryManagerDelegate()
+        )
+
+        let provider = try Workspace._init(
+            fileSystem: fs,
+            environment: .mockEnvironment,
+            location: .init(forRootPackage: repoPath, fileSystem: fs),
+            customHostToolchain: .mockHostToolchain(fs),
+            customManifestLoader: MockManifestLoader(manifests: [:]),
+            customRepositoryManager: repositoryManager
+        )
+
+        let ref = PackageReference.localSourceControl(identity: PackageIdentity(path: repoPath), path: repoPath)
+        let container = try await provider.getContainer(for: ref) as! SourceControlPackageContainer
+        let debugTag = try XCTUnwrap(container.getTag(for: "1.0.0+debug"))
+        let releaseTag = try XCTUnwrap(container.getTag(for: "1.0.0+release"))
+        XCTAssertEqual(debugTag, "1.0.0+debug")
+        XCTAssertEqual(releaseTag, "1.0.0+release")
+
+        let debugRevision = try container.getRevision(forTag: debugTag)
+        let releaseRevision = try container.getRevision(forTag: releaseTag)
+        XCTAssertNotEqual(debugRevision.identifier, releaseRevision.identifier)
+    }
+
+    func testPlainTagLookupCoexistingWithMetadataVariants() async throws {
+        try XCTSkipOnWindows(because: """
+        https://github.com/swiftlang/swift-package-manager/issues/8578
+        """)
+
+        let fs = InMemoryFileSystem()
+        try fs.createMockToolchain()
+
+        let repoPath = AbsolutePath.root
+        let filePath = repoPath.appending("Package.swift")
+
+        let specifier = RepositorySpecifier(path: repoPath)
+        let repo = InMemoryGitRepository(path: repoPath, fs: fs)
+        try repo.createDirectory(repoPath, recursive: true)
+        try repo.writeFileContents(filePath, string: "// swift-tools-version:\(ToolsVersion.current)\n")
+        try repo.commit()
+        try repo.tag(name: "1.0.0")
+        try repo.tag(name: "1.0.0+debug")
+
+        let inMemRepoProvider = InMemoryGitRepositoryProvider()
+        inMemRepoProvider.add(specifier: specifier, repository: repo)
+
+        let p = AbsolutePath.root.appending("repoManager")
+        try fs.createDirectory(p, recursive: true)
+        let repositoryManager = RepositoryManager(
+            fileSystem: fs,
+            path: p,
+            provider: inMemRepoProvider,
+            delegate: MockRepositoryManagerDelegate()
+        )
+
+        let provider = try Workspace._init(
+            fileSystem: fs,
+            environment: .mockEnvironment,
+            location: .init(forRootPackage: repoPath, fileSystem: fs),
+            customHostToolchain: .mockHostToolchain(fs),
+            customManifestLoader: MockManifestLoader(manifests: [:]),
+            customRepositoryManager: repositoryManager
+        )
+
+        let ref = PackageReference.localSourceControl(identity: PackageIdentity(path: repoPath), path: repoPath)
+        let container = try await provider.getContainer(for: ref) as! SourceControlPackageContainer
+        let versions = try await container.versionsDescending()
+
+        XCTAssertEqual(versions.count, 2)
+        XCTAssertTrue(versions.contains("1.0.0"))
+        XCTAssertTrue(versions.contains("1.0.0+debug"))
+
+        XCTAssertEqual(container.getTag(for: "1.0.0"), "1.0.0")
+        XCTAssertEqual(container.getTag(for: "1.0.0+debug"), "1.0.0+debug")
+    }
+
     func testSimultaneousVersions() async throws {
         try XCTSkipOnWindows(because: """
         https://github.com/swiftlang/swift-package-manager/issues/8578

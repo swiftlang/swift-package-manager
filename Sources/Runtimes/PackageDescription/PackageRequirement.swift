@@ -181,6 +181,9 @@ extension Package.Dependency {
     public enum SourceControlRequirement {
         /// An exact version based requirement.
         case exact(Version)
+        /// An exact version based requirement with literal matching.
+        @available(_PackageDescription, introduced: 999)
+        case exactLiteral(Version)
         /// A requirement based on a range of versions.
         case range(Range<Version>)
         /// A commit based requirement.
@@ -207,6 +210,8 @@ extension Package.Dependency {
     public enum RegistryRequirement {
         /// A requirement based on an exact version.
         case exact(Version)
+        /// A requirement based on an exact literal version.
+        case exactLiteral(Version)
         /// A requirement based on a range of versions.
         case range(Range<Version>)
     }
