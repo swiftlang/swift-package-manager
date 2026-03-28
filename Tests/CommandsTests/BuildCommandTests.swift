@@ -1279,7 +1279,6 @@ struct BuildCommandTestCases {
         // Windows builds of ExecutableNew using swiftbuild can fail because of problem with handling long paths which
         // is root cause of linked issue
         .issue("https://github.com/swiftlang/swift-package-manager/issues/9420", relationship: .defect),
-        .issue("https://github.com/swiftlang/swift-package-manager/issues/9745", relationship: .defect),
         .tags(
             .Feature.CommandLineArguments.DisableGetTaskAllowEntitlement,
             .Feature.CommandLineArguments.EnableGetTaskAllowEntitlement,
@@ -1288,12 +1287,11 @@ struct BuildCommandTestCases {
         .tags(
             .Feature.CommandLineArguments.BuildSystem
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms,
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
     )
-    func getTaskAllowEntitlement(
-        buildSystem: BuildSystemProvider.Kind,
-    ) async throws {
-        let buildConfiguration = BuildConfiguration.debug
+    func getTaskAllowEntitlement(data: BuildData) async throws {
+        let buildSystem = data.buildSystem
+        let buildConfiguration = data.config
         try await fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { fixturePath in
             #if os(macOS)
             func codesignDisplay(execPath: AbsolutePath) async throws -> PropertyListItem? {
