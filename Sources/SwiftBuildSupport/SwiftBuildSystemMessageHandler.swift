@@ -29,6 +29,7 @@ public final class SwiftBuildSystemMessageHandler {
     private var buildState: BuildState = .init()
     private let enableBacktraces: Bool
     private let buildDelegate: SPMBuildCore.BuildSystemDelegate?
+    private var traceEventsWriter: TraceEventsWriter?
 
     public typealias BuildSystemCallback = (SwiftBuildSystem) -> Void
 
@@ -56,7 +57,8 @@ public final class SwiftBuildSystemMessageHandler {
         outputStream: OutputByteStream,
         logLevel: Basics.Diagnostic.Severity,
         enableBacktraces: Bool = false,
-        buildDelegate: SPMBuildCore.BuildSystemDelegate? = nil
+        buildDelegate: SPMBuildCore.BuildSystemDelegate? = nil,
+        traceEventsFilePath: Basics.AbsolutePath? = nil
     )
     {
         self.observabilityScope = observabilityScope
@@ -69,6 +71,16 @@ public final class SwiftBuildSystemMessageHandler {
         )
         self.enableBacktraces = enableBacktraces
         self.buildDelegate = buildDelegate
+        if let traceEventsFilePath {
+            do {
+                self.traceEventsWriter = try TraceEventsWriter(path: traceEventsFilePath)
+            } catch {
+                observabilityScope.emit(warning: "Failed to open trace events file: \(error)")
+                self.traceEventsWriter = nil
+            }
+        } else {
+            self.traceEventsWriter = nil
+        }
     }
 
     private func emitInfoAsDiagnostic(info: SwiftBuildMessage.DiagnosticInfo) {
@@ -207,6 +219,7 @@ public final class SwiftBuildSystemMessageHandler {
         guard !self.logLevel.isQuiet else { return callback }
         switch message {
         case .buildCompleted(let info):
+            self.traceEventsWriter?.close()
             progressAnimation.complete(success: info.result == .ok)
             if info.result == .cancelled {
                 callback = { [weak self] buildSystem in
@@ -251,6 +264,7 @@ public final class SwiftBuildSystemMessageHandler {
             buildState.appendToBuffer(info)
         case .taskStarted(let info):
             try buildState.started(task: info, self.logLevel)
+            self.traceEventsWriter?.taskStarted(info)
 
             let targetInfo = try buildState.target(for: info)
             callback = { [weak self] buildSystem in
@@ -259,6 +273,11 @@ public final class SwiftBuildSystemMessageHandler {
             }
         case .taskComplete(let info):
             let startedInfo = try buildState.completed(task: info)
+
+            traceEventsWriter?.taskCompleted(
+                info,
+                startedInfo: startedInfo,
+            )
 
             // Handler for task output, handling failures if applicable.
             try self.handleTaskOutput(info, startedInfo, self.enableBacktraces)

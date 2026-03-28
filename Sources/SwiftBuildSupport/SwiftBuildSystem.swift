@@ -616,7 +616,8 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                 outputStream: self.outputStream,
                 logLevel: self.logLevel,
                 enableBacktraces: self.enableTaskBacktraces,
-                buildDelegate: self.delegate
+                buildDelegate: self.delegate,
+                traceEventsFilePath: self.buildParameters.outputParameters.traceEventsFilePath
             )
 
             do {

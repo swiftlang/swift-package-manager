@@ -8,6 +8,7 @@
 
 add_library(SwiftBuildSupport
   BuildSystem.swift
+  TraceEventsWriter.swift
   Diagnostics+Extensions.swift
   DotPIFSerializer.swift
   PackagePIFBuilder.swift
