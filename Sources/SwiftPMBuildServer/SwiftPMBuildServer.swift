@@ -125,6 +125,7 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
         self.connectionToUnderlyingBuildServer = connectionToUnderlyingBuildServer
         let connectionFromUnderlyingBuildServer = LocalConnection(receiverName: "swiftpm-build-server")
         let buildrequest = try await self.buildSystem.makeBuildRequest(
+            service: session.service,
             session: session.session,
             configuredTargets: [.init(rawValue: "ALL-INCLUDING-TESTS")],
             derivedDataPath: self.buildSystem.buildParameters.dataPath,

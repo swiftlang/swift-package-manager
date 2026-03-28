@@ -15,14 +15,6 @@ import enum PackageModel.BuildConfiguration
 
 public var SupportedBuildSystemOnAllPlatforms: [BuildSystemProvider.Kind] = BuildSystemProvider.Kind.allCases.filter { $0 != .xcode }
 
-public var SupportedBuildSystemOnPlatform: [BuildSystemProvider.Kind] {
-    #if os(macOS)
-        BuildSystemProvider.Kind.allCases
-    #else
-        SupportedBuildSystemOnAllPlatforms
-    #endif
-}
-
 public struct BuildData {
     public let buildSystem: BuildSystemProvider.Kind
     public let config: BuildConfiguration

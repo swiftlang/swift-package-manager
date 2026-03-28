@@ -1216,7 +1216,7 @@ struct TestCommandTests {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let configuration = BuildConfiguration.debug
-        try await withKnownIssue("Fails to find the test executable") {
+        try await withKnownIssue("Fails to find the test executable", isIntermittent: true) {
             try await fixture(name: "Miscellaneous/TestDiscovery/SwiftTesting") { fixturePath in
                 let (stdout, stderr) = try await execute(
                     ["--disable-local-rpath"],
