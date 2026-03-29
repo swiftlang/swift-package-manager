@@ -92,6 +92,12 @@ public struct ToolsVersion: Equatable, Hashable, Codable, Sendable {
     }
     public let experimentalFeatures: Set<ExperimentalFeature>?
 
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(_version, forKey: ._version)
+        try container.encodeIfPresent(experimentalFeatures?.sorted(by: { $0.rawValue < $1.rawValue }), forKey: .experimentalFeatures)
+    }
+
     /// Helpers for experimental
     public var experimentalCGen: Bool {
         self >= .v6_3 && experimentalFeatures?.contains(.experimentalCGen) == true
