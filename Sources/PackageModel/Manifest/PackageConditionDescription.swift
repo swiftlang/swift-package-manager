@@ -22,6 +22,13 @@ public struct PackageConditionDescription: Codable, Hashable, Sendable {
         self.config = config
         self.traits = traits
     }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(platformNames, forKey: .platformNames)
+        try container.encodeIfPresent(config, forKey: .config)
+        try container.encodeIfPresent(traits?.sorted(), forKey: .traits)
+    }
 }
 
 /// One of possible conditions used in package manifests to restrict modules from being built for certain platforms or

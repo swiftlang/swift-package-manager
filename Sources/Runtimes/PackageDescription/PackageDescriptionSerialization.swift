@@ -26,7 +26,7 @@ enum Serialization {
     struct BuildSettingCondition: Codable {
         let platforms: [Platform]?
         let config: BuildConfiguration?
-        let traits: Set<String>?
+        let traits: [String]?
     }
 
     struct BuildSettingData: Codable {
@@ -119,7 +119,7 @@ enum Serialization {
     struct PackageDependency: Codable {
         struct Trait: Hashable, Codable {
             struct Condition: Hashable, Codable {
-                let traits: Set<String>?
+                let traits: [String]?
             }
 
             var name: String
@@ -145,7 +145,7 @@ enum Serialization {
 
         let kind: Kind
         let moduleAliases: [String: String]?
-        let traits: Set<Trait>?
+        let traits: [Trait]?
     }
 
     // MARK: - platforms serialization
@@ -164,7 +164,7 @@ enum Serialization {
     enum TargetDependency: Codable {
         struct Condition: Codable {
             let platforms: [Platform]?
-            let traits: Set<String>?
+            let traits: [String]?
         }
 
         case target(name: String, condition: Condition?)
@@ -274,7 +274,7 @@ enum Serialization {
     struct Trait: Hashable, Codable {
         let name: String
         let description: String?
-        let enabledTraits: Set<String>
+        let enabledTraits: [String]
     }
 
     // MARK: - package serialization
@@ -298,7 +298,7 @@ enum Serialization {
         let providers: [SystemPackageProvider]?
         let targets: [Target]
         let products: [Product]
-        let traits: Set<Trait>?
+        let traits: [Trait]?
         let dependencies: [PackageDependency]
         let swiftLanguageVersions: [SwiftVersion]?
         let cLanguageStandard: CLanguageStandard?
