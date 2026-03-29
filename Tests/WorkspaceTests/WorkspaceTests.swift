@@ -8101,14 +8101,13 @@ final class WorkspaceTests: XCTestCase {
         // Checks an unsupported extension.
         do {
             let unknownPath = sandbox.appending("unknown")
-            XCTAssertThrowsError(
+            try XCTAssertThrowsError(
                 try binaryArtifactsManager.checksum(forBinaryArtifactAt: unknownPath),
                 "error expected"
             ) { error in
-                XCTAssertEqual(
-                    error as? StringError,
-                    StringError("unexpected file type; supported extensions are: zip")
-                )
+                let stringError = try XCTUnwrap(error as? StringError)
+                // What the file types are is platform specific
+                XCTAssert(stringError.description.hasPrefix("unexpected file type"))
             }
         }
 
