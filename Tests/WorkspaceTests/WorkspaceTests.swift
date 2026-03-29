@@ -8105,10 +8105,12 @@ final class WorkspaceTests: XCTestCase {
                 try binaryArtifactsManager.checksum(forBinaryArtifactAt: unknownPath),
                 "error expected"
             ) { error in
-                XCTAssertEqual(
-                    error as? StringError,
-                    StringError("unexpected file type; supported extensions are: zip")
-                )
+                guard let stringError = error as? StringError else {
+                    XCTFail("not a string error")
+                    return
+                }
+                // What the file types are is platform specific
+                XCTAssert(stringError.description.hasPrefix("unexpected file type"))
             }
         }
 

@@ -73,8 +73,8 @@ extension SwiftPackageCommand {
             let repository = GitRepository(path: packageDirectory, cancellator: cancellator)
             try repository.archive(to: archivePath)
         } else {
-            let zipArchiver = ZipArchiver(fileSystem: fileSystem, cancellator: cancellator)
-            try await zipArchiver.compress(directory: packageDirectory, to: archivePath)
+            let archiver = UniversalArchiver(fileSystem, cancellator)
+            try await archiver.compress(directory: packageDirectory, to: archivePath)
         }
     }
 }
