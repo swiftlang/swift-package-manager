@@ -592,6 +592,10 @@ final class DebugTestRunner {
             lldbCommands.append("script print(\"\\033[H\\033[J\", end=\"\")")
         }
 
+        if Environment.current["SWIFTPM_TESTS_MODULECACHE"] != nil {
+            lldbCommands.append("quit")
+        }
+
         let commandScript = lldbCommands.joined(separator: "\n")
         try fileSystem.writeFileContents(lldbCommandFile, string: commandScript)
 
