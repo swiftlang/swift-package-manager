@@ -412,7 +412,7 @@ public struct SwiftSDK: Equatable {
             }
 
             if let swiftStaticResourcesPath = newConfiguration.swiftStaticResourcesPath {
-                self.swiftResourcesPath = try AbsolutePath(validating: swiftStaticResourcesPath, relativeTo: basePath)
+                self.swiftStaticResourcesPath = try AbsolutePath(validating: swiftStaticResourcesPath, relativeTo: basePath)
                 updatedProperties.append("swiftStaticResourcesPath")
             }
 
