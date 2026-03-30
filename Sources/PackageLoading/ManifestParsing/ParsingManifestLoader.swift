@@ -1076,18 +1076,21 @@ extension ManifestParseVisitor {
         
         var kind: TargetBuildSettingDescription.Kind?
         var condition: PackageConditionDescription?
+        var conditionArgumentIndex: Int?
 
         // Parse the kind based on method name
         switch methodName {
         case "headerSearchPath":
-            for argument in functionCall.arguments {
+            for (index, argument) in functionCall.arguments.enumerated() {
                 let label = argument.label?.text
                 if label == nil {
-                    if let path = argument.expression.asStringLiteralValue(in: contextModel) {
+                    if kind == nil, let path = argument.expression.asStringLiteralValue(in: contextModel) {
                         kind = .headerSearchPath(path)
+                    } else {
+                        conditionArgumentIndex = index
                     }
                 } else if label == "condition" {
-                    continue
+                    conditionArgumentIndex = index
                 } else {
                     limitations.append(.unsupportedArgument(argument, callee: "headerSearchPath"))
                 }
@@ -1097,18 +1100,18 @@ extension ManifestParseVisitor {
             var name: String?
             var value: String?
             
-            for argument in functionCall.arguments {
+            for (index, argument) in functionCall.arguments.enumerated() {
                 let label = argument.label?.text
                 if label == nil {
-                    // Skip condition arguments (they'll be parsed later)
-                    if argument.expression.asStringLiteralValue(in: contextModel) != nil {
-                        name = argument.expression.asStringLiteralValue(in: contextModel)
+                    if let str = argument.expression.asStringLiteralValue(in: contextModel) {
+                        name = str
+                    } else {
+                        conditionArgumentIndex = index
                     }
                 } else if label == "to" {
                     value = argument.expression.asStringLiteralValue(in: contextModel)
                 } else if label == "condition" {
-                    // Skip - will be parsed later
-                    continue
+                    conditionArgumentIndex = index
                 } else {
                     limitations.append(.unsupportedArgument(argument, callee: "define"))
                 }
@@ -1122,36 +1125,40 @@ extension ManifestParseVisitor {
                 }
             }
         case "linkedLibrary":
-            for argument in functionCall.arguments {
+            for (index, argument) in functionCall.arguments.enumerated() {
                 let label = argument.label?.text
                 if label == nil {
-                    if let library = argument.expression.asStringLiteralValue(in: contextModel) {
+                    if kind == nil, let library = argument.expression.asStringLiteralValue(in: contextModel) {
                         kind = .linkedLibrary(library)
+                    } else {
+                        conditionArgumentIndex = index
                     }
                 } else if label == "condition" {
-                    continue
+                    conditionArgumentIndex = index
                 } else {
                     limitations.append(.unsupportedArgument(argument, callee: "linkedLibrary"))
                 }
             }
         case "linkedFramework":
-            for argument in functionCall.arguments {
+            for (index, argument) in functionCall.arguments.enumerated() {
                 let label = argument.label?.text
                 if label == nil {
-                    if let framework = argument.expression.asStringLiteralValue(in: contextModel) {
+                    if kind == nil, let framework = argument.expression.asStringLiteralValue(in: contextModel) {
                         kind = .linkedFramework(framework)
+                    } else {
+                        conditionArgumentIndex = index
                     }
                 } else if label == "condition" {
-                    continue
+                    conditionArgumentIndex = index
                 } else {
                     limitations.append(.unsupportedArgument(argument, callee: "linkedFramework"))
                 }
             }
         case "unsafeFlags":
-            for argument in functionCall.arguments {
+            for (index, argument) in functionCall.arguments.enumerated() {
                 let label = argument.label?.text
                 if label == nil {
-                    if let flagsArray = argument.expression.as(ArrayExprSyntax.self) {
+                    if kind == nil, let flagsArray = argument.expression.as(ArrayExprSyntax.self) {
                         var flags: [String] = []
                         for flagElement in flagsArray.elements {
                             if let flag = flagElement.expression.asStringLiteralValue(in: contextModel) {
@@ -1161,45 +1168,52 @@ extension ManifestParseVisitor {
                             }
                         }
                         kind = .unsafeFlags(flags)
+                    } else {
+                        conditionArgumentIndex = index
                     }
                 } else if label == "condition" {
-                    continue
+                    conditionArgumentIndex = index
                 } else {
                     limitations.append(.unsupportedArgument(argument, callee: "unsafeFlags"))
                 }
             }
         case "enableUpcomingFeature":
-            for argument in functionCall.arguments {
+            for (index, argument) in functionCall.arguments.enumerated() {
                 let label = argument.label?.text
                 if label == nil {
-                    if let feature = argument.expression.asStringLiteralValue(in: contextModel) {
+                    if kind == nil, let feature = argument.expression.asStringLiteralValue(in: contextModel) {
                         kind = .enableUpcomingFeature(feature)
+                    } else {
+                        conditionArgumentIndex = index
                     }
                 } else if label == "condition" {
-                    continue
+                    conditionArgumentIndex = index
                 } else {
                     limitations.append(.unsupportedArgument(argument, callee: "enableUpcomingFeature"))
                 }
             }
         case "enableExperimentalFeature":
-            for argument in functionCall.arguments {
+            for (index, argument) in functionCall.arguments.enumerated() {
                 let label = argument.label?.text
                 if label == nil {
-                    if let feature = argument.expression.asStringLiteralValue(in: contextModel) {
+                    if kind == nil, let feature = argument.expression.asStringLiteralValue(in: contextModel) {
                         kind = .enableExperimentalFeature(feature)
+                    } else {
+                        conditionArgumentIndex = index
                     }
                 } else if label == "condition" {
-                    continue
+                    conditionArgumentIndex = index
                 } else {
                     limitations.append(.unsupportedArgument(argument, callee: "enableExperimentalFeature"))
                 }
             }
         case "interoperabilityMode":
             // .interoperabilityMode(.C) or .interoperabilityMode(.Cxx)
-            for argument in functionCall.arguments {
+            for (index, argument) in functionCall.arguments.enumerated() {
                 let label = argument.label?.text
                 if label == nil {
-                    if let memberAccess = argument.expression.as(MemberAccessExprSyntax.self),
+                    if kind == nil,
+                       let memberAccess = argument.expression.as(MemberAccessExprSyntax.self),
                        memberAccess.base == nil,
                        let modeName = memberAccess.declName.baseName.identifier?.name {
                         switch modeName {
@@ -1210,19 +1224,21 @@ extension ManifestParseVisitor {
                         default:
                             limitations.append(.unsupportedExpression(argument.expression, expected: "known interoperability mode"))
                         }
+                    } else {
+                        conditionArgumentIndex = index
                     }
                 } else if label == "condition" {
-                    continue
+                    conditionArgumentIndex = index
                 } else {
                     limitations.append(.unsupportedArgument(argument, callee: "interoperabilityMode"))
                 }
             }
         case "strictMemorySafety":
             kind = .strictMemorySafety
-            for argument in functionCall.arguments {
+            for (index, argument) in functionCall.arguments.enumerated() {
                 let label = argument.label?.text
-                if label == "condition" {
-                    continue
+                if label == nil || label == "condition" {
+                    conditionArgumentIndex = index
                 } else {
                     limitations.append(.unsupportedArgument(argument, callee: "strictMemorySafety"))
                 }
@@ -1230,21 +1246,23 @@ extension ManifestParseVisitor {
         case "swiftLanguageMode", "swiftLanguageVersion":
             // .swiftLanguageMode(.v5) or .swiftLanguageMode(.version("6"))
             // Also supports deprecated .swiftLanguageVersion() for backward compatibility
-            for argument in functionCall.arguments {
+            for (index, argument) in functionCall.arguments.enumerated() {
                 let label = argument.label?.text
                 if label == nil {
-                    if let version = parseSwiftLanguageVersion(argument.expression) {
+                    if kind == nil, let version = parseSwiftLanguageVersion(argument.expression) {
                         kind = .swiftLanguageMode(version)
+                    } else {
+                        conditionArgumentIndex = index
                     }
                 } else if label == "condition" {
-                    continue
+                    conditionArgumentIndex = index
                 } else {
                     limitations.append(.unsupportedArgument(argument, callee: methodName))
                 }
             }
         case "treatAllWarnings":
             // .treatAllWarnings(.warning) or .treatAllWarnings(.error)
-            for argument in functionCall.arguments {
+            for (index, argument) in functionCall.arguments.enumerated() {
                 let label = argument.label?.text
                 if label == nil || label == "as" {
                     if let memberAccess = argument.expression.as(MemberAccessExprSyntax.self),
@@ -1258,9 +1276,11 @@ extension ManifestParseVisitor {
                         default:
                             limitations.append(.unsupportedExpression(argument.expression, expected: "warning level (.warning or .error)"))
                         }
+                    } else if label == nil {
+                        conditionArgumentIndex = index
                     }
                 } else if label == "condition" {
-                    continue
+                    conditionArgumentIndex = index
                 } else {
                     limitations.append(.unsupportedArgument(argument, callee: "treatAllWarnings"))
                 }
@@ -1270,12 +1290,13 @@ extension ManifestParseVisitor {
             var warningName: String?
             var level: TargetBuildSettingDescription.WarningLevel?
             
-            for argument in functionCall.arguments {
+            for (index, argument) in functionCall.arguments.enumerated() {
                 let label = argument.label?.text
                 if label == nil {
-                    // Skip condition arguments (they'll be parsed later)
-                    if argument.expression.asStringLiteralValue(in: contextModel) != nil {
-                        warningName = argument.expression.asStringLiteralValue(in: contextModel)
+                    if let str = argument.expression.asStringLiteralValue(in: contextModel) {
+                        warningName = str
+                    } else {
+                        conditionArgumentIndex = index
                     }
                 } else if label == "as" {
                     if let memberAccess = argument.expression.as(MemberAccessExprSyntax.self),
@@ -1291,8 +1312,7 @@ extension ManifestParseVisitor {
                         }
                     }
                 } else if label == "condition" {
-                    // Skip - will be parsed later
-                    continue
+                    conditionArgumentIndex = index
                 } else {
                     limitations.append(.unsupportedArgument(argument, callee: "treatWarning"))
                 }
@@ -1302,27 +1322,31 @@ extension ManifestParseVisitor {
                 kind = .treatWarning(warning, warningLevel)
             }
         case "enableWarning":
-            for argument in functionCall.arguments {
+            for (index, argument) in functionCall.arguments.enumerated() {
                 let label = argument.label?.text
                 if label == nil {
-                    if let warning = argument.expression.asStringLiteralValue(in: contextModel) {
+                    if kind == nil, let warning = argument.expression.asStringLiteralValue(in: contextModel) {
                         kind = .enableWarning(warning)
+                    } else {
+                        conditionArgumentIndex = index
                     }
                 } else if label == "condition" {
-                    continue
+                    conditionArgumentIndex = index
                 } else {
                     limitations.append(.unsupportedArgument(argument, callee: "enableWarning"))
                 }
             }
         case "disableWarning":
-            for argument in functionCall.arguments {
+            for (index, argument) in functionCall.arguments.enumerated() {
                 let label = argument.label?.text
                 if label == nil {
-                    if let warning = argument.expression.asStringLiteralValue(in: contextModel) {
+                    if kind == nil, let warning = argument.expression.asStringLiteralValue(in: contextModel) {
                         kind = .disableWarning(warning)
+                    } else {
+                        conditionArgumentIndex = index
                     }
                 } else if label == "condition" {
-                    continue
+                    conditionArgumentIndex = index
                 } else {
                     limitations.append(.unsupportedArgument(argument, callee: "disableWarning"))
                 }
@@ -1330,19 +1354,25 @@ extension ManifestParseVisitor {
         case "defaultIsolation":
             // .defaultIsolation(MainActor.self) → .MainActor isolation
             // .defaultIsolation(nil)            → nonisolated (compiler default)
-            for argument in functionCall.arguments {
+            for (index, argument) in functionCall.arguments.enumerated() {
                 let label = argument.label?.text
                 if label == nil {
-                    if argument.expression.is(NilLiteralExprSyntax.self) {
-                        kind = .defaultIsolation(.nonisolated)
-                    } else if let memberAccess = argument.expression.as(MemberAccessExprSyntax.self),
-                              let base = memberAccess.base?.as(DeclReferenceExprSyntax.self),
-                              base.baseName.text == "MainActor",
-                              memberAccess.declName.baseName.text == "self" {
-                        kind = .defaultIsolation(.MainActor)
+                    if kind == nil {
+                        if argument.expression.is(NilLiteralExprSyntax.self) {
+                            kind = .defaultIsolation(.nonisolated)
+                        } else if let memberAccess = argument.expression.as(MemberAccessExprSyntax.self),
+                                  let base = memberAccess.base?.as(DeclReferenceExprSyntax.self),
+                                  base.baseName.text == "MainActor",
+                                  memberAccess.declName.baseName.text == "self" {
+                            kind = .defaultIsolation(.MainActor)
+                        } else {
+                            conditionArgumentIndex = index
+                        }
+                    } else {
+                        conditionArgumentIndex = index
                     }
                 } else if label == "condition" {
-                    continue
+                    conditionArgumentIndex = index
                 } else {
                     limitations.append(.unsupportedArgument(argument, callee: "defaultIsolation"))
                 }
@@ -1352,12 +1382,17 @@ extension ManifestParseVisitor {
             return nil
         }
         
-        // Parse condition if present (argument labeled "condition").
-        for argument in functionCall.arguments {
-            if argument.label?.text == "condition" {
-                if let parsedCondition = parsePackageCondition(argument.expression) {
-                    condition = parsedCondition
-                }
+        // Parse condition if present. The condition parameter is unlabeled in the
+        // PackageDescription API (e.g., .define("C", .when(platforms: [.linux]))),
+        // though some manifests may also use the explicit label "condition:".
+        // Each case above sets conditionArgumentIndex when it identifies the
+        // condition argument.
+        if let conditionIndex = conditionArgumentIndex {
+            let conditionArg = functionCall.arguments[
+                functionCall.arguments.index(functionCall.arguments.startIndex, offsetBy: conditionIndex)
+            ]
+            if let parsedCondition = parsePackageCondition(conditionArg.expression) {
+                condition = parsedCondition
             }
         }
         
