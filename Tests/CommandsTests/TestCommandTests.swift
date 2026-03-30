@@ -1859,43 +1859,35 @@ struct TestCommandTests {
             arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func debuggerFlagWithXCTestSuite(buildSystem: BuildSystemProvider.Kind) async throws {
-            try await withKnownIssue(
-                """
-                Windows: Missing LLDB DLLs w/ ARM64 toolchain
-                """
-            ) {
-                let configuration = BuildConfiguration.debug
-                try await fixture(name: "Miscellaneous/TestDebugging") { fixturePath in
-                    let (stdout, stderr) = try await execute(
-                        ["--debugger", "--disable-swift-testing", "--verbose"],
-                        packagePath: fixturePath,
-                        configuration: configuration,
-                        buildSystem: buildSystem,
-                    )
+            let configuration = BuildConfiguration.debug
+            try await fixture(name: "Miscellaneous/TestDebugging") { fixturePath in
+                let (stdout, stderr) = try await execute(
+                    ["--debugger", "--disable-swift-testing", "--verbose"],
+                    packagePath: fixturePath,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                )
 
-                    #expect(
-                        !stderr.contains("error: --debugger cannot be used with"),
-                        "got stdout: \(stdout), stderr: \(stderr)",
-                    )
+                #expect(
+                    !stderr.contains("error: --debugger cannot be used with"),
+                    "got stdout: \(stdout), stderr: \(stderr)",
+                )
 
-                    #if os(macOS)
-                    let targetName = "xctest"
-                    #else
-                    let targetName = buildSystem == .swiftbuild ? "test-runner" : "xctest"
-                    #endif
+                #if os(macOS)
+                let targetName = "xctest"
+                #else
+                let targetName = buildSystem == .swiftbuild ? "test-runner" : "xctest"
+                #endif
 
-                    #expect(
-                        stdout.contains("target create") && stdout.contains(targetName),
-                        "Expected LLDB to target xctest binary, got stdout: \(stdout), stderr: \(stderr)",
-                    )
+                #expect(
+                    stdout.contains("target create") && stdout.contains(targetName),
+                    "Expected LLDB to target xctest binary, got stdout: \(stdout), stderr: \(stderr)",
+                )
 
-                    #expect(
-                        stdout.contains("failbreak breakpoint set"),
-                        "Expected a failure breakpoint to be setup, got stdout: \(stdout), stderr: \(stderr)",
-                    )
-                }
-            } when: {
-                ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSelfHostedPipeline
+                #expect(
+                    stdout.contains("failbreak breakpoint set"),
+                    "Expected a failure breakpoint to be setup, got stdout: \(stdout), stderr: \(stderr)",
+                )
             }
         }
 
@@ -1903,43 +1895,35 @@ struct TestCommandTests {
             arguments: SupportedBuildSystemOnAllPlatforms
         )
         func debuggerFlagWithSwiftTestingSuite(buildSystem: BuildSystemProvider.Kind) async throws {
-            try await withKnownIssue(
-                """
-                Windows: Missing LLDB DLLs w/ ARM64 toolchain
-                """
-            ) {
-                let configuration = BuildConfiguration.debug
-                try await fixture(name: "Miscellaneous/TestDebugging") { fixturePath in
-                    let (stdout, stderr) = try await execute(
-                        ["--debugger", "--disable-xctest", "--verbose"],
-                        packagePath: fixturePath,
-                        configuration: configuration,
-                        buildSystem: buildSystem,
-                    )
+            let configuration = BuildConfiguration.debug
+            try await fixture(name: "Miscellaneous/TestDebugging") { fixturePath in
+                let (stdout, stderr) = try await execute(
+                    ["--debugger", "--disable-xctest", "--verbose"],
+                    packagePath: fixturePath,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                )
 
-                    #expect(
-                        !stderr.contains("error: --debugger cannot be used with"),
-                        "got stdout: \(stdout), stderr: \(stderr)",
-                    )
+                #expect(
+                    !stderr.contains("error: --debugger cannot be used with"),
+                    "got stdout: \(stdout), stderr: \(stderr)",
+                )
 
-                    #if os(macOS)
-                    let targetName = "swiftpm-testing-helper"
-                    #else
-                    let targetName = buildSystem == .native ? "TestDebuggingPackageTests.xctest" : "TestDebuggingTests-test-runner"
-                    #endif
+                #if os(macOS)
+                let targetName = "swiftpm-testing-helper"
+                #else
+                let targetName = buildSystem == .native ? "TestDebuggingPackageTests.xctest" : "TestDebuggingTests-test-runner"
+                #endif
 
-                    #expect(
-                        stdout.contains("target create") && stdout.contains(targetName),
-                        "Expected LLDB to target swiftpm-testing-helper binary, got stdout: \(stdout), stderr: \(stderr)",
-                    )
+                #expect(
+                    stdout.contains("target create") && stdout.contains(targetName),
+                    "Expected LLDB to target swiftpm-testing-helper binary, got stdout: \(stdout), stderr: \(stderr)",
+                )
 
-                    #expect(
-                        stdout.contains("failbreak breakpoint set"),
-                        "Expected Swift Testing failure breakpoint setup, got stdout: \(stdout), stderr: \(stderr)",
-                    )
-                }
-            } when: {
-                ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSelfHostedPipeline
+                #expect(
+                    stdout.contains("failbreak breakpoint set"),
+                    "Expected Swift Testing failure breakpoint setup, got stdout: \(stdout), stderr: \(stderr)",
+                )
             }
         }
 
@@ -1947,42 +1931,34 @@ struct TestCommandTests {
             arguments: SupportedBuildSystemOnAllPlatforms
         )
         func debuggerFlagWithBothTestingSuites(buildSystem: BuildSystemProvider.Kind) async throws {
-            try await withKnownIssue(
-                """
-                Windows: Missing LLDB DLLs w/ ARM64 toolchain
-                """
-            ) {
-                let configuration = BuildConfiguration.debug
-                try await fixture(name: "Miscellaneous/TestDebugging") { fixturePath in
-                    let (stdout, stderr) = try await execute(
-                        ["--debugger", "--verbose"],
-                        packagePath: fixturePath,
-                        configuration: configuration,
-                        buildSystem: buildSystem,
-                    )
+            let configuration = BuildConfiguration.debug
+            try await fixture(name: "Miscellaneous/TestDebugging") { fixturePath in
+                let (stdout, stderr) = try await execute(
+                    ["--debugger", "--verbose"],
+                    packagePath: fixturePath,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                )
 
-                    #expect(
-                        !stderr.contains("error: --debugger cannot be used with"),
-                        "got stdout: \(stdout), stderr: \(stderr)",
-                    )
+                #expect(
+                    !stderr.contains("error: --debugger cannot be used with"),
+                    "got stdout: \(stdout), stderr: \(stderr)",
+                )
 
-                    #expect(
-                        stdout.contains("target create"),
-                        "Expected LLDB to create targets, got stdout: \(stdout), stderr: \(stderr)",
-                    )
+                #expect(
+                    stdout.contains("target create"),
+                    "Expected LLDB to create targets, got stdout: \(stdout), stderr: \(stderr)",
+                )
 
-                    #expect(
-                        getNumberOfMatches(of: "breakpoint set", in: stdout) == 2,
-                        "Expected combined failure breakpoint setup, got stdout: \(stdout), stderr: \(stderr)",
-                    )
+                #expect(
+                    getNumberOfMatches(of: "breakpoint set", in: stdout) == 2,
+                    "Expected combined failure breakpoint setup, got stdout: \(stdout), stderr: \(stderr)",
+                )
 
-                    #expect(
-                        stdout.contains("command script import"),
-                        "Expected Python script import for multi-target switching, got stdout: \(stdout), stderr: \(stderr)",
-                    )
-                }
-            } when: {
-                ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSelfHostedPipeline
+                #expect(
+                    stdout.contains("command script import"),
+                    "Expected Python script import for multi-target switching, got stdout: \(stdout), stderr: \(stderr)",
+                )
             }
         }
 
