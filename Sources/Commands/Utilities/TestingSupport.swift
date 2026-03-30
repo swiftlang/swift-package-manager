@@ -208,7 +208,8 @@ enum TestingSupport {
                 shouldSkipBuilding: shouldSkipBuilding
             ).productsBuildParameters,
             sanitizers: sanitizers,
-            library: .swiftTesting
+            library: .swiftTesting,
+            testProductPaths: [path]
         )
 
         var args: [String]
