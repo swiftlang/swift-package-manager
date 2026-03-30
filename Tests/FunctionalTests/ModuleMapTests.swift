@@ -36,7 +36,7 @@ struct ModuleMapsTestCase {
         config: BuildConfiguration,
         body: @escaping (AbsolutePath, [String]) async throws -> Void
     ) async throws {
-        try await fixture(name: name) { fixturePath in
+        try await fixture(name: name, createGitRepo: true) { fixturePath in
             let input = fixturePath.appending(components: cModuleName, "C", "foo.c")
             let outdir = try fixturePath.appending(components: [rootpkg] + buildSystem.binPath(for: config))
             try makeDirectories(outdir)

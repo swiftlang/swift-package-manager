@@ -33,6 +33,16 @@ extension Trait where Self == Testing.ConditionTrait {
         }
     }
 
+    public static func requireCompiledWith6_3OrLater(_ comment: Comment? = nil) -> Self {
+        enabled(comment ?? "This needs to have been compiled with Swift 6.3 or later.") {
+            #if compiler(>=6.3)
+            true
+            #else
+            false
+            #endif
+        }
+    }
+
     /// Enabled only if toolchain support swift concurrency
     public static var requiresSwiftConcurrencySupport: Self {
         enabled("skipping because test environment doesn't support concurrency") {
@@ -206,10 +216,21 @@ extension Trait where Self == Testing.ConditionTrait {
             #endif
         }
     }
-    /// Skip test if compiler is older than 6.2.
+    /// Skip test if compiler is older than 6.3.
     public static var requireSwift6_3: Self {
-        enabled("This test requires Swift 6.2, or newer.") {
+        enabled("This test requires Swift 6.3, or newer.") {
             #if compiler(>=6.3)
+                true
+            #else
+                false
+            #endif
+        }
+    }
+
+    /// Skip test if compiler is older than 6.4.
+    public static var requireSwift6_4: Self {
+        enabled("This test requires Swift 6.4, or newer.") {
+            #if compiler(>=6.4)
                 true
             #else
                 false

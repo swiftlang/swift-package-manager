@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-internal struct SBOMComponent: Codable, Equatable, Hashable {
+internal struct SBOMComponent: Codable, Equatable, Hashable, Comparable {
     internal enum Category: String, Codable, Equatable {
         case application
         case framework
@@ -79,5 +79,10 @@ internal struct SBOMComponent: Codable, Equatable, Hashable {
         self.scope = scope
         self.components = components
         self.entity = entity
+    }
+    
+    // Comparable implementation for deterministic ordering
+    internal static func < (lhs: SBOMComponent, rhs: SBOMComponent) -> Bool {
+        lhs.id.value < rhs.id.value
     }
 }

@@ -12,6 +12,52 @@
 
 import Foundation
 
+// MARK: - Bundle Loading
+
+private actor BundleCache {
+    static let shared = BundleCache()
+    
+    private var cache: [String: Bundle] = [:]
+    
+    private init() {}
+    
+    func findBundle(named bundleName: String) -> Bundle? {
+        if let cachedBundle = cache[bundleName] {
+            return cachedBundle
+        }
+        
+        let foundBundle = searchForBundle(named: bundleName)
+        
+        if let foundBundle = foundBundle {
+            cache[bundleName] = foundBundle
+        }
+        
+        return foundBundle
+    }
+    
+    private func searchForBundle(named bundleName: String) -> Bundle? {
+        // Avoid using Bundle.module because it causes a fatal error if not found (e.g., when using custom toolchains)
+        // Avoid using Bundle.allBundles because it's not thread-safe on Linux and only includes bundles that have already been loaded from disk
+        
+        // On macOS, these are .bundle directories; on other platforms, they're .resources directories
+        let bundleExtensions = ["bundle", "resources"]
+        let searchLocations = [Bundle.main.resourceURL, Bundle.main.bundleURL, Bundle.main.executableURL]
+
+        for ext in bundleExtensions {
+            for searchLocation in searchLocations {
+                guard let searchURL = searchLocation?.deletingLastPathComponent() else {
+                    continue
+                }
+                let bundleURL = searchURL.appendingPathComponent("\(bundleName).\(ext)")
+                if let bundle = Bundle(url: bundleURL) {
+                    return bundle
+                }
+            }
+        }
+        return nil
+    }
+}
+
 /// Cache for storing compiled regex patterns (to avoid redundant compilation)
 /// Note: Using NSRegularExpression instead of Swift's native Regex type for Windows compatibility.
 /// Windows Swift toolchain currently lacks _StringProcessing module support, which causes linker errors
@@ -42,8 +88,7 @@ internal actor SBOMSchemaReferenceCache {
 }
 
 
-// TODO: echeng3805
-// use a library? or maybe move this all to test code?
+// TODO: https://github.com/swiftlang/swift-package-manager/issues/9768
 // MARK: - Base Validator
 
 struct SBOMValidator: SBOMValidatorProtocol {
@@ -60,6 +105,34 @@ struct SBOMValidator: SBOMValidatorProtocol {
     private static let emailRegex = try! NSRegularExpression(pattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$", options: [])
     private static let regexCache = SBOMRegexCache()
     private static let referenceCache = SBOMSchemaReferenceCache()
+
+    // MARK: - Factory Method
+    
+    /// Create a validator for the given spec by loading its schema from the bundle
+    static func create(for spec: SBOMSpec, bundleName: String = "SwiftPM_SBOMModel") async throws -> any SBOMValidatorProtocol {
+        let schemaFilename = spec.schemaFilename
+        guard let foundBundle = await BundleCache.shared.findBundle(named: bundleName),
+              let schemaURL = foundBundle.url(forResource: schemaFilename, withExtension: "json") else {
+            throw SBOMSchemaError.bundleNotFound(bundleName: bundleName)
+        }
+        
+        let schemaData = try Data(contentsOf: schemaURL)
+        guard let jsonObject = try JSONSerialization.jsonObject(with: schemaData) as? [String: Any] else {
+            throw SBOMSchemaError.invalidSchemaFormat(message: "Could not parse schema as JSON dictionary")
+        }
+        
+        return try createValidator(for: spec, schema: jsonObject)
+    }
+    
+    /// Create the appropriate validator instance for the given spec
+    private static func createValidator(for spec: SBOMSpec, schema: [String: Any]) throws -> any SBOMValidatorProtocol {
+        switch spec.concreteSpec {
+        case .cyclonedx1: // add other cyclonedx versions here
+            return CycloneDXValidator(schema: schema)
+        case .spdx3: // add other spdx versions here
+            return SPDXValidator(schema: schema)
+        }
+    }
 
     enum StringFormat: String {
         case dateTime = "date-time"

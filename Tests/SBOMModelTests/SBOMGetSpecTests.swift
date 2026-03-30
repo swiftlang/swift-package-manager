@@ -16,7 +16,8 @@ import Testing
 
 @Suite(
     .tags(
-        .Feature.SBOM
+        .Feature.SBOM,
+        .TestSize.small
     )
 )
 struct SBOMGetSpecTests {
@@ -49,19 +50,20 @@ struct SBOMGetSpecTests {
         ),
     ]
 
-    @Test("getSpec good weather", arguments: specTestCases)
-    func getSpecParameterized(testCase: GetSpecTestCase) async throws {
-        let spec = await SBOMEncoder.getSpec(from: testCase.input)
+    @Test("internalSpec good weather", arguments: specTestCases)
+    func getSpecParameterized(testCase: GetSpecTestCase) throws {
+        let spec = testCase.input.internalSpec()
 
         #expect(spec.concreteSpec == testCase.expectedConcreteSpec)
         #expect(spec.versionString == testCase.expectedVersion)
     }
 
-    // MARK: - getSpecs Tests
+    // MARK: - Multiple Specs Tests
 
-    @Test("getSpecs returns unique specs")
-    func getSpecsReturnsUniqueSpecs() async throws {
-        let specs = await SBOMEncoder.getSpecs(from: [.cyclonedx, .cyclonedx1, .spdx, .spdx3])
+    @Test("internalSpec returns unique specs")
+    func getSpecsReturnsUniqueSpecs() throws {
+        let inputSpecs: [Spec] = [.cyclonedx, .cyclonedx1, .spdx, .spdx3]
+        let specs = Array(Set(inputSpecs.map { $0.internalSpec() })).sorted()
 
         #expect(specs.count == 2, "Should return only unique specs")
 
@@ -70,16 +72,18 @@ struct SBOMGetSpecTests {
         #expect(types.contains(.spdx3))
     }
 
-    @Test("getSpecs handles empty array")
-    func getSpecsHandlesEmptyArray() async throws {
-        let specs = await SBOMEncoder.getSpecs(from: [])
+    @Test("internalSpec handles empty array")
+    func getSpecsHandlesEmptyArray() throws {
+        let inputSpecs: [Spec] = []
+        let specs = Array(Set(inputSpecs.map { $0.internalSpec() })).sorted()
 
         #expect(specs.isEmpty, "Should return empty array for empty input")
     }
 
-    @Test("getSpecs handles single spec")
-    func getSpecsHandlesSingleSpec() async throws {
-        let specs = await SBOMEncoder.getSpecs(from: [.cyclonedx])
+    @Test("internalSpec handles single spec")
+    func getSpecsHandlesSingleSpec() throws {
+        let inputSpecs: [Spec] = [.cyclonedx]
+        let specs = Array(Set(inputSpecs.map { $0.internalSpec() })).sorted()
 
         #expect(specs.count == 1)
         #expect(specs[0].concreteSpec == .cyclonedx1)

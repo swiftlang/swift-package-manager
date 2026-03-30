@@ -82,7 +82,7 @@ struct BuildCommandOptions: ParsableArguments {
     /// Whether to enable code coverage.
     @Flag(name: .customLong("code-coverage"),
           inversion: .prefixedEnableDisable,
-          help: "Enable code coverage.")
+          help: "Determines whether the build measures code coverage.")
     var enableCodeCoverage: Bool = false
 
     /// If the binary output path should be printed.
@@ -115,10 +115,10 @@ struct BuildCommandOptions: ParsableArguments {
     var testLibraryOptions: TestLibraryOptions
 
     /// If should link the Swift stdlib statically.
-    @Flag(name: .customLong("static-swift-stdlib"), inversion: .prefixedNo, help: "Link Swift stdlib statically.")
+    @Flag(name: .customLong("static-swift-stdlib"), inversion: .prefixedNo, help: "Determines whether Swift stdlib links statically.")
     public var shouldLinkStaticSwiftStdlib: Bool = false
 
-    @OptionGroup(title: "SBOM")
+    @OptionGroup(title: "Software Bill of Materials (SBOM)")
     var sbom: SBOMOptions
 }
 
@@ -174,6 +174,22 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
         if self.options.printPIFManifestGraphviz {
             productsBuildParameters.printPIFManifestGraphviz = true
             toolsBuildParameters.printPIFManifestGraphviz = true
+        }
+
+        if swiftCommandState.options.build.enableCodesizeProfile {
+            var driverParameters = productsBuildParameters.driverParameters
+            driverParameters.codesizeProfileEnabled = true
+            driverParameters.emitSILFiles = true
+            driverParameters.emitIRFiles = true
+            driverParameters.emitOptimizationRecord = true
+
+            if let outputDir = swiftCommandState.options.build.codesizeProfileOutputDirectory {
+                let outputPath = try AbsolutePath(validating: outputDir, relativeTo: swiftCommandState.originalWorkingDirectory)
+                driverParameters.silOutputDirectory = outputPath
+                driverParameters.irOutputDirectory = outputPath
+                driverParameters.optimizationRecordDirectory = outputPath
+            }
+            productsBuildParameters.driverParameters = driverParameters
         }
 
         do {

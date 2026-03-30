@@ -1,0 +1,3 @@
+import Foo
+
+print(greeting())

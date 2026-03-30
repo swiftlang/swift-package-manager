@@ -56,6 +56,10 @@ package enum Spec: String, Codable, Equatable, CaseIterable, ExpressibleByArgume
         // case .spdx4: return "Most recent minor version of SPDX v4 supported by SwiftPM (currently: \(version))"
         }
     }
+
+    internal func internalSpec() -> SBOMSpec {
+        SBOMSpec(spec: self)
+    }
 }
 
 /// Internal representation of a concrete SBOM specification.

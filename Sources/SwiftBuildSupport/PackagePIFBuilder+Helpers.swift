@@ -149,6 +149,67 @@ extension PackagePIFBuilder {
         let suffix = suffix?.rawValue ?? ""
         return "\(name)\(suffix)-product"
     }
+
+    /// Helper function to consistently generate a target name string for a module in a product.
+    package static func targetName(forModuleName name: String, suffix: TargetSuffix? = nil) -> String {
+        let suffix = suffix?.rawValue ?? ""
+        return "\(name)\(suffix)"
+    }
+    
+    /// Removes known TargetSuffix patterns from a name string.
+    private static func removeSuffix(from name: String) -> String {
+        for suffix in TargetSuffix.allCases {
+            let suffixPattern: String
+            switch suffix {
+            case .testable, .dynamic:
+                suffixPattern = "-\(suffix.rawValue)"
+                if name.hasSuffix(suffixPattern) {
+                    return String(name.dropLast(suffixPattern.count))
+                }
+            }
+        }
+        return name
+    }
+
+    /// Extracts a Swift Package product name from a PIF target name.
+    ///
+    /// This reverses the conversion performed by `targetName(forProductName:suffix:)`.
+    /// Returns `nil` if the target name doesn't represent a product (i.e., doesn't end with "-product").
+    ///
+    /// - Parameter targetName: The PIF target name to parse
+    /// - Returns: The Swift Package product name, or `nil` if this isn't a product target name
+    package static func productName(forTargetName targetName: String) -> String? {
+        guard targetName.hasSuffix("-product") else {
+            return nil
+        }
+        let nameWithoutProduct = String(targetName.dropLast("-product".count))
+        return removeSuffix(from: nameWithoutProduct)
+    }
+
+        /// Extracts a Swift Package module name from a PIF target name.
+    ///
+    /// This reverses the conversion performed by `targetName(forModuleName:suffix:)`.
+    /// Returns `nil` if the target name represents a product or resource bundle.
+    ///
+    /// - Parameter targetName: The PIF target name to parse
+    /// - Returns: The Swift Package module name, or `nil` if this isn't a module target name
+    ///
+    /// - Note: Resource bundle target names follow the pattern `packageName_moduleName`
+    ///   (e.g., `swift-nio_NIOPosix`, `swift-crypto__CryptoExtras`) and are excluded.
+    ///   However, module names can start with `_` (e.g., `_CryptoExtras`, `__AsyncFileSystem`).
+    package static func moduleName(forTargetName targetName: String) -> String? {
+        guard !targetName.hasSuffix("-product") else {
+            return nil
+        }
+        // Resource bundle target names follow the pattern packageName_moduleName
+        // e.g., swift-nio_NIOPosix, swift-crypto__CryptoExtras
+        // So should be ignored by moduleName()
+        // But moduleName can start with _, like _CryptoExtras and __AsyncFileSystem
+        if targetName.contains("_") && targetName.first != "_" {
+            return nil
+        }
+        return removeSuffix(from: targetName)
+    }
 }
 
 // MARK: - SwiftPM PackageModel Helpers
@@ -1059,8 +1120,9 @@ extension ProjectModel.BuildSettings.Platform {
 }
 
 extension ProjectModel.BuildSettings {
-    /// Configure necessary settings for a dynamic library/framework.
+    /// Configure necessary settings for a *dynamic library* or *framework*.
     mutating func configureDynamicSettings(
+        product: PackageModel.Product?,
         productName: String,
         targetName: String,
         packageIdentity: PackageIdentity,
@@ -1069,19 +1131,37 @@ extension ProjectModel.BuildSettings {
         installPath: String,
         delegate: PackagePIFBuilder.BuildDelegate,
     ) {
+        let productBundleIdentifier = "\(packageIdentity).\(productName)"
+
         self[.TARGET_NAME] = targetName
+        self[.TARGET_TEMP_DIR_SUFFIX] = "-t"
         self[.PRODUCT_NAME] = productName
         self[.PRODUCT_MODULE_NAME] = productName
-        self[.PRODUCT_BUNDLE_IDENTIFIER] = "\(packageIdentity).\(productName)".spm_mangledToBundleIdentifier()
+        self[.PRODUCT_BUNDLE_IDENTIFIER] = productBundleIdentifier.spm_mangledToBundleIdentifier()
         self[.SWIFT_PACKAGE_NAME] = packageName ?? nil
 
-        // This should really be swift-build defaults set in the .xcspec files, but changing that requires
-        // some extensive testing to ensure xcode projects are not affected.
-        // So for now lets just force it here.
-        self[.EXECUTABLE_PREFIX] = "lib"
-        self[.EXECUTABLE_PREFIX, Platform.windows] = ""
+        if createDylibForDynamicProducts {
+            // This should really be swift-build defaults set in the .xcspec files, but changing that requires
+            // some extensive testing to ensure xcode projects are not affected.
+            // So for now lets just force it here.
+            self[.EXECUTABLE_PREFIX] = "lib"
+            self[.EXECUTABLE_PREFIX, Platform.windows] = ""
+        }
 
+        // Are we building a framework?
         if !createDylibForDynamicProducts {
+            // Apply delegate overrides for *executable name* and *bundle identifier prefix* on frameworks.
+            // This can be used by SwiftPM clients to disambiguate framework names and bundle IDs, if necessary.
+            if let product {
+                if let customProductName = delegate.customProductName(forFramework: product) {
+                    self[.PRODUCT_NAME] = customProductName
+                }
+                if let customBundleIdPrefix = delegate.customBundleIdentifierPrefix(forFramework: product) {
+                    self[.PRODUCT_BUNDLE_IDENTIFIER] = "\(customBundleIdPrefix)\(productBundleIdentifier)"
+                        .spm_mangledToBundleIdentifier()
+                }
+            }
+
             self[.GENERATE_INFOPLIST_FILE] = "YES"
             // If the built framework is named same as one of the target in the package,
             // it can be picked up automatically during indexing since the build system always adds a -F flag

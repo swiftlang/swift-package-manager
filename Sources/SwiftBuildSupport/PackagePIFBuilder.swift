@@ -120,8 +120,11 @@ public final class PackagePIFBuilder {
         /// Custom install path for the specified product, if any.
         func customInstallPath(product: PackageModel.Product) -> String?
 
-        /// Custom executable name for the specified product, if any.
-        func customExecutableName(product: PackageModel.Product) -> String?
+        /// Custom product name for the specified framework product, if any.
+        func customProductName(forFramework product: PackageModel.Product) -> String?
+
+        /// Custom bundle identifier prefix for the specified framework product, if any.
+        func customBundleIdentifierPrefix(forFramework product: PackageModel.Product) -> String?
 
         /// Custom library type for the specified product.
         func customLibraryType(product: PackageModel.Product) -> PackageModel.ProductType.LibraryType?
@@ -180,6 +183,9 @@ public final class PackagePIFBuilder {
     /// built from source in the same build to consume it without eagerly linking it into a product.
     let materializeStaticArchiveProductsForRootPackages: Bool
 
+    /// Create dynamic library variants for automatic library products, for use by development-time features such as Previews and Swift Playgrounds.
+    let createDynamicVariantsForLibraryProducts: Bool
+
     /// Add rpaths which allow loading libraries adjacent to the current image at runtime. This is desirable
     /// when launching build products from the build directory, but should often be disabled when deploying
     /// the build products to a different location.
@@ -215,6 +221,7 @@ public final class PackagePIFBuilder {
         buildToolPluginResultsByTargetName: [String: [BuildToolPluginInvocationResult]],
         createDylibForDynamicProducts: Bool = false,
         materializeStaticArchiveProductsForRootPackages: Bool = false,
+        createDynamicVariantsForLibraryProducts: Bool = true,
         addLocalRpaths: Bool = true,
         packageDisplayVersion: String?,
         pkgConfigDirectories: [AbsolutePath],
@@ -228,6 +235,7 @@ public final class PackagePIFBuilder {
         self.buildToolPluginResultsByTargetName = buildToolPluginResultsByTargetName
         self.createDylibForDynamicProducts = createDylibForDynamicProducts
         self.materializeStaticArchiveProductsForRootPackages = materializeStaticArchiveProductsForRootPackages
+        self.createDynamicVariantsForLibraryProducts = createDynamicVariantsForLibraryProducts
         self.packageDisplayVersion = packageDisplayVersion
         self.pkgConfigDirectories = pkgConfigDirectories
         self.fileSystem = fileSystem
@@ -243,6 +251,7 @@ public final class PackagePIFBuilder {
         buildToolPluginResultsByTargetName: [String: BuildToolPluginInvocationResult],
         createDylibForDynamicProducts: Bool = false,
         materializeStaticArchiveProductsForRootPackages: Bool = false,
+        createDynamicVariantsForLibraryProducts: Bool = true,
         addLocalRpaths: Bool = true,
         packageDisplayVersion: String?,
         pkgConfigDirectories: [AbsolutePath],
@@ -256,6 +265,7 @@ public final class PackagePIFBuilder {
         self.buildToolPluginResultsByTargetName = buildToolPluginResultsByTargetName.mapValues { [$0] }
         self.createDylibForDynamicProducts = createDylibForDynamicProducts
         self.materializeStaticArchiveProductsForRootPackages = materializeStaticArchiveProductsForRootPackages
+        self.createDynamicVariantsForLibraryProducts = createDynamicVariantsForLibraryProducts
         self.addLocalRpaths = addLocalRpaths
         self.packageDisplayVersion = packageDisplayVersion
         self.pkgConfigDirectories = pkgConfigDirectories
@@ -540,6 +550,8 @@ public final class PackagePIFBuilder {
         let customModulesAndProducts = try delegate.addCustomTargets(pifProject: &projectBuilder.project)
         projectBuilder.builtModulesAndProducts.append(contentsOf: customModulesAndProducts)
 
+        try projectBuilder.makePackageTestProduct()
+
         self._pifProject = projectBuilder.project
         return projectBuilder.builtModulesAndProducts
     }
@@ -601,6 +613,9 @@ public final class PackagePIFBuilder {
 
         // Defer to the build system for linker driver selection.
         settings[.LINKER_DRIVER] = "auto"
+
+        // Don't emit warnings when a target exports no symbols (e.g. the empty library template)
+        settings[.LIBTOOL_NO_WARNING_FOR_NO_SYMBOLS] = "YES"
 
         // Hook to customize the project-wide build settings.
         self.delegate.configureProjectBuildSettings(&settings)

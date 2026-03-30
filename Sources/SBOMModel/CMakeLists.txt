@@ -36,6 +36,7 @@ add_library(SBOMModel STATIC
   CycloneDX/CycloneDXPedigree.swift
   CycloneDX/CycloneDXProperty.swift
   Encoder/SBOMEncoder.swift
+  Extractor/DependencySourceStrategy.swift
   Extractor/PURL.swift
   Extractor/SBOMCache.swift
   Extractor/SBOMDependenciesExtractor.swift
@@ -55,7 +56,6 @@ add_library(SBOMModel STATIC
   SPDX/SPDXSBOM.swift
   SPDX/SPDXType.swift
   Validator/CycloneDXValidator.swift
-  Validator/SBOMSchema.swift
   Validator/SBOMValidator.swift
   Validator/SBOMValidatorProtocol.swift
   Validator/SPDXValidator.swift)

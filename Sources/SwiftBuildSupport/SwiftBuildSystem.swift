@@ -37,6 +37,8 @@ import Foundation
 import SWBBuildService
 import SwiftBuild
 import enum SWBCore.SwiftAPIDigesterMode
+import struct SWBUtil.XcodeVersionInfo
+import struct SWBUtil.Path
 
 struct SessionFailedError: Error {
     var error: Error
@@ -61,6 +63,32 @@ package func withService<T>(
     return result
 }
 
+/// Determines the effective toolchain path and whether it is embedded in an Xcode installation.
+///
+/// On Windows, the "developer dir" is two levels up from the toolchain dir, unlike Swift.org
+/// toolchains on other platforms where they are both the same.
+///
+/// Users often rename Xcode.app, and in Swift.org CI on macOS we construct the toolchain under
+/// a nonfunctioning shell of Xcode.app. Instead of just checking the app name, see if we can
+/// find the app's version.plist at the expected location.
+func toolchainDeveloperPathInfo(toolchain: Toolchain) throws -> (toolchainPath: Basics.AbsolutePath, isEmbeddedInXcode: Bool) {
+    let toolchainPath = try toolchain.toolchainDir
+
+    // On Windows, the "developer dir" is two levels up from the toolchain dir,
+    // unlike Swift.org toolchains on other platforms where they are both the same.
+    if ProcessInfo.hostOperatingSystem == .windows {
+        return (toolchainPath.parentDirectory.parentDirectory, false)
+    }
+
+    let xcodeVersionPlistPath = toolchainPath
+        .parentDirectory // Remove 'XcodeDefault.xctoolchain'
+        .parentDirectory // Remove 'Toolchains'
+        .parentDirectory // Remove 'Developer'
+        .appending(component: "version.plist")
+    let isEmbeddedInXcode = (try? XcodeVersionInfo.versionInfo(versionPath: SWBUtil.Path(xcodeVersionPlistPath.pathString))) != nil
+    return (toolchainPath, isEmbeddedInXcode)
+}
+
 public func createSession(
     service: SWBBuildService,
     name: String,
@@ -72,12 +100,14 @@ public func createSession(
     if let metalToolchainPath = toolchain.metalToolchainPath {
         buildSessionEnv = ["EXTERNAL_TOOLCHAINS_DIR": metalToolchainPath.pathString]
     }
-    let toolchainPath = try toolchain.toolchainDir
+    let (toolchainPath, toolchainIsEmbeddedInXcode) = try toolchainDeveloperPathInfo(toolchain: toolchain)
 
     // SWIFT_EXEC and SWIFT_EXEC_MANIFEST may need to be overridden in debug scenarios in order to pick up Open Source toolchains
-    let sessionResult = if toolchainPath.components.contains(where: { $0.hasSuffix(".app") }) {
+    let sessionResult = if toolchainIsEmbeddedInXcode {
+        // If this toolchain is bundled with Xcode.app, let the build service handle toolchain registration.
         await service.createSession(name: name, developerPath: nil, resourceSearchPaths: packageManagerResourcesDirectory.map { [$0.pathString] } ?? [], cachePath: nil, inferiorProductsPath: nil, environment: buildSessionEnv)
     } else {
+        // Otherwise, treat this toolchain as standalone when initializing the build service.
         await service.createSession(name: name, swiftToolchainPath: toolchainPath.pathString, resourceSearchPaths: packageManagerResourcesDirectory.map { [$0.pathString] } ?? [], cachePath: nil, inferiorProductsPath: nil, environment: buildSessionEnv)
     }
     switch sessionResult {
@@ -246,6 +276,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                         builtProducts.append(
                             BuiltTestProduct(
                                 productName: product.name,
+                                umbrellaProductName: package.manifest.umbrellaPackageTestsProductName,
                                 binaryPath: binaryPath,
                                 packagePath: package.path,
                                 testEntryPointPath: product.underlying.testEntryPointPath
@@ -332,7 +363,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             return uniquePaths
         }
 
-        // TODO: Need to determine how to get the inlude path of package system library dependencies
+        // TODO: Need to determine how to get the include path of package system library dependencies
         let includePaths = try await getUniqueBuildSettingsIncludingDependencies(
             of: request.configuredTargets,
             buildSettings: [
@@ -624,7 +655,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                         throw error
                     }
 
-                    let request = try await self.makeBuildRequest(session: session, configuredTargets: configuredTargets, derivedDataPath: derivedDataPath, symbolGraphOptions: symbolGraphOptions)
+                    let request = try await self.makeBuildRequest(service: service, session: session, configuredTargets: configuredTargets, derivedDataPath: derivedDataPath, symbolGraphOptions: symbolGraphOptions)
 
                     let operation = try await session.createBuildOperation(
                         request: request,
@@ -752,7 +783,16 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         }
     }
 
-    private func makeRunDestination() -> SwiftBuild.SWBRunDestinationInfo {
+    private func buildTargetInfo(service: SWBBuildService) async throws -> SWBBuildTargetInfo {
+        let (toolchainPath, isEmbeddedInXcode) = try toolchainDeveloperPathInfo(toolchain: buildParameters.toolchain)
+        if isEmbeddedInXcode {
+            return try await service.buildTargetInfo(triple: buildParameters.triple.tripleString, developerPath: nil)
+        } else {
+            return try await service.buildTargetInfo(triple: buildParameters.triple.tripleString, swiftToolchainPath: toolchainPath.pathString)
+        }
+    }
+
+    private func makeRunDestination(service: SWBBuildService) async throws -> SwiftBuild.SWBRunDestinationInfo {
         if let sdkManifestPath = self.buildParameters.toolchain.swiftSDK.swiftSDKManifest {
             return SwiftBuild.SWBRunDestinationInfo(
                 buildTarget: .swiftSDK(sdkManifestPath: sdkManifestPath.pathString, triple: self.buildParameters.triple.tripleString),
@@ -761,30 +801,13 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                 disableOnlyActiveArch: (buildParameters.architectures?.count ?? 1) > 1,
             )
         } else {
-            let platformName: String
-            let sdkName: String
-
-            if self.buildParameters.triple.isAndroid() {
-                // Android triples are identified by the environment part of the triple
-                platformName = "android"
-                sdkName = platformName
-            } else {
-                platformName = self.buildParameters.triple.darwinPlatform?.platformName ?? self.buildParameters.triple.osNameUnversioned
-                sdkName = platformName
-            }
-
-            let sdkVariant: String?
-            if self.buildParameters.triple.environment == .macabi {
-                sdkVariant = "iosmac"
-            } else {
-                sdkVariant = nil
-            }
+            let buildTargetInfo = try await self.buildTargetInfo(service: service)
 
             return SwiftBuild.SWBRunDestinationInfo(
                 buildTarget: .toolchainSDK(
-                    platform: platformName,
-                    sdk: sdkName,
-                    sdkVariant: sdkVariant
+                    platform: buildTargetInfo.platformName,
+                    sdk: buildTargetInfo.sdkName,
+                    sdkVariant: buildTargetInfo.sdkVariant
                 ),
                 targetArchitecture: buildParameters.triple.archName,
                 supportedArchitectures: [],
@@ -795,12 +818,13 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
     }
 
     internal func makeBuildParameters(
+        service: SWBBuildService,
         session: SWBBuildServiceSession,
         symbolGraphOptions: BuildOutput.SymbolGraphOptions?,
         setToolchainSetting: Bool = true,
     ) async throws -> SwiftBuild.SWBBuildParameters {
         // Generate the run destination parameters.
-        let runDestination = makeRunDestination()
+        let runDestination = try await makeRunDestination(service: service)
 
         var verboseFlag: [String] = []
         if self.logLevel == .debug {
@@ -884,16 +908,18 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             }
         }
 
-        let normalizedTriple = Triple(buildParameters.triple.triple, normalizing: true)
-        if let deploymentTargetSettingName = normalizedTriple.deploymentTargetSettingName {
-            let value = normalizedTriple.deploymentTargetVersion
+        if !buildParameters.customToolsetPaths.isEmpty {
+            settings["SWIFT_SDK_TOOLSETS"] =
+                (["$(inherited)"] + buildParameters.customToolsetPaths.map { $0.pathString })
+                .joined(separator: " ")
+        }
 
+        let buildTargetInfo = try await self.buildTargetInfo(service: service)
+        if let deploymentTargetSettingName = buildTargetInfo.deploymentTargetSettingName, let value = buildTargetInfo.deploymentTarget {
             // Only override the deployment target if a version is explicitly specified;
             // for Apple platforms this normally comes from the package manifest and may
             // not be set to the same value for all packages in the package graph.
-            if value != .zero {
-                settings[deploymentTargetSettingName] = value.description
-            }
+            settings[deploymentTargetSettingName] = value
         }
 
         // FIXME: "none" triples get a placeholder SDK/platform and don't support any specific triple by default. Unlike most platforms, where the vendor and environment is implied as a function of the arch and "platform", bare metal operates in terms of triples directly. We need to replace this bringup convenience with a more idiomatic mechanism, perhaps in the build request.
@@ -906,43 +932,61 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             }
         }
 
-        settings["LIBRARY_SEARCH_PATHS"] = try "$(inherited) \(buildParameters.toolchain.toolchainLibDir.pathString)"
-        settings["OTHER_CFLAGS"] = (
-            verboseFlag +
-            ["$(inherited)"]
-                + buildParameters.toolchain.extraFlags.cCompilerFlags.map { $0.shellEscaped() }
-                + buildParameters.flags.cCompilerFlags.map { $0.shellEscaped() }
-        ).joined(separator: " ")
-        settings["OTHER_CPLUSPLUSFLAGS"] = (
-            verboseFlag +
-            ["$(inherited)"]
-                + buildParameters.toolchain.extraFlags.cxxCompilerFlags.map { $0.shellEscaped() }
-                + buildParameters.flags.cxxCompilerFlags.map { $0.shellEscaped() }
-        ).joined(separator: " ")
-        settings["OTHER_SWIFT_FLAGS"] = (
-            verboseFlag +
-            ["$(inherited)"]
-                + buildParameters.toolchain.extraFlags.swiftCompilerFlags.map { $0.shellEscaped() }
-                + buildParameters.flags.swiftCompilerFlags.map { $0.shellEscaped() }
-        ).joined(separator: " ")
+        let swiftCompilerFlags = buildParameters.toolchain.extraFlags.swiftCompilerFlags + buildParameters.flags.swiftCompilerFlags
+        let compilerAndLinkerFlags = [
+            "OTHER_CFLAGS": buildParameters.toolchain.extraFlags.cCompilerFlags + buildParameters.flags.cCompilerFlags,
+            "OTHER_CPLUSPLUSFLAGS": buildParameters.toolchain.extraFlags.cxxCompilerFlags + buildParameters.flags.cxxCompilerFlags,
+            "OTHER_SWIFT_FLAGS": swiftCompilerFlags,
+            "OTHER_LDFLAGS": (buildParameters.toolchain.extraFlags.linkerFlags + buildParameters.flags.linkerFlags)
+        ]
+        for (settingName, buildFlags) in compilerAndLinkerFlags {
+            var rawFlags = buildFlags.rawFlagsForSwiftBuild
+            if settingName == "OTHER_LDFLAGS" {
+                rawFlags = rawFlags.asSwiftcLinkerFlags()
+            }
+            settings[settingName] = (verboseFlag + ["$(inherited)"] +
+                rawFlags.map { $0.shellEscaped() }).joined(separator: " ")
+        }
 
-        let inherited = ["$(inherited)"]
+        // Historically, SwiftPM passed -Xswiftc flags to swiftc when used as a linker driver.
+        // To maintain compatibility, forward swift compiler flags to OTHER_LDFLAGS when using
+        // swiftc to link.
+        if !swiftCompilerFlags.rawFlagsForSwiftBuild.isEmpty {
+            settings["OTHER_LDFLAGS_SWIFTC_LINKER_DRIVER_swiftc"] =
+            (["$(inherited)"] + swiftCompilerFlags.rawFlagsForSwiftBuild.map { $0.shellEscaped() }).joined(separator: " ")
+            settings["OTHER_LDFLAGS"] =
+                (settings["OTHER_LDFLAGS"] ?? "$(inherited)") + " $(OTHER_LDFLAGS_SWIFTC_LINKER_DRIVER_$(LINKER_DRIVER))"
+        }
 
-        let buildParametersLinkFlags =
-            buildParameters.toolchain.extraFlags.linkerFlags.asSwiftcLinkerFlags().map { $0.shellEscaped() }
-            + buildParameters.flags.linkerFlags.asSwiftcLinkerFlags().map { $0.shellEscaped() }
+        if buildParameters.driverParameters.emitSILFiles {
+            settings["SWIFT_EMIT_SIL_FILES"] = "YES"
+            if let outputDir = buildParameters.driverParameters.silOutputDirectory {
+                settings["SWIFT_SIL_OUTPUT_DIR"] = outputDir.pathString
+            }
+        }
 
-        var otherLdFlags =
-                verboseFlag  // clang will be invoked to link so the verbose flag is valid for it
-                + inherited
+        if buildParameters.driverParameters.emitIRFiles {
+            settings["SWIFT_EMIT_IR_FILES"] = "YES"
+            if let outputDir = buildParameters.driverParameters.irOutputDirectory {
+                settings["SWIFT_IR_OUTPUT_DIR"] = outputDir.pathString
+            }
+        }
 
-        otherLdFlags += buildParametersLinkFlags
-
-        settings["OTHER_LDFLAGS"] = otherLdFlags.joined(separator: " ")
+        if buildParameters.driverParameters.emitOptimizationRecord {
+            settings["SWIFT_EMIT_OPT_RECORDS"] = "YES"
+            if let outputDir = buildParameters.driverParameters.optimizationRecordDirectory {
+                settings["SWIFT_OPT_RECORD_OUTPUT_DIR"] = outputDir.pathString
+            }
+        }
 
         // Optionally also set the list of architectures to build for.
         if let architectures = buildParameters.architectures, !architectures.isEmpty {
             settings["ARCHS"] = architectures.joined(separator: " ")
+        } else {
+            // If the user did not explicitly specify a list of architectures, build only the active arch.
+            // We may want to consider building universal binaries by default in Apple-platform release builds
+            // in the future, but for now we maintain compatibility with the old build system.
+            settings["ONLY_ACTIVE_ARCH"] = "YES"
         }
 
         // When building with the CLI for macOS, test bundles should generate entrypoints for compatibility with swiftpm-testing-helper.
@@ -982,6 +1026,10 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             break
         }
 
+        // Added for compatibility with --build-system native, but we should try to phase these out in the future
+        settings["ADD_TOOLCHAIN_CONCURRENCY_BACK_DEPLOY_RPATH"] = "YES"
+        settings["ADD_TOOLCHAIN_SPAN_BACK_DEPLOY_RPATH"] = "YES"
+
         func reportConflict(_ a: String, _ b: String) throws -> String {
             throw StringError("Build parameters constructed conflicting settings overrides '\(a)' and '\(b)'")
         }
@@ -990,6 +1038,14 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         try settings.merge(self.constructLinkerSettingsOverrides(from: buildParameters.linkingParameters, triple: buildParameters.triple), uniquingKeysWith: reportConflict)
         try settings.merge(Self.constructTestingSettingsOverrides(from: buildParameters.testingParameters), uniquingKeysWith: reportConflict)
         try settings.merge(Self.constructAPIDigesterSettingsOverrides(from: buildParameters.apiDigesterMode), uniquingKeysWith: reportConflict)
+
+        if buildParameters.driverParameters.codesizeProfileEnabled {
+            // dSYM generation is required to attribute code size to source locations
+            if let debugFormat = settings["DEBUG_INFORMATION_FORMAT"] {
+                self.observabilityScope.emit(warning: "--experimental-enable-codesize-profile requires 'dwarf-with-dsym' debug format, overriding the user specified value of '\(debugFormat)''")
+            }
+            settings["DEBUG_INFORMATION_FORMAT"] = "dwarf-with-dsym"
+        }
 
         // Generate the build parameters.
         var params = SwiftBuild.SWBBuildParameters()
@@ -1005,6 +1061,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
     }
 
     public func makeBuildRequest(
+        service: SWBBuildService,
         session: SWBBuildServiceSession,
         configuredTargets: [SWBTargetGUID],
         derivedDataPath: Basics.AbsolutePath,
@@ -1013,6 +1070,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         ) async throws -> SWBBuildRequest {
         var request = SWBBuildRequest()
         request.parameters = try await makeBuildParameters(
+            service: service,
             session: session,
             symbolGraphOptions: symbolGraphOptions,
             setToolchainSetting: setToolchainSetting,
@@ -1061,11 +1119,30 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
     private static func constructDebuggingSettingsOverrides(from parameters: BuildParameters.Debugging) -> [String: String] {
         var settings: [String: String] = [:]
-        // TODO: debugInfoFormat: https://github.com/swiftlang/swift-build/issues/560
         if parameters.shouldEnableDebuggingEntitlement {
             settings["DEPLOYMENT_POSTPROCESSING"] = "NO"
         }
-        // TODO: omitFramePointer: https://github.com/swiftlang/swift-build/issues/561
+        // Set DEBUG_INFORMATION_FORMAT based on debugInfoFormat
+        switch parameters.debugInfoFormat {
+        case .dwarf:
+            settings["DEBUG_INFORMATION_FORMAT"] = "dwarf"
+        case .codeview:
+            settings["DEBUG_INFORMATION_FORMAT"] = "codeview"
+        case .none?:
+            settings["GCC_GENERATE_DEBUGGING_SYMBOLS"] = "NO"
+            break
+        case nil:
+            break
+        }
+        if let omitFramePointers = parameters.omitFramePointers {
+            if omitFramePointers {
+                settings["CLANG_OMIT_FRAME_POINTERS"] = "YES"
+                settings["SWIFT_OMIT_FRAME_POINTERS"] = "YES"
+            } else {
+                settings["CLANG_OMIT_FRAME_POINTERS"] = "NO"
+                settings["SWIFT_OMIT_FRAME_POINTERS"] = "NO"
+            }
+        }
         return settings
     }
 
@@ -1116,10 +1193,6 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             } else {
                 settings["SWIFT_FORCE_STATIC_LINK_STDLIB"] = "NO"
             }
-        }
-
-        if let resourcesPath = self.buildParameters.toolchain.swiftResourcesPath(isStatic: parameters.shouldLinkStaticSwiftStdlib) {
-            settings["SWIFT_RESOURCE_DIR"] = resourcesPath.pathString
         }
 
         return settings
@@ -1177,6 +1250,12 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
     private func getPIFBuilder() async throws -> PIFBuilder {
         try await pifBuilder.memoize {
             let graph = try await getPackageGraph()
+            // materializeStaticArchiveProductsForRootPackages currently has some minor compatibility
+            // issues when building interdependent root packages on Windows, primarily where projects
+            // like swift-corelibs-foundation relied on specific linkage patterns when using
+            // @_dynamicReplacement(for:). For now, disable this option if there is more than one
+            // root package, but we should reconsider this decision in the future.
+            let materializeStaticArchiveProductsForRootPackages = graph.rootPackages.count == 1
             let pifBuilder = try PIFBuilder(
                 graph: graph,
                 parameters: .init(
@@ -1187,7 +1266,8 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                     pluginWorkingDirectory: self.pluginConfiguration.workDirectory,
                     additionalFileRules: additionalFileRules,
                     addLocalRpaths: !self.buildParameters.linkingParameters.shouldDisableLocalRpath,
-                    materializeStaticArchiveProductsForRootPackages: true
+                    materializeStaticArchiveProductsForRootPackages: materializeStaticArchiveProductsForRootPackages,
+                    createDynamicVariantsForLibraryProducts: false,
                 ),
                 fileSystem: self.fileSystem,
                 observabilityScope: self.observabilityScope,
@@ -1214,6 +1294,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
     }
 
     package struct LongLivedBuildServiceSession {
+        package var service: SWBBuildService
         package var session: SWBBuildServiceSession
         package var diagnostics: [SwiftBuildMessage.DiagnosticInfo]
         package var teardownHandler: () async throws -> Void
@@ -1227,7 +1308,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                 try await session.close()
                 await service.close()
             }
-            return LongLivedBuildServiceSession(session: session, diagnostics: diagnostics, teardownHandler: teardownHandler)
+            return LongLivedBuildServiceSession(service: service, session: session, diagnostics: diagnostics, teardownHandler: teardownHandler)
         } catch {
             await service.close()
             throw error
@@ -1260,40 +1341,39 @@ extension String {
     }
 }
 
-fileprivate extension Triple {
-    var deploymentTargetSettingName: String? {
-        switch (self.os, self.environment) {
-        case (.macosx, _):
-            return "MACOSX_DEPLOYMENT_TARGET"
-        case (.ios, _):
-            return "IPHONEOS_DEPLOYMENT_TARGET"
-        case (.tvos, _):
-            return "TVOS_DEPLOYMENT_TARGET"
-        case (.watchos, _):
-            return "WATCHOS_DEPLOYMENT_TARGET"
-        case (_, .android):
-            return "ANDROID_DEPLOYMENT_TARGET"
-        default:
-            return nil
-        }
-    }
-
-    var deploymentTargetVersion: Version {
-        if isAndroid() {
-            // Android triples store the version in the environment
-            var environmentName = self.environmentName[...]
-            if environment != nil {
-                let prefixes = ["androideabi", "android"]
-                for prefix in prefixes {
-                    if environmentName.hasPrefix(prefix) {
-                        environmentName = environmentName.dropFirst(prefix.count)
-                        break
-                    }
-                }
+fileprivate extension [BuildFlag] {
+    var rawFlagsForSwiftBuild: [String] {
+        filter {
+            switch $0.source {
+            case .commandLineOptions:
+                // Flags specified by the user. These are generally the only ones that should be passed on.
+                return true
+            case .plugin:
+                // FIXME: Not yet handled
+                return true
+            case .debugging:
+                return false
+            case .toolset:
+                // Swift Build loads toolset flags internally as part of loading Swift SDKs, or by passing the custom toolsets
+                // via the SWIFT_SDK_TOOLSETS build setting, and may introspect them to override build settings.
+                // Don't duplicate them here.
+                return false
+            case .defaultSwiftTestingSearchPath:
+                // Swift Build computes these internally. It's important not to add them a second time here
+                // as it can break the intended search path ordering, for example, if the user is building
+                // Swift Testing as a package dependency.
+                return false
+            case .defaultWindowsSettings:
+                // Swift Build computes these internally.
+                return false
+            case .swiftSDK:
+                // Swift Build loads Swift SDK flags internally, and may introspect them to override build
+                // settings. Don't duplicate them here.
+                return false
+            case nil:
+                // Remaining flags are legacy build system specific (one occurrence only), or in tests.
+                return false
             }
-
-            return Version(parse: environmentName)
-        }
-        return osVersion
+        }.map { $0.value }
     }
 }

@@ -40,14 +40,14 @@ struct RunCommandTests {
     ) async throws -> (stdout: String, stderr: String) {
         return try await executeSwiftRun(
             packagePath,
-            nil,
+            executable,
             extraArgs: args,
             buildSystem: buildSystem,
         )
     }
 
     @Test(
-        arguments: SupportedBuildSystemOnPlatform,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func usage(
         buildSystem: BuildSystemProvider.Kind
@@ -58,7 +58,7 @@ struct RunCommandTests {
     }
 
     @Test(
-        arguments: SupportedBuildSystemOnPlatform,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func seeAlso(
         buildSystem: BuildSystemProvider.Kind
@@ -68,7 +68,7 @@ struct RunCommandTests {
     }
 
     @Test(
-        arguments: SupportedBuildSystemOnPlatform,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func commandDoesNotEmitDuplicateSymbols(
         buildSystem: BuildSystemProvider.Kind,
@@ -80,7 +80,7 @@ struct RunCommandTests {
     }
 
     @Test(
-        arguments: SupportedBuildSystemOnPlatform,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func version(
         buildSystem: BuildSystemProvider.Kind,
@@ -101,7 +101,7 @@ struct RunCommandTests {
             .Feature.CommandLineArguments.BuildSystem,
             .Feature.CommandLineArguments.Configuration,
         ),
-        arguments: SupportedBuildSystemOnPlatform,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func toolsetDebugger(
         buildSystem: BuildSystemProvider.Kind,
@@ -127,8 +127,10 @@ struct RunCommandTests {
                 case .native:
                     #expect(stderr.contains("Compiling"))
                     #expect(stderr.contains("Linking"))
-                case .swiftbuild, .xcode:
+                case .swiftbuild:
                     break
+                case .xcode:
+                    Issue.record("Test expectations have not been implemented")
             }
         }
     }
@@ -137,7 +139,9 @@ struct RunCommandTests {
          .tags(
             .Feature.TargetType.Executable,
         ),
-        arguments: SupportedBuildSystemOnPlatform,
+        .IssueWindowsPathTestsFailures,
+        .IssueWindowsRelativePathAssert,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func productArgumentPassing(
         buildSystem: BuildSystemProvider.Kind,
@@ -159,15 +163,17 @@ struct RunCommandTests {
                 case .native:
                     #expect(stderr.contains("Compiling"))
                     #expect(stderr.contains("Linking"))
-                case .swiftbuild, .xcode:
+                case .swiftbuild:
                     break
+                case .xcode:
+                    Issue.record("Test expectations have not been implemented")
             }
         }
     }
 
     @Test(
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8279"),
-        arguments: SupportedBuildSystemOnPlatform,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func unknownProductRaisesAnError(
         buildSystem: BuildSystemProvider.Kind,
@@ -196,7 +202,7 @@ struct RunCommandTests {
         ),
         .SWBINTTODO("Swift run using Swift Build does not output executable content to the terminal"),
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8279"),
-        arguments: SupportedBuildSystemOnPlatform,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func multipleExecutableAndExplicitExecutable(
         buildSystem: BuildSystemProvider.Kind,
@@ -235,13 +241,13 @@ struct RunCommandTests {
         ),
         .IssueWindowsPathTestsFailures,
         .IssueWindowsRelativePathAssert,
-        arguments: SupportedBuildSystemOnPlatform,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func unreachableExecutable(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         try await withKnownIssue(isIntermittent: true) {
-            try await fixture(name: "Miscellaneous/UnreachableTargets") { fixturePath in
+            try await fixture(name: "Miscellaneous/UnreachableTargets", createGitRepo: true) { fixturePath in
                 let (output, _) = try await execute(["bexec"], packagePath: fixturePath.appending("A"), buildSystem: buildSystem)
                 let outputLines = output.split(whereSeparator: { $0.isNewline })
                 #expect(String(outputLines[0]).contains("BTarget2"))
@@ -255,7 +261,7 @@ struct RunCommandTests {
         .tags(
             .Feature.TargetType.Executable,
         ),
-        arguments: SupportedBuildSystemOnPlatform,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func fileDeprecation(
         buildSystem: BuildSystemProvider.Kind,
@@ -279,7 +285,7 @@ struct RunCommandTests {
             .Feature.CommandLineArguments.BuildTests,
             .Feature.CommandLineArguments.SkipBuild
         ),
-        arguments: SupportedBuildSystemOnPlatform,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func mutualExclusiveFlags(
         buildSystem: BuildSystemProvider.Kind,
@@ -304,7 +310,7 @@ struct RunCommandTests {
         .tags(
             .Feature.TargetType.Executable,
         ),
-        arguments: SupportedBuildSystemOnPlatform,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func swiftRunSIGINT(
         buildSystem: BuildSystemProvider.Kind,
@@ -411,7 +417,7 @@ struct RunCommandTests {
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8844", relationship: .verifies),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8911", relationship: .defect),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8912", relationship: .defect),
-        arguments: SupportedBuildSystemOnPlatform, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
     )
     func swiftRunQuietLogLevel(
         buildSystem: BuildSystemProvider.Kind,
@@ -440,7 +446,7 @@ struct RunCommandTests {
 
     @Test(
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8844"),
-        arguments: SupportedBuildSystemOnPlatform,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func swiftRunQuietLogLevelWithError(
         buildSystem: BuildSystemProvider.Kind,

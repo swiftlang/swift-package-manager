@@ -1537,7 +1537,7 @@ public final class PackageBuilder {
             // Add suffix 'PackageTests' to test product name so the target name
             // of linux executable don't collide with main package, if present.
             // FIXME: use identity instead
-            let productName = self.manifest.displayName + "PackageTests"
+            let productName = self.manifest.umbrellaPackageTestsProductName
             let testEntryPointPath = try self.findTestEntryPoint(in: testModules)
 
             let product = try Product(
@@ -1825,6 +1825,10 @@ extension Manifest {
             }
         }
         return Set(names)
+    }
+
+    package var umbrellaPackageTestsProductName: String {
+        "\(self.displayName)PackageTests"
     }
 }
 

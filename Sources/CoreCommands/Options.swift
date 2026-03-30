@@ -164,16 +164,18 @@ public struct LocationOptions: ParsableArguments {
 
     @Flag(name: .customLong("ignore-lock"), help: .hidden)
     public var ignoreLock: Bool = false
+
+    @Flag(name: .customLong("experimental-skip-acquiring-lock"), help: .hidden)
+    public var skipAcquiringLock: Bool = false
 }
 
 public struct CachingOptions: ParsableArguments {
     public init() {}
 
     /// Disables package caching.
-    @Flag(
-        name: .customLong("dependency-cache"),
+    @Flag(name: .customLong("dependency-cache"),
         inversion: .prefixedEnableDisable,
-        help: "Use a shared cache when fetching dependencies."
+        help: "Determines whether dependency fetching uses a shared cache."
     )
     public var useDependenciesCache: Bool = true
 
@@ -205,7 +207,7 @@ public struct CachingOptions: ParsableArguments {
     /// Whether to use macro prebuilts or not
     @Flag(name: .customLong("experimental-prebuilts"),
           inversion: .prefixedEnableDisable,
-          help: "Whether to use prebuilt swift-syntax libraries for macros.")
+          help: "Determines whether macros use prebuilt swift-syntax libraries.")
     public var usePrebuilts: Bool = true
 
     /// Hidden option to override the prebuilts download location for testing
@@ -241,7 +243,7 @@ public struct LoggingOptions: ParsableArguments {
           inversion: .prefixedNo,
           help:
             """
-            Enables or disables color diagnostics when printing to a TTY.
+            Determines whether color diagnostics appear when printing to a TTY.
             By default, color diagnostics are enabled when connected to a TTY and disabled otherwise.
             """)
     public var colorDiagnostics: Bool = ProcessInfo.processInfo.environment["NO_COLOR"] == nil
@@ -251,7 +253,7 @@ public struct SecurityOptions: ParsableArguments {
     public init() {}
 
     /// Disables sandboxing when executing subprocesses.
-    @Flag(name: .customLong("disable-sandbox"), help: "Disable using the sandbox when executing subprocesses.")
+    @Flag(name: .customLong("disable-sandbox"), help: "Disable the sandbox when executing subprocesses.")
     public var shouldDisableSandbox: Bool = false
 
     /// Force usage of the netrc file even in cases where it is not allowed.
@@ -264,7 +266,7 @@ public struct SecurityOptions: ParsableArguments {
     @Flag(
         inversion: .prefixedEnableDisable,
         exclusivity: .exclusive,
-        help: "Load credentials from a netrc file."
+        help: "Determines whether SwiftPM loads credentials from a netrc file."
     )
     public var netrc: Bool = true
 
@@ -283,7 +285,7 @@ public struct SecurityOptions: ParsableArguments {
     @Flag(
         inversion: .prefixedEnableDisable,
         exclusivity: .exclusive,
-        help: "Search credentials in macOS keychain."
+        help: "Determines whether SwiftPM searches for credentials in the macOS keychain."
     )
     public var keychain: Bool = true
     #else
@@ -304,7 +306,7 @@ public struct SecurityOptions: ParsableArguments {
     @Flag(
         inversion: .prefixedEnableDisable,
         exclusivity: .exclusive,
-        help: "Validate signature of a signed package release downloaded from registry."
+        help: "Determines whether SwiftPM validates signatures on package releases downloaded from the registry."
     )
     public var signatureValidation: Bool = true
 }
@@ -378,7 +380,7 @@ public struct BuildOptions: ParsableArguments {
     public init() {}
 
     /// Build configuration.
-    @Option(name: .shortAndLong, help: "Build with configuration")
+    @Option(name: .shortAndLong, help: "Build with the specified configuration.")
     public var configuration: BuildConfiguration?
 
     @Option(
@@ -451,10 +453,10 @@ public struct BuildOptions: ParsableArguments {
 
     public var buildFlags: BuildFlags {
         BuildFlags(
-            cCompilerFlags: self.cCompilerFlags,
-            cxxCompilerFlags: self.cxxCompilerFlags,
-            swiftCompilerFlags: self.swiftCompilerFlags,
-            linkerFlags: self.linkerFlags,
+            cCompilerFlags: self.cCompilerFlags.constructBuildFlags(source: .commandLineOptions),
+            cxxCompilerFlags: self.cxxCompilerFlags.constructBuildFlags(source: .commandLineOptions),
+            swiftCompilerFlags: self.swiftCompilerFlags.constructBuildFlags(source: .commandLineOptions),
+            linkerFlags: self.linkerFlags.constructBuildFlags(source: .commandLineOptions),
             xcbuildFlags: self.xcbuildFlags
         )
     }
@@ -475,7 +477,7 @@ public struct BuildOptions: ParsableArguments {
     @Option(
         name: .customLong("arch"),
         help: ArgumentHelp(
-            "Build the package for the these architectures",
+            "Build the package for the specified architectures.",
             visibility: .hidden
         )
     )
@@ -502,7 +504,7 @@ public struct BuildOptions: ParsableArguments {
         EnabledSanitizers(Set(sanitizers))
     }
 
-    @Flag(help: "Enable or disable indexing-while-building feature.")
+    @Flag(help: "Determines whether to automatically index while building.")
     public var indexStoreMode: StoreMode = .autoIndexStore
 
     /// Instead of building the target, perform the minimal amount of work to prepare it for indexing.
@@ -543,7 +545,7 @@ public struct BuildOptions: ParsableArguments {
 
     /// A flag that indicates this build should check whether targets only import
     /// their explicitly-declared dependencies
-    @Option(help: "A flag that indicates this build should check whether targets only import their explicitly-declared dependencies.")
+    @Option(help: "Check that targets only import their explicitly declared dependencies.")
     public var explicitTargetDependencyImportCheck: TargetDependencyImportCheckingMode = .none
 
     /// The build system to use.
@@ -551,7 +553,7 @@ public struct BuildOptions: ParsableArguments {
         name: .customLong("build-system"),
         help: "Specify the build system to use.",
     )
-    var _buildSystem: BuildSystemProvider.Kind = .native
+    var _buildSystem: BuildSystemProvider.Kind = .swiftbuild
 
     /// The Debug Information Format to use.
     @Option(name: .customLong("debug-info-format", withSingleDash: true), help: "The Debug Information Format to use.")
@@ -563,7 +565,7 @@ public struct BuildOptions: ParsableArguments {
             return self._buildSystem
         case .native:
             // Maintain legacy behavior and force use of the Xcode build system if we want to build more than one arch.
-            return self.architectures.count > 1 ? .xcode : .native
+            return self.architectures.count > 1 ? .swiftbuild : .native
         }
     }
 
@@ -602,6 +604,14 @@ public struct BuildOptions: ParsableArguments {
     // Build dynamic library targets as frameworks (only available for Darwin targets and only when using the 'swiftbuild' build-system (currently used for tests).
     @Flag(name: .customLong("experimental-build-dylibs-as-frameworks"), help: .hidden )
     public var shouldBuildDylibsAsFrameworks: Bool = false
+
+    /// Enable code size profiling by emitting SIL, LLVM IR, and optimization records.
+    @Flag(name: .customLong("experimental-enable-codesize-profile"), help: "Generate SIL, LLVM IR, and optimization record files for code size profiling.")
+    public var enableCodesizeProfile: Bool = false
+
+    /// Directory for code size profiling output files (SIL, IR, optimization records).
+    @Option(name: .customLong("experimental-codesize-profile-output-dir"), help: "Directory to store code size profiling output files.")
+    public var codesizeProfileOutputDirectory: String?
 
     // @Flag works best when there is a default value present
     // if true, false aren't enough and a third state is needed
@@ -643,7 +653,7 @@ public struct LinkerOptions: ParsableArguments {
     @Flag(
         name: .customLong("dead-strip"),
         inversion: .prefixedEnableDisable,
-        help: "Disable/enable dead code stripping by the linker."
+        help: "Determines whether the linker strips dead code."
     )
     public var linkerDeadStrip: Bool = true
 
@@ -663,7 +673,7 @@ public struct TestLibraryOptions: ParsableArguments {
     /// have the correct default value if the user didn't specify one.
     @Flag(name: .customLong("xctest"),
           inversion: .prefixedEnableDisable,
-          help: "Enable support for XCTest.")
+          help: "Determines whether the build includes XCTest support.")
     public var explicitlyEnableXCTestSupport: Bool?
 
     /// Whether to enable support for Swift Testing (as explicitly specified by the user.)
@@ -672,7 +682,7 @@ public struct TestLibraryOptions: ParsableArguments {
     /// have the correct default value if the user didn't specify one.
     @Flag(name: .customLong("swift-testing"),
           inversion: .prefixedEnableDisable,
-          help: "Enable support for Swift Testing.")
+          help: "Determines whether the build includes Swift Testing support.")
     public var explicitlyEnableSwiftTestingLibrarySupport: Bool?
 
     /// Legacy experimental equivalent of ``explicitlyEnableSwiftTestingLibrarySupport``.
@@ -721,7 +731,7 @@ public struct TraitOptions: ParsableArguments {
     /// The traits to enable for the package.
     @Option(
         name: .customLong("traits"),
-        help: "Enables the passed traits of the package. Multiple traits can be specified by providing a comma separated list e.g. `--traits Trait1,Trait2`. When enabling specific traits the defaults traits need to explictily enabled as well by passing `defaults` to this command."
+        help: "Enable the specified traits of the package. Specify multiple traits as a comma-separated list, for example: `--traits Trait1,Trait2`. When enabling specific traits, the default traits must also be explicitly enabled by passing `defaults` to this option."
     )
     package var _enabledTraits: String?
 
@@ -733,14 +743,14 @@ public struct TraitOptions: ParsableArguments {
     /// Enables all traits of the package.
     @Flag(
         name: .customLong("enable-all-traits"),
-        help: "Enables all traits of the package."
+        help: "Enable all traits of the package."
     )
     public var enableAllTraits: Bool = false
 
     /// Disables all default traits of the package.
     @Flag(
         name: .customLong("disable-default-traits"),
-        help: "Disables all default traits of the package."
+        help: "Disable all default traits of the package."
     )
     public var disableDefaultTraits: Bool = false
 }
@@ -767,7 +777,7 @@ public struct SBOMOptions: ParsableArguments {
     /// SBOM specification(s) to generate.
     @Option(
         name: .customLong("sbom-spec"),
-        help: ArgumentHelp("Set the SBOM specification(s) and generate SBOM(s).")
+        help: ArgumentHelp("Set the SBOM specification and generate an SBOM.")
     )
     package var _sbomSpecs: [SBOMModel.Spec] = []
 
@@ -804,15 +814,15 @@ public struct SBOMOptions: ParsableArguments {
             }
             if let envSpecs = SPMBuildCore.ConfigurableEnvVar.SWIFTPM_BUILD_SBOM_SPEC.getEnvVar() {
                 let specStrings = envSpecs.components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) }
-                var specs: [SBOMModel.Spec] = []
+                var specs: Set<SBOMModel.Spec> = []
                 for specString in specStrings {
                     guard let spec = SBOMModel.Spec(rawValue: specString) else {
                         throw SBOMModel.SBOMCommandError.invalidSpecValue(value: specString)
                     }
-                    specs.append(spec)
+                    specs.insert(spec)
                 }
                 if !specs.isEmpty {
-                    return specs
+                    return specs.sorted { $0.rawValue < $1.rawValue }
                 }
             }
             return []

@@ -19,12 +19,13 @@ import Testing
 
 @Suite(
     .tags(
-        .Feature.SBOM
+        .Feature.SBOM,
+        .TestSize.medium
     )
 )
 struct SBOMEncoderTests {
     private func verifyJsonContentIsValid(at path: AbsolutePath, fileSystem: any FileSystem = localFileSystem, sourceLocation: SourceLocation = #_sourceLocation) throws {
-        #expect(fileSystem.exists(path), "File should exist at \(path)", sourceLocation: sourceLocation)
+        try #require(fileSystem.exists(path), "File should exist at \(path)", sourceLocation: sourceLocation)
 
         let data = try fileSystem.readFileContents(path)
         let jsonObject = try JSONSerialization.jsonObject(with: Data(data.contents))
@@ -118,12 +119,11 @@ struct SBOMEncoderTests {
             #expect(files.count == 1)
 
             let filename = files[0]
-            // Format: {spec.type}-{spec.version}-{name}-{version}.json
-            let components = filename.replacingOccurrences(of: ".json", with: "").split(separator: "-")
-            #expect(components.count >= 4, "Filename should have at least 4 components")
-            #expect(components[0] == "cyclonedx1", "First component should be spec type")
-            #expect(components[1] == "1.7", "Second component should be spec version")
-            #expect(components[2] == "swiftly", "Third component should be package name")
+            // Format: {spec}-{version}-{name}-{revision}-{filter}-{timestamp}.json
+            // Example: cyclonedx1-1.7-swiftly-unknown-all-2025-01-15T12_30_45Z.json
+            let pattern = #"^cyclonedx1-1\.7-swiftly-[^-]+-all-\d{4}-\d{2}-\d{2}T\d{2}_\d{2}_\d{2}Z\.json$"#
+            let regex = try Regex(pattern)
+            #expect(filename.contains(regex), "Filename should match expected format with timestamp: \(filename)")
             #expect(!outputs.isEmpty, "Output paths should not be empty")
         }
     }
@@ -145,33 +145,26 @@ struct SBOMEncoderTests {
         }
     }
 
-    @Test("writeSBOMs integration test with SPM graph")
-    func writeSBOMsIntegrationTestWithSPMGraph() async throws {
+    @Test(
+        "writeSBOMs integration test",
+        arguments: ["SPM", "Swiftly"]
+    )
+    func writeSBOMsIntegrationTest(graphName: String) async throws {
         try await withTemporaryDirectory { tmpDir in
-            let graph = try SBOMTestModulesGraph.createSPMModulesGraph()
-            let store = try SBOMTestStore.createSPMResolvedPackagesStore()
-            let extractor = SBOMExtractor(modulesGraph: graph, dependencyGraph: nil, store: store)
-            let sbom = try await extractor.extractSBOM()
-            let encoder = SBOMEncoder(sbom: sbom, observabilityScope: ObservabilitySystem.makeForTesting().topScope)
-
-            let _ = try await encoder.writeSBOMs(specs: [.cyclonedx, .spdx], outputDir: tmpDir)
-
-            let files = try localFileSystem.getDirectoryContents(tmpDir)
-            #expect(files.count == 2, "Should generate both CycloneDX and SPDX files")
-
-            // Verify both files are valid
-            for filename in files {
-                let filePath = tmpDir.appending(component: filename)
-                try self.verifyJsonContentIsValid(at: filePath)
+            let graph: ModulesGraph
+            let store: ResolvedPackagesStore
+            
+            switch graphName {
+            case "SPM":
+                graph = try SBOMTestModulesGraph.createSPMModulesGraph()
+                store = try SBOMTestStore.createSPMResolvedPackagesStore()
+            case "Swiftly":
+                graph = try SBOMTestModulesGraph.createSwiftlyModulesGraph()
+                store = try SBOMTestStore.createSwiftlyResolvedPackagesStore()
+            default:
+                fatalError("Unknown graph name: \(graphName)")
             }
-        }
-    }
-
-    @Test("writeSBOMs integration test with Swiftly graph")
-    func writeSBOMsIntegrationTestWithSwiftlyGraph() async throws {
-        try await withTemporaryDirectory { tmpDir in
-            let graph = try SBOMTestModulesGraph.createSwiftlyModulesGraph()
-            let store = try SBOMTestStore.createSwiftlyResolvedPackagesStore()
+            
             let extractor = SBOMExtractor(modulesGraph: graph, dependencyGraph: nil, store: store)
             let sbom = try await extractor.extractSBOM()
             let encoder = SBOMEncoder(sbom: sbom, observabilityScope: ObservabilitySystem.makeForTesting().topScope)

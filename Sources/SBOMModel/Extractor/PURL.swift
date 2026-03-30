@@ -90,7 +90,7 @@ extension PURL {
         return PURL(
             scheme: "pkg",
             type: "swift",
-            namespace: (namespace == nil && qualifiers == nil) ? product.packageIdentity.description : namespace,
+            namespace: (namespace == nil && qualifiers?["path"] == nil) ? product.packageIdentity.description : namespace,
             name: name,
             version: version.revision,
             qualifiers: qualifiers

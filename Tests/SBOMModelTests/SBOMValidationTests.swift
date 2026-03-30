@@ -17,9 +17,53 @@ import PackageGraph
 @testable import SBOMModel
 import Testing
 
+// MARK: - Test Helper for Loading Validators
+
+/// Helper function to create a validator for tests by finding the SBOMModel module bundle
+/// This bypasses the bundle search logic in production code which doesn't work in test contexts
+fileprivate func createTestValidator(for spec: SBOMSpec) throws -> any SBOMValidatorProtocol {
+    let schemaFilename = spec.schemaFilename
+    
+    // Find the SBOMModel bundle - schema files are resources of SBOMModel, not SBOMModelTests
+    // Search for the bundle in the same directory as the test bundle
+    let testBundleURL = Bundle.module.bundleURL
+    let buildDir = testBundleURL.deletingLastPathComponent()
+    
+    // Try both .bundle and .resources extensions (macOS vs other platforms)
+    let bundleExtensions = ["bundle", "resources"]
+    var sbomModelBundle: Bundle?
+    
+    for ext in bundleExtensions {
+        let bundleURL = buildDir.appendingPathComponent("SwiftPM_SBOMModel.\(ext)")
+        if let bundle = Bundle(url: bundleURL) {
+            sbomModelBundle = bundle
+            break
+        }
+    }
+    
+    guard let bundle = sbomModelBundle,
+          let schemaURL = bundle.url(forResource: schemaFilename, withExtension: "json") else {
+        throw SBOMSchemaError.schemaFileNotFound(filename: schemaFilename, bundlePath: buildDir.path)
+    }
+    
+    let schemaData = try Data(contentsOf: schemaURL)
+    guard let jsonObject = try JSONSerialization.jsonObject(with: schemaData) as? [String: Any] else {
+        throw SBOMSchemaError.invalidSchemaFormat(message: "Could not parse schema as JSON dictionary")
+    }
+    
+    // Create the appropriate validator based on spec type
+    switch spec.concreteSpec {
+    case .cyclonedx1:
+        return CycloneDXValidator(schema: jsonObject)
+    case .spdx3:
+        return SPDXValidator(schema: jsonObject)
+    }
+}
+
 @Suite(
     .tags(
-        .Feature.SBOM
+        .Feature.SBOM,
+        .TestSize.medium
     )
 )
 struct SBOMValidationTests {
@@ -68,7 +112,7 @@ struct SBOMValidationTests {
         ]
     }
 
-    @Test("validate SBOM from graphs", .skip("TODO echeng3805, Schema bundles can't be found"), arguments: try getValidateGraphSBOMTestCases())
+    @Test("validate SBOM from graphs", arguments: try getValidateGraphSBOMTestCases())
     func validateSBOMFromGraph(testCase: ValidateGraphSBOMTestCase) async throws {
         let extractor = SBOMExtractor(
             modulesGraph: testCase.inputGraph,
@@ -79,20 +123,19 @@ struct SBOMValidationTests {
         let observability = ObservabilitySystem.makeForTesting()
         let encoder = SBOMEncoder(sbom: document, observabilityScope: observability.topScope)
         let encodedData = try await encoder.encodeSBOMData(spec: testCase.inputSpec)
-
-        if testCase.wantError {
-            await #expect(throws: StringError.self) {
-                try await encoder.validateSBOM(from: encodedData, spec: testCase.inputSpec)
-            }
-        } else {
-            try await encoder.validateSBOM(from: encodedData, spec: testCase.inputSpec)
+        
+        guard let sbomJSONObject = try JSONSerialization.jsonObject(with: encodedData) as? [String: Any] else {
+            throw SBOMEncoderError.jsonConversionFailed(message: "Could not convert generated SBOM file into JSON object for validation")
         }
+        
+        let validator = try createTestValidator(for: testCase.inputSpec)
+        try await validator.validate(sbomJSONObject)
     }
 
     struct ValidateFileSBOMTestCase {
         let inputFilePath: String
         let inputSBOMSpec: SBOMSpec
-        let wantError: Bool
+        let expectedEncoderErrorType: Error.Type?
     }
 
     static func getValidateFileSBOMTestCases() throws -> [ValidateFileSBOMTestCase] {
@@ -101,83 +144,83 @@ struct SBOMValidationTests {
             ValidateFileSBOMTestCase(
                 inputFilePath: "testfiles/valid-cyclonedx-1.7-empty-comps",
                 inputSBOMSpec: SBOMSpec(spec: .cyclonedx1),
-                wantError: false
+                expectedEncoderErrorType: nil,
             ),
             ValidateFileSBOMTestCase(
                 inputFilePath: "testfiles/valid-cyclonedx-1.7-minimal",
                 inputSBOMSpec: SBOMSpec(spec: .cyclonedx1),
-                wantError: false
+                expectedEncoderErrorType: nil,
             ),
             ValidateFileSBOMTestCase(
                 inputFilePath: "testfiles/valid-cyclonedx-1.7-unicode",
                 inputSBOMSpec: SBOMSpec(spec: .cyclonedx1),
-                wantError: false
+                expectedEncoderErrorType: nil,
             ),
             ValidateFileSBOMTestCase(
                 inputFilePath: "testfiles/valid-cyclonedx-1.7-spm",
                 inputSBOMSpec: SBOMSpec(spec: .cyclonedx1),
-                wantError: false
+                expectedEncoderErrorType: nil,
             ),
             ValidateFileSBOMTestCase(
                 inputFilePath: "testfiles/valid-cyclonedx-1.7-versions",
                 inputSBOMSpec: SBOMSpec(spec: .cyclonedx1),
-                wantError: false
+                expectedEncoderErrorType: nil,
             ),
 
             // valid SPDX SBOMs
             ValidateFileSBOMTestCase(
                 inputFilePath: "testfiles/valid-spdx-3.0.1-spm",
                 inputSBOMSpec: SBOMSpec(spec: .spdx3),
-                wantError: false
+                expectedEncoderErrorType: nil,
             ),
 
             // invalid CycloneDX SBOMs
             ValidateFileSBOMTestCase(
                 inputFilePath: "testfiles/invalid-cyclonedx-1-missing-fields",
                 inputSBOMSpec: SBOMSpec(spec: .cyclonedx1),
-                wantError: true
+                expectedEncoderErrorType: SBOMValidatorError.self,
             ),
             ValidateFileSBOMTestCase(
                 inputFilePath: "testfiles/invalid-cyclonedx-1-small",
                 inputSBOMSpec: SBOMSpec(spec: .cyclonedx1),
-                wantError: true
+                expectedEncoderErrorType: SBOMValidatorError.self,
             ),
             ValidateFileSBOMTestCase(
                 inputFilePath: "testfiles/invalid-cyclonedx-1.7-uppercase-uuid",
                 inputSBOMSpec: SBOMSpec(spec: .cyclonedx1),
-                wantError: true
+                expectedEncoderErrorType: SBOMValidatorError.self,
             ),
             ValidateFileSBOMTestCase(
                 inputFilePath: "testfiles/invalid-cyclonedx-1.7-wrong-bomformat",
                 inputSBOMSpec: SBOMSpec(spec: .cyclonedx1),
-                wantError: true
+                expectedEncoderErrorType: SBOMValidatorError.self,
             ),
 
             // invalid SPDX SBOMs
             ValidateFileSBOMTestCase(
                 inputFilePath: "testfiles/invalid-spdx-3-small",
                 inputSBOMSpec: SBOMSpec(spec: .spdx3),
-                wantError: true
+                expectedEncoderErrorType: NSError.self,
             ),
             ValidateFileSBOMTestCase(
                 inputFilePath: "testfiles/invalid-spdx-3.0.1-no-iri",
                 inputSBOMSpec: SBOMSpec(spec: .spdx3),
-                wantError: true
+                expectedEncoderErrorType: SBOMValidatorError.self,
             ),
             ValidateFileSBOMTestCase(
                 inputFilePath: "testfiles/invalid-spdx-3.0.1-spm",
                 inputSBOMSpec: SBOMSpec(spec: .spdx3),
-                wantError: true
+                expectedEncoderErrorType: SBOMValidatorError.self,
             ),
             ValidateFileSBOMTestCase(
                 inputFilePath: "testfiles/invalid-spdx-3.0.1-wrong-relationshiptype",
                 inputSBOMSpec: SBOMSpec(spec: .spdx3),
-                wantError: true
+                expectedEncoderErrorType: SBOMValidatorError.self,
             ),
         ]
     }
 
-    @Test("validate SBOM from files", .skip("TODO echeng3805, Schema bundles can't be found"), arguments: try getValidateFileSBOMTestCases())
+    @Test("validate SBOM from files", .requireSwift6_3, arguments: try getValidateFileSBOMTestCases())
     func validateSBOMFromFile(testCase: ValidateFileSBOMTestCase) async throws {
         let testBundle = Bundle.module
         let fileURL = try #require(
@@ -185,21 +228,18 @@ struct SBOMValidationTests {
             "Could not find \(testCase.inputFilePath).json test file"
         )
         let encodedData = try Data(contentsOf: fileURL)
-        let observability = ObservabilitySystem.makeForTesting()
-        
-        // Create a dummy SBOM document for the encoder (we just need it for validation)
-        let graph = try SBOMTestModulesGraph.createSimpleModulesGraph()
-        let store = try SBOMTestStore.createSimpleResolvedPackagesStore()
-        let extractor = SBOMExtractor(modulesGraph: graph, dependencyGraph: nil, store: store)
-        let document = try await extractor.extractSBOM()
-        let encoder = SBOMEncoder(sbom: document, observabilityScope: observability.topScope)
-
-        if testCase.wantError {
-            await #expect(throws: (any Error).self) {
-                try await encoder.validateSBOM(from: encodedData, spec: testCase.inputSBOMSpec)
+        if let errorType = testCase.expectedEncoderErrorType {
+            await #expect {
+                let sbomJSONObject = try JSONSerialization.jsonObject(with: encodedData) as? [String: Any]
+                let validator = try createTestValidator(for: testCase.inputSBOMSpec)
+                try await validator.validate(sbomJSONObject)
+            } throws: { error in
+                type(of: error) == errorType
             }
         } else {
-            try await encoder.validateSBOM(from: encodedData, spec: testCase.inputSBOMSpec)
+            let sbomJSONObject = try JSONSerialization.jsonObject(with: encodedData) as? [String: Any]
+            let validator = try createTestValidator(for: testCase.inputSBOMSpec)
+            try await validator.validate(sbomJSONObject)
         }
     }
 }

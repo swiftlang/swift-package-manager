@@ -72,6 +72,9 @@ public struct BuildParameters: Encodable {
     /// An array of paths to search for pkg-config `.pc` files.
     public var pkgConfigDirectories: [Basics.AbsolutePath]
 
+    /// Paths to toolset files specified on the command line via `--toolset`.
+    public var customToolsetPaths: [Basics.AbsolutePath]
+
     /// The architectures to build for.
     // FIXME: this may be inconsistent with `targetTriple`.
     public var architectures: [String]?
@@ -118,8 +121,12 @@ public struct BuildParameters: Encodable {
             return .openbsd
         } else if self.triple.isFreeBSD() {
             return .freebsd
-        } else {
+        } else if self.triple.isNoneOS() {
+            return .custom(name: self.triple.osNameUnversioned, oldestSupportedVersion: .unknown)
+        } else if self.triple.isLinux() {
             return .linux
+        } else {
+            return .custom(name: "unknown", oldestSupportedVersion: .unknown)
         }
     }
 
@@ -162,6 +169,7 @@ public struct BuildParameters: Encodable {
         flags: BuildFlags,
         buildSystemKind: BuildSystemProvider.Kind,
         pkgConfigDirectories: [Basics.AbsolutePath] = [],
+        customToolsetPaths: [Basics.AbsolutePath] = [],
         architectures: [String]? = nil,
         workers: UInt32 = UInt32(ProcessInfo.processInfo.activeProcessorCount),
         shouldCreateDylibForDynamicProducts: Bool = true,
@@ -197,35 +205,36 @@ public struct BuildParameters: Encodable {
         self.triple = triple
         self.buildSystemKind = buildSystemKind
         switch self.debuggingParameters.debugInfoFormat {
-        case .dwarf:
+        case .dwarf, nil:
             var flags = flags
             // DWARF requires lld as link.exe expects CodeView debug info.
             self.flags = flags.merging(triple.isWindows() ? BuildFlags(
-                cCompilerFlags: ["-gdwarf"],
-                cxxCompilerFlags: ["-gdwarf"],
-                swiftCompilerFlags: ["-g", "-use-ld=lld"],
-                linkerFlags: ["-debug:dwarf"]
-            ) : BuildFlags(cCompilerFlags: ["-g"], cxxCompilerFlags: ["-g"], swiftCompilerFlags: ["-g"]))
+                cCompilerFlags: ["-gdwarf"].constructBuildFlags(source: .debugging),
+                cxxCompilerFlags: ["-gdwarf"].constructBuildFlags(source: .debugging),
+                swiftCompilerFlags: ["-g", "-use-ld=lld"].constructBuildFlags(source: .debugging),
+                linkerFlags: ["-debug:dwarf"].constructBuildFlags(source: .debugging)
+            ) : BuildFlags(cCompilerFlags: ["-g"].constructBuildFlags(source: .debugging), cxxCompilerFlags: ["-g"].constructBuildFlags(source: .debugging), swiftCompilerFlags: [BuildFlag(value: "-g", source: .debugging)]))
         case .codeview:
             if !triple.isWindows() {
                 throw StringError("CodeView debug information is currently not supported on \(triple.osName)")
             }
             var flags = flags
             self.flags = flags.merging(BuildFlags(
-                cCompilerFlags: ["-g"],
-                cxxCompilerFlags: ["-g"],
-                swiftCompilerFlags: ["-g", "-debug-info-format=codeview"],
-                linkerFlags: ["-debug"]
+                cCompilerFlags: ["-g"].constructBuildFlags(source: .debugging),
+                cxxCompilerFlags: ["-g"].constructBuildFlags(source: .debugging),
+                swiftCompilerFlags: ["-g", "-debug-info-format=codeview"].constructBuildFlags(source: .debugging),
+                linkerFlags: ["-debug"].constructBuildFlags(source: .debugging)
             ))
-        case .none:
+        case .none?:
             var flags = flags
             self.flags = flags.merging(BuildFlags(
-                cCompilerFlags: ["-g0"],
-                cxxCompilerFlags: ["-g0"],
-                swiftCompilerFlags: ["-gnone"]
+                cCompilerFlags: ["-g0"].constructBuildFlags(source: .debugging),
+                cxxCompilerFlags: ["-g0"].constructBuildFlags(source: .debugging),
+                swiftCompilerFlags: [BuildFlag(value: "-gnone", source: .debugging)]
             ))
         }
         self.pkgConfigDirectories = pkgConfigDirectories
+        self.customToolsetPaths = customToolsetPaths
         self.architectures = architectures
         self.workers = workers
         self.shouldCreateDylibForDynamicProducts = shouldCreateDylibForDynamicProducts

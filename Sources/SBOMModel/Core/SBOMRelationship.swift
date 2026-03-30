@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-internal struct SBOMRelationship: Codable, Equatable, Hashable {
+internal struct SBOMRelationship: Codable, Equatable, Hashable, Comparable {
     // internal enum Source: String, Codable, Equatable {
     //     case modules // from ModulesGraph
     //     case build // from build dependency graph
@@ -39,5 +39,10 @@ internal struct SBOMRelationship: Codable, Equatable, Hashable {
         self.id = id
         self.parentID = parentID
         self.childrenID = childrenID
+    }
+    
+    // Comparable implementation for deterministic ordering
+    internal static func < (lhs: SBOMRelationship, rhs: SBOMRelationship) -> Bool {
+        lhs.id.value < rhs.id.value
     }
 }

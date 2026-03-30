@@ -73,12 +73,18 @@ target_link_libraries(Commands PUBLIC
   PackageGraph
   SBOMModel
   SourceControl
+  SPMBuildCore
+  SwiftBuildSupport
   SwiftFixIt
   SwiftPMBuildServer
   TSCBasic
   TSCUtility
   Workspace
-  XCBuildSupport)
+  XCBuildSupport
+  SwiftBuild::SwiftBuild
+  SwiftToolsProtocols::BuildServerProtocol
+  SwiftToolsProtocols::LanguageServerProtocol
+  SwiftToolsProtocols::LanguageServerProtocolTransport)
 target_link_libraries(Commands PRIVATE
   DriverSupport
   $<$<NOT:$<PLATFORM_ID:Darwin>>:FoundationXML>)
