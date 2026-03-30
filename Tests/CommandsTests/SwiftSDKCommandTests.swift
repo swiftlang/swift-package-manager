@@ -270,6 +270,43 @@ struct SwiftSDKCommandTests {
                         )
 
                         invocation =
+                            setSubcommand + [
+                                "--swift-static-resources-path", fixturePath.appending("stat").pathString,
+                                "--swift-sdks-path", fixturePath.pathString,
+                                "test-artifact",
+                                "aarch64-unknown-linux-gnu",
+                            ]
+                        (stdout, stderr) = try await command.execute(invocation)
+
+                        #expect(
+                            stdout == """
+                                info: These properties of Swift SDK `test-artifact` for target triple `aarch64-unknown-linux-gnu` \
+                                were successfully updated: swiftStaticResourcesPath.
+
+                                """
+                        )
+
+                        invocation =
+                            showSubcommand + [
+                                "--swift-sdks-path", fixturePath.pathString,
+                                "test-artifact",
+                                "aarch64-unknown-linux-gnu",
+                            ]
+                        (stdout, stderr) = try await command.execute(invocation)
+
+                        #expect(
+                            stdout == """
+                                sdkRootPath: \(fixturePath.appending(components: sdkSubpath).pathString)
+                                swiftResourcesPath: \(fixturePath.appending("foo"))
+                                swiftStaticResourcesPath: \(fixturePath.appending("stat"))
+                                includeSearchPaths: not set
+                                librarySearchPaths: not set
+                                toolsetPaths: not set
+
+                                """
+                        )
+
+                        invocation =
                             resetSubcommand + [
                                 "--swift-sdks-path", fixturePath.pathString,
                                 "test-artifact",
