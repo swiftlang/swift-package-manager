@@ -514,6 +514,13 @@ public final class SwiftModuleBuildDescription {
             args += ["-g"]
         }
 
+        if self.buildParameters.driverParameters.enableTimeTrace {
+            args += ["-ftime-trace"]
+            if let granularity = self.buildParameters.driverParameters.timeTraceGranularity {
+                args += ["-ftime-trace-granularity", String(granularity)]
+            }
+        }
+
         args += ["-j\(self.buildParameters.workers)"]
         args += self.activeCompilationConditions
         args += self.additionalFlags

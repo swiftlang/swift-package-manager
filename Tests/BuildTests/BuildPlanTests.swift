@@ -7730,6 +7730,124 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         XCTAssertMatch(args, ["-whole-module-optimization"])
         XCTAssertMatch(args, ["-save-optimization-record"])
     }
+
+    func testTimeTraceCompileArguments() async throws {
+        let fs = InMemoryFileSystem(
+            emptyFiles: "/Pkg/Sources/exe/main.swift"
+        )
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Pkg",
+                    path: "/Pkg",
+                    targets: [
+                        TargetDescription(name: "exe", type: .executable),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        var driverParameters = BuildParameters.Driver()
+        driverParameters.enableTimeTrace = true
+
+        let plan = try await mockBuildPlan(
+            graph: graph,
+            driverParameters: driverParameters,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+
+        let result = try BuildPlanResult(plan: plan)
+        let exe = try result.moduleBuildDescription(for: "exe").swift()
+
+        let args = try exe.emitCommandLine()
+        XCTAssertMatch(args, ["-ftime-trace"])
+    }
+
+    func testTimeTraceWithGranularity() async throws {
+        let fs = InMemoryFileSystem(
+            emptyFiles: "/Pkg/Sources/exe/main.swift"
+        )
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Pkg",
+                    path: "/Pkg",
+                    targets: [
+                        TargetDescription(name: "exe", type: .executable),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        var driverParameters = BuildParameters.Driver()
+        driverParameters.enableTimeTrace = true
+        driverParameters.timeTraceGranularity = 100
+
+        let plan = try await mockBuildPlan(
+            graph: graph,
+            driverParameters: driverParameters,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+
+        let result = try BuildPlanResult(plan: plan)
+        let exe = try result.moduleBuildDescription(for: "exe").swift()
+
+        let args = try exe.emitCommandLine()
+        XCTAssertMatch(args, ["-ftime-trace"])
+        XCTAssertMatch(args, ["-ftime-trace-granularity", "100"])
+    }
+
+    func testTimeTraceClangArgs() async throws {
+        let Pkg: AbsolutePath = "/Pkg"
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                Pkg.appending(components: "Sources", "lib", "lib.c").pathString,
+                Pkg.appending(components: "Sources", "lib", "include", "lib.h").pathString
+        )
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Pkg",
+                    path: .init(validating: Pkg.pathString),
+                    targets: [
+                        TargetDescription(name: "lib"),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        var driverParameters = BuildParameters.Driver()
+        driverParameters.enableTimeTrace = true
+        driverParameters.timeTraceGranularity = 200
+
+        let plan = try await mockBuildPlan(
+            graph: graph,
+            driverParameters: driverParameters,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+
+        let result = try BuildPlanResult(plan: plan)
+        let lib = try result.moduleBuildDescription(for: "lib").clang()
+
+        let args = try lib.basicArguments(isCXX: false)
+        XCTAssert(args.contains("-ftime-trace"))
+        XCTAssert(args.contains("-ftime-trace-granularity=200"))
+    }
 }
 
 class BuildPlanNativeTests: BuildPlanTestCase {

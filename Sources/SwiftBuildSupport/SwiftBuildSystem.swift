@@ -263,6 +263,9 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
     /// Additional rules for different file types generated from plugins.
     private let additionalFileRules: [FileRuleDescription]
 
+    /// Trace events writer for build phase tracing.
+    private let traceEventsWriter: TraceEventsWriter?
+
     public var builtTestProducts: [BuiltTestProduct] {
         get async {
             do {
@@ -305,7 +308,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         self.buildParameters.outputParameters.enableTaskBacktraces
     }
 
-    public init(
+    package init(
         buildParameters: BuildParameters,
         packageGraphLoader: @escaping () async throws -> ModulesGraph,
         packageManagerResourcesDirectory: Basics.AbsolutePath?,
@@ -315,7 +318,8 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         pluginConfiguration: PluginConfiguration,
-        delegate: BuildSystemDelegate?
+        delegate: BuildSystemDelegate?,
+        traceEventsWriter: TraceEventsWriter? = nil
     ) throws {
         self.buildParameters = buildParameters
         self.packageGraphLoader = packageGraphLoader
@@ -327,6 +331,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         self.observabilityScope = observabilityScope.makeChildScope(description: "Swift Build System")
         self.pluginConfiguration = pluginConfiguration
         self.delegate = delegate
+        self.traceEventsWriter = traceEventsWriter
     }
 
     private func createREPLArguments(
@@ -617,7 +622,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                 logLevel: self.logLevel,
                 enableBacktraces: self.enableTaskBacktraces,
                 buildDelegate: self.delegate,
-                traceEventsFilePath: self.buildParameters.outputParameters.traceEventsFilePath
+                traceEventsWriter: self.traceEventsWriter
             )
 
             do {

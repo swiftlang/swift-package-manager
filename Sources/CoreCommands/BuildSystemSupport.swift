@@ -70,7 +70,8 @@ private struct NativeBuildSystemFactory: BuildSystemFactory {
             logLevel: logLevel ?? self.swiftCommandState.logLevel,
             fileSystem: self.swiftCommandState.fileSystem,
             observabilityScope: observabilityScope ?? self.swiftCommandState.observabilityScope,
-            delegate: delegate)
+            delegate: delegate,
+            traceEventsWriter: self.swiftCommandState.traceEventsWriter)
     }
 }
 
@@ -140,7 +141,8 @@ private struct SwiftBuildSystemFactory: BuildSystemFactory {
                 workDirectory: try self.swiftCommandState.getActiveWorkspace().location.pluginWorkingDirectory,
                 disableSandbox: self.swiftCommandState.shouldDisableSandbox
             ),
-            delegate: delegate
+            delegate: delegate,
+            traceEventsWriter: self.swiftCommandState.traceEventsWriter
         )
     }
 }

@@ -14,6 +14,7 @@ import Testing
 
 import Basics
 import Foundation
+import SPMBuildCore
 @_spi(Testing) import SwiftBuild
 import SwiftBuildSupport
 
@@ -158,6 +159,162 @@ struct TraceEventsWriterTests {
         #expect(taskEvent.arguments?["result"] == .string("failed"))
     }
 
+    @Test
+    func testAddCompleteEvent() throws {
+        let events = try buildTrace { writer in
+            let start = ContinuousClock.now
+            let duration = Duration.milliseconds(42)
+            writer.addCompleteEvent(
+                name: "Compile test-package",
+                category: .manifest,
+                startTime: start,
+                duration: duration,
+                processID: 0,
+                threadID: .manifestCompile,
+                arguments: ["package": .string("test-package")]
+            )
+        }
+
+        let completeEvents = events.filter { $0.phase == .complete }
+        #expect(completeEvents.count == 1)
+
+        let event = try #require(completeEvents.first)
+        #expect(event.name == "Compile test-package")
+        #expect(event.category == .manifest)
+        #expect(event.processID == 0)
+        #expect(event.threadID == .manifestCompile)
+        #expect(event.duration >= 42000) // 42ms = 42000µs
+        #expect(event.arguments?["package"] == .string("test-package"))
+    }
+
+    @Test
+    func testSwiftPMPhaseCategories() throws {
+        let events = try buildTrace { writer in
+            let start = ContinuousClock.now
+
+            writer.addCompleteEvent(
+                name: "Compile root",
+                category: .manifest,
+                startTime: start,
+                duration: .milliseconds(10),
+                processID: 0,
+                threadID: .manifestCompile
+            )
+            writer.addCompleteEvent(
+                name: "Evaluate root",
+                category: .manifest,
+                startTime: start,
+                duration: .milliseconds(5),
+                processID: 0,
+                threadID: .manifestEvaluate
+            )
+            writer.addCompleteEvent(
+                name: "Resolve Dependencies",
+                category: .resolution,
+                startTime: start,
+                duration: .milliseconds(100),
+                processID: 0,
+                threadID: .resolution
+            )
+            writer.addCompleteEvent(
+                name: "Generate Build Plan",
+                category: .planning,
+                startTime: start,
+                duration: .milliseconds(50),
+                processID: 0,
+                threadID: .buildPlanning
+            )
+        }
+
+        let completeEvents = events.filter { $0.phase == .complete }
+        #expect(completeEvents.count == 4)
+
+        let categories = Set(completeEvents.map(\.category))
+        #expect(categories.contains(.manifest))
+        #expect(categories.contains(.resolution))
+        #expect(categories.contains(.planning))
+
+        // All SwiftPM phase events should use processID 0
+        #expect(completeEvents.allSatisfy { $0.processID == 0 })
+    }
+
+    @Test
+    func testFetchLaneManagement() throws {
+        let events = try buildTrace { writer in
+            let start = ContinuousClock.now
+
+            // Acquire two fetch lanes concurrently
+            let lane1 = writer.acquireFetchLane()
+            let lane2 = writer.acquireFetchLane()
+
+            #expect(lane1 == .firstFetch)
+            #expect(lane2 == TraceEventsWriter.LaneID(rawValue: TraceEventsWriter.LaneID.firstFetch.rawValue + 1))
+
+            writer.addCompleteEvent(
+                name: "Fetch pkg-a",
+                category: .fetch,
+                startTime: start,
+                duration: .milliseconds(20),
+                processID: 0,
+                threadID: lane1
+            )
+            writer.releaseFetchLane(lane1)
+
+            // Reuse the released lane
+            let lane3 = writer.acquireFetchLane()
+            #expect(lane3 == lane1)
+
+            writer.addCompleteEvent(
+                name: "Fetch pkg-b",
+                category: .fetch,
+                startTime: start,
+                duration: .milliseconds(30),
+                processID: 0,
+                threadID: lane2
+            )
+            writer.addCompleteEvent(
+                name: "Download pkg-c",
+                category: .fetch,
+                startTime: start,
+                duration: .milliseconds(15),
+                processID: 0,
+                threadID: lane3
+            )
+            writer.releaseFetchLane(lane2)
+            writer.releaseFetchLane(lane3)
+        }
+
+        let fetchEvents = events.filter { $0.phase == .complete && $0.category == .fetch }
+        #expect(fetchEvents.count == 3)
+
+        // All fetch events should use processID 0
+        #expect(fetchEvents.allSatisfy { $0.processID == 0 })
+    }
+
+    @Test
+    func testMetadataIncludesSwiftPMProcess() throws {
+        let events = try buildTrace { writer in
+            // Just close to generate metadata
+        }
+
+        let metadataEvents = events.filter { $0.phase == .metadata }
+        let processNames = metadataEvents.filter { $0.name == "process_name" }
+
+        // Should have both "Build" (pid=1) and "SwiftPM" (pid=0) process names
+        let buildProcess = processNames.first { $0.processID == 1 }
+        let swiftpmProcess = processNames.first { $0.processID == 0 }
+        #expect(buildProcess?.arguments?["name"] == .string("Build"))
+        #expect(swiftpmProcess?.arguments?["name"] == .string("SwiftPM"))
+
+        // Should have thread names for SwiftPM lanes
+        let threadNames = metadataEvents.filter { $0.name == "thread_name" && $0.processID == 0 }
+        let threadLabels = threadNames.compactMap { $0.arguments?["name"] }
+        #expect(threadLabels.contains(.string("Manifest Compile")))
+        #expect(threadLabels.contains(.string("Manifest Evaluate")))
+        #expect(threadLabels.contains(.string("Resolution")))
+        #expect(threadLabels.contains(.string("Build Planning")))
+    }
+
     fileprivate func buildTrace(
         _ body: (TraceEventsWriter) throws -> Void
     ) throws -> [TraceEventsWriter.TraceEvent] {
@@ -171,10 +328,7 @@ struct TraceEventsWriterTests {
         writer.close()
 
         let data = try Data(contentsOf: tmpFile)
-        let text = String(decoding: data, as: UTF8.self)
-        let events = try JSONDecoder().decode([TraceEventsWriter.TraceEvent].self, from: data)
-
-        return events
+        return try JSONDecoder().decode([TraceEventsWriter.TraceEvent].self, from: data)
     }
 }
 

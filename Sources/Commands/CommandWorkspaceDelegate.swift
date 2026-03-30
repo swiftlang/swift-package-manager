@@ -49,23 +49,57 @@ final class CommandWorkspaceDelegate: WorkspaceDelegate {
     private let progressHandler: (Int64, Int64, String?) -> Void
     private let inputHandler: (String, (String?) -> Void) -> Void
 
+    private let traceEventsWriter: TraceEventsWriter?
+
+    // Trace event timing state
+    private var manifestCompileStart: [PackageIdentity: ContinuousClock.Instant] = [:]
+    private var manifestEvaluateStart: [PackageIdentity: ContinuousClock.Instant] = [:]
+    private var fetchStart: [PackageIdentity: (start: ContinuousClock.Instant, lane: TraceEventsWriter.LaneID, fromCache: Bool)] = [:]
+    private var resolveStart: ContinuousClock.Instant?
+
     init(
         observabilityScope: ObservabilityScope,
         outputHandler: @escaping (String, OutputCondition) -> Void,
         progressHandler: @escaping (Int64, Int64, String?) -> Void,
-        inputHandler: @escaping (String, (String?) -> Void) -> Void
+        inputHandler: @escaping (String, (String?) -> Void) -> Void,
+        traceEventsWriter: TraceEventsWriter? = nil
     ) {
         self.observabilityScope = observabilityScope
         self.outputHandler = outputHandler
         self.progressHandler = progressHandler
         self.inputHandler = inputHandler
+        self.traceEventsWriter = traceEventsWriter
     }
 
     func willFetchPackage(package: PackageIdentity, packageLocation: String?, fetchDetails: PackageFetchDetails) {
         self.outputHandler("Fetching \(packageLocation ?? package.description)\(fetchDetails.fromCache ? " from cache" : "")", .always)
+        if let writer = self.traceEventsWriter {
+            let lane = writer.acquireFetchLane()
+            self.fetchStart[package] = (start: .now, lane: lane, fromCache: fetchDetails.fromCache)
+        }
     }
 
     func didFetchPackage(package: PackageIdentity, packageLocation: String?, result: Result<PackageFetchDetails, Error>, duration: DispatchTimeInterval) {
+        if let writer = self.traceEventsWriter, let fetchInfo = self.fetchStart.removeValue(forKey: package) {
+            let fromCache: Bool
+            if case .success(let details) = result {
+                fromCache = details.fromCache
+            } else {
+                fromCache = fetchInfo.fromCache
+            }
+            let eventName = fromCache ? "Fetch \(package)" : "Download \(package)"
+            let endTime = ContinuousClock.now
+            writer.addCompleteEvent(
+                name: eventName,
+                category: .fetch,
+                startTime: fetchInfo.start,
+                duration: endTime - fetchInfo.start,
+                processID: 0,
+                threadID: fetchInfo.lane
+            )
+            writer.releaseFetchLane(fetchInfo.lane)
+        }
+
         guard case .success = result, !self.observabilityScope.errorsReported else {
             return
         }
@@ -262,11 +296,26 @@ final class CommandWorkspaceDelegate: WorkspaceDelegate {
     public func willResolveDependencies() {
         self.observabilityScope.emit(debug: "Resolving dependencies")
         os_signpost(.begin, name: SignpostName.resolvingDependencies)
+        if self.traceEventsWriter != nil {
+            self.resolveStart = .now
+        }
     }
 
     public func didResolveDependencies(duration: DispatchTimeInterval) {
         self.observabilityScope.emit(debug: "Dependencies resolved in (\(duration.descriptionInSeconds))")
         os_signpost(.end, name: SignpostName.resolvingDependencies)
+        if let writer = self.traceEventsWriter, let start = self.resolveStart {
+            let endTime = ContinuousClock.now
+            writer.addCompleteEvent(
+                name: "Resolve Dependencies",
+                category: .resolution,
+                startTime: start,
+                duration: endTime - start,
+                processID: 0,
+                threadID: .resolution
+            )
+            self.resolveStart = nil
+        }
     }
 
     func willLoadGraph() {
@@ -281,10 +330,32 @@ final class CommandWorkspaceDelegate: WorkspaceDelegate {
 
     func didCompileManifest(packageIdentity: PackageIdentity, packageLocation: String, duration: DispatchTimeInterval) {
         self.observabilityScope.emit(debug: "Compiled manifest for '\(packageIdentity)' (from '\(packageLocation)') in \(duration.descriptionInSeconds)")
+        if let writer = self.traceEventsWriter, let start = self.manifestCompileStart.removeValue(forKey: packageIdentity) {
+            let endTime = ContinuousClock.now
+            writer.addCompleteEvent(
+                name: "Compile \(packageIdentity)",
+                category: .manifest,
+                startTime: start,
+                duration: endTime - start,
+                processID: 0,
+                threadID: .manifestCompile
+            )
+        }
     }
 
     func didEvaluateManifest(packageIdentity: PackageIdentity, packageLocation: String, duration: DispatchTimeInterval) {
         self.observabilityScope.emit(debug: "Evaluated manifest for '\(packageIdentity)' (from '\(packageLocation)') in \(duration.descriptionInSeconds)")
+        if let writer = self.traceEventsWriter, let start = self.manifestEvaluateStart.removeValue(forKey: packageIdentity) {
+            let endTime = ContinuousClock.now
+            writer.addCompleteEvent(
+                name: "Evaluate \(packageIdentity)",
+                category: .manifest,
+                startTime: start,
+                duration: endTime - start,
+                processID: 0,
+                threadID: .manifestEvaluate
+            )
+        }
     }
 
     func didLoadManifest(packageIdentity: PackageIdentity, packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind, manifest: Manifest?, diagnostics: [Basics.Diagnostic], duration: DispatchTimeInterval) {
@@ -296,8 +367,16 @@ final class CommandWorkspaceDelegate: WorkspaceDelegate {
     func didCreateWorkingCopy(package: PackageIdentity, repository url: String, at path: AbsolutePath, duration: DispatchTimeInterval) {}
     func resolvedFileChanged() {}
     func didDownloadAllBinaryArtifacts() {}
-    func willCompileManifest(packageIdentity: PackageIdentity, packageLocation: String) {}
-    func willEvaluateManifest(packageIdentity: PackageIdentity, packageLocation: String) {}
+    func willCompileManifest(packageIdentity: PackageIdentity, packageLocation: String) {
+        if self.traceEventsWriter != nil {
+            self.manifestCompileStart[packageIdentity] = .now
+        }
+    }
+    func willEvaluateManifest(packageIdentity: PackageIdentity, packageLocation: String) {
+        if self.traceEventsWriter != nil {
+            self.manifestEvaluateStart[packageIdentity] = .now
+        }
+    }
     func willLoadManifest(packageIdentity: PackageIdentity, packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind) {}
 }
 
@@ -308,7 +387,8 @@ public extension _SwiftCommand {
                 observabilityScope: $0,
                 outputHandler: $1,
                 progressHandler: $2,
-                inputHandler: $3
+                inputHandler: $3,
+                traceEventsWriter: $4
             )
         }
     }

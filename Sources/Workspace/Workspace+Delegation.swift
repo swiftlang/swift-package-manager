@@ -262,7 +262,7 @@ struct WorkspaceManifestLoaderDelegate: ManifestLoader.Delegate, @unchecked Send
     }
 
     func willEvaluate(packageIdentity: PackageIdentity, packageLocation: String, manifestPath: AbsolutePath) {
-        self.workspaceDelegate?.willCompileManifest(packageIdentity: packageIdentity, packageLocation: packageLocation)
+        self.workspaceDelegate?.willEvaluateManifest(packageIdentity: packageIdentity, packageLocation: packageLocation)
     }
 
     func didEvaluate(

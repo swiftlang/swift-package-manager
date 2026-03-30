@@ -198,6 +198,9 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     /// Alternative path to search for pkg-config `.pc` files.
     private let pkgConfigDirectories: [AbsolutePath]
 
+    /// Trace events writer for build phase tracing.
+    private let traceEventsWriter: TraceEventsWriter?
+
     public var hasIntegratedAPIDigesterSupport: Bool { false }
 
     public convenience init(
@@ -246,7 +249,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         logLevel: Basics.Diagnostic.Severity,
         fileSystem: Basics.FileSystem,
         observabilityScope: ObservabilityScope,
-        delegate: SPMBuildCore.BuildSystemDelegate?
+        delegate: SPMBuildCore.BuildSystemDelegate?,
+        traceEventsWriter: TraceEventsWriter? = nil
     ) {
         /// Checks if stdout stream is tty.
         var productsBuildParameters = productsBuildParameters
@@ -274,6 +278,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         self.pluginConfiguration = pluginConfiguration
         self.pkgConfigDirectories = pkgConfigDirectories
         self.delegate = delegate
+        self.traceEventsWriter = traceEventsWriter
     }
 
     public func getPackageGraph() async throws -> ModulesGraph {
@@ -397,6 +402,11 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
     /// Perform a build using the given build description and subset.
     public func build(subset: BuildSubset, buildOutputs: [BuildOutput]) async throws -> BuildResult {
+        // Ensure the trace events writer is closed when the build completes, whether
+        // it succeeds, fails, or is skipped. The double-close guard in
+        // TraceEventsWriter.close() makes this safe even if close() is called elsewhere.
+        defer { self.traceEventsWriter?.close() }
+
         var result = BuildResult(
             serializedDiagnosticPathsByTargetName: .failure(StringError("Building was skipped")),
             replArguments: nil,
@@ -753,7 +763,9 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
     /// Create the build plan and return the build description.
     private func generateDescription(subset: BuildSubset? = nil) async throws -> (description: BuildDescription, manifest: LLBuildManifest) {
+        let planStart = ContinuousClock.now
         let plan = try await generatePlan()
+        let planDuration = ContinuousClock.now - planStart
         self._buildPlan = plan
 
         // Emit warnings about any unhandled files in authored packages. We do this after applying build tool plugins, once we know what files they handled.
@@ -777,11 +789,32 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             }
         }
 
+        let manifestStart = ContinuousClock.now
         let (buildDescription, buildManifest) = try BuildDescription.create(
             from: plan,
             using: self.config,
             disableSandboxForPluginCommands: self.pluginConfiguration?.disableSandbox ?? false
         )
+        let manifestDuration = ContinuousClock.now - manifestStart
+
+        if let writer = self.traceEventsWriter {
+            writer.addCompleteEvent(
+                name: "Generate Build Plan",
+                category: .planning,
+                startTime: planStart,
+                duration: planDuration,
+                processID: 0,
+                threadID: .buildPlanning
+            )
+            writer.addCompleteEvent(
+                name: "Create Build Manifest",
+                category: .planning,
+                startTime: manifestStart,
+                duration: manifestDuration,
+                processID: 0,
+                threadID: .buildPlanning
+            )
+        }
 
         // Finally create the llbuild manifest from the plan.
         return (buildDescription, buildManifest)

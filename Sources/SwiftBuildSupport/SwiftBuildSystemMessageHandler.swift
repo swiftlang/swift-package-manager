@@ -52,13 +52,13 @@ public final class SwiftBuildSystemMessageHandler {
     /// Tracks the tasks by their signature for which we have already emitted output.
     private var tasksEmitted: EmittedTasks = .init()
 
-    public init(
+    package init(
         observabilityScope: ObservabilityScope,
         outputStream: OutputByteStream,
         logLevel: Basics.Diagnostic.Severity,
         enableBacktraces: Bool = false,
         buildDelegate: SPMBuildCore.BuildSystemDelegate? = nil,
-        traceEventsFilePath: Basics.AbsolutePath? = nil
+        traceEventsWriter: TraceEventsWriter? = nil
     )
     {
         self.observabilityScope = observabilityScope
@@ -71,16 +71,7 @@ public final class SwiftBuildSystemMessageHandler {
         )
         self.enableBacktraces = enableBacktraces
         self.buildDelegate = buildDelegate
-        if let traceEventsFilePath {
-            do {
-                self.traceEventsWriter = try TraceEventsWriter(path: traceEventsFilePath)
-            } catch {
-                observabilityScope.emit(warning: "Failed to open trace events file: \(error)")
-                self.traceEventsWriter = nil
-            }
-        } else {
-            self.traceEventsWriter = nil
-        }
+        self.traceEventsWriter = traceEventsWriter
     }
 
     private func emitInfoAsDiagnostic(info: SwiftBuildMessage.DiagnosticInfo) {

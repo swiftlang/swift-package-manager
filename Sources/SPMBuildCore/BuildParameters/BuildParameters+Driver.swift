@@ -34,7 +34,9 @@ extension BuildParameters {
             emitOptimizationRecord: Bool = false,
             silOutputDirectory: AbsolutePath? = nil,
             irOutputDirectory: AbsolutePath? = nil,
-            optimizationRecordDirectory: AbsolutePath? = nil
+            optimizationRecordDirectory: AbsolutePath? = nil,
+            enableTimeTrace: Bool = false,
+            timeTraceGranularity: UInt? = nil
         ) {
             self.canRenameEntrypointFunctionName = canRenameEntrypointFunctionName
             self.enableParseableModuleInterfaces = enableParseableModuleInterfaces
@@ -48,6 +50,8 @@ extension BuildParameters {
             self.silOutputDirectory = silOutputDirectory
             self.irOutputDirectory = irOutputDirectory
             self.optimizationRecordDirectory = optimizationRecordDirectory
+            self.enableTimeTrace = enableTimeTrace
+            self.timeTraceGranularity = timeTraceGranularity
         }
 
         /// Whether to enable the entry-point-function-name feature.
@@ -90,5 +94,11 @@ extension BuildParameters {
 
         /// Output directory for optimization record files.
         public var optimizationRecordDirectory: AbsolutePath?
+
+        /// Whether to enable time profiling via -ftime-trace.
+        public var enableTimeTrace: Bool
+
+        /// Minimum time granularity (in microseconds) for time trace events.
+        public var timeTraceGranularity: UInt?
     }
 }

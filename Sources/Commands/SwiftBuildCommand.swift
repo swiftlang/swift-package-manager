@@ -192,6 +192,15 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
             productsBuildParameters.driverParameters = driverParameters
         }
 
+        if swiftCommandState.options.build.enableTimeTrace {
+            var driverParameters = productsBuildParameters.driverParameters
+            driverParameters.enableTimeTrace = true
+            if let granularity = swiftCommandState.options.build.timeTraceGranularity {
+                driverParameters.timeTraceGranularity = granularity
+            }
+            productsBuildParameters.driverParameters = driverParameters
+        }
+
         do {
             try await build(
                 swiftCommandState,

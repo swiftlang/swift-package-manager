@@ -378,6 +378,13 @@ public final class ClangModuleBuildDescription {
             args += ["-flto=thin"]
         }
 
+        if self.buildParameters.driverParameters.enableTimeTrace {
+            args += ["-ftime-trace"]
+            if let granularity = self.buildParameters.driverParameters.timeTraceGranularity {
+                args += ["-ftime-trace-granularity=\(granularity)"]
+            }
+        }
+
         // rdar://117578677
         // Pass -fno-omit-frame-pointer to support backtraces
         // this can be removed once the backtracer uses DWARF instead of frame pointers

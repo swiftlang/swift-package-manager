@@ -568,7 +568,8 @@ extension SwiftCommandState {
                     observabilityScope: $0,
                     outputHandler: $1,
                     progressHandler: $2,
-                    inputHandler: $3
+                    inputHandler: $3,
+                    traceEventsWriter: $4
                 )
             },
             workspaceLoaderProvider: {

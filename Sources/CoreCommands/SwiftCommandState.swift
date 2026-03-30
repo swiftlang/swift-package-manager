@@ -85,7 +85,8 @@ public typealias WorkspaceDelegateProvider = (
     _ observabilityScope: ObservabilityScope,
     _ outputHandler: @escaping (String, OutputCondition) -> Void,
     _ progressHandler: @escaping (Int64, Int64, String?) -> Void,
-    _ inputHandler: @escaping (String, (String?) -> Void) -> Void
+    _ inputHandler: @escaping (String, (String?) -> Void) -> Void,
+    _ traceEventsWriter: TraceEventsWriter?
 ) -> WorkspaceDelegate
 
 public typealias WorkspaceLoaderProvider = (_ fileSystem: FileSystem, _ observabilityScope: ObservabilityScope)
@@ -287,6 +288,9 @@ public final class SwiftCommandState {
 
     private let toolWorkspaceConfiguration: ToolWorkspaceConfiguration
 
+    /// The trace events writer for build phase tracing, if enabled.
+    package private(set) var traceEventsWriter: TraceEventsWriter?
+
     fileprivate var buildSystemProvider: BuildSystemProvider?
 
     private let environment: Environment
@@ -476,14 +480,6 @@ public final class SwiftCommandState {
                 )
             }
         }
-
-        if options.build.traceEventsFilePath != nil {
-            if options.build.buildSystem != .swiftbuild {
-                observabilityScope.emit(
-                    warning: "'--experimental-trace-events-file' is only supported when using '--build-system swiftbuild'"
-                )
-            }
-        }
     }
 
     func waitForObservabilityEvents(timeout: DispatchTime) {
@@ -509,11 +505,22 @@ public final class SwiftCommandState {
                 .emit(warning: "'--skip-update' option is deprecated and will be removed in a future release")
         }
 
+        // Create trace events writer if configured
+        if self.traceEventsWriter == nil, let traceEventsFilePath = self.options.build.traceEventsFilePath {
+            do {
+                let path = try AbsolutePath(validating: traceEventsFilePath, relativeTo: self.fileSystem.currentWorkingDirectory ?? self.originalWorkingDirectory)
+                self.traceEventsWriter = try TraceEventsWriter(path: path)
+            } catch {
+                self.observabilityScope.emit(warning: "Failed to open trace events file: \(error)")
+            }
+        }
+
         let delegate = self.workspaceDelegateProvider(
             self.observabilityScope,
             self.observabilityHandler.print,
             self.observabilityHandler.progress,
-            self.observabilityHandler.prompt
+            self.observabilityHandler.prompt,
+            self.traceEventsWriter
         )
         let workspace = try Workspace(
             fileSystem: self.fileSystem,
