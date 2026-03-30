@@ -142,6 +142,7 @@ public struct BuildDescription: Codable {
         self.builtTestProducts = try plan.buildProducts.filter { $0.product.type == .test }.map { desc in
             try BuiltTestProduct(
                 productName: desc.product.name,
+                umbrellaProductName: nil,
                 binaryPath: desc.binaryPath,
                 packagePath: desc.package.path,
                 testEntryPointPath: desc.product.underlying.testEntryPointPath

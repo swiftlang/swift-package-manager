@@ -26,13 +26,15 @@ jobs:
           - buildSystem: "native"
             linuxSwiftVersion: '["nightly-main"]'
     name: Build (${{ matrix.buildSystem }}) (exectable target built using ${{ matrix.executableTargetBuildSystem }})
-    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@0.0.4
+    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@0.0.8
     with:
+      enable_cross_pr_testing: true
       linux_os_versions: '["amazonlinux2", "bookworm", "noble", "jammy", "rhel-ubi9"]'
       linux_swift_versions: ${{ matrix.linuxSwiftVersion }}
       linux_pre_build_command: ./.github/scripts/prebuild.sh
       linux_build_command: 'swift run --build-system ${{ matrix.executableTargetBuildSystem }} swift-build --build-tests --build-system ${{ matrix.buildSystem}}'
       # linux_build_command: 'swift run --build-system ${{ matrix.executableTargetBuildSystem }} swift-build --build-tests --build-system ${{ matrix.buildSystem}} && swift run --build-system ${{ matrix.executableTargetBuildSystem }} swift-test --parallel --build-system ${{ matrix.buildSystem}}'
+      windows_build_timeout: 180
       windows_swift_versions: '["nightly-main"]'
       windows_pre_build_command: 'Invoke-Program .\.github\scripts\prebuild.ps1'
       windows_build_command: 'Invoke-Program swift run -Xlinker /ignore:4217 --configuration release --build-system ${{ matrix.executableTargetBuildSystem }} swift-build --build-tests -Xlinker /ignore:4217 --build-system ${{ matrix.buildSystem}}'
@@ -54,13 +56,14 @@ jobs:
         buildSystem: ["swiftbuild"]
     name: Build (${{ matrix.buildSystem }}) (exectable target built using ${{ matrix.executableTargetBuildSystem }})
     needs: [soundness]
-    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@0.0.4
+    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@0.0.8
     with:
       linux_os_versions: '["amazonlinux2", "bookworm", "noble", "jammy", "rhel-ubi9"]'
       linux_swift_versions: '["nightly-main"]'
       linux_pre_build_command: ./.github/scripts/prebuild.sh
       linux_build_command: 'swift run --build-system ${{ matrix.executableTargetBuildSystem }} swift-build --build-tests --build-system ${{ matrix.buildSystem }}'
       enable_windows_checks: false
+      windows_build_timeout: 180
       windows_swift_versions: '["nightly-main"]'
       windows_pre_build_command: 'Invoke-Program .\.github\scripts\prebuild.ps1'
       windows_build_command: 'Invoke-Program swift run --build-system ${{ matrix.executableTargetBuildSystem }} swift-build --build-tests --build-system ${{ matrix.buildSystem }}'
@@ -72,7 +75,7 @@ jobs:
 
   soundness:
     name: Soundness
-    uses: swiftlang/github-workflows/.github/workflows/soundness.yml@0.0.2
+    uses: swiftlang/github-workflows/.github/workflows/soundness.yml@0.0.8
     with:
       license_header_check_project_name: "Swift"
       license_header_check_enabled: true

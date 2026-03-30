@@ -34,6 +34,7 @@ import enum TSCUtility.Git
 /// Helper for shelling out to `git`
 private struct GitShellHelper {
     private let cancellator: Cancellator
+    private let cachedIsGitLFSInstalled = ThreadSafeBox<Bool?>()
 
     init(cancellator: Cancellator) {
         self.cancellator = cancellator
@@ -64,6 +65,8 @@ private struct GitShellHelper {
                 throw GitShellError(result: result)
             }
             return try result.utf8Output().spm_chomp()
+        } catch let error as CancellationError {
+            throw error
         } catch let error as GitShellError {
             throw error
         } catch {
@@ -76,6 +79,83 @@ private struct GitShellHelper {
                 stderrOutput: .failure(error)
             )
             throw GitShellError(result: result)
+        }
+    }
+
+    // MARK: - LFS Support
+
+    private func shouldSkipLFSOperations() -> Bool {
+        guard let value = Git.environmentBlock["GIT_LFS_SKIP_SMUDGE"]?.lowercased() else {
+            return false
+        }
+
+        switch value {
+        case "", "0", "false", "no", "off":
+            return false
+        default:
+            return true
+        }
+    }
+
+    /// Checks if git-lfs is installed
+    /// - Returns: true if git-lfs is available
+    func isGitLFSInstalled() throws -> Bool {
+        try self.cachedIsGitLFSInstalled.memoize {
+            do {
+                _ = try self.run(["lfs", "version"])
+                return true
+            } catch let error as CancellationError {
+                throw error
+            } catch is GitShellError {
+                return false
+            }
+        }
+    }
+
+    /// Fetches LFS objects for a bare repository.
+    ///
+    /// - Parameter path: Path to the bare repository
+    /// - Throws: GitLFSError if git-lfs is not installed or fetch fails
+    ///
+    /// - Important: This intentionally does NOT use the `--all` flag. Using `--all` fetches
+    ///   LFS objects for all refs/commits in history, which fails with 404 errors when
+    ///   historical LFS objects have been deleted or pruned from the server (a common
+    ///   practice for large repositories to save storage). By omitting `--all`, we only
+    ///   fetch objects needed for the default ref, which is sufficient for checkout.
+    @discardableResult
+    func fetchLFS(at path: AbsolutePath) throws -> String {
+        guard !self.shouldSkipLFSOperations() else {
+            return ""
+        }
+        guard try self.isGitLFSInstalled() else {
+            throw GitLFSError.notInstalled
+        }
+        do {
+            // DO NOT add --all here. See documentation above for why.
+            return try self.run(["-C", path.pathString, "lfs", "fetch"])
+        } catch let error as CancellationError {
+            throw error
+        } catch {
+            throw GitLFSError.fetchFailed(underlyingError: error)
+        }
+    }
+
+    /// Pulls LFS files in a working copy
+    /// - Parameter path: Path to the working copy
+    /// - Throws: GitLFSError if git-lfs is not installed or pull fails
+    func pullLFS(at path: AbsolutePath) throws {
+        guard !self.shouldSkipLFSOperations() else {
+            return
+        }
+        guard try self.isGitLFSInstalled() else {
+            throw GitLFSError.notInstalled
+        }
+        do {
+            _ = try self.run(["-C", path.pathString, "lfs", "pull"])
+        } catch let error as CancellationError {
+            throw error
+        } catch {
+            throw GitLFSError.pullFailed(underlyingError: error)
         }
     }
 }
@@ -201,6 +281,10 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
             ["--mirror"],
             progress: progressHandler
         )
+
+        // Auto-detect and fetch LFS objects if repository uses LFS
+        let repo = GitRepository(git: self.git, path: path, isWorkingRepo: false)
+        try repo.fetchLFSIfNecessary()
     }
 
     public func isValidDirectory(_ directory: Basics.AbsolutePath) throws -> Bool {
@@ -414,6 +498,7 @@ public final class GitRepository: Repository, WorkingCheckout {
     private var cachedBranches = ThreadSafeBox<[String]?>()
     private var cachedIsBareRepo = ThreadSafeBox<Bool?>()
     private var cachedHasSubmodules = ThreadSafeBox<Bool?>()
+    private var cachedHasLFS = ThreadSafeBox<Bool?>()
 
     public convenience init(path: AbsolutePath, isWorkingRepo: Bool = true, cancellator: Cancellator? = .none) {
         // used in one-off operations on git repo, as such the terminator is not ver important
@@ -531,6 +616,43 @@ public final class GitRepository: Repository, WorkingCheckout {
         }
     }
 
+    // MARK: Helpers for SBOM functionality
+    public func getCurrentBranch() throws -> String? {
+        try self.lock.withLock {
+            let branch = try callGit(
+                "rev-parse",
+                "--abbrev-ref",
+                "HEAD",
+                failureMessage: "Couldn't get the current branch"
+            )
+            // Return nil if in detached HEAD state
+            return branch == "HEAD" ? nil : branch
+        }
+    }
+
+    public func getRemote(for branch: String) throws -> (name: String, url: String)? {
+        try self.lock.withLock {
+            guard let remoteName = try? callGit(
+                "config",
+                "--get",
+                "branch.\(branch).remote",
+                failureMessage: "Couldn't get remote for branch '\(branch)'"
+            ) else {
+                return nil
+            }
+            
+            let url = try callGit(
+                "config",
+                "--get",
+                "remote.\(remoteName).url",
+                failureMessage: "Couldn't get URL for remote '\(remoteName)'"
+            )
+            
+            return (name: remoteName, url: url)
+        }
+    }
+
+
     // MARK: Repository Interface
 
     /// Returns the tags present in repository.
@@ -572,6 +694,8 @@ public final class GitRepository: Repository, WorkingCheckout {
                 progress: progress
             )
             self.cachedTags.clear()
+            self.cachedHasLFS.clear()  // Clear LFS cache on fetch
+            try self.fetchLFSIfNecessaryWithoutLock()
         }
     }
 
@@ -642,7 +766,9 @@ public final class GitRepository: Repository, WorkingCheckout {
                 tag,
                 failureMessage: "Couldn’t check out tag ‘\(tag)’"
             )
+            self.cachedHasLFS.clear()
             try self.updateSubmoduleAndCleanIfNecessary()
+            try self.pullLFSIfNecessary()
         }
     }
 
@@ -657,7 +783,9 @@ public final class GitRepository: Repository, WorkingCheckout {
                 revision.identifier,
                 failureMessage: "Couldn’t check out revision ‘\(revision.identifier)’"
             )
+            self.cachedHasLFS.clear()
             try self.updateSubmoduleAndCleanIfNecessary()
+            try self.pullLFSIfNecessary()
         }
     }
 
@@ -677,10 +805,77 @@ public final class GitRepository: Repository, WorkingCheckout {
         return try !self.isBare()
     }
 
+    /// Checks if the repository uses Git LFS by examining .gitattributes
+    /// - Returns: true if the repository has LFS-tracked files
+    func hasLFSTrackedFiles() throws -> Bool {
+        try self.cachedHasLFS.memoize {
+            do {
+                let output = try callGit(
+                    "cat-file", "-p", "HEAD:.gitattributes",
+                    failureMessage: "Failed to read .gitattributes"
+                )
+                return output.components(separatedBy: "\n").contains { line in
+                    let trimmed = line.trimmingCharacters(in: .whitespaces)
+                    guard !trimmed.isEmpty, !trimmed.hasPrefix("#") else {
+                        return false
+                    }
+                    return trimmed.split(whereSeparator: \.isWhitespace).contains { $0 == "filter=lfs" }
+                }
+            } catch let error as CancellationError {
+                throw error
+            } catch is GitRepositoryError {
+                return false
+            }
+        }
+    }
+
+    /// Clears the cached LFS detection result
+    func clearLFSCache() {
+        cachedHasLFS.clear()
+    }
+
+    fileprivate func fetchLFSIfNecessary() throws {
+        try self.lock.withLock {
+            try self.fetchLFSIfNecessaryWithoutLock()
+        }
+    }
+
+    private func fetchLFSIfNecessaryWithoutLock() throws {
+        guard !self.isWorkingRepo else { return }
+        guard try self.hasLFSTrackedFiles() else { return }
+        _ = try self.git.fetchLFS(at: self.path)
+    }
+
     private func updateSubmoduleAndCleanIfNecessary() throws {
-        if self.cachedHasSubmodules.get(default: false) || localFileSystem.exists(self.path.appending(".gitmodules")) {
-            self.cachedHasSubmodules.put(true)
+        if self.cachedHasSubmodules.memoizeOptional(body: {
+            localFileSystem.exists(self.path.appending(".gitmodules")) ? true : nil
+        }) ?? false {
             try self.updateSubmoduleAndCleanNotOnQueue()
+        }
+    }
+
+    /// Pulls LFS files if the repository uses LFS (auto-detected)
+    private func pullLFSIfNecessary() throws {
+        guard self.isWorkingRepo else { return }
+
+        if try self.hasLFSTrackedFiles() {
+            do {
+                try self.git.pullLFS(at: self.path)
+            } catch let error as GitLFSError {
+                guard case .pullFailed = error,
+                      let alternateRepositoryPath = self.alternateObjectStoreRepositoryPath()
+                else {
+                    throw error
+                }
+
+                let alternateRepository = GitRepository(git: self.git, path: alternateRepositoryPath, isWorkingRepo: false)
+                try alternateRepository.fetchLFSIfNecessary()
+                try self.git.pullLFS(at: self.path)
+            } catch let error as CancellationError {
+                throw error
+            } catch {
+                throw GitLFSError.pullFailed(underlyingError: error)
+            }
         }
     }
 
@@ -743,19 +938,22 @@ public final class GitRepository: Repository, WorkingCheckout {
 
     /// Returns true if there is an alternative object store in the repository and it is valid.
     public func isAlternateObjectStoreValid(expected: AbsolutePath) -> Bool {
+        self.alternateObjectStoreRepositoryPath() == expected
+    }
+
+    private func alternateObjectStoreRepositoryPath() -> AbsolutePath? {
         let objectStoreFile = self.path.appending(components: ".git", "objects", "info", "alternates")
         guard let bytes = try? localFileSystem.readFileContents(objectStoreFile) else {
-            return false
+            return nil
         }
         let split = bytes.contents.split(separator: UInt8(ascii: "\n"), maxSplits: 1, omittingEmptySubsequences: false)
         guard let firstLine = ByteString(split[0]).validDescription else {
-            return false
+            return nil
         }
         guard let objectsPath = try? AbsolutePath(validating: firstLine), localFileSystem.isDirectory(objectsPath) else {
-            return false
+            return nil
         }
-        let repositoryPath = objectsPath.parentDirectory
-        return expected == repositoryPath
+        return objectsPath.parentDirectory
     }
 
     /// Returns true if the file at `path` is ignored by `git`
@@ -1179,6 +1377,34 @@ private enum GitInterfaceError: Swift.Error {
 
     /// This indicates that a fatal error was encountered
     case fatalError
+}
+
+/// Errors related to Git LFS operations
+package enum GitLFSError: Error, CustomStringConvertible {
+    case notInstalled
+    case fetchFailed(underlyingError: Error)
+    case pullFailed(underlyingError: Error)
+
+    public var description: String {
+        switch self {
+        case .notInstalled:
+            return """
+                Git LFS is not installed.
+                Install Git LFS to use packages with large files:
+                  macOS:   brew install git-lfs && git lfs install
+                  Ubuntu:  apt-get install git-lfs && git lfs install
+                  Windows: https://git-lfs.github.com
+
+                If using Xcode and git-lfs is already installed, you may need to make it
+                accessible to Xcode's toolchain:
+                  ln -s /usr/local/bin/git-lfs $(xcode-select -p)/usr/bin/git-lfs
+                """
+        case .fetchFailed(let error):
+            return "Git LFS fetch failed: \(error)"
+        case .pullFailed(let error):
+            return "Git LFS pull failed: \(error)"
+        }
+    }
 }
 
 public struct GitRepositoryError: Error, CustomStringConvertible, DiagnosticLocationProviding {

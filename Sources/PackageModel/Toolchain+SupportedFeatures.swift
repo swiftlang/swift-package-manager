@@ -18,7 +18,7 @@ import TSCUtility
 
 public enum SwiftCompilerFeature {
     case optional(name: String, migratable: Bool, categories: [String], flagName: String)
-    case upcoming(name: String, migratable: Bool, categories: [String], enabledIn: SwiftLanguageVersion)
+    case upcoming(name: String, migratable: Bool, categories: [String], enabledIn: SwiftLanguageVersion?)
     case experimental(name: String, migratable: Bool, categories: [String])
 
     public var optional: Bool {
@@ -122,14 +122,26 @@ extension Toolchain {
                 let name: String = try $0.get("name")
                 let categories: [String]? = try $0.getArrayIfAvailable("categories")
                 let migratable: Bool? = $0.get("migratable")
-                let enabledIn = if let version = try? $0.get(String.self, forKey: "enabled_in") {
-                    version
-                } else {
-                    try String($0.get(Int.self, forKey: "enabled_in"))
-                }
 
-                guard let mode = SwiftLanguageVersion(string: enabledIn) else {
-                    throw InternalError("Unknown swift language mode: \(enabledIn)")
+                let mode: SwiftLanguageVersion?
+                decodeMode: do {
+                    // Try to decode a string or integer, but do not expect a
+                    // language mode to always be present.
+                    let versionString: String
+                    switch try? $0.getJSON("enabled_in") {
+                    case let .int(int):
+                        versionString = String(int)
+                    case let .string(string):
+                        versionString = string
+                    default:
+                        mode = nil
+                        break decodeMode
+                    }
+
+                    mode = SwiftLanguageVersion(string: versionString)
+                    if mode == nil {
+                        throw InternalError("Unknown swift language mode: \(versionString)")
+                    }
                 }
 
                 return .upcoming(

@@ -34,8 +34,7 @@ struct LLVMObjdumpSymbolProviderTests {
             DYNAMIC SYMBOL TABLE:
             """
         )
-
-        #expect(output.defined.isEmpty)
+        #expect(output.defined == ReferencedSymbols().defined)
         #expect(output.undefined.isEmpty)
     }
 
@@ -51,7 +50,7 @@ struct LLVMObjdumpSymbolProviderTests {
     func detectsUndefinedSymbol() throws {
         let output = try getSymbols("0000000000000000         *UND*  0000000000000000 calloc")
 
-        #expect(output.defined.isEmpty)
+        #expect(output.defined == ReferencedSymbols().defined)
         #expect(output.undefined.contains("calloc"))
     }
 

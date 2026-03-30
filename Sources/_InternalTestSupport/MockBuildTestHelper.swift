@@ -41,6 +41,7 @@ public struct MockToolchain: PackageModel.Toolchain {
     public let swiftPMLibrariesLocation = ToolchainConfiguration.SwiftPMLibrariesLocation(
         manifestLibraryPath: AbsolutePath("/fake/manifestLib/path"), pluginLibraryPath: AbsolutePath("/fake/pluginLibrary/path")
     )
+    public var swiftSDK: PackageModel.SwiftSDK
 
     public func getClangCompiler() throws -> AbsolutePath {
         "/fake/path/to/clang"
@@ -54,10 +55,11 @@ public struct MockToolchain: PackageModel.Toolchain {
         #endif
     }
 
-    public init(swiftResourcesPath: AbsolutePath? = nil) {
+    public init(swiftResourcesPath: AbsolutePath? = nil) throws {
         self.swiftResourcesPath = swiftResourcesPath
         self.metalToolchainPath = nil
         self.metalToolchainId = nil
+        self.swiftSDK = try .hostSwiftSDK()
     }
 }
 
@@ -71,6 +73,7 @@ extension Basics.Triple {
     public static let arm64Windows = try! Self("aarch64-unknown-windows-msvc")
     public static let wasi = try! Self("wasm32-unknown-wasi")
     public static let arm64iOS = try! Self("arm64-apple-ios")
+    public static let arm64MacOS = try! Self("arm64-apple-macosx")
 }
 
 public let hostTriple = try! UserToolchain.default.targetTriple
@@ -84,9 +87,9 @@ public func mockBuildParameters(
     destination: BuildParameters.Destination,
     buildPath: AbsolutePath? = nil,
     config: BuildConfiguration = .debug,
-    toolchain: PackageModel.Toolchain = MockToolchain(),
+    toolchain: PackageModel.Toolchain = try! MockToolchain(),
     flags: PackageModel.BuildFlags = PackageModel.BuildFlags(),
-    buildSystemKind: BuildSystemProvider.Kind = .native,
+    buildSystemKind: BuildSystemProvider.Kind,
     shouldLinkStaticSwiftStdlib: Bool = false,
     shouldDisableLocalRpath: Bool = false,
     canRenameEntrypointFunctionName: Bool = false,
@@ -94,6 +97,8 @@ public func mockBuildParameters(
     indexStoreMode: BuildParameters.IndexStoreMode = .auto,
     linkerDeadStrip: Bool = true,
     linkTimeOptimizationMode: BuildParameters.LinkTimeOptimizationMode? = nil,
+    debugInfoFormat: BuildParameters.DebugInfoFormat = .dwarf,
+    shouldEnableDebuggingEntitlement: Bool? = nil,
     omitFramePointers: Bool? = nil,
     enableXCFrameworksOnLinux: Bool = false,
     prepareForIndexing: BuildParameters.PrepareForIndexingMode = .off,
@@ -115,8 +120,9 @@ public func mockBuildParameters(
         prepareForIndexing: prepareForIndexing,
         enableXCFrameworksOnLinux: enableXCFrameworksOnLinux,
         debuggingParameters: .init(
+            debugInfoFormat: debugInfoFormat,
             triple: triple,
-            shouldEnableDebuggingEntitlement: config == .debug,
+            shouldEnableDebuggingEntitlement: shouldEnableDebuggingEntitlement ?? (config == .debug),
             omitFramePointers: omitFramePointers
         ),
         driverParameters: .init(
@@ -133,7 +139,8 @@ public func mockBuildParameters(
 
 public func mockBuildParameters(
     destination: BuildParameters.Destination,
-    environment: BuildEnvironment
+    environment: BuildEnvironment,
+    buildSystem: BuildSystemProvider.Kind,
 ) -> BuildParameters {
     let triple: Basics.Triple
     switch environment.platform {
@@ -152,6 +159,7 @@ public func mockBuildParameters(
     return mockBuildParameters(
         destination: destination,
         config: environment.configuration ?? .debug,
-        triple: triple
+        buildSystemKind: buildSystem,
+        triple: triple,
     )
 }

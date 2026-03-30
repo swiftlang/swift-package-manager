@@ -30,13 +30,11 @@ struct PluginsBuildPlanTests {
             .Feature.Plugin,
             .Feature.SourceGeneration,
         ),
-        .IssueWindowsPathTestsFailures,  // Fails to build the project to due to incorrect Path handling
         arguments: BuildConfiguration.allCases,
     )
     func buildToolsDatabasePath(
         config: BuildConfiguration,
     ) async throws {
-        try await withKnownIssue(isIntermittent: true) {
         try await fixture(name: "Miscellaneous/Plugins/MySourceGenPlugin") { fixturePath in
             let (stdout, _) = try await executeSwiftBuild(
                 fixturePath,
@@ -48,9 +46,6 @@ struct PluginsBuildPlanTests {
             #expect(localFileSystem.exists(fixturePath.appending(RelativePath(".build/plugin-tools.db"))))
             #expect(localFileSystem.exists(fixturePath.appending(RelativePath(".build/build.db"))))
         }
-        } when: {
-            ProcessInfo.hostOperatingSystem == .windows
-        }
     }
 
     @Test(
@@ -59,22 +54,23 @@ struct PluginsBuildPlanTests {
             .Feature.Command.Package.CommandPlugin,
         ),
         .requireHostOS(.macOS),
-        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func commandPluginDependenciesWhenNotCrossCompiling(
-        buildData: BuildData,
+        buildSystem: BuildSystemProvider.Kind,
     ) async throws {
+        let config = BuildConfiguration.debug
         let hostToolchain = try UserToolchain(
             swiftSDK: .hostSwiftSDK(environment: [:]),
             environment: [:]
         )
         let hostTriple = try! hostToolchain.targetTriple.withoutVersion().tripleString
 
-        let hostBinPathSegments = try buildData.buildSystem.binPath(
-            for: buildData.config,
+        let hostBinPathSegments = try buildSystem.binPath(
+            for: config,
             triple: hostTriple,
         )
-        let hostDebugBinPathSegments = try buildData.buildSystem.binPath(
+        let hostDebugBinPathSegments = try buildSystem.binPath(
             for: .debug,
             triple: hostTriple,
         )
@@ -84,16 +80,16 @@ struct PluginsBuildPlanTests {
             let hostDebugBinPath: AbsolutePath = fixturePath.appending(components: hostDebugBinPathSegments)
             let (stdout, stderr) = try await executeSwiftPackage(
                 fixturePath,
-                configuration: buildData.config,
+                configuration: config,
                 extraArgs: ["-v", "build-plugin-dependency"],
-                buildSystem: buildData.buildSystem,
+                buildSystem: buildSystem,
             )
             #expect(stdout.contains("Hello from dependencies-stub"))
-            if buildData.buildSystem == .native {
+            if buildSystem == .native {
                 #expect(stderr.contains("Build of product 'plugintool' complete!"))
             }
             let pluginToolName: String
-            switch buildData.buildSystem {
+            switch buildSystem {
                 case .native:
                 pluginToolName = "plugintool-tool"
                 case .swiftbuild:
@@ -113,11 +109,12 @@ struct PluginsBuildPlanTests {
             .Feature.Command.Package.CommandPlugin,
         ),
         .requireHostOS(.macOS),
-        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func commandPluginDependenciesWhenCrossCompiling(
-        buildData: BuildData,
+        buildSystem: BuildSystemProvider.Kind,
     ) async throws {
+        let config = BuildConfiguration.debug
         let hostToolchain = try UserToolchain(
             swiftSDK: .hostSwiftSDK(environment: [:]),
             environment: [:]
@@ -128,10 +125,10 @@ struct PluginsBuildPlanTests {
         let armTriple = "arm64-apple-macosx"
         let targetTriple = hostToolchain.targetTriple.arch == .aarch64 ? x86Triple : armTriple
 
-        let hostBinPathSegments = try buildData.buildSystem.binPath(
-            for: buildData.config,
+        let hostBinPathSegments = try buildSystem.binPath(
+            for: config,
         )
-        let targetDebugBinPathSegments = try buildData.buildSystem.binPath(
+        let targetDebugBinPathSegments = try buildSystem.binPath(
             for: .debug,
             triple: targetTriple,
         )
@@ -141,29 +138,29 @@ struct PluginsBuildPlanTests {
             // let hostBinPath: AbsolutePath = fixturePath.appending(components: hostBinPathSegments)
             let targetDebugBinPath: AbsolutePath = fixturePath.appending(components: targetDebugBinPathSegments)
             let hostBinPath = try fixturePath.appending(
-                components: buildData.buildSystem.binPath(
-                    for: buildData.config,
+                components: buildSystem.binPath(
+                    for: config,
                 )
             )
             let targetBinPath = try fixturePath.appending(
-                components: buildData.buildSystem.binPath(
-                    for: buildData.config,
+                components: buildSystem.binPath(
+                    for: config,
                     triple: targetTriple,
                 )
             )
             let (stdout, stderr) = try await executeSwiftPackage(
                 fixturePath,
-                configuration: buildData.config,
+                configuration: config,
                 extraArgs: ["-v", "--triple", targetTriple, "build-plugin-dependency"],
-                buildSystem: buildData.buildSystem,
+                buildSystem: buildSystem,
             )
             #expect(stdout.contains("Hello from dependencies-stub"))
-            if buildData.buildSystem == .native {
+            if buildSystem == .native {
                 #expect(stderr.contains("Build of product 'plugintool' complete!"))
             }
             let pluginToolName: String
             let pluginToolBinPath: AbsolutePath
-            switch buildData.buildSystem {
+            switch buildSystem {
                 case .native:
                 pluginToolName = "plugintool-tool"
                 pluginToolBinPath = hostBinPath

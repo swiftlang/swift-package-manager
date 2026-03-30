@@ -78,6 +78,11 @@ public struct PackageGraphRoot {
         }
     }
 
+    /// Whether a package is exporting out the root, i.e. a root package or a root dependency
+    public func isExporting(_ identity: PackageIdentity) -> Bool{
+        return packages[identity] != nil || dependencies.contains(where: { $0.identity == identity })
+    }
+
     private let dependencyMapper: DependencyMapper?
     private let observabilityScope: ObservabilityScope
 

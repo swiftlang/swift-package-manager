@@ -124,11 +124,11 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
         let connectionToUnderlyingBuildServer = LocalConnection(receiverName: "underlying-swift-build-server")
         self.connectionToUnderlyingBuildServer = connectionToUnderlyingBuildServer
         let connectionFromUnderlyingBuildServer = LocalConnection(receiverName: "swiftpm-build-server")
-        // TODO: fix derived data path, cleanup configured targets list computation
         let buildrequest = try await self.buildSystem.makeBuildRequest(
+            service: session.service,
             session: session.session,
             configuredTargets: [.init(rawValue: "ALL-INCLUDING-TESTS")],
-            derivedDataPath: self.buildSystem.buildParameters.buildPath,
+            derivedDataPath: self.buildSystem.buildParameters.dataPath,
             symbolGraphOptions: nil
         )
         self.underlyingBuildServer = SWBBuildServer(

@@ -18,6 +18,7 @@ import struct Basics.Diagnostic
 import class Basics.ObservabilitySystem
 import struct Basics.SourceControlURL
 
+import class PackageModel.ClangModule
 import class PackageModel.Manifest
 import struct PackageModel.Platform
 import class PackageModel.Product
@@ -30,6 +31,7 @@ import struct PackageGraph.ResolvedPackage
 
 import struct PackageLoading.FileRuleDescription
 import struct PackageLoading.TargetSourcesBuilder
+import struct PackageLoading.GeneratedFiles
 
 import struct SwiftBuild.Pair
 import enum SwiftBuild.ProjectModel
@@ -61,6 +63,10 @@ struct PackagePIFProjectBuilder {
 
     /// Current set of names of any package products that are explicitly declared dynamic libraries.
     private let dynamicLibraryProductNames: Set<String>
+
+    /// Module names that are direct dependencies of dynamic library products.
+    /// These modules should be compiled without static linking on Windows.
+    var modulesInDynamicLibraries: Set<String> = []
 
     /// FIXME: We should eventually clean this up but right now we have to carry over this
     /// bit of information from processing the *products* to processing the *targets*.
@@ -207,6 +213,7 @@ struct PackagePIFProjectBuilder {
 
         var settings: ProjectModel.BuildSettings = self.package.underlying.packageBaseBuildSettings
         settings[.TARGET_NAME] = bundleName
+        settings[.TARGET_TEMP_DIR_SUFFIX] = "-b"
         settings[.PRODUCT_NAME] = "$(TARGET_NAME)"
         settings[.PRODUCT_MODULE_NAME] = bundleName
         settings[.PRODUCT_BUNDLE_IDENTIFIER] = "\(self.package.identity).\(module.name).resources"
@@ -266,7 +273,7 @@ struct PackagePIFProjectBuilder {
         // If resourceBundleTarget is nil, we add resources to the sourceModuleTarget instead.
         let targetForResourcesKeyPath: WritableKeyPath<ProjectModel.Project, ProjectModel.Target> =
             resourceBundleTargetKeyPath ?? sourceModuleTargetKeyPath
-        
+
         // Generated resources get a default treatment for rule and localization.
         let generatedResources = generatedResourceFiles.compactMap {
             PackagePIFBuilder.Resource(path: $0, rule: .process(localization: nil))
@@ -311,18 +318,26 @@ struct PackagePIFProjectBuilder {
             // Metal source code needs to be added to the source build phase.
             let isMetalFile = SwiftBuild.SwiftBuildFileType.metal.fileTypes.contains(resourcePath.pathExtension)
 
-            if isMetalFile {
+            if isMetalFile, case .process = resource.rule {
                 self.project[keyPath: targetForResourcesKeyPath].addSourceFile { id in
                     BuildFile(id: id, fileRef: ref)
                 }
             } else {
-                // FIXME: Handle additional rules here (e.g. `.copy`).
+                let swiftBuildResourceRule: BuildFile.ResourceRule
+                switch resource.rule {
+                case .process:
+                    swiftBuildResourceRule = .process
+                case .copy:
+                    swiftBuildResourceRule = .copy
+                case .embedInCode:
+                    swiftBuildResourceRule = .embedInCode
+                }
                 self.project[keyPath: targetForResourcesKeyPath].addResourceFile { id in
                     BuildFile(
                         id: id,
                         fileRef: ref,
                         platformFilters: [],
-                        resourceRule: resource.rule == .embedInCode ? .embedInCode : .process
+                        resourceRule: swiftBuildResourceRule
                     )
                 }
             }
@@ -354,7 +369,7 @@ struct PackagePIFProjectBuilder {
         } else {
             resourceBundleTargetName = nil
         }
-        
+
         return PackagePIFBuilder.EmbedResourcesResult(
             bundleName: resourceBundleTargetName,
             shouldGenerateBundleAccessor: shouldGenerateBundleAccessor,
@@ -389,14 +404,12 @@ struct PackagePIFProjectBuilder {
         module: PackageGraph.ResolvedModule,
         targetKeyPath: WritableKeyPath<ProjectModel.Project, ProjectModel.Target>,
         addBuildToolPluginCommands: Bool
-    ) -> (sourceFilePaths: [AbsolutePath], resourceFilePaths: [String]) {
+    ) -> GeneratedFiles {
+        var generatedFiles = GeneratedFiles()
         guard let pluginResults = pifBuilder.buildToolPluginResultsByTargetName[module.name] else {
             // We found no results for the target.
-            return (sourceFilePaths: [], resourceFilePaths: [])
+            return generatedFiles
         }
-
-        var sourceFilePaths: [AbsolutePath] = []
-        var resourceFilePaths: [AbsolutePath] = []
 
         for pluginResult in pluginResults {
             // Process the results of applying any build tool plugins on the target.
@@ -408,19 +421,32 @@ struct PackagePIFProjectBuilder {
             }
 
             // Process all the paths of derived output paths using the same rules as for source.
-            let result = self.process(
-                pluginGeneratedFilePaths: pluginResult.allDerivedOutputPaths,
-                forModule: module,
-                toolsVersion: self.package.manifest.toolsVersion
-            )
+            for command in pluginResult.buildCommands {
+                let files = self.process(
+                    pluginGeneratedFilePaths: command.absoluteOutputPaths,
+                    forModule: module,
+                    toolsVersion: self.package.manifest.toolsVersion
+                )
 
-            sourceFilePaths.append(contentsOf: result.sourceFilePaths)
-            resourceFilePaths.append(contentsOf: result.resourceFilePaths.map(\.path))
+                generatedFiles.add(files)
+                if !files.headers.isEmpty {
+                    // Capture the public include directory if there were header files generated there
+                    // Hardcoding as the default for now
+                    let publicDir = command.pluginOutputDir.appending(ClangModule.defaultPublicHeadersComponent)
+                    if files.headers.contains(where: { $0.isDescendantOfOrEqual(to: publicDir) }) {
+                        generatedFiles.publicHeaderPaths.append(publicDir)
+                    }
+                }
+            }
+
+            let files = self.process(
+                pluginGeneratedFilePaths: pluginResult.prebuildCommandOutputPaths,
+                forModule: module,
+                toolsVersion: self.package.manifest.toolsVersion)
+            generatedFiles.add(files)
         }
-        return (
-            sourceFilePaths: sourceFilePaths,
-            resourceFilePaths: resourceFilePaths.map(\.pathString)
-        )
+
+        return generatedFiles
     }
 
     /// Helper function for adding build tool commands to the right PIF target depending on whether they generate
@@ -501,32 +527,23 @@ struct PackagePIFProjectBuilder {
         pluginGeneratedFilePaths: [AbsolutePath],
         forModule module: PackageGraph.ResolvedModule,
         toolsVersion: PackageModel.ToolsVersion?
-    ) -> (sourceFilePaths: [AbsolutePath], resourceFilePaths: [Resource]) {
+    ) -> GeneratedFiles {
         precondition(module.isSourceModule)
 
         // If we have no tools version, all files are treated as *source* files.
         guard let toolsVersion else {
-            return (sourceFilePaths: pluginGeneratedFilePaths, resourceFilePaths: [])
+            return GeneratedFiles()
         }
 
-        // FIXME: Will be fixed by <rdar://144802163> (SwiftPM PIFBuilder — adopt ObservabilityScope as the logging API).
-        let observabilityScope = ObservabilitySystem.NOOP
-
         // Use the `TargetSourcesBuilder` from libSwiftPM to split the generated files into sources and resources.
-        let (generatedSourcePaths, generatedResourcePaths) = TargetSourcesBuilder.computeContents(
+        return TargetSourcesBuilder.computeContents(
             for: pluginGeneratedFilePaths,
             toolsVersion: toolsVersion,
             additionalFileRules: Self.additionalFileRules,
             defaultLocalization: module.defaultLocalization,
-            targetName: module.name,
-            targetPath: module.path,
-            observabilityScope: observabilityScope
+            module: module.underlying,
+            observabilityScope: pifBuilder.observabilityScope
         )
-
-        // FIXME: We are not handling resource rules here, but the same is true for non-generated resources.
-        // (Today, everything gets essentially treated as `.processResource` even if it may have been declared as
-        // `.copy` in the manifest.)
-        return (generatedSourcePaths, generatedResourcePaths)
     }
 
     private static let additionalFileRules: [FileRuleDescription] =
@@ -566,4 +583,3 @@ struct PackagePIFProjectBuilder {
         !self.dynamicLibraryProductNames.contains(targetName)
     }
 }
-

@@ -20,11 +20,14 @@ struct ContainsAtMainReturnsExpectedValueTestData: CustomStringConvertible {
 
     let fileContent: String
     let expected: Bool
-    let knownIssue: Bool
     let id: String
 }
 
-@Suite
+@Suite(
+    .tags(
+        .TestSize.small,
+    )
+)
 struct MainAttrDetectionTests {
     @Test(
         .tags(
@@ -35,7 +38,6 @@ struct MainAttrDetectionTests {
                 fileContent: """
                 """,
                 expected: false,
-                knownIssue: false,
                 id: "Empty file",
             ),
             ContainsAtMainReturnsExpectedValueTestData(
@@ -48,7 +50,6 @@ struct MainAttrDetectionTests {
                 }
                 """,
                 expected: true,
-                knownIssue: false,
                 id: "Simple @main case",
             ),
             ContainsAtMainReturnsExpectedValueTestData(
@@ -61,7 +62,6 @@ struct MainAttrDetectionTests {
                 }
                 """,
                 expected: true,
-                knownIssue: false,
                 id: "@main with leading whitespace",
             ),
             ContainsAtMainReturnsExpectedValueTestData(
@@ -74,7 +74,6 @@ struct MainAttrDetectionTests {
                 }
                 """,
                 expected: false,
-                knownIssue: false,
                 id: "@main in single-line comment (should be ignored)",
             ),
             ContainsAtMainReturnsExpectedValueTestData(
@@ -87,7 +86,6 @@ struct MainAttrDetectionTests {
                 }
                 """,
                 expected: false,
-                knownIssue: false,
                 id: "@main not at beginning of line (should not match)",
             ),
             ContainsAtMainReturnsExpectedValueTestData(
@@ -105,7 +103,6 @@ struct MainAttrDetectionTests {
                 }
                 """,
                 expected: true,
-                knownIssue: false,
                 id: "@main with imports and other code",
             ),
             ContainsAtMainReturnsExpectedValueTestData(
@@ -125,7 +122,6 @@ struct MainAttrDetectionTests {
                 }
                 """,
                 expected: true,
-                knownIssue: false,
                 id: "Multiple @main occurrences (first one should be detected)",
             ),
             ContainsAtMainReturnsExpectedValueTestData(
@@ -139,7 +135,6 @@ struct MainAttrDetectionTests {
                 }
                 """,
                 expected: true,
-                knownIssue: false,
                 id: "@main in string literal (should still match as it's at line start)",
             ),
             ContainsAtMainReturnsExpectedValueTestData(
@@ -151,7 +146,6 @@ struct MainAttrDetectionTests {
                 }
                 """,
                 expected: false,
-                knownIssue: false,
                 id: "No @main, just regular code",
             ),
             ContainsAtMainReturnsExpectedValueTestData(
@@ -164,7 +158,6 @@ struct MainAttrDetectionTests {
                 }
                 """,
                 expected: true,
-                knownIssue: false,
                 id: "@main with tabs and spaces",
             ),
             ContainsAtMainReturnsExpectedValueTestData(
@@ -179,7 +172,6 @@ struct MainAttrDetectionTests {
                 }
                 """,
                 expected: false,
-                knownIssue: false,
                 id: "@main in multi-line comment (should be ignored)",
             ),
             ContainsAtMainReturnsExpectedValueTestData(
@@ -192,7 +184,6 @@ struct MainAttrDetectionTests {
                 }
                 """,
                 expected: false,
-                knownIssue: false,
                 id: "@main in multi-line comment on same line (should be ignored)",
             ),
             ContainsAtMainReturnsExpectedValueTestData(
@@ -208,7 +199,6 @@ struct MainAttrDetectionTests {
                 }
                 """,
                 expected: true,
-                knownIssue: false,
                 id: "@main after multi-line comment ends",
             ),
             ContainsAtMainReturnsExpectedValueTestData(
@@ -224,7 +214,6 @@ struct MainAttrDetectionTests {
                 }
                 """,
                 expected: true,
-                knownIssue: false,
                 id: "@main with mixed comments",
             ),
             ContainsAtMainReturnsExpectedValueTestData(
@@ -243,9 +232,19 @@ struct MainAttrDetectionTests {
                 }
                 """,
                 expected: true,
-                knownIssue: false,
                 id: "Complex multi-line comment scenario",
             ),
+        ],
+    )
+    func containsAtMainReturnsExpectedValue(
+        data: ContainsAtMainReturnsExpectedValueTestData,
+    ) async throws {
+        try await self._testImplementation_containsAtMainReturnsExpectedValue(data: data)
+    }
+
+    @Test(
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/9685", relationship: .defect),
+        arguments: [
             ContainsAtMainReturnsExpectedValueTestData(
                 fileContent: """
                 /*
@@ -258,17 +257,25 @@ struct MainAttrDetectionTests {
                 }
                 """,
                 expected: true,
-                knownIssue: true,
                 id: "Multi-line comment end on a line containing @main",
             )
+
         ],
     )
-    func containsAtMainReturnsExpectedValue(
+    func containsAtMainReturnsExpectedValueCurrentlyFails(
         data: ContainsAtMainReturnsExpectedValueTestData,
+    ) async throws {
+        await withKnownIssue {
+            try await self._testImplementation_containsAtMainReturnsExpectedValue(data: data)
+        }
+    }
+
+    fileprivate func _testImplementation_containsAtMainReturnsExpectedValue(
+        data: ContainsAtMainReturnsExpectedValueTestData,
+        sourceLocation: SourceLocation = #_sourceLocation,
     ) async throws {
         let fileContent = data.fileContent
         let expected = data.expected
-        let knownIssue = data.knownIssue
 
         let fileUnderTest = AbsolutePath.root.appending("myfile.swift")
         let fs = InMemoryFileSystem()
@@ -277,11 +284,6 @@ struct MainAttrDetectionTests {
 
         let actual = try containsAtMain(fileSystem: fs, path: fileUnderTest)
 
-        withKnownIssue {
-            #expect(actual == expected)
-        } when: {
-            knownIssue
-        }
-
+        #expect(actual == expected, sourceLocation: sourceLocation)
     }
 }

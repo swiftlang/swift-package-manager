@@ -28,10 +28,10 @@ private let linuxMuslTargetTriple = try! Triple("x86_64-unknown-linux-musl")
 private let androidTargetTriple = try! Triple("aarch64-unknown-linux-android28")
 private let wasiTargetTriple = try! Triple("wasm32-unknown-wasi")
 private let extraFlags = BuildFlags(
-    cCompilerFlags: ["-fintegrated-as"],
-    cxxCompilerFlags: ["-fno-exceptions"],
-    swiftCompilerFlags: ["-enable-experimental-cxx-interop", "-use-ld=lld"],
-    linkerFlags: ["-R/usr/lib/swift/linux/"]
+    cCompilerFlags: ["-fintegrated-as"].constructBuildFlags(source: .swiftSDK),
+    cxxCompilerFlags: ["-fno-exceptions"].constructBuildFlags(source: .swiftSDK),
+    swiftCompilerFlags: ["-enable-experimental-cxx-interop", "-use-ld=lld"].constructBuildFlags(source: .swiftSDK),
+    linkerFlags: ["-R/usr/lib/swift/linux/"].constructBuildFlags(source: .swiftSDK)
 )
 
 private let destinationV1 = (
@@ -42,9 +42,9 @@ private let destinationV1 = (
         "sdk": "\#(bundleRootPath.appending(sdkRootDir))",
         "toolchain-bin-dir": "\#(bundleRootPath.appending(toolchainBinDir))",
         "target": "\#(linuxGNUTargetTriple.tripleString)",
-        "extra-cc-flags": \#(extraFlags.cCompilerFlags),
-        "extra-swiftc-flags": \#(extraFlags.swiftCompilerFlags),
-        "extra-cpp-flags": \#(extraFlags.cxxCompilerFlags)
+        "extra-cc-flags": \#(extraFlags.cCompilerFlags.rawFlags),
+        "extra-swiftc-flags": \#(extraFlags.swiftCompilerFlags.rawFlags),
+        "extra-cpp-flags": \#(extraFlags.cxxCompilerFlags.rawFlags)
     }
     """# as SerializedJSON
 )
@@ -58,10 +58,10 @@ private let destinationV2 = (
         "toolchainBinDir": "\#(toolchainBinDir)",
         "hostTriples": ["\#(hostTriple.tripleString)"],
         "targetTriples": ["\#(linuxGNUTargetTriple.tripleString)"],
-        "extraCCFlags": \#(extraFlags.cCompilerFlags),
-        "extraSwiftCFlags": \#(extraFlags.swiftCompilerFlags),
-        "extraCXXFlags": \#(extraFlags.cxxCompilerFlags),
-        "extraLinkerFlags": \#(extraFlags.linkerFlags)
+        "extraCCFlags": \#(extraFlags.cCompilerFlags.rawFlags),
+        "extraSwiftCFlags": \#(extraFlags.swiftCompilerFlags.rawFlags),
+        "extraCXXFlags": \#(extraFlags.cxxCompilerFlags.rawFlags),
+        "extraLinkerFlags": \#(extraFlags.linkerFlags.rawFlags)
     }
     """# as SerializedJSON
 )
@@ -341,6 +341,7 @@ private let parsedToolsetNoRootDestination = SwiftSDK(
         ],
         rootPaths: []
     ),
+    swiftSDKManifest: toolsetNoRootSwiftSDKv4.path,
     pathsConfiguration: .init(
         sdkRootPath: bundleRootPath.appending(sdkRootDir),
         toolsetPaths: ["/tools/otherToolsNoRoot.json"]
@@ -359,6 +360,7 @@ private let parsedToolsetRootDestination = SwiftSDK(
         ],
         rootPaths: [try! AbsolutePath(validating: "/custom")]
     ),
+    swiftSDKManifest: toolsetRootSwiftSDKv4.path,
     pathsConfiguration: .init(
         sdkRootPath: bundleRootPath.appending(sdkRootDir),
         toolsetPaths: ["/tools/someToolsWithRoot.json", "/tools/otherToolsNoRoot.json"]
@@ -376,6 +378,7 @@ private let parsedToolsetNoSDKRootPathDestination = SwiftSDK(
         ],
         rootPaths: []
     ),
+    swiftSDKManifest: androidWithoutSDKRootPathSwiftSDKv4.path,
     pathsConfiguration: .init(
         sdkRootPath: nil,
         toolsetPaths: ["/tools/otherToolsNoRoot.json"]
@@ -455,7 +458,24 @@ final class SwiftSDKTests: XCTestCase {
             observabilityScope: observability
         )
 
-        XCTAssertEqual(toolsetNoRootDestinationV3Decoded, [parsedToolsetNoRootDestination])
+        let parsedToolsetNoRootDestinationV3 = SwiftSDK(
+            targetTriple: linuxGNUTargetTriple,
+            toolset: .init(
+                knownTools: [
+                    .librarian: .init(path: try! AbsolutePath(validating: "\(usrBinTools[.librarian]!)")),
+                    .linker: .init(path: try! AbsolutePath(validating: "\(usrBinTools[.linker]!)")),
+                    .debugger: .init(path: try! AbsolutePath(validating: "\(usrBinTools[.debugger]!)")),
+                ],
+                rootPaths: []
+            ),
+            swiftSDKManifest: toolsetNoRootDestinationV3.path,
+            pathsConfiguration: .init(
+                sdkRootPath: bundleRootPath.appending(sdkRootDir),
+                toolsetPaths: ["/tools/otherToolsNoRoot.json"]
+                    .map { try! AbsolutePath(validating: $0) }
+            )
+        )
+        XCTAssertEqual(toolsetNoRootDestinationV3Decoded, [parsedToolsetNoRootDestinationV3])
 
         let toolsetRootDestinationV3Decoded = try SwiftSDK.decode(
             fromFile: toolsetRootDestinationV3.path,
@@ -464,7 +484,26 @@ final class SwiftSDKTests: XCTestCase {
             observabilityScope: observability
         )
 
-        XCTAssertEqual(toolsetRootDestinationV3Decoded, [parsedToolsetRootDestination])
+        let parsedToolsetRootDestinationV3Decoded = SwiftSDK(
+            targetTriple: linuxGNUTargetTriple,
+            toolset: .init(
+                knownTools: [
+                    .cCompiler: .init(extraCLIOptions: cCompilerOptions),
+                    .librarian: .init(path: try! AbsolutePath(validating: "\(usrBinTools[.librarian]!)")),
+                    .linker: .init(path: try! AbsolutePath(validating: "\(usrBinTools[.linker]!)")),
+                    .debugger: .init(path: try! AbsolutePath(validating: "\(usrBinTools[.debugger]!)")),
+                ],
+                rootPaths: [try! AbsolutePath(validating: "/custom")]
+            ),
+            swiftSDKManifest: toolsetRootDestinationV3.path,
+            pathsConfiguration: .init(
+                sdkRootPath: bundleRootPath.appending(sdkRootDir),
+                toolsetPaths: ["/tools/someToolsWithRoot.json", "/tools/otherToolsNoRoot.json"]
+                    .map { try! AbsolutePath(validating: $0) }
+            )
+        )
+
+        XCTAssertEqual(toolsetRootDestinationV3Decoded, [parsedToolsetRootDestinationV3Decoded])
 
         XCTAssertThrowsError(try SwiftSDK.decode(
             fromFile: missingToolsetDestinationV3.path,

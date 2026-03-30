@@ -664,7 +664,7 @@ struct SigningTests {
         }
 
         func rsaADPKeyAndCertChain() throws -> KeyAndCertChain {
-            try fixture(name: "Signing", createGitRepo: false) { fixturePath in
+            try fixture(name: "Signing") { fixturePath in
                 let privateKey = try readFileContents(
                     in: fixturePath,
                     pathComponents: "Certificates", "development_key.p8"
@@ -722,7 +722,7 @@ struct SigningTests {
         }
 
         func ecADPKeyAndCertChain() throws -> KeyAndCertChain {
-            try fixture(name: "Signing", createGitRepo: false) { fixturePath in
+            try fixture(name: "Signing") { fixturePath in
                 let privateKey = try readFileContents(
                     in: fixturePath,
                     pathComponents: "Certificates", "swift_package_key.p8"
@@ -1027,7 +1027,7 @@ struct SigningTests {
     }
 
     private func ecTestKeyAndCertChain() throws -> KeyAndCertChain {
-        try fixture(name: "Signing", createGitRepo: false) { fixturePath in
+        try fixture(name: "Signing") { fixturePath in
             let privateKey = try readFileContents(
                 in: fixturePath,
                 pathComponents: "Certificates", "Test_ec_key.p8"
@@ -1053,7 +1053,7 @@ struct SigningTests {
     }
 
     private func ecSelfSignedTestKeyAndCertChain() throws -> KeyAndCertChain {
-        try fixture(name: "Signing", createGitRepo: false) { fixturePath in
+        try fixture(name: "Signing") { fixturePath in
             let privateKey = try readFileContents(
                 in: fixturePath,
                 pathComponents: "Certificates", "Test_ec_self_signed_key.p8"
@@ -1071,7 +1071,7 @@ struct SigningTests {
     }
 
     private func rsaTestKeyAndCertChain() throws -> KeyAndCertChain {
-        try fixture(name: "Signing", createGitRepo: false) { fixturePath in
+        try fixture(name: "Signing") { fixturePath in
             let privateKey = try readFileContents(
                 in: fixturePath,
                 pathComponents: "Certificates", "Test_rsa_key.p8"
@@ -1097,7 +1097,7 @@ struct SigningTests {
     }
 
     private func rsaSelfSignedTestKeyAndCertChain() throws -> KeyAndCertChain {
-        try fixture(name: "Signing", createGitRepo: false) { fixturePath in
+        try fixture(name: "Signing") { fixturePath in
             let privateKey = try readFileContents(
                 in: fixturePath,
                 pathComponents: "Certificates", "Test_rsa_self_signed_key.p8"

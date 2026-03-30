@@ -75,6 +75,7 @@ extension Workspace {
 
         func parseArtifacts(
             from manifests: DependencyManifests,
+            identityResolver: IdentityResolver,
             observabilityScope: ObservabilityScope
         ) throws -> (local: [ManagedArtifact], remote: [RemoteArtifact]) {
             let packageAndManifests: [(reference: PackageReference, manifest: Manifest)] =
@@ -122,7 +123,19 @@ extension Workspace {
                                 )
                             )
                         }
-                    } else if let url = target.url.flatMap(URL.init(string:)), let checksum = target.checksum {
+                    } else if let urlString = target.url, let checksum = target.checksum {
+                        // Apply mirroring to the URL
+                        let mappedURLString = identityResolver.mappedLocation(for: urlString)
+                        guard let url = URL(string: mappedURLString) else {
+                            observabilityScope.emit(
+                                BinaryArtifactsManagerError.artifactFailedDownload(
+                                    artifactURL: URL(string: urlString) ?? URL(string: "unknown")!,
+                                    targetName: target.name,
+                                    reason: "Invalid URL after mirroring: \(mappedURLString)"
+                                )
+                            )
+                            continue
+                        }
                         remoteArtifacts.append(
                             .init(
                                 packageRef: packageReference,
@@ -834,6 +847,7 @@ extension Workspace {
     ) async throws {
         let manifestArtifacts = try self.binaryArtifactsManager.parseArtifacts(
             from: manifests,
+            identityResolver: self.identityResolver,
             observabilityScope: observabilityScope
         )
 

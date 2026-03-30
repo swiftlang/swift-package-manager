@@ -80,7 +80,7 @@ final class PackageModelTests: XCTestCase {
                 swiftSDK: swiftSDK,
                 environment: .current,
                 fileSystem: fileSystem
-            ),
+            ).map { $0.value },
             [
                 // Needed when cross‐compiling for Android. 2020‐03‐01
                 "-sdk",

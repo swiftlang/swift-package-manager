@@ -629,7 +629,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             toolchain: UserToolchain.default,
             fileSystem: localFileSystem
         )
-        try await fixtureXCTest(name: "Miscellaneous/PackageNameFlag") { fixturePath in
+        try await fixtureXCTest(name: "Miscellaneous/PackageNameFlag", createGitRepo: true) { fixturePath in
             let (stdout, stderr) = try await executeSwiftBuild(
                 fixturePath.appending("appPkg"),
                 extraArgs: ["--vv"],
@@ -667,7 +667,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             toolchain: UserToolchain.default,
             fileSystem: localFileSystem
         )
-        try await fixtureXCTest(name: "Miscellaneous/PackageNameFlag") { fixturePath in
+        try await fixtureXCTest(name: "Miscellaneous/PackageNameFlag", createGitRepo: true) { fixturePath in
             let (stdout, _) = try await executeSwiftBuild(
                 fixturePath.appending("appPkg"),
                 extraArgs: ["--vv"],
@@ -4582,227 +4582,6 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         }
     }
 
-    func testPrebuiltsFlags() async throws {
-        // Make sure the include path for the prebuilts get passed to the
-        // generated test entry point and discover targets on Linux/Windows
-        let observability = ObservabilitySystem.makeForTesting()
-
-        let prebuiltLibrary = PrebuiltLibrary(
-            identity: .plain("swift-syntax"),
-            libraryName: "MacroSupport",
-            path: "/MyPackage/.build/prebuilts/swift-syntax/600.0.1/6.1-MacroSupport-macos_aarch64",
-            checkoutPath: "/MyPackage/.build/checkouts/swift-syntax",
-            products: [
-                "SwiftBasicFormat",
-                "SwiftCompilerPlugin",
-                "SwiftDiagnostics",
-                "SwiftIDEUtils",
-                "SwiftOperators",
-                "SwiftParser",
-                "SwiftParserDiagnostics",
-                "SwiftRefactor",
-                "SwiftSyntax",
-                "SwiftSyntaxBuilder",
-                "SwiftSyntaxMacros",
-                "SwiftSyntaxMacroExpansion",
-                "SwiftSyntaxMacrosTestSupport",
-                "SwiftSyntaxMacrosGenericTestSupport",
-                "_SwiftCompilerPluginMessageHandling",
-                "_SwiftLibraryPluginProvider"
-            ],
-            cModules: ["_SwiftSyntaxCShims"]
-        )
-
-        let fs = InMemoryFileSystem(
-            emptyFiles: [
-                "/MyPackage/Sources/MyMacroMacros/MyMacroMacros.swift",
-                "/MyPackage/Sources/MyMacros/MyMacros.swift",
-                "/MyPackage/Sources/MyMacroTests/MyMacroTests.swift"
-            ]
-        )
-
-        let graph = try loadModulesGraph(
-            fileSystem: fs,
-            manifests: [
-                Manifest.createRootManifest(
-                    displayName: "MyPackage",
-                    path: "/MyPackage",
-                    targets: [
-                        TargetDescription(
-                            name: "MyMacroMacros",
-                            dependencies: [
-                                .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
-                                .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
-                            ],
-                            type: .macro),
-                        TargetDescription(
-                            name: "MyMacros",
-                            dependencies: [
-                                "MyMacroMacros",
-                            ]
-                        ),
-                        TargetDescription(
-                            name: "MyMacroTests",
-                            dependencies: [
-                                "MyMacroMacros",
-                                .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax"),
-                            ],
-                            type: .test
-                        )
-                    ]
-                )
-            ],
-            prebuilts: [prebuiltLibrary.identity: prebuiltLibrary.products.reduce(into: [:]) {
-                $0[$1] = prebuiltLibrary
-            }],
-            observabilityScope: observability.topScope
-        )
-
-        func checkTriple(triple: Basics.Triple) async throws {
-            let result = try await BuildPlanResult(
-                plan: mockBuildPlan(
-                    triple: triple,
-                    graph: graph,
-                    fileSystem: fs,
-                    observabilityScope: observability.topScope
-                )
-            )
-
-#if os(Windows)
-            let modulesDir = "-I\(prebuiltLibrary.path.pathString)\\Modules"
-#else
-            let modulesDir = "-I\(prebuiltLibrary.path.pathString)/Modules"
-#endif
-            let mytest = try XCTUnwrap(result.allTargets(named: "MyMacroTests").first)
-            XCTAssert(try mytest.swift().compileArguments().contains(modulesDir))
-            let entryPoint = try XCTUnwrap(result.allTargets(named: "MyPackagePackageTests").first)
-            XCTAssert(try entryPoint.swift().compileArguments().contains(modulesDir))
-            let discovery = try XCTUnwrap(result.allTargets(named: "MyPackagePackageDiscoveredTests").first)
-            XCTAssert(try discovery.swift().compileArguments().contains(modulesDir))
-        }
-
-        try await checkTriple(triple: .x86_64Linux)
-        try await checkTriple(triple: .x86_64Windows)
-    }
-
-    func testPrebuiltsWithIncludePath() async throws {
-        // Make sure the include path for the prebuilts get passed to the
-        // generated test entry point and discover targets on Linux/Windows
-        let observability = ObservabilitySystem.makeForTesting()
-
-        let prebuiltLibrary = PrebuiltLibrary(
-            identity: .plain("swift-syntax"),
-            libraryName: "MacroSupport",
-            path: "/MyPackage/.build/prebuilts/swift-syntax/600.0.1/6.1-MacroSupport-macos_aarch64",
-            checkoutPath: "/MyPackage/.build/checkouts/swift-syntax",
-            products: [
-                "SwiftBasicFormat",
-                "SwiftCompilerPlugin",
-                "SwiftDiagnostics",
-                "SwiftIDEUtils",
-                "SwiftOperators",
-                "SwiftParser",
-                "SwiftParserDiagnostics",
-                "SwiftRefactor",
-                "SwiftSyntax",
-                "SwiftSyntaxBuilder",
-                "SwiftSyntaxMacros",
-                "SwiftSyntaxMacroExpansion",
-                "SwiftSyntaxMacrosTestSupport",
-                "SwiftSyntaxMacrosGenericTestSupport",
-                "_SwiftCompilerPluginMessageHandling",
-                "_SwiftLibraryPluginProvider"
-            ],
-            includePath: [
-                "Sources/_SwiftSyntaxCShims/include"
-            ]
-        )
-
-        let fs = InMemoryFileSystem(
-            emptyFiles: [
-                "/MyPackage/Sources/MyMacroLibrary/MyMacroLibrary.swift",
-                "/MyPackage/Sources/MyMacroMacros/MyMacroMacros.swift",
-                "/MyPackage/Sources/MyMacros/MyMacros.swift",
-                "/MyPackage/Sources/MyMacroTests/MyMacroTests.swift"
-            ]
-        )
-
-        let graph = try loadModulesGraph(
-            fileSystem: fs,
-            manifests: [
-                Manifest.createRootManifest(
-                    displayName: "MyPackage",
-                    path: "/MyPackage",
-                    targets: [
-                        TargetDescription(
-                            name: "MyMacroLibrary",
-                            dependencies: [
-                                .product(name: "SwiftSyntax", package: "swift-syntax"),
-                            ]
-                        ),
-                        TargetDescription(
-                            name: "MyMacroMacros",
-                            dependencies: [
-                                "MyMacroLibrary",
-                                .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
-                                .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
-                            ],
-                            type: .macro,
-                        ),
-                        TargetDescription(
-                            name: "MyMacros",
-                            dependencies: [
-                                "MyMacroMacros",
-                            ]
-                        ),
-                        TargetDescription(
-                            name: "MyMacroTests",
-                            dependencies: [
-                                "MyMacroMacros",
-                                .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax"),
-                            ],
-                            type: .test
-                        )
-                    ]
-                )
-            ],
-            prebuilts: [prebuiltLibrary.identity: prebuiltLibrary.products.reduce(into: [:]) {
-                $0[$1] = prebuiltLibrary
-            }],
-            observabilityScope: observability.topScope
-        )
-
-        func checkTriple(triple: Basics.Triple) async throws {
-            let result = try await BuildPlanResult(
-                plan: mockBuildPlan(
-                    triple: triple,
-                    graph: graph,
-                    fileSystem: fs,
-                    observabilityScope: observability.topScope
-                )
-            )
-
-            let modulesDir = "-I\(prebuiltLibrary.path.appending(component: "Modules").pathString)"
-            let checkoutPath = try XCTUnwrap(prebuiltLibrary.checkoutPath)
-            let includeDir = try XCTUnwrap(prebuiltLibrary.includePath)[0]
-            let includePath = "-I\(checkoutPath.appending(includeDir).pathString)"
-
-            let mytest = try XCTUnwrap(result.allTargets(named: "MyMacroTests").first)
-            XCTAssert(try mytest.swift().compileArguments().contains(modulesDir))
-            let entryPoint = try XCTUnwrap(result.allTargets(named: "MyPackagePackageTests").first)
-            XCTAssert(try entryPoint.swift().compileArguments().contains(modulesDir))
-            let discovery = try XCTUnwrap(result.allTargets(named: "MyPackagePackageDiscoveredTests").first)
-            XCTAssert(try discovery.swift().compileArguments().contains(modulesDir))
-
-            let mymacro = try XCTUnwrap(result.allTargets(named: "MyMacroMacros").first)
-            XCTAssert(try mymacro.swift().compileArguments().contains(modulesDir))
-            XCTAssert(try mymacro.swift().compileArguments().contains(includePath))
-        }
-
-        try await checkTriple(triple: .x86_64Linux)
-        try await checkTriple(triple: .x86_64Windows)
-    }
-
     func testWarningLevelSettings() async throws {
         let Pkg: AbsolutePath = "/Pkg"
 
@@ -5175,7 +4954,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         var flags = BuildFlags()
-        flags.linkerFlags = ["-L", "/path/to/foo", "-L/path/to/foo", "-rpath=foo", "-rpath", "foo"]
+        flags.linkerFlags = ["-L", "/path/to/foo", "-L/path/to/foo", "-rpath=foo", "-rpath", "foo"].constructBuildFlags(source: nil)
         let result = try await BuildPlanResult(plan: mockBuildPlan(
             graph: graph,
             commonFlags: flags,
@@ -5258,8 +5037,8 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             fileSystem: fs
         )
         let commonFlags = BuildFlags(
-            cCompilerFlags: ["-clang-command-line-flag"],
-            swiftCompilerFlags: ["-swift-command-line-flag"]
+            cCompilerFlags: [BuildFlag(value: "-clang-command-line-flag", source: nil)],
+            swiftCompilerFlags: [BuildFlag(value: "-swift-command-line-flag", source: nil)]
         )
 
         let result = try await BuildPlanResult(plan: mockBuildPlan(
@@ -5386,14 +5165,14 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         )
 
         XCTAssertEqual(
-            mockToolchain.extraFlags.swiftCompilerFlags,
+            mockToolchain.extraFlags.swiftCompilerFlags.rawFlags,
             [
                 "-plugin-path", "/fake/path/lib/swift/host/plugins/testing",
                 "-sdk", "/fake/sdk",
             ]
         )
-        XCTAssertNoMatch(mockToolchain.extraFlags.linkerFlags, ["-rpath"])
-        XCTAssertNoMatch(mockToolchain.extraFlags.swiftCompilerFlags, [
+        XCTAssertNoMatch(mockToolchain.extraFlags.linkerFlags.rawFlags, ["-rpath"])
+        XCTAssertNoMatch(mockToolchain.extraFlags.swiftCompilerFlags.rawFlags, [
             "-I", "/fake/path/lib/swift/macosx/testing",
             "-L", "/fake/path/lib/swift/macosx/testing",
         ])
@@ -5505,7 +5284,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         )
 
         XCTAssertEqual(
-            mockToolchain.extraFlags.swiftCompilerFlags,
+            mockToolchain.extraFlags.swiftCompilerFlags.rawFlags,
             [
                 "-I", "/fake/path/lib/swift/macosx/testing",
                 "-L", "/fake/path/lib/swift/macosx/testing",
@@ -5513,7 +5292,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                 "-sdk", "/fake/sdk",
             ]
         )
-        XCTAssertNoMatch(mockToolchain.extraFlags.linkerFlags, ["-rpath"])
+        XCTAssertNoMatch(mockToolchain.extraFlags.linkerFlags.rawFlags, ["-rpath"])
 
         let observability = ObservabilitySystem.makeForTesting()
         let graph = try loadModulesGraph(
@@ -5635,10 +5414,10 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             toolchain: toolchain,
             graph: graph,
             commonFlags: BuildFlags(
-                cCompilerFlags: [cliFlag(tool: .cCompiler)],
-                cxxCompilerFlags: [cliFlag(tool: .cxxCompiler)],
-                swiftCompilerFlags: [cliFlag(tool: .swiftCompiler)],
-                linkerFlags: [cliFlag(tool: .linker)]
+                cCompilerFlags: [cliFlag(tool: .cCompiler)].constructBuildFlags(source: nil),
+                cxxCompilerFlags: [cliFlag(tool: .cxxCompiler)].constructBuildFlags(source: nil),
+                swiftCompilerFlags: [cliFlag(tool: .swiftCompiler)].constructBuildFlags(source: nil),
+                linkerFlags: [cliFlag(tool: .linker)].constructBuildFlags(source: nil)
             ),
             fileSystem: fileSystem,
             observabilityScope: observability.topScope
@@ -7866,6 +7645,90 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             result.plan.graph.module(for: "ASystemLib")?.implicit,
             false
         )
+    }
+
+    func testSupplementaryOutputsCompileArguments() async throws {
+        let fs = InMemoryFileSystem(
+            emptyFiles: "/Pkg/Sources/exe/main.swift"
+        )
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Pkg",
+                    path: "/Pkg",
+                    targets: [
+                        TargetDescription(name: "exe", type: .executable),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        var driverParameters = BuildParameters.Driver()
+        driverParameters.emitSILFiles = true
+        driverParameters.emitIRFiles = true
+        driverParameters.emitOptimizationRecord = true
+
+        let plan = try await mockBuildPlan(
+            config: .release,
+            graph: graph,
+            driverParameters: driverParameters,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+
+        let result = try BuildPlanResult(plan: plan)
+        let exe = try result.moduleBuildDescription(for: "exe").swift()
+
+        let args = try exe.emitCommandLine()
+        XCTAssertMatch(args, ["-save-optimization-record"])
+        XCTAssertMatch(args, ["-g"])
+    }
+
+    func testSupplementaryOutputsInWMOMode() async throws {
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                "/Pkg/Sources/lib/file1.swift",
+                "/Pkg/Sources/lib/file2.swift"
+        )
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Pkg",
+                    path: "/Pkg",
+                    targets: [
+                        TargetDescription(name: "lib"),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        var driverParameters = BuildParameters.Driver()
+        driverParameters.emitSILFiles = true
+        driverParameters.emitIRFiles = true
+        driverParameters.emitOptimizationRecord = true
+
+        let plan = try await mockBuildPlan(
+            config: .release,
+            graph: graph,
+            driverParameters: driverParameters,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+
+        let result = try BuildPlanResult(plan: plan)
+        let lib = try result.moduleBuildDescription(for: "lib").swift()
+
+        let args = try lib.emitCommandLine()
+        XCTAssertMatch(args, ["-whole-module-optimization"])
+        XCTAssertMatch(args, ["-save-optimization-record"])
     }
 }
 

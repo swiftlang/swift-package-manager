@@ -157,7 +157,7 @@ public struct ToolsVersionParser {
             throw Error.malformedToolsVersionSpecification(.unidentified)
         }
 
-        guard let version = ToolsVersion(string: String(versionSpecifier)) else {
+        guard let version = ToolsVersion(string: String(versionSpecifier), experimentalFeatures: manifestComponents.experimentalFeatures) else {
             throw Error.malformedToolsVersionSpecification(.versionSpecifier(.isMisspelt(String(versionSpecifier))))
         }
 
@@ -358,6 +358,20 @@ public struct ToolsVersionParser {
         /// - Note: For a misspelt Swift tools version specification `"// swift-too1s-version:5.3"`, the first `"1"` is considered as the first character of the version specifier, and so `"1s-version:5.3"` is taken as the version specifier.
         let versionSpecifier = specificationSnippetFromLabelToLineTerminator[startIndexOfVersionSpecifier..<indexOfVersionSpecifierTerminator]
 
+        /// Look for experimental features. They are space separated values contained in parenthases right after the ";", e.g. "// swift-tools-version: 6.3;(experimentalCGen)"
+        var experimentalFeatures: Set<ToolsVersion.ExperimentalFeature> = []
+        if indexOfVersionSpecifierTerminator < specificationWithIgnoredTrailingContents.endIndex, specificationWithIgnoredTrailingContents[indexOfVersionSpecifierTerminator...].hasPrefix(";(") {
+            let startOfExperimentalFeatures = specificationWithIgnoredTrailingContents.index(indexOfVersionSpecifierTerminator, offsetBy: 2)
+            if let endOfExperimentalFeatures = specificationWithIgnoredTrailingContents[startOfExperimentalFeatures...].firstIndex(where: { $0 == ")" }) {
+                for featureString in specificationWithIgnoredTrailingContents[startOfExperimentalFeatures..<endOfExperimentalFeatures].split(separator: " ", omittingEmptySubsequences: true) {
+                    if let feature = ToolsVersion.ExperimentalFeature(rawValue: String(featureString)) {
+                        experimentalFeatures.insert(feature)
+                    }
+                    // TODO: Should we record the ones that don't match to present in diagnostics?
+                }
+            }
+        }
+
         // The tertiary condition checks if the specification line's end index is the same as the manifest's.
         // If it is, then just use the index, because the rest of the manifest is empty, and because using `index(after:)` on it results in an index-out-of-bound error.
         /// The position of the first character following the tools version specification line in the manifest.
@@ -377,6 +391,7 @@ public struct ToolsVersionParser {
                 spacingAfterLabel: spacingAfterLabel,
                 versionSpecifier: versionSpecifier
             ),
+            experimentalFeatures: experimentalFeatures,
             contentsAfterToolsVersionSpecification: manifestAfterSpecification
         )
     }
@@ -389,6 +404,8 @@ extension ToolsVersionParser {
         public let leadingWhitespace: Substring
         /// The Swift tools version specification represented in its constituent parts.
         public let toolsVersionSpecificationComponents: ToolsVersionSpecificationComponents
+        /// List of recognized experimental features
+        public let experimentalFeatures: Set<ToolsVersion.ExperimentalFeature>
         /// The remaining contents of the manifest that follows right after the tools version specification line.
         public let contentsAfterToolsVersionSpecification: Substring
         /// A Boolean value indicating whether the manifest represented in its constituent parts is backward-compatible with Swift < 5.4.

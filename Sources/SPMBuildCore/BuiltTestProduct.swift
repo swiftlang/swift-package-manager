@@ -17,6 +17,9 @@ public struct BuiltTestProduct: Codable {
     /// The test product name.
     public let productName: String
 
+    /// The name of the "umbrella" test product (if any) which includes this test product
+    public let umbrellaProductName: String?
+
     /// The path of the test binary.
     public let binaryPath: AbsolutePath
 
@@ -52,8 +55,9 @@ public struct BuiltTestProduct: Codable {
     ///   - binaryPath: The path of the test binary.
     ///   - packagePath: The path to the package this product was declared in.
     ///   - mainSourceFilePath: The path to the main source file used, if any.
-    public init(productName: String, binaryPath: AbsolutePath, packagePath: AbsolutePath, testEntryPointPath: AbsolutePath?) {
+    public init(productName: String, umbrellaProductName: String?, binaryPath: AbsolutePath, packagePath: AbsolutePath, testEntryPointPath: AbsolutePath?) {
         self.productName = productName
+        self.umbrellaProductName = umbrellaProductName
         self.binaryPath = binaryPath
         self.packagePath = packagePath
         self.testEntryPointPath = testEntryPointPath

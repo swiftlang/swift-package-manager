@@ -1,0 +1,15 @@
+{
+    "bomFormat": "CycloneDX",
+    "specVersion": "1.7",
+    "serialNumber": "urn:uuid:12345678-1234-1234-1234-123456789abc",
+    "version": 1,
+    "metadata": {
+        "component": {
+            "type": "application",
+            "bom-ref": "test-app-🚀",
+            "name": "TestApp",
+            "version": "1.0.0",
+            "description": "A test application with émojis and ünïcödé"
+        }
+    }
+}

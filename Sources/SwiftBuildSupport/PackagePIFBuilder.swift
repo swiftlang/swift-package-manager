@@ -25,7 +25,9 @@ import class PackageModel.Package
 import class PackageModel.Product
 import struct PackageModel.Platform
 import struct PackageModel.PlatformVersion
+import enum PackageModel.PrebuiltsPlatform
 import struct PackageModel.Resource
+import struct PackageModel.PackageIdentity
 import enum PackageModel.ProductType
 
 import struct PackageGraph.ModulesGraph
@@ -77,6 +79,9 @@ public final class PackagePIFBuilder {
         /// Is this the root package?
         var isRootPackage: Bool { get }
 
+        /// Is this a remote package?
+        var isRemote: Bool { get }
+
         // TODO: Maybe move these 3-4 properties to the `PIFBuilder.PIFBuilderParameters` struct.
 
         /// If a pure Swift package is open in the workspace.
@@ -115,8 +120,11 @@ public final class PackagePIFBuilder {
         /// Custom install path for the specified product, if any.
         func customInstallPath(product: PackageModel.Product) -> String?
 
-        /// Custom executable name for the specified product, if any.
-        func customExecutableName(product: PackageModel.Product) -> String?
+        /// Custom product name for the specified framework product, if any.
+        func customProductName(forFramework product: PackageModel.Product) -> String?
+
+        /// Custom bundle identifier prefix for the specified framework product, if any.
+        func customBundleIdentifierPrefix(forFramework product: PackageModel.Product) -> String?
 
         /// Custom library type for the specified product.
         func customLibraryType(product: PackageModel.Product) -> PackageModel.ProductType.LibraryType?
@@ -170,6 +178,14 @@ public final class PackagePIFBuilder {
     /// * <rdar://56889224> Remove IDEPackageSupportCreateDylibsForDynamicProducts.
     let createDylibForDynamicProducts: Bool
 
+    /// When building a static library product for a root package, ensure the final build product is always materialized.
+    /// In other words, don't represent it using the `packageProduct` target type which only allows other targets
+    /// built from source in the same build to consume it without eagerly linking it into a product.
+    let materializeStaticArchiveProductsForRootPackages: Bool
+
+    /// Create dynamic library variants for automatic library products, for use by development-time features such as Previews and Swift Playgrounds.
+    let createDynamicVariantsForLibraryProducts: Bool
+
     /// Add rpaths which allow loading libraries adjacent to the current image at runtime. This is desirable
     /// when launching build products from the build directory, but should often be disabled when deploying
     /// the build products to a different location.
@@ -177,6 +193,8 @@ public final class PackagePIFBuilder {
 
     /// Package display version, if any (i.e., it can be a version, branch or a git ref).
     let packageDisplayVersion: String?
+
+    let pkgConfigDirectories: [AbsolutePath]
 
     /// The file system to read from.
     let fileSystem: FileSystem
@@ -202,8 +220,11 @@ public final class PackagePIFBuilder {
         delegate: PackagePIFBuilder.BuildDelegate,
         buildToolPluginResultsByTargetName: [String: [BuildToolPluginInvocationResult]],
         createDylibForDynamicProducts: Bool = false,
+        materializeStaticArchiveProductsForRootPackages: Bool = false,
+        createDynamicVariantsForLibraryProducts: Bool = true,
         addLocalRpaths: Bool = true,
         packageDisplayVersion: String?,
+        pkgConfigDirectories: [AbsolutePath],
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
     ) {
@@ -213,7 +234,10 @@ public final class PackagePIFBuilder {
         self.delegate = delegate
         self.buildToolPluginResultsByTargetName = buildToolPluginResultsByTargetName
         self.createDylibForDynamicProducts = createDylibForDynamicProducts
+        self.materializeStaticArchiveProductsForRootPackages = materializeStaticArchiveProductsForRootPackages
+        self.createDynamicVariantsForLibraryProducts = createDynamicVariantsForLibraryProducts
         self.packageDisplayVersion = packageDisplayVersion
+        self.pkgConfigDirectories = pkgConfigDirectories
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope
         self.addLocalRpaths = addLocalRpaths
@@ -226,8 +250,11 @@ public final class PackagePIFBuilder {
         delegate: PackagePIFBuilder.BuildDelegate,
         buildToolPluginResultsByTargetName: [String: BuildToolPluginInvocationResult],
         createDylibForDynamicProducts: Bool = false,
+        materializeStaticArchiveProductsForRootPackages: Bool = false,
+        createDynamicVariantsForLibraryProducts: Bool = true,
         addLocalRpaths: Bool = true,
         packageDisplayVersion: String?,
+        pkgConfigDirectories: [AbsolutePath],
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
     ) {
@@ -237,8 +264,11 @@ public final class PackagePIFBuilder {
         self.delegate = delegate
         self.buildToolPluginResultsByTargetName = buildToolPluginResultsByTargetName.mapValues { [$0] }
         self.createDylibForDynamicProducts = createDylibForDynamicProducts
+        self.materializeStaticArchiveProductsForRootPackages = materializeStaticArchiveProductsForRootPackages
+        self.createDynamicVariantsForLibraryProducts = createDynamicVariantsForLibraryProducts
         self.addLocalRpaths = addLocalRpaths
         self.packageDisplayVersion = packageDisplayVersion
+        self.pkgConfigDirectories = pkgConfigDirectories
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope
     }
@@ -349,8 +379,8 @@ public final class PackagePIFBuilder {
 
     public struct LinkedPackageBinary {
         public let name: String
-        public let packageName: String
         public let type: BinaryType
+        public let packageIdentity: PackageIdentity
 
         @frozen
         public enum BinaryType {
@@ -358,10 +388,16 @@ public final class PackagePIFBuilder {
             case target
         }
 
-        public init(name: String, packageName: String, type: BinaryType) {
-            self.name = name
-            self.packageName = packageName
-            self.type = type
+        public init(product: String, packageIdentity: PackageIdentity) {
+            self.name = product
+            self.type = .product
+            self.packageIdentity = packageIdentity
+        }
+
+        public init(module: String, packageIdentity: PackageIdentity) {
+            self.name = module
+            self.type = .target
+            self.packageIdentity = packageIdentity
         }
     }
 
@@ -514,6 +550,8 @@ public final class PackagePIFBuilder {
         let customModulesAndProducts = try delegate.addCustomTargets(pifProject: &projectBuilder.project)
         projectBuilder.builtModulesAndProducts.append(contentsOf: customModulesAndProducts)
 
+        try projectBuilder.makePackageTestProduct()
+
         self._pifProject = projectBuilder.project
         return projectBuilder.builtModulesAndProducts
     }
@@ -548,7 +586,7 @@ public final class PackagePIFBuilder {
         // (If we want to be extra careful with differences to the existing PIF in the SwiftPM.)
         settings[.OTHER_CFLAGS] = ["$(inherited)", "-DXcode"]
 
-        if !self.delegate.isRootPackage {
+        if self.delegate.isRemote {
             if self.suppressWarningsForPackageDependencies {
                 settings[.SUPPRESS_WARNINGS] = "YES"
             }
@@ -559,7 +597,6 @@ public final class PackagePIFBuilder {
         settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS]
             .lazilyInitializeAndMutate(initialValue: ["$(inherited)"]) { $0.append("SWIFT_PACKAGE") }
         settings[.GCC_PREPROCESSOR_DEFINITIONS] = ["$(inherited)", "SWIFT_PACKAGE"]
-        settings[.CLANG_ENABLE_OBJC_ARC] = "YES"
         settings[.KEEP_PRIVATE_EXTERNS] = "NO"
 
         // We currently deliberately do not support Swift ObjC interface headers.
@@ -576,6 +613,9 @@ public final class PackagePIFBuilder {
 
         // Defer to the build system for linker driver selection.
         settings[.LINKER_DRIVER] = "auto"
+
+        // Don't emit warnings when a target exports no symbols (e.g. the empty library template)
+        settings[.LIBTOOL_NO_WARNING_FOR_NO_SYMBOLS] = "YES"
 
         // Hook to customize the project-wide build settings.
         self.delegate.configureProjectBuildSettings(&settings)
@@ -635,6 +675,7 @@ public final class PackagePIFBuilder {
         releaseSettings[.DEBUG_INFORMATION_FORMAT] = "dwarf-with-dsym"
         releaseSettings[.GCC_OPTIMIZATION_LEVEL] = "s"
         releaseSettings[.SWIFT_OPTIMIZATION_LEVEL] = "-Owholemodule"
+        releaseSettings[.DEPLOYMENT_POSTPROCESSING] = "YES"
         builder.project.addBuildConfig { id in BuildConfig(id: id, name: "Release", settings: releaseSettings) }
     }
 
@@ -700,29 +741,27 @@ enum PIFBuildingError: Error {
 }
 
 extension PackagePIFBuilder.LinkedPackageBinary {
-    init?(module: ResolvedModule, package: ResolvedPackage) {
-        let packageName = package.manifest.displayName
-
+    init?(module: ResolvedModule) {
         switch module.type {
         case .executable, .snippet, .test:
-            self.init(name: module.name, packageName: packageName, type: .product)
+            self.init(product: module.name, packageIdentity: module.packageIdentity)
 
         case .library, .binary, .macro:
-            self.init(name: module.name, packageName: packageName, type: .target)
+            self.init(module: module.name, packageIdentity: module.packageIdentity)
 
         case .systemModule, .plugin:
             return nil
         }
     }
 
-    init?(dependency: ResolvedModule.Dependency, package: ResolvedPackage) {
+    init?(dependency: ResolvedModule.Dependency) {
         switch dependency {
         case .product(let productDependency, _):
             guard productDependency.hasSourceTargets else { return nil }
-            self.init(name: productDependency.name, packageName: package.name, type: .product)
+            self.init(product: productDependency.name, packageIdentity: productDependency.packageIdentity)
 
         case .module(let moduleDependency, _):
-            self.init(module: moduleDependency, package: package)
+            self.init(module: moduleDependency)
         }
     }
 }

@@ -31,13 +31,6 @@ public class Module {
         case `macro`
     }
 
-    /// A group a module belongs to that allows customizing access boundaries. A module is treated as
-    /// a client outside of the package if `excluded`, inside the package boundary if `package`.
-    public enum Group: Equatable {
-        case package
-        case excluded
-    }
-
     /// A reference to a product from a module dependency.
     public struct ProductReference {
         /// The name of the product dependency.

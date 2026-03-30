@@ -31,6 +31,11 @@ public enum BuildSettings {
         public static let LINK_LIBRARIES: Declaration = .init("LINK_LIBRARIES")
         public static let LINK_FRAMEWORKS: Declaration = .init("LINK_FRAMEWORKS")
 
+        // Prebuilts settings.
+        public static let PREBUILT_INCLUDE_PATHS: Declaration = .init("PREBUILT_INCLUDE_PATHS")
+        public static let PREBUILT_LIBRARY_PATHS: Declaration = .init("PREBUILT_LIBRARY_PATHS")
+        public static let PREBUILT_LIBRARIES: Declaration = .init("PREBUILT_LIBRARIES")
+
         /// The declaration name.
         public let name: String
 

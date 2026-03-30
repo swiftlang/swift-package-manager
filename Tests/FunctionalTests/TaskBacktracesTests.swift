@@ -9,6 +9,7 @@
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
+import Foundation
 
 import Basics
 import SPMBuildCore
@@ -18,7 +19,8 @@ import _InternalTestSupport
 @Suite
 struct TaskBacktraceTests {
     @Test(
-        .tags(.TestSize.large, .Feature.TaskBacktraces)
+        .tags(.TestSize.large, .Feature.TaskBacktraces),
+        .skip("https://github.com/swiftlang/swift-package-manager/issues/9775")
     )
     func taskBacktraces() async throws {
         try await fixture(name: "Miscellaneous/Simple") { fixturePath in
@@ -43,10 +45,18 @@ struct TaskBacktraceTests {
                 buildSystem: .swiftbuild
             )
             // Add a basic check that we produce backtrace output. The specifc formatting is tested by Swift Build.
-            #expect(incrementalStderr.contains("Task backtrace:"))
+            withKnownIssue(isIntermittent: true) {
+                #expect(incrementalStderr.contains("Task backtrace:"))
+            } when: {
+                CiEnvironment.runningInSmokeTestPipeline && ProcessInfo.hostOperatingSystem == .linux
+            }
+            withKnownIssue(isIntermittent: true) {
             #expect(incrementalStderr.split(separator: "\n").contains(where: {
                 $0.contains("Foo.swift' changed")
             }))
+            } when: {
+                ProcessInfo.hostOperatingSystem == .linux && CiEnvironment.runningInSmokeTestPipeline
+            }
             #expect(incrementalStdout.contains("Build complete!"))
         }
     }

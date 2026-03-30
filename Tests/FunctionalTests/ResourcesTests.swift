@@ -15,6 +15,7 @@ import Basics
 import PackageModel
 import _InternalTestSupport
 import Testing
+import struct SPMBuildCore.BuildSystemProvider
 
 @Suite(
     .tags(
@@ -29,12 +30,12 @@ struct ResourcesTests{
         .tags(
             .Feature.Command.Run,
         ),
-        buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.tags,
-        arguments: buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.buildData,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func simpleResources(
-        buildData: BuildData,
+        buildSystem: BuildSystemProvider.Kind,
     ) async throws {
+        let config = BuildConfiguration.debug
         try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Resources/Simple") { fixturePath in
                 var executables = ["SwiftyResource"]
@@ -49,8 +50,8 @@ struct ResourcesTests{
                     let (output, _) = try await executeSwiftRun(
                         fixturePath,
                         execName,
-                        configuration: buildData.config,
-                        buildSystem: buildData.buildSystem,
+                        configuration: config,
+                        buildSystem: buildSystem,
                     )
                     #expect(output.contains("foo"))
                 }
@@ -61,17 +62,34 @@ struct ResourcesTests{
     }
 
     @Test(
+        .requireHostOS(.macOS),
+        .tags(
+            .Feature.Command.Run,
+        ),
+    )
+    func swiftBuildResourceRules() async throws {
+        let config = BuildConfiguration.debug
+        try await fixture(name: "Resources/ResourceRules") { fixturePath in
+            let (output, _) = try await executeSwiftRun(
+                fixturePath,
+                "ResourceRules",
+                configuration: config,
+                buildSystem: .swiftbuild,
+            )
+            #expect(output.contains("succeeded"))
+        }
+    }
+
+    @Test(
         .tags(
             .Feature.Command.Build,
         ),
-        buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.tags,
-        arguments: buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.buildData,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func localizedResources(
-        buildData: BuildData
+        buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        let configuration = buildData.config
-        let buildSystem = buildData.buildSystem
+        let configuration = BuildConfiguration.debug
         try await fixture(name: "Resources/Localized") { fixturePath in
             try await executeSwiftBuild(
                 fixturePath,
@@ -93,24 +111,22 @@ struct ResourcesTests{
 
     @Test(
         .requireHostOS(.macOS),  // originally macOS only
-        // .skipHostOS(.linux), // currently failing on Ubuntu
-        .issue("https://github.com/swiftlang/swift-package-manager/issues/9533", relationship: .defect),
         .tags(
             .Feature.Command.Build,
         ),
-        buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.tags,
-        arguments: buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.buildData,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func resourcesInMixedClangPackage(
-        buildData: BuildData,
+        buildSystem: BuildSystemProvider.Kind,
     ) async throws {
+        let configuration = BuildConfiguration.debug
         try await fixture(name: "Resources/Simple") { fixturePath in
             try await withKnownIssue(isIntermittent: true) {
                 try await executeSwiftBuild(
                     fixturePath,
-                    configuration: buildData.config,
+                    configuration: configuration,
                     extraArgs: ["--target", "MixedClangResource"],
-                    buildSystem: buildData.buildSystem,
+                    buildSystem: buildSystem,
                 )
             } when: {
                 [.windows, .linux].contains(ProcessInfo.hostOperatingSystem) // Test was originally enabled on macOS only
@@ -122,14 +138,12 @@ struct ResourcesTests{
         .tags(
             .Feature.Command.Build,
         ),
-        buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.tags,
-        arguments: buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.buildData,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func movedBinaryResources(
-        buildData: BuildData,
+        buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        let configuration = buildData.config
-        let buildSystem = buildData.buildSystem
+        let configuration = BuildConfiguration.debug
         try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Resources/Moved") { fixturePath in
                 var executables = ["SwiftyResource"]
@@ -188,20 +202,19 @@ struct ResourcesTests{
         .tags(
             .Feature.Command.Build,
         ),
-        buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.tags,
-        arguments: buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.buildData,
-
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func swiftResourceAccessorDoesNotCauseInconsistentImportWarning(
-        buildData: BuildData,
+        buildSystem: BuildSystemProvider.Kind,
     ) async throws {
+        let configuration = BuildConfiguration.debug
         try await fixture(name: "Resources/FoundationlessClient/UtilsWithFoundationPkg") { fixturePath in
             try await withKnownIssue(isIntermittent: true) {
                 try await executeSwiftBuild(
                     fixturePath,
-                    configuration: buildData.config,
+                    configuration: configuration,
                     Xswiftc: ["-warnings-as-errors"],
-                    buildSystem: buildData.buildSystem,
+                    buildSystem: buildSystem,
                 )
             } when: {
                 // fails on native and SwiftBuild
@@ -216,18 +229,18 @@ struct ResourcesTests{
         .tags(
             .Feature.Command.Test,
         ),
-        buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.tags,
-        arguments:buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.buildData,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func resourceBundleInClangPackageWhenRunningSwiftTest(
-        buildData: BuildData,
+        buildSystem: BuildSystemProvider.Kind,
     ) async throws {
+        let configuration = BuildConfiguration.debug
         try await fixture(name: "Resources/Simple") { fixturePath in
             try await executeSwiftTest(
                 fixturePath,
-                configuration: buildData.config,
+                configuration: configuration,
                 extraArgs: ["--filter", "ClangResourceTests"],
-                buildSystem: buildData.buildSystem,
+                buildSystem: buildSystem,
             )
         }
     }
@@ -238,14 +251,12 @@ struct ResourcesTests{
         .tags(
             .Feature.Command.Build,
         ),
-        buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.tags,
-        arguments: buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.buildData,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func resourcesEmbeddedInCode(
-        buildData: BuildData,
+        buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        let configuration = buildData.config
-        let buildSystem = buildData.buildSystem
+        let configuration = BuildConfiguration.debug
         try await withKnownIssue {
             try await fixture(name: "Resources/EmbedInCodeSimple") { fixturePath in
                 let execPath = try fixturePath.appending(components: buildSystem.binPath(for: configuration) + [executableName("EmbedInCodeSimple")])
@@ -284,16 +295,12 @@ struct ResourcesTests{
         .tags(
             .Feature.Command.Test,
         ),
-        // .issue("", relationship: .defect),  TODO: Create GitHub issue
-        buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.tags,
-        arguments: buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.buildData,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func resourcesOutsideOfTargetCanBeIncluded(
-        buildData: BuildData,
+        buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        let configuration = buildData.config
-        let buildSystem = buildData.buildSystem
-        try await withKnownIssue {
+        let configuration = BuildConfiguration.debug
             try await testWithTemporaryDirectory { tmpPath in
                 let packageDir = tmpPath.appending(components: "MyPackage")
 
@@ -323,6 +330,7 @@ struct ResourcesTests{
                 let resource = packageDir.appending(components: "Sources", "resources", "best.txt")
                 try localFileSystem.createDirectory(resource.parentDirectory, recursive: true)
                 try localFileSystem.writeFileContents(resource, string: "best")
+                try requireFileExists(at: resource)
 
                 let (_, stderr) = try await executeSwiftBuild(
                     packageDir,
@@ -337,14 +345,23 @@ struct ResourcesTests{
 
                 let builtProductsDir = try packageDir.appending(components: buildSystem.binPath(for: configuration))
                 // On Apple platforms, it's going to be `.bundle` and elsewhere `.resources`.
+                try requireDirectoryExists(at: builtProductsDir)
                 let potentialResourceBundleName = try #require(localFileSystem.getDirectoryContents(builtProductsDir).filter { $0.hasPrefix("MyPackage_exec.") }.first)
-                let resourcePath = builtProductsDir.appending(components: [potentialResourceBundleName, "resources", "best.txt"])
-                #expect(localFileSystem.exists(resourcePath), "resource file wasn't copied by the build")
+
+                let additionalComponents: [String]
+                #if os(macOS)
+                    additionalComponents = switch buildSystem {
+                        case .native: []
+                        case .swiftbuild: ["Contents", "Resources"]
+                        case .xcode: [] // This test expectation was not validated
+                    }
+                #else
+                    additionalComponents = []
+                #endif
+                let resourcePath = builtProductsDir.appending(components: [potentialResourceBundleName] + additionalComponents +  ["resources", "best.txt"])
+                try requireFileExists(at: resourcePath, "resource file wasn't copied by the build")
                 let contents = try String(contentsOfFile: resourcePath.pathString)
                 #expect(contents == "best", "unexpected resource contents: \(contents)")
             }
-        } when: {
-            buildSystem == .swiftbuild
-        }
     }
 }

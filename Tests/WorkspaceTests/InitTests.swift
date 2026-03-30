@@ -78,14 +78,12 @@ struct InitTests {
             .tags(
                 .Feature.Command.Build,
             ),
-            buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.tags,
-            arguments: buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.buildData,
+            arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func initPackageExecutable(
-            buildData: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws  {
-            let buildSystem = buildData.buildSystem
-            let configuration = buildData.config
+            let configuration = BuildConfiguration.debug
             try await testWithTemporaryDirectory { tmpPath in
                 let fs = localFileSystem
                 let path = tmpPath.appending("Foo")
@@ -145,14 +143,12 @@ struct InitTests {
             .tags(
                 .Feature.Command.Build,
             ),
-            buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.tags,
-            arguments: buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.buildData,
+            arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func initPackageExecutableCalledMain(
-            buildData: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws {
-            let buildSystem = buildData.buildSystem
-            let configuration = buildData.config
+            let configuration = BuildConfiguration.debug
             try await testWithTemporaryDirectory { tmpPath in
                 let fs = localFileSystem
                 let path = tmpPath.appending("main")
@@ -182,14 +178,12 @@ struct InitTests {
             .tags(
                 .Feature.Command.Build,
             ),
-            buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.tags,
-            arguments: buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.buildData,
+            arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func initPackageLibraryWithXCTestOnly(
-            buildData: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws {
-            let buildSystem = buildData.buildSystem
-            let configuration = buildData.config
+            let configuration = BuildConfiguration.debug
             try await withTemporaryDirectory(removeTreeOnDeinit: true) { tmpPath in
                 let fs = localFileSystem
                 let path = tmpPath.appending("Foo")
@@ -259,15 +253,12 @@ struct InitTests {
             .tags(
                 .Feature.Command.Build,
             ),
-            buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.tags,
-            arguments: buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.buildData,
+            arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func initPackageLibraryWithSwiftTestingOnly(
-            buildData: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws  {
-
-            let buildSystem = buildData.buildSystem
-            let configuration = buildData.config
+            let configuration = BuildConfiguration.debug
             try withTemporaryDirectory { tmpPath in
                 let fs = localFileSystem
                 let path = tmpPath.appending("Foo")
@@ -312,14 +303,12 @@ struct InitTests {
             .tags(
                 .Feature.Command.Build,
             ),
-            buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.tags,
-            arguments: buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.buildData,
+            arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func initPackageLibraryWithBothSwiftTestingAndXCTest(
-            buildData: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws  {
-            let buildSystem = buildData.buildSystem
-            let configuration = buildData.config
+            let configuration = BuildConfiguration.debug
             try withTemporaryDirectory { tmpPath in
                 let fs = localFileSystem
                 let path = tmpPath.appending("Foo")
@@ -364,14 +353,12 @@ struct InitTests {
             .tags(
                 .Feature.Command.Build,
             ),
-            buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.tags,
-            arguments: buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.buildData,
+            arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func initPackageLibraryWithNoTests(
-            buildData: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws {
-            let buildSystem = buildData.buildSystem
-            let configuration = buildData.config
+            let configuration = BuildConfiguration.debug
             try withTemporaryDirectory { tmpPath in
                 let fs = localFileSystem
                 let path = tmpPath.appending("Foo")
@@ -416,14 +403,12 @@ struct InitTests {
             .tags(
                 .Feature.Command.Build,
             ),
-            buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.tags,
-            arguments: buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.buildData,
+            arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func initPackageNonc99Directory(
-            buildData: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws {
-            let buildSystem = buildData.buildSystem
-            let configuration = buildData.config
+            let configuration = BuildConfiguration.debug
             try await withTemporaryDirectory(removeTreeOnDeinit: true) { tempDirPath in
                 expectDirectoryExists(at: tempDirPath)
 
@@ -469,21 +454,19 @@ struct InitTests {
             .tags(
                 .Feature.Command.Build,
             ),
-            buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.tags,
-            buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.tags,
-            arguments: buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.buildData,
+            arguments: SupportedBuildSystemOnAllPlatforms,
+            // arguments: [BuildSystemProvider.Kind.swiftbuild],
         )
         func nonC99NameExecutablePackage(
-            buildData: BuildData,
+            buildSystem: BuildSystemProvider.Kind,
         ) async throws {
-            let buildSystem = buildData.buildSystem
-            let configuration = buildData.config
+            let configuration = BuildConfiguration.debug
             try await withTemporaryDirectory(removeTreeOnDeinit: true) { tempDirPath in
-                expectDirectoryExists(at: tempDirPath)
+                try requireDirectoryExists(at: tempDirPath)
 
-                let packageRoot = tempDirPath.appending("Foo")
+                let packageRoot = tempDirPath.appending("PackageDirectoryName")
                 try localFileSystem.createDirectory(packageRoot)
-                expectDirectoryExists(at: packageRoot)
+                try requireDirectoryExists(at: packageRoot)
 
                 // Create package with non c99name.
                 let initPackage = try InitPackage(

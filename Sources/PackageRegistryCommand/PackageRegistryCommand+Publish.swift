@@ -55,7 +55,7 @@ extension PackageRegistryCommand {
 
         @Option(
             name: .customLong("scratch-directory"),
-            help: "The path of the directory where working file(s) will be written."
+            help: "The path to the directory for working files."
         )
         var customWorkingDirectory: AbsolutePath?
 
@@ -83,10 +83,10 @@ extension PackageRegistryCommand {
         )
         var certificateChainPaths: [AbsolutePath] = []
 
-        @Flag(name: .customLong("allow-insecure-http"), help: "Allow using a non-HTTPS registry URL.")
+        @Flag(name: .customLong("allow-insecure-http"), help: "Use a non-HTTPS registry URL.")
         var allowInsecureHTTP: Bool = false
 
-        @Flag(help: "Dry run only; prepare the archive and sign it but do not publish to the registry.")
+        @Flag(help: "Prepare and sign the archive without publishing it to the registry.")
         var dryRun: Bool = false
 
         func run(_ swiftCommandState: SwiftCommandState) async throws {

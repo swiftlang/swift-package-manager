@@ -206,17 +206,12 @@ struct PluginCommand: AsyncSwiftCommand {
         swiftCommandState.shouldDisableSandbox = swiftCommandState.shouldDisableSandbox || pluginArguments.globalOptions.security
             .shouldDisableSandbox
 
-        let buildSystemKind =
-            pluginArguments.globalOptions.build.buildSystem != .native ?
-                pluginArguments.globalOptions.build.buildSystem :
-                swiftCommandState.options.build.buildSystem
-
         // At this point we know we found exactly one command plugin, so we run it. In SwiftPM CLI, we have only one root package.
         try await PluginCommand.run(
             plugin: matchingPlugins[0],
             package: packageGraph.rootPackages[packageGraph.rootPackages.startIndex],
             packageGraph: packageGraph,
-            buildSystem: buildSystemKind,
+            buildSystem: swiftCommandState.options.build.buildSystem,
             options: pluginOptions,
             arguments: unparsedArguments,
             swiftCommandState: swiftCommandState
@@ -259,7 +254,9 @@ struct PluginCommand: AsyncSwiftCommand {
         }
 
         // If the plugin requires permissions, we ask the user for approval.
-        if case .command(_, let permissions) = pluginTarget.capability {
+        // If the sandbox is disabled, we skip the permission prompts.
+        if case .command(_, let permissions) = pluginTarget.capability,
+           !swiftCommandState.shouldDisableSandbox {
             try permissions.forEach {
                 let permissionString: String
                 let reasonString: String

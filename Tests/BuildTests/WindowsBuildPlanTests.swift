@@ -81,10 +81,12 @@ struct WindowsBuildPlanTests {
         let plan = try await BuildPlan(
             destinationBuildParameters: mockBuildParameters(
                 destination: .target,
+                buildSystemKind: .native,
                 triple: triple
             ),
             toolsBuildParameters: mockBuildParameters(
                 destination: .host,
+                buildSystemKind: .native,
                 triple: triple
             ),
             graph: graph,

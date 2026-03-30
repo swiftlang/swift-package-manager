@@ -42,7 +42,7 @@ struct InstallSwiftSDK: SwiftSDKSubcommand {
         name: .customLong("color-diagnostics"),
         inversion: .prefixedNo,
         help: """
-            Enables or disables color diagnostics when printing to a TTY. 
+            Determines whether color diagnostics appear when printing to a TTY.
             By default, color diagnostics are enabled when connected to a TTY and disabled otherwise.
             """
     )

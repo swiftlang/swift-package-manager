@@ -98,5 +98,11 @@ extension ResolvedPackage: Identifiable {
     public var id: PackageIdentity { self.underlying.identity }
 }
 
+extension ResolvedPackage: Comparable {
+    public static func < (lhs: ResolvedPackage, rhs: ResolvedPackage) -> Bool {
+        return lhs.id < rhs.id
+    }
+}
+
 @available(*, unavailable, message: "Use `Identifiable` conformance or `IdentifiableSet` instead")
 extension ResolvedPackage: Hashable {}
