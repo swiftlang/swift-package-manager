@@ -476,6 +476,14 @@ public final class SwiftCommandState {
                 )
             }
         }
+
+        if options.build.traceEventsFilePath != nil {
+            if options.build.buildSystem != .swiftbuild {
+                observabilityScope.emit(
+                    warning: "'--experimental-trace-events-file' is only supported when using '--build-system swiftbuild'"
+                )
+            }
+        }
     }
 
     func waitForObservabilityEvents(timeout: DispatchTime) {
@@ -975,7 +983,13 @@ public final class SwiftCommandState {
             outputParameters: .init(
                 isColorized: self.options.logging.colorDiagnostics,
                 isVerbose: self.logLevel <= .info,
-                enableTaskBacktraces: self.options.build.enableTaskBacktraces
+                enableTaskBacktraces: self.options.build.enableTaskBacktraces,
+                traceEventsFilePath: try self.options.build.traceEventsFilePath.map {
+                    try AbsolutePath(
+                        validating: $0,
+                        relativeTo: self.fileSystem.currentWorkingDirectory ?? .root
+                    )
+                }
             ),
             testingParameters: .init(
                 forceTestDiscovery: self.options.build.enableTestDiscovery,
