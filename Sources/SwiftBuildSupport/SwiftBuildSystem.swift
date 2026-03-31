@@ -622,7 +622,8 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                 logLevel: self.logLevel,
                 enableBacktraces: self.enableTaskBacktraces,
                 buildDelegate: self.delegate,
-                traceEventsWriter: self.traceEventsWriter
+                traceEventsWriter: self.traceEventsWriter,
+                buildOutputPath: derivedDataPath
             )
 
             do {
@@ -848,10 +849,12 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                 // FIXME: This list of overrides is incomplete.
                 // An error with determining the override should not be fatal here.
                 settings["CC"] = try? buildParameters.toolchain.getClangCompiler().pathString
-                // Always specify the path of the effective Swift compiler, which was determined in the same way as for the
-                // native build system.
-                settings["SWIFT_EXEC"] = buildParameters.toolchain.swiftCompilerPath.pathString
             }
+
+            // Always specify the path of the effective Swift compiler, which was determined in the same way as for the
+            // native build system. This ensures SWIFT_EXEC from the environment is honored even when
+            // the toolchain directory is registered with the build system.
+            settings["SWIFT_EXEC"] = buildParameters.toolchain.swiftCompilerPath.pathString
 
             let overrideToolchains = [buildParameters.toolchain.metalToolchainId, toolchainID?.rawValue].compactMap { $0 }
             if !overrideToolchains.isEmpty {
@@ -982,6 +985,15 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             settings["SWIFT_EMIT_OPT_RECORDS"] = "YES"
             if let outputDir = buildParameters.driverParameters.optimizationRecordDirectory {
                 settings["SWIFT_OPT_RECORD_OUTPUT_DIR"] = outputDir.pathString
+            }
+        }
+
+        if buildParameters.driverParameters.enableTimeTrace {
+            settings["OTHER_SWIFT_FLAGS"] =
+                (settings["OTHER_SWIFT_FLAGS"] ?? "$(inherited)") + " -ftime-trace"
+            if let granularity = buildParameters.driverParameters.timeTraceGranularity {
+                settings["OTHER_SWIFT_FLAGS"] =
+                    (settings["OTHER_SWIFT_FLAGS"] ?? "$(inherited)") + " -ftime-trace-granularity \(granularity)"
             }
         }
 

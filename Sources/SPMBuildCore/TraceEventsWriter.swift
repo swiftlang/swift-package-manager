@@ -145,6 +145,7 @@ public final class TraceEventsWriter {
     package var availableLanes: [LaneID] = []
     package var nextLane: LaneID = .firstTask
     package var taskStartTimes: [TaskID: ContinuousClock.Instant] = [:]
+    package var buildStartWallClock: Int64 // µs since epoch
     private var needsComma: Bool = false
     private var isClosed: Bool = false
 
@@ -164,6 +165,7 @@ public final class TraceEventsWriter {
         self.encoder = JSONEncoder()
         self.encoder.outputFormatting = [.sortedKeys]
         self.buildStartTime = ContinuousClock.now
+        self.buildStartWallClock = Int64(Date().timeIntervalSince1970 * 1_000_000)
     }
 
     /// Record a complete event with an absolute start time and duration.
@@ -204,6 +206,150 @@ public final class TraceEventsWriter {
     package func releaseFetchLane(_ lane: LaneID) {
         let insertionIndex = availableFetchLanes.firstIndex(where: { $0 < lane }) ?? availableFetchLanes.endIndex
         availableFetchLanes.insert(lane, at: insertionIndex)
+    }
+
+    /// Import compiler time trace files (produced by `-ftime-trace`) found under the given directory
+    /// and append their events to the trace, rebasing timestamps relative to the build start time.
+    /// Per-file "Total ..." events are aggregated across all files and emitted under a "Totals" process.
+    package func importCompilerTimeTraces(under directory: AbsolutePath) {
+        let fm = FileManager.default
+        guard let enumerator = fm.enumerator(
+            at: URL(fileURLWithPath: directory.pathString),
+            includingPropertiesForKeys: nil
+        ) else { return }
+
+        // Maps compiler PID → label derived from the trace file path
+        // (e.g. "ArgumentParser/Argument.swift" from "ArgumentParser.build/Argument.swift.time-trace.json")
+        var pidLabels: [Int: String] = [:]
+
+        // Accumulate "Total ..." durations across all files for build-wide summary
+        var aggregatedTotals: [String: Int64] = [:]
+
+        let suffix = ".time-trace.json"
+        let buildDirSuffix = ".build"
+
+        for case let fileURL as URL in enumerator {
+            guard fileURL.lastPathComponent.hasSuffix(suffix) else {
+                continue
+            }
+
+            guard let data = try? Data(contentsOf: fileURL),
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let beginningOfTime = json["beginningOfTime"] as? Int,
+                  let traceEvents = json["traceEvents"] as? [[String: Any]] else {
+                continue
+            }
+
+            let offset = Int64(beginningOfTime) - buildStartWallClock
+
+            // Derive a human-readable label from the file path:
+            // "Module.build/File.swift.time-trace.json" → "Module/File.swift"
+            let fileName = String(fileURL.lastPathComponent.dropLast(suffix.count))
+            let parentDir = fileURL.deletingLastPathComponent().lastPathComponent
+            let label: String
+            if parentDir.hasSuffix(buildDirSuffix) {
+                let moduleName = String(parentDir.dropLast(buildDirSuffix.count))
+                label = "\(moduleName)/\(fileName)"
+            } else {
+                label = fileName
+            }
+
+            for event in traceEvents {
+                guard let name = event["name"] as? String,
+                      let ph = event["ph"] as? String, ph == "X",
+                      let ts = event["ts"] as? Int,
+                      let dur = event["dur"] as? Int,
+                      let pid = event["pid"] as? Int,
+                      let tid = event["tid"] as? Int else {
+                    continue
+                }
+
+                // Aggregate "Total ..." events into build-wide sums instead of emitting per-file
+                if name.hasPrefix("Total ") {
+                    aggregatedTotals[name, default: 0] += Int64(dur)
+                    continue
+                }
+
+                if pidLabels[pid] == nil {
+                    pidLabels[pid] = label
+                }
+
+                var args: [String: ArgValue]? = nil
+                if let eventArgs = event["args"] as? [String: Any], !eventArgs.isEmpty {
+                    var converted: [String: ArgValue] = [:]
+                    for (key, value) in eventArgs {
+                        if let s = value as? String {
+                            converted[key] = .string(s)
+                        } else if let i = value as? Int {
+                            converted[key] = .int(i)
+                        }
+                    }
+                    if !converted.isEmpty {
+                        args = converted
+                    }
+                }
+
+                appendEvent(TraceEvent(
+                    name: name,
+                    category: .none,
+                    phase: .complete,
+                    timestamp: offset + Int64(ts),
+                    duration: Int64(dur),
+                    processID: pid,
+                    threadID: LaneID(rawValue: tid),
+                    arguments: args
+                ))
+            }
+        }
+
+        // Emit process_name metadata for each compiler process
+        for (pid, label) in pidLabels.sorted(by: { $0.key < $1.key }) {
+            appendEvent(TraceEvent(
+                name: "process_name", category: .none, phase: .metadata,
+                timestamp: 0, duration: 0, processID: pid, threadID: .metadata,
+                arguments: ["name": .string(label)]
+            ))
+        }
+
+        // Emit aggregated totals under the "Totals" process (pid=2), each on its own lane,
+        // sorted by duration descending so the biggest contributors appear first in Perfetto.
+        let totalsProcessID = 2
+        let sortedTotals = aggregatedTotals.sorted { $0.value > $1.value }
+        for (index, (name, duration)) in sortedTotals.enumerated() {
+            let lane = LaneID(rawValue: index + 1)
+            appendEvent(TraceEvent(
+                name: name,
+                category: .none,
+                phase: .complete,
+                timestamp: 0,
+                duration: duration,
+                processID: totalsProcessID,
+                threadID: lane,
+                arguments: nil
+            ))
+            appendEvent(TraceEvent(
+                name: "thread_name", category: .none, phase: .metadata,
+                timestamp: 0, duration: 0, processID: totalsProcessID, threadID: lane,
+                arguments: ["name": .string(name)]
+            ))
+            appendEvent(TraceEvent(
+                name: "thread_sort_index", category: .none, phase: .metadata,
+                timestamp: 0, duration: 0, processID: totalsProcessID, threadID: lane,
+                arguments: ["sort_index": .int(index)]
+            ))
+        }
+        if !sortedTotals.isEmpty {
+            appendEvent(TraceEvent(
+                name: "process_name", category: .none, phase: .metadata,
+                timestamp: 0, duration: 0, processID: totalsProcessID, threadID: .metadata,
+                arguments: ["name": .string("Totals")]
+            ))
+            appendEvent(TraceEvent(
+                name: "process_sort_index", category: .none, phase: .metadata,
+                timestamp: 0, duration: 0, processID: totalsProcessID, threadID: .metadata,
+                arguments: ["sort_index": .int(-1)]
+            ))
+        }
     }
 
     package func close() {

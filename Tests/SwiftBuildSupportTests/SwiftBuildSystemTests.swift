@@ -723,4 +723,56 @@ struct SwiftBuildSystemTests {
             #expect(otherLDFlags.contains("$(OTHER_LDFLAGS_SWIFTC_LINKER_DRIVER_$(LINKER_DRIVER))"))
         }
     }
+
+    @Test
+    func timeTraceFlagsForwarded() async throws {
+        var params = mockBuildParameters(
+            destination: .host,
+            buildSystemKind: .swiftbuild
+        )
+        params.driverParameters.enableTimeTrace = true
+
+        try await withInstantiatedSwiftBuildSystem(
+            fromFixture: "PIFBuilder/Simple",
+            buildParameters: params,
+        ) { swiftBuild, service, session, observabilityScope, buildParameters in
+            let buildSettings = try await swiftBuild.makeBuildParameters(
+                service: service,
+                session: session,
+                symbolGraphOptions: nil,
+                setToolchainSetting: false
+            )
+
+            let synthesizedArgs = try #require(buildSettings.overrides.synthesized)
+            let otherSwiftFlags = try #require(synthesizedArgs.table["OTHER_SWIFT_FLAGS"])
+            #expect(otherSwiftFlags.contains("-ftime-trace"))
+        }
+    }
+
+    @Test
+    func timeTraceWithGranularityFlagsForwarded() async throws {
+        var params = mockBuildParameters(
+            destination: .host,
+            buildSystemKind: .swiftbuild
+        )
+        params.driverParameters.enableTimeTrace = true
+        params.driverParameters.timeTraceGranularity = 100
+
+        try await withInstantiatedSwiftBuildSystem(
+            fromFixture: "PIFBuilder/Simple",
+            buildParameters: params,
+        ) { swiftBuild, service, session, observabilityScope, buildParameters in
+            let buildSettings = try await swiftBuild.makeBuildParameters(
+                service: service,
+                session: session,
+                symbolGraphOptions: nil,
+                setToolchainSetting: false
+            )
+
+            let synthesizedArgs = try #require(buildSettings.overrides.synthesized)
+            let otherSwiftFlags = try #require(synthesizedArgs.table["OTHER_SWIFT_FLAGS"])
+            #expect(otherSwiftFlags.contains("-ftime-trace"))
+            #expect(otherSwiftFlags.contains("-ftime-trace-granularity 100"))
+        }
+    }
 }

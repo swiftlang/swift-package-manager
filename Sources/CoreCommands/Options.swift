@@ -617,14 +617,6 @@ public struct BuildOptions: ParsableArguments {
     @Option(name: .customLong("experimental-codesize-profile-output-dir"), help: "Directory to store code size profiling output files.")
     public var codesizeProfileOutputDirectory: String?
 
-    @Flag(name: .customLong("time-trace"),
-          help: "Enable time profiling of Swift and Clang compilations, emitting Chrome Trace Event JSON files.")
-    public var enableTimeTrace: Bool = false
-
-    @Option(name: .customLong("time-trace-granularity"),
-            help: "Minimum time granularity (in microseconds) for time trace events.")
-    public var timeTraceGranularity: UInt?
-
     // @Flag works best when there is a default value present
     // if true, false aren't enough and a third state is needed
     // nil should not be the goto. Instead create an enum

@@ -405,7 +405,12 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         // Ensure the trace events writer is closed when the build completes, whether
         // it succeeds, fails, or is skipped. The double-close guard in
         // TraceEventsWriter.close() makes this safe even if close() is called elsewhere.
-        defer { self.traceEventsWriter?.close() }
+        defer {
+            if let writer = self.traceEventsWriter {
+                writer.importCompilerTimeTraces(under: self.config.buildPath(for: .target))
+            }
+            self.traceEventsWriter?.close()
+        }
 
         var result = BuildResult(
             serializedDiagnosticPathsByTargetName: .failure(StringError("Building was skipped")),

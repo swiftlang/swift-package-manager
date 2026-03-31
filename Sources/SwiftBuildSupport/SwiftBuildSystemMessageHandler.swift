@@ -30,6 +30,7 @@ public final class SwiftBuildSystemMessageHandler {
     private let enableBacktraces: Bool
     private let buildDelegate: SPMBuildCore.BuildSystemDelegate?
     private var traceEventsWriter: TraceEventsWriter?
+    private let buildOutputPath: Basics.AbsolutePath?
 
     public typealias BuildSystemCallback = (SwiftBuildSystem) -> Void
 
@@ -58,7 +59,8 @@ public final class SwiftBuildSystemMessageHandler {
         logLevel: Basics.Diagnostic.Severity,
         enableBacktraces: Bool = false,
         buildDelegate: SPMBuildCore.BuildSystemDelegate? = nil,
-        traceEventsWriter: TraceEventsWriter? = nil
+        traceEventsWriter: TraceEventsWriter? = nil,
+        buildOutputPath: Basics.AbsolutePath? = nil
     )
     {
         self.observabilityScope = observabilityScope
@@ -72,6 +74,7 @@ public final class SwiftBuildSystemMessageHandler {
         self.enableBacktraces = enableBacktraces
         self.buildDelegate = buildDelegate
         self.traceEventsWriter = traceEventsWriter
+        self.buildOutputPath = buildOutputPath
     }
 
     private func emitInfoAsDiagnostic(info: SwiftBuildMessage.DiagnosticInfo) {
@@ -210,6 +213,9 @@ public final class SwiftBuildSystemMessageHandler {
         guard !self.logLevel.isQuiet else { return callback }
         switch message {
         case .buildCompleted(let info):
+            if let writer = self.traceEventsWriter, let outputPath = self.buildOutputPath {
+                writer.importCompilerTimeTraces(under: outputPath)
+            }
             self.traceEventsWriter?.close()
             progressAnimation.complete(success: info.result == .ok)
             if info.result == .cancelled {

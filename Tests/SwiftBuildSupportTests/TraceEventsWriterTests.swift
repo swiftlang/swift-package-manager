@@ -292,6 +292,143 @@ struct TraceEventsWriterTests {
     }
 
     @Test
+    func testImportCompilerTimeTraces() throws {
+        let tmpDir = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("trace-import-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: tmpDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tmpDir) }
+
+        let knownWallClock: Int64 = 1_000_000_000
+
+        // Create Module.build directory
+        let moduleBuildDir = tmpDir.appendingPathComponent("Module.build")
+        try FileManager.default.createDirectory(at: moduleBuildDir, withIntermediateDirectories: true)
+
+        // File A: beginningOfTime = knownWallClock + 1000
+        let traceA: [String: Any] = [
+            "beginningOfTime": knownWallClock + 1000,
+            "traceEvents": [
+                ["pid": 100, "tid": 1, "ts": 100, "ph": "X", "dur": 50, "name": "Parse", "args": [:] as [String: Any]],
+                ["pid": 100, "tid": 1, "ts": 200, "ph": "X", "dur": 30, "name": "Sema", "args": [:] as [String: Any]],
+            ] as [[String: Any]],
+        ]
+        try JSONSerialization.data(withJSONObject: traceA)
+            .write(to: moduleBuildDir.appendingPathComponent("A.time-trace.json"))
+
+        // File B: beginningOfTime = knownWallClock + 1500
+        let traceB: [String: Any] = [
+            "beginningOfTime": knownWallClock + 1500,
+            "traceEvents": [
+                ["pid": 200, "tid": 1, "ts": 50, "ph": "X", "dur": 20, "name": "Parse", "args": [:] as [String: Any]],
+                ["pid": 200, "tid": 1, "ts": 150, "ph": "X", "dur": 40, "name": "SILGen", "args": [:] as [String: Any]],
+            ] as [[String: Any]],
+        ]
+        try JSONSerialization.data(withJSONObject: traceB)
+            .write(to: moduleBuildDir.appendingPathComponent("B.time-trace.json"))
+
+        let events = try buildTrace { writer in
+            writer.buildStartWallClock = knownWallClock
+            let path = try Basics.AbsolutePath(validating: tmpDir.path)
+            writer.importCompilerTimeTraces(under: path)
+        }
+
+        let compilerEvents = events.filter { $0.phase == .complete }
+        #expect(compilerEvents.count == 4)
+
+        // File A events: offset = 1000, so ts: 1000+100=1100, 1000+200=1200
+        let parseA = try #require(compilerEvents.first { $0.name == "Parse" && $0.processID == 100 })
+        #expect(parseA.timestamp == 1100)
+        #expect(parseA.duration == 50)
+
+        let sema = try #require(compilerEvents.first { $0.name == "Sema" })
+        #expect(sema.timestamp == 1200)
+        #expect(sema.duration == 30)
+
+        // File B events: offset = 1500, so ts: 1500+50=1550, 1500+150=1650
+        let parseB = try #require(compilerEvents.first { $0.name == "Parse" && $0.processID == 200 })
+        #expect(parseB.timestamp == 1550)
+        #expect(parseB.duration == 20)
+
+        let silgen = try #require(compilerEvents.first { $0.name == "SILGen" })
+        #expect(silgen.timestamp == 1650)
+        #expect(silgen.duration == 40)
+    }
+
+    @Test
+    func testImportCompilerTimeTracesAggregatesTotals() throws {
+        let tmpDir = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("trace-import-total-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: tmpDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tmpDir) }
+
+        let knownWallClock: Int64 = 1_000_000_000
+
+        // Two files, each with "Total SemanticAnalysis" — should be summed
+        let traceA: [String: Any] = [
+            "beginningOfTime": knownWallClock + 1000,
+            "traceEvents": [
+                ["pid": 100, "tid": 1, "ts": 100, "ph": "X", "dur": 50, "name": "Parse", "args": [:] as [String: Any]],
+                ["pid": 100, "tid": 1, "ts": 200, "ph": "X", "dur": 300, "name": "Total SemanticAnalysis", "args": [:] as [String: Any]],
+            ] as [[String: Any]],
+        ]
+        let traceB: [String: Any] = [
+            "beginningOfTime": knownWallClock + 1500,
+            "traceEvents": [
+                ["pid": 200, "tid": 1, "ts": 50, "ph": "X", "dur": 20, "name": "Parse", "args": [:] as [String: Any]],
+                ["pid": 200, "tid": 1, "ts": 100, "ph": "X", "dur": 500, "name": "Total SemanticAnalysis", "args": [:] as [String: Any]],
+                ["pid": 200, "tid": 1, "ts": 700, "ph": "X", "dur": 100, "name": "Total SILGeneration", "args": [:] as [String: Any]],
+            ] as [[String: Any]],
+        ]
+        try JSONSerialization.data(withJSONObject: traceA)
+            .write(to: tmpDir.appendingPathComponent("A.time-trace.json"))
+        try JSONSerialization.data(withJSONObject: traceB)
+            .write(to: tmpDir.appendingPathComponent("B.time-trace.json"))
+
+        let events = try buildTrace { writer in
+            writer.buildStartWallClock = knownWallClock
+            let path = try Basics.AbsolutePath(validating: tmpDir.path)
+            writer.importCompilerTimeTraces(under: path)
+        }
+
+        let completeEvents = events.filter { $0.phase == .complete }
+
+        // Per-file "Total" events should NOT appear under compiler PIDs
+        #expect(!completeEvents.contains { $0.processID == 100 && $0.name.hasPrefix("Total ") })
+        #expect(!completeEvents.contains { $0.processID == 200 && $0.name.hasPrefix("Total ") })
+
+        // Aggregated totals should appear under processID 2 ("Totals")
+        let totals = completeEvents.filter { $0.processID == 2 }
+        #expect(totals.count == 2)
+
+        let sema = try #require(totals.first { $0.name == "Total SemanticAnalysis" })
+        #expect(sema.duration == 800) // 300 + 500
+
+        let silgen = try #require(totals.first { $0.name == "Total SILGeneration" })
+        #expect(silgen.duration == 100)
+
+        // "Totals" process_name metadata should exist
+        let metaEvents = events.filter { $0.phase == .metadata }
+        let totalsProcess = metaEvents.first { $0.name == "process_name" && $0.processID == 2 }
+        #expect(totalsProcess?.arguments?["name"] == .string("Totals"))
+    }
+
+    @Test
+    func testImportCompilerTimeTracesEmptyDirectory() throws {
+        let tmpDir = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("trace-import-empty-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: tmpDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tmpDir) }
+
+        let events = try buildTrace { writer in
+            let path = try Basics.AbsolutePath(validating: tmpDir.path)
+            writer.importCompilerTimeTraces(under: path)
+        }
+
+        let compilerEvents = events.filter { $0.phase == .complete }
+        #expect(compilerEvents.isEmpty)
+    }
+
+    @Test
     func testMetadataIncludesSwiftPMProcess() throws {
         let events = try buildTrace { writer in
             // Just close to generate metadata

@@ -29,6 +29,7 @@ add_library(SPMBuildCore
   ConfigurableEnvVar.swift
   MainAttrDetection.swift
   ResolvedPackage+Extensions.swift
+  TraceEventsWriter.swift
   Triple+Extensions.swift
   WarningControlFlags.swift
   XCFrameworkMetadata.swift
