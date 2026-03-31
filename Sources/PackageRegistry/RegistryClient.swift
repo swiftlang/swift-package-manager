@@ -98,7 +98,7 @@ public final class RegistryClient: AsyncCancellable {
         }
 
         self.httpClient = customHTTPClient ?? HTTPClient()
-        self.archiverProvider = customArchiverProvider ?? { fileSystem in ZipArchiver(fileSystem: fileSystem) }
+        self.archiverProvider = customArchiverProvider ?? { fileSystem in UniversalArchiver(fileSystem) }
         self.fingerprintStorage = fingerprintStorage
         self.fingerprintCheckingMode = fingerprintCheckingMode
         self.skipSignatureValidation = skipSignatureValidation

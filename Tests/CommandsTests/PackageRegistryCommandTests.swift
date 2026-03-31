@@ -585,7 +585,7 @@ struct PackageRegistryCommandTests {
         @discardableResult
         func validatePackageArchive(at archivePath: AbsolutePath) async throws -> AbsolutePath {
             expectFileExists(at: archivePath)
-            let archiver = ZipArchiver(fileSystem: localFileSystem)
+            let archiver = UniversalArchiver(localFileSystem)
             let extractPath = archivePath.parentDirectory.appending(component: UUID().uuidString)
             try localFileSystem.createDirectory(extractPath)
             try await archiver.extract(from: archivePath, to: extractPath)
@@ -898,7 +898,7 @@ struct PackageRegistryCommandTests {
             manifestContent: [UInt8]
         ) async throws {
             expectFileExists(at: archivePath)
-            let archiver = ZipArchiver(fileSystem: localFileSystem)
+            let archiver = UniversalArchiver(localFileSystem)
             let extractPath = archivePath.parentDirectory.appending(component: UUID().uuidString)
             try localFileSystem.createDirectory(extractPath)
             try await archiver.extract(from: archivePath, to: extractPath)
@@ -1361,7 +1361,7 @@ struct PackageRegistryCommandTests {
         observabilityScope: ObservabilityScope
     ) async throws {
         expectFileExists(at: archivePath)
-        let archiver = ZipArchiver(fileSystem: localFileSystem)
+        let archiver = UniversalArchiver(localFileSystem)
         let extractPath = archivePath.parentDirectory.appending(component: UUID().uuidString)
         try localFileSystem.createDirectory(extractPath)
         try await archiver.extract(from: archivePath, to: extractPath)

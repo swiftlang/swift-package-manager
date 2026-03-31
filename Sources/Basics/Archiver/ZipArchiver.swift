@@ -13,13 +13,14 @@
 import Dispatch
 import struct TSCBasic.FileSystemError
 
-#if os(Windows)
-import WinSDK
-#endif
-
 /// An `Archiver` that handles ZIP archives using the command-line `zip` and `unzip` tools.
 public struct ZipArchiver: Archiver, Cancellable {
+#if os(Windows)
+    // On Windows zip is handled by the TarArchiver with the system32 tar.exe command
+    public var supportedExtensions: Set<String> { [] }
+#else
     public var supportedExtensions: Set<String> { ["zip"] }
+#endif
 
     /// The file-system implementation used for various file-system operations and checks.
     private let fileSystem: FileSystem
@@ -27,13 +28,8 @@ public struct ZipArchiver: Archiver, Cancellable {
     /// Helper for cancelling in-flight requests
     private let cancellator: Cancellator
 
-    /// Absolute path to the Windows tar in the system folder
-    #if os(Windows)
-        internal let windowsTar: String
-    #else
-        internal let unzip = "unzip"
-        internal let zip = "zip"
-    #endif
+    internal let unzip = "unzip"
+    internal let zip = "zip"
 
     #if os(FreeBSD)
         internal let tar = "tar"
@@ -47,19 +43,6 @@ public struct ZipArchiver: Archiver, Cancellable {
     public init(fileSystem: FileSystem, cancellator: Cancellator? = .none) {
         self.fileSystem = fileSystem
         self.cancellator = cancellator ?? Cancellator(observabilityScope: .none)
-
-        #if os(Windows)
-        var tarPath: PWSTR?
-        defer { CoTaskMemFree(tarPath) }
-        let hr = withUnsafePointer(to: FOLDERID_System) { id in
-            SHGetKnownFolderPath(id, DWORD(KF_FLAG_DEFAULT.rawValue), nil, &tarPath)
-        }
-        if hr == S_OK, let tarPath {
-            windowsTar = String(decodingCString: tarPath, as: UTF16.self) + "\\tar.exe"
-        } else {
-            windowsTar = "tar.exe"
-        }
-        #endif
     }
 
     public func extract(
@@ -76,15 +59,9 @@ public struct ZipArchiver: Archiver, Cancellable {
                 throw FileSystemError(.notDirectory, destinationPath.underlying)
             }
 
-            #if os(Windows)
-            // FileManager lost the ability to detect tar.exe as executable.
-            // It's part of system32 anyway so use the absolute path.
-            let process = AsyncProcess(arguments: [windowsTar, "xf", archivePath.pathString, "-C", destinationPath.pathString])
-            #else
-                let process = AsyncProcess(arguments: [
-                    self.unzip, archivePath.pathString, "-d", destinationPath.pathString,
-                ])
-            #endif
+            let process = AsyncProcess(arguments: [
+                self.unzip, archivePath.pathString, "-d", destinationPath.pathString,
+            ])
             guard let registrationKey = self.cancellator.register(process) else {
                 throw CancellationError.failedToRegisterProcess(process)
             }
@@ -112,13 +89,7 @@ public struct ZipArchiver: Archiver, Cancellable {
             throw FileSystemError(.notDirectory, directory.underlying)
         }
 
-        #if os(Windows)
-        let process = AsyncProcess(
-            // FIXME: are these the right arguments?
-            arguments: [windowsTar, "-a", "-c", "-f", destinationPath.pathString, directory.basename],
-            workingDirectory: directory.parentDirectory
-        )
-        #elseif os(FreeBSD)
+        #if os(FreeBSD)
         // On FreeBSD, the unzip command is available in base but not the zip command.
         // Therefore; we use libarchive(bsdtar) to produce the ZIP archive instead.
         let process = AsyncProcess(
@@ -163,11 +134,7 @@ public struct ZipArchiver: Archiver, Cancellable {
                 throw FileSystemError(.noEntry, path.underlying)
             }
 
-            #if os(Windows)
-            let process = AsyncProcess(arguments: [windowsTar, "tf", path.pathString])
-            #else
-                let process = AsyncProcess(arguments: [self.unzip, "-t", path.pathString])
-            #endif
+            let process = AsyncProcess(arguments: [self.unzip, "-t", path.pathString])
             guard let registrationKey = self.cancellator.register(process) else {
                 throw CancellationError.failedToRegisterProcess(process)
             }
