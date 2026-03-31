@@ -204,7 +204,11 @@ enum TestingSupport {
         let env = try Self.constructTestEnvironment(
             toolchain: toolchain,
             destinationBuildParameters: swiftCommandState.buildParametersForTest(
-                enableCodeCoverage: enableCodeCoverage,
+                // Unlike the XCTest helper tool, the Swift Testing runtime initialises LLVM
+                // profiling on startup and writes a profraw file even when only listing tests,
+                // which would inflate the profraw file count produced by the actual test run.
+                // Code coverage is not necessary here as we are simply listing tests.
+                enableCodeCoverage: false,
                 shouldSkipBuilding: shouldSkipBuilding
             ).productsBuildParameters,
             sanitizers: sanitizers,
