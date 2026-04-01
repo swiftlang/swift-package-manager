@@ -1331,11 +1331,17 @@ struct TestCommandTests {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         try await fixture(name: "Miscellaneous/DefaultInteropMode") { fixturePath in
-            try await executeSwiftTest(
-                fixturePath,
-                buildSystem: buildSystem,
-                throwIfCommandFails: true,
-            )
+            try await withKnownIssue(isIntermittent: true) {
+                try await executeSwiftTest(
+                    fixturePath,
+                    buildSystem: buildSystem,
+                    throwIfCommandFails: true,
+                )
+            } when: {
+                // Swift Build on Windows sometimes fails to generate LinkFileList files.
+                // https://github.com/swiftlang/swift-package-manager/issues/9420
+                ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild
+            }
         }
     }
 
@@ -1346,11 +1352,17 @@ struct TestCommandTests {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         try await fixture(name: "Miscellaneous/NoDefaultInteropMode") { fixturePath in
-            try await executeSwiftTest(
-                fixturePath,
-                buildSystem: buildSystem,
-                throwIfCommandFails: true,
-            )
+            try await withKnownIssue(isIntermittent: true) {
+                try await executeSwiftTest(
+                    fixturePath,
+                    buildSystem: buildSystem,
+                    throwIfCommandFails: true,
+                )
+            } when: {
+                // Swift Build on Windows sometimes fails to generate LinkFileList files.
+                // https://github.com/swiftlang/swift-package-manager/issues/9420
+                ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild
+            }
         }
     }
 
@@ -1361,12 +1373,18 @@ struct TestCommandTests {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         try await fixture(name: "Miscellaneous/RespectUserInteropMode") { fixturePath in
-            try await executeSwiftTest(
-                fixturePath,
-                env: ["SWIFT_TESTING_XCTEST_INTEROP_MODE": "none"],
-                buildSystem: buildSystem,
-                throwIfCommandFails: true,
-            )
+            try await withKnownIssue(isIntermittent: true) {
+                try await executeSwiftTest(
+                    fixturePath,
+                    env: ["SWIFT_TESTING_XCTEST_INTEROP_MODE": "none"],
+                    buildSystem: buildSystem,
+                    throwIfCommandFails: true,
+                )
+            } when: {
+                // Swift Build on Windows sometimes fails to generate LinkFileList files.
+                // https://github.com/swiftlang/swift-package-manager/issues/9420
+                ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild
+            }
         }
     }
 
