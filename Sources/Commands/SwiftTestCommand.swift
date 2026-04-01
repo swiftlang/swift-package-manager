@@ -393,21 +393,20 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
 
                 let filteredTestProducts = testProducts.filter { tests[$0.binaryPath] != nil }
 
-                // Exit early if test products are filtered to 0.
-                guard !filteredTestProducts.isEmpty else {
-                    swiftCommandState.observabilityScope.emit(.noMatchingTests)
-                    return
-                }
-
-                results.append(
-                    try await runTestProducts(
-                        filteredTestProducts,
-                        additionalArguments: [],
-                        productsBuildParameters: buildParameters,
-                        swiftCommandState: swiftCommandState,
-                        library: .swiftTesting
+                if !filteredTestProducts.isEmpty {
+                    results.append(
+                        try await runTestProducts(
+                            filteredTestProducts,
+                            additionalArguments: [],
+                            productsBuildParameters: buildParameters,
+                            swiftCommandState: swiftCommandState,
+                            library: .swiftTesting
+                        )
                     )
-                )
+                } else {
+                    results.append(.noMatchingTests)
+                }
+                
             } else if let testEntryPointPath {
                 // Cannot run Swift Testing because an entry point file was used and the developer
                 // didn't explicitly enable Swift Testing.
