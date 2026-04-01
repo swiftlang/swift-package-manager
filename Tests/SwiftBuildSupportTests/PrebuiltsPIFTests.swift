@@ -174,7 +174,8 @@ struct PrebuiltsPIFTests {
             observabilityScope: observability.topScope
         )
         let pif = try await pifBuilder.constructPIF(
-            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild),
+            hostBuildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
         )
 
         let hostTargets = Set([
@@ -373,7 +374,8 @@ struct PrebuiltsPIFTests {
             observabilityScope: observability.topScope
         )
         let pif = try await pifBuilder.constructPIF(
-            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild),
+            hostBuildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
         )
 
         let targets = pif.workspace.projects.flatMap({ $0.underlying.targets })

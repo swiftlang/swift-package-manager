@@ -65,6 +65,7 @@ func withInstantiatedSwiftBuildSystem(
 
             let swBuild = try SwiftBuildSystem(
                 buildParameters: buildParameters,
+                hostBuildParameters: buildParameters,
                 packageGraphLoader: graphLoader,
                 packageManagerResourcesDirectory: nil,
                 additionalFileRules: [],

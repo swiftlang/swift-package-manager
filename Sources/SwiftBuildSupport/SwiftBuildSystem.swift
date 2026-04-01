@@ -243,6 +243,7 @@ package final class SwiftBuildSystemPlanningOperationDelegate: SWBPlanningOperat
 
 public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
     package let buildParameters: BuildParameters
+    package let hostBuildParameters: BuildParameters
     private let packageGraphLoader: () async throws -> ModulesGraph
     private let packageManagerResourcesDirectory: Basics.AbsolutePath?
     private let logLevel: Basics.Diagnostic.Severity
@@ -307,6 +308,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
     public init(
         buildParameters: BuildParameters,
+        hostBuildParameters: BuildParameters,
         packageGraphLoader: @escaping () async throws -> ModulesGraph,
         packageManagerResourcesDirectory: Basics.AbsolutePath?,
         additionalFileRules: [FileRuleDescription],
@@ -318,6 +320,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         delegate: BuildSystemDelegate?
     ) throws {
         self.buildParameters = buildParameters
+        self.hostBuildParameters = hostBuildParameters
         self.packageGraphLoader = packageGraphLoader
         self.packageManagerResourcesDirectory = packageManagerResourcesDirectory
         self.additionalFileRules = additionalFileRules
@@ -419,34 +422,6 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             pifTargetName: subset.pifTargetName,
             buildOutputs: buildOutputs,
         )
-    }
-
-    /// Compute the available build tools, and their destination build path for host for each plugin.
-    private func availableBuildPluginTools(
-        graph: ModulesGraph,
-        buildParameters: BuildParameters,
-        pluginsPerModule: [ResolvedModule.ID: [ResolvedModule]],
-        hostTriple: Basics.Triple
-    ) async throws -> [ResolvedModule.ID: [String: PluginTool]] {
-        var accessibleToolsPerPlugin: [ResolvedModule.ID: [String: PluginTool]] = [:]
-
-        for (_, plugins) in pluginsPerModule {
-            for plugin in plugins where accessibleToolsPerPlugin[plugin.id] == nil {
-                // Determine the tools to which this plugin has access, and create a name-to-path mapping from tool
-                // names to the corresponding paths. Built tools are assumed to be in the build tools directory.
-                let accessibleTools = try await plugin.preparePluginTools(
-                    fileSystem: fileSystem,
-                    environment: buildParameters.buildEnvironment,
-                    for: hostTriple
-                ) { name, path in
-                    return buildParameters.buildPath.appending(path)
-                }
-
-                accessibleToolsPerPlugin[plugin.id] = accessibleTools
-            }
-        }
-
-        return accessibleToolsPerPlugin
     }
 
     /// Compiles any plugins specified or implied by the build subset, returning
@@ -1284,7 +1259,8 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         let pif = try await pifBuilder.generatePIF(
             preservePIFModelStructure: preserveStructure,
             printPIFManifestGraphviz: buildParameters.printPIFManifestGraphviz,
-            buildParameters: buildParameters
+            buildParameters: buildParameters,
+            hostBuildParameters: hostBuildParameters
         )
         return pif
     }
