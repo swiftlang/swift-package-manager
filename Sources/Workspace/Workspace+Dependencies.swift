@@ -449,12 +449,12 @@ extension Workspace {
                         case .remoteSourceControl
                             where self.canUseSourceArchive(for: resolvedPackage.packageRef):
                             if case .version(let version, let revision) = resolvedPackage.state {
-                                if let _ = try await self.materializeSourceArchive(
+                                if try await self.materializeSourceArchive(
                                     package: resolvedPackage.packageRef,
                                     version: version,
                                     pinnedRevision: revision,
                                     observabilityScope: observabilityScope
-                                ) {
+                                ) != nil {
                                     return
                                 }
                             }

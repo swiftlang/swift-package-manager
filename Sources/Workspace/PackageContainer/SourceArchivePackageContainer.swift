@@ -321,11 +321,7 @@ public final class SourceArchivePackageContainer: PackageContainer, CustomString
 
         guard !shasToFetch.isEmpty else { return }
 
-        let swiftVersion = Version(
-            self.currentToolsVersion.major,
-            self.currentToolsVersion.minor,
-            self.currentToolsVersion.patch
-        )
+        let swiftVersion = self.swiftVersion
 
         let maxConcurrent = shasToFetch.count > 500 ? 8 : 4
         let queue = AsyncOperationQueue(concurrentTasks: maxConcurrent)
@@ -380,11 +376,7 @@ public final class SourceArchivePackageContainer: PackageContainer, CustomString
         }
 
         let (owner, repo) = self.ownerAndRepo()
-        let swiftVersion = Version(
-            self.currentToolsVersion.major,
-            self.currentToolsVersion.minor,
-            self.currentToolsVersion.patch
-        )
+        let swiftVersion = self.swiftVersion
 
         // Check disk cache before hitting the network. Probe variant filenames
         // (most specific first), then the base Package.swift.
@@ -479,6 +471,14 @@ public final class SourceArchivePackageContainer: PackageContainer, CustomString
             // This container should only be used for remote source control packages.
             return SourceControlURL(stringLiteral: self.package.locationString)
         }
+    }
+
+    private var swiftVersion: Version {
+        Version(
+            self.currentToolsVersion.major,
+            self.currentToolsVersion.minor,
+            self.currentToolsVersion.patch
+        )
     }
 
     private func ownerAndRepo() -> (owner: String, repo: String) {

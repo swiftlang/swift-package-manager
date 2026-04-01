@@ -50,10 +50,12 @@ public final class SourceArchiveMetadataCache: Sendable {
 
     public func getMetadata(owner: String, repo: String, sha: String) throws -> SourceArchiveMetadata? {
         let metadataPath = self.metadataFilePath(owner: owner, repo: repo, sha: sha)
-        guard self.fileSystem.exists(metadataPath) else {
+        let data: Data
+        do {
+            data = try self.fileSystem.readFileContents(metadataPath)
+        } catch {
             return nil
         }
-        let data: Data = try self.fileSystem.readFileContents(metadataPath)
         return try JSONDecoder().decode(SourceArchiveMetadata.self, from: data)
     }
 
@@ -74,10 +76,11 @@ public final class SourceArchiveMetadataCache: Sendable {
     public func getManifest(owner: String, repo: String, sha: String, filename: String) throws -> String? {
         let manifestPath = self.shaDirectoryPath(owner: owner, repo: repo, sha: sha)
             .appending(component: filename)
-        guard self.fileSystem.exists(manifestPath) else {
+        do {
+            return try self.fileSystem.readFileContents(manifestPath) as String
+        } catch {
             return nil
         }
-        return try self.fileSystem.readFileContents(manifestPath) as String
     }
 
     public func setManifest(

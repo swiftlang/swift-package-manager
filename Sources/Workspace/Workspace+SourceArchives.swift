@@ -120,7 +120,7 @@ extension Workspace {
             : self.authorizationProvider
     }
 
-    /// Creates a ``SourceArchiveDownloader`` using the workspace's shared HTTP client and file system.
+    /// Creates a `SourceArchiveDownloader` using the workspace's shared HTTP client and file system.
     func makeSourceArchiveDownloader() -> SourceArchiveDownloader {
         SourceArchiveDownloader(
             httpClient: self.sourceArchiveHTTPClient,
@@ -342,9 +342,8 @@ extension Workspace {
 
             try self.fileSystem.withLock(on: cachePath, type: .exclusive) {
                 if !self.fileSystem.exists(cachePath.appending("Package.swift")) {
-                    if !self.fileSystem.exists(cachePath.parentDirectory) {
-                        try self.fileSystem.createDirectory(cachePath.parentDirectory, recursive: true)
-                    }
+                    try self.fileSystem.createDirectory(cachePath.parentDirectory, recursive: true)
+                    try? self.fileSystem.removeFileTree(cachePath)
                     try self.fileSystem.copy(from: tempClonePath, to: cachePath)
                 }
             }
@@ -416,9 +415,6 @@ extension Workspace {
 
         let maxConcurrent = min(max(1, 3 * Concurrency.maxOperations / 4), 8)
 
-        // Use AsyncOperationQueue instead of fixed batches so that a new
-        // download starts as soon as any slot frees up, rather than waiting
-        // for the entire batch to finish.
         let queue = AsyncOperationQueue(concurrentTasks: maxConcurrent)
         await withTaskGroup(of: Void.self) { group in
             for item in toFetch {
