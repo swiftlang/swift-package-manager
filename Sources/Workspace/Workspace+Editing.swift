@@ -11,21 +11,24 @@
 //===----------------------------------------------------------------------===//
 
 import _Concurrency
+import Basics
 import PackageModel
+import SourceControl
 import TSCBasic
 
 import struct Basics.AbsolutePath
 import class Basics.InMemoryFileSystem
 import class Basics.ObservabilityScope
 import struct Basics.RelativePath
+import struct Basics.SourceControlURL
 import struct PackageGraph.PackageGraphRootInput
-import struct SourceControl.Revision
+import struct TSCUtility.Version
 
 extension Workspace {
     /// Edit implementation.
     func _edit(
         packageIdentity: String,
-        path: AbsolutePath? = nil,
+        path: Basics.AbsolutePath? = nil,
         revision: Revision? = nil,
         checkoutBranch: String? = nil,
         observabilityScope: ObservabilityScope
@@ -42,6 +45,8 @@ extension Workspace {
         )
 
         let checkoutState: CheckoutState
+        var sourceArchiveTag: String?
+        var sourceArchiveHasSubmodules = false
         switch dependency.state {
         case .sourceControlCheckout(let _checkoutState):
             checkoutState = _checkoutState
@@ -57,6 +62,14 @@ extension Workspace {
         case .custom:
             observabilityScope.emit(error: "custom dependency '\(dependency.packageRef.identity)' can't be edited")
             return
+        case .sourceArchiveDownload(let state):
+            guard let version = Version(tag: state.tag) else {
+                observabilityScope.emit(error: "invalid version tag '\(state.tag)' for source archive dependency '\(dependency.packageRef.identity)'")
+                return
+            }
+            checkoutState = .version(version, revision: .init(identifier: state.revision))
+            sourceArchiveTag = state.tag
+            sourceArchiveHasSubmodules = state.hasSubmodules
         }
 
         // If a path is provided then we use it as destination. If not, we
@@ -94,6 +107,27 @@ extension Workspace {
                     revisionIdentifier: revision.identifier
                 ))
             }
+        } else if let tag = sourceArchiveTag {
+            // Source archive dependencies have no local bare repo — clone
+            // directly from the remote through GitRepositoryProvider, which
+            // provides the same git config, environment, cancellation, and
+            // error handling as all other git operations in SPM.
+            guard let gitProvider = self.repositoryProvider as? GitRepositoryProvider else {
+                throw InternalError("editing source archive dependency requires GitRepositoryProvider")
+            }
+            let repository = try dependency.packageRef.makeRepositorySpecifier()
+
+            try fileSystem.createDirectory(destination.parentDirectory, recursive: true)
+
+            _ = try await gitProvider.cloneForEditing(
+                repository: repository,
+                tag: tag,
+                to: destination,
+                revision: revision,
+                newBranch: checkoutBranch,
+                shallow: revision == nil,
+                recurseSubmodules: sourceArchiveHasSubmodules
+            )
         } else {
             // Otherwise, create a checkout at the destination from our repository store.
             //
@@ -143,11 +177,13 @@ extension Workspace {
             }
         }
 
-        // Remove the existing checkout.
+        // Remove the existing materialized dependency.
         do {
-            let oldCheckoutPath = self.location.repositoriesCheckoutSubdirectory(for: dependency)
-            try fileSystem.chmod(.userWritable, path: oldCheckoutPath, options: [.recursive, .onlyFiles])
-            try fileSystem.removeFileTree(oldCheckoutPath)
+            let oldPath = self.path(to: dependency)
+            if fileSystem.exists(oldPath) {
+                try fileSystem.chmod(.userWritable, path: oldPath, options: [.recursive, .onlyFiles])
+                try fileSystem.removeFileTree(oldPath)
+            }
         }
 
         // Save the new state.
@@ -214,6 +250,22 @@ extension Workspace {
                 at: checkoutState,
                 observabilityScope: observabilityScope
             )
+        } else if case .edited(let basedOn, _) = dependency.state,
+                  case .sourceArchiveDownload(let state) = basedOn?.state
+        {
+            if try await self.materializeSourceArchive(
+                package: dependency.packageRef,
+                version: state.version,
+                pinnedRevision: state.revision,
+                pinnedTag: state.tag,
+                observabilityScope: observabilityScope
+            ) == nil {
+                _ = try await self.checkoutRepository(
+                    package: dependency.packageRef,
+                    at: .version(state.version, revision: .init(identifier: state.revision)),
+                    observabilityScope: observabilityScope
+                )
+            }
         } else {
             // The original dependency was removed, update the managed dependency state.
             await self.state.remove(identity: dependency.packageRef.identity)

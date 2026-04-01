@@ -145,6 +145,11 @@ extension ResolvedPackagesStore.ResolvedPackage {
                 packageRef: dependency.packageRef,
                 state: .version(version, revision: .none)
             )
+        case .sourceArchiveDownload(let state):
+            self.init(
+                packageRef: dependency.packageRef,
+                state: .version(state.version, revision: state.revision)
+            )
         case .edited, .fileSystem, .custom:
             // NOOP
             return nil
@@ -177,10 +182,10 @@ extension ResolvedPackagesStore.ResolutionState {
         }
     }
 
-    func equals(_: Version) -> Bool {
+    func equals(_ other: Version) -> Bool {
         switch self {
         case .version(let version, _):
-            return version == version
+            return version == other
         default:
             return false
         }

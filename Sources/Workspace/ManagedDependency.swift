@@ -18,6 +18,42 @@ import TSCBasic
 
 import struct TSCUtility.Version
 
+public struct SourceArchiveDownloadState: Equatable, Hashable, Codable {
+    public let version: Version
+    public let revision: String
+    public let tag: String
+    public let hasSubmodules: Bool
+    public let checksum: String?
+
+    public init(version: Version, revision: String, tag: String, hasSubmodules: Bool, checksum: String?) {
+        self.version = version
+        self.revision = revision
+        self.tag = tag
+        self.hasSubmodules = hasSubmodules
+        self.checksum = checksum
+    }
+
+    /// Decode from a flat keyed container used by workspace state serialization.
+    static func decode<K: CodingKey>(from container: KeyedDecodingContainer<K>, versionKey: K, revisionKey: K, tagKey: K, hasSubmodulesKey: K, checksumKey: K) throws -> SourceArchiveDownloadState {
+        let versionString = try container.decode(String.self, forKey: versionKey)
+        let version = try TSCUtility.Version(versionString: versionString)
+        let revision = try container.decode(String.self, forKey: revisionKey)
+        let tag = try container.decode(String.self, forKey: tagKey)
+        let hasSubmodules = try container.decode(Bool.self, forKey: hasSubmodulesKey)
+        let checksum = try container.decodeIfPresent(String.self, forKey: checksumKey)
+        return SourceArchiveDownloadState(version: version, revision: revision, tag: tag, hasSubmodules: hasSubmodules, checksum: checksum)
+    }
+
+    /// Encode into a flat keyed container used by workspace state serialization.
+    func encode<K: CodingKey>(into container: inout KeyedEncodingContainer<K>, versionKey: K, revisionKey: K, tagKey: K, hasSubmodulesKey: K, checksumKey: K) throws {
+        try container.encode(self.version, forKey: versionKey)
+        try container.encode(self.revision, forKey: revisionKey)
+        try container.encode(self.tag, forKey: tagKey)
+        try container.encode(self.hasSubmodules, forKey: hasSubmodulesKey)
+        try container.encodeIfPresent(self.checksum, forKey: checksumKey)
+    }
+}
+
 extension Workspace {
     /// An individual managed dependency.
     ///
@@ -44,6 +80,8 @@ extension Workspace {
 
             case custom(version: Version, path: Basics.AbsolutePath)
 
+            case sourceArchiveDownload(SourceArchiveDownloadState)
+
             public var description: String {
                 switch self {
                 case .fileSystem(let path):
@@ -56,6 +94,8 @@ extension Workspace {
                     return "edited"
                 case .custom:
                     return "custom"
+                case .sourceArchiveDownload(let state):
+                    return "sourceArchiveDownload (\(state.version) \(state.tag))"
                 }
             }
         }
@@ -86,7 +126,10 @@ extension Workspace {
         ///     - subpath: The subpath inside the editable directory.
         ///     - unmanagedPath: A custom absolute path instead of the subpath.
         public func edited(subpath: Basics.RelativePath, unmanagedPath: Basics.AbsolutePath?) throws -> ManagedDependency {
-            guard case .sourceControlCheckout =  self.state else {
+            switch self.state {
+            case .sourceControlCheckout, .sourceArchiveDownload:
+                break
+            default:
                 throw InternalError("invalid dependency state: \(self.state)")
             }
             return ManagedDependency(
@@ -145,6 +188,24 @@ extension Workspace {
                 state: .registryDownload(version: version),
                 subpath: subpath
             )
+        }
+
+        /// Create a source archive download dependency.
+        public static func sourceArchiveDownload(
+            packageRef: PackageReference,
+            state: SourceArchiveDownloadState,
+            subpath: Basics.RelativePath
+        ) throws -> ManagedDependency {
+            switch packageRef.kind {
+            case .remoteSourceControl:
+                return ManagedDependency(
+                    packageRef: packageRef,
+                    state: .sourceArchiveDownload(state),
+                    subpath: subpath
+                )
+            default:
+                throw InternalError("invalid package type: \(packageRef.kind)")
+            }
         }
 
         /// Create an edited dependency

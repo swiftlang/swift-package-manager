@@ -10,8 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 import Basics
+import PackageModel
 @testable import Workspace
 import Testing
+
+import struct TSCUtility.Version
 
 fileprivate struct WorkspaceStateTests {
     @Test(
@@ -516,6 +519,155 @@ fileprivate struct WorkspaceStateTests {
         // empty since we have dups so we warn and fail the loading
         // TODO: test for diagnostics when we can get them from the WorkspaceState initializer
         #expect(artifacts.isEmpty)
+    }
+
+    @Test(
+        .tags(
+            .TestSize.small,
+        ),
+    )
+    func sourceArchiveDownloadRoundTrip() async throws {
+        let fs = InMemoryFileSystem()
+
+        let buildDir = AbsolutePath("/.build")
+        let statePath = buildDir.appending("workspace-state.json")
+        try fs.writeFileContents(
+            statePath,
+            string: """
+            {
+                "version": 7,
+                "object": {
+                    "artifacts": [],
+                    "prebuilts": [],
+                    "dependencies": [
+                        {
+                            "basedOn": null,
+                            "packageRef": {
+                              "identity": "swift-nio",
+                              "kind": "remoteSourceControl",
+                              "location": "https://github.com/apple/swift-nio.git",
+                              "name": "swift-nio"
+                            },
+                            "state": {
+                              "name": "sourceArchiveDownload",
+                              "version": "2.40.0",
+                              "revision": "abc123def456",
+                              "tag": "2.40.0",
+                              "hasSubmodules": false,
+                              "checksum": null
+                            },
+                            "subpath": "swift-nio/2.40.0"
+                        },
+                        {
+                            "basedOn": null,
+                            "packageRef": {
+                              "identity": "grpc-swift",
+                              "kind": "remoteSourceControl",
+                              "location": "https://github.com/grpc/grpc-swift.git",
+                              "name": "grpc-swift"
+                            },
+                            "state": {
+                              "name": "sourceArchiveDownload",
+                              "version": "1.0.0",
+                              "revision": "fff000aaa111",
+                              "tag": "v1.0.0",
+                              "hasSubmodules": true,
+                              "checksum": "deadbeef"
+                            },
+                            "subpath": "grpc-swift/1.0.0"
+                        }
+                    ]
+                }
+            }
+            """
+        )
+
+        let state = WorkspaceState(fileSystem: fs, storageDirectory: buildDir)
+        let dependencies = await state.dependencies
+
+        // Verify both dependencies loaded.
+        let nio = dependencies[.plain("swift-nio")]
+        #expect(nio != nil)
+        if case .sourceArchiveDownload(let state) = nio?.state {
+            #expect(state.version == .init(2, 40, 0))
+            #expect(state.revision == "abc123def456")
+            #expect(state.tag == "2.40.0")
+            #expect(state.hasSubmodules == false)
+            #expect(state.checksum == nil)
+        } else {
+            Issue.record("Expected sourceArchiveDownload state, got \(String(describing: nio?.state))")
+        }
+
+        let grpc = dependencies[.plain("grpc-swift")]
+        #expect(grpc != nil)
+        if case .sourceArchiveDownload(let state) = grpc?.state {
+            #expect(state.version == .init(1, 0, 0))
+            #expect(state.revision == "fff000aaa111")
+            #expect(state.tag == "v1.0.0")
+            #expect(state.hasSubmodules == true)
+            #expect(state.checksum == "deadbeef")
+        } else {
+            Issue.record("Expected sourceArchiveDownload state, got \(String(describing: grpc?.state))")
+        }
+
+        // Round-trip: save and reload.
+        try await state.save()
+        let reloaded = WorkspaceState(fileSystem: fs, storageDirectory: buildDir)
+        let reloadedDeps = await reloaded.dependencies
+
+        let nioReloaded = reloadedDeps[.plain("swift-nio")]
+        if case .sourceArchiveDownload(let state) = nioReloaded?.state {
+            #expect(state.version == .init(2, 40, 0))
+            #expect(state.revision == "abc123def456")
+            #expect(state.tag == "2.40.0")
+            #expect(state.hasSubmodules == false)
+            #expect(state.checksum == nil)
+        } else {
+            Issue.record("Round-trip failed for swift-nio: \(String(describing: nioReloaded?.state))")
+        }
+
+        let grpcReloaded = reloadedDeps[.plain("grpc-swift")]
+        if case .sourceArchiveDownload(let state) = grpcReloaded?.state {
+            #expect(state.version == .init(1, 0, 0))
+            #expect(state.hasSubmodules == true)
+            #expect(state.checksum == "deadbeef")
+        } else {
+            Issue.record("Round-trip failed for grpc-swift: \(String(describing: grpcReloaded?.state))")
+        }
+    }
+
+    @Test("sourceArchiveDownload dependency can be edited and preserves basedOn state")
+    func sourceArchiveDownloadEditTransition() throws {
+        let url = SourceControlURL("https://github.com/test/foo.git")
+        let identity = PackageIdentity(url: url)
+        let packageRef = PackageReference(identity: identity, kind: .remoteSourceControl(url))
+
+        let original = try Workspace.ManagedDependency.sourceArchiveDownload(
+            packageRef: packageRef,
+            state: SourceArchiveDownloadState(version: Version(1, 0, 0), revision: "abc123", tag: "1.0.0", hasSubmodules: false, checksum: "deadbeef"),
+            subpath: try RelativePath(validating: identity.description).appending(component: "1.0.0")
+        )
+
+        // Edit the dependency.
+        let edited = try original.edited(
+            subpath: try RelativePath(validating: "foo"),
+            unmanagedPath: nil
+        )
+
+        // Verify edited state preserves the original as basedOn.
+        guard case .edited(let basedOn, _) = edited.state else {
+            Issue.record("Expected edited state, got: \(edited.state)")
+            return
+        }
+        guard case .sourceArchiveDownload(let state) = basedOn?.state else {
+            Issue.record("Expected basedOn sourceArchiveDownload, got: \(String(describing: basedOn?.state))")
+            return
+        }
+        #expect(state.version == Version(1, 0, 0))
+        #expect(state.revision == "abc123")
+        #expect(state.tag == "1.0.0")
+        #expect(state.hasSubmodules == false)
+        #expect(state.checksum == "deadbeef")
     }
 }
 

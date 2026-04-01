@@ -19,6 +19,7 @@ import func Basics.os_signpost
 import struct Basics.RelativePath
 import enum Basics.SignpostName
 import class Basics.ThreadSafeKeyValueStore
+
 import class Dispatch.DispatchGroup
 import struct Dispatch.DispatchTime
 import enum Dispatch.DispatchTimeInterval
@@ -425,6 +426,11 @@ extension Workspace {
                 return !pin.state.equals(checkoutState)
             case .registryDownload(let version):
                 return !pin.state.equals(version)
+            case .sourceArchiveDownload(let state):
+                if case .version(let pinVersion, let pinRevision) = pin.state {
+                    return !(pinVersion == state.version && pinRevision == state.revision)
+                }
+                return true
             case .edited, .fileSystem, .custom:
                 return true
             }
@@ -440,6 +446,24 @@ extension Workspace {
                 taskGroup.addTask {
                     await observabilityScope.trap {
                         switch resolvedPackage.packageRef.kind {
+                        case .remoteSourceControl
+                            where self.canUseSourceArchive(for: resolvedPackage.packageRef):
+                            if case .version(let version, let revision) = resolvedPackage.state {
+                                if let _ = try await self.materializeSourceArchive(
+                                    package: resolvedPackage.packageRef,
+                                    version: version,
+                                    pinnedRevision: revision,
+                                    observabilityScope: observabilityScope
+                                ) {
+                                    return
+                                }
+                            }
+                            // Fallback to git clone.
+                            _ = try await self.checkoutRepository(
+                                package: resolvedPackage.packageRef,
+                                at: resolvedPackage.state,
+                                observabilityScope: observabilityScope
+                            )
                         case .localSourceControl, .remoteSourceControl:
                             _ = try await self.checkoutRepository(
                                 package: resolvedPackage.packageRef,
@@ -706,6 +730,13 @@ extension Workspace {
             }
         }
 
+        // Pre-download source archives concurrently so the sequential
+        // materialization loop below finds them already on disk.
+        await self.prefetchSourceArchives(
+            for: packageStateChanges,
+            observabilityScope: observabilityScope
+        )
+
         // Update or clone new packages.
         for (packageRef, state) in packageStateChanges {
             await observabilityScope.makeChildScope(
@@ -755,17 +786,43 @@ extension Workspace {
                 observabilityScope: observabilityScope
             )
 
-            if let container = container as? SourceControlPackageContainer {
+            if let archiveContainer = container as? SourceArchivePackageContainer,
+               let path = try await self.materializeSourceArchive(
+                   package: package,
+                   version: version,
+                   container: archiveContainer,
+                   observabilityScope: observabilityScope
+               )
+            {
+                return path
+            }
+
+            // This block handles both the direct git path and the fallback from
+            // a failed source archive download.
+            let scContainer: SourceControlPackageContainer?
+            if let existing = container as? SourceControlPackageContainer {
+                scContainer = existing
+            } else if container is SourceArchivePackageContainer {
+                scContainer = try await self.getSourceControlContainer(
+                    for: package,
+                    updateStrategy: .never,
+                    observabilityScope: observabilityScope
+                )
+            } else {
+                scContainer = nil
+            }
+
+            if let scContainer {
                 // FIXME: We need to get the revision here, and we don't have a
                 // way to get it back out of the resolver which is very
                 // annoying. Maybe we should make an SPI on the provider for this?
-                guard let tag = container.getTag(for: version) else {
+                guard let tag = scContainer.getTag(for: version) else {
                     throw try await InternalError(
-                        "unable to get tag for \(package) \(version); available versions \(container.versionsDescending())"
+                        "unable to get tag for \(package) \(version); available versions \(scContainer.versionsDescending())"
                     )
                 }
-                let revision = try container.getRevision(forTag: tag)
-                try container.checkIntegrity(version: version, revision: revision)
+                let revision = try scContainer.getRevision(forTag: tag)
+                try scContainer.checkIntegrity(version: version, revision: revision)
                 return try await self.checkoutRepository(
                     package: package,
                     at: .version(version, revision: revision),
@@ -1053,6 +1110,9 @@ extension Workspace {
                         throw InternalError("Unexpected unversioned binding for downloaded dependency")
                     case .custom:
                         throw InternalError("Unexpected unversioned binding for custom dependency")
+                    case .sourceArchiveDownload:
+                        let newState = PackageStateChange.State(requirement: .unversioned, products: binding.products)
+                        packageStateChanges[binding.package.identity] = (binding.package, .updated(newState))
                     }
                 } else {
                     let newState = PackageStateChange.State(requirement: .unversioned, products: binding.products)
@@ -1061,14 +1121,24 @@ extension Workspace {
 
             case .revision(let identifier, let branch):
                 // Get the latest revision from the container.
-                // TODO: replace with async/await when available
-                guard let container = try await
-                    packageContainerProvider.getContainer(
+                // Revision-pinned packages always need a SourceControlPackageContainer,
+                // even when source archives are enabled — the archive path only handles version pins.
+                let rawContainer = try await packageContainerProvider.getContainer(
+                    for: binding.package,
+                    updateStrategy: .never,
+                    observabilityScope: observabilityScope
+                )
+                let container: SourceControlPackageContainer
+                if let scContainer = rawContainer as? SourceControlPackageContainer {
+                    container = scContainer
+                } else if rawContainer is SourceArchivePackageContainer {
+                    // Source archive containers can't handle revision pins — fall back to git
+                    container = try await self.getSourceControlContainer(
                         for: binding.package,
                         updateStrategy: .never,
                         observabilityScope: observabilityScope
                     )
-                 as? SourceControlPackageContainer else {
+                } else {
                     throw InternalError(
                         "invalid container for \(binding.package) expected a SourceControlPackageContainer"
                     )
@@ -1121,7 +1191,9 @@ extension Workspace {
                 switch currentDependency?.state {
                 case .sourceControlCheckout(.version(version, _)), .registryDownload(version), .custom(version, _):
                     stateChange = .unchanged
-                case .edited, .fileSystem, .sourceControlCheckout, .registryDownload, .custom:
+                case .sourceArchiveDownload(let state) where state.version == version:
+                    stateChange = .unchanged
+                case .edited, .fileSystem, .sourceControlCheckout, .registryDownload, .custom, .sourceArchiveDownload:
                     stateChange = .updated(.init(requirement: .version(version), products: binding.products))
                 case nil:
                     stateChange = .added(.init(requirement: .version(version), products: binding.products))

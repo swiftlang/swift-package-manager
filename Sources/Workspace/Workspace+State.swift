@@ -308,6 +308,13 @@ extension WorkspaceStateStorage {
                             version: TSCUtility.Version(versionString: version),
                             path: path
                         ))
+                    case "sourceArchiveDownload":
+                        let state = try SourceArchiveDownloadState.decode(
+                            from: container,
+                            versionKey: .version, revisionKey: .revision, tagKey: .tag,
+                            hasSubmodulesKey: .hasSubmodules, checksumKey: .checksum
+                        )
+                        return .init(underlying: .sourceArchiveDownload(state))
                     default:
                         throw StringError("unknown dependency state \(kind)")
                     }
@@ -332,6 +339,13 @@ extension WorkspaceStateStorage {
                         try container.encode("custom", forKey: .name)
                         try container.encode(version, forKey: .version)
                         try container.encode(path, forKey: .path)
+                    case .sourceArchiveDownload(let state):
+                        try container.encode("sourceArchiveDownload", forKey: .name)
+                        try state.encode(
+                            into: &container,
+                            versionKey: .version, revisionKey: .revision, tagKey: .tag,
+                            hasSubmodulesKey: .hasSubmodules, checksumKey: .checksum
+                        )
                     }
                 }
 
@@ -340,6 +354,10 @@ extension WorkspaceStateStorage {
                     case path
                     case version
                     case checkoutState
+                    case revision
+                    case tag
+                    case hasSubmodules
+                    case checksum
                 }
 
                 struct CheckoutInfo: Codable {
@@ -706,6 +724,13 @@ extension WorkspaceStateStorage {
                             version: TSCUtility.Version(versionString: version),
                             path: path
                         ))
+                    case "sourceArchiveDownload":
+                        let state = try SourceArchiveDownloadState.decode(
+                            from: container,
+                            versionKey: .version, revisionKey: .revision, tagKey: .tag,
+                            hasSubmodulesKey: .hasSubmodules, checksumKey: .checksum
+                        )
+                        return .init(underlying: .sourceArchiveDownload(state))
                     default:
                         throw StringError("unknown dependency state \(kind)")
                     }
@@ -730,6 +755,13 @@ extension WorkspaceStateStorage {
                         try container.encode("custom", forKey: .name)
                         try container.encode(version, forKey: .version)
                         try container.encode(path, forKey: .path)
+                    case .sourceArchiveDownload(let state):
+                        try container.encode("sourceArchiveDownload", forKey: .name)
+                        try state.encode(
+                            into: &container,
+                            versionKey: .version, revisionKey: .revision, tagKey: .tag,
+                            hasSubmodulesKey: .hasSubmodules, checksumKey: .checksum
+                        )
                     }
                 }
 
@@ -738,6 +770,10 @@ extension WorkspaceStateStorage {
                     case path
                     case version
                     case checkoutState
+                    case revision
+                    case tag
+                    case hasSubmodules
+                    case checksum
                 }
 
                 struct CheckoutInfo: Codable {
@@ -1062,6 +1098,13 @@ extension WorkspaceStateStorage {
                             version: TSCUtility.Version(versionString: version),
                             path: path
                         ))
+                    case "sourceArchiveDownload":
+                        let state = try SourceArchiveDownloadState.decode(
+                            from: container,
+                            versionKey: .version, revisionKey: .revision, tagKey: .tag,
+                            hasSubmodulesKey: .hasSubmodules, checksumKey: .checksum
+                        )
+                        return .init(underlying: .sourceArchiveDownload(state))
                     default:
                         throw StringError("unknown dependency state \(kind)")
                     }
@@ -1086,6 +1129,13 @@ extension WorkspaceStateStorage {
                         try container.encode("custom", forKey: .name)
                         try container.encode(version, forKey: .version)
                         try container.encode(path, forKey: .path)
+                    case .sourceArchiveDownload(let state):
+                        try container.encode("sourceArchiveDownload", forKey: .name)
+                        try state.encode(
+                            into: &container,
+                            versionKey: .version, revisionKey: .revision, tagKey: .tag,
+                            hasSubmodulesKey: .hasSubmodules, checksumKey: .checksum
+                        )
                     }
                 }
 
@@ -1094,6 +1144,10 @@ extension WorkspaceStateStorage {
                     case path
                     case version
                     case checkoutState
+                    case revision
+                    case tag
+                    case hasSubmodules
+                    case checksum
                 }
 
                 struct CheckoutInfo: Codable {

@@ -87,6 +87,18 @@ extension Workspace {
             self.scratchDirectory.appending("plugins")
         }
 
+        public static let sourceArchivesCacheRoot = "source-archives"
+
+        /// Path to source archive downloads (ZIP-extracted, no submodules).
+        public var sourceArchiveDirectory: AbsolutePath {
+            self.scratchDirectory.appending(Self.sourceArchivesCacheRoot)
+        }
+
+        /// Path to shallow clones (submodule packages).
+        public var shallowCloneDirectory: AbsolutePath {
+            self.scratchDirectory.appending("shallow-clones")
+        }
+
         // config locations
 
         /// Path to the local mirrors configuration.
@@ -157,6 +169,21 @@ extension Workspace {
         /// Path to the shared prebuilts cache
         public var sharedPrebuiltsCacheDirectory: AbsolutePath? {
             self.sharedCacheDirectory.map { $0.appending("prebuilts")}
+        }
+
+        /// Path to the shared source archive download cache.
+        public var sharedSourceArchiveCacheDirectory: AbsolutePath? {
+            self.sharedCacheDirectory.map { $0.appending(components: Self.sourceArchivesCacheRoot, "downloads") }
+        }
+
+        /// Path to the shared source archive metadata cache.
+        public var sharedSourceArchiveMetadataCacheDirectory: AbsolutePath? {
+            self.sharedCacheDirectory.map { $0.appending(components: Self.sourceArchivesCacheRoot, "metadata") }
+        }
+
+        /// Path to the shared shallow clone cache.
+        public var sharedShallowCloneCacheDirectory: AbsolutePath? {
+            self.sharedCacheDirectory.map { $0.appending(components: Self.sourceArchivesCacheRoot, "shallow-clones") }
         }
 
         /// Create a new workspace location.
@@ -792,6 +819,10 @@ public struct WorkspaceConfiguration {
     /// Whether or not to use prebuilt swift-syntax for macros
     public var usePrebuilts: Bool
 
+    /// Whether to use source archives instead of full git clones for dependency fetching.
+    /// Enabled via `--experimental-source-archive-downloads` or `SWIFTPM_USE_SOURCE_ARCHIVES=1`.
+    public var useSourceArchives: Bool
+
     /// String URL to allow override of the prebuilts download location
     public var prebuiltsDownloadURL: String?
 
@@ -820,6 +851,7 @@ public struct WorkspaceConfiguration {
         usePrebuilts: Bool,
         prebuiltsDownloadURL: String?,
         prebuiltsRootCertPath: String?,
+        useSourceArchives: Bool,
         pruneDependencies: Bool,
         traitConfiguration: TraitConfiguration
     ) {
@@ -838,6 +870,7 @@ public struct WorkspaceConfiguration {
         self.usePrebuilts = usePrebuilts
         self.prebuiltsDownloadURL = prebuiltsDownloadURL
         self.prebuiltsRootCertPath = prebuiltsRootCertPath
+        self.useSourceArchives = useSourceArchives
         self.pruneDependencies = pruneDependencies
         self.traitConfiguration = traitConfiguration
     }
@@ -860,6 +893,7 @@ public struct WorkspaceConfiguration {
             usePrebuilts: false,
             prebuiltsDownloadURL: nil,
             prebuiltsRootCertPath: nil,
+            useSourceArchives: false,
             pruneDependencies: false,
             traitConfiguration: .default
         )
