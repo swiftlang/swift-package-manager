@@ -165,7 +165,6 @@ enum TestingSupport {
     static func getSwiftTestingSuites(
         in testProducts: [BuiltTestProduct],
         swiftCommandState: SwiftCommandState,
-        enableCodeCoverage: Bool,
         shouldSkipBuilding: Bool,
         sanitizers: [Sanitizer]
     ) throws -> [AbsolutePath: [String]] {
@@ -175,7 +174,6 @@ enum TestingSupport {
                 try Self.getSwiftTestingSuites(
                     fromTestAt: $0.binaryPath,
                     swiftCommandState: swiftCommandState,
-                    enableCodeCoverage: enableCodeCoverage,
                     shouldSkipBuilding: shouldSkipBuilding,
                     sanitizers: sanitizers
                 )
@@ -196,7 +194,6 @@ enum TestingSupport {
     static func getSwiftTestingSuites(
         fromTestAt path: AbsolutePath,
         swiftCommandState: SwiftCommandState,
-        enableCodeCoverage: Bool,
         shouldSkipBuilding: Bool,
         sanitizers: [Sanitizer]
     ) throws -> [String] {

@@ -382,7 +382,6 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                 let testSuites = try TestingSupport.getSwiftTestingSuites(
                     in: testProducts,
                     swiftCommandState: swiftCommandState,
-                    enableCodeCoverage: options.enableCodeCoverage,
                     shouldSkipBuilding: options.sharedOptions.shouldSkipBuilding,
                     sanitizers: globalOptions.build.sanitizers
                 )
@@ -393,6 +392,12 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                     .skippedTests(specifier: options.skippedTests(fileSystem: swiftCommandState.fileSystem))
 
                 let filteredTestProducts = testProducts.filter { tests[$0.binaryPath] != nil }
+
+                // Exit early if test products are filtered to 0.
+                guard !filteredTestProducts.isEmpty else {
+                    swiftCommandState.observabilityScope.emit(.noMatchingTests)
+                    return
+                }
 
                 results.append(
                     try await runTestProducts(
