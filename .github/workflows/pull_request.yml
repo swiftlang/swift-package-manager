@@ -26,7 +26,7 @@ jobs:
           - buildSystem: "native"
             linuxSwiftVersion: '["nightly-main"]'
     name: Build (${{ matrix.buildSystem }}) (exectable target built using ${{ matrix.executableTargetBuildSystem }})
-    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@0.0.8
+    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@0.0.9
     with:
       enable_cross_pr_testing: true
       linux_os_versions: '["amazonlinux2", "bookworm", "noble", "jammy", "rhel-ubi9"]'
@@ -42,7 +42,7 @@ jobs:
       enable_windows_checks: true
       enable_ios_checks: false
       enable_macos_checks: true
-      macos_exclude_xcode_versions: "[{\"xcode_version\": \"16.3\"}, {\"xcode_version\": \"16.4\"}]"
+      macos_exclude_xcode_versions: "[{\"xcode_version\": \"16.4\"}]"
       macos_build_command: 'swift run --build-system ${{ matrix.executableTargetBuildSystem }} swift-build --build-tests --build-system ${{ matrix.buildSystem}}'
       # macos_build_command: 'swift run --build-system ${{ matrix.executableTargetBuildSystem }} swift-build --build-tests --build-system ${{ matrix.buildSystem}} && swift run --build-system ${{ matrix.executableTargetBuildSystem }} swift-test --parallel --build-system ${{ matrix.buildSystem}}'
       ios_build_command: 'swift run --build-system ${{ matrix.executableTargetBuildSystem }} swift-build --build-tests --build-system ${{ matrix.buildSystem}}  --sdk \"$(xcrun --sdk iphoneos --show-sdk-path)\" --triple arm64-apple-ios'
@@ -56,7 +56,7 @@ jobs:
         buildSystem: ["swiftbuild"]
     name: Build (${{ matrix.buildSystem }}) (exectable target built using ${{ matrix.executableTargetBuildSystem }})
     needs: [soundness]
-    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@0.0.8
+    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@0.0.9
     with:
       linux_os_versions: '["amazonlinux2", "bookworm", "noble", "jammy", "rhel-ubi9"]'
       linux_swift_versions: '["nightly-main"]'
@@ -75,7 +75,7 @@ jobs:
 
   soundness:
     name: Soundness
-    uses: swiftlang/github-workflows/.github/workflows/soundness.yml@0.0.8
+    uses: swiftlang/github-workflows/.github/workflows/soundness.yml@0.0.9
     with:
       license_header_check_project_name: "Swift"
       license_header_check_enabled: true
