@@ -745,7 +745,9 @@ struct SwiftBuildSystemTests {
 
             let synthesizedArgs = try #require(buildSettings.overrides.synthesized)
             let otherSwiftFlags = try #require(synthesizedArgs.table["OTHER_SWIFT_FLAGS"])
-            #expect(otherSwiftFlags.contains("-ftime-trace"))
+            #expect(otherSwiftFlags.contains("-time-trace"))
+            let otherCFlags = try #require(synthesizedArgs.table["OTHER_CFLAGS"])
+            #expect(otherCFlags.contains("-ftime-trace"))
         }
     }
 
@@ -771,8 +773,11 @@ struct SwiftBuildSystemTests {
 
             let synthesizedArgs = try #require(buildSettings.overrides.synthesized)
             let otherSwiftFlags = try #require(synthesizedArgs.table["OTHER_SWIFT_FLAGS"])
-            #expect(otherSwiftFlags.contains("-ftime-trace"))
-            #expect(otherSwiftFlags.contains("-ftime-trace-granularity 100"))
+            #expect(otherSwiftFlags.contains("-time-trace"))
+            #expect(otherSwiftFlags.contains("-time-trace-granularity 100"))
+            let otherCFlags = try #require(synthesizedArgs.table["OTHER_CFLAGS"])
+            #expect(otherCFlags.contains("-ftime-trace"))
+            #expect(otherCFlags.contains("-ftime-trace-granularity=100"))
         }
     }
 }

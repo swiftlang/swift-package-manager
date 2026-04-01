@@ -515,9 +515,9 @@ public final class SwiftModuleBuildDescription {
         }
 
         if self.buildParameters.driverParameters.enableTimeTrace {
-            args += ["-ftime-trace"]
+            args += ["-time-trace"]
             if let granularity = self.buildParameters.driverParameters.timeTraceGranularity {
-                args += ["-ftime-trace-granularity", String(granularity)]
+                args += ["-time-trace-granularity", String(granularity)]
             }
         }
 

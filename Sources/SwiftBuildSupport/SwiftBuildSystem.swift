@@ -990,10 +990,14 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
         if buildParameters.driverParameters.enableTimeTrace {
             settings["OTHER_SWIFT_FLAGS"] =
-                (settings["OTHER_SWIFT_FLAGS"] ?? "$(inherited)") + " -ftime-trace"
+                (settings["OTHER_SWIFT_FLAGS"] ?? "$(inherited)") + " -time-trace"
+            settings["OTHER_CFLAGS"] =
+                (settings["OTHER_CFLAGS"] ?? "$(inherited)") + " -ftime-trace"
             if let granularity = buildParameters.driverParameters.timeTraceGranularity {
                 settings["OTHER_SWIFT_FLAGS"] =
-                    (settings["OTHER_SWIFT_FLAGS"] ?? "$(inherited)") + " -ftime-trace-granularity \(granularity)"
+                    (settings["OTHER_SWIFT_FLAGS"] ?? "$(inherited)") + " -time-trace-granularity \(granularity)"
+                settings["OTHER_CFLAGS"] =
+                    (settings["OTHER_CFLAGS"] ?? "$(inherited)") + " -ftime-trace-granularity=\(granularity)"
             }
         }
 

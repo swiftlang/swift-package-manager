@@ -7765,7 +7765,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         let exe = try result.moduleBuildDescription(for: "exe").swift()
 
         let args = try exe.emitCommandLine()
-        XCTAssertMatch(args, ["-ftime-trace"])
+        XCTAssertMatch(args, ["-time-trace"])
     }
 
     func testTimeTraceWithGranularity() async throws {
@@ -7803,8 +7803,8 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         let exe = try result.moduleBuildDescription(for: "exe").swift()
 
         let args = try exe.emitCommandLine()
-        XCTAssertMatch(args, ["-ftime-trace"])
-        XCTAssertMatch(args, ["-ftime-trace-granularity", "100"])
+        XCTAssertMatch(args, ["-time-trace"])
+        XCTAssertMatch(args, ["-time-trace-granularity", "100"])
     }
 
     func testTimeTraceClangArgs() async throws {

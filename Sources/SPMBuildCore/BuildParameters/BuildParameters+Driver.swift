@@ -95,7 +95,7 @@ extension BuildParameters {
         /// Output directory for optimization record files.
         public var optimizationRecordDirectory: AbsolutePath?
 
-        /// Whether to enable time profiling via -ftime-trace.
+        /// Whether to enable time profiling via -time-trace.
         public var enableTimeTrace: Bool
 
         /// Minimum time granularity (in microseconds) for time trace events.

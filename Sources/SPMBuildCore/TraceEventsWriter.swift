@@ -208,7 +208,7 @@ public final class TraceEventsWriter {
         availableFetchLanes.insert(lane, at: insertionIndex)
     }
 
-    /// Import compiler time trace files (produced by `-ftime-trace`) found under the given directory
+    /// Import compiler time trace files (produced by `-time-trace`) found under the given directory
     /// and append their events to the trace, rebasing timestamps relative to the build start time.
     /// Per-file "Total ..." events are aggregated across all files and emitted under a "Totals" process.
     package func importCompilerTimeTraces(under directory: AbsolutePath) {
