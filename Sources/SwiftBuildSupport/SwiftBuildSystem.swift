@@ -1038,6 +1038,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         try settings.merge(self.constructLinkerSettingsOverrides(from: buildParameters.linkingParameters, triple: buildParameters.triple), uniquingKeysWith: reportConflict)
         try settings.merge(Self.constructTestingSettingsOverrides(from: buildParameters.testingParameters), uniquingKeysWith: reportConflict)
         try settings.merge(Self.constructAPIDigesterSettingsOverrides(from: buildParameters.apiDigesterMode), uniquingKeysWith: reportConflict)
+        try settings.merge(Self.constructOutputSettingsOverrides(from: buildParameters.outputParameters), uniquingKeysWith: reportConflict)
 
         if buildParameters.driverParameters.codesizeProfileEnabled {
             // dSYM generation is required to attribute code size to source locations
@@ -1244,6 +1245,12 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         case nil:
             break
         }
+        return settings
+    }
+
+    private static func constructOutputSettingsOverrides(from parameters: BuildParameters.Output) -> [String: String] {
+        var settings: [String: String] = [:]
+        settings["COLOR_DIAGNOSTICS"] = parameters.isColorized ? "YES" : "NO"
         return settings
     }
 
