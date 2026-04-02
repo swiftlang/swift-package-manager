@@ -346,7 +346,7 @@ public struct ResolverOptions: ParsableArguments {
 
     @Flag(name: .customLong("experimental-source-archive-downloads"),
           help: "Fetch GitHub-hosted dependencies as source archives instead of git clones.")
-    public var useSourceArchiveDownloads: Bool = ProcessInfo.processInfo.environment["SWIFTPM_USE_SOURCE_ARCHIVES"] == "1"
+    public var useSourceArchiveDownloads: Bool = false
 
     @Option(help: "Default registry URL to use, instead of the registries.json configuration file.")
     public var defaultRegistryURL: URL?

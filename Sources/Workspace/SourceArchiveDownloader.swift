@@ -77,7 +77,7 @@ public struct SourceArchiveDownloader: Sendable {
         }
 
         if let cachePath, self.fileSystem.exists(cachePath.appending(component: Manifest.filename)) {
-            try self.copyToDestination(from: cachePath, to: destinationPath)
+            try self.linkOrCopyToDestination(from: cachePath, to: destinationPath, symlink: true)
             return nil
         }
 
@@ -157,19 +157,30 @@ public struct SourceArchiveDownloader: Sendable {
                     try self.fileSystem.createDirectory(cachePath.parentDirectory, recursive: true)
                 }
                 try self.fileSystem.copy(from: extractPath, to: cachePath)
+                // Make cached files read-only to prevent accidental modification.
+                // Workspaces symlink into this cache, so edits would silently
+                // corrupt the shared copy.
+                try self.fileSystem.chmod(.userUnWritable, path: cachePath, options: [.recursive, .onlyFiles])
             }
         }
 
         let source = cachePath ?? extractPath
-        try self.copyToDestination(from: source, to: destinationPath)
+        // When the shared cache is the source, symlink to avoid duplicating
+        // the entire source tree in the workspace. The temp extract directory
+        // is deleted after this method returns, so it must be copied.
+        try self.linkOrCopyToDestination(from: source, to: destinationPath, symlink: cachePath != nil)
         return actualChecksum
     }
 
-    private func copyToDestination(from source: AbsolutePath, to destination: AbsolutePath) throws {
-        if !self.fileSystem.exists(destination.parentDirectory) {
-            try self.fileSystem.createDirectory(destination.parentDirectory, recursive: true)
+    private func linkOrCopyToDestination(from source: AbsolutePath, to destination: AbsolutePath, symlink: Bool) throws {
+        if symlink {
+            try self.fileSystem.symlinkOrCopy(from: source, to: destination)
+        } else {
+            if !self.fileSystem.exists(destination.parentDirectory) {
+                try self.fileSystem.createDirectory(destination.parentDirectory, recursive: true)
+            }
+            try self.fileSystem.copy(from: source, to: destination)
         }
-        try self.fileSystem.copy(from: source, to: destination)
     }
 
     private func validateFingerprint(

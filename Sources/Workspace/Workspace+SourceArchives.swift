@@ -181,11 +181,19 @@ extension Workspace {
         identity: PackageIdentity,
         packageLocation: String,
         paths: MaterializationPaths,
+        symlinkFromCache: Bool = true,
         fetch: () async throws -> Void,
         observabilityScope: ObservabilityScope
     ) async throws {
-        let alreadyPresent = self.fileSystem.exists(paths.destinationPath.appending("Package.swift"))
-        if alreadyPresent { return }
+        if self.fileSystem.exists(paths.destinationPath.appending("Package.swift")) {
+            let details = PackageFetchDetails(fromCache: true, updatedCache: false)
+            self.delegate?.willFetchPackage(package: identity, packageLocation: packageLocation, fetchDetails: details)
+            self.delegate?.didFetchPackage(
+                package: identity, packageLocation: packageLocation,
+                result: .success(details), duration: .nanoseconds(0)
+            )
+            return
+        }
 
         if let cachePath = paths.cachePath,
            self.fileSystem.exists(cachePath.appending("Package.swift"))
@@ -196,8 +204,12 @@ extension Workspace {
                 fetchDetails: PackageFetchDetails(fromCache: true, updatedCache: false)
             )
             let fetchStart = DispatchTime.now()
-            try self.fileSystem.createDirectory(paths.destinationPath.parentDirectory, recursive: true)
-            try self.fileSystem.copy(from: cachePath, to: paths.destinationPath)
+            if symlinkFromCache {
+                try self.fileSystem.symlinkOrCopy(from: cachePath, to: paths.destinationPath)
+            } else {
+                try self.fileSystem.createDirectory(paths.destinationPath.parentDirectory, recursive: true)
+                try self.fileSystem.copy(from: cachePath, to: paths.destinationPath)
+            }
             self.delegate?.didFetchPackage(
                 package: identity,
                 packageLocation: packageLocation,
@@ -308,6 +320,7 @@ extension Workspace {
             identity: package.identity,
             packageLocation: "\(package.identity) (\(Self.sourceArchiveDirectoryName(version: version, revision: revision)))",
             paths: paths,
+            symlinkFromCache: false,
             fetch: {
                 try await self.performShallowClone(
                     url: SourceControlURL(package.locationString),
@@ -364,6 +377,7 @@ extension Workspace {
                     try self.fileSystem.createDirectory(cachePath.parentDirectory, recursive: true)
                     try? self.fileSystem.removeFileTree(cachePath)
                     try self.fileSystem.copy(from: tempClonePath, to: cachePath)
+                    try self.fileSystem.chmod(.userUnWritable, path: cachePath, options: [.recursive, .onlyFiles])
                 }
             }
 
@@ -490,15 +504,21 @@ extension Workspace {
         // Fast path: check workspace and shared caches before downloading.
         // The getTag/getRevision calls above are memoized per repo URL, so
         // for N versions of the same package this is one ls-remote total.
-        for paths in [archive, clone] {
+        // Archives are symlinked; shallow clones are copied (they contain
+        // .git directories with read-only files that must not be shared).
+        for (paths, useSymlink) in [(archive, true), (clone, false)] {
             if self.fileSystem.exists(paths.destinationPath.appending("Package.swift")) {
                 return
             }
             if let cachePath = paths.cachePath,
                self.fileSystem.exists(cachePath.appending("Package.swift"))
             {
-                try self.fileSystem.createDirectory(paths.destinationPath.parentDirectory, recursive: true)
-                try self.fileSystem.copy(from: cachePath, to: paths.destinationPath)
+                if useSymlink {
+                    try self.fileSystem.symlinkOrCopy(from: cachePath, to: paths.destinationPath)
+                } else {
+                    try self.fileSystem.createDirectory(paths.destinationPath.parentDirectory, recursive: true)
+                    try self.fileSystem.copy(from: cachePath, to: paths.destinationPath)
+                }
                 return
             }
         }

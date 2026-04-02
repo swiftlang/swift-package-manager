@@ -541,7 +541,8 @@ public final class SwiftCommandState {
                 usePrebuilts: self.options.caching.usePrebuilts,
                 prebuiltsDownloadURL: options.caching.prebuiltsDownloadURL,
                 prebuiltsRootCertPath: options.caching.prebuiltsRootCertPath,
-                useSourceArchives: self.options.resolver.useSourceArchiveDownloads,
+                useSourceArchives: self.options.resolver.useSourceArchiveDownloads
+                    || ProcessInfo.processInfo.environment["SWIFTPM_USE_SOURCE_ARCHIVES"] == "1",
                 pruneDependencies: self.options.resolver.pruneDependencies,
                 traitConfiguration: self.traitConfiguration
             ),
