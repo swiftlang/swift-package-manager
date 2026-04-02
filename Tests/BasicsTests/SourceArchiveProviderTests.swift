@@ -71,15 +71,14 @@ struct SourceArchiveProviderTests {
     @Test
     func archiveURL() {
         let provider = GitHubSourceArchiveProvider(owner: "apple", repository: "swift-nio")
-        let url = provider.archiveURL(for: "1.0.0")
-        #expect(url.absoluteString == "https://codeload.github.com/apple/swift-nio/zip/refs/tags/1.0.0")
+        let url = provider.archiveURL(forSHA: "abc123def456789012345678901234567890abcd")
+        #expect(url.absoluteString == "https://codeload.github.com/apple/swift-nio/zip/abc123def456789012345678901234567890abcd")
     }
 
     @Test
-    func archiveURLEscapesSlashInTag() {
+    func host() {
         let provider = GitHubSourceArchiveProvider(owner: "apple", repository: "swift-nio")
-        let url = provider.archiveURL(for: "release/1.2.3")
-        #expect(url.absoluteString == "https://codeload.github.com/apple/swift-nio/zip/refs/tags/release%2F1.2.3")
+        #expect(provider.host == "github.com")
     }
 
     @Test
@@ -119,6 +118,22 @@ struct SourceArchiveProviderTests {
         #expect(auth == nil)
     }
 
+    @Test
+    func gitHubTokenProviderFallsBackToGitHubDotComForSubdomains() {
+        let underlying = GitHubDotComOnlyAuthProvider(user: "netrc-user", password: "netrc-pass")
+        let provider = GitHubSourceArchiveProvider.GitHubTokenAuthorizationProvider(underlying: underlying)
+
+        let codeloadURL = URL(string: "https://codeload.github.com/ordo-one/ordo-sdk/zip/refs/tags/1.0.0")!
+        let auth = provider.authentication(for: codeloadURL)
+        #expect(auth?.user == "netrc-user")
+        #expect(auth?.password == "netrc-pass")
+
+        let rawURL = URL(string: "https://raw.githubusercontent.com/ordo-one/ordo-sdk/abc123/Package.swift")!
+        let rawAuth = provider.authentication(for: rawURL)
+        #expect(rawAuth?.user == "netrc-user")
+        #expect(rawAuth?.password == "netrc-pass")
+    }
+
 }
 
 private struct FixedAuthProvider: AuthorizationProvider {
@@ -127,5 +142,15 @@ private struct FixedAuthProvider: AuthorizationProvider {
 
     func authentication(for url: URL) -> (user: String, password: String)? {
         (user: user, password: password)
+    }
+}
+
+private struct GitHubDotComOnlyAuthProvider: AuthorizationProvider {
+    let user: String
+    let password: String
+
+    func authentication(for url: URL) -> (user: String, password: String)? {
+        guard url.host?.lowercased() == "github.com" else { return nil }
+        return (user: user, password: password)
     }
 }

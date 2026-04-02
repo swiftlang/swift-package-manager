@@ -30,7 +30,7 @@ private struct SourceArchiveDownloaderTests {
 
     private static let packageIdentity = PackageIdentity.plain("testpackage")
     private static let version: Version = "1.0.0"
-    private static let archiveURL = URL(string: "https://github.com/test/testpackage/archive/refs/tags/1.0.0.zip")!
+    private static let archiveURL = URL(string: "https://codeload.github.com/test/testpackage/zip/abc123def456789012345678901234567890abcd")!
     private static let sourceURL: SourceControlURL = "https://github.com/test/testpackage.git"
     private static let archiveContent = Data("fake-archive-content".utf8)
 

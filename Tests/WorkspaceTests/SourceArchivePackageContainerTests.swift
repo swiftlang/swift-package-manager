@@ -32,10 +32,11 @@ private struct SourceArchivePackageContainerTests {
         let owner: String
         let repo: String
 
+        var host: String { "example.com" }
         var cacheKey: (owner: String, repo: String) { (owner, repo) }
 
-        func archiveURL(for tag: String) -> URL {
-            URL(string: "https://example.com/\(owner)/\(repo)/archive/\(tag).zip")!
+        func archiveURL(forSHA sha: String) -> URL {
+            URL(string: "https://example.com/\(owner)/\(repo)/archive/\(sha).zip")!
         }
 
         func rawFileURL(for path: String, sha: String) -> URL {

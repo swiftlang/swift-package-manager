@@ -80,6 +80,7 @@ extension Workspace {
                     tag: tag,
                     revision: revision,
                     version: version,
+                    provider: container.provider,
                     observabilityScope: observabilityScope
                 )
             } else {
@@ -136,9 +137,8 @@ extension Workspace {
         let cachePath: AbsolutePath?
     }
 
-    private func archivePaths(for identity: PackageIdentity, version: Version) throws -> MaterializationPaths {
-        let subpath = try Basics.RelativePath(validating: identity.description)
-            .appending(component: version.description)
+    private func archivePaths(version: Version, provider: any SourceArchiveProvider, revision: String) throws -> MaterializationPaths {
+        let subpath = try Self.providerSubpath(provider: provider, version: version, revision: revision)
         return MaterializationPaths(
             subpath: subpath,
             destinationPath: self.location.sourceArchiveDirectory.appending(subpath),
@@ -146,14 +146,32 @@ extension Workspace {
         )
     }
 
-    private func shallowClonePaths(for identity: PackageIdentity, version: Version) throws -> MaterializationPaths {
-        let subpath = try Basics.RelativePath(validating: identity.description)
-            .appending(component: version.description)
+    private func shallowClonePaths(version: Version, provider: any SourceArchiveProvider, revision: String) throws -> MaterializationPaths {
+        let subpath = try Self.providerSubpath(provider: provider, version: version, revision: revision)
         return MaterializationPaths(
             subpath: subpath,
             destinationPath: self.location.shallowCloneDirectory.appending(subpath),
             cachePath: self.location.sharedShallowCloneCacheDirectory.map { $0.appending(subpath) }
         )
+    }
+
+    /// Number of hex characters used when embedding a commit SHA in on-disk
+    /// paths. 8 hex chars = 32 bits, which is collision-free at package scale
+    /// and keeps directory names readable.
+    static let shortSHALength = 8
+
+    /// Returns the leaf directory name for a source archive: `"{version}-{shortSHA}"`.
+    static func sourceArchiveDirectoryName(version: Version, revision: String) -> String {
+        let shortSHA = String(revision.prefix(shortSHALength))
+        return "\(version)-\(shortSHA)"
+    }
+
+    /// Builds a relative subpath of the form `{host}/{owner}/{repo}/{version}-{shortSHA}`.
+    private static func providerSubpath(provider: any SourceArchiveProvider, version: Version, revision: String) throws -> RelativePath {
+        try RelativePath(validating: provider.host)
+            .appending(component: provider.cacheKey.owner)
+            .appending(component: provider.cacheKey.repo)
+            .appending(component: sourceArchiveDirectoryName(version: version, revision: revision))
     }
 
     /// Fetches content to `destinationPath` if not already present, calling
@@ -224,18 +242,18 @@ extension Workspace {
         downloader: SourceArchiveDownloader,
         observabilityScope: ObservabilityScope
     ) async throws -> AbsolutePath {
-        let paths = try archivePaths(for: package.identity, version: version)
+        let paths = try archivePaths(version: version, provider: provider, revision: revision)
         var downloadChecksum: String?
 
         try await fetchIfNeeded(
             identity: package.identity,
-            packageLocation: package.locationString,
+            packageLocation: "\(package.identity) (\(Self.sourceArchiveDirectoryName(version: version, revision: revision)))",
             paths: paths,
             fetch: {
                 downloadChecksum = try await downloader.downloadSourceArchive(
                     package: package.identity,
                     version: version,
-                    archiveURL: provider.archiveURL(for: tag),
+                    archiveURL: provider.archiveURL(forSHA: revision),
                     cachePath: paths.cachePath,
                     destinationPath: paths.destinationPath,
                     checksumAlgorithm: SHA256(),
@@ -281,13 +299,14 @@ extension Workspace {
         tag: String,
         revision: String,
         version: Version,
+        provider: any SourceArchiveProvider,
         observabilityScope: ObservabilityScope
     ) async throws -> AbsolutePath {
-        let paths = try shallowClonePaths(for: package.identity, version: version)
+        let paths = try shallowClonePaths(version: version, provider: provider, revision: revision)
 
         try await fetchIfNeeded(
             identity: package.identity,
-            packageLocation: package.locationString,
+            packageLocation: "\(package.identity) (\(Self.sourceArchiveDirectoryName(version: version, revision: revision)))",
             paths: paths,
             fetch: {
                 try await self.performShallowClone(
@@ -453,10 +472,24 @@ extension Workspace {
         observabilityScope: ObservabilityScope
     ) async throws {
         let identity = package.identity
-        let archive = try archivePaths(for: identity, version: version)
-        let clone = try shallowClonePaths(for: identity, version: version)
 
-        // Fast path: check workspace and shared caches before any HTTP calls.
+        guard let archiveContainer = self.makeSourceArchiveContainer(
+            for: package, observabilityScope: observabilityScope
+        ) else {
+            return
+        }
+        guard let tag = try await archiveContainer.getTag(for: version) else {
+            return
+        }
+        let revision = try await archiveContainer.getRevision(forTag: tag)
+        let provider = archiveContainer.provider
+
+        let archive = try archivePaths(version: version, provider: provider, revision: revision)
+        let clone = try shallowClonePaths(version: version, provider: provider, revision: revision)
+
+        // Fast path: check workspace and shared caches before downloading.
+        // The getTag/getRevision calls above are memoized per repo URL, so
+        // for N versions of the same package this is one ls-remote total.
         for paths in [archive, clone] {
             if self.fileSystem.exists(paths.destinationPath.appending("Package.swift")) {
                 return
@@ -470,15 +503,6 @@ extension Workspace {
             }
         }
 
-        guard let archiveContainer = self.makeSourceArchiveContainer(
-            for: package, observabilityScope: observabilityScope
-        ) else {
-            return
-        }
-        guard let tag = try await archiveContainer.getTag(for: version) else {
-            return
-        }
-
         let hasSubmodules = try await archiveContainer.hasSubmodules(at: version)
 
         if hasSubmodules {
@@ -490,7 +514,7 @@ extension Workspace {
                 observabilityScope: observabilityScope
             )
         } else {
-            let archiveURL = archiveContainer.provider.archiveURL(for: tag)
+            let archiveURL = provider.archiveURL(forSHA: revision)
             try await self.makeSourceArchiveDownloader().downloadSourceArchive(
                 package: identity,
                 version: version,
@@ -503,7 +527,7 @@ extension Workspace {
                     self.configuration.fingerprintCheckingMode
                 ),
                 sourceURL: SourceControlURL(package.locationString),
-                authorizationProvider: self.sourceArchiveAuthorizationProvider(for: archiveContainer.provider),
+                authorizationProvider: self.sourceArchiveAuthorizationProvider(for: provider),
                 progressHandler: nil,
                 observabilityScope: observabilityScope
             )

@@ -17,6 +17,8 @@ public struct GitHubSourceArchiveProvider: SourceArchiveProvider {
     public let owner: String
     public let repository: String
 
+    public var host: String { "github.com" }
+
     public var cacheKey: (owner: String, repo: String) {
         (owner, repository)
     }
@@ -39,14 +41,13 @@ public struct GitHubSourceArchiveProvider: SourceArchiveProvider {
         return set
     }()
 
-    public func archiveURL(for tag: String) -> URL {
-        let escapedTag = tag.addingPercentEncoding(withAllowedCharacters: Self.urlPathComponentAllowed) ?? tag
+    public func archiveURL(forSHA sha: String) -> URL {
         // Use codeload.github.com directly to avoid a 302 redirect from
         // github.com/archive/. Foundation's libcurl backend on Linux crashes
         // following that redirect (CURLE_BAD_FUNCTION_ARGUMENT in
         // configureEasyHandle during didCompleteRedirectCallback).
-        guard let url = URL(string: "https://codeload.github.com/\(owner)/\(repository)/zip/refs/tags/\(escapedTag)") else {
-            preconditionFailure("unable to construct GitHub archive URL for \(owner)/\(repository) tag '\(tag)'")
+        guard let url = URL(string: "https://codeload.github.com/\(owner)/\(repository)/zip/\(sha)") else {
+            preconditionFailure("unable to construct GitHub archive URL for \(owner)/\(repository) sha '\(sha)'")
         }
         return url
     }
@@ -102,6 +103,9 @@ extension GitHubSourceArchiveProvider {
         "github.com", "api.github.com", "raw.githubusercontent.com", "codeload.github.com",
     ]
 
+    /// Fallback URL used to look up credentials for GitHub subdomains.
+    private static let gitHubDotComURL = URL(string: "https://github.com/")!
+
     /// Wraps an existing authorization provider, falling back to
     /// `GITHUB_TOKEN` / `GH_TOKEN` environment variables for GitHub hosts.
     ///
@@ -123,12 +127,22 @@ extension GitHubSourceArchiveProvider {
                 return auth
             }
             guard let host = url.host?.lowercased(),
-                  GitHubSourceArchiveProvider.gitHubHosts.contains(host),
-                  let token = Environment.current["GITHUB_TOKEN"] ?? Environment.current["GH_TOKEN"]
+                  GitHubSourceArchiveProvider.gitHubHosts.contains(host)
             else {
                 return nil
             }
-            return (user: "token", password: token)
+            // The underlying provider may only have credentials for github.com,
+            // not for subdomains like codeload.github.com or raw.githubusercontent.com.
+            // Try github.com as a fallback before checking environment variables.
+            if host != "github.com",
+               let auth = underlying?.authentication(for: GitHubSourceArchiveProvider.gitHubDotComURL)
+            {
+                return auth
+            }
+            if let token = Environment.current["GITHUB_TOKEN"] ?? Environment.current["GH_TOKEN"] {
+                return (user: "token", password: token)
+            }
+            return nil
         }
     }
 }

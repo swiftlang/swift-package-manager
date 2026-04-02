@@ -104,14 +104,20 @@ private struct WorkspaceSourceArchiveIntegrationTests {
         }
     }
 
+    /// SHA for version 1.1.0 from ``fakeLsRemoteOutput``.
+    private static let depSHA_1_1_0 = "bbb222bbb222bbb222bbb222bbb222bbb222bbb2"
+
     /// Pre-populates the workspace destination for the dep at version 1.1.0
     /// (simulates a prior prefetch that wrote the files without state persistence).
     private static func seedDestination(
         workspace: Workspace,
         fs: InMemoryFileSystem
     ) throws {
-        let subpath = try RelativePath(validating: depIdentity.description)
-            .appending(component: "1.1.0")
+        // Path matches the new format: {host}/{owner}/{repo}/{version}-{shortSHA}
+        let subpath = try RelativePath(validating: "github.com")
+            .appending(component: "test")
+            .appending(component: "foo")
+            .appending(component: Workspace.sourceArchiveDirectoryName(version: "1.1.0", revision: depSHA_1_1_0))
         let destPath = workspace.location.sourceArchiveDirectory.appending(subpath)
         try fs.createDirectory(destPath, recursive: true)
         try fs.writeFileContents(destPath.appending("Package.swift"), string: depManifestContent)
@@ -353,19 +359,27 @@ private struct WorkspaceSourceArchiveIntegrationTests {
 
         let manifest = "// swift-tools-version: 5.9\nimport PackageDescription\nlet package = Package(name: \"Pkg\")\n"
 
+        // Fake SHAs for the two test packages.
+        let shaA = "aaaa1111aaaa1111aaaa1111aaaa1111aaaa1111"
+        let shaB = "bbbb2222bbbb2222bbbb2222bbbb2222bbbb2222"
+
         // Package A: already materialized in workspace destination.
         let identityA = PackageIdentity(url: SourceControlURL("https://github.com/test/pkg-a.git"))
         let destA = location.sourceArchiveDirectory
-            .appending(try RelativePath(validating: identityA.description))
-            .appending(component: "1.0.0")
+            .appending(try RelativePath(validating: "github.com"))
+            .appending(component: "test")
+            .appending(component: "pkg-a")
+            .appending(component: Workspace.sourceArchiveDirectoryName(version: "1.0.0", revision: shaA))
         try fs.createDirectory(destA, recursive: true)
         try fs.writeFileContents(destA.appending("Package.swift"), string: manifest)
 
         // Package B: in shared cache but not in workspace.
         let identityB = PackageIdentity(url: SourceControlURL("https://github.com/test/pkg-b.git"))
         let cacheB = location.sharedSourceArchiveCacheDirectory!
-            .appending(try RelativePath(validating: identityB.description))
-            .appending(component: "2.0.0")
+            .appending(try RelativePath(validating: "github.com"))
+            .appending(component: "test")
+            .appending(component: "pkg-b")
+            .appending(component: Workspace.sourceArchiveDirectoryName(version: "2.0.0", revision: shaB))
         try fs.createDirectory(cacheB, recursive: true)
         try fs.writeFileContents(cacheB.appending("Package.swift"), string: manifest)
 
@@ -383,10 +397,30 @@ private struct WorkspaceSourceArchiveIntegrationTests {
             customManifestLoader: ManifestLoader(toolchain: hostToolchain)
         )
 
-        let observability = ObservabilitySystem.makeForTesting()
-
+        // Seed tag memoizer so prefetch can resolve tags→SHAs without real git.
         let urlA = SourceControlURL("https://github.com/test/pkg-a.git")
         let urlB = SourceControlURL("https://github.com/test/pkg-b.git")
+        _ = try await workspace.sourceArchiveTagMemoizer.memoize(urlA.absoluteString) {
+            SourceArchiveResolver.filterSemverTags(
+                SourceArchiveResolver.peelTags(
+                    SourceArchiveResolver.parseLsRemoteOutput(
+                        "\(shaA)\trefs/tags/1.0.0"
+                    )
+                )
+            )
+        }
+        _ = try await workspace.sourceArchiveTagMemoizer.memoize(urlB.absoluteString) {
+            SourceArchiveResolver.filterSemverTags(
+                SourceArchiveResolver.peelTags(
+                    SourceArchiveResolver.parseLsRemoteOutput(
+                        "\(shaB)\trefs/tags/2.0.0"
+                    )
+                )
+            )
+        }
+
+        let observability = ObservabilitySystem.makeForTesting()
+
         let refA = PackageReference(identity: identityA, kind: .remoteSourceControl(urlA))
         let refB = PackageReference(identity: identityB, kind: .remoteSourceControl(urlB))
 
@@ -405,8 +439,10 @@ private struct WorkspaceSourceArchiveIntegrationTests {
 
         // B was restored from shared cache → now in workspace destination.
         let destB = location.sourceArchiveDirectory
-            .appending(try RelativePath(validating: identityB.description))
-            .appending(component: "2.0.0")
+            .appending(try RelativePath(validating: "github.com"))
+            .appending(component: "test")
+            .appending(component: "pkg-b")
+            .appending(component: Workspace.sourceArchiveDirectoryName(version: "2.0.0", revision: shaB))
         #expect(fs.exists(destB.appending("Package.swift")))
 
         // Prefetch does NOT persist managed dependency state.
@@ -833,10 +869,11 @@ private struct SourceArchiveTestContainerProvider: PackageContainerProvider {
 private struct TestFallbackProvider: SourceArchiveProvider {
     let url: SourceControlURL
 
+    var host: String { "example.com" }
     var cacheKey: (owner: String, repo: String) { ("_fallback", url.absoluteString) }
 
-    func archiveURL(for tag: String) -> URL {
-        URL(string: "\(url.absoluteString)/archive/\(tag).zip")!
+    func archiveURL(forSHA sha: String) -> URL {
+        URL(string: "\(url.absoluteString)/archive/\(sha).zip")!
     }
 
     func rawFileURL(for path: String, sha: String) -> URL {
