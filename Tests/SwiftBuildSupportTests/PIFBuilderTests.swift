@@ -966,4 +966,24 @@ struct PIFBuilderTests {
             )
         }
     }
+
+    @Test func macroPackageSupportedPlatforms() async throws {
+        try await withGeneratedPIF(fromFixture: "Macros/MinimalMacroPackage") { pif, observabilitySystem in
+            #expect(observabilitySystem.diagnostics.filter { $0.severity == .error }.isEmpty)
+            let project = try pif.workspace.project(named: "MinimalMacroPackage")
+            let projectPlatforms = try project.buildConfig(named: .debug).settings[.SUPPORTED_PLATFORMS]
+            #expect(projectPlatforms == ["$(AVAILABLE_PLATFORMS)"])
+            let targets = project.underlying.targets
+            for target in targets {
+                let id = target.common.id.value
+                let config = try target.buildConfig(named: .debug)
+                let platforms = config.settings[.SUPPORTED_PLATFORMS]
+                if id == "PACKAGE-TARGET:MacroImpl" {
+                    #expect(platforms == ["$(HOST_PLATFORM)"], "target \(id) did not have the expected supported platform setting")
+                } else {
+                    #expect(platforms == nil, "target \(id) has supported platforms set, unexpectedly")
+                }
+            }
+        }
+    }
 }
