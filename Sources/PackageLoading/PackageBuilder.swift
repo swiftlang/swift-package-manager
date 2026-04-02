@@ -984,7 +984,7 @@ public final class PackageBuilder {
                 throw ModuleError.pluginCapabilityNotDeclared(target: manifestTarget.name)
             }
 
-            // Create and return an PluginTarget configured with the information from the manifest.
+            // Create and return a PluginTarget configured with the information from the manifest.
             return PluginModule(
                 name: potentialModule.name,
                 sources: sources,
