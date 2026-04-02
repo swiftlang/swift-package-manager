@@ -453,6 +453,15 @@ extension PackagePIFProjectBuilder {
             }
         }
 
+        /// If we're building the Swift standard library module from a package,
+        /// build everything that depends on it without reference to the
+        /// pre-built standard library in the toolchain or SDK.
+        if sourceModule.packageName == "swift" && sourceModule.name == "Swift" {
+            impartedSettings[.OTHER_SWIFT_FLAGS, default: ["$(inherited)"]]
+                .append(contentsOf: ["-nostdimport", "-nostdlibimport"])
+        }
+
+
         if desiredModuleType == .dynamicLibrary {
             settings.configureDynamicSettings(
                 product: nil,
