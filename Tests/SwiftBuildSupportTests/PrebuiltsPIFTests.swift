@@ -378,7 +378,7 @@ struct PrebuiltsPIFTests {
 
         let targets = pif.workspace.projects.flatMap({ $0.underlying.targets })
         for target in targets {
-            guard target.common.name != "Plugin" else {
+            guard !["Plugin", "Macros"].contains(target.common.name) else {
                 // The Plugin target does have HOST_PLATFORM test
                 continue
             }
