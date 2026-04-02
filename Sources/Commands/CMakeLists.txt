@@ -62,7 +62,7 @@ add_library(Commands
   Utilities/XCTEvents.swift)
 target_link_libraries(Commands PUBLIC
   SwiftCollections::OrderedCollections
-  SwiftSyntax::SwiftRefactor
+  SwiftSyntax::_PMSwiftRefactor
   SwiftSystem::SystemPackage
   ArgumentParser
   Basics
