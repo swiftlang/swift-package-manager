@@ -19,9 +19,12 @@ import Workspace
 
 import struct TSCBasic.FileSystemError
 import class Basics.AsyncProcess
+import struct Basics.AsyncProcessResult
+import TSCLibc
 import var TSCBasic.stderrStream
 import var TSCBasic.stdoutStream
 import func TSCBasic.withTemporaryFile
+import Foundation
 
 /// Internal helper functionality for the SwiftTestTool command and for the
 /// plugin support.
@@ -157,6 +160,102 @@ enum TestingSupport {
         #endif
         // Parse json and return TestSuites.
         return try TestSuite.parse(jsonString: data, context: args.joined(separator: " "))
+    }
+
+    static func getSwiftTestingSuites(
+        in testProducts: [BuiltTestProduct],
+        swiftCommandState: SwiftCommandState,
+        shouldSkipBuilding: Bool,
+        sanitizers: [Sanitizer]
+    ) throws -> [AbsolutePath: [String]] {
+        let suitesByProduct = try testProducts
+            .map {(
+                $0.binaryPath,
+                try Self.getSwiftTestingSuites(
+                    fromTestAt: $0.binaryPath,
+                    swiftCommandState: swiftCommandState,
+                    shouldSkipBuilding: shouldSkipBuilding,
+                    sanitizers: sanitizers
+                )
+            )}
+        return try Dictionary(throwingUniqueKeysWithValues: suitesByProduct)
+    }
+
+    /// Runs the test binary to list Swift Testing tests and returns their identifiers.
+    /// On macOS, we use the swiftpm-testing-helper tool bundled with swiftpm.
+    /// On Linux, the test binary handles `--list-tests` directly.
+    ///
+    /// - Parameters:
+    ///     - path: Path to the test binary.
+    ///
+    /// - Throws: TestError, SystemError, TSCUtility.Error
+    ///
+    /// - Returns: Array of test identifiers in the format "Module.Suite/testFunction()"
+    static func getSwiftTestingSuites(
+        fromTestAt path: AbsolutePath,
+        swiftCommandState: SwiftCommandState,
+        shouldSkipBuilding: Bool,
+        sanitizers: [Sanitizer]
+    ) throws -> [String] {
+        let toolchain = try swiftCommandState.getTargetToolchain()
+        let env = try Self.constructTestEnvironment(
+            toolchain: toolchain,
+            destinationBuildParameters: swiftCommandState.buildParametersForTest(
+                // Unlike the XCTest helper tool, the Swift Testing runtime initialises LLVM
+                // profiling on startup and writes a profraw file even when only listing tests,
+                // which would inflate the profraw file count produced by the actual test run.
+                // Code coverage is not necessary here as we are simply listing tests.
+                enableCodeCoverage: false,
+                shouldSkipBuilding: shouldSkipBuilding
+            ).productsBuildParameters,
+            sanitizers: sanitizers,
+            library: .swiftTesting,
+            testProductPaths: [path]
+        )
+
+        var args: [String]
+        #if os(macOS)
+        let helper = try toolchain.getSwiftTestingHelper()
+        args = [helper.pathString, "--test-bundle-path", path.pathString,
+                "--list-tests", "--testing-library", "swift-testing",
+                path.pathString]
+        #else
+        args = [path.pathString, "--list-tests", "--testing-library", "swift-testing"]
+        #endif
+
+        let output: String
+        do {
+            output = try Self.runProcessWithExistenceCheck(
+                path: path,
+                fileSystem: swiftCommandState.fileSystem,
+                args: args,
+                env: env
+            )
+        } catch AsyncProcessResult.Error.nonZeroExit(let result)
+            where result.exitStatus == .terminated(code: Self.exitNoTestsFound) {
+            return []
+        }
+
+        return output
+            .components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+    }
+
+    /// The exit code used by Swift Testing when no tests are found.
+    ///
+    /// Because Swift Package Manager does not directly link to the testing library,
+    /// it duplicates the definition of this constant in its own source. Any changes
+    /// to this constant in either package must be mirrored in the other.
+    private static var exitNoTestsFound: CInt {
+        #if os(macOS) || os(Linux) || canImport(Android) || os(FreeBSD)
+        EX_UNAVAILABLE
+        #elseif os(Windows)
+        ERROR_NOT_FOUND
+        #else
+        #warning("Platform-specific implementation missing: value for exitNoTestsFound unavailable")
+        return 2 // We're assuming that EXIT_SUCCESS = 0 and EXIT_FAILURE = 1.
+        #endif
     }
 
     /// Run a process and throw a more specific error if the file doesn't exist.
