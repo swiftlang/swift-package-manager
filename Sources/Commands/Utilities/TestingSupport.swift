@@ -212,7 +212,8 @@ enum TestingSupport {
             ).productsBuildParameters,
             sanitizers: sanitizers,
             library: .swiftTesting,
-            testProductPaths: [path]
+            testProductPaths: [path],
+            interopMode: nil // Interop not required when listing tests
         )
 
         var args: [String]
