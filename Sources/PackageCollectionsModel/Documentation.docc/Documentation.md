@@ -11,7 +11,7 @@ Use the types in this module to create, encode, and decode package collection do
 
 ## Topics
 
-### Collection Format
+### Defining the Collection Format
 
 - ``PackageCollectionModel``
 - ``PackageCollectionModel/FormatVersion``
@@ -29,23 +29,23 @@ Use the types in this module to create, encode, and decode package collection do
 - ``PackageCollectionModel/V1/Collection/Package/Version/Manifest``
 - ``PackageCollectionModel/V1/Collection/Package/Version/Author``
 
-### Targets and Products
+### Defining Targets and Products
 
 - ``PackageCollectionModel/V1/Target``
 - ``PackageCollectionModel/V1/Product``
 - ``PackageCollectionModel/V1/ProductType``
 
-### Platforms and Compatibility
+### Specifying Platforms and Compatibility
 
 - ``PackageCollectionModel/V1/PlatformVersion``
 - ``PackageCollectionModel/V1/Platform``
 - ``PackageCollectionModel/V1/Compatibility``
 
-### Licensing
+### Providing License Information
 
 - ``PackageCollectionModel/V1/License``
 
-### Signing
+### Signing Collections
 
 - ``PackageCollectionModel/V1/Signer``
 - ``PackageCollectionModel/V1/SignedCollection``
