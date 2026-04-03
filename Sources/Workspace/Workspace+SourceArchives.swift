@@ -28,6 +28,8 @@ import func Basics.sourceArchiveProvider
 import struct Dispatch.DispatchTime
 import struct Foundation.UUID
 import PackageFingerprint
+import class PackageModel.Manifest
+import enum PackageModel.PackageDependency
 import struct PackageModel.PackageIdentity
 import struct PackageModel.PackageReference
 import SourceControl
@@ -429,20 +431,46 @@ extension Workspace {
 
     /// Pre-populates the tag memoizer for source-archive-eligible packages
     /// so that subsequent `getContainer` calls get cache hits instead of
-    /// sequential HTTP requests. Uses `Package.resolved` when available.
-    func prefetchTags(observabilityScope: ObservabilityScope) async {
-        guard self.configuration.useSourceArchives,
-              let store = try? self.resolvedPackagesStore.load()
-        else { return }
+    /// sequential HTTP requests. Uses `Package.resolved` when available,
+    /// falling back to the root manifest dependencies for fresh checkouts.
+    func prefetchTags(
+        rootManifests: [AbsolutePath: Manifest] = [:],
+        observabilityScope: ObservabilityScope
+    ) async {
+        guard self.configuration.useSourceArchives else { return }
 
-        let packages = store.resolvedPackages.values.filter { resolved in
-            switch resolved.state {
-            case .branch, .revision:
-                return false
-            case .version:
-                return self.canUseSourceArchive(for: resolved.packageRef)
+        var packages: [PackageReference] = []
+
+        if let store = try? self.resolvedPackagesStore.load() {
+            packages = store.resolvedPackages.values.compactMap { resolved in
+                switch resolved.state {
+                case .branch, .revision:
+                    return nil
+                case .version:
+                    return resolved.packageRef
+                }
             }
-        }.map(\.packageRef)
+        }
+
+        // Fresh checkout: no Package.resolved yet, fall back to root
+        // manifest deps. This only covers direct dependencies — the resolved
+        // file includes transitives, so it prefetches more when available.
+        if packages.isEmpty {
+            packages = rootManifests.values.flatMap(\.dependencies).compactMap { dep in
+                guard case .sourceControl(let settings) = dep,
+                      case .remote(let url) = settings.location else { return nil }
+                switch settings.requirement {
+                case .branch, .revision:
+                    return nil
+                case .exact, .range:
+                    return PackageReference.remoteSourceControl(
+                        identity: settings.identity, url: url
+                    )
+                }
+            }
+        }
+
+        packages = packages.filter { self.canUseSourceArchive(for: $0) }
         guard !packages.isEmpty else { return }
 
         let maxConcurrent = min(max(1, 3 * Concurrency.maxOperations / 4), 8)

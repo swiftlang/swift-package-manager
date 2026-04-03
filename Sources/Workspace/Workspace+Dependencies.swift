@@ -81,7 +81,7 @@ extension Workspace {
         let rootManifestsMinimumToolsVersion = rootManifests.values.map(\.toolsVersion).min() ?? ToolsVersion.current
         let resolvedFileOriginHash = try self.computeResolvedFileOriginHash(root: root)
 
-        await self.prefetchTags(observabilityScope: observabilityScope)
+        await self.prefetchTags(rootManifests: rootManifests, observabilityScope: observabilityScope)
 
         // Load the current manifests.
         let graphRoot = try PackageGraphRoot(
@@ -375,7 +375,7 @@ extension Workspace {
             )
         }
 
-        await self.prefetchTags(observabilityScope: observabilityScope)
+        await self.prefetchTags(rootManifests: rootManifests, observabilityScope: observabilityScope)
 
         // Request all the containers to fetch them in parallel.
         //
@@ -543,7 +543,7 @@ extension Workspace {
         let rootManifestsMinimumToolsVersion = rootManifests.values.map(\.toolsVersion).min() ?? ToolsVersion.current
         let resolvedFileOriginHash = try self.computeResolvedFileOriginHash(root: root)
 
-        await self.prefetchTags(observabilityScope: observabilityScope)
+        await self.prefetchTags(rootManifests: rootManifests, observabilityScope: observabilityScope)
 
         // Load the current manifests.
         let graphRoot = try PackageGraphRoot(

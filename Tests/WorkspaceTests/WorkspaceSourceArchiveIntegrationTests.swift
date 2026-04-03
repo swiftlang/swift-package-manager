@@ -437,12 +437,19 @@ private struct WorkspaceSourceArchiveIntegrationTests {
     }
     // MARK: - Tag prefetch
 
-    @Test("prefetchTags populates memoizer so getContainer gets cache hits")
-    func tagPrefetchPopulatesMemoizer() async throws {
-        let shaA = "aaaa1111aaaa1111aaaa1111aaaa1111aaaa1111"
-        let shaB = "bbbb2222bbbb2222bbbb2222bbbb2222bbbb2222"
-        let fs = InMemoryFileSystem()
-        let sandbox = AbsolutePath("/tmp/ws-tag-prefetch/")
+    // MARK: - Tag prefetch helpers
+
+    private static let urlA = SourceControlURL("https://github.com/test/pkg-a.git")
+    private static let urlB = SourceControlURL("https://github.com/test/pkg-b.git")
+    private static let shaA = "aaaa1111aaaa1111aaaa1111aaaa1111aaaa1111"
+    private static let shaB = "bbbb2222bbbb2222bbbb2222bbbb2222bbbb2222"
+
+    private static func makePrefetchWorkspace(
+        sandbox: AbsolutePath,
+        fs: InMemoryFileSystem,
+        resolvedJSON: String? = nil,
+        httpClient: HTTPClient
+    ) throws -> (workspace: Workspace, rootPath: AbsolutePath) {
         try fs.createDirectory(sandbox, recursive: true)
 
         let scratchDir = sandbox.appending(".build")
@@ -458,28 +465,10 @@ private struct WorkspaceSourceArchiveIntegrationTests {
             sharedCacheDirectory: nil
         )
 
-        let resolvedJSON = """
-        {
-          "originHash": "abc",
-          "pins": [
-            {
-              "identity": "pkg-a",
-              "kind": "remoteSourceControl",
-              "location": "https://github.com/test/pkg-a.git",
-              "state": { "revision": "aaaa1111aaaa1111aaaa1111aaaa1111aaaa1111", "version": "1.0.0" }
-            },
-            {
-              "identity": "pkg-b",
-              "kind": "remoteSourceControl",
-              "location": "https://github.com/test/pkg-b.git",
-              "state": { "revision": "bbbb2222bbbb2222bbbb2222bbbb2222bbbb2222", "version": "2.0.0" }
-            }
-          ],
-          "version": 3
+        if let resolvedJSON {
+            try fs.createDirectory(scratchDir, recursive: true)
+            try fs.writeFileContents(resolvedFile, string: resolvedJSON)
         }
-        """
-        try fs.createDirectory(scratchDir, recursive: true)
-        try fs.writeFileContents(resolvedFile, string: resolvedJSON)
 
         let rootPath = sandbox.appending("Root")
         try fs.createDirectory(rootPath, recursive: true)
@@ -492,8 +481,22 @@ private struct WorkspaceSourceArchiveIntegrationTests {
         try fs.createMockToolchain()
         let hostToolchain = try UserToolchain.mockHostToolchain(fs)
 
-        let fetchCount = ThreadSafeBox<Int>(0)
+        let workspace = try Workspace._init(
+            fileSystem: fs,
+            environment: .current,
+            location: location,
+            configuration: Self.sourceArchiveConfiguration,
+            customHostToolchain: hostToolchain,
+            customManifestLoader: ManifestLoader(toolchain: hostToolchain),
+            customSourceArchiveHTTPClient: httpClient
+        )
 
+        return (workspace, rootPath)
+    }
+
+    private static func makeV2TagHTTPClient(
+        fetchCount: ThreadSafeBox<Int>
+    ) -> HTTPClient {
         let discoveryBody: Data = {
             var d = Data()
             d.append(PktLine.encode("# service=git-upload-pack\n"))
@@ -503,14 +506,7 @@ private struct WorkspaceSourceArchiveIntegrationTests {
             return d
         }()
 
-        func tagsResponse(sha: String, tag: String) -> Data {
-            var d = Data()
-            d.append(PktLine.encode("\(sha) refs/tags/\(tag)\n"))
-            d.append(PktLine.flush)
-            return d
-        }
-
-        let sourceArchiveHTTPClient = HTTPClient { request, _ in
+        return HTTPClient { request, _ in
             let url = request.url.absoluteString
             if url.contains("/info/refs") {
                 fetchCount.mutate { $0 += 1 }
@@ -518,50 +514,41 @@ private struct WorkspaceSourceArchiveIntegrationTests {
             }
             if url.contains("/git-upload-pack") {
                 fetchCount.mutate { $0 += 1 }
+                var d = Data()
                 if url.contains("pkg-a") {
-                    return .okay(body: tagsResponse(sha: shaA, tag: "1.0.0"))
+                    d.append(PktLine.encode("\(shaA) refs/tags/1.0.0\n"))
                 } else if url.contains("pkg-b") {
-                    return .okay(body: tagsResponse(sha: shaB, tag: "2.0.0"))
+                    d.append(PktLine.encode("\(shaB) refs/tags/2.0.0\n"))
                 }
-                return .okay(body: PktLine.flush)
+                d.append(PktLine.flush)
+                return .okay(body: d)
             }
             if request.method == .head { return .notFound() }
             return .notFound()
         }
+    }
 
-        let workspace = try Workspace._init(
-            fileSystem: fs,
-            environment: .current,
-            location: location,
-            configuration: Self.sourceArchiveConfiguration,
-            customHostToolchain: hostToolchain,
-            customManifestLoader: ManifestLoader(toolchain: hostToolchain),
-            customSourceArchiveHTTPClient: sourceArchiveHTTPClient
-        )
-
-        let observability = ObservabilitySystem.makeForTesting()
-
-        // Prefetch should fetch tags for both pinned packages.
-        await workspace.prefetchTags(observabilityScope: observability.topScope)
-        let prefetchFetchCount = fetchCount.get()
-        #expect(prefetchFetchCount > 0, "expected tag fetches during prefetch, got 0")
-
-        let urlA = SourceControlURL("https://github.com/test/pkg-a.git")
-        let urlB = SourceControlURL("https://github.com/test/pkg-b.git")
-
+    /// Verifies that the memoizer was populated by checking that creating
+    /// containers and fetching versions triggers no additional HTTP requests.
+    private static func verifyMemoizerPopulated(
+        workspace: Workspace,
+        fetchCount: ThreadSafeBox<Int>,
+        prefetchFetchCount: Int,
+        observabilityScope: ObservabilityScope
+    ) async throws {
         let containerA = workspace.makeSourceArchiveContainer(
             for: PackageReference(
                 identity: PackageIdentity(url: urlA),
                 kind: .remoteSourceControl(urlA)
             ),
-            observabilityScope: observability.topScope
+            observabilityScope: observabilityScope
         )
         let containerB = workspace.makeSourceArchiveContainer(
             for: PackageReference(
                 identity: PackageIdentity(url: urlB),
                 kind: .remoteSourceControl(urlB)
             ),
-            observabilityScope: observability.topScope
+            observabilityScope: observabilityScope
         )
 
         let tagsA = try await containerA?.versionsAscending()
@@ -571,6 +558,142 @@ private struct WorkspaceSourceArchiveIntegrationTests {
         #expect(tagsB?.contains(Version(2, 0, 0)) == true, "expected version 2.0.0 for pkg-b")
         #expect(fetchCount.get() == prefetchFetchCount,
             "memoizer should prevent additional fetches after prefetch")
+    }
+
+    // MARK: - Tag prefetch tests
+
+    @Test("prefetchTags populates memoizer from Package.resolved")
+    func tagPrefetchPopulatesMemoizer() async throws {
+        let fetchCount = ThreadSafeBox<Int>(0)
+        let (workspace, _) = try Self.makePrefetchWorkspace(
+            sandbox: AbsolutePath("/tmp/ws-tag-prefetch/"),
+            fs: InMemoryFileSystem(),
+            resolvedJSON: """
+            {
+              "originHash": "abc",
+              "pins": [
+                {
+                  "identity": "pkg-a",
+                  "kind": "remoteSourceControl",
+                  "location": "https://github.com/test/pkg-a.git",
+                  "state": { "revision": "\(Self.shaA)", "version": "1.0.0" }
+                },
+                {
+                  "identity": "pkg-b",
+                  "kind": "remoteSourceControl",
+                  "location": "https://github.com/test/pkg-b.git",
+                  "state": { "revision": "\(Self.shaB)", "version": "2.0.0" }
+                }
+              ],
+              "version": 3
+            }
+            """,
+            httpClient: Self.makeV2TagHTTPClient(fetchCount: fetchCount)
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        await workspace.prefetchTags(observabilityScope: observability.topScope)
+        let prefetchFetchCount = fetchCount.get()
+        #expect(prefetchFetchCount > 0, "expected tag fetches during prefetch, got 0")
+
+        try await Self.verifyMemoizerPopulated(
+            workspace: workspace,
+            fetchCount: fetchCount,
+            prefetchFetchCount: prefetchFetchCount,
+            observabilityScope: observability.topScope
+        )
+    }
+
+    @Test("prefetchTags falls back to root manifest deps when no Package.resolved")
+    func tagPrefetchFallsBackToManifestDeps() async throws {
+        let fetchCount = ThreadSafeBox<Int>(0)
+        let (workspace, rootPath) = try Self.makePrefetchWorkspace(
+            sandbox: AbsolutePath("/tmp/ws-tag-prefetch-fallback/"),
+            fs: InMemoryFileSystem(),
+            httpClient: Self.makeV2TagHTTPClient(fetchCount: fetchCount)
+        )
+
+        let rootManifest = Manifest.createRootManifest(
+            displayName: "Root",
+            path: rootPath,
+            toolsVersion: .v5_9,
+            dependencies: [
+                .sourceControl(
+                    identity: PackageIdentity(url: Self.urlA),
+                    nameForTargetDependencyResolutionOnly: nil,
+                    location: .remote(Self.urlA),
+                    requirement: .range(Version(1, 0, 0)..<Version(2, 0, 0)),
+                    productFilter: .everything
+                ),
+                .sourceControl(
+                    identity: PackageIdentity(url: Self.urlB),
+                    nameForTargetDependencyResolutionOnly: nil,
+                    location: .remote(Self.urlB),
+                    requirement: .range(Version(2, 0, 0)..<Version(3, 0, 0)),
+                    productFilter: .everything
+                ),
+            ]
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        await workspace.prefetchTags(
+            rootManifests: [rootPath: rootManifest],
+            observabilityScope: observability.topScope
+        )
+        let prefetchFetchCount = fetchCount.get()
+        #expect(prefetchFetchCount > 0, "expected tag fetches from manifest fallback, got 0")
+
+        try await Self.verifyMemoizerPopulated(
+            workspace: workspace,
+            fetchCount: fetchCount,
+            prefetchFetchCount: prefetchFetchCount,
+            observabilityScope: observability.topScope
+        )
+    }
+
+    @Test("prefetchTags skips branch/revision deps in manifest fallback")
+    func tagPrefetchSkipsBranchAndRevisionDeps() async throws {
+        let fetchCount = ThreadSafeBox<Int>(0)
+        let httpClient = HTTPClient { _, _ in
+            fetchCount.mutate { $0 += 1 }
+            return .serverError()
+        }
+        let (workspace, rootPath) = try Self.makePrefetchWorkspace(
+            sandbox: AbsolutePath("/tmp/ws-tag-prefetch-skip-branch/"),
+            fs: InMemoryFileSystem(),
+            httpClient: httpClient
+        )
+
+        let rootManifest = Manifest.createRootManifest(
+            displayName: "Root",
+            path: rootPath,
+            toolsVersion: .v5_9,
+            dependencies: [
+                .sourceControl(
+                    identity: PackageIdentity(url: Self.urlA),
+                    nameForTargetDependencyResolutionOnly: nil,
+                    location: .remote(Self.urlA),
+                    requirement: .branch("main"),
+                    productFilter: .everything
+                ),
+                .sourceControl(
+                    identity: PackageIdentity(url: Self.urlB),
+                    nameForTargetDependencyResolutionOnly: nil,
+                    location: .remote(Self.urlB),
+                    requirement: .revision("abcdef"),
+                    productFilter: .everything
+                ),
+            ]
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        await workspace.prefetchTags(
+            rootManifests: [rootPath: rootManifest],
+            observabilityScope: observability.topScope
+        )
+
+        #expect(fetchCount.get() == 0,
+            "branch/revision deps should not trigger tag prefetch")
     }
 
     @Test("strict checksum mismatch propagates through materializeSourceArchive without fallback")
