@@ -11,42 +11,6 @@ Use the types in this module to create, encode, and decode package collection do
 
 ## Topics
 
-### Defining the Collection Format
+### Collection Format
 
 - ``PackageCollectionModel``
-- ``PackageCollectionModel/FormatVersion``
-- ``PackageCollectionModel/V1``
-
-### Describing a Collection
-
-- ``PackageCollectionModel/V1/Collection``
-- ``PackageCollectionModel/V1/Collection/Author``
-- ``PackageCollectionModel/V1/Collection/Package``
-
-### Describing Package Versions
-
-- ``PackageCollectionModel/V1/Collection/Package/Version``
-- ``PackageCollectionModel/V1/Collection/Package/Version/Manifest``
-- ``PackageCollectionModel/V1/Collection/Package/Version/Author``
-
-### Defining Targets and Products
-
-- ``PackageCollectionModel/V1/Target``
-- ``PackageCollectionModel/V1/Product``
-- ``PackageCollectionModel/V1/ProductType``
-
-### Specifying Platforms and Compatibility
-
-- ``PackageCollectionModel/V1/PlatformVersion``
-- ``PackageCollectionModel/V1/Platform``
-- ``PackageCollectionModel/V1/Compatibility``
-
-### Providing License Information
-
-- ``PackageCollectionModel/V1/License``
-
-### Signing Collections
-
-- ``PackageCollectionModel/V1/Signer``
-- ``PackageCollectionModel/V1/SignedCollection``
-- ``PackageCollectionModel/V1/Signature``
