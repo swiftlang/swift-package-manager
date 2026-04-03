@@ -28,15 +28,13 @@ set_property(DIRECTORY "${binary_dir}" PROPERTY EXCLUDE_FROM_ALL TRUE)
 # Install SwiftPM versions of the swift-syntax libraries we use.
 set(SWIFTPM_SWIFT_SYNTAX_MODULES
   _PMSwiftBasicFormat
-  _PMSwiftIfConfig
+  _PMSwiftDiagnostics
+  _PMSwiftIDEUtils
   _PMSwiftParser
   _PMSwiftParserDiagnostics
-  _PMSwiftDiagnostics
-  _PMSwiftSyntax
-  _PMSwiftOperators
-  _PMSwiftSyntaxBuilder
-  _PMSwiftIDEUtils
   _PMSwiftRefactor
+  _PMSwiftSyntax
+  _PMSwiftSyntaxBuilder
 )
 
 set(SWIFT_HOST_LIBRARIES_SUBDIRECTORY "swift/host")
