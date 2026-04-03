@@ -26,10 +26,10 @@ extension PackageCollectionModel.V1 {
         /// A description of the package collection.
         public let overview: String?
 
-        /// An array of keywords that the collection is associated with.
+        /// An array of keywords associated with the collection.
         public let keywords: [String]?
 
-        /// An array of package metadata objects
+        /// An array of package metadata objects.
         public let packages: [PackageCollectionModel.V1.Collection.Package]
 
         /// The version of the format to which the collection conforms.
@@ -38,7 +38,7 @@ extension PackageCollectionModel.V1 {
         /// The revision number of this package collection.
         public let revision: Int?
 
-        /// When the package collection was generated.
+        /// The generation date for this package collection.
         public let generatedAt: Date
 
         /// The author of this package collection.
@@ -83,16 +83,16 @@ extension PackageCollectionModel.V1 {
 extension PackageCollectionModel.V1.Collection {
     /// A package entry in a collection.
     public struct Package: Equatable, Codable {
-        /// The URL of the package. Currently only Git repository URLs are supported.
+        /// The URL of the package. The collection format currently supports only Git repository URLs.
         public let url: URL
         
-        /// Package identity for registry (https://github.com/swiftlang/swift-package-manager/blob/main/Documentation/PackageRegistry/Registry.md#36-package-identification).
+        /// The package identity for a registry.
         public let identity: String?
 
         /// A description of the package.
         public let summary: String?
 
-        /// An array of keywords that the package is associated with.
+        /// An array of keywords associated with the package.
         public let keywords: [String]?
 
         /// An array of version objects representing the most recent and/or relevant releases of the package.
@@ -101,7 +101,7 @@ extension PackageCollectionModel.V1.Collection {
         /// The URL of the package's README.
         public let readmeURL: URL?
 
-        /// The package's current license info
+        /// The package's current license information.
         public let license: PackageCollectionModel.V1.License?
 
         /// Creates a `Package`.
@@ -137,10 +137,10 @@ extension PackageCollectionModel.V1.Collection.Package {
         /// Manifests by tools version.
         public let manifests: [String: Manifest]
 
-        /// Tools version of the default manifest.
+        /// The tools version of the default manifest.
         public let defaultToolsVersion: String
 
-        /// An array of compatible platforms and Swift versions that has been tested and verified for.
+        /// An array of platforms and Swift versions with verified compatibility.
         public let verifiedCompatibility: [PackageCollectionModel.V1.Compatibility]?
 
         /// The package version's license.
@@ -152,7 +152,7 @@ extension PackageCollectionModel.V1.Collection.Package {
         /// The signer of the package version.
         public let signer: PackageCollectionModel.V1.Signer?
 
-        /// When the package version was created.
+        /// The creation date for this package version.
         public let createdAt: Date?
 
         /// Creates a `Version`.
@@ -180,7 +180,7 @@ extension PackageCollectionModel.V1.Collection.Package {
 
         /// The package manifest data for a specific tools version.
         public struct Manifest: Equatable, Codable {
-            /// The tools (semantic) version specified in `Package.swift`.
+            /// The semantic tools version specified in `Package.swift`.
             public let toolsVersion: String
 
             /// The name of the package.
@@ -230,7 +230,7 @@ extension PackageCollectionModel.V1 {
         /// The target name.
         public let name: String
 
-        /// The module name if this target can be imported as a module.
+        /// The module name if you can import this target as a module.
         public let moduleName: String?
 
         /// Creates a `Target`.
@@ -265,7 +265,7 @@ extension PackageCollectionModel.V1 {
 
     /// A platform and its minimum version.
     public struct PlatformVersion: Equatable, Codable {
-        /// The name of the platform (e.g., macOS, Linux, etc.).
+        /// The name of the platform (such as macOS and Linux).
         public let name: String
 
         /// The semantic version of the platform.
@@ -278,9 +278,9 @@ extension PackageCollectionModel.V1 {
         }
     }
 
-    /// A platform supported by a package.
+    /// A platform that a package supports.
     public struct Platform: Equatable, Codable {
-        /// The name of the platform (e.g., macOS, Linux, etc.).
+        /// The name of the platform (such as macOS and Linux).
         public let name: String
 
         /// Creates a `Platform`.
@@ -289,12 +289,12 @@ extension PackageCollectionModel.V1 {
         }
     }
 
-    /// Compatible platform and Swift version.
+    /// A compatible platform and Swift version.
     public struct Compatibility: Equatable, Codable {
-        /// The platform (e.g., macOS, Linux, etc.)
+        /// The platform (such as macOS and Linux).
         public let platform: Platform
 
-        /// The Swift version
+        /// The Swift version.
         public let swiftVersion: String
 
         /// Creates a `Compatibility`.
@@ -306,7 +306,7 @@ extension PackageCollectionModel.V1 {
 
     /// License information for a package or package version.
     public struct License: Equatable, Codable {
-        /// License name (e.g., Apache-2.0, MIT, etc.)
+        /// The license name (such as Apache-2.0 and MIT).
         public let name: String?
 
         /// The URL of the license file.
@@ -321,7 +321,7 @@ extension PackageCollectionModel.V1 {
 
     /// The entity that signed a package version.
     public struct Signer: Equatable, Codable {
-        /// The signer type. (e.g., ADP)
+        /// The signer type (such as ADP).
         public let type: String
 
         /// The common name of the signing certificate's subject.
@@ -333,6 +333,7 @@ extension PackageCollectionModel.V1 {
         /// The organization name of the signing certificate's subject.
         public let organizationName: String
 
+        /// Creates a `Signer`.
         public init(
             type: String,
             commonName: String,
@@ -381,7 +382,7 @@ extension PackageCollectionModel.V1 {
             /// Dynamic library.
             case dynamic
 
-            /// The type of library is unspecified and should be decided by package manager.
+            /// The package manager determines the library type.
             case automatic
         }
 
@@ -456,13 +457,12 @@ extension PackageCollectionModel.V1.ProductType: Codable {
 // MARK: - Signed package collection
 
 extension PackageCollectionModel.V1 {
-    /// A signed package collection. The only difference between this and `Collection`
-    /// is the presence of `signature`.
+    /// A signed package collection. This type adds a `signature` to `Collection`.
     public struct SignedCollection: Equatable {
-        /// The package collection
+        /// The package collection.
         public let collection: PackageCollectionModel.V1.Collection
 
-        /// The signature and metadata
+        /// The signature and metadata.
         public let signature: PackageCollectionModel.V1.Signature
 
         /// Creates a `SignedCollection`.
@@ -472,25 +472,26 @@ extension PackageCollectionModel.V1 {
         }
     }
 
-    /// Package collection signature and associated metadata
+    /// A package collection signature and associated metadata.
     public struct Signature: Equatable, Codable {
-        /// The signature
+        /// The signature.
         public let signature: String
 
-        /// Details about the certificate used to generate the signature
+        /// Details about the certificate that generates the signature.
         public let certificate: Certificate
 
+        /// Creates a `Signature`.
         public init(signature: String, certificate: Certificate) {
             self.signature = signature
             self.certificate = certificate
         }
 
-        /// A certificate used to sign a package collection.
+        /// A certificate that signs a package collection.
         public struct Certificate: Equatable, Codable {
-            /// Subject of the certificate
+            /// The subject of the certificate.
             public let subject: Name
 
-            /// Issuer of the certificate
+            /// The issuer of the certificate.
             public let issuer: Name
 
             /// Creates a `Certificate`.
@@ -499,18 +500,18 @@ extension PackageCollectionModel.V1 {
                 self.issuer = issuer
             }
 
-            /// Generic certificate name (e.g., subject, issuer)
+            /// A certificate name (such as subject and issuer).
             public struct Name: Equatable, Codable {
-                /// User ID
+                /// The user ID.
                 public let userID: String?
 
-                /// Common name
+                /// The common name.
                 public let commonName: String?
 
-                /// Organizational unit
+                /// The organizational unit.
                 public let organizationalUnit: String?
 
-                /// Organization
+                /// The organization.
                 public let organization: String?
 
                 /// Creates a `Name`.
