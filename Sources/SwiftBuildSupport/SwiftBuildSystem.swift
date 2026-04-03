@@ -759,16 +759,16 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         }
     }
 
-    private func buildTargetInfo(service: SWBBuildService) async throws -> SWBBuildTargetInfo {
+    private func buildTargetInfo(session: SWBBuildServiceSession) async throws -> SWBBuildTargetInfo {
         let (toolchainPath, isEmbeddedInXcode) = try toolchainDeveloperPathInfo(toolchain: buildParameters.toolchain)
         if isEmbeddedInXcode {
-            return try await service.buildTargetInfo(triple: buildParameters.triple.tripleString, developerPath: nil)
+            return try await session.buildTargetInfo(triple: buildParameters.triple.tripleString)
         } else {
-            return try await service.buildTargetInfo(triple: buildParameters.triple.tripleString, swiftToolchainPath: toolchainPath.pathString)
+            return try await session.buildTargetInfo(triple: buildParameters.triple.tripleString)
         }
     }
 
-    private func makeRunDestination(service: SWBBuildService) async throws -> SwiftBuild.SWBRunDestinationInfo {
+    private func makeRunDestination(session: SWBBuildServiceSession) async throws -> SwiftBuild.SWBRunDestinationInfo {
         if let sdkManifestPath = self.buildParameters.toolchain.swiftSDK.swiftSDKManifest {
             return SwiftBuild.SWBRunDestinationInfo(
                 buildTarget: .swiftSDK(sdkManifestPath: sdkManifestPath.pathString, triple: self.buildParameters.triple.tripleString),
@@ -777,7 +777,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                 disableOnlyActiveArch: (buildParameters.architectures?.count ?? 1) > 1,
             )
         } else {
-            let buildTargetInfo = try await self.buildTargetInfo(service: service)
+            let buildTargetInfo = try await self.buildTargetInfo(session: session)
 
             return SwiftBuild.SWBRunDestinationInfo(
                 buildTarget: .toolchainSDK(
@@ -800,7 +800,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         setToolchainSetting: Bool = true,
     ) async throws -> SwiftBuild.SWBBuildParameters {
         // Generate the run destination parameters.
-        let runDestination = try await makeRunDestination(service: service)
+        let runDestination = try await makeRunDestination(session: session)
 
         var verboseFlag: [String] = []
         if self.logLevel == .debug {
@@ -890,7 +890,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                 .joined(separator: " ")
         }
 
-        let buildTargetInfo = try await self.buildTargetInfo(service: service)
+        let buildTargetInfo = try await self.buildTargetInfo(session: session)
         if let deploymentTargetSettingName = buildTargetInfo.deploymentTargetSettingName, let value = buildTargetInfo.deploymentTarget {
             // Only override the deployment target if a version is explicitly specified;
             // for Apple platforms this normally comes from the package manifest and may
