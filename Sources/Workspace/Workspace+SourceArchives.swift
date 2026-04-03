@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import struct Basics.AbsolutePath
+import class PackageGraph.ResolvedPackagesStore
 import protocol Basics.Archiver
 import class Basics.AsyncOperationQueue
 import protocol Basics.AuthorizationProvider
@@ -426,6 +427,40 @@ extension Workspace {
         return sourceArchiveProvider(for: SourceControlURL(url.absoluteString)) != nil
     }
 
+    /// Pre-populates the tag memoizer for source-archive-eligible packages
+    /// so that subsequent `getContainer` calls get cache hits instead of
+    /// sequential HTTP requests. Uses `Package.resolved` when available.
+    func prefetchTags(observabilityScope: ObservabilityScope) async {
+        guard self.configuration.useSourceArchives,
+              let store = try? self.resolvedPackagesStore.load()
+        else { return }
+
+        let packages = store.resolvedPackages.values.filter { resolved in
+            switch resolved.state {
+            case .branch, .revision:
+                return false
+            case .version:
+                return self.canUseSourceArchive(for: resolved.packageRef)
+            }
+        }.map(\.packageRef)
+        guard !packages.isEmpty else { return }
+
+        let maxConcurrent = min(max(1, 3 * Concurrency.maxOperations / 4), 8)
+        let queue = AsyncOperationQueue(concurrentTasks: maxConcurrent)
+        await withTaskGroup(of: Void.self) { group in
+            for package in packages {
+                guard let container = self.makeSourceArchiveContainer(
+                    for: package, observabilityScope: observabilityScope
+                ) else { continue }
+                group.addTask {
+                    _ = try? await queue.withOperation {
+                        try await container.versionsAscending()
+                    }
+                }
+            }
+        }
+    }
+
     /// Pre-downloads source archive ZIPs concurrently for packages that need
     /// fetching. Called before the sequential materialization loop so that
     /// downloads happen in parallel — the loop then finds them on disk and
@@ -503,7 +538,7 @@ extension Workspace {
 
         // Fast path: check workspace and shared caches before downloading.
         // The getTag/getRevision calls above are memoized per repo URL, so
-        // for N versions of the same package this is one ls-remote total.
+        // for N versions of the same package this is one tag fetch total.
         // Archives are symlinked; shallow clones are copied (they contain
         // .git directories with read-only files that must not be shared).
         for (paths, useSymlink) in [(archive, true), (clone, false)] {

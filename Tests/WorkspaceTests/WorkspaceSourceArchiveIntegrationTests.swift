@@ -26,16 +26,16 @@ import struct TSCUtility.Version
 /// Integration tests that exercise the full source archive workspace flow:
 /// container routing → resolution → fetch → state persistence.
 ///
-/// Uses `gitTagsProvider` injection on ``SourceArchiveResolver`` to avoid
-/// real `git ls-remote` subprocesses, and mock HTTP for manifest/archive
-/// content, matching the mock-based testing pattern used throughout SPM.
+/// Uses `tagsProvider` injection on ``SourceArchiveResolver`` and mock HTTP
+/// for manifest/archive content, matching the mock-based testing pattern
+/// used throughout SPM.
 @Suite
 private struct WorkspaceSourceArchiveIntegrationTests {
 
-    private static let fakeLsRemoteOutput = """
-    aaa111aaa111aaa111aaa111aaa111aaa111aaa1\trefs/tags/1.0.0
-    bbb222bbb222bbb222bbb222bbb222bbb222bbb2\trefs/tags/1.1.0
-    """
+    private static let fakeTags: [ResolvedTag] = [
+        ResolvedTag(name: "1.0.0", commitSHA: "aaa111aaa111aaa111aaa111aaa111aaa111aaa1", version: Version(1, 0, 0)),
+        ResolvedTag(name: "1.1.0", commitSHA: "bbb222bbb222bbb222bbb222bbb222bbb222bbb2", version: Version(1, 1, 0)),
+    ]
 
     private static let depManifestContent = """
     // swift-tools-version: 5.9
@@ -92,15 +92,11 @@ private struct WorkspaceSourceArchiveIntegrationTests {
 
     // MARK: - materializeSourceArchive tests
 
-    /// Seeds the workspace's tag memoizer with `fakeLsRemoteOutput` so
-    /// `materializeSourceArchive` doesn't invoke real `git ls-remote`.
+    /// Seeds the workspace's tag memoizer with `fakeTags` so
+    /// `materializeSourceArchive` doesn't make real HTTP requests.
     private static func seedTagMemoizer(on workspace: Workspace) async throws {
         _ = try await workspace.sourceArchiveTagMemoizer.memoize(depURL.absoluteString) {
-            SourceArchiveResolver.filterSemverTags(
-                SourceArchiveResolver.peelTags(
-                    SourceArchiveResolver.parseLsRemoteOutput(fakeLsRemoteOutput)
-                )
-            )
+            fakeTags
         }
     }
 
@@ -401,22 +397,10 @@ private struct WorkspaceSourceArchiveIntegrationTests {
         let urlA = SourceControlURL("https://github.com/test/pkg-a.git")
         let urlB = SourceControlURL("https://github.com/test/pkg-b.git")
         _ = try await workspace.sourceArchiveTagMemoizer.memoize(urlA.absoluteString) {
-            SourceArchiveResolver.filterSemverTags(
-                SourceArchiveResolver.peelTags(
-                    SourceArchiveResolver.parseLsRemoteOutput(
-                        "\(shaA)\trefs/tags/1.0.0"
-                    )
-                )
-            )
+            [ResolvedTag(name: "1.0.0", commitSHA: shaA, version: Version(1, 0, 0))]
         }
         _ = try await workspace.sourceArchiveTagMemoizer.memoize(urlB.absoluteString) {
-            SourceArchiveResolver.filterSemverTags(
-                SourceArchiveResolver.peelTags(
-                    SourceArchiveResolver.parseLsRemoteOutput(
-                        "\(shaB)\trefs/tags/2.0.0"
-                    )
-                )
-            )
+            [ResolvedTag(name: "2.0.0", commitSHA: shaB, version: Version(2, 0, 0))]
         }
 
         let observability = ObservabilitySystem.makeForTesting()
@@ -451,6 +435,144 @@ private struct WorkspaceSourceArchiveIntegrationTests {
         #expect(stateA == nil)
         #expect(stateB == nil)
     }
+    // MARK: - Tag prefetch
+
+    @Test("prefetchTags populates memoizer so getContainer gets cache hits")
+    func tagPrefetchPopulatesMemoizer() async throws {
+        let shaA = "aaaa1111aaaa1111aaaa1111aaaa1111aaaa1111"
+        let shaB = "bbbb2222bbbb2222bbbb2222bbbb2222bbbb2222"
+        let fs = InMemoryFileSystem()
+        let sandbox = AbsolutePath("/tmp/ws-tag-prefetch/")
+        try fs.createDirectory(sandbox, recursive: true)
+
+        let scratchDir = sandbox.appending(".build")
+        let resolvedFile = scratchDir.appending("Package.resolved")
+
+        let location = Workspace.Location(
+            scratchDirectory: scratchDir,
+            editsDirectory: sandbox.appending("edits"),
+            resolvedVersionsFile: resolvedFile,
+            localConfigurationDirectory: scratchDir.appending("config"),
+            sharedConfigurationDirectory: nil,
+            sharedSecurityDirectory: nil,
+            sharedCacheDirectory: nil
+        )
+
+        let resolvedJSON = """
+        {
+          "originHash": "abc",
+          "pins": [
+            {
+              "identity": "pkg-a",
+              "kind": "remoteSourceControl",
+              "location": "https://github.com/test/pkg-a.git",
+              "state": { "revision": "aaaa1111aaaa1111aaaa1111aaaa1111aaaa1111", "version": "1.0.0" }
+            },
+            {
+              "identity": "pkg-b",
+              "kind": "remoteSourceControl",
+              "location": "https://github.com/test/pkg-b.git",
+              "state": { "revision": "bbbb2222bbbb2222bbbb2222bbbb2222bbbb2222", "version": "2.0.0" }
+            }
+          ],
+          "version": 3
+        }
+        """
+        try fs.createDirectory(scratchDir, recursive: true)
+        try fs.writeFileContents(resolvedFile, string: resolvedJSON)
+
+        let rootPath = sandbox.appending("Root")
+        try fs.createDirectory(rootPath, recursive: true)
+        try fs.writeFileContents(rootPath.appending("Package.swift"), string: """
+        // swift-tools-version: 5.9
+        import PackageDescription
+        let package = Package(name: "Root")
+        """)
+
+        try fs.createMockToolchain()
+        let hostToolchain = try UserToolchain.mockHostToolchain(fs)
+
+        let fetchCount = ThreadSafeBox<Int>(0)
+
+        let discoveryBody: Data = {
+            var d = Data()
+            d.append(PktLine.encode("# service=git-upload-pack\n"))
+            d.append(PktLine.flush)
+            d.append(PktLine.encode("version 2\n"))
+            d.append(PktLine.flush)
+            return d
+        }()
+
+        func tagsResponse(sha: String, tag: String) -> Data {
+            var d = Data()
+            d.append(PktLine.encode("\(sha) refs/tags/\(tag)\n"))
+            d.append(PktLine.flush)
+            return d
+        }
+
+        let sourceArchiveHTTPClient = HTTPClient { request, _ in
+            let url = request.url.absoluteString
+            if url.contains("/info/refs") {
+                fetchCount.mutate { $0 += 1 }
+                return .okay(body: discoveryBody)
+            }
+            if url.contains("/git-upload-pack") {
+                fetchCount.mutate { $0 += 1 }
+                if url.contains("pkg-a") {
+                    return .okay(body: tagsResponse(sha: shaA, tag: "1.0.0"))
+                } else if url.contains("pkg-b") {
+                    return .okay(body: tagsResponse(sha: shaB, tag: "2.0.0"))
+                }
+                return .okay(body: PktLine.flush)
+            }
+            if request.method == .head { return .notFound() }
+            return .notFound()
+        }
+
+        let workspace = try Workspace._init(
+            fileSystem: fs,
+            environment: .current,
+            location: location,
+            configuration: Self.sourceArchiveConfiguration,
+            customHostToolchain: hostToolchain,
+            customManifestLoader: ManifestLoader(toolchain: hostToolchain),
+            customSourceArchiveHTTPClient: sourceArchiveHTTPClient
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+
+        // Prefetch should fetch tags for both pinned packages.
+        await workspace.prefetchTags(observabilityScope: observability.topScope)
+        let prefetchFetchCount = fetchCount.get()
+        #expect(prefetchFetchCount > 0, "expected tag fetches during prefetch, got 0")
+
+        let urlA = SourceControlURL("https://github.com/test/pkg-a.git")
+        let urlB = SourceControlURL("https://github.com/test/pkg-b.git")
+
+        let containerA = workspace.makeSourceArchiveContainer(
+            for: PackageReference(
+                identity: PackageIdentity(url: urlA),
+                kind: .remoteSourceControl(urlA)
+            ),
+            observabilityScope: observability.topScope
+        )
+        let containerB = workspace.makeSourceArchiveContainer(
+            for: PackageReference(
+                identity: PackageIdentity(url: urlB),
+                kind: .remoteSourceControl(urlB)
+            ),
+            observabilityScope: observability.topScope
+        )
+
+        let tagsA = try await containerA?.versionsAscending()
+        let tagsB = try await containerB?.versionsAscending()
+
+        #expect(tagsA?.contains(Version(1, 0, 0)) == true, "expected version 1.0.0 for pkg-a")
+        #expect(tagsB?.contains(Version(2, 0, 0)) == true, "expected version 2.0.0 for pkg-b")
+        #expect(fetchCount.get() == prefetchFetchCount,
+            "memoizer should prevent additional fetches after prefetch")
+    }
+
     @Test("strict checksum mismatch propagates through materializeSourceArchive without fallback")
     func strictChecksumMismatchPropagates() async throws {
         let fs = InMemoryFileSystem()
@@ -498,110 +620,12 @@ private struct WorkspaceSourceArchiveIntegrationTests {
             "checksum mismatch should not emit misleading fingerprint-lookup diagnostic")
     }
 
-    // MARK: - getContainer probe fallthrough
+    // MARK: - getContainer fallback
 
-    @Test("getContainer probe failure emits info diagnostic and falls through to git")
-    func getContainerProbeFallthrough() async throws {
+    @Test("getContainer falls back to git when HTTP v2 tag discovery fails")
+    func getContainerFallsBackToGitOnV2Failure() async throws {
         let fs = InMemoryFileSystem()
-        let sandbox = AbsolutePath("/tmp/ws-probe-fallthrough/")
-        let downloadHTTPClient = HTTPClient { request, _ in
-            switch request.kind {
-            case .download:
-                return .serverError()
-            case .generic:
-                if request.method == .head { return .notFound() }
-                return .serverError()
-            }
-        }
-
-        let workspace = try Self.makeGetContainerWorkspace(
-            sandbox: sandbox,
-            fs: fs,
-            downloadHTTPClient: downloadHTTPClient
-        )
-
-        try await Self.seedTagMemoizer(on: workspace)
-
-        let observability = ObservabilitySystem.makeForTesting()
-        do {
-            _ = try await workspace.getContainer(
-                for: Self.depRef,
-                updateStrategy: .never,
-                observabilityScope: observability.topScope
-            )
-        } catch {
-            // Expected — git fallback also fails (no real repo).
-        }
-
-        #expect(observability.diagnostics.contains {
-            $0.message.contains("source archive path unavailable") && $0.message.contains("using git")
-        })
-    }
-
-    @Test("getContainer falls back to git when recent tags fail even if an older tag is valid")
-    func getContainerRecentTagFailuresFallBackToGit() async throws {
-        let fs = InMemoryFileSystem()
-        let sandbox = AbsolutePath("/tmp/ws-probe-recent-tags/")
-        let lsRemoteOutput = """
-        aaa111aaa111aaa111aaa111aaa111aaa111aaa1\trefs/tags/1.0.0
-        bbb222bbb222bbb222bbb222bbb222bbb222bbb2\trefs/tags/1.1.0
-        ccc333ccc333ccc333ccc333ccc333ccc333ccc3\trefs/tags/1.2.0
-        ddd444ddd444ddd444ddd444ddd444ddd444ddd4\trefs/tags/1.3.0
-        """
-
-        let downloadHTTPClient = HTTPClient { request, _ in
-            switch request.kind {
-            case .download:
-                return .serverError()
-            case .generic:
-                if request.method == .head { return .notFound() }
-                let url = request.url.absoluteString
-                if url.contains("/aaa111aaa111aaa111aaa111aaa111aaa111aaa1/Package.swift") {
-                    return .okay(body: Self.depManifestContent)
-                }
-                return .serverError()
-            }
-        }
-
-        let workspace = try Self.makeGetContainerWorkspace(
-            sandbox: sandbox,
-            fs: fs,
-            downloadHTTPClient: downloadHTTPClient
-        )
-
-        _ = try await workspace.sourceArchiveTagMemoizer.memoize(Self.depURL.absoluteString) {
-            SourceArchiveResolver.filterSemverTags(
-                SourceArchiveResolver.peelTags(
-                    SourceArchiveResolver.parseLsRemoteOutput(lsRemoteOutput)
-                )
-            )
-        }
-
-        let observability = ObservabilitySystem.makeForTesting()
-        do {
-            _ = try await workspace.getContainer(
-                for: Self.depRef,
-                updateStrategy: .never,
-                observabilityScope: observability.topScope
-            )
-        } catch {
-            // Expected — git fallback also fails because there is no real repo.
-        }
-
-        #expect(observability.diagnostics.contains {
-            $0.message.contains("source archive path unavailable") && $0.message.contains("using git")
-        })
-    }
-
-    // MARK: - Failure taxonomy
-
-    /// Overridable transport helper — each test overrides exactly one failure point.
-    /// Default implementations produce valid 200 responses for all endpoints.
-    private static func makeGetContainerWorkspace(
-        sandbox: AbsolutePath,
-        fs: InMemoryFileSystem,
-        downloadHTTPClient: HTTPClient
-    ) throws -> Workspace {
+        let sandbox = AbsolutePath("/tmp/ws-v2-fallback/")
         try fs.createDirectory(sandbox, recursive: true)
 
         let rootPath = sandbox.appending("Root")
@@ -627,21 +651,40 @@ private struct WorkspaceSourceArchiveIntegrationTests {
         try fs.createMockToolchain()
         let hostToolchain = try UserToolchain.mockHostToolchain(fs)
 
-        return try Workspace._init(
+        // HTTP client that fails all git v2 requests.
+        let httpClient = HTTPClient { _, _ in .serverError() }
+
+        let workspace = try Workspace._init(
             fileSystem: fs,
             environment: .current,
             location: location,
             configuration: Self.sourceArchiveConfiguration,
             customHostToolchain: hostToolchain,
             customManifestLoader: ManifestLoader(toolchain: hostToolchain),
-            customSourceArchiveHTTPClient: downloadHTTPClient
+            customSourceArchiveHTTPClient: httpClient
         )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        do {
+            _ = try await workspace.getContainer(
+                for: Self.depRef,
+                updateStrategy: .never,
+                observabilityScope: observability.topScope
+            )
+        } catch {
+            // Expected — git fallback also fails (no real repo).
+        }
+
+        #expect(observability.diagnostics.contains {
+            $0.message.contains("source archive path unavailable") && $0.message.contains("using git")
+        })
     }
+
+    // MARK: - Failure taxonomy
 
     private static func makeSourceArchiveWorkspace(
         sandbox: AbsolutePath,
         fs: InMemoryFileSystem,
-        gitTagsProvider: (@Sendable (String) async throws -> String)? = nil,
         manifestHTTPHandler: HTTPClient.Implementation? = nil,
         downloadHTTPHandler: HTTPClient.Implementation? = nil,
         archiver: (any Archiver)? = nil,
@@ -666,8 +709,6 @@ private struct WorkspaceSourceArchiveIntegrationTests {
             sharedSecurityDirectory: nil,
             sharedCacheDirectory: nil
         )
-
-        let resolvedGitTagsProvider = gitTagsProvider ?? { _ in Self.fakeLsRemoteOutput }
 
         let resolvedManifestHTTPHandler: HTTPClient.Implementation = manifestHTTPHandler ?? { request, _ in
             if request.method == .head { return .notFound() }
@@ -710,8 +751,7 @@ private struct WorkspaceSourceArchiveIntegrationTests {
 
         let resolver = SourceArchiveResolver(
             httpClient: httpClient,
-            authorizationProvider: nil,
-            gitTagsProvider: resolvedGitTagsProvider
+            authorizationProvider: nil
         )
 
         let containerProvider = SourceArchiveTestContainerProvider(

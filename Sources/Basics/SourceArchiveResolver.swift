@@ -14,19 +14,25 @@ import Foundation
 
 import struct TSCUtility.Version
 
-/// A resolved git tag with its name and the commit SHA it points to.
+/// A resolved git tag with its name, the commit SHA it points to, and the
+/// parsed semantic version (so callers don't need to re-parse it).
 public struct ResolvedTag: Equatable, Sendable {
     /// The tag name (e.g. "1.2.3" or "v1.2.3").
     public let name: String
 
     /// The commit SHA the tag resolves to. For annotated tags this is the
     /// dereferenced (peeled) commit SHA, not the tag object SHA.
-    public let sha: String
+    public let commitSHA: String
 
-    public init(name: String, sha: String) {
+    /// The semantic version parsed from the tag name.
+    public let version: Version
+
+    public init(name: String, commitSHA: String, version: Version) {
         self.name = name
-        self.sha = sha
+        self.commitSHA = commitSHA
+        self.version = version
     }
+
 }
 
 /// Resolves tags, fetches manifests, and probes for submodules and manifest
@@ -37,38 +43,33 @@ public struct ResolvedTag: Equatable, Sendable {
 public struct SourceArchiveResolver: Sendable {
     private let httpClient: HTTPClient
     private let authorizationProvider: AuthorizationProvider?
-    private let gitTagsProvider: @Sendable (String) async throws -> String
+    private let tagsProvider: @Sendable (String) async throws -> [ResolvedTag]
     private let tagMemoizer: ThrowingAsyncKeyValueMemoizer<String, [ResolvedTag]>
 
     public init(
         httpClient: HTTPClient,
         authorizationProvider: AuthorizationProvider? = nil,
-        gitTagsProvider: (@Sendable (String) async throws -> String)? = nil,
+        tagsProvider: (@Sendable (String) async throws -> [ResolvedTag])? = nil,
         tagMemoizer: ThrowingAsyncKeyValueMemoizer<String, [ResolvedTag]>? = nil
     ) {
         self.httpClient = httpClient
         self.authorizationProvider = authorizationProvider
-        self.gitTagsProvider = gitTagsProvider ?? Self.defaultGitTagsProvider
+        self.tagsProvider = tagsProvider ?? Self.makeHTTPTagsProvider(
+            httpClient: httpClient,
+            authorizationProvider: authorizationProvider
+        )
         self.tagMemoizer = tagMemoizer ?? ThrowingAsyncKeyValueMemoizer()
     }
 
-    /// Discovers semver tags for the repository at the given URL by invoking
-    /// `git ls-remote --tags`.
+    /// Discovers semver tags for the repository at the given URL using
+    /// HTTP git protocol v2.
     ///
-    /// Annotated tags are peeled: when `git ls-remote` returns both a tag
-    /// object ref (`refs/tags/X`) and its dereferenced commit
-    /// (`refs/tags/X^{}`), the peeled commit SHA is used. Lightweight tags
-    /// produce a single entry and are used as-is.
-    ///
-    /// Only tags that parse as valid semantic versions (with optional leading
-    /// "v") are included in the result.
+    /// Annotated tags are peeled to their commit SHAs. Only tags that parse
+    /// as valid semantic versions (with optional leading "v") are included.
     public func getTags(for url: SourceControlURL) async throws -> [ResolvedTag] {
         let key = url.absoluteString
-        return try await tagMemoizer.memoize(key) { [gitTagsProvider] in
-            let output = try await gitTagsProvider(key)
-            let rawTags = Self.parseLsRemoteOutput(output)
-            let peeled = Self.peelTags(rawTags)
-            return Self.filterSemverTags(peeled)
+        return try await tagMemoizer.memoize(key) { [tagsProvider] in
+            try await tagsProvider(key)
         }
     }
 
@@ -186,88 +187,66 @@ public struct SourceArchiveResolver: Sendable {
         return candidates[best.index]
     }
 
-    // MARK: - Git ls-remote Parsing (Internal for Testing)
+    // MARK: - HTTP Git Protocol v2
 
-    /// A raw tag entry as parsed from `git ls-remote` output before peeling.
-    struct RawTagRef: Equatable {
-        let sha: String
-        let tagName: String
-        let isPeeled: Bool
-    }
-
-    /// Parses the output of `git ls-remote --tags` into raw tag references.
-    ///
-    /// Each line has the format: `<sha>\trefs/tags/<tagname>`, where annotated
-    /// tags additionally produce a line ending in `^{}`.
-    static func parseLsRemoteOutput(_ output: String) -> [RawTagRef] {
-        var refs: [RawTagRef] = []
-        for line in output.split(separator: "\n", omittingEmptySubsequences: true) {
-            let parts = line.split(separator: "\t", maxSplits: 1)
-            guard parts.count == 2 else { continue }
-            let sha = String(parts[0])
-            guard !sha.isEmpty, sha.allSatisfy(\.isHexDigit) else { continue }
-            let refPath = String(parts[1])
-
-            guard refPath.hasPrefix("refs/tags/") else { continue }
-            var tagName = String(refPath.dropFirst("refs/tags/".count))
-
-            let isPeeled = tagName.hasSuffix("^{}")
-            if isPeeled {
-                tagName = String(tagName.dropLast(3))
+    /// Creates a tags provider that fetches tags via HTTP git protocol v2
+    /// POST to `git-upload-pack`, parsing the pkt-line response directly
+    /// into `[ResolvedTag]`.
+    private static func makeHTTPTagsProvider(
+        httpClient: HTTPClient,
+        authorizationProvider: AuthorizationProvider?
+    ) -> @Sendable (String) async throws -> [ResolvedTag] {
+        { @Sendable url in
+            guard let urls = GitHTTPProtocolV2.makeSmartHTTPURLs(from: url) else {
+                throw SourceArchiveResolverError.httpGitProtocolFailed(
+                    statusCode: 0, url: url)
             }
 
-            refs.append(RawTagRef(sha: sha, tagName: tagName, isPeeled: isPeeled))
-        }
-        return refs
-    }
+            var headers = HTTPClientHeaders()
+            headers.add(name: "Git-Protocol", value: "version=2")
+            headers.add(name: "Accept-Encoding", value: "deflate, gzip")
 
-    /// Resolves raw tag references by preferring peeled (dereferenced) SHAs for
-    /// annotated tags. Lightweight tags keep their single SHA.
-    static func peelTags(_ refs: [RawTagRef]) -> [(name: String, sha: String)] {
-        // Build a dictionary keyed by tag name. Peeled entries overwrite
-        // non-peeled entries so that annotated tags resolve to the commit SHA.
-        var resolved: [String: String] = [:]
-        // Track insertion order so callers get deterministic output.
-        var orderedNames: [String] = []
+            // Try without credentials first (public repos), retry with auth on 401.
+            var options = HTTPClientRequest.Options()
+            var discovery = try await httpClient.get(urls.infoRefs, headers: headers, options: options)
 
-        for ref in refs {
-            if resolved[ref.tagName] == nil {
-                orderedNames.append(ref.tagName)
+            if discovery.statusCode == 401, authorizationProvider != nil {
+                options.authorizationProvider = authorizationProvider?.httpAuthorizationHeader(for:)
+                discovery = try await httpClient.get(urls.infoRefs, headers: headers, options: options)
             }
-            if ref.isPeeled || resolved[ref.tagName] == nil {
-                resolved[ref.tagName] = ref.sha
+
+            guard discovery.statusCode == 200 else {
+                throw SourceArchiveResolverError.httpGitProtocolFailed(
+                    statusCode: discovery.statusCode, url: url)
             }
-        }
+            let discoveryLines = PktLine.decode(discovery.body ?? Data())
+            guard discoveryLines.contains(where: { $0.hasPrefix("version 2") }) else {
+                throw SourceArchiveResolverError.httpGitProtocolFailed(
+                    statusCode: discovery.statusCode, url: url)
+            }
 
-        return orderedNames.compactMap { name in
-            guard let sha = resolved[name] else { return nil }
-            return (name: name, sha: sha)
-        }
-    }
+            headers.add(name: "Content-Type", value: "application/x-git-upload-pack-request")
+            headers.add(name: "Accept", value: "application/x-git-upload-pack-result")
 
-    /// Filters to tags that parse as valid semantic versions.
-    static func filterSemverTags(
-        _ tags: [(name: String, sha: String)]
-    ) -> [ResolvedTag] {
-        tags.compactMap { tag in
-            guard Version(tag: tag.name) != nil else { return nil }
-            return ResolvedTag(name: tag.name, sha: tag.sha)
-        }
-    }
-
-    /// Invokes `git ls-remote --tags <url>` and returns stdout.
-    @Sendable package static func defaultGitTagsProvider(url: String) async throws -> String {
-        let process = AsyncProcess(
-            arguments: ["git", "ls-remote", "--tags", url]
-        )
-        _ = try process.launch()
-        let result = try await process.waitUntilExit()
-        guard result.exitStatus == .terminated(code: 0) else {
-            throw SourceArchiveResolverError.gitLsRemoteFailed(
-                stderr: (try? result.utf8stderrOutput()) ?? "unknown error"
+            let response = try await httpClient.post(
+                urls.uploadPack,
+                body: GitHTTPProtocolV2.makeTagRefsRequestBody(serverCapabilities: discoveryLines),
+                headers: headers,
+                options: options
             )
+
+            guard response.statusCode == 200, let body = response.body else {
+                throw SourceArchiveResolverError.httpGitProtocolFailed(
+                    statusCode: response.statusCode, url: url)
+            }
+
+            let lines = PktLine.decode(body)
+            if let err = lines.first(where: { $0.hasPrefix("ERR ") }) {
+                throw SourceArchiveResolverError.httpGitProtocolFailed(
+                    statusCode: response.statusCode, url: "\(url): \(err)")
+            }
+            return GitHTTPProtocolV2.resolvedTags(from: lines)
         }
-        return try result.utf8Output()
     }
 
 }
@@ -278,7 +257,7 @@ public enum SourceArchiveResolverError: Error, CustomStringConvertible {
     case manifestNotFound(sha: String, filename: String)
     case invalidManifestEncoding(sha: String)
     case unexpectedHTTPStatus(Int, url: URL)
-    case gitLsRemoteFailed(stderr: String)
+    case httpGitProtocolFailed(statusCode: Int, url: String)
 
     public var description: String {
         switch self {
@@ -288,8 +267,8 @@ public enum SourceArchiveResolverError: Error, CustomStringConvertible {
             return "Package.swift at commit \(sha) is not valid UTF-8"
         case .unexpectedHTTPStatus(let code, let url):
             return "Unexpected HTTP status \(code) for \(url)"
-        case .gitLsRemoteFailed(let stderr):
-            return "git ls-remote --tags failed: \(stderr)"
+        case .httpGitProtocolFailed(let statusCode, let url):
+            return "HTTP git protocol v2 ls-refs failed with status \(statusCode) for \(url)"
         }
     }
 }

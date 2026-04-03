@@ -40,6 +40,16 @@ struct ProbeManifestVariantCase: CustomTestStringConvertible, Sendable {
     var testDescription: String { label }
 }
 
+/// A test case for HTTP git v2 discovery failures.
+struct DiscoveryFailureCase: CustomTestStringConvertible, Sendable {
+    let label: String
+    let statusCode: Int
+    let discoveryBody: Data?
+    let hasAuth: Bool
+
+    var testDescription: String { label }
+}
+
 /// A test case for `fetchManifest` / `fetchManifestFile` covering fetch scenarios.
 struct FetchManifestCase: CustomTestStringConvertible, Sendable {
     let label: String
@@ -54,47 +64,15 @@ struct FetchManifestCase: CustomTestStringConvertible, Sendable {
     var testDescription: String { label }
 }
 
-// MARK: - Full pipeline (parse → peel → filter)
-
-@Suite("Full pipeline: peeling before filtering")
-struct PipelineTests {
-
-    @Test("annotated non-semver tags are peeled then excluded")
-    func peelingHappensBeforeFiltering() {
-        let output = """
-        aaa111aaa111aaa111aaa111aaa111aaa111aaa1\trefs/tags/v1.0.0
-        bbb222bbb222bbb222bbb222bbb222bbb222bbb2\trefs/tags/v1.0.0^{}
-        abc123abc123abc123abc123abc123abc123abc1\trefs/tags/not-a-version
-        def456def456def456def456def456def456def4\trefs/tags/not-a-version^{}
-        fff000fff000fff000fff000fff000fff000fff0\trefs/tags/2.0.0
-        """
-        let rawTags = SourceArchiveResolver.parseLsRemoteOutput(output)
-        let peeled = SourceArchiveResolver.peelTags(rawTags)
-
-        #expect(peeled.count == 3)
-        #expect(peeled[0].name == "v1.0.0")
-        #expect(peeled[0].sha == "bbb222bbb222bbb222bbb222bbb222bbb222bbb2")
-        #expect(peeled[1].name == "not-a-version")
-        #expect(peeled[1].sha == "def456def456def456def456def456def456def4")
-        #expect(peeled[2].name == "2.0.0")
-        #expect(peeled[2].sha == "fff000fff000fff000fff000fff000fff000fff0")
-
-        let filtered = SourceArchiveResolver.filterSemverTags(peeled)
-        #expect(filtered.count == 2)
-        #expect(filtered[0] == ResolvedTag(name: "v1.0.0", sha: "bbb222bbb222bbb222bbb222bbb222bbb222bbb2"))
-        #expect(filtered[1] == ResolvedTag(name: "2.0.0", sha: "fff000fff000fff000fff000fff000fff000fff0"))
-    }
-}
-
 // MARK: - Tag store caching
 
 @Suite("tagStore")
 struct TagStoreCachingTests {
 
-    private static let lsRemoteOutput = """
-    aaa111\trefs/tags/1.0.0
-    bbb222\trefs/tags/2.0.0
-    """
+    private static let fakeTags = [
+        ResolvedTag(name: "1.0.0", commitSHA: "aaa111", version: Version(1, 0, 0)),
+        ResolvedTag(name: "2.0.0", commitSHA: "bbb222", version: Version(2, 0, 0)),
+    ]
 
     @Test("shared tag memoizer works across resolver instances")
     func tagMemoizerSharedAcrossResolvers() async throws {
@@ -104,9 +82,9 @@ struct TagStoreCachingTests {
         let makeResolver = {
             SourceArchiveResolver(
                 httpClient: HTTPClient { _, _ in .notFound() },
-                gitTagsProvider: { _ in
+                tagsProvider: { _ in
                     fetchCount.mutate { $0 += 1 }
-                    return Self.lsRemoteOutput
+                    return Self.fakeTags
                 },
                 tagMemoizer: tagMemoizer
             )
@@ -117,6 +95,93 @@ struct TagStoreCachingTests {
         _ = try await makeResolver().getTags(for: url)
 
         #expect(fetchCount.get() == 1)
+    }
+}
+
+// MARK: - HTTP git protocol v2 tag discovery
+
+@Suite("HTTP git v2 tag discovery")
+struct HTTPGitV2TagDiscoveryTests {
+
+    private static func discoveryBody(version: String = "version 2") -> Data {
+        var d = Data()
+        d.append(PktLine.encode("# service=git-upload-pack\n"))
+        d.append(PktLine.flush)
+        d.append(PktLine.encode("\(version)\n"))
+        d.append(PktLine.flush)
+        return d
+    }
+
+    private static func tagsBody(_ refs: [(sha: String, tag: String)]) -> Data {
+        var d = Data()
+        for ref in refs {
+            d.append(PktLine.encode("\(ref.sha) refs/tags/\(ref.tag)\n"))
+        }
+        d.append(PktLine.flush)
+        return d
+    }
+
+    @Test("401 triggers auth retry and succeeds")
+    func authRetryOn401() async throws {
+        let requestCount = ThreadSafeBox<Int>(0)
+
+        let httpClient = HTTPClient { request, _ in
+            let url = request.url.absoluteString
+            if url.contains("/info/refs") {
+                requestCount.mutate { $0 += 1 }
+                if requestCount.get() == 1 {
+                    return HTTPClientResponse(statusCode: 401)
+                }
+                return .okay(body: Self.discoveryBody())
+            }
+            if url.contains("/git-upload-pack") {
+                return .okay(body: Self.tagsBody([("aaa", "1.0.0")]))
+            }
+            return .notFound()
+        }
+
+        let resolver = SourceArchiveResolver(
+            httpClient: httpClient,
+            authorizationProvider: FixedAuthProvider(user: "token", password: "test-pat")
+        )
+        let tags = try await resolver.getTags(for: SourceControlURL("https://github.com/test/repo.git"))
+        #expect(tags.count == 1)
+        #expect(tags[0].name == "1.0.0")
+        #expect(requestCount.get() == 2)
+    }
+
+    @Test("discovery failures throw httpGitProtocolFailed", arguments: [
+        DiscoveryFailureCase(label: "401 with no auth provider", statusCode: 401, discoveryBody: nil, hasAuth: false),
+        DiscoveryFailureCase(label: "403 after auth retry", statusCode: 403, discoveryBody: nil, hasAuth: true),
+        DiscoveryFailureCase(label: "v1 server", statusCode: 200, discoveryBody: discoveryBody(version: "version 1"), hasAuth: false),
+    ])
+    func discoveryFailures(_ testCase: DiscoveryFailureCase) async throws {
+        let httpClient = HTTPClient { request, _ in
+            if request.url.absoluteString.contains("/info/refs") {
+                if let body = testCase.discoveryBody {
+                    return .okay(body: body)
+                }
+                return HTTPClientResponse(statusCode: testCase.statusCode)
+            }
+            return .notFound()
+        }
+
+        let resolver = SourceArchiveResolver(
+            httpClient: httpClient,
+            authorizationProvider: testCase.hasAuth ? FixedAuthProvider(user: "token", password: "pat") : nil
+        )
+        await #expect(throws: SourceArchiveResolverError.self) {
+            _ = try await resolver.getTags(for: SourceControlURL("https://github.com/test/repo.git"))
+        }
+    }
+}
+
+private struct FixedAuthProvider: AuthorizationProvider {
+    let user: String
+    let password: String
+
+    func authentication(for url: URL) -> (user: String, password: String)? {
+        (user: user, password: password)
     }
 }
 

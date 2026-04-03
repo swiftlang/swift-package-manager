@@ -105,7 +105,7 @@ public final class SourceArchivePackageContainer: PackageContainer, CustomString
 
     public func versionsAscending() async throws -> [Version] {
         let cache = try await self.resolvedTagCache()
-        return cache.tags.compactMap { Version(tag: $0.name) }.sorted()
+        return cache.tags.map(\.version).sorted()
     }
 
     public func versionsDescending() async throws -> [Version] {
@@ -257,22 +257,21 @@ public final class SourceArchivePackageContainer: PackageContainer, CustomString
         var versionToTag: [Version: String] = [:]
         var tagToSHA: [String: String] = [:]
         for tag in tags {
-            tagToSHA[tag.name] = tag.sha
-            if let version = Version(tag: tag.name) {
-                if let existing = versionToTag[version] {
-                    // Match SourceControlPackageContainer's tag preference:
-                    // prefer the most specific tag (most dot-separated components),
-                    // then non-v-prefixed when specificity is equal.
-                    let newComponents = tag.name.components(separatedBy: ".").count
-                    let existingComponents = existing.components(separatedBy: ".").count
-                    if newComponents > existingComponents {
-                        versionToTag[version] = tag.name
-                    } else if newComponents == existingComponents && existing.hasPrefix("v") && !tag.name.hasPrefix("v") {
-                        versionToTag[version] = tag.name
-                    }
-                } else {
+            tagToSHA[tag.name] = tag.commitSHA
+            let version = tag.version
+            if let existing = versionToTag[version] {
+                // Match SourceControlPackageContainer's tag preference:
+                // prefer the most specific tag (most dot-separated components),
+                // then non-v-prefixed when specificity is equal.
+                let newComponents = tag.name.components(separatedBy: ".").count
+                let existingComponents = existing.components(separatedBy: ".").count
+                if newComponents > existingComponents {
+                    versionToTag[version] = tag.name
+                } else if newComponents == existingComponents && existing.hasPrefix("v") && !tag.name.hasPrefix("v") {
                     versionToTag[version] = tag.name
                 }
+            } else {
+                versionToTag[version] = tag.name
             }
         }
         return TagCache(tags: tags, versionToTag: versionToTag, tagToSHA: tagToSHA)

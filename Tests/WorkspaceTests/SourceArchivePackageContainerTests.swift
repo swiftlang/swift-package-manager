@@ -149,7 +149,7 @@ private struct SourceArchivePackageContainerTests {
         })
 
         let container = try await Self.makeContainer(
-            tags: [ResolvedTag(name: "1.0.0", sha: "aaa111")],
+            tags: [ResolvedTag(name: "1.0.0", commitSHA: "aaa111", version: Version(1, 0, 0))],
             httpClient: httpClient
         )
 
@@ -163,10 +163,10 @@ private struct SourceArchivePackageContainerTests {
 
     /// 4 package versions, each requiring a different minimum tools version.
     private static let versionToolsVersionTags: [ResolvedTag] = [
-        ResolvedTag(name: "1.0.0", sha: "sha_v3"),
-        ResolvedTag(name: "1.0.1", sha: "sha_v4"),
-        ResolvedTag(name: "1.0.2", sha: "sha_v5_4"),
-        ResolvedTag(name: "1.0.3", sha: "sha_v5_9"),
+        ResolvedTag(name: "1.0.0", commitSHA: "sha_v3", version: Version(1, 0, 0)),
+        ResolvedTag(name: "1.0.1", commitSHA: "sha_v4", version: Version(1, 0, 1)),
+        ResolvedTag(name: "1.0.2", commitSHA: "sha_v5_4", version: Version(1, 0, 2)),
+        ResolvedTag(name: "1.0.3", commitSHA: "sha_v5_9", version: Version(1, 0, 3)),
     ]
 
     private static let versionToolsVersionManifests: [String: String] = [
@@ -250,9 +250,9 @@ private struct SourceArchivePackageContainerTests {
         // to verify the more-specific (non-v-prefixed) tag wins.
         let container = try await Self.makeContainer(
             tags: [
-                ResolvedTag(name: "1.0.0", sha: "sha100"),
-                ResolvedTag(name: "v1.0.0", sha: "sha100v"),
-                ResolvedTag(name: "v2.0.0", sha: "sha200"),
+                ResolvedTag(name: "1.0.0", commitSHA: "sha100", version: Version(1, 0, 0)),
+                ResolvedTag(name: "v1.0.0", commitSHA: "sha100v", version: Version(1, 0, 0)),
+                ResolvedTag(name: "v2.0.0", commitSHA: "sha200", version: Version(2, 0, 0)),
             ]
         )
 
@@ -312,7 +312,7 @@ private struct SourceArchivePackageContainerTests {
 
         let key = MockManifestLoader.Key(url: packageURL, version: Version(1, 0, 0))
         let container = try await Self.makeContainer(
-            tags: [ResolvedTag(name: "1.0.0", sha: "aaa111")],
+            tags: [ResolvedTag(name: "1.0.0", commitSHA: "aaa111", version: Version(1, 0, 0))],
             manifestContentBySHA: ["aaa111": Self.defaultManifest],
             manifestsByVersion: [key: manifestObj]
         )
@@ -407,7 +407,7 @@ private struct SourceArchivePackageContainerTests {
 
         let key = MockManifestLoader.Key(url: packageURL, version: Version(1, 0, 0))
         let container = try await Self.makeContainer(
-            tags: [ResolvedTag(name: "1.0.0", sha: "aaa111")],
+            tags: [ResolvedTag(name: "1.0.0", commitSHA: "aaa111", version: Version(1, 0, 0))],
             manifestContentBySHA: ["aaa111": Self.defaultManifest],
             manifestsByVersion: [key: manifestObj]
         )
@@ -453,7 +453,7 @@ private struct SourceArchivePackageContainerTests {
         let key = MockManifestLoader.Key(url: packageURL, version: Version(1, 0, 0))
 
         let container = try await Self.makeContainer(
-            tags: [ResolvedTag(name: "1.0.0", sha: "aaa111")],
+            tags: [ResolvedTag(name: "1.0.0", commitSHA: "aaa111", version: Version(1, 0, 0))],
             manifestsByVersion: [key: manifestObj],
             httpClient: httpClient
         )
@@ -496,7 +496,7 @@ private struct SourceArchivePackageContainerTests {
         })
 
         let container = try await Self.makeContainer(
-            tags: [ResolvedTag(name: "1.0.0", sha: "aaa111")],
+            tags: [ResolvedTag(name: "1.0.0", commitSHA: "aaa111", version: Version(1, 0, 0))],
             httpClient: httpClient
         )
 
@@ -529,7 +529,7 @@ private struct SourceArchivePackageContainerTests {
         )
 
         let container = try await Self.makeContainer(
-            tags: [ResolvedTag(name: "1.0.0", sha: "aaa111")],
+            tags: [ResolvedTag(name: "1.0.0", commitSHA: "aaa111", version: Version(1, 0, 0))],
             httpClient: httpClient,
             metadataCache: cache
         )
@@ -558,7 +558,7 @@ private struct SourceArchivePackageContainerTests {
         )
 
         let container = try await Self.makeContainer(
-            tags: [ResolvedTag(name: "1.0.0", sha: "aaa111")],
+            tags: [ResolvedTag(name: "1.0.0", commitSHA: "aaa111", version: Version(1, 0, 0))],
             httpClient: httpClient,
             metadataCache: cache
         )
@@ -598,8 +598,8 @@ private struct SourceArchivePackageContainerTests {
 
         let container = try await Self.makeContainer(
             tags: [
-                ResolvedTag(name: "1.0.0", sha: "same-sha"),
-                ResolvedTag(name: "2.0.0", sha: "same-sha"),
+                ResolvedTag(name: "1.0.0", commitSHA: "same-sha", version: Version(1, 0, 0)),
+                ResolvedTag(name: "2.0.0", commitSHA: "same-sha", version: Version(2, 0, 0)),
             ],
             manifestContentBySHA: ["same-sha": Self.defaultManifest],
             manifestsByVersion: [key1: manifestV1, key2: manifestV2]
@@ -645,8 +645,8 @@ private struct SourceArchivePackageContainerTests {
 
         let container = try await Self.makeContainer(
             tags: [
-                ResolvedTag(name: "1.0.0", sha: "aaa111"),
-                ResolvedTag(name: "2.0.0", sha: "bbb222"),
+                ResolvedTag(name: "1.0.0", commitSHA: "aaa111", version: Version(1, 0, 0)),
+                ResolvedTag(name: "2.0.0", commitSHA: "bbb222", version: Version(2, 0, 0)),
             ],
             httpClient: httpClient,
             metadataCache: cache
@@ -668,7 +668,7 @@ private struct SourceArchivePackageContainerTests {
         })
 
         let container = try await Self.makeContainer(
-            tags: [ResolvedTag(name: "1.0.0", sha: "aaa111")],
+            tags: [ResolvedTag(name: "1.0.0", commitSHA: "aaa111", version: Version(1, 0, 0))],
             httpClient: httpClient
         )
 
@@ -687,7 +687,7 @@ private struct SourceArchivePackageContainerTests {
     @Test("toolsVersion throws StringError for version not in tag cache")
     func toolsVersionUnknownVersion() async throws {
         let container = try await Self.makeContainer(
-            tags: [ResolvedTag(name: "1.0.0", sha: "aaa111")]
+            tags: [ResolvedTag(name: "1.0.0", commitSHA: "aaa111", version: Version(1, 0, 0))]
         )
 
         await #expect(throws: StringError.self) {
@@ -700,8 +700,8 @@ private struct SourceArchivePackageContainerTests {
         // v1.0.0 appears BEFORE 1.0.0 — the shorter non-v tag should still win.
         let container = try await Self.makeContainer(
             tags: [
-                ResolvedTag(name: "v1.0.0", sha: "sha_v"),
-                ResolvedTag(name: "1.0.0", sha: "sha_plain"),
+                ResolvedTag(name: "v1.0.0", commitSHA: "sha_v", version: Version(1, 0, 0)),
+                ResolvedTag(name: "1.0.0", commitSHA: "sha_plain", version: Version(1, 0, 0)),
             ]
         )
 

@@ -58,27 +58,12 @@ extension Workspace: PackageContainerProvider {
                     )
                 }
             ) {
-                // Validate we can actually fetch content via HTTPS for this repo.
-                // Private repos where git ls-remote succeeds (SSH auth) but HTTPS
-                // raw content returns 404 would cause slow resolution (1 failed HTTP
-                // request per version probe). One quick manifest fetch catches this.
-                // Try a few recent versions so one broken tag doesn't disable the
-                // archive path for the entire package.
+                // Verify HTTP git v2 tag discovery works. If it fails
+                // (v1-only server, auth issues), fall through to git.
+                // Raw content / archive fetches share the same github.com
+                // access, so tag discovery is a sufficient probe.
                 do {
-                    let versions = try await archiveContainer.versionsAscending()
-                    guard !versions.isEmpty else {
-                        throw StringError("no semver versions found")
-                    }
-                    var probeSucceeded = false
-                    for candidate in versions.suffix(3).reversed() {
-                        if let _ = try? await archiveContainer.toolsVersion(for: candidate) {
-                            probeSucceeded = true
-                            break
-                        }
-                    }
-                    guard probeSucceeded else {
-                        throw StringError("manifest fetch failed for recent versions")
-                    }
+                    _ = try await archiveContainer.versionsAscending()
                     return archiveContainer
                 } catch {
                     observabilityScope.emit(
@@ -146,18 +131,9 @@ extension Workspace: PackageContainerProvider {
 
         let metadataCachePath = self.location.sharedSourceArchiveMetadataCacheDirectory
             ?? self.location.scratchDirectory.appending(components: "source-archives", "metadata")
-        let gitTagsProvider: (@Sendable (String) async throws -> String)?
-        if let gitProvider = self.repositoryProvider as? GitRepositoryProvider {
-            gitTagsProvider = { url in
-                try await gitProvider.lsRemoteTags(for: RepositorySpecifier(url: SourceControlURL(url)))
-            }
-        } else {
-            gitTagsProvider = nil
-        }
         let resolver = SourceArchiveResolver(
             httpClient: self.sourceArchiveHTTPClient,
             authorizationProvider: self.sourceArchiveAuthorizationProvider(for: provider),
-            gitTagsProvider: gitTagsProvider,
             tagMemoizer: self.sourceArchiveTagMemoizer
         )
         let metadataCache = SourceArchiveMetadataCache(
@@ -212,7 +188,7 @@ extension Workspace: PackageContainerProvider {
     /// Returns true if the package is currently pinned to a branch or revision
     /// (not a version). These packages need git for resolution and the source
     /// archive probe would be wasted work.
-    private func isBranchOrRevisionPinned(_ package: PackageReference) -> Bool {
+    func isBranchOrRevisionPinned(_ package: PackageReference) -> Bool {
         guard let store = try? self.resolvedPackagesStore.load() else {
             return false
         }
