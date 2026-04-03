@@ -59,10 +59,16 @@ fileprivate func withGeneratedPIF(
     addLocalRpaths: Bool = true,
     shouldCreateDylibForDynamicProducts: Bool = true,
     buildParameters: BuildParameters? = nil,
+    hostBuildParameters: BuildParameters? = nil,
     do doIt: (SwiftBuildSupport.PIF.TopLevelObject, TestingObservability) async throws -> ()
 ) async throws {
     let buildParameters = if let buildParameters {
         buildParameters
+    } else {
+        mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+    }
+    let hostBuildParameters = if let hostBuildParameters {
+        hostBuildParameters
     } else {
         mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
     }
@@ -95,6 +101,7 @@ fileprivate func withGeneratedPIF(
         )
         let pif = try await builder.constructPIF(
             buildParameters: buildParameters,
+            hostBuildParameters: hostBuildParameters
         )
         try await doIt(pif, observabilitySystem)
     }
@@ -386,6 +393,7 @@ struct PIFBuilderTests {
         // Act
         let pif = try await pifBuilder.constructPIF(
             buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild),
+            hostBuildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
         )
 
         // Assert
@@ -497,6 +505,35 @@ struct PIFBuilderTests {
                 $0.message.contains("found binary artifact")
             }
             #expect(binaryArtifactMessages.count > 0, "Expected to find binary artifact processing messages")
+        }
+    }
+
+    @Test func buildToolPluginCommandLineUsesHostBuildPath() async throws {
+        let hostBuildPath = AbsolutePath("/path/to/host/build")
+        let destBuildPath = AbsolutePath("/path/to/dest/build")
+        let hostBuildParams = mockBuildParameters(
+            destination: .host,
+            buildPath: hostBuildPath,
+            buildSystemKind: .swiftbuild
+        )
+        let destBuildParams = mockBuildParameters(
+            destination: .host,
+            buildPath: destBuildPath,
+            buildSystemKind: .swiftbuild
+        )
+
+        try await withGeneratedPIF(
+            fromFixture: "Miscellaneous/Plugins/MySourceGenPlugin",
+            buildParameters: destBuildParams,
+            hostBuildParameters: hostBuildParams
+        ) { pif, observabilitySystem in
+            let project = try pif.workspace.project(named: "MySourceGenPlugin")
+            let target = try project.target(named: "MyLocalTool-product")
+            for task in target.common.customTasks {
+                let commandLine = task.commandLine
+                #expect(commandLine.contains { $0.contains(hostBuildPath.pathString) })
+                #expect(!commandLine.contains { $0.contains(destBuildPath.pathString) })
+            }
         }
     }
 
@@ -790,7 +827,8 @@ struct PIFBuilderTests {
             observabilityScope: observability.topScope
         )
         let pif = try await pifBuilder.constructPIF(
-            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild),
+            hostBuildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
         )
 
         let remoteProject = try pif.workspace.project(named: "remote-pkg")
@@ -928,7 +966,8 @@ struct PIFBuilderTests {
         )
 
         let pif = try await pifBuilder.constructPIF(
-            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild),
+            hostBuildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
         )
 
         let project = try pif.workspace.project(named: "Root")

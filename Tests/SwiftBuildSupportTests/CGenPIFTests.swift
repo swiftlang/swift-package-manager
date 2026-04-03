@@ -194,6 +194,10 @@ import SwiftBuild
             buildParameters: mockBuildParameters(
                 destination: .host,
                 buildSystemKind: .swiftbuild,
+            ),
+            hostBuildParameters: mockBuildParameters(
+                destination: .host,
+                buildSystemKind: .swiftbuild,
             )
         )
     }

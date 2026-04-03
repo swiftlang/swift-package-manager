@@ -423,6 +423,7 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
 
                 return try SwiftBuildSystem(
                     buildParameters: buildParameters,
+                    hostBuildParameters: buildParameters,
                     packageGraphLoader: asyncUnsafePackageGraphLoader,
                     packageManagerResourcesDirectory: nil,
                     additionalFileRules: [],

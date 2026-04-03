@@ -151,7 +151,8 @@ public final class PIFBuilder {
         prettyPrint: Bool = true,
         preservePIFModelStructure: Bool = false,
         printPIFManifestGraphviz: Bool = false,
-        buildParameters: BuildParameters
+        buildParameters: BuildParameters,
+        hostBuildParameters: BuildParameters
     ) async throws -> String {
         let encoder = prettyPrint ? JSONEncoder.makeWithDefaults() : JSONEncoder()
 
@@ -159,7 +160,7 @@ public final class PIFBuilder {
             encoder.userInfo[.encodeForSwiftBuild] = true
         }
 
-        let topLevelObject = try await self.constructPIF(buildParameters: buildParameters)
+        let topLevelObject = try await self.constructPIF(buildParameters: buildParameters, hostBuildParameters: hostBuildParameters)
 
         // Sign the PIF objects before encoding it for Swift Build.
         try PIF.sign(workspace: topLevelObject.workspace)
@@ -186,6 +187,7 @@ public final class PIFBuilder {
     private func availableBuildPluginTools(
         graph: ModulesGraph,
         buildParameters: BuildParameters,
+        hostBuildParameters: BuildParameters,
         pluginsPerModule: [ResolvedModule.ID: [ResolvedModule]],
         hostTriple: Basics.Triple
     ) async throws -> [ResolvedModule.ID: [String: PluginTool]] {
@@ -200,7 +202,7 @@ public final class PIFBuilder {
                     environment: buildParameters.buildEnvironment,
                     for: hostTriple
                 ) { name, path in
-                    return buildParameters.buildPath.appending(path)
+                    return hostBuildParameters.buildPath.appending(path)
                 }
 
                 accessibleToolsPerPlugin[plugin.id] = accessibleTools
@@ -213,7 +215,8 @@ public final class PIFBuilder {
     /// Constructs all `PackagePIFBuilder` objects used by the `constructPIF` function.
     /// In particular, this is useful for unit testing the complex `PIFBuilder` class.
     func makePIFBuilders(
-        buildParameters: BuildParameters
+        buildParameters: BuildParameters,
+        hostBuildParameters: BuildParameters
     ) async throws -> [(ResolvedPackage, PackagePIFBuilder, any PackagePIFBuilder.BuildDelegate)] {
         let pluginScriptRunner = self.parameters.pluginScriptRunner
         let outputDir = self.parameters.pluginWorkingDirectory.appending("outputs")
@@ -225,6 +228,7 @@ public final class PIFBuilder {
         let availablePluginTools = try await availableBuildPluginTools(
             graph: graph,
             buildParameters: buildParameters,
+            hostBuildParameters: hostBuildParameters,
             pluginsPerModule: pluginsPerModule,
             hostTriple: try pluginScriptRunner.hostTriple
         )
@@ -438,7 +442,8 @@ public final class PIFBuilder {
 
     /// Constructs a `PIF.TopLevelObject` representing the package graph.
     package func constructPIF(
-        buildParameters: BuildParameters
+        buildParameters: BuildParameters,
+        hostBuildParameters: BuildParameters
     ) async throws -> PIF.TopLevelObject {
         return try await memoize(to: &self.cachedPIF) {
             let rootPackages = self.graph.rootPackages
@@ -446,7 +451,7 @@ public final class PIFBuilder {
                 throw PIFGenerationError.rootPackageNotFound
             }
 
-            let packagesAndPIFBuilders = try await makePIFBuilders(buildParameters: buildParameters)
+            let packagesAndPIFBuilders = try await makePIFBuilders(buildParameters: buildParameters, hostBuildParameters: hostBuildParameters)
 
             let packagesAndPIFProjects = try packagesAndPIFBuilders.map { (package, pifBuilder, _) in
                 try pifBuilder.build()
@@ -537,6 +542,7 @@ public final class PIFBuilder {
     // Convenience method for generating PIF.
     public static func generatePIF(
         buildParameters: BuildParameters,
+        hostBuildParameters: BuildParameters,
         packageGraph: ModulesGraph,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
@@ -568,7 +574,7 @@ public final class PIFBuilder {
             fileSystem: fileSystem,
             observabilityScope: observabilityScope
         )
-        return try await builder.generatePIF(preservePIFModelStructure: preservePIFModelStructure, buildParameters: buildParameters)
+        return try await builder.generatePIF(preservePIFModelStructure: preservePIFModelStructure, buildParameters: buildParameters, hostBuildParameters: hostBuildParameters)
     }
 }
 
