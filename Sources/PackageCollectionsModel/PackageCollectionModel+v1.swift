@@ -378,7 +378,7 @@ extension PackageCollectionModel.V1 {
         /// An executable product.
         case executable
 
-        /// An plugin product.
+        /// A plugin product.
         case plugin
         
         /// An executable code snippet.
