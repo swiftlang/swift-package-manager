@@ -213,6 +213,11 @@ public struct BuildDescription {
         self.inputs = buildPlan.inputs
     }
 
+    /// Temporary initializer to stage in https://github.com/swiftlang/swift-package-manager/pull/9583.
+    public init(buildPlan: Build.BuildPlan, pluginConfiguration: PluginConfiguration) {
+        self.init(buildPlan: buildPlan)
+    }
+
     /// Construct a build description, compiling build tool plugins and generating their output when necessary.
     public static func load(
         destinationBuildParameters: BuildParameters,
