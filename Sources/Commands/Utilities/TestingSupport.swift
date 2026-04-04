@@ -127,7 +127,8 @@ enum TestingSupport {
                 ).productsBuildParameters,
                 sanitizers: sanitizers,
                 library: .xctest,
-                testProductPaths: [path]
+                testProductPaths: [path],
+                interopMode: nil // Interop not required when listing tests
             )
             try Self.runProcessWithExistenceCheck(
                 path: path,
@@ -148,7 +149,8 @@ enum TestingSupport {
             ).productsBuildParameters,
             sanitizers: sanitizers,
             library: .xctest,
-            testProductPaths: [path]
+            testProductPaths: [path],
+            interopMode: nil // Interop not required when listing tests
         )
         args = [path.description, "--dump-tests-json"]
         let data = try Self.runProcessWithExistenceCheck(
@@ -210,7 +212,8 @@ enum TestingSupport {
             ).productsBuildParameters,
             sanitizers: sanitizers,
             library: .swiftTesting,
-            testProductPaths: [path]
+            testProductPaths: [path],
+            interopMode: nil // Interop not required when listing tests
         )
 
         var args: [String]
@@ -278,12 +281,26 @@ enum TestingSupport {
     }
 
     /// Creates the environment needed to test related tools.
+    ///
+    /// - Parameters:
+    ///   - toolchain: Swift toolchain details.
+    ///   - buildParameters: The build parameters for the destination platform.
+    ///   - sanitizers: The sanitizers enabled for this test run.
+    ///   - library: The testing library to configure the environment for.
+    ///   - testProductPaths: Paths to the built test product bundles or executables.
+    ///   - interopMode: Controls test execution default interop mode.
+    ///   If set to nil, the constructed test environment will defer to Swift
+    ///   Testing and XCTest's default interop mode.
+    ///
+    /// - Throws: If an error occurred while building the test environment.
+    /// - Returns: The constructed environment.
     static func constructTestEnvironment(
         toolchain: UserToolchain,
         destinationBuildParameters buildParameters: BuildParameters,
         sanitizers: [Sanitizer],
         library: TestingLibrary,
-        testProductPaths: [AbsolutePath]
+        testProductPaths: [AbsolutePath],
+        interopMode: String?
     ) throws -> Environment {
         var env = Environment.current
 
@@ -327,6 +344,12 @@ enum TestingSupport {
             let codecovProfile = buildParameters.buildPath.appending(components: "codecov", "\(library)%m.%p.profraw")
             env["LLVM_PROFILE_FILE"] = codecovProfile.pathString
         }
+
+        // Set interop mode override if user didn't explicitly set it.
+        if let interopMode, env["SWIFT_TESTING_XCTEST_INTEROP_MODE"] == nil {
+            env["SWIFT_TESTING_XCTEST_INTEROP_MODE"] = interopMode
+        }
+
         #if !os(macOS)
         #if os(Windows)
         if let xctestLocation = toolchain.xctestPath {
@@ -382,6 +405,16 @@ enum TestingSupport {
         env["DYLD_INSERT_LIBRARIES"] = runtimes.joined(separator: ":")
         return env
         #endif
+    }
+}
+
+extension ToolsVersion {
+    /// Default interop mode for this tools version.
+    ///
+    /// If provided, this value should be set for the
+    /// `SWIFT_TESTING_XCTEST_INTEROP_MODE` environment variable.
+    var defaultInteropMode: String? {
+        self >= .v6_4 ? "complete" : nil
     }
 }
 
