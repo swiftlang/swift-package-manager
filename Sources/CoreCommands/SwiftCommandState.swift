@@ -973,7 +973,13 @@ public final class SwiftCommandState {
                 isPackageAccessModifierSupported: DriverSupport.isPackageNameSupported(
                     toolchain: toolchain,
                     fileSystem: self.fileSystem
-                )
+                ),
+                enableCompilationCaching: self.options.build.enableCompilationCaching,
+                compilationCachePath: try self.options.build.compilationCachePath.map {
+                    try AbsolutePath(validating: $0, relativeTo: self.originalWorkingDirectory)
+                } ?? (self.options.build.enableCompilationCaching
+                    ? self.sharedCacheDirectory.appending("compilation-cache")
+                    : nil)
             ),
             linkingParameters: .init(
                 linkerDeadStrip: self.options.linker.linkerDeadStrip,

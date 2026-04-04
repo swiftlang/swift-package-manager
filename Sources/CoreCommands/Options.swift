@@ -617,6 +617,14 @@ public struct BuildOptions: ParsableArguments {
     @Option(name: .customLong("experimental-codesize-profile-output-dir"), help: "Directory to store code size profiling output files.")
     public var codesizeProfileOutputDirectory: String?
 
+    /// Enable CAS-based compilation caching for faster rebuilds.
+    @Flag(name: .customLong("experimental-compilation-caching"), help: "Enable CAS-based compilation caching.")
+    public var enableCompilationCaching: Bool = false
+
+    /// Path to the compilation cache directory. Defaults to a shared cache under the SwiftPM cache directory.
+    @Option(name: .customLong("compilation-cache-path"), help: "Path to the compilation cache directory.")
+    public var compilationCachePath: String?
+
     // @Flag works best when there is a default value present
     // if true, false aren't enough and a third state is needed
     // nil should not be the goto. Instead create an enum

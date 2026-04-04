@@ -1138,6 +1138,11 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             settings["SWIFT_EMIT_MODULE_INTERFACE"] = "YES"
         }
 
+        if parameters.enableCompilationCaching, let casPath = parameters.compilationCachePath {
+            settings["SWIFT_ENABLE_COMPILE_CACHE"] = "YES"
+            settings["COMPILATION_CACHE_CAS_PATH"] = casPath.pathString
+        }
+
         return settings
     }
 

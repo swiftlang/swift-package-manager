@@ -34,7 +34,9 @@ extension BuildParameters {
             emitOptimizationRecord: Bool = false,
             silOutputDirectory: AbsolutePath? = nil,
             irOutputDirectory: AbsolutePath? = nil,
-            optimizationRecordDirectory: AbsolutePath? = nil
+            optimizationRecordDirectory: AbsolutePath? = nil,
+            enableCompilationCaching: Bool = false,
+            compilationCachePath: AbsolutePath? = nil
         ) {
             self.canRenameEntrypointFunctionName = canRenameEntrypointFunctionName
             self.enableParseableModuleInterfaces = enableParseableModuleInterfaces
@@ -48,6 +50,8 @@ extension BuildParameters {
             self.silOutputDirectory = silOutputDirectory
             self.irOutputDirectory = irOutputDirectory
             self.optimizationRecordDirectory = optimizationRecordDirectory
+            self.enableCompilationCaching = enableCompilationCaching
+            self.compilationCachePath = compilationCachePath
         }
 
         /// Whether to enable the entry-point-function-name feature.
@@ -90,5 +94,11 @@ extension BuildParameters {
 
         /// Output directory for optimization record files.
         public var optimizationRecordDirectory: AbsolutePath?
+
+        /// Whether to enable CAS-based compilation caching.
+        public var enableCompilationCaching: Bool
+
+        /// Path to the CAS database directory for compilation caching.
+        public var compilationCachePath: AbsolutePath?
     }
 }
