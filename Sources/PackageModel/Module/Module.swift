@@ -212,10 +212,7 @@ public class Module {
     public let path: AbsolutePath
 
     /// The sources for the module.
-    private let _sources: Sources
-    public var sources: Sources {
-        _sources
-    }
+    public let sources: Sources
 
     /// The resource files in the module.
     public let resources: [Resource]
