@@ -260,6 +260,7 @@ public class Module {
         self.potentialBundleName = potentialBundleName
         self.type = type
         self.path = path
+        self.sources = sources
         self.resources = resources
         self.ignored = ignored
         self.others = others
