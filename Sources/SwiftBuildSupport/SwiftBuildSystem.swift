@@ -817,10 +817,10 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             if toolchainID == nil {
                 // FIXME: This list of overrides is incomplete.
                 // An error with determining the override should not be fatal here.
-                settings["CC"] = try? buildParameters.toolchain.getClangCompiler().pathString
+                settings["CC"] = try? buildParameters.toolchain.getClangCompiler().pathStringWithPosixSlashes
                 // Always specify the path of the effective Swift compiler, which was determined in the same way as for the
                 // native build system.
-                settings["SWIFT_EXEC"] = buildParameters.toolchain.swiftCompilerPath.pathString
+                settings["SWIFT_EXEC"] = buildParameters.toolchain.swiftCompilerPath.pathStringWithPosixSlashes
             }
 
             let overrideToolchains = [buildParameters.toolchain.metalToolchainId, toolchainID?.rawValue].compactMap { $0 }
@@ -886,7 +886,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
         if !buildParameters.customToolsetPaths.isEmpty {
             settings["SWIFT_SDK_TOOLSETS"] =
-                (["$(inherited)"] + buildParameters.customToolsetPaths.map { $0.pathString })
+                (["$(inherited)"] + buildParameters.customToolsetPaths.map { $0.pathStringWithPosixSlashes })
                 .joined(separator: " ")
         }
 
@@ -944,14 +944,14 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         if buildParameters.driverParameters.emitIRFiles {
             settings["SWIFT_EMIT_IR_FILES"] = "YES"
             if let outputDir = buildParameters.driverParameters.irOutputDirectory {
-                settings["SWIFT_IR_OUTPUT_DIR"] = outputDir.pathString
+                settings["SWIFT_IR_OUTPUT_DIR"] = outputDir.pathStringWithPosixSlashes
             }
         }
 
         if buildParameters.driverParameters.emitOptimizationRecord {
             settings["SWIFT_EMIT_OPT_RECORDS"] = "YES"
             if let outputDir = buildParameters.driverParameters.optimizationRecordDirectory {
-                settings["SWIFT_OPT_RECORD_OUTPUT_DIR"] = outputDir.pathString
+                settings["SWIFT_OPT_RECORD_OUTPUT_DIR"] = outputDir.pathStringWithPosixSlashes
             }
         }
 
@@ -991,7 +991,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         case .on:
             for setting in indexStoreSettingNames {
                 settings[setting.enableVariableName] = "YES"
-                settings[setting.pathVariable] = self.buildParameters.indexStore.pathString
+                settings[setting.pathVariable] = self.buildParameters.indexStore.pathStringWithPosixSlashes
             }
         case .off:
             for setting in indexStoreSettingNames {
@@ -1206,7 +1206,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                 settings["RUN_SWIFT_ABI_GENERATION_TOOL_MODULE_\(module)"] = "YES"
             }
             settings["RUN_SWIFT_ABI_GENERATION_TOOL"] = "$(RUN_SWIFT_ABI_GENERATION_TOOL_MODULE_$(PRODUCT_MODULE_NAME))"
-            settings["SWIFT_ABI_GENERATION_TOOL_OUTPUT_DIR"] = baselinesDirectory.appending(components: ["$(PRODUCT_MODULE_NAME)", "ABI"]).pathString
+            settings["SWIFT_ABI_GENERATION_TOOL_OUTPUT_DIR"] = baselinesDirectory.appending(components: ["$(PRODUCT_MODULE_NAME)", "ABI"]).pathStringWithPosixSlashes
         case .compareToBaselines(let baselinesDirectory, let modulesToCompare, let breakageAllowListPath):
             settings["SWIFT_API_DIGESTER_MODE"] = SwiftAPIDigesterMode.api.rawValue
             settings["SWIFT_ABI_CHECKER_DOWNGRADE_ERRORS"] = "YES"
@@ -1214,9 +1214,9 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                 settings["RUN_SWIFT_ABI_CHECKER_TOOL_MODULE_\(module)"] = "YES"
             }
             settings["RUN_SWIFT_ABI_CHECKER_TOOL"] = "$(RUN_SWIFT_ABI_CHECKER_TOOL_MODULE_$(PRODUCT_MODULE_NAME))"
-            settings["SWIFT_ABI_CHECKER_BASELINE_DIR"] = baselinesDirectory.appending(component: "$(PRODUCT_MODULE_NAME)").pathString
+            settings["SWIFT_ABI_CHECKER_BASELINE_DIR"] = baselinesDirectory.appending(component: "$(PRODUCT_MODULE_NAME)").pathStringWithPosixSlashes
             if let breakageAllowListPath {
-                settings["SWIFT_ABI_CHECKER_EXCEPTIONS_FILE"] = breakageAllowListPath.pathString
+                settings["SWIFT_ABI_CHECKER_EXCEPTIONS_FILE"] = breakageAllowListPath.pathStringWithPosixSlashes
             }
         case nil:
             break
@@ -1321,6 +1321,19 @@ extension String {
         return self.spm_shellEscaped().replacingOccurrences(of: "\\", with: "/")
         #else
         return self.spm_shellEscaped()
+        #endif
+    }
+}
+
+extension Basics.AbsolutePath {
+    /// Returns a string representation of the path which uses POSIX slashes even on Windows.
+    ///
+    /// This is necessary for some cases where tools may treat the `\` character as part of an escape sequence rather than a path separator even on Windows. Use sparingly.
+    public var pathStringWithPosixSlashes: String {
+        #if os(Windows)
+        pathString.replacingOccurrences(of: "\\", with: "/")
+        #else
+        pathString
         #endif
     }
 }
