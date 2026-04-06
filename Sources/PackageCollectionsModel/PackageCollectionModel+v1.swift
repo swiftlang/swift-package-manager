@@ -102,7 +102,7 @@ extension PackageCollectionModel.V1.Collection {
 
         /// An optional package identity that overrides the identity derived from the URL.
         ///
-        /// When `nil`, the package identity is derived from ``url``.
+        /// When `nil`, consumers should derive the identity from ``url``.
         /// Set this when the package is published to a registry or when the
         /// URL-derived identity is not appropriate.
         public let identity: String?
@@ -257,8 +257,7 @@ extension PackageCollectionModel.V1 {
         /// The target name.
         public let name: String
 
-        /// The module name if you can import this target as a module, or `nil` for
-        /// targets that are not importable (such as test targets or resource targets).
+        /// The module name if you can import this target as a module; `nil` otherwise.
         public let moduleName: String?
 
         /// Creates a `Target`.
@@ -518,7 +517,7 @@ extension PackageCollectionModel.V1 {
         /// The signature.
         public let signature: String
 
-        /// Details about the certificate that generates the signature.
+        /// Details about the certificate that generated the signature.
         public let certificate: Certificate
 
         /// Creates a `Signature`.
