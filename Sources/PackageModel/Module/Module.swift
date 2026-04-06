@@ -212,7 +212,10 @@ public class Module {
     public let path: AbsolutePath
 
     /// The sources for the module.
-    public let sources: Sources
+    private let _sources: Sources
+    public var sources: Sources {
+        _sources
+    }
 
     /// The resource files in the module.
     public let resources: [Resource]
@@ -260,7 +263,7 @@ public class Module {
         self.potentialBundleName = potentialBundleName
         self.type = type
         self.path = path
-        self.sources = sources
+        self._sources = sources
         self.resources = resources
         self.ignored = ignored
         self.others = others

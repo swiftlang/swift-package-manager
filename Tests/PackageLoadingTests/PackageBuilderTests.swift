@@ -71,8 +71,8 @@ struct PackageBuilderTests {
         let foo: AbsolutePath = "/Sources/foo"
 
         let fs = InMemoryFileSystem(emptyFiles:
-            foo.appending(components: "main.swift").pathString,
-            foo.appending(components: "main.c").pathString
+            foo.appending(components: "Foo.swift").pathString,
+            foo.appending(components: "CFoo.c").pathString
         )
 
         let manifest = Manifest.createRootManifest(
@@ -82,8 +82,18 @@ struct PackageBuilderTests {
                 try TargetDescription(name: "foo"),
             ]
         )
-        try PackageBuilderTester(manifest, in: fs) { _, diagnostics in
-            diagnostics.check(diagnostic: "target at '\(foo)' contains mixed language source files; feature not supported", severity: .error)
+        try PackageBuilderTester(manifest, in: fs) { package, diagnostics in
+            // Mixed language targets no long raise an error at package load time.
+            // The Native build system will error instead as it's the only one that doesn't support it.
+            diagnostics.checkIsEmpty()
+            try package.checkModule("foo") { module in
+                module.check(c99name: "foo")
+                module.checkSources(paths:
+                    "Foo.swift",
+                    "CFoo.c"
+                )
+                module.checkResources(resources: [])
+            }
         }
     }
 
