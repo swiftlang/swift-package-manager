@@ -78,6 +78,7 @@ struct PackageBuilderTests {
         let manifest = Manifest.createRootManifest(
             displayName: "pkg",
             path: .root,
+            toolsVersion: try #require(ToolsVersion(string: "6.4.0", experimentalFeatures: [.experimentalMultiLang])),
             targets: [
                 try TargetDescription(name: "foo"),
             ]
@@ -94,6 +95,27 @@ struct PackageBuilderTests {
                 )
                 module.checkResources(resources: [])
             }
+        }
+    }
+
+    @Test
+    func testMixedSourcesDisabled() throws {
+        let foo: AbsolutePath = "/Sources/foo"
+
+        let fs = InMemoryFileSystem(emptyFiles:
+            foo.appending(components: "Foo.swift").pathString,
+            foo.appending(components: "CFoo.c").pathString
+        )
+
+        let manifest = Manifest.createRootManifest(
+            displayName: "pkg",
+            path: .root,
+            targets: [
+                try TargetDescription(name: "foo"),
+            ]
+        )
+        try PackageBuilderTester(manifest, in: fs) { package, diagnostics in
+            diagnostics.check(diagnostic: "target at '\(foo)' contains mixed language source files; feature not supported", severity: .error)
         }
     }
 
