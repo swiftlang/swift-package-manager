@@ -1074,13 +1074,17 @@ struct PIFBuilderTests {
             return sourcesBuildPhase
         }).only)
 
-        let sources: [String] = sourcesPhase.files.compactMap({
+        let sources: [Basics.AbsolutePath] = sourcesPhase.files.compactMap({
             guard case .reference(id: let refId) = $0.ref else {
                 return nil
             }
-            return try? project.underlying.mainGroup.findSource(ref: refId)?.pathString
+            return try? project.underlying.mainGroup.findSource(ref: refId)
         }).sorted()
-        #expect(sources == ["/Pkg/Sources/lib/file1.swift", "/Pkg/Sources/lib/file2.c"])
+        let expected: [Basics.AbsolutePath] = [
+            "/Pkg/Sources/lib/file1.swift",
+            "/Pkg/Sources/lib/file2.c",
+        ]
+        #expect(sources == expected)
      }
 }
 
