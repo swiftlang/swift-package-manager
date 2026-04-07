@@ -163,6 +163,11 @@ extension Workspace {
     /// and keeps directory names readable.
     static let shortSHALength = 8
 
+    /// Maximum number of concurrent source archive operations (metadata fetches
+    /// or ZIP downloads). More than 6 concurrent connections can crash
+    /// Foundation's URL session (https://github.com/swiftlang/swift-corelibs-foundation/issues/5445).
+    static let maxSourceArchiveConcurrency = min(max(1, 3 * Concurrency.maxOperations / 4), 6)
+
     /// Returns the leaf directory name for a source archive: `"{version}-{shortSHA}"`.
     static func sourceArchiveDirectoryName(version: Version, revision: String) -> String {
         let shortSHA = String(revision.prefix(shortSHALength))
@@ -473,8 +478,7 @@ extension Workspace {
         packages = packages.filter { self.canUseSourceArchive(for: $0) }
         guard !packages.isEmpty else { return }
 
-        let maxConcurrent = min(max(1, 3 * Concurrency.maxOperations / 4), 8)
-        let queue = AsyncOperationQueue(concurrentTasks: maxConcurrent)
+        let queue = AsyncOperationQueue(concurrentTasks: Self.maxSourceArchiveConcurrency)
         await withTaskGroup(of: Void.self) { group in
             for package in packages {
                 guard let container = self.makeSourceArchiveContainer(
@@ -509,9 +513,7 @@ extension Workspace {
         }
         guard !toFetch.isEmpty else { return }
 
-        let maxConcurrent = min(max(1, 3 * Concurrency.maxOperations / 4), 8)
-
-        let queue = AsyncOperationQueue(concurrentTasks: maxConcurrent)
+        let queue = AsyncOperationQueue(concurrentTasks: Self.maxSourceArchiveConcurrency)
         await withTaskGroup(of: Void.self) { group in
             for item in toFetch {
                 group.addTask {

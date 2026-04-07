@@ -42,11 +42,7 @@ public struct GitHubSourceArchiveProvider: SourceArchiveProvider {
     }()
 
     public func archiveURL(forSHA sha: String) -> URL {
-        // Use codeload.github.com directly to avoid a 302 redirect from
-        // github.com/archive/. Foundation's libcurl backend on Linux crashes
-        // following that redirect (CURLE_BAD_FUNCTION_ARGUMENT in
-        // configureEasyHandle during didCompleteRedirectCallback).
-        guard let url = URL(string: "https://codeload.github.com/\(owner)/\(repository)/zip/\(sha)") else {
+        guard let url = URL(string: "https://github.com/\(owner)/\(repository)/archive/\(sha).zip") else {
             preconditionFailure("unable to construct GitHub archive URL for \(owner)/\(repository) sha '\(sha)'")
         }
         return url
