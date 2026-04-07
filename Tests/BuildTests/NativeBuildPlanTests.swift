@@ -18,12 +18,13 @@ import PackageModel
 import SPMBuildCore
 import _InternalBuildTestSupport
 import _InternalTestSupport
-import XCTest
+import Testing
 
 /// Test suite for Native only tests.
 /// TODO: Almost all the BuildPlanTests are native only and should be cleaned up.
-class NativeBuildPlanTests: XCTestCase {
-    func testMixedSource() async throws {
+struct NativeBuildPlanTests {
+    // Test that native build still fails for a multi-lang target when flag turned on
+    @Test func testMixedSource() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
                 "/Pkg/Sources/lib/file1.swift",
@@ -36,6 +37,7 @@ class NativeBuildPlanTests: XCTestCase {
                 Manifest.createRootManifest(
                     displayName: "Pkg",
                     path: "/Pkg",
+                    toolsVersion: #require(ToolsVersion(string: "6.4.0", experimentalFeatures: [.experimentalMultiLang])),
                     targets: [
                         TargetDescription(name: "lib"),
                     ]
@@ -43,10 +45,13 @@ class NativeBuildPlanTests: XCTestCase {
             ],
             observabilityScope: observability.topScope
         )
-        XCTAssertNoDiagnostics(observability.diagnostics)
+        #expect(observability.diagnostics.isEmpty)
 
-        await XCTAssertAsyncThrowsError(try await mockBuildPlan(graph: graph, fileSystem: fs, observabilityScope: observability.topScope)) { error in
-            XCTAssertEqual(error.localizedDescription, "lib: mixed language source files in Swift targets are not supported by the native build system.")
+        do {
+            _ = try await mockBuildPlan(graph: graph, fileSystem: fs, observabilityScope: observability.topScope)
+            Issue.record("Should have raised an error")
+        } catch {
+            #expect(error.localizedDescription == "lib: mixed language source files in Swift targets are not supported by the native build system.")
         }
     }
 }
