@@ -1254,7 +1254,6 @@ public final class RegistryClient: AsyncCancellable {
             --\(boundary)\r
             Content-Disposition: form-data; name=\"metadata\"\r
             Content-Type: application/json\r
-            Content-Transfer-Encoding: quoted-printable\r
             \r
             \(metadataContent)
             """.utf8)
