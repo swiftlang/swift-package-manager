@@ -877,15 +877,15 @@ private struct WorkspaceSourceArchiveIntegrationTests {
             authorizationProvider: nil
         )
 
+        try fs.createMockToolchain()
+        let hostToolchain = try UserToolchain.mockHostToolchain(fs)
+
         let containerProvider = SourceArchiveTestContainerProvider(
             resolver: resolver,
             httpClient: httpClient,
             fileSystem: fs,
-            manifestLoader: ManifestLoader(toolchain: try UserToolchain.mockHostToolchain(fs))
+            manifestLoader: ManifestLoader(toolchain: hostToolchain)
         )
-
-        try fs.createMockToolchain()
-        let hostToolchain = try UserToolchain.mockHostToolchain(fs)
 
         return try Workspace._init(
             fileSystem: fs,

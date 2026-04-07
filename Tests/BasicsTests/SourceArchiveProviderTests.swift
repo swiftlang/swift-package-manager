@@ -71,8 +71,8 @@ struct SourceArchiveProviderTests {
     @Test
     func archiveURL() {
         let provider = GitHubSourceArchiveProvider(owner: "apple", repository: "swift-nio")
-        let url = provider.archiveURL(forSHA: "abc123def456789012345678901234567890abcd")
-        #expect(url.absoluteString == "https://codeload.github.com/apple/swift-nio/zip/abc123def456789012345678901234567890abcd")
+        let url = provider.archiveURL(forSHA: "bdf004b44f77c56fca752cd1cf243c802f8469c9")
+        #expect(url.absoluteString == "https://github.com/apple/swift-nio/archive/bdf004b44f77c56fca752cd1cf243c802f8469c9.zip")
     }
 
     @Test
