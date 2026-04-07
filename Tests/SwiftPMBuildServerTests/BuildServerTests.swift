@@ -88,6 +88,25 @@ struct SwiftPMBuildServerTests {
     }
 
     @Test
+    func buildTargetTags() async throws {
+        try await withSwiftPMBSP(fixtureName: "Miscellaneous/LibraryWithTestAndDep") { connection, _, _ in
+            let response = try await connection.send(WorkspaceBuildTargetsRequest())
+
+            let myLib = try #require(response.targets.first(where: { $0.displayName == "MyLib" }))
+            #expect(!myLib.tags.contains(.dependency))
+            #expect(!myLib.tags.contains(.test))
+
+            let myLibTests = try #require(response.targets.first(where: { $0.displayName == "MyLibTests-product" }))
+            #expect(!myLibTests.tags.contains(.dependency))
+            #expect(myLibTests.tags.contains(.test))
+
+            let myDepProduct = try #require(response.targets.first(where: { $0.displayName == "MyDep" }))
+            #expect(myDepProduct.tags.contains(.dependency))
+            #expect(!myDepProduct.tags.contains(.test))
+        }
+    }
+
+    @Test
     func sourcesItemsBasics() async throws {
         try await withSwiftPMBSP(fixtureName: "Miscellaneous/Simple") { connection, _, _ in
             let targetResponse = try await connection.send(WorkspaceBuildTargetsRequest())

@@ -132,6 +132,8 @@ extension PackagePIFProjectBuilder {
         settings[.SWIFT_PACKAGE_NAME] = mainModule.packageName
 
         if mainModule.type == .test {
+            settings[.BUILD_SERVER_PROTOCOL_TARGET_TAGS, default: ["$(inherited)"]].append("test")
+
             // FIXME: we shouldn't always include both the deep and shallow bundle paths here, but for that we'll need rdar://31867023
             if pifBuilder.addLocalRpaths {
                 settings[.LD_RUNPATH_SEARCH_PATHS] = [
