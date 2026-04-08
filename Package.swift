@@ -219,7 +219,6 @@ let package = Package(
             exclude: ["CMakeLists.txt"],
             swiftSettings: commonExperimentalFeatures + [
                 .enableExperimentalFeature("AccessLevelOnImport"),
-                .unsafeFlags(["-static"]),
             ]
         ),
 
@@ -237,7 +236,6 @@ let package = Package(
                 .enableExperimentalFeature("StrictConcurrency"),
                 .enableExperimentalFeature("AccessLevelOnImport"),
                 .enableExperimentalFeature("InternalImportsByDefault"),
-                .unsafeFlags(["-static"]),
             ]
         ),
 
@@ -255,7 +253,6 @@ let package = Package(
             swiftSettings: swift6CompatibleExperimentalFeatures + [
                 .enableExperimentalFeature("StrictConcurrency"),
                 .enableExperimentalFeature("AccessLevelOnImport"),
-                .unsafeFlags(["-static"]),
             ]
         ),
 
@@ -264,9 +261,7 @@ let package = Package(
             name: "LLBuildManifest",
             dependencies: ["Basics"],
             exclude: ["CMakeLists.txt"],
-            swiftSettings: commonExperimentalFeatures + [
-                .unsafeFlags(["-static"]),
-            ]
+            swiftSettings: commonExperimentalFeatures
         ),
 
         .target(
@@ -280,9 +275,7 @@ let package = Package(
                 "PackageSigning",
             ],
             exclude: ["CMakeLists.txt"],
-            swiftSettings: commonExperimentalFeatures + [
-                .unsafeFlags(["-static"]),
-            ]
+            swiftSettings: commonExperimentalFeatures
         ),
 
         .target(
@@ -293,9 +286,7 @@ let package = Package(
                 "PackageModel",
             ],
             exclude: ["CMakeLists.txt"],
-            swiftSettings: commonExperimentalFeatures + [
-                .unsafeFlags(["-static"]),
-            ]
+            swiftSettings: commonExperimentalFeatures
         ),
 
         .target(
@@ -303,9 +294,7 @@ let package = Package(
             name: "SPMLLBuild",
             dependencies: ["Basics"],
             exclude: ["CMakeLists.txt"],
-            swiftSettings: commonExperimentalFeatures + [
-                .unsafeFlags(["-static"]),
-            ]
+            swiftSettings: commonExperimentalFeatures
         ),
 
         .target(
@@ -317,9 +306,7 @@ let package = Package(
                 ["SwiftDiagnostics", "SwiftIDEUtils", "SwiftParser", "SwiftSyntax"]
             ),
             exclude: ["CMakeLists.txt"],
-            swiftSettings: commonExperimentalFeatures + [
-                .unsafeFlags(["-static"]),
-            ]
+            swiftSettings: commonExperimentalFeatures
         ),
 
         .target(
@@ -329,9 +316,7 @@ let package = Package(
                 "Basics",
             ] + swiftTSCBasicsDeps,
             exclude: ["CMakeLists.txt"],
-            swiftSettings: commonExperimentalFeatures + [
-                .unsafeFlags(["-static"]),
-            ]
+            swiftSettings: commonExperimentalFeatures
         ),
 
         // MARK: Project Model
@@ -341,9 +326,7 @@ let package = Package(
             name: "PackageModel",
             dependencies: ["Basics"],
             exclude: ["CMakeLists.txt", "README.md"],
-            swiftSettings: swift6CompatibleExperimentalFeatures + [
-                .unsafeFlags(["-static"]),
-            ]
+            swiftSettings: swift6CompatibleExperimentalFeatures
         ),
 
         .target(
@@ -355,9 +338,7 @@ let package = Package(
                 .copy("CycloneDX/Resources/cyclonedx-1.7.schema.json"),
                 .copy("SPDX/Resources/spdx-3.0.1.schema.json"),
             ],
-            swiftSettings: commonExperimentalFeatures + [
-                .unsafeFlags(["-static"]),
-            ]
+            swiftSettings: commonExperimentalFeatures
         ),
 
         .target(
@@ -369,9 +350,7 @@ let package = Package(
                 "SourceControl",
             ],
             exclude: ["CMakeLists.txt", "README.md"],
-            swiftSettings: commonExperimentalFeatures + [
-                .unsafeFlags(["-static"]),
-            ]
+            swiftSettings: commonExperimentalFeatures
         ),
 
         // MARK: Package Dependency Resolution
@@ -386,9 +365,7 @@ let package = Package(
                 .product(name: "OrderedCollections", package: "swift-collections"),
             ],
             exclude: ["CMakeLists.txt", "README.md"],
-            swiftSettings: commonExperimentalFeatures + [
-                .unsafeFlags(["-static"]),
-            ]
+            swiftSettings: commonExperimentalFeatures
         ),
 
         // MARK: Package Collections
@@ -401,9 +378,7 @@ let package = Package(
                 "Formats/v1.md",
                 "CMakeLists.txt",
             ],
-            swiftSettings: commonExperimentalFeatures + [
-                .unsafeFlags(["-static"]),
-            ]
+            swiftSettings: commonExperimentalFeatures
         ),
 
         .target(
@@ -417,9 +392,7 @@ let package = Package(
                 "SourceControl",
             ],
             exclude: ["CMakeLists.txt"],
-            swiftSettings: swift6CompatibleExperimentalFeatures + [
-                .unsafeFlags(["-static"]),
-            ]
+            swiftSettings: swift6CompatibleExperimentalFeatures
         ),
 
         .target(
@@ -431,9 +404,7 @@ let package = Package(
                 "PackageCollectionsModel",
             ],
             exclude: ["CMakeLists.txt"],
-            swiftSettings: commonExperimentalFeatures + [
-                .unsafeFlags(["-static"]),
-            ]
+            swiftSettings: commonExperimentalFeatures
         ),
 
         .target(
@@ -443,9 +414,7 @@ let package = Package(
                 "PackageModel",
             ],
             exclude: ["CMakeLists.txt"],
-            swiftSettings: commonExperimentalFeatures + [
-                .unsafeFlags(["-static"]),
-            ]
+            swiftSettings: commonExperimentalFeatures
         ),
 
         .target(
@@ -457,9 +426,7 @@ let package = Package(
                 "PackageModel",
             ],
             exclude: ["CMakeLists.txt"],
-            swiftSettings: commonExperimentalFeatures + [
-                .unsafeFlags(["-static"]),
-            ]
+            swiftSettings: commonExperimentalFeatures
         ),
 
         // MARK: Documentation
@@ -480,9 +447,7 @@ let package = Package(
                 .product(name: "OrderedCollections", package: "swift-collections"),
             ],
             exclude: ["CMakeLists.txt"],
-            swiftSettings: commonExperimentalFeatures + [
-                .unsafeFlags(["-static"]),
-            ]
+            swiftSettings: commonExperimentalFeatures
         ),
         .target(
             /** Builds Modules and Products */
@@ -497,9 +462,7 @@ let package = Package(
                 "DriverSupport",
             ] + swiftDriverDeps,
             exclude: ["CMakeLists.txt"],
-            swiftSettings: commonExperimentalFeatures + [
-                .unsafeFlags(["-static"]),
-            ]
+            swiftSettings: commonExperimentalFeatures
         ),
         .target(
             name: "DriverSupport",
@@ -508,9 +471,7 @@ let package = Package(
                 "PackageModel",
             ] + swiftDriverDeps,
             exclude: ["CMakeLists.txt"],
-            swiftSettings: commonExperimentalFeatures + [
-                .unsafeFlags(["-static"]),
-            ]
+            swiftSettings: commonExperimentalFeatures
         ),
         .target(
             /** Support for building using Xcode's build system */
@@ -521,9 +482,7 @@ let package = Package(
                 .product(name: "OrderedCollections", package: "swift-collections"),
             ],
             exclude: ["CMakeLists.txt"],
-            swiftSettings: commonExperimentalFeatures + [
-                .unsafeFlags(["-static"]),
-            ]
+            swiftSettings: commonExperimentalFeatures
         ),
         .target(
             name: "SwiftBuildSupport",
@@ -549,9 +508,7 @@ let package = Package(
                 .product(name: "OrderedCollections", package: "swift-collections"),
             ],
             exclude: ["CMakeLists.txt"],
-            swiftSettings: commonExperimentalFeatures + [
-                .unsafeFlags(["-static"]),
-            ]
+            swiftSettings: commonExperimentalFeatures
         ),
         .target(
             // ** High level interface for package discovery */
@@ -563,9 +520,7 @@ let package = Package(
                 "PackageRegistry",
                 "PackageSigning",
             ],
-            swiftSettings: commonExperimentalFeatures + [
-                .unsafeFlags(["-static"]),
-            ]
+            swiftSettings: commonExperimentalFeatures
         ),
 
         // MARK: BSP
@@ -606,9 +561,7 @@ let package = Package(
                 "SBOMModel",
             ],
             exclude: ["CMakeLists.txt"],
-            swiftSettings: commonExperimentalFeatures + [
-                .unsafeFlags(["-static"]),
-            ]
+            swiftSettings: commonExperimentalFeatures
         ),
 
         .target(
@@ -632,9 +585,7 @@ let package = Package(
                 "SwiftPMBuildServer",
             ] + swiftSyntaxDependencies(["SwiftIDEUtils", "SwiftRefactor"]),
             exclude: ["CMakeLists.txt", "README.md"],
-            swiftSettings: swift6CompatibleExperimentalFeatures + [
-                .unsafeFlags(["-static"]),
-            ]
+            swiftSettings: swift6CompatibleExperimentalFeatures
         ),
 
         .target(
@@ -648,9 +599,7 @@ let package = Package(
                 "PackageModel",
             ],
             exclude: ["CMakeLists.txt", "README.md"],
-            swiftSettings: commonExperimentalFeatures + [
-                .unsafeFlags(["-static"]),
-            ]
+            swiftSettings: commonExperimentalFeatures
         ),
 
         .target(
@@ -664,9 +613,7 @@ let package = Package(
                 "PackageCollections",
                 "PackageModel",
             ],
-            swiftSettings: commonExperimentalFeatures + [
-                .unsafeFlags(["-static"]),
-            ]
+            swiftSettings: commonExperimentalFeatures
         ),
 
         .target(
@@ -687,9 +634,7 @@ let package = Package(
                 "Workspace",
             ],
             exclude: ["CMakeLists.txt"],
-            swiftSettings: commonExperimentalFeatures + [
-                .unsafeFlags(["-static"]),
-            ]
+            swiftSettings: commonExperimentalFeatures
         ),
 
         .target(
@@ -702,7 +647,6 @@ let package = Package(
             exclude: ["CMakeLists.txt"],
             swiftSettings: [
                 .enableExperimentalFeature("StrictConcurrency=complete"),
-                .unsafeFlags(["-static"]),
             ]
         ),
 
@@ -846,9 +790,6 @@ let package = Package(
                 "SwiftBuildSupport",
                 "_InternalTestSupport"
             ],
-            swiftSettings: [
-                .unsafeFlags(["-static"]),
-            ]
         ),
 
         .target(
@@ -866,9 +807,6 @@ let package = Package(
                 .product(name: "OrderedCollections", package: "swift-collections"),
                 "Workspace",
             ] + swiftTSCTestSupportDeps,
-            swiftSettings: [
-                .unsafeFlags(["-static"]),
-            ]
         ),
         .target(
             /** SwiftPM internal test suite support library */
@@ -882,9 +820,6 @@ let package = Package(
             /** Test for thread-sanitizer. */
             name: "tsan_utils",
             dependencies: [],
-            swiftSettings: [
-                .unsafeFlags(["-static"]),
-            ]
         ),
 
         // MARK: SwiftPM tests

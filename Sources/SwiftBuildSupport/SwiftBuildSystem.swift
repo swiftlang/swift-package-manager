@@ -817,10 +817,10 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             if toolchainID == nil {
                 // FIXME: This list of overrides is incomplete.
                 // An error with determining the override should not be fatal here.
-                settings["CC"] = try? buildParameters.toolchain.getClangCompiler().pathString
+                settings["CC"] = try? buildParameters.toolchain.getClangCompiler().pathStringWithPosixSlashes
                 // Always specify the path of the effective Swift compiler, which was determined in the same way as for the
                 // native build system.
-                settings["SWIFT_EXEC"] = buildParameters.toolchain.swiftCompilerPath.pathString
+                settings["SWIFT_EXEC"] = buildParameters.toolchain.swiftCompilerPath.pathStringWithPosixSlashes
             }
 
             let overrideToolchains = [buildParameters.toolchain.metalToolchainId, toolchainID?.rawValue].compactMap { $0 }
@@ -886,7 +886,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
         if !buildParameters.customToolsetPaths.isEmpty {
             settings["SWIFT_SDK_TOOLSETS"] =
-                (["$(inherited)"] + buildParameters.customToolsetPaths.map { $0.pathString })
+                (["$(inherited)"] + buildParameters.customToolsetPaths.map { $0.pathStringWithPosixSlashes })
                 .joined(separator: " ")
         }
 
@@ -908,7 +908,16 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             }
         }
 
-        let swiftCompilerFlags = buildParameters.toolchain.extraFlags.swiftCompilerFlags + buildParameters.flags.swiftCompilerFlags
+        var swiftCompilerFlags = buildParameters.toolchain.extraFlags.swiftCompilerFlags + buildParameters.flags.swiftCompilerFlags
+        swiftCompilerFlags += buildParameters.toolchain.extraFlags.cCompilerFlags.asSwiftcCCompilerFlags()
+        // User arguments (from -Xcc) should follow generated arguments to allow user overrides
+        swiftCompilerFlags += buildParameters.flags.cCompilerFlags.asSwiftcCCompilerFlags()
+
+        // TODO: Pass -Xcxx flags to swiftc (#6491)
+        // Uncomment when downstream support arrives.
+        // swiftCompilerFlags += buildParameters.toolchain.extraFlags.cxxCompilerFlags.rawFlags.asSwiftcCXXCompilerFlags()
+        // // User arguments (from -Xcxx) should follow generated arguments to allow user overrides
+        // swiftCompilerFlags += buildParameters.flags.cxxCompilerFlags.rawFlags.asSwiftcCXXCompilerFlags()
         let compilerAndLinkerFlags = [
             "OTHER_CFLAGS": buildParameters.toolchain.extraFlags.cCompilerFlags + buildParameters.flags.cCompilerFlags,
             "OTHER_CPLUSPLUSFLAGS": buildParameters.toolchain.extraFlags.cxxCompilerFlags + buildParameters.flags.cxxCompilerFlags,
@@ -944,14 +953,14 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         if buildParameters.driverParameters.emitIRFiles {
             settings["SWIFT_EMIT_IR_FILES"] = "YES"
             if let outputDir = buildParameters.driverParameters.irOutputDirectory {
-                settings["SWIFT_IR_OUTPUT_DIR"] = outputDir.pathString
+                settings["SWIFT_IR_OUTPUT_DIR"] = outputDir.pathStringWithPosixSlashes
             }
         }
 
         if buildParameters.driverParameters.emitOptimizationRecord {
             settings["SWIFT_EMIT_OPT_RECORDS"] = "YES"
             if let outputDir = buildParameters.driverParameters.optimizationRecordDirectory {
-                settings["SWIFT_OPT_RECORD_OUTPUT_DIR"] = outputDir.pathString
+                settings["SWIFT_OPT_RECORD_OUTPUT_DIR"] = outputDir.pathStringWithPosixSlashes
             }
         }
 
@@ -991,7 +1000,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         case .on:
             for setting in indexStoreSettingNames {
                 settings[setting.enableVariableName] = "YES"
-                settings[setting.pathVariable] = self.buildParameters.indexStore.pathString
+                settings[setting.pathVariable] = self.buildParameters.indexStore.pathStringWithPosixSlashes
             }
         case .off:
             for setting in indexStoreSettingNames {
@@ -1206,7 +1215,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                 settings["RUN_SWIFT_ABI_GENERATION_TOOL_MODULE_\(module)"] = "YES"
             }
             settings["RUN_SWIFT_ABI_GENERATION_TOOL"] = "$(RUN_SWIFT_ABI_GENERATION_TOOL_MODULE_$(PRODUCT_MODULE_NAME))"
-            settings["SWIFT_ABI_GENERATION_TOOL_OUTPUT_DIR"] = baselinesDirectory.appending(components: ["$(PRODUCT_MODULE_NAME)", "ABI"]).pathString
+            settings["SWIFT_ABI_GENERATION_TOOL_OUTPUT_DIR"] = baselinesDirectory.appending(components: ["$(PRODUCT_MODULE_NAME)", "ABI"]).pathStringWithPosixSlashes
         case .compareToBaselines(let baselinesDirectory, let modulesToCompare, let breakageAllowListPath):
             settings["SWIFT_API_DIGESTER_MODE"] = SwiftAPIDigesterMode.api.rawValue
             settings["SWIFT_ABI_CHECKER_DOWNGRADE_ERRORS"] = "YES"
@@ -1214,9 +1223,9 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                 settings["RUN_SWIFT_ABI_CHECKER_TOOL_MODULE_\(module)"] = "YES"
             }
             settings["RUN_SWIFT_ABI_CHECKER_TOOL"] = "$(RUN_SWIFT_ABI_CHECKER_TOOL_MODULE_$(PRODUCT_MODULE_NAME))"
-            settings["SWIFT_ABI_CHECKER_BASELINE_DIR"] = baselinesDirectory.appending(component: "$(PRODUCT_MODULE_NAME)").pathString
+            settings["SWIFT_ABI_CHECKER_BASELINE_DIR"] = baselinesDirectory.appending(component: "$(PRODUCT_MODULE_NAME)").pathStringWithPosixSlashes
             if let breakageAllowListPath {
-                settings["SWIFT_ABI_CHECKER_EXCEPTIONS_FILE"] = breakageAllowListPath.pathString
+                settings["SWIFT_ABI_CHECKER_EXCEPTIONS_FILE"] = breakageAllowListPath.pathStringWithPosixSlashes
             }
         case nil:
             break
@@ -1325,6 +1334,19 @@ extension String {
     }
 }
 
+extension Basics.AbsolutePath {
+    /// Returns a string representation of the path which uses POSIX slashes even on Windows.
+    ///
+    /// This is necessary for some cases where tools may treat the `\` character as part of an escape sequence rather than a path separator even on Windows. Use sparingly.
+    public var pathStringWithPosixSlashes: String {
+        #if os(Windows)
+        pathString.replacingOccurrences(of: "\\", with: "/")
+        #else
+        pathString
+        #endif
+    }
+}
+
 fileprivate extension [BuildFlag] {
     var rawFlagsForSwiftBuild: [String] {
         filter {
@@ -1359,5 +1381,11 @@ fileprivate extension [BuildFlag] {
                 return false
             }
         }.map { $0.value }
+    }
+
+    /// Converts a set of C compiler flags into an equivalent set to be
+    /// indirected through the Swift compiler instead.
+    func asSwiftcCCompilerFlags() -> [BuildFlag] {
+        self.flatMap { [BuildFlag(value: "-Xcc", source: $0.source), $0] }
     }
 }
