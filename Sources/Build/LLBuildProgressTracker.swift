@@ -150,7 +150,7 @@ final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOut
     /// Diagnostic header lines already printed across all jobs, used to suppress duplicates.
     /// Keyed by the full diagnostic header line (path:line:col: severity: message).
     /// All access is serialized through `queue`.
-    private var seenDiagnosticHeaders: Set<String> = []
+    private var seenKeyDiagnosticHeaders: Set<String> = []
 
     /// Swift parsers keyed by llbuild command name.
     private var swiftParsers: [String: SwiftCompilerOutputParser] = [:]
@@ -492,29 +492,41 @@ final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOut
     /// Filters out diagnostic blocks whose header has already been seen. Returns the deduplicated output.
     /// A diagnostic block starts with a header line matching `:LINE:COL: severity:` and continues
     /// until the next header line. ANSI escape codes are stripped before matching.
-    /// 
+    ///
     /// Returns nil if filtering is not enabled at all, and an empty array if the entire output should be filtered out.
     /// The resulting array, if not empty, should be printed line-by-line and is the filtered output.
     func filteringDuplicateDiagnostics(_ output: String) -> [String]? {
         guard self.buildExecutionContext.productsBuildParameters.outputParameters.enableDiagnosticsDedup else {
-            return nil // pass-through unless de-dup was enabled \
+            return nil // pass-through unless de-dup was enabled
         }
 
+        return Self.deduplicateDiagnostics(output, seenKeyDiagnosticHeaders: &seenKeyDiagnosticHeaders)
+    }
+
+    /// Only `error` and `warning` headers are used as dedup keys; `note` and `remark` lines
+    /// inherit the skip/emit state from their parent error/warning block.
+    package static func deduplicateDiagnostics(
+        _ output: String,
+        seenKeyDiagnosticHeaders: inout Set<String>
+    ) -> [String] {
         var resultLines: [String] = []
-        var skipBlock = false
+        var skip = false
 
         for line in output.components(separatedBy: "\n") {
             let stripped = Self.stripANSI(line)
-            if Self.isDiagnosticHeader(stripped) {
-                if seenDiagnosticHeaders.contains(stripped) {
-                    self.observabilityScope.emit(.swiftCompilerOutputDuplicateDiagnosticSwallowed(stripped))
-                    skipBlock = true
+            if Self.isKeyDiagnosticHeader(stripped) {
+                // error/warning: deduplicate on the full header line
+                if seenKeyDiagnosticHeaders.contains(stripped) {
+                    skip = true
                 } else {
-                    seenDiagnosticHeaders.insert(stripped)
-                    skipBlock = false
+                    seenKeyDiagnosticHeaders.insert(stripped)
+                    skip = false
                 }
+            } else if Self.isDiagnosticHeader(stripped) {
+                // note/remark: inherit skip from parent error/warning
             }
-            if !skipBlock {
+
+            if !skip {
                 resultLines.append(line)
             }
         }
@@ -522,20 +534,33 @@ final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOut
         return resultLines
     }
 
-    private static func stripANSI(_ s: String) -> String {
+    package static func stripANSI(_ s: String) -> String {
         s.replacing(#/\u{1b}\[[0-9;]*[a-zA-Z]/#, with: "")
     }
 
     /// Returns true if `line` is a Swift compiler diagnostic header of the form
     ///   <path>:<line>:<col>: (error|warning|note|remark): <message>
     /// Source-context lines (indented with spaces/pipes) and inline caret annotations
-    /// are intentionally excluded.
-    private static func isDiagnosticHeader(_ line: String) -> Bool {
-        // Fast pre-check: context lines always start with whitespace or a digit (source listing).
+    /// are intentionally excluded
+    package static func isDiagnosticHeader(_ line: String) -> Bool {
+        // Fast pre-check
         guard let first = line.first, first != " ", first != "\t", !first.isNumber else { return false }
-        // Match :LINE:COL: severity: anywhere in the line after a non-empty path prefix.
+
         return line.range(
             of: #":\d+:\d+: (?:error|warning|note|remark):"#,
+            options: .regularExpression
+        ) != nil
+    }
+
+    /// Returns true if `line` is an error or warning diagnostic header -- the dedup boundary.
+    /// Notes and remarks are treated as continuations of their parent error/warning block
+    /// rather than independent dedup keys
+    package static func isKeyDiagnosticHeader(_ line: String) -> Bool {
+        // Fast pre-check
+        guard let first = line.first, first != " ", first != "\t", !first.isNumber else { return false }
+        
+        return line.range(
+            of: #":\d+:\d+: (?:error|warning):"#,
             options: .regularExpression
         ) != nil
     }
@@ -739,6 +764,10 @@ extension Basics.Diagnostic {
 
     fileprivate static func swiftCompilerOutputParsingError(_ error: String) -> Self {
         .error("failed parsing the Swift compiler output: \(error)")
+    }
+
+    fileprivate static func swiftCompilerOutputDuplicateKeyDiagnosticSwallowed(_ diagnosticHeader: String) -> Self {
+        .debug("prevented emission of duplicate key diagnostic: \(diagnosticHeader)")
     }
 
     fileprivate static func swiftCompilerOutputDuplicateDiagnosticSwallowed(_ diagnosticHeader: String) -> Self {
