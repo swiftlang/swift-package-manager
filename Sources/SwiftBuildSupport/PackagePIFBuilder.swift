@@ -586,6 +586,10 @@ public final class PackagePIFBuilder {
         // (If we want to be extra careful with differences to the existing PIF in the SwiftPM.)
         settings[.OTHER_CFLAGS] = ["$(inherited)", "-DXcode"]
 
+        if !self.delegate.isRootPackage {
+            settings[.BUILD_SERVER_PROTOCOL_TARGET_TAGS, default: ["$(inherited)"]].append("dependency")
+        }
+
         if self.delegate.isRemote {
             if self.suppressWarningsForPackageDependencies {
                 settings[.SUPPRESS_WARNINGS] = "YES"
