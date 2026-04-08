@@ -1066,6 +1066,11 @@ public final class RegistryClient: AsyncCancellable {
             )
             observabilityScope.emit(debug: "matched identities for \(scmURL): \(packageIdentities)")
             return Set(packageIdentities.identifiers.map(PackageIdentity.plain))
+        case 400:
+            // 400 indicates the server rejected the URL as invalid.
+            // This can happen when malformed URLs (e.g., containing git credential error messages)
+            // are passed to the registry.
+            throw RegistryError.invalidSourceControlURL(scmURL)
         case 404:
             // 404 is valid, no identities mapped
             return []
@@ -1073,7 +1078,7 @@ public final class RegistryClient: AsyncCancellable {
             throw RegistryError.failedIdentityLookup(
                 registry: registry,
                 scmURL: scmURL,
-                error: self.unexpectedStatusError(response, expectedStatus: [200, 404])
+                error: self.unexpectedStatusError(response, expectedStatus: [200, 400, 404])
             )
         }
     }
@@ -1503,6 +1508,7 @@ public enum RegistryError: Error, CustomStringConvertible {
     case registryNotConfigured(scope: PackageIdentity.Scope?)
     case invalidPackageIdentity(PackageIdentity)
     case invalidURL(URL)
+    case invalidSourceControlURL(SourceControlURL)
     case invalidResponseStatus(expected: [Int], actual: Int)
     case invalidContentVersion(expected: String, actual: String?)
     case invalidContentType(expected: String, actual: String?)
@@ -1580,6 +1586,8 @@ public enum RegistryError: Error, CustomStringConvertible {
             return "invalid package identifier '\(packageIdentity)'"
         case .invalidURL(let url):
             return "invalid URL '\(url)'"
+        case .invalidSourceControlURL(let scmURL):
+            return "invalid source control URL '\(scmURL)'"
         case .invalidResponseStatus(let expected, let actual):
             return "invalid registry response status '\(actual)', expected '\(expected)'"
         case .invalidContentVersion(let expected, let actual):
