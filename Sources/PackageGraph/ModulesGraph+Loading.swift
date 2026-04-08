@@ -30,7 +30,7 @@ extension ModulesGraph {
         requiredDependencies: [PackageReference] = [],
         unsafeAllowedPackages: Set<PackageReference> = [],
         binaryArtifacts: [PackageIdentity: [String: BinaryArtifact]],
-        prebuilts: [PackageIdentity: [String: PrebuiltLibrary]], // Product name to library mapping
+        prebuilts: [PackageIdentity: [PrebuiltLibrary]], // Product name to library mapping
         shouldCreateMultipleTestProducts: Bool = false,
         createREPLProduct: Bool = false,
         customPlatformsRegistry: PlatformRegistry? = .none,
@@ -231,7 +231,7 @@ extension ModulesGraph {
 private func checkAllDependenciesAreUsed(
     packages: IdentifiableSet<ResolvedPackage>,
     _ rootPackages: [ResolvedPackage],
-    prebuilts: [PackageIdentity: [String: PrebuiltLibrary]],
+    prebuilts: [PackageIdentity: [PrebuiltLibrary]],
     observabilityScope: ObservabilityScope
 ) {
     for package in rootPackages {
@@ -310,7 +310,7 @@ private func checkAllDependenciesAreUsed(
                 // We check if any of the products of this dependency is guarded by a trait.
                 let traitGuarded = traitGuardedProductDependencies.contains(product.name)
                 // Consider prebuilts as used
-                let prebuilt = prebuilts[dependency.identity]?.keys.contains(product.name) ?? false
+                let prebuilt = prebuilts[dependency.identity]?.contains(where: { $0.products.contains(product.name) }) ?? false
 
                 return usedByPackage || traitGuarded || prebuilt
             }
@@ -379,7 +379,7 @@ private func createResolvedPackages(
     // FIXME: This shouldn't be needed once <rdar://problem/33693433> is fixed.
     root: PackageGraphRoot,
     unsafeAllowedPackages: Set<PackageReference>,
-    prebuilts: [PackageIdentity: [String: PrebuiltLibrary]],
+    prebuilts: [PackageIdentity: [PrebuiltLibrary]],
     platformRegistry: PlatformRegistry,
     platformVersionProvider: PlatformVersionProvider,
     fileSystem: FileSystem,
@@ -388,7 +388,7 @@ private func createResolvedPackages(
     modulesFilter: ((Module) -> Bool)?
 ) throws -> IdentifiableSet<ResolvedPackage> {
     // Create package builder objects from the input manifests.
-    var packageBuilders: [ResolvedPackageBuilder] = nodes.compactMap { node in
+    let packageBuilders: [ResolvedPackageBuilder] = nodes.compactMap { node in
         guard let package = manifestToPackage[node.manifest] else {
             return nil
         }
@@ -883,184 +883,68 @@ private func createResolvedPackages(
         }
     }
 
-    // Adjust the package graph for any prebuilts, removing any that are no longer needed.
-    handlePrebuilts(packageBuilders: packageBuilders, root: root)
+    // Adjust the package graph for any prebuilts
+    if packageBuilders.contains(where: { $0.prebuilts != nil }) {
+        // find uses of prebuilts and adjust the modules to use them
+        for packageBuilder in packageBuilders {
+            guard packageBuilder.prebuilts == nil else {
+                // Skip the prebuilts packages
+                continue
+            }
+
+            for moduleBuilder in packageBuilder.modules {
+                let prebuiltLibraries = moduleBuilder.dependencies.reduce(into: [String: PrebuiltLibrary]()) {
+                    guard case .product(let productBuilder, conditions: _) = $1,
+                          let prebuilt = productBuilder.packageBuilder.prebuilts?.first(where: { $0.products.contains(productBuilder.product.name) }) else {
+                        return
+                    }
+                    $0[prebuilt.libraryName] = prebuilt
+                }
+
+                guard !prebuiltLibraries.isEmpty else {
+                    continue
+                }
+
+                // Add condition on prebuilt dependencies to be non-host since we still need to build from source
+                moduleBuilder.dependencies = moduleBuilder.dependencies.map {
+                    if case .product(let productBuilder, conditions: _) = $0, prebuiltLibraries.contains(where: { $0.value.products.contains(productBuilder.product.name) }) {
+                        return .product(productBuilder, conditions: [.host(.init(forHost: false))])
+                    } else {
+                        return $0
+                    }
+                }
+
+                // Add build settings to hook up the prebuilts when on host
+                for prebuilt in prebuiltLibraries.values {
+                    var libPathAssignment = BuildSettings.Assignment()
+                    libPathAssignment.values.append(prebuilt.path.appending(component: "lib").pathString)
+                    libPathAssignment.conditions.append(.host(.init(forHost: true)))
+                    moduleBuilder.module.buildSettings.add(libPathAssignment, for: .PREBUILT_LIBRARY_PATHS)
+
+                    var libsAssignment = BuildSettings.Assignment()
+                    libsAssignment.values.append(prebuilt.libraryName)
+                    libsAssignment.conditions.append(.host(.init(forHost: true)))
+                    moduleBuilder.module.buildSettings.add(libsAssignment, for: .PREBUILT_LIBRARIES)
+
+                    var includeAssignment = BuildSettings.Assignment()
+                    includeAssignment.values.append(prebuilt.path.appending(component: "Modules").pathString)
+                    if let checkoutPath = prebuilt.checkoutPath, let includePath = prebuilt.includePath {
+                        for includeDir in includePath {
+                            includeAssignment.values.append(checkoutPath.appending(includeDir).pathString)
+                        }
+                    } else {
+                        for cModule in prebuilt.cModules {
+                            includeAssignment.values.append(prebuilt.path.appending(components: "include", cModule).pathString)
+                        }
+                    }
+                    includeAssignment.conditions.append(.host(.init(forHost: true)))
+                    moduleBuilder.module.buildSettings.add(includeAssignment, for: .PREBUILT_INCLUDE_PATHS)
+                }
+            }
+        }
+    }
 
     return try IdentifiableSet(packageBuilders.map { try $0.construct() })
-}
-
-// Adjust the graph to integrate prebuilts
-private func handlePrebuilts(packageBuilders: [ResolvedPackageBuilder], root: PackageGraphRoot) {
-    // Skip this if there are no prebuilts. Modules are unconstrained by default.
-    guard packageBuilders.contains(where: { $0.prebuilts != nil }) else {
-        return
-    }
-
-    // First decorate the platform constraints from products in the root packages
-    for packageBuilder in packageBuilders where root.isExporting(packageBuilder.package.identity) {
-        for productBuilder in packageBuilder.products {
-            for moduleBuilder in productBuilder.moduleBuilders {
-                func markExternal(_ depModule: ResolvedModuleBuilder) {
-                    guard depModule.platformConstraint != .all else {
-                        return
-                    }
-                    guard !depModule.isHostOnly else {
-                        // Macros, macro tests, and plugins are host only
-                        return
-                    }
-                    depModule.platformConstraint = .all
-                    for dep in depModule.allModuleDependencies {
-                        markExternal(dep)
-                    }
-                }
-                markExternal(moduleBuilder)
-            }
-        }
-    }
-
-    // Find those not marked that are references from macro and plugins.
-    // For now we can't have host modules depending on .all modules so only
-    // mark as .host if all the deps are .host
-    for packageBuilder in packageBuilders {
-        for moduleBuilder in packageBuilder.modules where moduleBuilder.isHostOnly {
-            func markHost(_ depModule: ResolvedModuleBuilder) -> Bool {
-                switch depModule.platformConstraint {
-                case .all:
-                    return false
-                case .host:
-                    return true
-                case .none:
-                    break
-                }
-
-                for dep in depModule.allModuleDependencies {
-                    if !markHost(dep) {
-                        // Depending on .all, revisit all deps and mark .all so we don't mix
-                        func markExternal(_ depModule: ResolvedModuleBuilder) {
-                            guard depModule.platformConstraint == .host else {
-                                return
-                            }
-                            depModule.platformConstraint = .all
-                            for dep in depModule.allModuleDependencies {
-                                markExternal(dep)
-                            }
-                        }
-                        markExternal(depModule)
-                        return false
-                    }
-                }
-                depModule.platformConstraint = .host
-                return true
-            }
-            _ = markHost(moduleBuilder)
-        }
-    }
-
-    // Also for now, to ensure we're not mixing prebuilts and not prebuilts in the build graph,
-    // Only use prebuilts if we can use them for all host only modules
-    guard packageBuilders.allSatisfy({
-        $0.modules.allSatisfy { moduleBuilder in
-            guard moduleBuilder.isHostOnly else {
-                return true
-            }
-            return moduleBuilder.platformConstraint == .host
-        }
-    }) else {
-        // Remove the platform constraints
-        for packageBuilder in packageBuilders {
-            for moduleBuilder in packageBuilder.modules {
-                moduleBuilder.platformConstraint = nil
-            }
-        }
-        return
-    }
-
-    // find uses of prebuilts and adjust the modules to use them
-    for packageBuilder in packageBuilders {
-        for moduleBuilder in packageBuilder.modules {
-            guard moduleBuilder.platformConstraint == .host else {
-                // Prebuilts are host only for now
-                continue
-            }
-
-            let prebuiltDeps: [ResolvedProductBuilder] = moduleBuilder.dependencies.compactMap {
-                guard case .product(let productBuilder, conditions: _) = $0,
-                      productBuilder.packageBuilder.prebuilts?[productBuilder.product.name] != nil
-                else {
-                    return nil
-                }
-                return productBuilder
-            }
-
-            guard !prebuiltDeps.isEmpty else {
-                continue
-            }
-
-            // Filter out the deps from the prebuilts' products
-            moduleBuilder.dependencies = moduleBuilder.dependencies.filter {
-                guard case .product(let productBuilder, conditions: _) = $0,
-                      productBuilder.packageBuilder.prebuilts?[productBuilder.product.name] != nil
-                else {
-                    return true
-                }
-                return false
-            }
-
-            // Add build settings to hook up the prebuilts
-            // TODO: prebuilts should really be modules e.g system libraries
-            // TODO: so we don't have to alter the underyling modules build settings
-            let prebuiltLibraries = prebuiltDeps.reduce(into: [String: PrebuiltLibrary]()) {
-                guard let prebuilt = $1.packageBuilder.prebuilts?[$1.product.name] else {
-                    return
-                }
-                $0[prebuilt.libraryName] = prebuilt
-            }
-
-            for prebuilt in prebuiltLibraries.values {
-                var libPathAssignment = BuildSettings.Assignment()
-                libPathAssignment.values.append(prebuilt.path.appending(component: "lib").pathString)
-                moduleBuilder.module.buildSettings.add(libPathAssignment, for: .PREBUILT_LIBRARY_PATHS)
-
-                var libsAssignment = BuildSettings.Assignment()
-                libsAssignment.values.append(prebuilt.libraryName)
-                moduleBuilder.module.buildSettings.add(libsAssignment, for: .PREBUILT_LIBRARIES)
-
-                var includeAssignment = BuildSettings.Assignment()
-                includeAssignment.values.append(prebuilt.path.appending(component: "Modules").pathString)
-                if let checkoutPath = prebuilt.checkoutPath, let includePath = prebuilt.includePath {
-                    for includeDir in includePath {
-                        includeAssignment.values.append(checkoutPath.appending(includeDir).pathString)
-                    }
-                } else {
-                    for cModule in prebuilt.cModules {
-                        includeAssignment.values.append(prebuilt.path.appending(components: "include", cModule).pathString)
-                    }
-                }
-                moduleBuilder.module.buildSettings.add(includeAssignment, for: .PREBUILT_INCLUDE_PATHS)
-            }
-        }
-    }
-
-    // Remove the package dependencies to the prebuilts if they are no longer used
-    let nonPrebuilts = packageBuilders.filter { $0.prebuilts == nil }
-    for packageBuilder in packageBuilders where packageBuilder.prebuilts != nil {
-        for nonPrebuilt in nonPrebuilts {
-            if nonPrebuilt.modules.allSatisfy({
-                $0.dependencies.allSatisfy {
-                    switch $0 {
-                    case .module:
-                        return true
-                    case .product(let product, conditions: _):
-                        return product.packageBuilder.package.identity != packageBuilder.package.identity
-                    }
-                }
-            }) {
-                nonPrebuilt.dependencies = nonPrebuilt.dependencies.filter {
-                    $0.package.identity != packageBuilder.package.identity
-                }
-            }
-        }
-    }
 }
 
 private func prepareProductDependencyNotFoundError(
@@ -1514,9 +1398,6 @@ private final class ResolvedModuleBuilder: ResolvedBuilder<ResolvedModule> {
     /// The platforms supported by this package.
     var supportedPlatforms: [SupportedPlatform] = []
 
-    /// A constraint on which platforms this module needs to build for.
-    var platformConstraint: PlatformConstraint? = nil
-
     var isHostOnly: Bool {
         module.type == .macro || (module.type == .test && dependencies.contains(where: {
                 switch $0 {
@@ -1575,7 +1456,6 @@ private final class ResolvedModuleBuilder: ResolvedBuilder<ResolvedModule> {
             defaultLocalization: self.defaultLocalization,
             supportedPlatforms: self.supportedPlatforms,
             // maintain existing functionality and default to .all
-            platformConstraint: self.platformConstraint ?? .all,
             platformVersionProvider: self.platformVersionProvider
         )
     }
@@ -1632,7 +1512,7 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
     var dependencies: [ResolvedPackageBuilder] = []
 
     /// The prebuilt libraries for this package
-    var prebuilts: [String: PrebuiltLibrary]?
+    var prebuilts: [PrebuiltLibrary]?
 
     /// Map from package identity to the local name for module dependency resolution that has been given to that package
     /// through the dependency declaration.
@@ -1657,7 +1537,7 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
         isAllowedToVendUnsafeProducts: Bool,
         allowedToOverride: Bool,
         platformVersionProvider: PlatformVersionProvider,
-        prebuilts: [String: PrebuiltLibrary]?
+        prebuilts: [PrebuiltLibrary]?
     ) {
         self.package = package
         self.productFilter = productFilter

@@ -35,6 +35,7 @@ public struct PackageConditionDescription: Codable, Hashable, Sendable {
 /// build configurations.
 public enum PackageCondition: Hashable, Sendable {
     case platforms(PlatformsCondition)
+    case host(HostCondition)
     case configuration(ConfigurationCondition)
     case traits(TraitCondition)
 
@@ -44,6 +45,8 @@ public enum PackageCondition: Hashable, Sendable {
             return configuration.satisfies(environment)
         case .platforms(let platforms):
             return platforms.satisfies(environment)
+        case .host(let host):
+            return host.satisfies(environment)
         case .traits(let traits):
             return traits.satisfies(environment)
         }
@@ -55,6 +58,14 @@ public enum PackageCondition: Hashable, Sendable {
         }
 
         return platformsCondition
+    }
+
+    public var hostCondition: HostCondition? {
+        guard case let .host(hostCondition) = self else {
+            return nil
+        }
+
+        return hostCondition
     }
 
     public var configurationCondition: ConfigurationCondition? {
@@ -96,11 +107,19 @@ public struct PlatformsCondition: Hashable, Sendable {
     }
 }
 
-/// A mini version of target platform constraints that will eventually be user specifiable..
-/// For now used to mark modules host only that are only accessed by macros and plugins.
-public enum PlatformConstraint {
-    case all
-    case host
+/// Condition that is satisfied if building for host matches the build environment.
+/// This is for SwiftPM's use for now to make prebuilts conditional on host builds
+/// so are not made available in the manifest.
+public struct HostCondition: Hashable, Sendable {
+    public let forHost: Bool
+
+    public init(forHost: Bool) {
+        self.forHost = forHost
+    }
+
+    public func satisfies(_ environment: BuildEnvironment) -> Bool {
+        forHost == environment.forHost
+    }
 }
 
 /// A configuration condition implies that an assignment is valid on
@@ -122,8 +141,9 @@ public struct ConfigurationCondition: Hashable, Sendable {
 }
 
 
-/// A configuration condition implies that an assignment is valid on
-/// a particular build configuration.
+/// Trait conditions are evaluated at package resolution time so and traits are filtered out
+/// based on the requested traits for the package. As such, the build condition is always
+/// true since builds do not specify traits.
 public struct TraitCondition: Hashable, Sendable {
     public let traits: Set<String>
 
