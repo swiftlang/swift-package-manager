@@ -3548,8 +3548,8 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
             switch (request.method, request.url) {
             case (.put, publishURL):
                 let body = String(decoding: try #require(request.body), as: UTF8.self)
-                XCTAssertMatch(body, .contains(metadataContent))
-                XCTAssertNoMatch(body, .contains("Content-Transfer-Encoding: quoted-printable"))
+                #expect(body.contains(metadataContent))
+                #expect(!body.contains("Content-Transfer-Encoding: quoted-printable"))
 
                 return .init(
                     statusCode: 201,
