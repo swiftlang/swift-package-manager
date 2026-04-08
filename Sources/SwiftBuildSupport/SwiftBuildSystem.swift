@@ -908,7 +908,16 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             }
         }
 
-        let swiftCompilerFlags = buildParameters.toolchain.extraFlags.swiftCompilerFlags + buildParameters.flags.swiftCompilerFlags
+        var swiftCompilerFlags = buildParameters.toolchain.extraFlags.swiftCompilerFlags + buildParameters.flags.swiftCompilerFlags
+        swiftCompilerFlags += buildParameters.toolchain.extraFlags.cCompilerFlags.asSwiftcCCompilerFlags()
+        // User arguments (from -Xcc) should follow generated arguments to allow user overrides
+        swiftCompilerFlags += buildParameters.flags.cCompilerFlags.asSwiftcCCompilerFlags()
+
+        // TODO: Pass -Xcxx flags to swiftc (#6491)
+        // Uncomment when downstream support arrives.
+        // swiftCompilerFlags += buildParameters.toolchain.extraFlags.cxxCompilerFlags.rawFlags.asSwiftcCXXCompilerFlags()
+        // // User arguments (from -Xcxx) should follow generated arguments to allow user overrides
+        // swiftCompilerFlags += buildParameters.flags.cxxCompilerFlags.rawFlags.asSwiftcCXXCompilerFlags()
         let compilerAndLinkerFlags = [
             "OTHER_CFLAGS": buildParameters.toolchain.extraFlags.cCompilerFlags + buildParameters.flags.cCompilerFlags,
             "OTHER_CPLUSPLUSFLAGS": buildParameters.toolchain.extraFlags.cxxCompilerFlags + buildParameters.flags.cxxCompilerFlags,
@@ -1372,5 +1381,11 @@ fileprivate extension [BuildFlag] {
                 return false
             }
         }.map { $0.value }
+    }
+
+    /// Converts a set of C compiler flags into an equivalent set to be
+    /// indirected through the Swift compiler instead.
+    func asSwiftcCCompilerFlags() -> [BuildFlag] {
+        self.flatMap { [BuildFlag(value: "-Xcc", source: $0.source), $0] }
     }
 }

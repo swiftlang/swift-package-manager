@@ -196,5 +196,21 @@ struct SwiftPMBuildServerTests {
             }
         }
     }
+
+    @Test
+    func extraSwiftcArgs() async throws {
+        try await withSwiftPMBSP(fixtureName: "Miscellaneous/Simple", extraBSPArgs: ["-Xswiftc", "-DFoo", "-Xcc", "-DBar"]) { connection, _, _ in
+            let targetResponse = try await connection.send(WorkspaceBuildTargetsRequest())
+            let fooID = try #require(targetResponse.targets.first(where: { $0.displayName == "Foo" })).id
+            let sourcesResponse = try await connection.send(BuildTargetSourcesRequest(targets: [fooID]))
+            let item = try #require(sourcesResponse.items.only?.sources.only)
+
+            _ = try await connection.send(BuildTargetPrepareRequest(targets: [fooID]))
+
+            let settingsResponse = try #require(try await connection.send(TextDocumentSourceKitOptionsRequest(textDocument: TextDocumentIdentifier(item.uri), target: fooID, language: .swift)))
+            #expect(settingsResponse.compilerArguments.contains("-DFoo"))
+            #expect(settingsResponse.compilerArguments.contains(["-Xcc", "-DBar"]))
+        }
+    }
 }
 #endif
