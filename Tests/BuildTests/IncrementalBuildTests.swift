@@ -168,8 +168,8 @@ final class IncrementalBuildTests: XCTestCase {
                 environment: environment
             ).spm_chomp()
 
-            let newSdkPathStr = "/tmp/../\(sdkPathStr)"
-            // Perform a full build again because SDK changed.
+            let newSdkPathStr = "/tmp/../\(sdkPathStr.drop(while: { $0 == "/" }))"                // Perform a full build again because SDK changed.
+            XCTAssertTrue(localFileSystem.exists(AbsolutePath(newSdkPathStr)))
             let log1 = try await executeSwiftBuild(
                 fixturePath,
                 env: ["SDKROOT": newSdkPathStr],
