@@ -44,14 +44,24 @@ struct ResolverPrecomputationProvider: PackageContainerProvider {
     /// The tools version currently in use.
     let currentToolsVersion: ToolsVersion
 
+    /// Restricts which packages should be served from local manifests.
+    let allowedLocalPackageIdentities: Set<PackageIdentity>?
+
+    /// Fallback provider for packages that should not or cannot be served locally.
+    let fallbackProvider: PackageContainerProvider?
+
     init(
         root: PackageGraphRoot,
         dependencyManifests: Workspace.DependencyManifests,
-        currentToolsVersion: ToolsVersion = ToolsVersion.current
+        currentToolsVersion: ToolsVersion = ToolsVersion.current,
+        allowedLocalPackageIdentities: Set<PackageIdentity>? = nil,
+        fallbackProvider: PackageContainerProvider? = nil
     ) {
         self.root = root
         self.dependencyManifests = dependencyManifests
         self.currentToolsVersion = currentToolsVersion
+        self.allowedLocalPackageIdentities = allowedLocalPackageIdentities
+        self.fallbackProvider = fallbackProvider
     }
 
     func getContainer(
@@ -59,26 +69,41 @@ struct ResolverPrecomputationProvider: PackageContainerProvider {
         updateStrategy: ContainerUpdateStrategy,
         observabilityScope: ObservabilityScope
     ) async throws -> PackageContainer {
-        // Start by searching manifests from the Workspace's resolved dependencies.
-        if let manifest = self.dependencyManifests.dependencies.first(where: { _, managed, _, _ in managed.packageRef == package }) {
-            let container = LocalPackageContainer(
-                package: package,
-                manifest: manifest.manifest,
-                dependency: manifest.dependency,
-                currentToolsVersion: self.currentToolsVersion
-            )
-            return container
+        let canUseLocalContainer = self.allowedLocalPackageIdentities?
+            .contains(package.identity) ?? true
+        if canUseLocalContainer {
+            // Start by searching manifests from the Workspace's resolved dependencies.
+            if let manifest = self.dependencyManifests.dependencies.first(where: { _, managed, _, _ in
+                managed.packageRef.equalsIncludingLocation(package)
+                    || managed.packageRef.identity == package.identity
+            }) {
+                let container = LocalPackageContainer(
+                    package: package,
+                    manifest: manifest.manifest,
+                    dependency: manifest.dependency,
+                    currentToolsVersion: self.currentToolsVersion
+                )
+                return container
+            }
+
+            // Continue searching from the Workspace's root manifests.
+            if let rootPackage = self.dependencyManifests.root.packages[package.identity] {
+                let container = LocalPackageContainer(
+                    package: package,
+                    manifest: rootPackage.manifest,
+                    dependency: nil,
+                    currentToolsVersion: self.currentToolsVersion
+                )
+                return container
+            }
         }
 
-        // Continue searching from the Workspace's root manifests.
-        if let rootPackage = self.dependencyManifests.root.packages[package.identity] {
-            let container = LocalPackageContainer(
-                package: package,
-                manifest: rootPackage.manifest,
-                dependency: nil,
-                currentToolsVersion: self.currentToolsVersion
+        if let fallbackProvider {
+            return try await fallbackProvider.getContainer(
+                for: package,
+                updateStrategy: updateStrategy,
+                observabilityScope: observabilityScope
             )
-            return container
         }
 
         // As we don't have anything else locally, error out.

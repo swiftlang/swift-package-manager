@@ -1826,6 +1826,7 @@ final class WorkspaceTests: XCTestCase {
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
             result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
         }
+        workspace.delegate.clear()
 
         // Run partial updates.
         //
@@ -1838,8 +1839,13 @@ final class WorkspaceTests: XCTestCase {
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
             result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
         }
+        XCTAssertEqual(
+            workspace.delegate.events.filter { $0.hasPrefix("updating repo:") },
+            ["updating repo: /tmp/ws/pkgs/Bar"]
+        )
 
         // Try to update just Foo. This should update Foo but not Bar.
+        workspace.delegate.clear()
         try await workspace.checkUpdate(roots: ["Root"], packages: ["Foo"]) { diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
         }
@@ -1847,8 +1853,13 @@ final class WorkspaceTests: XCTestCase {
             result.check(dependency: "foo", at: .checkout(.version("1.5.0")))
             result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
         }
+        XCTAssertEqual(
+            workspace.delegate.events.filter { $0.hasPrefix("updating repo:") },
+            ["updating repo: /tmp/ws/pkgs/Foo"]
+        )
 
         // Run full update.
+        workspace.delegate.clear()
         try await workspace.checkUpdate(roots: ["Root"]) { diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
         }
@@ -1856,6 +1867,13 @@ final class WorkspaceTests: XCTestCase {
             result.check(dependency: "foo", at: .checkout(.version("1.5.0")))
             result.check(dependency: "bar", at: .checkout(.version("1.2.0")))
         }
+        XCTAssertEqual(
+            Set(workspace.delegate.events.filter { $0.hasPrefix("updating repo:") }),
+            Set([
+                "updating repo: /tmp/ws/pkgs/Foo",
+                "updating repo: /tmp/ws/pkgs/Bar",
+            ])
+        )
     }
 
     func testCleanAndReset() async throws {
