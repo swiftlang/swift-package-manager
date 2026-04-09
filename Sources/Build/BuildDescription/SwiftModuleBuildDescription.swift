@@ -425,7 +425,7 @@ public final class SwiftModuleBuildDescription {
             import Foundation
 
             extension Foundation.Bundle {
-                static let module: Bundle = {
+                static nonisolated let module: Bundle = {
                     let mainPath = \(mainPathSubstitution)
                     let buildPath = "\(bundlePath.pathString.asSwiftStringLiteralConstant)"
 
