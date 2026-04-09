@@ -425,6 +425,11 @@ extension Workspace {
                 return !pin.state.equals(checkoutState)
             case .registryDownload(let version):
                 return !pin.state.equals(version)
+            case .sourceArchiveDownload(let state):
+                if case .version(let pinVersion, let pinRevision) = pin.state {
+                    return !(pinVersion == state.version && pinRevision == state.revision)
+                }
+                return true
             case .edited, .fileSystem, .custom:
                 return true
             }
@@ -1053,6 +1058,9 @@ extension Workspace {
                         throw InternalError("Unexpected unversioned binding for downloaded dependency")
                     case .custom:
                         throw InternalError("Unexpected unversioned binding for custom dependency")
+                    case .sourceArchiveDownload:
+                        let newState = PackageStateChange.State(requirement: .unversioned, products: binding.products)
+                        packageStateChanges[binding.package.identity] = (binding.package, .updated(newState))
                     }
                 } else {
                     let newState = PackageStateChange.State(requirement: .unversioned, products: binding.products)
@@ -1121,7 +1129,9 @@ extension Workspace {
                 switch currentDependency?.state {
                 case .sourceControlCheckout(.version(version, _)), .registryDownload(version), .custom(version, _):
                     stateChange = .unchanged
-                case .edited, .fileSystem, .sourceControlCheckout, .registryDownload, .custom:
+                case .sourceArchiveDownload(let state) where state.version == version:
+                    stateChange = .unchanged
+                case .edited, .fileSystem, .sourceControlCheckout, .registryDownload, .custom, .sourceArchiveDownload:
                     stateChange = .updated(.init(requirement: .version(version), products: binding.products))
                 case nil:
                     stateChange = .added(.init(requirement: .version(version), products: binding.products))

@@ -18,6 +18,7 @@ import struct Basics.AbsolutePath
 import class Basics.InMemoryFileSystem
 import class Basics.ObservabilityScope
 import struct Basics.RelativePath
+import struct TSCUtility.Version
 import struct PackageGraph.PackageGraphRootInput
 import struct SourceControl.Revision
 
@@ -57,6 +58,12 @@ extension Workspace {
         case .custom:
             observabilityScope.emit(error: "custom dependency '\(dependency.packageRef.identity)' can't be edited")
             return
+        case .sourceArchiveDownload(let state):
+            guard let version = Version(tag: state.tag) else {
+                observabilityScope.emit(error: "invalid version tag '\(state.tag)' for source archive dependency '\(dependency.packageRef.identity)'")
+                return
+            }
+            checkoutState = .version(version, revision: .init(identifier: state.revision))
         }
 
         // If a path is provided then we use it as destination. If not, we

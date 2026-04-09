@@ -411,6 +411,7 @@ public final class MockWorkspace {
                 usePrebuilts: self.customPrebuiltsManager != nil,
                 prebuiltsDownloadURL: nil,
                 prebuiltsRootCertPath: nil,
+                useSourceArchives: false,
                 pruneDependencies: self.pruneDependencies,
                 traitConfiguration: self.traitConfiguration
             ),
