@@ -3536,6 +3536,62 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
         }
     }
 
+    @Test func publishMetadataDoesNotDeclareQuotedPrintableTransferEncoding() async throws {
+        let archiveContent = UUID().uuidString
+        let metadataContent = """
+        {
+            "description": "This metadata includes a non-ASCII apostrophe: user’s package."
+        }
+        """
+
+        let handler: HTTPClient.Implementation = { request, _ in
+            switch (request.method, request.url) {
+            case (.put, publishURL):
+                let body = String(decoding: try #require(request.body), as: UTF8.self)
+                #expect(body.contains(metadataContent))
+                #expect(!body.contains("Content-Transfer-Encoding: quoted-printable"))
+
+                return .init(
+                    statusCode: 201,
+                    headers: .init([
+                        .init(name: "Location", value: publishURL.absoluteString),
+                        .init(name: "Content-Version", value: "1"),
+                    ]),
+                    body: .none
+                )
+            default:
+                throw StringError("method and url should match")
+            }
+        }
+
+        try await withTemporaryDirectory { temporaryDirectory in
+            let archivePath = temporaryDirectory.appending(component: "\(identity)-\(version).zip")
+            try localFileSystem.writeFileContents(archivePath, string: archiveContent)
+
+            let metadataPath = temporaryDirectory.appending(component: "\(identity)-\(version)-metadata.json")
+            try localFileSystem.writeFileContents(metadataPath, string: metadataContent)
+
+            let httpClient = HTTPClient(implementation: handler)
+            var configuration = RegistryConfiguration()
+            configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
+
+            let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
+            let result = try await registryClient.publish(
+                registryURL: registryURL,
+                packageIdentity: identity,
+                packageVersion: version,
+                packageArchive: archivePath,
+                packageMetadata: metadataPath,
+                signature: .none,
+                metadataSignature: .none,
+                signatureFormat: .none,
+                fileSystem: localFileSystem
+            )
+
+            #expect(result == .published(publishURL))
+        }
+    }
+
     @Test func publishWithSignature() async throws {
         let expectedLocation =
         URL("https://\(registryURL)/packages\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")
