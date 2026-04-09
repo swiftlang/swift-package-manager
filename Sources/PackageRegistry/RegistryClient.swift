@@ -77,20 +77,29 @@ public final class RegistryClient: AsyncCancellable {
 
         if let authorizationProvider {
             self.authorizationProvider = { url in
-                guard let registryAuthentication = try? configuration.authentication(for: url) else {
-                    return .none
-                }
                 guard let (user, password) = authorizationProvider.authentication(for: url) else {
                     return .none
                 }
 
-                switch registryAuthentication.type {
+                // authentication(for:) throws only for hostless URLs, which environment
+                // variable providers may still return credentials for. In that case, fall
+                // through to type inference below.
+                let authType = (try? configuration.authentication(for: url))?.type
+
+                switch authType {
                 case .basic:
                     let authorizationString = "\(user):\(password)"
                     let authorizationData = Data(authorizationString.utf8)
                     return "Basic \(authorizationData.base64EncodedString())"
                 case .token: // `user` value is irrelevant in this case
                     return "Bearer \(password)"
+                case nil:
+                    if user == "token" {
+                        return "Bearer \(password)"
+                    }
+                    let authorizationString = "\(user):\(password)"
+                    let authorizationData = Data(authorizationString.utf8)
+                    return "Basic \(authorizationData.base64EncodedString())"
                 }
             }
         } else {

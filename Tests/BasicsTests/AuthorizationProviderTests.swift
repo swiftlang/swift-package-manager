@@ -245,6 +245,201 @@ final class AuthorizationProviderTests: XCTestCase {
         }
     }
 
+    // MARK: - EnvironmentAuthorizationProvider Tests
+
+    func testEnvironmentRegistryToken() {
+        var env = Environment()
+        env[.swiftpmRegistryToken] = "my-registry-token"
+
+        let provider = EnvironmentAuthorizationProvider(environment: env, kind: .registry)
+        let url = URL("https://registry.example.com")
+
+        let auth = provider.authentication(for: url)
+        XCTAssertEqual(auth?.user, "token")
+        XCTAssertEqual(auth?.password, "my-registry-token")
+    }
+
+    func testEnvironmentRegistryLoginPassword() {
+        var env = Environment()
+        env[.swiftpmRegistryLogin] = "myuser"
+        env[.swiftpmRegistryPassword] = "mypassword"
+
+        let provider = EnvironmentAuthorizationProvider(environment: env, kind: .registry)
+        let url = URL("https://registry.example.com")
+
+        let auth = provider.authentication(for: url)
+        XCTAssertEqual(auth?.user, "myuser")
+        XCTAssertEqual(auth?.password, "mypassword")
+    }
+
+    func testEnvironmentRegistryTokenPrecedence() {
+        var env = Environment()
+        env[.swiftpmRegistryToken] = "my-token"
+        env[.swiftpmRegistryLogin] = "myuser"
+        env[.swiftpmRegistryPassword] = "mypassword"
+
+        let provider = EnvironmentAuthorizationProvider(environment: env, kind: .registry)
+        let url = URL("https://registry.example.com")
+
+        let auth = provider.authentication(for: url)
+        XCTAssertEqual(auth?.user, "token")
+        XCTAssertEqual(auth?.password, "my-token")
+    }
+
+    func testEnvironmentSourceControlToken() {
+        var env = Environment()
+        env[.swiftpmSourceControlToken] = "sc-token-123"
+
+        let provider = EnvironmentAuthorizationProvider(environment: env, kind: .sourceControl)
+        let url = URL("https://github.com/org/repo")
+
+        let auth = provider.authentication(for: url)
+        XCTAssertEqual(auth?.user, "token")
+        XCTAssertEqual(auth?.password, "sc-token-123")
+    }
+
+    func testEnvironmentNoVarsReturnsNil() {
+        let env = Environment()
+
+        let registryProvider = EnvironmentAuthorizationProvider(environment: env, kind: .registry)
+        XCTAssertNil(registryProvider.authentication(for: URL("https://registry.example.com")))
+
+        let scProvider = EnvironmentAuthorizationProvider(environment: env, kind: .sourceControl)
+        XCTAssertNil(scProvider.authentication(for: URL("https://github.com/org/repo")))
+    }
+
+    func testEnvironmentPartialLoginOnly() {
+        var env = Environment()
+        env[.swiftpmRegistryLogin] = "myuser"
+
+        let provider = EnvironmentAuthorizationProvider(environment: env, kind: .registry)
+        XCTAssertNil(provider.authentication(for: URL("https://registry.example.com")))
+    }
+
+    func testEnvironmentEmptyStringTreatedAsUnset() {
+        var env = Environment()
+        env[.swiftpmRegistryToken] = ""
+        env[.swiftpmRegistryLogin] = ""
+        env[.swiftpmRegistryPassword] = ""
+        env[.swiftpmSourceControlToken] = ""
+
+        let registryProvider = EnvironmentAuthorizationProvider(environment: env, kind: .registry)
+        XCTAssertNil(registryProvider.authentication(for: URL("https://registry.example.com")))
+
+        let scProvider = EnvironmentAuthorizationProvider(environment: env, kind: .sourceControl)
+        XCTAssertNil(scProvider.authentication(for: URL("https://github.com/org/repo")))
+    }
+
+    func testEnvironmentInComposite() {
+        var env = Environment()
+        env[.swiftpmRegistryToken] = "env-token"
+
+        let url = URL("https://registry.example.com")
+        let envProvider = EnvironmentAuthorizationProvider(environment: env, kind: .registry)
+        let fileProvider = TestProvider(map: [url: (user: "fileuser", password: "filepass")])
+
+        let composite = CompositeAuthorizationProvider(
+            envProvider,
+            fileProvider,
+            observabilityScope: ObservabilitySystem.NOOP
+        )
+
+        let auth = composite.authentication(for: url)
+        XCTAssertEqual(auth?.user, "token")
+        XCTAssertEqual(auth?.password, "env-token")
+    }
+
+    func testEnvironmentFallthroughInComposite() {
+        let env = Environment()
+
+        let url = URL("https://registry.example.com")
+        let envProvider = EnvironmentAuthorizationProvider(environment: env, kind: .registry)
+        let fileProvider = TestProvider(map: [url: (user: "fileuser", password: "filepass")])
+
+        let composite = CompositeAuthorizationProvider(
+            envProvider,
+            fileProvider,
+            observabilityScope: ObservabilitySystem.NOOP
+        )
+
+        let auth = composite.authentication(for: url)
+        XCTAssertEqual(auth?.user, "fileuser")
+        XCTAssertEqual(auth?.password, "filepass")
+    }
+
+    // MARK: - InMemoryNetrcAuthorizationProvider Tests
+
+    func testInMemoryNetrcBasicParsing() throws {
+        let content = "machine host.example.com login myuser password mypass"
+        let provider = try InMemoryNetrcAuthorizationProvider(content: content)
+
+        let auth = provider.authentication(for: URL("https://host.example.com"))
+        XCTAssertEqual(auth?.user, "myuser")
+        XCTAssertEqual(auth?.password, "mypass")
+    }
+
+    func testInMemoryNetrcMultipleHosts() throws {
+        let content = """
+            machine registry1.example.com login user1 password pass1
+            machine registry2.example.com login user2 password pass2
+            """
+        let provider = try InMemoryNetrcAuthorizationProvider(content: content)
+
+        let auth1 = provider.authentication(for: URL("https://registry1.example.com"))
+        XCTAssertEqual(auth1?.user, "user1")
+        XCTAssertEqual(auth1?.password, "pass1")
+
+        let auth2 = provider.authentication(for: URL("https://registry2.example.com"))
+        XCTAssertEqual(auth2?.user, "user2")
+        XCTAssertEqual(auth2?.password, "pass2")
+    }
+
+    func testInMemoryNetrcDefaultMachine() throws {
+        let content = """
+            machine known.example.com login knownuser password knownpass
+            default login defaultuser password defaultpass
+            """
+        let provider = try InMemoryNetrcAuthorizationProvider(content: content)
+
+        let knownAuth = provider.authentication(for: URL("https://known.example.com"))
+        XCTAssertEqual(knownAuth?.user, "knownuser")
+        XCTAssertEqual(knownAuth?.password, "knownpass")
+
+        let unknownAuth = provider.authentication(for: URL("https://unknown.example.com"))
+        XCTAssertEqual(unknownAuth?.user, "defaultuser")
+        XCTAssertEqual(unknownAuth?.password, "defaultpass")
+    }
+
+    func testInMemoryNetrcNoMatch() throws {
+        let content = "machine host.example.com login myuser password mypass"
+        let provider = try InMemoryNetrcAuthorizationProvider(content: content)
+
+        let auth = provider.authentication(for: URL("https://other.example.com"))
+        XCTAssertNil(auth)
+    }
+
+    func testInMemoryNetrcInvalidContent() {
+        XCTAssertThrowsError(try InMemoryNetrcAuthorizationProvider(content: "invalid content"))
+    }
+
+    func testInMemoryNetrcInComposite() throws {
+        let content = "machine specific.example.com login netrcuser password netrcpass"
+        let netrcProvider = try InMemoryNetrcAuthorizationProvider(content: content)
+
+        let url = URL("https://specific.example.com")
+        let otherProvider = TestProvider(map: [url: (user: "otheruser", password: "otherpass")])
+
+        let composite = CompositeAuthorizationProvider(
+            netrcProvider,
+            otherProvider,
+            observabilityScope: ObservabilitySystem.NOOP
+        )
+
+        let auth = composite.authentication(for: url)
+        XCTAssertEqual(auth?.user, "netrcuser")
+        XCTAssertEqual(auth?.password, "netrcpass")
+    }
+
     private func assertAuthentication(
         _ provider: AuthorizationProvider,
         for url: URL,

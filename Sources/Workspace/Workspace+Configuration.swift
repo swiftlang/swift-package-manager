@@ -309,6 +309,22 @@ extension Workspace.Configuration {
         ) throws -> AuthorizationProvider? {
             var providers = [AuthorizationProvider]()
 
+            let env = Environment.current
+            if let token = env[.swiftpmSourceControlToken], !token.isEmpty {
+                providers.append(EnvironmentAuthorizationProvider(kind: .sourceControl))
+            }
+
+            if let netrcData = env[.swiftpmNetrcData], !netrcData.isEmpty {
+                do {
+                    providers.append(try InMemoryNetrcAuthorizationProvider(content: netrcData))
+                } catch {
+                    observabilityScope.emit(
+                        warning: "Failed to parse SWIFTPM_NETRC_DATA environment variable",
+                        underlyingError: error
+                    )
+                }
+            }
+
             switch self.netrc {
             case .custom(let path):
                 guard fileSystem.exists(path) else {
@@ -354,6 +370,33 @@ extension Workspace.Configuration {
             fileSystem: FileSystem,
             observabilityScope: ObservabilityScope
         ) throws -> AuthorizationProvider? {
+            let env = Environment.current
+            if let token = env[.swiftpmRegistryToken], !token.isEmpty {
+                return EnvironmentAuthorizationProvider(kind: .registry)
+            }
+            if let login = env[.swiftpmRegistryLogin], !login.isEmpty,
+               let password = env[.swiftpmRegistryPassword], !password.isEmpty {
+                return EnvironmentAuthorizationProvider(kind: .registry)
+            } else if let login = env[.swiftpmRegistryLogin], !login.isEmpty {
+                observabilityScope.emit(
+                    warning: "SWIFTPM_REGISTRY_LOGIN is set but SWIFTPM_REGISTRY_PASSWORD is not; both are required for login/password authentication"
+                )
+            } else if let password = env[.swiftpmRegistryPassword], !password.isEmpty {
+                observabilityScope.emit(
+                    warning: "SWIFTPM_REGISTRY_PASSWORD is set but SWIFTPM_REGISTRY_LOGIN is not; both are required for login/password authentication"
+                )
+            }
+            if let netrcData = env[.swiftpmNetrcData], !netrcData.isEmpty {
+                do {
+                    return try InMemoryNetrcAuthorizationProvider(content: netrcData)
+                } catch {
+                    observabilityScope.emit(
+                        warning: "Failed to parse SWIFTPM_NETRC_DATA environment variable",
+                        underlyingError: error
+                    )
+                }
+            }
+
             var providers = [AuthorizationProvider]()
 
             // OS-specific AuthorizationProvider has higher precedence
