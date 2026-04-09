@@ -197,6 +197,36 @@ struct SwiftPMBuildServerTests {
     }
 
     @Test
+    func compilerArgsCTarget() async throws {
+        try await withSwiftPMBSP(fixtureName: "CFamilyTargets/CLibrarySources") { connection, _, _ in
+            let targetResponse = try await connection.send(WorkspaceBuildTargetsRequest())
+            let cLibrarySources = try #require(targetResponse.targets.first(where: { $0.displayName == "CLibrarySources" }))
+            let targetID = cLibrarySources.id
+
+            let sourcesResponse = try await connection.send(BuildTargetSourcesRequest(targets: [targetID]))
+            let sources = try #require(sourcesResponse.items.only?.sources)
+            let sourceFile = try #require(sources.first(where: { $0.uri.fileURL?.lastPathComponent == "Foo.c" }))
+            #expect(sourceFile.kind == .file)
+
+            let headerFile = try #require(sources.first(where: { $0.uri.fileURL?.lastPathComponent == "Foo.h" }))
+            #expect(headerFile.kind == .file)
+            #expect(headerFile.sourceKitData?.kind == .header)
+
+            _ = try await connection.send(BuildTargetPrepareRequest(targets: [targetID]))
+
+            // Verify compiler arguments for the source file
+            let sourceSettingsResponse = try #require(try await connection.send(TextDocumentSourceKitOptionsRequest(textDocument: TextDocumentIdentifier(sourceFile.uri), target: targetID, language: .c)))
+            #expect(sourceSettingsResponse.compilerArguments.contains(where: { $0.hasSuffix("Foo.c") }))
+            try await AsyncProcess.checkNonZeroExit(arguments: [UserToolchain.default.getClangCompiler().pathString, "-fsyntax-only"] + sourceSettingsResponse.compilerArguments)
+
+            // Verify compiler arguments for the header file
+            let headerSettingsResponse = try #require(try await connection.send(TextDocumentSourceKitOptionsRequest(textDocument: TextDocumentIdentifier(headerFile.uri), target: targetID, language: .c)))
+            #expect(headerSettingsResponse.compilerArguments.contains(where: { $0.hasSuffix("Foo.h") }))
+            try await AsyncProcess.checkNonZeroExit(arguments: [UserToolchain.default.getClangCompiler().pathString, "-fsyntax-only"] + headerSettingsResponse.compilerArguments)
+        }
+    }
+
+    @Test
     func manifestArgs() async throws {
         try await withSwiftPMBSP(fixtureName: "Miscellaneous/VersionSpecificManifest") { connection, _, _ in
             let targetResponse = try await connection.send(WorkspaceBuildTargetsRequest())

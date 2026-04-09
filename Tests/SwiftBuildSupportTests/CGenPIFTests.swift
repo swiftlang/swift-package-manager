@@ -199,7 +199,7 @@ import SwiftBuild
                 destination: .host,
                 buildSystemKind: .swiftbuild,
             )
-        )
+        ).0
     }
 
     /// This is more to test out that the setup routines provide a good test environment

@@ -99,7 +99,7 @@ fileprivate func withGeneratedPIF(
             fileSystem: localFileSystem,
             observabilityScope: observabilitySystem.topScope
         )
-        let pif = try await builder.constructPIF(
+        let (pif, _) = try await builder.constructPIF(
             buildParameters: buildParameters,
             hostBuildParameters: hostBuildParameters
         )
@@ -391,7 +391,7 @@ struct PIFBuilderTests {
         )
 
         // Act
-        let pif = try await pifBuilder.constructPIF(
+        let (pif, _) = try await pifBuilder.constructPIF(
             buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild),
             hostBuildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
         )
@@ -826,7 +826,7 @@ struct PIFBuilderTests {
             fileSystem: fs,
             observabilityScope: observability.topScope
         )
-        let pif = try await pifBuilder.constructPIF(
+        let (pif, _) = try await pifBuilder.constructPIF(
             buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild),
             hostBuildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
         )
@@ -965,7 +965,7 @@ struct PIFBuilderTests {
             observabilityScope: observability.topScope
         )
 
-        let pif = try await pifBuilder.constructPIF(
+        let (pif, _) = try await pifBuilder.constructPIF(
             buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild),
             hostBuildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
         )

@@ -173,7 +173,7 @@ struct PrebuiltsPIFTests {
             fileSystem: fs,
             observabilityScope: observability.topScope
         )
-        let pif = try await pifBuilder.constructPIF(
+        let (pif, _) = try await pifBuilder.constructPIF(
             buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild),
             hostBuildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
         )
@@ -373,7 +373,7 @@ struct PrebuiltsPIFTests {
             fileSystem: fs,
             observabilityScope: observability.topScope
         )
-        let pif = try await pifBuilder.constructPIF(
+        let (pif, _) = try await pifBuilder.constructPIF(
             buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild),
             hostBuildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
         )

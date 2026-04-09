@@ -111,6 +111,9 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
         }
     }
     var state: ServerState = .waitingForInitializeRequest
+
+    private var headersByTargetGUID: [String: Set<Basics.AbsolutePath>] = [:]
+
     /// Allows customization of server exit behavior.
     var exitHandler: (Int) -> Void
 
@@ -213,6 +216,26 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
                         await logToClient(.warning, "SwiftPM build server processed target sources request for unexpected target '\(target)'")
                     }
                 }
+
+                // Add entries for the target's headers, which are not currently represented in the PIF.
+                for index in sourcesResponse.items.indices {
+                    guard let targetGUID = sourcesResponse.items[index].target.targetGUID else {
+                        logToClient(.warning, "Unable to determine target GUID for \(sourcesResponse.items[index].target) when looking up headers")
+                        continue
+                    }
+                    let headers = self.headersByTargetGUID[targetGUID] ?? []
+                    for header in headers {
+                        sourcesResponse.items[index].sources.append(
+                            SourceItem(
+                                uri: DocumentURI(header.asURL),
+                                kind: .file,
+                                generated: false,
+                                dataKind: .sourceKit,
+                                data: SourceKitSourceItemData(kind: .header).encodeToLSPAny()
+                            )
+                        )
+                    }
+                }
                 return sourcesResponse
             }
         case let request as RequestAndReply<InitializeBuildRequest>:
@@ -221,9 +244,15 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
             await request.reply {
                 if request.params.target.isSwiftPMBuildServerTargetID {
                     return try await manifestSourceKitOptions(request: request.params)
-                } else {
-                    return try await connectionToUnderlyingBuildServer.send(request.params)
                 }
+                if let targetGUID = request.params.target.targetGUID,
+                   let headers = headersByTargetGUID[targetGUID],
+                   let requestPath = try? request.params.textDocument.uri.fileURL?.filePath,
+                   headers.contains(requestPath),
+                   let response = try await self.headerSourceKitOptions(request: request.params){
+                    return response
+                }
+                return try await connectionToUnderlyingBuildServer.send(request.params)
             }
         case let request as RequestAndReply<WorkspaceBuildTargetsRequest>:
             await request.reply {
@@ -314,6 +343,79 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
         return TextDocumentSourceKitOptionsResponse(compilerArguments: compilerArgs)
     }
 
+    /// If the requested file is a known header, returns compiler arguments derived from a substitute source file
+    private func headerSourceKitOptions(
+        request: TextDocumentSourceKitOptionsRequest
+    ) async throws -> TextDocumentSourceKitOptionsResponse? {
+        guard let fileURL = request.textDocument.uri.fileURL,
+              let filePath = try? fileURL.filePath else {
+            return nil
+        }
+
+        var substituteSourceFile: URI? = nil
+        let sourcesResponse = try await connectionToUnderlyingBuildServer.send(BuildTargetSourcesRequest(targets: [request.target]))
+        for sourcesItem in sourcesResponse.items {
+            for sourceFile in sourcesItem.sources {
+                let language = SourceKitSourceItemData(fromLSPAny: sourceFile.data)?.language
+                switch language {
+                case .c, .cpp, .objective_c, .objective_cpp, nil:
+                    // SourceKit-LSP historically chose the first source file of a C-family target as the substitute.
+                    // Here, we specifically look for the first C/C++/ObjC/ObjC++ file so this is futureproof against
+                    // mixed Swift/C-family targets. However, we may also want to consider if e.g. a .hpp header should
+                    // use a C++ source file over a C source file if a target has both.
+                    substituteSourceFile = sourceFile.uri
+                default:
+                    break
+                }
+            }
+        }
+
+        guard let substituteSourceFile, let substituteSourceFilePath = try? substituteSourceFile.fileURL?.filePath else {
+            logToClient(.info, "Unable to find a substitute source file for '\(filePath)'")
+            return nil
+        }
+        logToClient(.info, "Getting compiler arguments for '\(filePath)' using substitute file '\(substituteSourceFilePath)'")
+
+        let substituteRequest = TextDocumentSourceKitOptionsRequest(
+            textDocument: TextDocumentIdentifier(substituteSourceFile),
+            target: request.target,
+            language: request.language
+        )
+        guard let substituteResponse = try await connectionToUnderlyingBuildServer.send(substituteRequest) else {
+            return nil
+        }
+
+        // Replace the substitute file path with the header path
+        // It's possible the arguments use relative paths while the `originalFile` given
+        // is an absolute/real path value. We guess based on suffixes instead of hitting
+        // the file system. Copied from SourceKit-LSP
+        var arguments = substituteResponse.compilerArguments
+        let substituteBasename = substituteSourceFilePath.basename
+        if let index = arguments.lastIndex(where: {
+            $0.hasSuffix(substituteBasename) && substituteSourceFilePath.pathString.hasSuffix($0)
+        }) {
+            arguments[index] = filePath.pathString
+        }
+
+        return TextDocumentSourceKitOptionsResponse(
+            compilerArguments: arguments,
+            workingDirectory: substituteResponse.workingDirectory,
+            data: substituteResponse.data
+        )
+    }
+
+    private func rebuildHeaderMapping(pifAccompanyingMetadata: [PackagePIFBuilder.ModuleOrProduct]) async {
+        var headers: [String: Set<Basics.AbsolutePath>] = [:]
+        for moduleOrProduct in pifAccompanyingMetadata {
+            guard let pifTarget = moduleOrProduct.pifTarget else { continue }
+            let guid = pifTarget.id.value
+            if !moduleOrProduct.headerFiles.isEmpty {
+                headers[guid] = moduleOrProduct.headerFiles
+            }
+        }
+        self.headersByTargetGUID = headers
+    }
+
     private func shutdown() -> VoidResponse {
         state = .shutdown
         return VoidResponse()
@@ -345,7 +447,9 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
     public func scheduleRegeneratingBuildDescription() {
         packageLoadingQueue.async { [buildSystem] in
             do {
-                try await buildSystem.writePIF(buildParameters: buildSystem.buildParameters)
+                let result = try await buildSystem.generatePIFAndAccompanyingMetadata(preserveStructure: false)
+                try localFileSystem.writeIfChanged(path: buildSystem.buildParameters.pifManifest, string: result.pif)
+                await self.rebuildHeaderMapping(pifAccompanyingMetadata: result.accompanyingMetadata)
                 self.connectionToUnderlyingBuildServer.send(OnWatchedFilesDidChangeNotification(changes: [
                     .init(uri: .init(buildSystem.buildParameters.pifManifest.asURL), type: .changed)
                 ]))
@@ -364,6 +468,14 @@ extension BuildTargetIdentifier {
 
     var isSwiftPMBuildServerTargetID: Bool {
         uri.scheme == Self.swiftPMBuildServerTargetScheme
+    }
+
+    var targetGUID: String? {
+        guard let components = URLComponents(url: uri.arbitrarySchemeURL, resolvingAgainstBaseURL: false),
+              let value = components.queryItems?.last(where: { $0.name == "targetGUID" })?.value else {
+            return nil
+        }
+        return value
     }
 }
 #endif
