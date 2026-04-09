@@ -145,6 +145,11 @@ extension SwiftCommand {
 
         swiftCommandState.releaseLockIfNeeded()
 
+        if globalOptions.build._buildSystem != .swiftbuild {
+            swiftCommandState.observabilityScope.emit(
+                .deprecatedBuildSystem(buildSystem: globalOptions.build._buildSystem)
+            )
+        }
         // wait for all observability items to process
         swiftCommandState.waitForObservabilityEvents(timeout: .now() + 5)
 
@@ -186,6 +191,12 @@ extension AsyncSwiftCommand {
         }
 
         swiftCommandState.releaseLockIfNeeded()
+
+        if globalOptions.build._buildSystem != .swiftbuild {
+            swiftCommandState.observabilityScope.emit(
+                .deprecatedBuildSystem(buildSystem: globalOptions.build._buildSystem)
+            )
+        }
 
         // wait for all observability items to process
         swiftCommandState.waitForObservabilityEvents(timeout: .now() + 5)
@@ -1431,6 +1442,12 @@ extension BuildOptions.DebugInfoFormat {
 extension Basics.Diagnostic {
     public static func mutuallyExclusiveArgumentsError(arguments: [String]) -> Self {
         .error(arguments.map { "'\($0)'" }.spm_localizedJoin(type: .conjunction) + " are mutually exclusive")
+    }
+
+    package static func deprecatedBuildSystem(buildSystem: BuildSystemProvider.Kind) -> Self {
+        .warning(
+            "'--build-system \(buildSystem)' has been deprecated and will be removed in a future release; please report an issue at https://github.com/swiftlang/swift-package-manager/issues if you are unable to adopt the default build system."
+        )
     }
 }
 
