@@ -358,12 +358,12 @@ public struct ToolsVersionParser {
         /// - Note: For a misspelt Swift tools version specification `"// swift-too1s-version:5.3"`, the first `"1"` is considered as the first character of the version specifier, and so `"1s-version:5.3"` is taken as the version specifier.
         let versionSpecifier = specificationSnippetFromLabelToLineTerminator[startIndexOfVersionSpecifier..<indexOfVersionSpecifierTerminator]
 
-        /// Look for experimental features. They are comma separated values contained in parenthases right after the ";", e.g. "// swift-tools-version: 6.4;(experimentalCGen,experimentalMultiLang)"
+        /// Look for experimental features. They are space separated values contained in parenthases right after the ";", e.g. "// swift-tools-version: 6.3;(experimentalCGen)"
         var experimentalFeatures: Set<ToolsVersion.ExperimentalFeature> = []
         if indexOfVersionSpecifierTerminator < specificationWithIgnoredTrailingContents.endIndex, specificationWithIgnoredTrailingContents[indexOfVersionSpecifierTerminator...].hasPrefix(";(") {
             let startOfExperimentalFeatures = specificationWithIgnoredTrailingContents.index(indexOfVersionSpecifierTerminator, offsetBy: 2)
             if let endOfExperimentalFeatures = specificationWithIgnoredTrailingContents[startOfExperimentalFeatures...].firstIndex(where: { $0 == ")" }) {
-                for featureString in specificationWithIgnoredTrailingContents[startOfExperimentalFeatures..<endOfExperimentalFeatures].split(separator: ",", omittingEmptySubsequences: true) {
+                for featureString in specificationWithIgnoredTrailingContents[startOfExperimentalFeatures..<endOfExperimentalFeatures].split(separator: " ", omittingEmptySubsequences: true) {
                     if let feature = ToolsVersion.ExperimentalFeature(rawValue: String(featureString)) {
                         experimentalFeatures.insert(feature)
                     }

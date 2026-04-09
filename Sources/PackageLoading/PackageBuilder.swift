@@ -1833,7 +1833,7 @@ extension Manifest {
 }
 
 extension Sources {
-    public var hasSwiftSources: Bool {
+    var hasSwiftSources: Bool {
         paths.contains { path in
             guard let ext = path.extension else { return false }
 
@@ -1841,7 +1841,7 @@ extension Sources {
         }
     }
 
-    public var hasClangSources: Bool {
+    var hasClangSources: Bool {
         let supportedClangFileExtensions = FileRuleDescription.clang.fileTypes.union(FileRuleDescription.asm.fileTypes)
 
         return paths.contains { path in
@@ -1851,7 +1851,7 @@ extension Sources {
         }
     }
 
-    public var containsMixedLanguage: Bool {
+    var containsMixedLanguage: Bool {
         self.hasSwiftSources && self.hasClangSources
     }
 

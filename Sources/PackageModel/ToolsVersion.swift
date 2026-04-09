@@ -90,7 +90,6 @@ public struct ToolsVersion: Equatable, Hashable, Codable, Sendable {
     /// Experimental features
     public enum ExperimentalFeature: String, Sendable, Codable {
         case experimentalCGen
-        case experimentalMultiLang
     }
     public let experimentalFeatures: Set<ExperimentalFeature>?
 
@@ -103,10 +102,6 @@ public struct ToolsVersion: Equatable, Hashable, Codable, Sendable {
     /// Helpers for experimental
     public var experimentalCGen: Bool {
         self >= .v6_3 && experimentalFeatures?.contains(.experimentalCGen) == true
-    }
-
-    public var experimentalMultiLang: Bool {
-        self >= .v6_4 && experimentalFeatures?.contains(.experimentalMultiLang) == true
     }
 
     /// Create an instance of tools version from a given string.
