@@ -877,7 +877,8 @@ def get_swiftpm_env_cmd(args):
         if platform.system() == 'Darwin':
             env_cmd.append("DYLD_LIBRARY_PATH=%s" % ":".join(libs))
         else:
-            libs_joined = ":".join(libs + args.target_info["paths"]["runtimeLibraryPaths"])
+            host_library_path = os.path.join(os.path.dirname(args.target_info["paths"]["runtimeLibraryPaths"][0]), "host")
+            libs_joined = ":".join(libs + [host_library_path])
             env_cmd.append("LD_LIBRARY_PATH=%s" % libs_joined)
 
     if '-macosx' in args.build_target:
