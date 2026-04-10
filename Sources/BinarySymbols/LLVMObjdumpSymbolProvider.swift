@@ -12,6 +12,12 @@
 
 import Basics
 import RegexBuilder
+import Subprocess
+#if canImport(System)
+import System
+#else
+import SystemPackage
+#endif
 
 package struct LLVMObjdumpSymbolProvider: SymbolProvider {
     private let objdumpPath: AbsolutePath
@@ -21,15 +27,16 @@ package struct LLVMObjdumpSymbolProvider: SymbolProvider {
     }
 
     package func symbols(for binary: AbsolutePath, symbols: inout ReferencedSymbols, recordUndefined: Bool = true) async throws {
-        let objdumpProcess = AsyncProcess(args: objdumpPath.pathString, "-t", "-T", binary.pathString)
-        try objdumpProcess.launch()
-        let result = try await objdumpProcess.waitUntilExit()
-        guard case .terminated(let status) = result.exitStatus,
-            status == 0 else {
+        let result = try await run(
+            .path(FilePath(objdumpPath.pathString)),
+            arguments: ["-t", "-T", binary.pathString],
+            output: .string(limit: .max)
+        )
+        guard result.terminationStatus.isSuccess else {
             throw InternalError("Unable to run llvm-objdump")
         }
 
-        try parse(output: try result.utf8Output(), symbols: &symbols, recordUndefined: recordUndefined)
+        try parse(output: result.standardOutput ?? "", symbols: &symbols, recordUndefined: recordUndefined)
     }
 
     package func parse(output: String, symbols: inout ReferencedSymbols, recordUndefined: Bool = true) throws {
