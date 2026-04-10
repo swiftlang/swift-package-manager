@@ -21,28 +21,12 @@ add_library(PackageLoading
   RegistryReleaseMetadataSerialization.swift
   Target+PkgConfig.swift
   TargetSourcesBuilder.swift
-  ToolsVersionParser.swift
-
-  ManifestParsing/BuildConfiguration+HostToolchain.swift
-  ManifestParsing/ChainedParsingManifestLoader.swift
-  ManifestParsing/ManifestParseLimitation.swift
-  ManifestParsing/ManifestParserError.swift
-  ManifestParsing/ParsingManifestLoader.swift
-)
-
+  ToolsVersionParser.swift)
 target_link_libraries(PackageLoading PUBLIC
   TSCBasic
   Basics
   PackageModel
-  TSCUtility
-
-  SwiftSyntax::SwiftDiagnostics
-  SwiftSyntax::SwiftIfConfig
-  SwiftSyntax::SwiftOperators
-  SwiftSyntax::SwiftParser
-  SwiftSyntax::SwiftParserDiagnostics
-  SwiftSyntax::SwiftSyntax
-)
+  TSCUtility)
 target_link_libraries(PackageLoading PUBLIC
   $<$<NOT:$<PLATFORM_ID:Darwin>>:Foundation>)
 target_link_libraries(PackageLoading PRIVATE

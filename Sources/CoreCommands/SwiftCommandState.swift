@@ -1113,6 +1113,7 @@ public final class SwiftCommandState {
         )
     })
 
+    #if !DISABLE_PARSING_MANIFEST_LOADER
     private func createParsingManifestLoader() throws -> ParsingManifestLoader {
         return try ParsingManifestLoader(
             toolchain: self.getHostToolchain(),
@@ -1121,6 +1122,7 @@ public final class SwiftCommandState {
             environment: nil
         )
     }
+    #endif
 
     private func createExecutingManifestLoader() throws -> ManifestLoader {
         let cachePath: AbsolutePath? = switch (
@@ -1157,15 +1159,28 @@ public final class SwiftCommandState {
     private lazy var _manifestLoader: Result<any ManifestLoaderProtocol, Swift.Error> = Result(
         catching: {
             switch self.options.manifest.manifestProcessingMode {
-            case .onlyParsed: try createParsingManifestLoader()
-            case .onlyExecuted: try createExecutingManifestLoader()
+            case .onlyParsed:
+                #if !DISABLE_PARSING_MANIFEST_LOADER
+                return try createParsingManifestLoader()
+                #else
+                fatalError("swiftpm was built without support for the parsed manifest loader")
+                #endif
+
             case .crosscheck, .parsedWithFallback:
-                ChainedParsingManifestLoader(
+                #if !DISABLE_PARSING_MANIFEST_LOADER
+                return ChainedParsingManifestLoader(
                     parsingLoader: try createParsingManifestLoader(),
                     executingLoader: try createExecutingManifestLoader(),
                     showLimitations: self.options.manifest.showManifestParserLimitations,
                     crosscheck: self.options.manifest.manifestProcessingMode == .crosscheck
                 )
+                #else
+                // Silently fall back to the executing manifest loader.
+                fallthrough
+                #endif
+
+            case .onlyExecuted:
+                return try createExecutingManifestLoader()
         }
     })
 

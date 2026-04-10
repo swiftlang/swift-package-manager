@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if !DISABLE_PARSING_MANIFEST_LOADER
 import Basics
 import Dispatch
 import Foundation
@@ -3288,3 +3289,4 @@ class StaticContextModel {
         }
     }()
 }
+#endif

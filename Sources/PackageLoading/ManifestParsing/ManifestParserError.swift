@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if !DISABLE_PARSING_MANIFEST_LOADER
 import Basics
 import Foundation
 import SwiftDiagnostics
@@ -50,3 +51,4 @@ extension ManifestParserError: LocalizedError {
         description
     }
 }
+#endif

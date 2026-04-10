@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if !DISABLE_PARSING_MANIFEST_LOADER
 import Basics
 import SwiftIfConfig
 import TSCUtility
@@ -39,3 +40,5 @@ extension StaticBuildConfiguration {
         return try decoder.decode(StaticBuildConfiguration.self, from: outputData)
     }
 }
+#endif
+

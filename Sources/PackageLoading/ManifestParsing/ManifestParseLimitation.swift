@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if !DISABLE_PARSING_MANIFEST_LOADER
 import SwiftDiagnostics
 import SwiftSyntax
 
@@ -134,3 +135,4 @@ extension ManifestParseLimitation: DiagnosticMessage {
         )
     }
 }
+#endif

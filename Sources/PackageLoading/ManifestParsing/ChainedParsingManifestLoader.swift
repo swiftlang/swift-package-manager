@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if !DISABLE_PARSING_MANIFEST_LOADER
 import Basics
 import Dispatch
 import Foundation
@@ -228,3 +229,4 @@ public final class ChainedParsingManifestLoader: ManifestLoaderProtocol {
         }
     }
 }
+#endif
