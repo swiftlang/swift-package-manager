@@ -281,7 +281,7 @@ final class PluginDelegate: PluginInvocationDelegate {
                         // Configure a test runner.
                         let additionalArguments = TestRunner.xctestArguments(forTestSpecifiers: CollectionOfOne(testSpecifier))
                         let testRunner = TestRunner(
-                            bundlePaths: [testProduct.bundlePath],
+                            testProducts: [testProduct],
                             additionalArguments: additionalArguments,
                             cancellator: swiftCommandState.cancellator,
                             toolchain: toolchain,
