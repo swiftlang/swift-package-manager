@@ -21,8 +21,6 @@ import _InternalTestSupport
 import Workspace
 import Testing
 
-import class Basics.AsyncProcess
-
 @Suite(
     .serializedIfOnWindows,
     .tags(
@@ -146,9 +144,12 @@ struct CFamilyTargetTestCase {
                 )
             }
 
-            let errString = "\(error)"
             let missingIncludeDirStr = "\(ModuleError.invalidPublicHeadersDirectory("Cfactorial"))"
-            #expect(errString.contains(missingIncludeDirStr))
+            guard case SwiftPMError.executionFailure(_, let stdout, let stderr) = error else {
+                Issue.record("Unexpected error type: \(error)")
+                return
+            }
+            #expect((stdout + stderr).contains(missingIncludeDirStr))
         }
     }
 
