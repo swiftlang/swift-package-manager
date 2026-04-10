@@ -34,7 +34,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ${BUILD_SHARED_LIBS})
 if(FIND_PM_DEPS)
   find_package(SwiftSystem CONFIG REQUIRED)
   find_package(TSC CONFIG REQUIRED)
-
+  find_package(SwiftSubprocess QUIET)
   find_package(LLBuild CONFIG)
   if(NOT LLBuild_FOUND)
     find_package(LLBuild REQUIRED)

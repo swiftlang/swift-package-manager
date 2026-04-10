@@ -13,6 +13,12 @@
 import Dispatch
 
 import class Foundation.JSONDecoder
+import Subprocess
+#if canImport(System)
+import System
+#else
+import SystemPackage
+#endif
 
 private let defaultImports = ["Swift", "SwiftOnoneSupport", "_Concurrency",
                               "_StringProcessing", "_SwiftConcurrencyShims"]
@@ -45,9 +51,20 @@ public struct SwiftcImportScanner: ImportScanner {
                    filePathToScan.pathString,
                    "-scan-dependencies", "-Xfrontend", "-import-prescan"] + self.swiftCompilerFlags
 
-        let result = try await AsyncProcess.popen(arguments: cmd, environment: self.swiftCompilerEnvironment)
-
-        let stdout = try result.utf8Output()
+        let result = try await Subprocess.run(
+            .path(FilePath(cmd[0])),
+            arguments: Subprocess.Arguments(Array(cmd.dropFirst())),
+            environment: Subprocess.Environment.custom(
+                Dictionary(uniqueKeysWithValues: self.swiftCompilerEnvironment.map {
+                    (Subprocess.Environment.Key(rawValue: $0.key.rawValue)!, $0.value)
+                })
+            ),
+            output: .string(limit: .max)
+        )
+        guard result.terminationStatus.isSuccess else {
+            throw InternalError("import scanning failed")
+        }
+        let stdout = result.standardOutput ?? ""
         return try JSONDecoder.makeWithDefaults().decode(Imports.self, from: stdout).imports
             .filter { !defaultImports.contains($0) }
     }
