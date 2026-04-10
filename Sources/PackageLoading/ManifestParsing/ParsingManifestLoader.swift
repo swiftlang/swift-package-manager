@@ -357,6 +357,10 @@ class ManifestParseVisitor: ActiveSyntaxAnyVisitor {
 
     var defaultPackageAccess: Bool
 
+    /// Storage for global variables defined in the manifest
+    /// Maps variable names to their expression syntax nodes for lazy evaluation
+    private var globalVariables: [String: ExprSyntax] = [:]
+
     init(
         manifestPath: AbsolutePath,
         configuration: StaticBuildConfiguration,
@@ -387,34 +391,30 @@ class ManifestParseVisitor: ActiveSyntaxAnyVisitor {
 
         return visitAny(Syntax(node))
     }
-    /// Process global variable declarations to find the "package" declaration.
+
+    /// Process global variable declarations to find the "package" declaration or global variables.
     override func visit(_ varNode: VariableDeclSyntax) -> SyntaxVisitorContinueKind {
         // Dig out the name and initializer.
-        guard let (_, initializer) = varNode.asSingleInitializedVariable() else {
+        guard let (varName, initializer) = varNode.asSingleInitializedVariable() else {
             limitations.append(.unsupportedVariableForm(varNode))
             return .skipChildren
         }
 
         // Check whether we know this call or not.
-        guard let (knownCall, arguments) = initializer.asKnownCall() else {
-            limitations.append(
-                .unsupportedExpression(
-                    initializer,
-                    expected: "top-level variable initializer"
-                )
-            )
+        if let (knownCall, arguments) = initializer.asKnownCall() {
+            // Handle any top-level known calls here.
+            switch knownCall {
+            case .package:
+                handlePackageDeclaration(initializer: initializer, arguments: arguments)
+            }
             return .skipChildren
         }
 
-        // Handle any top-level known calls here.
-        switch knownCall {
-        case .package:
-            handlePackageDeclaration(initializer: initializer, arguments: arguments)
-        }
-
+        // Store the expression for this global variable
+        // We'll parse it on-demand when it's referenced
+        globalVariables[varName.name] = initializer
         return .skipChildren
     }
-
 
     /// Check whether import declarations match known modules. Otherwise, we
     /// can't reason about what the manifest is doing.
@@ -459,6 +459,340 @@ class ManifestParseVisitor: ActiveSyntaxAnyVisitor {
     }
 }
 
+/// MARK: Handling arrays and variable resolution
+extension ManifestParseVisitor {
+    /// Resolve a string literal expression with support for global variable references and interpolations
+    /// - Parameters:
+    ///   - expr: The expression to parse (could be a string literal, variable reference, or Context expression)
+    /// - Returns: The resolved string value, or nil if it cannot be resolved
+    private func resolveStringLiteral(_ expr: ExprSyntax) -> String? {
+        // Case 1: Variable reference - resolve and recurse
+        if let varRef = expr.as(DeclReferenceExprSyntax.self),
+           let varName = varRef.baseName.identifier?.name,
+           let value = globalVariables[varName] {
+            // Recursively resolve the variable's value
+            return resolveStringLiteral(value)
+        }
+        
+        // Case 2: Direct Context expression (e.g., Context.packageDirectory)
+        if let value = evaluateContextExpression(expr) {
+            return value
+        }
+        
+        // Case 3: String literal (possibly with interpolations)
+        guard let stringLiteral = expr.as(StringLiteralExprSyntax.self) else {
+            return nil
+        }
+
+        // Simple case: no interpolation — use representedLiteralValue to correctly handle
+        // escape sequences (e.g. \" in a C preprocessor define value becomes ").
+        if let value = stringLiteral.representedLiteralValue {
+            return value
+        }
+
+        // Complex case: handle interpolations with Context values and global variables
+        var result = ""
+        for segment in stringLiteral.segments {
+            switch segment {
+            case .stringSegment(let contents):
+                // For string segments.
+                result += contents.content.text
+
+            case .expressionSegment(let exprSegment):
+                // Try to evaluate the interpolated expression
+                guard let interpolatedExpr = exprSegment.expressions.first?.expression, exprSegment.expressions.count == 1 else {
+                    return nil
+                }
+                
+                // Recursively resolve the interpolated expression
+                // This allows variable references, Context expressions, etc.
+                if let value = resolveStringLiteral(interpolatedExpr) {
+                    result += value
+                } else {
+                    // Cannot evaluate this interpolation
+                    return nil
+                }
+            }
+        }
+
+        return result
+    }
+    
+    /// Evaluate a Context expression like Context.gitInformation?.currentTag or Context.environment["KEY"]
+    /// Returns the string representation of the value, or nil if it cannot be evaluated.
+    private func evaluateContextExpression(_ expr: ExprSyntax) -> String? {
+        var currentExpr: ExprSyntax = expr
+        var nilCoalescingDefault: String? = nil
+
+        // Handle nil-coalescing operator (??)
+        if let infixExpr = currentExpr.as(InfixOperatorExprSyntax.self),
+           let op = infixExpr.operator.as(BinaryOperatorExprSyntax.self),
+           op.operator.text.trimmingCharacters(in: .whitespaces) == "??" {
+            // Get the default value from the right side
+            if let rightValue = resolveStringLiteral(infixExpr.rightOperand) {
+                nilCoalescingDefault = rightValue
+            }
+            // Continue evaluating the left side
+            currentExpr = infixExpr.leftOperand
+        }
+        
+        // Handle boolean comparison (== true)
+        if let infixExpr = currentExpr.as(InfixOperatorExprSyntax.self),
+           let op = infixExpr.operator.as(BinaryOperatorExprSyntax.self),
+           op.operator.text.trimmingCharacters(in: .whitespaces) == "==" {
+            // Check if right side is 'true'
+            if let boolLit = infixExpr.rightOperand.as(BooleanLiteralExprSyntax.self),
+               boolLit.literal.tokenKind == .keyword(.true) {
+                currentExpr = infixExpr.leftOperand
+            }
+        }
+        
+        // Check for subscript access (e.g., Context.environment["KEY"])
+        if let subscriptExpr = currentExpr.as(SubscriptCallExprSyntax.self) {
+            // Parse the base expression (e.g., Context.environment)
+            var baseParts: [String] = []
+            var baseExpr = subscriptExpr.calledExpression
+            
+            // Walk through the member access chain
+            while true {
+                if let memberAccess = baseExpr.as(MemberAccessExprSyntax.self) {
+                    baseParts.insert(memberAccess.declName.baseName.text, at: 0)
+                    if let base = memberAccess.base {
+                        baseExpr = base
+                    } else {
+                        break
+                    }
+                } else if let declRef = baseExpr.as(DeclReferenceExprSyntax.self) {
+                    baseParts.insert(declRef.baseName.text, at: 0)
+                    break
+                } else {
+                    return nil
+                }
+            }
+            
+            // Check if it's Context.environment
+            if baseParts.count == 2 && baseParts[0] == "Context" && baseParts[1] == "environment" {
+                // Get the subscript key
+                if let firstArg = subscriptExpr.arguments.first,
+                   let keyString = resolveStringLiteral(firstArg.expression) {
+                    // Look up the environment variable
+                    if let value = contextModel.environment[keyString] {
+                        return value
+                    } else {
+                        return nilCoalescingDefault
+                    }
+                }
+            }
+            
+            return nil
+        }
+        
+        // Now parse the member access chain
+        // Expected patterns:
+        // - Context.packageDirectory
+        // - Context.gitInformation?.currentTag
+        // - Context.gitInformation?.currentCommit
+        // - Context.gitInformation?.hasUncommittedChanges
+        
+        // Extract all parts of the member access chain
+        var parts: [String] = []
+        
+        // Walk backwards through the member access chain
+        while true {
+            if let memberAccess = currentExpr.as(MemberAccessExprSyntax.self) {
+                // Add the member name
+                parts.insert(memberAccess.declName.baseName.text, at: 0)
+                
+                if let base = memberAccess.base {
+                    currentExpr = base
+                } else {
+                    // No more base, we're done
+                    break
+                }
+            } else if let optChain = currentExpr.as(OptionalChainingExprSyntax.self) {
+                // Skip the optional chaining wrapper and continue
+                currentExpr = optChain.expression
+            } else if let postfixUnary = currentExpr.as(PostfixOperatorExprSyntax.self) {
+                // This handles the ? in optional chaining
+                currentExpr = postfixUnary.expression
+            } else if let declRef = currentExpr.as(DeclReferenceExprSyntax.self) {
+                // This is the base identifier (e.g., "Context")
+                parts.insert(declRef.baseName.text, at: 0)
+                break
+            } else {
+                // Unknown expression structure
+                return nil
+            }
+        }
+        
+        // Now evaluate based on the parts
+        guard parts.count >= 2 && parts[0] == "Context" else {
+            return nil
+        }
+        
+        switch parts[1] {
+        case "packageDirectory":
+            return contextModel.packageDirectory
+            
+        case "gitInformation":
+            guard parts.count >= 3 else {
+                return nil
+            }
+            guard let gitInfo = contextModel.gitInformation else {
+                return nilCoalescingDefault
+            }
+            
+            switch parts[2] {
+            case "currentTag":
+                if let tag = gitInfo.currentTag {
+                    return tag
+                } else {
+                    return nilCoalescingDefault ?? ""
+                }
+                
+            case "currentCommit":
+                return gitInfo.currentCommit
+                
+            case "hasUncommittedChanges":
+                let value = gitInfo.hasUncommittedChanges
+                return value ? "true" : "false"
+                
+            default:
+                return nil
+            }
+            
+        default:
+            return nil
+        }
+    }
+    
+    /// Resolve a string array expression with support for global variable references and concatenation
+    /// - Parameters:
+    ///   - expr: The expression to parse (could be an array literal, variable reference, or concatenation)
+    ///   - expectedDescription: Description of what's expected for error messages
+    /// - Returns: The resolved array of strings, or nil if it cannot be resolved
+    private func resolveStringArray(_ expr: ExprSyntax, expectedDescription: String) -> [String]? {
+        return resolveArray(
+            expr,
+            expectedDescription: expectedDescription
+        ) { element in
+            resolveStringLiteral(element)
+        }
+    }
+    
+    /// Parse an array expression with full support for variable resolution, concatenation, and element parsing
+    /// - Parameters:
+    ///   - expr: The expression to parse (could be an array literal, variable reference, or array concatenation)
+    ///   - originalExpr: The original unresolved expression (used for error reporting)
+    ///   - expectedDescription: Description of what's expected for error messages
+    ///   - elementParser: Closure that parses individual array elements
+    /// - Returns: Array of parsed elements, or nil if parsing failed
+    ///
+    /// This function recursively handles:
+    /// - Variable references (e.g., `myArray`)
+    /// - Array concatenation (e.g., `array1 + array2`)
+    /// - Nested combinations (e.g., `var1 + var2 + [.item3]`)
+    private func resolveArray<T>(
+        _ expr: ExprSyntax,
+        originalExpr: ExprSyntax? = nil,
+        expectedDescription: String,
+        elementParser: (ExprSyntax) -> T?
+    ) -> [T]? {
+        // Case 1: Variable reference - resolve and recurse
+        if let varRef = expr.as(DeclReferenceExprSyntax.self),
+           let varName = varRef.baseName.identifier?.name,
+           let value = globalVariables[varName] {
+            // Recursively resolve and parse the variable's value
+            return resolveArray(
+                value,
+                originalExpr: originalExpr,
+                expectedDescription: expectedDescription,
+                elementParser: elementParser
+            )
+        }
+        
+        // Case 2: Binary expression (array concatenation with +)
+        if let infixExpr = expr.as(InfixOperatorExprSyntax.self),
+           let op = infixExpr.operator.as(BinaryOperatorExprSyntax.self),
+           op.operator.text.trimmingCharacters(in: .whitespaces) == "+" {
+            
+            // Recursively resolve and parse both operands
+            guard let leftElements = resolveArray(
+                infixExpr.leftOperand,
+                originalExpr: originalExpr,
+                expectedDescription: expectedDescription,
+                elementParser: elementParser
+            ) else {
+                return nil
+            }
+            
+            guard let rightElements = resolveArray(
+                infixExpr.rightOperand,
+                originalExpr: originalExpr,
+                expectedDescription: expectedDescription,
+                elementParser: elementParser
+            ) else {
+                return nil
+            }
+            
+            // Combine the parsed elements from both sides
+            return leftElements + rightElements
+        }
+        
+        // Case 3: Array literal - parse its elements directly
+        guard let arrayExpr = expr.as(ArrayExprSyntax.self) else {
+            limitations.append(
+                .unsupportedExpression(
+                    originalExpr ?? expr,
+                    expected: expectedDescription
+                )
+            )
+            return nil
+        }
+        
+        // Parse each element in the array
+        var results: [T] = []
+        for element in arrayExpr.elements {
+            var elementExpr = element.expression
+            if let varRef = element.expression.as(DeclReferenceExprSyntax.self),
+               let varName = varRef.baseName.identifier?.name,
+               let value = globalVariables[varName] {
+                elementExpr = value
+            }
+
+            if let parsed = elementParser(elementExpr) {
+                results.append(parsed)
+            }
+        }
+        
+        return results
+    }
+    
+    /// Parse a platform name as used in a `.when(platforms: [...])` condition.
+    /// Handles both plain enum members (e.g. `.linux`) and custom platforms
+    /// (e.g. `.custom("freebsd")`).
+    /// - Parameters:
+    ///   - expr: The expression to parse
+    /// - Returns: The platform name, or nil if it cannot be parsed
+    private func parsePlatformConditionName(_ expr: ExprSyntax) -> String? {
+        if let name = expr.asEnumMember() {
+            return name
+        }
+
+        // Handle .custom("platformName")
+        guard let functionCall = expr.as(FunctionCallExprSyntax.self),
+              let memberAccess = functionCall.calledExpression.as(MemberAccessExprSyntax.self),
+              memberAccess.base == nil,
+              memberAccess.declName.baseName.identifier?.name == "custom",
+              let firstArg = functionCall.arguments.first,
+              firstArg.label == nil else {
+            return nil
+        }
+        
+        return resolveStringLiteral(firstArg.expression)
+    }
+}
+
 /// MARK: Declaration handling
 extension ManifestParseVisitor {
     func handlePackageDeclaration(
@@ -467,37 +801,28 @@ extension ManifestParseVisitor {
     ) {
         for argument in arguments {
             if argument.label?.text == "name" {
-                guard let name = argument.expression.asStringLiteralValue(in: contextModel) else {
+                if let name = resolveStringLiteral(argument.expression) {
+                    // Record the package name.
+                    self.packageName = name
+                } else {
                     limitations.append(
                         .unsupportedExpression(
                             argument.expression,
-                            expected: "string literal"
+                            expected: "string literal or reference to global variable"
                         )
                     )
-
-                    continue
                 }
-
-                // Record the package name.
-                self.packageName = name
                 continue
             }
             
             if argument.label?.text == "dependencies" {
-                guard let dependenciesArray = argument.expression.as(ArrayExprSyntax.self) else {
-                    limitations.append(
-                        .unsupportedExpression(
-                            argument.expression,
-                            expected: "array of package dependencies"
-                        )
-                    )
-                    continue
-                }
-                
-                for dependencyElement in dependenciesArray.elements {
-                    if let dependency = parsePackageDependency(dependencyElement.expression, manifestPath: manifestPath) {
-                        self.dependencies.append(dependency)
-                    }
+                if let deps = resolveArray(
+                    argument.expression,
+                    expectedDescription: "array of package dependencies or reference to global variable"
+                ) { expr in
+                    parsePackageDependency(expr, manifestPath: manifestPath)
+                } {
+                    self.dependencies.append(contentsOf: deps)
                 }
                 continue
             }
@@ -551,50 +876,32 @@ extension ManifestParseVisitor {
             }
             
             if argument.label?.text == "pkgConfig" {
-                if let value = argument.expression.asStringLiteralValue(in: contextModel) {
+                if let value = resolveStringLiteral(argument.expression) {
                     self.pkgConfig = value
                 } else {
-                    limitations.append(.unsupportedExpression(argument.expression, expected: "pkgConfig string"))
+                    limitations.append(.unsupportedExpression(argument.expression, expected: "pkgConfig string or reference to global variable"))
                 }
                 continue
             }
             
             if argument.label?.text == "providers" {
-                guard let providersArray = argument.expression.as(ArrayExprSyntax.self) else {
-                    limitations.append(
-                        .unsupportedExpression(
-                            argument.expression,
-                            expected: "array of providers"
-                        )
-                    )
-                    continue
+                if let parsedProviders = resolveArray(
+                    argument.expression,
+                    expectedDescription: "array of providers",
+                    elementParser: parseSystemPackageProvider
+                ) {
+                    self.providers = parsedProviders.isEmpty ? nil : parsedProviders
                 }
-                
-                var parsedProviders: [SystemPackageProviderDescription] = []
-                for providerElement in providersArray.elements {
-                    if let provider = parseSystemPackageProvider(providerElement.expression) {
-                        parsedProviders.append(provider)
-                    }
-                }
-                self.providers = parsedProviders.isEmpty ? nil : parsedProviders
                 continue
             }
             
             if argument.label?.text == "products" {
-                guard let productsArray = argument.expression.as(ArrayExprSyntax.self) else {
-                    limitations.append(
-                        .unsupportedExpression(
-                            argument.expression,
-                            expected: "array of products"
-                        )
-                    )
-                    continue
-                }
-                
-                for productElement in productsArray.elements {
-                    if let product = parseProduct(productElement.expression) {
-                        self.products.append(product)
-                    }
+                if let prods = resolveArray(
+                    argument.expression,
+                    expectedDescription: "array of products or reference to global variable",
+                    elementParser: parseProduct
+                ) {
+                    self.products.append(contentsOf: prods)
                 }
                 continue
             }
@@ -614,73 +921,44 @@ extension ManifestParseVisitor {
             }
             
             if argument.label?.text == "platforms" {
-                guard let platformsArray = argument.expression.as(ArrayExprSyntax.self) else {
-                    limitations.append(
-                        .unsupportedExpression(
-                            argument.expression,
-                            expected: "array of platforms"
-                        )
-                    )
-                    continue
+                if let plats = resolveArray(
+                    argument.expression,
+                    expectedDescription: "array of platforms or reference to global variable",
+                    elementParser: parsePlatform
+                ) {
+                    self.platforms = plats
                 }
-                
-                var parsedPlatforms: [PlatformDescription] = []
-                for platformElement in platformsArray.elements {
-                    if let platform = parsePlatform(platformElement.expression) {
-                        parsedPlatforms.append(platform)
-                    }
-                }
-                self.platforms = parsedPlatforms
                 continue
             }
             
             if argument.label?.text == "defaultLocalization" {
-                if let value = argument.expression.asStringLiteralValue(in: contextModel) {
+                if let value = resolveStringLiteral(argument.expression) {
                     self.defaultLocalization = value
                 } else {
-                    limitations.append(.unsupportedExpression(argument.expression, expected: "default localization language tag"))
+                    limitations.append(.unsupportedExpression(argument.expression, expected: "default localization language tag or reference to global variable"))
                 }
                 continue
             }
             
             if argument.label?.text == "targets" {
-                guard let targetsArray = argument.expression.as(ArrayExprSyntax.self) else {
-                    limitations.append(
-                        .unsupportedExpression(
-                            argument.expression,
-                            expected: "array of targets"
-                        )
-                    )
-                    continue
-                }
-                
-                // Parse each target in the array
-                for targetElement in targetsArray.elements {
-                    if let target = parseTarget(targetElement.expression) {
-                        self.targets.append(target)
-                    }
+                if let tgts = resolveArray(
+                    argument.expression,
+                    expectedDescription: "array of targets or reference to global variable",
+                    elementParser: parseTarget
+                ) {
+                    self.targets.append(contentsOf: tgts)
                 }
                 continue
             }
             
             if argument.label?.text == "traits" {
-                guard let traitsArray = argument.expression.as(ArrayExprSyntax.self) else {
-                    limitations.append(
-                        .unsupportedExpression(
-                            argument.expression,
-                            expected: "array of traits"
-                        )
-                    )
-                    continue
+                if let trts = resolveArray(
+                    argument.expression,
+                    expectedDescription: "array of traits or reference to global variable",
+                    elementParser: parseTrait
+                ) {
+                    self.traits = trts
                 }
-                
-                var parsedTraits: [TraitDescription] = []
-                for traitElement in traitsArray.elements {
-                    if let trait = parseTrait(traitElement.expression) {
-                        parsedTraits.append(trait)
-                    }
-                }
-                self.traits = parsedTraits
                 continue
             }
 
@@ -746,104 +1024,126 @@ extension ManifestParseVisitor {
             let label = argument.label?.text
             
             if label == "name" {
-                name = argument.expression.asStringLiteralValue(in: contextModel)
+                name = resolveStringLiteral(argument.expression)
             } else if label == "dependencies" {
-                if let deps = argument.expression.parseArrayElements(parseTargetDependency) {
+                if let deps = resolveArray(
+                    argument.expression,
+                    expectedDescription: "array of target dependencies or reference to global variable",
+                    elementParser: parseTargetDependency
+                ) {
                     dependencies.append(contentsOf: deps)
                 } else {
-                    limitations.append(.unsupportedExpression(argument.expression, expected: "array of target dependencies"))
+                    limitations.append(.unsupportedExpression(argument.expression, expected: "array of target dependencies or reference to global variable"))
                 }
             } else if label == "path" {
-                if let value = argument.expression.asStringLiteralValue(in: contextModel) {
+                if let value = resolveStringLiteral(argument.expression) {
                     path = value
                 } else {
-                    limitations.append(.unsupportedExpression(argument.expression, expected: "path string"))
+                    limitations.append(.unsupportedExpression(argument.expression, expected: "path string or reference to global variable"))
                 }
             } else if label == "url" {
-                if let value = argument.expression.asStringLiteralValue(in: contextModel) {
+                if let value = resolveStringLiteral(argument.expression) {
                     url = value
                 } else {
-                    limitations.append(.unsupportedExpression(argument.expression, expected: "url string"))
+                    limitations.append(.unsupportedExpression(argument.expression, expected: "url string or reference to global variable"))
                 }
             } else if label == "checksum" {
-                if let value = argument.expression.asStringLiteralValue() {
+                if let value = resolveStringLiteral(argument.expression) {
                     checksum = value
                 } else {
-                    limitations.append(.unsupportedExpression(argument.expression, expected: "checksum string"))
+                    limitations.append(.unsupportedExpression(argument.expression, expected: "checksum string or reference to global variable"))
                 }
             } else if label == "exclude" {
-                if let value = argument.expression.asStringArray(in: contextModel) {
+                if let value = resolveStringArray(argument.expression, expectedDescription: "array of excluded paths or reference to global variable") {
                     exclude = value
-                } else {
-                    limitations.append(.unsupportedExpression(argument.expression, expected: "array of excluded paths"))
                 }
             } else if label == "sources" {
-                if let parsed = argument.expression.asStringArray(in: contextModel) {
+                if let parsed = resolveStringArray(argument.expression, expectedDescription: "array of source file paths or reference to global variable") {
                     sources = parsed
-                } else {
-                    limitations.append(.unsupportedExpression(argument.expression, expected: "array of source file paths"))
                 }
             } else if label == "publicHeadersPath" {
-                if let value = argument.expression.asStringLiteralValue(in: contextModel) {
+                if let value = resolveStringLiteral(argument.expression) {
                     publicHeadersPath = value
                 } else {
-                    limitations.append(.unsupportedExpression(argument.expression, expected: "publicHeadersPath string"))
+                    limitations.append(.unsupportedExpression(argument.expression, expected: "publicHeadersPath string or reference to global variable"))
                 }
             } else if label == "pkgConfig" {
-                if let value = argument.expression.asStringLiteralValue() {
+                if let value = resolveStringLiteral(argument.expression) {
                     pkgConfig = value
                 } else {
-                    limitations.append(.unsupportedExpression(argument.expression, expected: "pkgConfig string"))
+                    limitations.append(.unsupportedExpression(argument.expression, expected: "pkgConfig string or reference to global variable"))
                 }
             } else if label == "providers" {
-                if let providersArray = argument.expression.as(ArrayExprSyntax.self) {
-                    var parsedProviders: [SystemPackageProviderDescription] = []
-                    for providerElement in providersArray.elements {
-                        if let provider = parseSystemPackageProvider(providerElement.expression) {
-                            parsedProviders.append(provider)
-                        }
-                    }
+                if let parsedProviders = resolveArray(
+                    argument.expression,
+                    expectedDescription: "array of system package providers or reference to global variable",
+                    elementParser: parseSystemPackageProvider
+                ) {
                     providers = parsedProviders.isEmpty ? nil : parsedProviders
                 } else {
-                    limitations.append(.unsupportedExpression(argument.expression, expected: "array of system package providers"))
+                    limitations.append(.unsupportedExpression(argument.expression, expected: "array of system package providers or reference to global variable"))
                 }
             } else if label == "resources" {
-                if let parsed = argument.expression.parseArrayElements(parseResource) {
+                if let parsed = resolveArray(
+                    argument.expression,
+                    expectedDescription: "array of resources or reference to global variable",
+                    elementParser: parseResource
+                ) {
                     resources.append(contentsOf: parsed)
                 } else {
-                    limitations.append(.unsupportedExpression(argument.expression, expected: "array of resources"))
+                    limitations.append(.unsupportedExpression(argument.expression, expected: "array of resources or reference to global variable"))
                 }
             } else if label == "capability" {
                 pluginCapability = parsePluginCapability(argument.expression)
             } else if label == "cSettings" {
-                if let parsed = argument.expression.parseArrayElements({ parseBuildSetting($0, tool: .c) }) {
+                if let parsed = resolveArray(
+                    argument.expression,
+                    expectedDescription: "array of C build settings or reference to global variable",
+                    elementParser: { parseBuildSetting($0, tool: .c) }
+                ) {
                     settings.append(contentsOf: parsed)
                 } else {
-                    limitations.append(.unsupportedExpression(argument.expression, expected: "array of C build settings"))
+                    limitations.append(.unsupportedExpression(argument.expression, expected: "array of C build settings or reference to global variable"))
                 }
             } else if label == "cxxSettings" {
-                if let parsed = argument.expression.parseArrayElements({ parseBuildSetting($0, tool: .cxx) }) {
+                if let parsed = resolveArray(
+                    argument.expression,
+                    expectedDescription: "array of C++ build settings or reference to global variable",
+                    elementParser: { parseBuildSetting($0, tool: .cxx) }
+                ) {
                     settings.append(contentsOf: parsed)
                 } else {
-                    limitations.append(.unsupportedExpression(argument.expression, expected: "array of C++ build settings"))
+                    limitations.append(.unsupportedExpression(argument.expression, expected: "array of C++ build settings or reference to global variable"))
                 }
             } else if label == "swiftSettings" {
-                if let parsed = argument.expression.parseArrayElements({ parseBuildSetting($0, tool: .swift) }) {
+                if let parsed = resolveArray(
+                    argument.expression,
+                    expectedDescription: "array of Swift build settings or reference to global variable",
+                    elementParser: { parseBuildSetting($0, tool: .swift) }
+                ) {
                     settings.append(contentsOf: parsed)
                 } else {
-                    limitations.append(.unsupportedExpression(argument.expression, expected: "array of Swift build settings"))
+                    limitations.append(.unsupportedExpression(argument.expression, expected: "array of Swift build settings or reference to global variable"))
                 }
             } else if label == "linkerSettings" {
-                if let parsed = argument.expression.parseArrayElements({ parseBuildSetting($0, tool: .linker) }) {
+                if let parsed = resolveArray(
+                    argument.expression,
+                    expectedDescription: "array of linker settings or reference to global variable",
+                    elementParser: { parseBuildSetting($0, tool: .linker) }
+                ) {
                     settings.append(contentsOf: parsed)
                 } else {
-                    limitations.append(.unsupportedExpression(argument.expression, expected: "array of linker settings"))
+                    limitations.append(.unsupportedExpression(argument.expression, expected: "array of linker settings or reference to global variable"))
                 }
             } else if label == "plugins" {
-                if let parsed = argument.expression.parseArrayElements(parsePluginUsage) {
+                if let parsed = resolveArray(
+                    argument.expression,
+                    expectedDescription: "array of plugin usages or reference to global variable",
+                    elementParser: parsePluginUsage
+                ) {
                     pluginUsages = parsed
                 } else {
-                    limitations.append(.unsupportedExpression(argument.expression, expected: "array of plugin usages"))
+                    limitations.append(.unsupportedExpression(argument.expression, expected: "array of plugin usages or reference to global variable"))
                 }
             } else if label == "packageAccess" {
                 if let boolValue = argument.expression.asBooleanLiteralValue() {
@@ -890,8 +1190,8 @@ extension ManifestParseVisitor {
     
     /// Parse a target dependency like "dep1", .target(name: "dep2"), or .product(name: "dep3", package: "Pkg")
     private func parseTargetDependency(_ expr: ExprSyntax) -> TargetDescription.Dependency? {
-        // Case 1: String literal dependency (e.g., "dep1")
-        if let depName = expr.asStringLiteralValue(in: contextModel) {
+        // Case 1: String literal dependency (e.g., "dep1") or variable reference
+        if let depName = resolveStringLiteral(expr) {
             return .byName(name: depName, condition: nil)
         }
         
@@ -909,7 +1209,7 @@ extension ManifestParseVisitor {
             for argument in arguments {
                 let label = argument.label?.text
                 if label == "name" {
-                    name = argument.expression.asStringLiteralValue(in: contextModel)
+                    name = resolveStringLiteral(argument.expression)
                 } else if label == "condition" {
                     condition = parsePackageCondition(argument.expression)
                 } else {
@@ -932,9 +1232,9 @@ extension ManifestParseVisitor {
             for argument in arguments {
                 let label = argument.label?.text
                 if label == "name" {
-                    name = argument.expression.asStringLiteralValue(in: contextModel)
+                    name = resolveStringLiteral(argument.expression)
                 } else if label == "package" {
-                    package = argument.expression.asStringLiteralValue(in: contextModel)
+                    package = resolveStringLiteral(argument.expression)
                 } else if label == "moduleAliases" {
                     moduleAliases = parseModuleAliases(argument.expression)
                 } else if label == "condition" {
@@ -957,7 +1257,7 @@ extension ManifestParseVisitor {
             for argument in arguments {
                 let label = argument.label?.text
                 if label == "name" {
-                    name = argument.expression.asStringLiteralValue(in: contextModel)
+                    name = resolveStringLiteral(argument.expression)
                 } else if label == "condition" {
                     condition = parsePackageCondition(argument.expression)
                 } else {
@@ -994,16 +1294,16 @@ extension ManifestParseVisitor {
             
             if label == "platforms" {
                 hasPlatforms = true
-                guard let arrayExpr = argument.expression.as(ArrayExprSyntax.self) else {
-                    limitations.append(.unsupportedExpression(argument.expression, expected: "array of platform conditions"))
+                if let platforms = resolveArray(
+                    argument.expression,
+                    expectedDescription: "array of platform conditions or reference to global variable"
+                ) { expr -> String? in
+                    parsePlatformConditionName(expr)
+                } {
+                    platformNames = platforms.map { $0.lowercased() }
+                } else {
+                    // resolveArray already added the limitation
                     continue
-                }
-                for element in arrayExpr.elements {
-                    if let name = element.expression.asPlatformConditionName() {
-                        platformNames.append(name.lowercased())
-                    } else {
-                        limitations.append(.unsupportedExpression(element.expression, expected: "known platform"))
-                    }
                 }
             } else if label == "configuration" {
                 if let value = argument.expression.asEnumMember() {
@@ -1012,10 +1312,8 @@ extension ManifestParseVisitor {
                     limitations.append(.unsupportedExpression(argument.expression, expected: "build configuration"))
                 }
             } else if label == "traits" {
-                if let parsed = argument.expression.asStringArray(in: contextModel) {
+                if let parsed = resolveStringArray(argument.expression, expectedDescription: "array of trait names or reference to global variable") {
                     traits = parsed
-                } else {
-                    limitations.append(.unsupportedExpression(argument.expression, expected: "array of trait names"))
                 }
             } else {
                 limitations.append(.unsupportedArgument(argument, callee: "when"))
@@ -1053,11 +1351,11 @@ extension ManifestParseVisitor {
         case .elements(let elements):
             // Dictionary with key-value pairs
             for element in elements {
-                if let keyString = element.key.asStringLiteralValue(in: contextModel),
-                   let valueString = element.value.asStringLiteralValue(in: contextModel) {
+                if let keyString = resolveStringLiteral(element.key),
+                   let valueString = resolveStringLiteral(element.value) {
                     aliases[keyString] = valueString
                 } else {
-                    limitations.append(.unsupportedExpression(element.key, expected: "string literal module alias key and value"))
+                    limitations.append(.unsupportedExpression(element.key, expected: "string literal module alias key and value or reference to global variable"))
                 }
             }
         }
@@ -1085,7 +1383,7 @@ extension ManifestParseVisitor {
             for (index, argument) in functionCall.arguments.enumerated() {
                 let label = argument.label?.text
                 if label == nil {
-                    if kind == nil, let path = argument.expression.asStringLiteralValue(in: contextModel) {
+                    if kind == nil, let path = resolveStringLiteral(argument.expression) {
                         kind = .headerSearchPath(path)
                     } else {
                         conditionArgumentIndex = index
@@ -1104,13 +1402,13 @@ extension ManifestParseVisitor {
             for (index, argument) in functionCall.arguments.enumerated() {
                 let label = argument.label?.text
                 if label == nil {
-                    if let str = argument.expression.asStringLiteralValue(in: contextModel) {
+                    if let str = resolveStringLiteral(argument.expression) {
                         name = str
                     } else {
                         conditionArgumentIndex = index
                     }
                 } else if label == "to" {
-                    value = argument.expression.asStringLiteralValue(in: contextModel)
+                    value = resolveStringLiteral(argument.expression)
                 } else if label == "condition" {
                     conditionArgumentIndex = index
                 } else {
@@ -1129,7 +1427,7 @@ extension ManifestParseVisitor {
             for (index, argument) in functionCall.arguments.enumerated() {
                 let label = argument.label?.text
                 if label == nil {
-                    if kind == nil, let library = argument.expression.asStringLiteralValue(in: contextModel) {
+                    if kind == nil, let library = resolveStringLiteral(argument.expression) {
                         kind = .linkedLibrary(library)
                     } else {
                         conditionArgumentIndex = index
@@ -1144,7 +1442,7 @@ extension ManifestParseVisitor {
             for (index, argument) in functionCall.arguments.enumerated() {
                 let label = argument.label?.text
                 if label == nil {
-                    if kind == nil, let framework = argument.expression.asStringLiteralValue(in: contextModel) {
+                    if kind == nil, let framework = resolveStringLiteral(argument.expression) {
                         kind = .linkedFramework(framework)
                     } else {
                         conditionArgumentIndex = index
@@ -1162,10 +1460,10 @@ extension ManifestParseVisitor {
                     if kind == nil, let flagsArray = argument.expression.as(ArrayExprSyntax.self) {
                         var flags: [String] = []
                         for flagElement in flagsArray.elements {
-                            if let flag = flagElement.expression.asStringLiteralValue(in: contextModel) {
+                            if let flag = resolveStringLiteral(flagElement.expression) {
                                 flags.append(flag)
                             } else {
-                                limitations.append(.unsupportedExpression(flagElement.expression, expected: "string literal in unsafeFlags"))
+                                limitations.append(.unsupportedExpression(flagElement.expression, expected: "string literal in unsafeFlags or reference to global variable"))
                             }
                         }
                         kind = .unsafeFlags(flags)
@@ -1182,7 +1480,7 @@ extension ManifestParseVisitor {
             for (index, argument) in functionCall.arguments.enumerated() {
                 let label = argument.label?.text
                 if label == nil {
-                    if kind == nil, let feature = argument.expression.asStringLiteralValue(in: contextModel) {
+                    if kind == nil, let feature = resolveStringLiteral(argument.expression) {
                         kind = .enableUpcomingFeature(feature)
                     } else {
                         conditionArgumentIndex = index
@@ -1197,7 +1495,7 @@ extension ManifestParseVisitor {
             for (index, argument) in functionCall.arguments.enumerated() {
                 let label = argument.label?.text
                 if label == nil {
-                    if kind == nil, let feature = argument.expression.asStringLiteralValue(in: contextModel) {
+                    if kind == nil, let feature = resolveStringLiteral(argument.expression) {
                         kind = .enableExperimentalFeature(feature)
                     } else {
                         conditionArgumentIndex = index
@@ -1294,7 +1592,7 @@ extension ManifestParseVisitor {
             for (index, argument) in functionCall.arguments.enumerated() {
                 let label = argument.label?.text
                 if label == nil {
-                    if let str = argument.expression.asStringLiteralValue(in: contextModel) {
+                    if let str = resolveStringLiteral(argument.expression) {
                         warningName = str
                     } else {
                         conditionArgumentIndex = index
@@ -1326,7 +1624,7 @@ extension ManifestParseVisitor {
             for (index, argument) in functionCall.arguments.enumerated() {
                 let label = argument.label?.text
                 if label == nil {
-                    if kind == nil, let warning = argument.expression.asStringLiteralValue(in: contextModel) {
+                    if kind == nil, let warning = resolveStringLiteral(argument.expression) {
                         kind = .enableWarning(warning)
                     } else {
                         conditionArgumentIndex = index
@@ -1341,7 +1639,7 @@ extension ManifestParseVisitor {
             for (index, argument) in functionCall.arguments.enumerated() {
                 let label = argument.label?.text
                 if label == nil {
-                    if kind == nil, let warning = argument.expression.asStringLiteralValue(in: contextModel) {
+                    if kind == nil, let warning = resolveStringLiteral(argument.expression) {
                         kind = .disableWarning(warning)
                     } else {
                         conditionArgumentIndex = index
@@ -1457,10 +1755,10 @@ extension ManifestParseVisitor {
             if label == nil {
                 if let arrayExpr = argument.expression.as(ArrayExprSyntax.self) {
                     for element in arrayExpr.elements {
-                        if let packageName = element.expression.asStringLiteralValue(in: contextModel) {
+                        if let packageName = resolveStringLiteral(element.expression) {
                             packages.append(packageName)
                         } else {
-                            limitations.append(.unsupportedExpression(element.expression, expected: "string literal package name"))
+                            limitations.append(.unsupportedExpression(element.expression, expected: "string literal package name or reference to global variable"))
                         }
                     }
                 } else {
@@ -1496,8 +1794,8 @@ extension ManifestParseVisitor {
         // Parse the path argument (first unlabeled argument)
         guard let firstArg = arguments.first,
               firstArg.label == nil,
-              let path = firstArg.expression.asStringLiteralValue(in: contextModel) else {
-            limitations.append(.unsupportedExpression(expr, expected: "resource with path"))
+              let path = resolveStringLiteral(firstArg.expression) else {
+            limitations.append(.unsupportedExpression(expr, expected: "resource with path or reference to global variable"))
             return nil
         }
         
@@ -1570,7 +1868,11 @@ extension ManifestParseVisitor {
                 if label == "intent" {
                     intent = parsePluginCommandIntent(argument.expression)
                 } else if label == "permissions" {
-                    permissions = argument.expression.parseArrayElements(parsePluginPermission) ?? []
+                    permissions = resolveArray(
+                        argument.expression,
+                        expectedDescription: "array of plugin permissions or reference to global variable",
+                        elementParser: parsePluginPermission
+                    ) ?? []
                 } else {
                     limitations.append(.unsupportedArgument(argument, callee: "command"))
                 }
@@ -1616,9 +1918,9 @@ extension ManifestParseVisitor {
                 for argument in arguments {
                     let label = argument.label?.text
                     if label == "verb" {
-                        verb = argument.expression.asStringLiteralValue(in: contextModel)
+                        verb = resolveStringLiteral(argument.expression)
                     } else if label == "description" {
-                        description = argument.expression.asStringLiteralValue(in: contextModel)
+                        description = resolveStringLiteral(argument.expression)
                     } else {
                         limitations.append(.unsupportedArgument(argument, callee: "custom"))
                     }
@@ -1647,7 +1949,7 @@ extension ManifestParseVisitor {
         case "writeToPackageDirectory":
             for argument in arguments {
                 if argument.label?.text == "reason",
-                   let reason = argument.expression.asStringLiteralValue(in: contextModel) {
+                   let reason = resolveStringLiteral(argument.expression) {
                     return .writeToPackageDirectory(reason: reason)
                 } else {
                     limitations.append(.unsupportedArgument(argument, callee: "writeToPackageDirectory"))
@@ -1665,7 +1967,7 @@ extension ManifestParseVisitor {
                 if label == "scope" {
                     scope = parsePluginNetworkPermissionScope(argument.expression)
                 } else if label == "reason" {
-                    reason = argument.expression.asStringLiteralValue(in: contextModel)
+                    reason = resolveStringLiteral(argument.expression)
                 } else {
                     limitations.append(.unsupportedArgument(argument, callee: "allowNetworkConnections"))
                 }
@@ -1739,8 +2041,8 @@ extension ManifestParseVisitor {
     
     /// Parse a plugin usage like "PluginName", .plugin(name: "MyPlugin"), or .plugin(name: "MyPlugin", package: "MyPackage")
     private func parsePluginUsage(_ expr: ExprSyntax) -> TargetDescription.PluginUsage? {
-        // Case 1: String literal (e.g., "PluginName" - refers to plugin in same package)
-        if let pluginName = expr.asStringLiteralValue(in: contextModel) {
+        // Case 1: String literal (e.g., "PluginName" - refers to plugin in same package) or variable reference
+        if let pluginName = resolveStringLiteral(expr) {
             return .plugin(name: pluginName, package: nil)
         }
         
@@ -1759,9 +2061,9 @@ extension ManifestParseVisitor {
         for argument in functionCall.arguments {
             let label = argument.label?.text
             if label == "name" {
-                name = argument.expression.asStringLiteralValue(in: contextModel)
+                name = resolveStringLiteral(argument.expression)
             } else if label == "package" {
-                package = argument.expression.asStringLiteralValue(in: contextModel)
+                package = resolveStringLiteral(argument.expression)
             } else {
                 limitations.append(.unsupportedArgument(argument, callee: "plugin"))
             }
@@ -1807,9 +2109,11 @@ extension ManifestParseVisitor {
             let label = argument.label?.text
 
             if label == "name" {
-                name = argument.expression.asStringLiteralValue(in: contextModel)
+                name = resolveStringLiteral(argument.expression)
             } else if label == "targets" {
-                targets = argument.expression.asStringArray(in: contextModel) ?? []
+                if let parsed = resolveStringArray(argument.expression, expectedDescription: "array of target names or reference to global variable") {
+                    targets = parsed
+                }
             } else if label == "type" {
                 // Parse library type like .dynamic or .static
                 if let typeName = argument.expression.asEnumMember() {
@@ -1829,13 +2133,13 @@ extension ManifestParseVisitor {
                 // On non-Apple builds any unrecognized label is a limitation.
                 #if ENABLE_APPLE_PRODUCT_TYPES
                 if label == "bundleIdentifier" {
-                    bundleIdentifier = argument.expression.asStringLiteralValue(in: contextModel)
+                    bundleIdentifier = resolveStringLiteral(argument.expression)
                 } else if label == "teamIdentifier" {
-                    teamIdentifier = argument.expression.asStringLiteralValue(in: contextModel)
+                    teamIdentifier = resolveStringLiteral(argument.expression)
                 } else if label == "displayVersion" {
-                    displayVersion = argument.expression.asStringLiteralValue(in: contextModel)
+                    displayVersion = resolveStringLiteral(argument.expression)
                 } else if label == "bundleVersion" {
-                    bundleVersion = argument.expression.asStringLiteralValue(in: contextModel)
+                    bundleVersion = resolveStringLiteral(argument.expression)
                 } else if label == "appIcon" {
                     appIcon = parseAppIcon(argument.expression)
                 } else if label == "accentColor" {
@@ -1849,7 +2153,7 @@ extension ManifestParseVisitor {
                 } else if label == "appCategory" {
                     appCategory = parseAppCategory(argument.expression)
                 } else if label == "additionalInfoPlistContentFilePath" {
-                    additionalInfoPlistContentFilePath = argument.expression.asStringLiteralValue(in: contextModel)
+                    additionalInfoPlistContentFilePath = resolveStringLiteral(argument.expression)
                 } else {
                     limitations.append(.unsupportedArgument(argument, callee: methodName))
                 }
@@ -2001,7 +2305,8 @@ extension ManifestParseVisitor {
         
         switch methodName {
         case "asset":
-            if let name = arguments.first?.expression.asStringLiteralValue(in: contextModel) {
+            if let firstExpr = arguments.first?.expression,
+               let name = resolveStringLiteral(firstExpr) {
                 for argument in arguments.dropFirst() {
                     limitations.append(.unsupportedArgument(argument, callee: "asset"))
                 }
@@ -2032,7 +2337,8 @@ extension ManifestParseVisitor {
         
         switch methodName {
         case "asset":
-            if let name = arguments.first?.expression.asStringLiteralValue(in: contextModel) {
+            if let firstExpr = arguments.first?.expression,
+               let name = resolveStringLiteral(firstExpr) {
                 for argument in arguments.dropFirst() {
                     limitations.append(.unsupportedArgument(argument, callee: "asset"))
                 }
@@ -2186,9 +2492,9 @@ extension ManifestParseVisitor {
             let label = argument.label?.text
             
             if label == "purposeString" {
-                purposeString = argument.expression.asStringLiteralValue(in: contextModel)
+                purposeString = resolveStringLiteral(argument.expression)
             } else if label == "bonjourServiceTypes" {
-                bonjourServiceTypes = argument.expression.asStringArray(in: contextModel)
+                bonjourServiceTypes = resolveStringArray(argument.expression, expectedDescription: "array of Bonjour service types or reference to global variable")
             } else if label == nil {
                 // Unlabeled argument could be a condition
                 if let cond = parseDeviceFamilyCondition(argument.expression) {
@@ -2288,13 +2594,13 @@ extension ManifestParseVisitor {
             let label = argument.label?.text
 
             if label == "name" {
-                name = argument.expression.asStringLiteralValue(in: contextModel)
+                name = resolveStringLiteral(argument.expression)
             } else if label == "id" {
-                id = argument.expression.asStringLiteralValue(in: contextModel)
+                id = resolveStringLiteral(argument.expression)
             } else if label == "url" {
-                url = argument.expression.asStringLiteralValue(in: contextModel)
+                url = resolveStringLiteral(argument.expression)
             } else if label == "path" {
-                path = argument.expression.asStringLiteralValue(in: contextModel)
+                path = resolveStringLiteral(argument.expression)
             } else if label == "traits" {
                 traits = parseDependencyTraits(argument.expression)
             } else if label == "from" {
@@ -2309,11 +2615,11 @@ extension ManifestParseVisitor {
                     }
                 }
             } else if label == "branch" {
-                if let branch = argument.expression.asStringLiteralValue(in: contextModel) {
+                if let branch = resolveStringLiteral(argument.expression) {
                     requirement = .branch(branch)
                 }
             } else if label == "revision" {
-                if let revision = argument.expression.asStringLiteralValue(in: contextModel) {
+                if let revision = resolveStringLiteral(argument.expression) {
                     requirement = .revision(revision)
                 }
             } else if label == "exact" {
@@ -2371,60 +2677,6 @@ extension ManifestParseVisitor {
                         }
                     } else {
                         limitations.append(.unsupportedExpression(argument.expression, expected: "version range operator (..<  or ...)"))
-                    }
-                } else if let rangeExpr = argument.expression.as(SequenceExprSyntax.self) {
-                    // Fallback: Check for range operators in SequenceExprSyntax (for older syntax trees)
-                    // Look for range operators like ..< or ...
-                    var lowerBound: Version?
-                    var upperBound: Version?
-                    var isClosedRange = false
-
-                    for element in rangeExpr.elements {
-                        if let stringLiteral = element.asStringLiteralValue(),
-                           let version = Version(stringLiteral) {
-                            if lowerBound == nil {
-                                lowerBound = version
-                            } else {
-                                upperBound = version
-                            }
-                        } else if let binaryOp = element.as(BinaryOperatorExprSyntax.self) {
-                            let opText = binaryOp.operator.text.trimmingCharacters(in: .whitespaces)
-                            if opText == "..." {
-                                isClosedRange = true
-                            }
-                        } else {
-                            // Check if this element is just the operator token
-                            let elementText = element.description.trimmingCharacters(in: .whitespaces)
-                            if elementText == "..." {
-                                isClosedRange = true
-                            }
-                        }
-                    }
-
-                    if let lower = lowerBound, let upper = upperBound {
-                        if isClosedRange {
-                            // Convert closed range to open range by using next patch version
-                            let upperNext = Version(
-                                upper.major,
-                                upper.minor,
-                                upper.patch + 1,
-                                prereleaseIdentifiers: upper.prereleaseIdentifiers,
-                                buildMetadataIdentifiers: upper.buildMetadataIdentifiers
-                            )
-                            if id != nil {
-                                registryRequirement = .range(lower..<upperNext)
-                            } else {
-                                requirement = .range(lower..<upperNext)
-                            }
-                        } else {
-                            if id != nil {
-                                registryRequirement = .range(lower..<upper)
-                            } else {
-                                requirement = .range(lower..<upper)
-                            }
-                        }
-                    } else {
-                        limitations.append(.unsupportedExpression(argument.expression, expected: "version range with two bounds"))
                     }
                 } else if let reqExpr = argument.expression.as(FunctionCallExprSyntax.self),
                    let reqMemberAccess = reqExpr.calledExpression.as(MemberAccessExprSyntax.self),
@@ -2568,9 +2820,9 @@ extension ManifestParseVisitor {
             for argument in arguments {
                 let label = argument.label?.text
                 if label == nil {
-                    customName = argument.expression.asStringLiteralValue()
+                    customName = resolveStringLiteral(argument.expression)
                 } else if label == "versionString" {
-                    versionString = argument.expression.asStringLiteralValue()
+                    versionString = resolveStringLiteral(argument.expression)
                 } else {
                     limitations.append(.unsupportedArgument(argument, callee: "custom"))
                 }
@@ -2600,7 +2852,7 @@ extension ManifestParseVisitor {
         var options: [String] = []
         
         // Check if it's a string literal like "10.13.option1.option2"
-        if let versionString = firstArg.expression.asStringLiteralValue() {
+        if let versionString = resolveStringLiteral(firstArg.expression) {
             // Parse version and options from the string
             let components = versionString.split(separator: ".")
             if components.isEmpty {
@@ -2654,8 +2906,8 @@ extension ManifestParseVisitor {
     
     /// Parse a trait declaration like "Trait1", Trait(name: "Trait2", description: "..."), or .trait(name: "Trait3", enabledTraits: [...])
     private func parseTrait(_ expr: ExprSyntax) -> TraitDescription? {
-        // Case 1: String literal "TraitName"
-        if let traitName = expr.asStringLiteralValue(in: contextModel) {
+        // Case 1: String literal "TraitName" or variable reference
+        if let traitName = resolveStringLiteral(expr) {
             return TraitDescription(name: traitName)
         }
         
@@ -2688,10 +2940,8 @@ extension ManifestParseVisitor {
 
             for argument in functionCall.arguments {
                 if argument.label?.text == "enabledTraits" {
-                    if let parsed = argument.expression.asStringArray(in: contextModel) {
+                    if let parsed = resolveStringArray(argument.expression, expectedDescription: "array of enabled trait names or reference to global variable") {
                         enabledTraits = parsed
-                    } else {
-                        limitations.append(.unsupportedExpression(argument.expression, expected: "array of enabled trait names"))
                     }
                 } else {
                     limitations.append(.unsupportedArgument(argument, callee: "default"))
@@ -2713,14 +2963,12 @@ extension ManifestParseVisitor {
         for argument in functionCall.arguments {
             let label = argument.label?.text
             if label == "name" {
-                name = argument.expression.asStringLiteralValue(in: contextModel)
+                name = resolveStringLiteral(argument.expression)
             } else if label == "description" {
-                description = argument.expression.asStringLiteralValue(in: contextModel)
+                description = resolveStringLiteral(argument.expression)
             } else if label == "enabledTraits" {
-                if let parsed = argument.expression.asStringArray(in: contextModel) {
+                if let parsed = resolveStringArray(argument.expression, expectedDescription: "array of enabled trait names or reference to global variable") {
                     enabledTraits = parsed
-                } else {
-                    limitations.append(.unsupportedExpression(argument.expression, expected: "array of enabled trait names"))
                 }
             } else {
                 limitations.append(.unsupportedArgument(argument, callee: "trait"))
@@ -2737,26 +2985,17 @@ extension ManifestParseVisitor {
     
     /// Parse dependency traits array like ["FooTrait1", .trait(name: "FooTrait2", condition: ...), .defaults]
     private func parseDependencyTraits(_ expr: ExprSyntax) -> [PackageDependency.Trait]? {
-        guard let arrayExpr = expr.as(ArrayExprSyntax.self) else {
-            limitations.append(.unsupportedExpression(expr, expected: "array of dependency traits"))
-            return nil
-        }
-        
-        var traits: [PackageDependency.Trait] = []
-        
-        for traitElement in arrayExpr.elements {
-            if let trait = parseDependencyTrait(traitElement.expression) {
-                traits.append(trait)
-            }
-        }
-        
-        return traits.isEmpty ? nil : traits
+        return resolveArray(
+            expr,
+            expectedDescription: "array of dependency traits or reference to global variable",
+            elementParser: parseDependencyTrait
+        )
     }
     
     /// Parse a single dependency trait like "FooTrait1", .trait(name: "...", condition: ...), or .defaults
     private func parseDependencyTrait(_ expr: ExprSyntax) -> PackageDependency.Trait? {
-        // Case 1: String literal "TraitName"
-        if let traitName = expr.asStringLiteralValue(in: contextModel) {
+        // Case 1: String literal "TraitName" or variable reference
+        if let traitName = resolveStringLiteral(expr) {
             return PackageDependency.Trait(name: traitName)
         }
         
@@ -2800,7 +3039,7 @@ extension ManifestParseVisitor {
         for argument in functionCall.arguments {
             let label = argument.label?.text
             if label == "name" {
-                name = argument.expression.asStringLiteralValue(in: contextModel)
+                name = resolveStringLiteral(argument.expression)
             } else if label == "condition" {
                 condition = parseDependencyTraitCondition(argument.expression)
             } else {
@@ -2828,10 +3067,8 @@ extension ManifestParseVisitor {
         
         for argument in arguments {
             if argument.label?.text == "traits" {
-                if let parsed = argument.expression.asStringArray(in: contextModel) {
+                if let parsed = resolveStringArray(argument.expression, expectedDescription: "array of trait names or reference to global variable") {
                     traits = parsed
-                } else {
-                    limitations.append(.unsupportedExpression(argument.expression, expected: "array of trait names"))
                 }
             } else {
                 limitations.append(.unsupportedArgument(argument, callee: "when"))
@@ -2908,208 +3145,6 @@ extension ExprSyntax {
         }
 
         return stringLiteral.representedLiteralValue
-    }
-
-    /// Evaluate a string literal that may contain Context interpolations, or a direct Context expression.
-    /// Returns the evaluated string, or nil if it cannot be evaluated.
-    fileprivate func asStringLiteralValue(in contextModel: StaticContextModel) -> String? {
-        // First, try to evaluate as a direct Context expression (e.g., Context.packageDirectory)
-        if let value = self.evaluateContextExpression(contextModel: contextModel) {
-            return value
-        }
-
-        // Otherwise, try to parse as a string literal
-        guard let stringLiteral = self.as(StringLiteralExprSyntax.self) else {
-            return nil
-        }
-
-        // Simple case: no interpolation — use representedLiteralValue to correctly handle
-        // escape sequences (e.g. \" in a C preprocessor define value becomes ").
-        if let value = stringLiteral.representedLiteralValue {
-            return value
-        }
-
-        // Complex case: handle interpolations with Context values
-        var result = ""
-        for segment in stringLiteral.segments {
-            switch segment {
-            case .stringSegment(let contents):
-                result += contents.content.text
-
-            case .expressionSegment(let exprSegment):
-                // Try to evaluate the interpolated expression
-                if let value = exprSegment.expressions.first?.expression.evaluateContextExpression(contextModel: contextModel) {
-                    result += value
-                } else {
-                    // Cannot evaluate this interpolation
-                    return nil
-                }
-            }
-        }
-
-        return result
-    }
-    
-    /// Evaluate a Context expression like Context.gitInformation?.currentTag or Context.environment["KEY"]
-    /// Returns the string representation of the value, or nil if it cannot be evaluated.
-    fileprivate func evaluateContextExpression(contextModel: StaticContextModel) -> String? {
-        var expr: ExprSyntax = self
-        var nilCoalescingDefault: String? = nil
-
-        // Handle nil-coalescing operator (??)
-        if let infixExpr = expr.as(InfixOperatorExprSyntax.self),
-           let op = infixExpr.operator.as(BinaryOperatorExprSyntax.self),
-           op.operator.text.trimmingCharacters(in: .whitespaces) == "??" {
-            // Get the default value from the right side
-            if let rightValue = infixExpr.rightOperand.asStringLiteralValue() {
-                nilCoalescingDefault = rightValue
-            }
-            // Continue evaluating the left side
-            expr = infixExpr.leftOperand
-        }
-        
-        // Handle boolean comparison (== true)
-        if let infixExpr = expr.as(InfixOperatorExprSyntax.self),
-           let op = infixExpr.operator.as(BinaryOperatorExprSyntax.self),
-           op.operator.text.trimmingCharacters(in: .whitespaces) == "==" {
-            // Check if right side is 'true'
-            if let boolLit = infixExpr.rightOperand.as(BooleanLiteralExprSyntax.self),
-               boolLit.literal.tokenKind == .keyword(.true) {
-                expr = infixExpr.leftOperand
-            }
-        }
-        
-        // Check for subscript access (e.g., Context.environment["KEY"])
-        if let subscriptExpr = expr.as(SubscriptCallExprSyntax.self) {
-            // Parse the base expression (e.g., Context.environment)
-            var baseParts: [String] = []
-            var currentExpr = subscriptExpr.calledExpression
-            
-            // Walk through the member access chain
-            while true {
-                if let memberAccess = currentExpr.as(MemberAccessExprSyntax.self) {
-                    baseParts.insert(memberAccess.declName.baseName.text, at: 0)
-                    if let base = memberAccess.base {
-                        currentExpr = base
-                    } else {
-                        break
-                    }
-                } else if let declRef = currentExpr.as(DeclReferenceExprSyntax.self) {
-                    baseParts.insert(declRef.baseName.text, at: 0)
-                    break
-                } else {
-                    return nil
-                }
-            }
-            
-            // Check if it's Context.environment
-            if baseParts.count == 2 && baseParts[0] == "Context" && baseParts[1] == "environment" {
-                // Get the subscript key
-                if let firstArg = subscriptExpr.arguments.first,
-                   let keyString = firstArg.expression.asStringLiteralValue() {
-                    // Look up the environment variable
-                    if let value = contextModel.environment[keyString] {
-                        return value
-                    } else {
-                        return nilCoalescingDefault
-                    }
-                }
-            }
-            
-            return nil
-        }
-        
-        // Now parse the member access chain
-        // Expected patterns:
-        // - Context.packageDirectory
-        // - Context.gitInformation?.currentTag
-        // - Context.gitInformation?.currentCommit
-        // - Context.gitInformation?.hasUncommittedChanges
-        
-        // Extract all parts of the member access chain
-        var parts: [String] = []
-        var currentExpr = expr
-        
-        // Walk backwards through the member access chain
-        while true {
-            if let sequence = currentExpr.as(SequenceExprSyntax.self) {
-                // A sequence expression can contain optional chaining
-                // For "Context.gitInformation?.currentTag", this will be a sequence
-                // We need to extract the meaningful parts
-                
-                // For optional chaining, the sequence contains: base, postfixOperator(?), member access
-                // Let's try to parse it differently - just take the first element if it's what we need
-                if let firstElement = sequence.elements.first {
-                    currentExpr = firstElement
-                    continue
-                } else {
-                    return nil
-                }
-            } else if let memberAccess = currentExpr.as(MemberAccessExprSyntax.self) {
-                // Add the member name
-                parts.insert(memberAccess.declName.baseName.text, at: 0)
-                
-                if let base = memberAccess.base {
-                    currentExpr = base
-                } else {
-                    // No more base, we're done
-                    break
-                }
-            } else if let optChain = currentExpr.as(OptionalChainingExprSyntax.self) {
-                // Skip the optional chaining wrapper and continue
-                currentExpr = optChain.expression
-            } else if let postfixUnary = currentExpr.as(PostfixUnaryExprSyntax.self) {
-                // This handles the ? in optional chaining
-                currentExpr = postfixUnary.expression
-            } else if let declRef = currentExpr.as(DeclReferenceExprSyntax.self) {
-                // This is the base identifier (e.g., "Context")
-                parts.insert(declRef.baseName.text, at: 0)
-                break
-            } else {
-                // Unknown expression structure
-                return nil
-            }
-        }
-        
-        // Now evaluate based on the parts
-        guard parts.count >= 2 && parts[0] == "Context" else {
-            return nil
-        }
-        
-        switch parts[1] {
-        case "packageDirectory":
-            return contextModel.packageDirectory
-            
-        case "gitInformation":
-            guard parts.count >= 3 else {
-                return nil
-            }
-            guard let gitInfo = contextModel.gitInformation else {
-                return nilCoalescingDefault
-            }
-            
-            switch parts[2] {
-            case "currentTag":
-                if let tag = gitInfo.currentTag {
-                    return tag
-                } else {
-                    return nilCoalescingDefault ?? ""
-                }
-                
-            case "currentCommit":
-                return gitInfo.currentCommit
-                
-            case "hasUncommittedChanges":
-                let value = gitInfo.hasUncommittedChanges
-                return value ? "true" : "false"
-                
-            default:
-                return nil
-            }
-            
-        default:
-            return nil
-        }
     }
 
     /// Extract the boolean literal value from the expression, if it is one.
@@ -3208,29 +3243,6 @@ extension ExprSyntax {
         return (methodName, functionCall.arguments)
     }
 
-    /// Parse array elements using a transform function.
-    /// Returns array of successfully transformed elements, or nil if expression is not an array.
-    fileprivate func parseArrayElements<T>(_ transform: (ExprSyntax) -> T?) -> [T]? {
-        guard let arrayExpr = self.as(ArrayExprSyntax.self) else {
-            return nil
-        }
-
-        var result: [T] = []
-        for element in arrayExpr.elements {
-            if let value = transform(element.expression) {
-                result.append(value)
-            }
-        }
-        return result
-    }
-
-    /// Parse an array of string literals.
-    fileprivate func asStringArray(in contextModel: StaticContextModel) -> [String]? {
-        return parseArrayElements {
-            $0.asStringLiteralValue(in: contextModel)
-        }
-    }
-
     /// Parse an enum member access (e.g., `.static`, `.dynamic`).
     /// Returns the member name if it's a simple member access with no base.
     fileprivate func asEnumMember() -> String? {
@@ -3240,27 +3252,6 @@ extension ExprSyntax {
             return nil
         }
         return memberName
-    }
-
-    /// Parse a platform name as used in a `.when(platforms: [...])` condition.
-    /// Handles both plain enum members (e.g. `.linux`) and custom platforms
-    /// (e.g. `.custom("freebsd")`).
-    fileprivate func asPlatformConditionName() -> String? {
-        if let name = self.asEnumMember() {
-            return name
-        }
-
-        // Handle .custom("platformName")
-        guard let functionCall = self.as(FunctionCallExprSyntax.self),
-              let memberAccess = functionCall.calledExpression.as(MemberAccessExprSyntax.self),
-              memberAccess.base == nil,
-              memberAccess.declName.baseName.identifier?.name == "custom",
-              let firstArg = functionCall.arguments.first,
-              firstArg.label == nil,
-              let customName = firstArg.expression.asStringLiteralValue() else {
-            return nil
-        }
-        return customName
     }
 }
 

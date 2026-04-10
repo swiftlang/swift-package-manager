@@ -377,4 +377,451 @@ final class ParsingLoaderTests: PackageDescriptionLoadingTests {
             // The unknown argument was correctly reported as a limitation.
         }
     }
+    
+    // MARK: - Global Variable Tests
+    
+    func testGlobalVariableStringInPackageName() async throws {
+        let content = """
+            import PackageDescription
+            let packageName = "MyAwesomePackage"
+            let package = Package(
+                name: packageName,
+                targets: [
+                    .target(name: "Foo"),
+                ]
+            )
+            """
+
+        try await forEachManifestLoader { loader in
+            let observability = ObservabilitySystem.makeForTesting()
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                content,
+                customManifestLoader: loader,
+                observabilityScope: observability.topScope
+            )
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertNoDiagnostics(validationDiagnostics)
+
+            XCTAssertEqual(manifest.displayName, "MyAwesomePackage")
+            return manifest
+        }
+    }
+    
+    func testGlobalVariableWithTypeAnnotation() async throws {
+        let content = """
+            import PackageDescription
+            let packageName: String = "TypedPackage"
+            let package = Package(
+                name: packageName,
+                targets: [
+                    .target(name: "Core"),
+                ]
+            )
+            """
+
+        try await forEachManifestLoader { loader in
+            let observability = ObservabilitySystem.makeForTesting()
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                content,
+                customManifestLoader: loader,
+                observabilityScope: observability.topScope
+            )
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertNoDiagnostics(validationDiagnostics)
+
+            XCTAssertEqual(manifest.displayName, "TypedPackage")
+            return manifest
+        }
+    }
+    
+    func testGlobalVariableStringArrayInTargetExcludes() async throws {
+        let content = """
+            import PackageDescription
+            let excludedFiles = ["Tests", "Documentation"]
+            let package = Package(
+                name: "Foo",
+                targets: [
+                    .target(
+                        name: "Foo",
+                        exclude: excludedFiles
+                    ),
+                ]
+            )
+            """
+
+        try await forEachManifestLoader { loader in
+            let observability = ObservabilitySystem.makeForTesting()
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                content,
+                customManifestLoader: loader,
+                observabilityScope: observability.topScope
+            )
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertNoDiagnostics(validationDiagnostics)
+
+            XCTAssertEqual(manifest.targets[0].exclude, ["Tests", "Documentation"])
+            return manifest
+        }
+    }
+    
+    func testGlobalVariableArrayConcatenation() async throws {
+        let content = """
+            import PackageDescription
+            let commonSources = ["Common.swift", "Utilities.swift"]
+            let platformSources = ["Platform.swift"]
+            let package = Package(
+                name: "Foo",
+                targets: [
+                    .target(
+                        name: "Foo",
+                        sources: commonSources + platformSources
+                    ),
+                ]
+            )
+            """
+
+        try await forEachManifestLoader { loader in
+            let observability = ObservabilitySystem.makeForTesting()
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                content,
+                customManifestLoader: loader,
+                observabilityScope: observability.topScope
+            )
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertNoDiagnostics(validationDiagnostics)
+
+            XCTAssertEqual(manifest.targets[0].sources, ["Common.swift", "Utilities.swift", "Platform.swift"])
+            return manifest
+        }
+    }
+    
+    func testGlobalVariableMultipleArrayConcatenation() async throws {
+        let content = """
+            import PackageDescription
+            let coreFiles = ["Core.swift"]
+            let utilFiles = ["Util.swift"]
+            let platformFiles = ["Platform.swift"]
+            let package = Package(
+                name: "Foo",
+                targets: [
+                    .target(
+                        name: "Foo",
+                        sources: coreFiles + utilFiles + platformFiles
+                    ),
+                ]
+            )
+            """
+
+        try await forEachManifestLoader { loader in
+            let observability = ObservabilitySystem.makeForTesting()
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                content,
+                customManifestLoader: loader,
+                observabilityScope: observability.topScope
+            )
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertNoDiagnostics(validationDiagnostics)
+
+            XCTAssertEqual(manifest.targets[0].sources, ["Core.swift", "Util.swift", "Platform.swift"])
+            return manifest
+        }
+    }
+    
+    func testGlobalVariableMixedArrayConcatenation() async throws {
+        let content = """
+            import PackageDescription
+            let baseExcludes = ["Tests", "Docs"]
+            let package = Package(
+                name: "Foo",
+                targets: [
+                    .target(
+                        name: "Foo",
+                        exclude: baseExcludes + ["Build", "Cache"]
+                    ),
+                ]
+            )
+            """
+
+        try await forEachManifestLoader { loader in
+            let observability = ObservabilitySystem.makeForTesting()
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                content,
+                customManifestLoader: loader,
+                observabilityScope: observability.topScope
+            )
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertNoDiagnostics(validationDiagnostics)
+
+            XCTAssertEqual(manifest.targets[0].exclude, ["Tests", "Docs", "Build", "Cache"])
+            return manifest
+        }
+    }
+    
+    func testGlobalVariableInTargetDependencies() async throws {
+        let content = """
+            import PackageDescription
+            var metricsDep: Target.Dependency = "Metrics"
+            let sharedDeps: [Target.Dependency] = ["Logging"] + [metricsDep]
+            let package = Package(
+                name: "Foo",
+                targets: [
+                    .target(
+                        name: "Foo",
+                        dependencies: sharedDeps
+                    ),
+                    .target(name: "Logging"),
+                    .target(name: "Metrics"),
+                ]
+            )
+            """
+
+        try await forEachManifestLoader { loader in
+            let observability = ObservabilitySystem.makeForTesting()
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                content,
+                customManifestLoader: loader,
+                observabilityScope: observability.topScope
+            )
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertNoDiagnostics(validationDiagnostics)
+
+            XCTAssertEqual(manifest.targets[0].dependencies.count, 2)
+            return manifest
+        }
+    }
+    
+    func testGlobalVariableInProductTargets() async throws {
+        let content = """
+            import PackageDescription
+            let libraryTargets = ["Core", "Utilities"]
+            let coreTarget: Target = .target(name: "Core")
+            let package = Package(
+                name: "Foo",
+                products: [
+                    .library(name: "Foo", targets: libraryTargets),
+                ],
+                targets: [
+                    coreTarget,
+                    .target(name: "Utilities"),
+                ]
+            )
+            """
+
+        try await forEachManifestLoader { loader in
+            let observability = ObservabilitySystem.makeForTesting()
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                content,
+                customManifestLoader: loader,
+                observabilityScope: observability.topScope
+            )
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertNoDiagnostics(validationDiagnostics)
+
+            XCTAssertEqual(manifest.products[0].targets, ["Core", "Utilities"])
+            return manifest
+        }
+    }
+    
+    func testGlobalVariableWithContextExpression() async throws {
+        guard let parsingManifestLoader else {
+            XCTSkip("Host compiler doesn't support the static build configurations")
+            return
+        }
+
+        let content = """
+            import PackageDescription
+            let targetName = Context.environment["SWIFT_TARGET_NAME"] ?? "DefaultTarget"
+            let package = Package(
+                name: "Foo",
+                targets: [
+                    .target(name: targetName),
+                ]
+            )
+            """
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+            content,
+            customManifestLoader: parsingManifestLoader,
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+        XCTAssertNoDiagnostics(validationDiagnostics)
+
+        XCTAssertEqual(manifest.targets[0].name, "MyTarget")
+    }
+    
+    func testGlobalVariableStringInterpolation() async throws {
+        let content = """
+            import PackageDescription
+            let version = "1.0.0"
+            let package = Package(
+                name: "Foo",
+                targets: [
+                    .target(
+                        name: "Foo",
+                        cSettings: [
+                            .define("VERSION", to: "\\(version)")
+                        ]
+                    ),
+                ]
+            )
+            """
+
+        try await forEachManifestLoader { loader in
+            let observability = ObservabilitySystem.makeForTesting()
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                content,
+                customManifestLoader: loader,
+                observabilityScope: observability.topScope
+            )
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertNoDiagnostics(validationDiagnostics)
+
+            let settings = manifest.targets[0].settings
+            XCTAssertEqual(settings[0], .init(tool: .c, kind: .define("VERSION=1.0.0")))
+            return manifest
+        }
+    }
+    
+    func testGlobalVariableInBuildSettingValues() async throws {
+        let content = """
+            import PackageDescription
+            let headerPath = "include/mylib"
+            let package = Package(
+                name: "Foo",
+                targets: [
+                    .target(
+                        name: "Foo",
+                        cSettings: [
+                            .headerSearchPath(headerPath)
+                        ]
+                    ),
+                ]
+            )
+            """
+
+        try await forEachManifestLoader { loader in
+            let observability = ObservabilitySystem.makeForTesting()
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                content,
+                customManifestLoader: loader,
+                observabilityScope: observability.topScope
+            )
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertNoDiagnostics(validationDiagnostics)
+
+            let settings = manifest.targets[0].settings
+            XCTAssertEqual(settings[0], .init(tool: .c, kind: .headerSearchPath("include/mylib")))
+            return manifest
+        }
+    }
+    
+    func testGlobalVariableInTraits() async throws {
+        let content = """
+            import PackageDescription
+            let enabledTraits: Set<String> = ["Feature1", "Feature2"]
+            let package = Package(
+                name: "Foo",
+                traits: [
+                  .trait(name: "Feature1"),
+                  .trait(name: "Feature2"),
+                  .trait(name: "AllFeatures", enabledTraits: enabledTraits)
+                ],
+                targets: [
+                    .target(name: "Foo"),
+                ],
+            )
+            """
+
+        try await forEachManifestLoader { loader in
+            let observability = ObservabilitySystem.makeForTesting()
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                content,
+                customManifestLoader: loader,
+                observabilityScope: observability.topScope
+            )
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertNoDiagnostics(validationDiagnostics)
+
+            // The manifest should contain the traits we explicitly declared
+            let allFeaturesTrait = manifest.traits.first { $0.name == "AllFeatures" }
+            XCTAssertNotNil(allFeaturesTrait)
+            XCTAssertEqual(allFeaturesTrait?.enabledTraits.sorted(), ["Feature1", "Feature2"])
+            return manifest
+        }
+    }
+    
+    func testGlobalVariableNestedReferences() async throws {
+        let content = """
+            import PackageDescription
+            let baseName = "MyLibrary"
+            let fullName = baseName
+            let package = Package(
+                name: fullName,
+                targets: [
+                    .target(name: "Foo"),
+                ]
+            )
+            """
+
+        try await forEachManifestLoader { loader in
+            let observability = ObservabilitySystem.makeForTesting()
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                content,
+                customManifestLoader: loader,
+                observabilityScope: observability.topScope
+            )
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertNoDiagnostics(validationDiagnostics)
+
+            XCTAssertEqual(manifest.displayName, "MyLibrary")
+            return manifest
+        }
+    }
+    
+    func testMultipleGlobalVariablesInSingleManifest() async throws {
+        let content = """
+            import PackageDescription
+            let packageName: String = "ComplexPackage"
+            let mainTarget = "Core"
+            let testTarget = "CoreTests"
+            let excludedDirs: [String] = ["Docs", "Examples"]
+            let commonDeps: [Target.Dependency] = ["Logging"]
+            
+            let package = Package(
+                name: packageName,
+                targets: [
+                    .target(
+                        name: mainTarget,
+                        dependencies: commonDeps,
+                        exclude: excludedDirs
+                    ),
+                    .testTarget(
+                        name: testTarget,
+                        dependencies: [.target(name: mainTarget)]
+                    ),
+                    .target(name: "Logging"),
+                ]
+            )
+            """
+
+        try await forEachManifestLoader { loader in
+            let observability = ObservabilitySystem.makeForTesting()
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                content,
+                customManifestLoader: loader,
+                observabilityScope: observability.topScope
+            )
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertNoDiagnostics(validationDiagnostics)
+
+            XCTAssertEqual(manifest.displayName, "ComplexPackage")
+            XCTAssertEqual(manifest.targets[0].name, "Core")
+            XCTAssertEqual(manifest.targets[0].exclude, ["Docs", "Examples"])
+            XCTAssertEqual(manifest.targets[0].dependencies.count, 1)
+            XCTAssertEqual(manifest.targets[1].name, "CoreTests")
+            return manifest
+        }
+    }
 }
