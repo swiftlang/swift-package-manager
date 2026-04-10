@@ -11,10 +11,10 @@ add_library(SwiftFixIt STATIC
 target_link_libraries(SwiftFixIt PUBLIC
   Basics
 
-  SwiftSyntax::_PMSwiftDiagnostics
-  SwiftSyntax::_PMSwiftIDEUtils
-  SwiftSyntax::_PMSwiftParser
-  SwiftSyntax::_PMSwiftSyntax
+  SwiftSyntax::SwiftDiagnostics
+  SwiftSyntax::SwiftIDEUtils
+  SwiftSyntax::SwiftParser
+  SwiftSyntax::SwiftSyntax
 
   TSCBasic
   TSCUtility)
