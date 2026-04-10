@@ -12,11 +12,18 @@
 
 import Basics
 import Foundation
-
-import class Basics.AsyncProcess
-import struct Basics.AsyncProcessResult
+import Subprocess
+#if canImport(System)
+import System
+#else
+import SystemPackage
+#endif
 
 import enum TSCBasic.ProcessEnv
+
+package struct NonZeroExitError: Error {
+    package let terminationStatus: TerminationStatus
+}
 
 // Fan out from invocation of SPM 'swift-*' commands can be quite large.  Limit the number of concurrent tasks to a fraction of total CPUs.
 private let swiftPMExecutionQueue = AsyncOperationQueue(concurrentTasks: Int(Double(ProcessInfo.processInfo.activeProcessorCount) * 0.5))
@@ -82,7 +89,7 @@ extension SwiftPM {
     public func execute(
         _ args: [String] = [],
         packagePath: AbsolutePath? = nil,
-        env: Environment? = nil,
+        env: Basics.Environment? = nil,
         throwIfCommandFails: Bool = true
     ) async throws -> (stdout: String, stderr: String) {
         // Swift Testing uses Swift concurrency for test execution and creates a task for each test to run in parallel.
@@ -98,17 +105,17 @@ extension SwiftPM {
                 env: env
             )
             // Remove /r from stdout/stderr so that tests do not have to deal with them
-            let stdout = try String(decoding: result.output.get().filter { $0 != 13 }, as: Unicode.UTF8.self)
-            let stderr = try String(decoding: result.stderrOutput.get().filter { $0 != 13 }, as: Unicode.UTF8.self)
+            let stdout = String(decoding: result.stdout.filter { $0 != 13 }, as: Unicode.UTF8.self)
+            let stderr = String(decoding: result.stderr.filter { $0 != 13 }, as: Unicode.UTF8.self)
 
             let returnValue = (stdout: stdout, stderr: stderr)
             if !throwIfCommandFails { return returnValue }
 
-            if result.exitStatus == .terminated(code: 0) {
+            if result.terminationStatus.isSuccess {
                 return returnValue
             }
             throw SwiftPMError.executionFailure(
-                underlying: AsyncProcessResult.Error.nonZeroExit(result),
+                underlying: NonZeroExitError(terminationStatus: result.terminationStatus),
                 stdout: stdout,
                 stderr: stderr
             )
@@ -118,9 +125,9 @@ extension SwiftPM {
     private func executeProcess(
         _ args: [String],
         packagePath: AbsolutePath? = nil,
-        env: Environment? = nil
-    ) async throws -> AsyncProcessResult {
-        var environment = Environment.current
+        env: Basics.Environment? = nil
+    ) async throws -> (stdout: [UInt8], stderr: [UInt8], terminationStatus: TerminationStatus) {
+        var environment = Basics.Environment.current
 #if !os(Windows)
         environment["SDKROOT"] = nil
 #endif
@@ -149,7 +156,22 @@ extension SwiftPM {
         }
         completeArgs += args
 
-        return try await AsyncProcess.popen(arguments: completeArgs, environment: environment)
+        let result = try await Subprocess.run(
+            .path(FilePath(completeArgs[0])),
+            arguments: Subprocess.Arguments(Array(completeArgs.dropFirst())),
+            environment: Subprocess.Environment.custom(
+                Dictionary(uniqueKeysWithValues: environment.map {
+                    (Subprocess.Environment.Key(rawValue: $0.key.rawValue)!, $0.value)
+                })
+            ),
+            output: .bytes(limit: .max),
+            error: .bytes(limit: .max)
+        )
+        return (
+            stdout: result.standardOutput,
+            stderr: result.standardError,
+            terminationStatus: result.terminationStatus
+        )
     }
 }
 

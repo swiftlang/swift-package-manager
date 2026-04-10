@@ -21,6 +21,12 @@ import Testing
 import Testing
 
 import class Basics.AsyncProcess
+import Subprocess
+#if canImport(System)
+import System
+#else
+import SystemPackage
+#endif
 import struct SPMBuildCore.BuildSystemProvider
 import enum TSCUtility.Git
 
@@ -142,7 +148,7 @@ struct MiscellaneousTestCase {
             )
         ) { error in
             // if our code crashes we'll get an exit code of 256
-            guard error.result.exitStatus == .terminated(code: 1) else {
+            guard error.terminationStatus == .exited(1) else {
                 Issue.record("failed in an unexpected manner: \(error)")
                 return
             }
@@ -151,7 +157,6 @@ struct MiscellaneousTestCase {
 
     @Test(
         .tags(
-            .Feature.Command.Build,
         ),
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
@@ -168,7 +173,7 @@ struct MiscellaneousTestCase {
                 )
             ) { error in
                 // if our code crashes we'll get an exit code of 256
-                guard error.result.exitStatus == .terminated(code: 1) else {
+                guard error.terminationStatus == .exited(1) else {
                     Issue.record("failed in an unexpected manner: \(error)")
                     return
                 }
@@ -508,7 +513,7 @@ struct MiscellaneousTestCase {
             )
 
             let moduleUser = fixturePath.appending("SystemModuleUserClang")
-            let env: Environment = ["PKG_CONFIG_PATH": fixturePath.pathString]
+            let env: Basics.Environment = ["PKG_CONFIG_PATH": fixturePath.pathString]
             try await withKnownIssue(isIntermittent: true) {
                 await #expect(throws: Never.self) {
                     _ = try await executeSwiftBuild(
@@ -935,7 +940,7 @@ struct MiscellaneousTestCase {
                 )
             ) { error in
                 // if our code crashes we'll get an exit code of 256
-                guard error.result.exitStatus == .terminated(code: 1) else {
+                guard error.terminationStatus == .exited(1) else {
                     Issue.record("failed in an unexpected manner: \(error)")
                     return
                 }
@@ -1412,7 +1417,7 @@ struct MiscellaneousSwiftTestingTests {
             )
 
             let moduleUser = fixturePath.appending("SystemModuleUserClang")
-            let env: Environment = ["PKG_CONFIG_PATH": fixturePath.pathString]
+            let env: Basics.Environment = ["PKG_CONFIG_PATH": fixturePath.pathString]
             _ = try await executeSwiftBuild(
                 moduleUser,
                 env: env,

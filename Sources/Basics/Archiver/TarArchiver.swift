@@ -14,6 +14,12 @@ import Foundation
 import class Dispatch.DispatchQueue
 import struct Dispatch.DispatchTime
 import struct TSCBasic.FileSystemError
+import Subprocess
+#if canImport(System)
+import System
+#else
+import SystemPackage
+#endif
 
 #if os(Windows)
 import WinSDK
@@ -104,22 +110,23 @@ public struct TarArchiver: Archiver {
             throw FileSystemError(.notDirectory, parent.underlying)
         }
 
-        let process = AsyncProcess(
-            arguments: [self.tarCommand, "acf", destinationPath.pathString] + paths.map(\.pathString),
-            environment: .current,
-            workingDirectory: parent
-        )
+        #if os(Windows)
+        let executable = Subprocess.Executable.path(FilePath(self.tarCommand))
+        #else
+        let executable = Subprocess.Executable.name(self.tarCommand)
+        #endif
 
-        guard let registrationKey = self.cancellator.register(process) else {
-            throw CancellationError.failedToRegisterProcess(process)
+        let result = try await self.cancellator.withCancellable(name: self.tarCommand) {
+            try await Subprocess.run(
+                executable,
+                arguments: Subprocess.Arguments(["acf", destinationPath.pathString] + paths.map(\.pathString)),
+                workingDirectory: FilePath(parent.pathString),
+                output: .string(limit: .max),
+                error: .string(limit: .max)
+            )
         }
-
-        defer { self.cancellator.deregister(registrationKey) }
-
-        try process.launch()
-        let processResult = try await process.waitUntilExit()
-        guard processResult.exitStatus == .terminated(code: 0) else {
-            throw try StringError(processResult.utf8stderrOutput())
+        guard result.terminationStatus.isSuccess else {
+            throw StringError((result.standardOutput ?? "") + (result.standardError ?? ""))
         }
     }
 
