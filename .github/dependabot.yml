@@ -4,3 +4,7 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    groups:
+      swiftlang-actions:
+        patterns:
+          - "swiftlang/github-workflows/*"
