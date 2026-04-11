@@ -1421,6 +1421,9 @@ extension ManifestParseVisitor {
                     }
                 } else if label == "to" {
                     value = resolveStringLiteral(argument.expression)
+                    if value == nil {
+                        limitations.append(.unsupportedExpression(argument.expression, expected: "'to' value of 'define'"))
+                    }
                 } else if label == "condition" {
                     conditionArgumentIndex = index
                 } else {

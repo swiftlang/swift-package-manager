@@ -868,4 +868,46 @@ final class ParsingLoaderTests: PackageDescriptionLoadingTests {
             // The canImport check was correctly reported as a limitation.
         }
     }
+
+    func testTernaryInDefineValueRecordsLimitation() async throws {
+        guard let parsingManifestLoader else {
+            XCTSkip("Host compiler doesn't support the static build configurations")
+            return
+        }
+
+        // A ternary expression in the 'to:' argument of .define() cannot be
+        // evaluated by the parsing loader. It must record a limitation rather
+        // than silently dropping the value.
+        let content = """
+            import PackageDescription
+            let useNeon = true
+            let package = Package(
+                name: "Foo",
+                targets: [
+                    .target(
+                        name: "Foo",
+                        cSettings: [
+                            .define("OPT", to: useNeon ? "2" : "0")
+                        ]
+                    ),
+                ]
+            )
+            """
+
+        let observability = ObservabilitySystem.makeForTesting()
+        do {
+            _ = try await loadAndValidateManifest(
+                content,
+                customManifestLoader: parsingManifestLoader,
+                observabilityScope: observability.topScope
+            )
+            XCTFail("Expected a limitations error for ternary in define value")
+        } catch let error as ManifestParserError {
+            guard case .limitations = error else {
+                XCTFail("Expected .limitations error, got: \(error)")
+                return
+            }
+            // The ternary expression was correctly reported as a limitation.
+        }
+    }
 }
