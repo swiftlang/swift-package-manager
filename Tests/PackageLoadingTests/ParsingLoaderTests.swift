@@ -910,4 +910,49 @@ final class ParsingLoaderTests: PackageDescriptionLoadingTests {
             // The ternary expression was correctly reported as a limitation.
         }
     }
+
+    func testSwiftVersionCheckMatchesToolsVersion() async throws {
+        // The #if swift(...) condition should use the language mode implied
+        // by the manifest's tools version, not the compiler's default. With
+        // tools version >= 6.0 the language mode is Swift 6, so
+        // #if swift(>=6) should be true and #if swift(<6) should be false.
+        let content = """
+            import PackageDescription
+            #if swift(<6)
+            let swiftSettings: [SwiftSetting] = [
+                .enableExperimentalFeature("ExistentialAny"),
+            ]
+            #else
+            let swiftSettings: [SwiftSetting] = [
+                .enableUpcomingFeature("ExistentialAny"),
+            ]
+            #endif
+            let package = Package(
+                name: "Foo",
+                targets: [
+                    .target(
+                        name: "Foo",
+                        swiftSettings: swiftSettings
+                    ),
+                ]
+            )
+            """
+
+        try await forEachManifestLoader { loader in
+            let observability = ObservabilitySystem.makeForTesting()
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                content,
+                customManifestLoader: loader,
+                observabilityScope: observability.topScope
+            )
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertNoDiagnostics(validationDiagnostics)
+
+            let settings = manifest.targets[0].settings
+            XCTAssertEqual(settings.count, 1)
+            // With Swift 6 language mode, the #else branch should be taken
+            XCTAssertEqual(settings[0], .init(tool: .swift, kind: .enableUpcomingFeature("ExistentialAny")))
+            return manifest
+        }
+    }
 }

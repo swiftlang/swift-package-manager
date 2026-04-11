@@ -190,7 +190,18 @@ public final class ParsingManifestLoader: ManifestLoaderProtocol {
             packageDirectory: manifestPath.parentDirectory.pathString,
             environment: environment ?? ProcessInfo.processInfo.environment
         )
-        
+
+        // Adjust the language mode in the build configuration to match
+        // the manifest's tools version. The static build configuration
+        // from the compiler reflects its default language mode, but the
+        // manifest is compiled with the language version implied by its
+        // tools version (e.g., tools version 6.0 → Swift 6 mode).
+        var config = self.config
+        let toolsLanguageVersion = manifestToolsVersion.swiftLanguageVersion
+        if let parsedVersion = VersionTuple(parsing: toolsLanguageVersion.rawValue) {
+            config.languageMode = parsedVersion
+        }
+
         // Parse the source file.
         var sourceFile: SourceFileSyntax = Parser.parse(source: manifestContents)
 
