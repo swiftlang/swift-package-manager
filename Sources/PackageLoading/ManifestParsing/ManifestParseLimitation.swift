@@ -45,6 +45,10 @@ public enum ManifestParseLimitation {
 
     /// Unhandled operator-precedence issue.
     case operatorPrecedence(Syntax)
+
+    /// A diagnostic produced while evaluating `#if` conditions (e.g.,
+    /// `canImport` checks that the static configuration cannot evaluate).
+    case ifConfigDiagnostic(SyntaxDiagnostic)
 }
 
 extension ManifestParseLimitation: CustomStringConvertible {
@@ -75,6 +79,8 @@ extension ManifestParseLimitation {
             return Syntax(expr)
         case .operatorPrecedence(let node):
             return Syntax(node)
+        case .ifConfigDiagnostic(let diagnostic):
+            return Syntax(diagnostic.node)
         }
     }
 
@@ -106,6 +112,8 @@ extension ManifestParseLimitation: DiagnosticMessage {
             return "Invalid Swift language version '\(value)'; expected format is major[.minor[.patch]]"
         case .operatorPrecedence(_):
             return "Unhandled operator precedence issue"
+        case .ifConfigDiagnostic(let diagnostic):
+            return diagnostic.message
         }
     }
 
@@ -119,6 +127,7 @@ extension ManifestParseLimitation: DiagnosticMessage {
         case .unsupportedArgument: "unsupported-argument"
         case .invalidSwiftLanguageVersion: "invalid-swift-language-version"
         case .operatorPrecedence: "unhandled-operator-precedence"
+        case .ifConfigDiagnostic: "ifconfig-diagnostic"
         }
 
         return MessageID(domain: "manifest-parse-limitation", id: id)

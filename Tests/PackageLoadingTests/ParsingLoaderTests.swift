@@ -824,4 +824,48 @@ final class ParsingLoaderTests: PackageDescriptionLoadingTests {
             return manifest
         }
     }
+
+    func testCanImportRecordsLimitation() async throws {
+        guard let parsingManifestLoader else {
+            XCTSkip("Host compiler doesn't support the static build configurations")
+            return
+        }
+
+        // canImport() cannot be evaluated by the static build configuration,
+        // so the parsing loader must record a limitation and fall back to the
+        // executing loader rather than silently picking the wrong #if branch.
+        let content = """
+            import PackageDescription
+            #if canImport(Darwin)
+            let excludedFiles: [String] = []
+            #else
+            let excludedFiles = ["PrivacyInfo.xcprivacy"]
+            #endif
+            let package = Package(
+                name: "Foo",
+                targets: [
+                    .target(
+                        name: "Foo",
+                        exclude: excludedFiles
+                    ),
+                ]
+            )
+            """
+
+        let observability = ObservabilitySystem.makeForTesting()
+        do {
+            _ = try await loadAndValidateManifest(
+                content,
+                customManifestLoader: parsingManifestLoader,
+                observabilityScope: observability.topScope
+            )
+            XCTFail("Expected a limitations error for canImport")
+        } catch let error as ManifestParserError {
+            guard case .limitations = error else {
+                XCTFail("Expected .limitations error, got: \(error)")
+                return
+            }
+            // The canImport check was correctly reported as a limitation.
+        }
+    }
 }

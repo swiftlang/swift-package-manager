@@ -236,6 +236,18 @@ public final class ParsingManifestLoader: ManifestLoaderProtocol {
         )
         visitor.walk(sourceFile)
 
+        // If the visitor produced any diagnostics while evaluating #if
+        // conditions (e.g., canImport checks that StaticBuildConfiguration
+        // cannot evaluate), treat them as limitations so we fall back to the
+        // executing manifest loader.
+        if !visitor.diagnostics.isEmpty {
+            visitor.limitations.append(
+                contentsOf: visitor.diagnostics.map {
+                    .ifConfigDiagnostic($0)
+                }
+            )
+        }
+
         // If we hit any of the limitations of the manifest parser, bail out
         // now.
         if !visitor.limitations.isEmpty {
