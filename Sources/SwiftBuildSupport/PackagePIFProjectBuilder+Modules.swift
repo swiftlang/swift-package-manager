@@ -237,7 +237,7 @@ extension PackagePIFProjectBuilder {
             fileTypeIdentifier = "wrapper.artifactbundle"
         case .xcframework:
             fileTypeIdentifier = "wrapper.xcframework"
-        case .unknown:
+        case .unknown, .prebuilt:
             fileTypeIdentifier = nil
         }
         return FileReference(id: id, path: binaryModule.artifactPath.pathString, fileType: fileTypeIdentifier)

@@ -27,7 +27,8 @@ import Testing
 
 public func mockBuildPlan(
     buildPath: AbsolutePath? = nil,
-    environment: BuildEnvironment,
+    platform: PackageModel.Platform? = nil,
+    configuration: BuildConfiguration? = nil,
     toolchain: PackageModel.Toolchain = try! MockToolchain(),
     graph: ModulesGraph,
     commonFlags: PackageModel.BuildFlags = .init(),
@@ -41,8 +42,8 @@ public func mockBuildPlan(
 ) async throws -> Build.BuildPlan {
     try await mockBuildPlan(
         buildPath: buildPath,
-        config: environment.configuration ?? .debug,
-        platform: environment.platform,
+        config: configuration ?? .debug,
+        platform: platform,
         toolchain: toolchain,
         graph: graph,
         commonFlags: commonFlags,

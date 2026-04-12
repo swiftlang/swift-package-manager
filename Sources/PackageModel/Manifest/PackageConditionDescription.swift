@@ -110,15 +110,16 @@ public struct PlatformsCondition: Hashable, Sendable {
 /// Condition that is satisfied if building for host matches the build environment.
 /// This is for SwiftPM's use for now to make prebuilts conditional on host builds
 /// so are not made available in the manifest.
-public struct HostCondition: Hashable, Sendable {
+public struct HostCondition: Hashable, Sendable, ExpressibleByBooleanLiteral {
+    /// True for conditional on building for host
     public let forHost: Bool
 
-    public init(forHost: Bool) {
-        self.forHost = forHost
+    public init(booleanLiteral value: Bool) {
+        forHost = value
     }
 
     public func satisfies(_ environment: BuildEnvironment) -> Bool {
-        forHost == environment.forHost
+        self.forHost == environment.isHost
     }
 }
 

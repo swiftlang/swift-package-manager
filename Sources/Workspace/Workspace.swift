@@ -1016,7 +1016,6 @@ extension Workspace {
                 checkoutPath: $1.checkoutPath,
                 products: $1.products,
                 includePath: $1.includePath,
-                cModules: $1.cModules
             ))
         }
 

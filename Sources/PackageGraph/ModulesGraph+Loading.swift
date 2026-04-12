@@ -884,7 +884,42 @@ private func createResolvedPackages(
     }
 
     // Adjust the package graph for any prebuilts
-    if packageBuilders.contains(where: { $0.prebuilts != nil }) {
+    let prebuiltPackages = packageBuilders.filter({ $0.prebuilts != nil })
+    if !prebuiltPackages.isEmpty {
+        // Manufacture the prebuilt products
+        var prebuiltProducts: [PackageIdentity: [String: ResolvedProductBuilder]] = [:]
+        for prebuiltPackage in prebuiltPackages {
+            guard let prebuilts = prebuiltPackage.prebuilts else {
+                continue
+            }
+
+            for prebuilt in prebuilts {
+                let prebuiltModule = BinaryModule(
+                    name: prebuilt.libraryName,
+                    kind: .prebuilt(prebuilt),
+                    path: prebuilt.path,
+                    origin: .local
+                )
+                let moduleBuilder = ResolvedModuleBuilder(
+                    packageIdentity: prebuiltPackage.package.identity,
+                    module: prebuiltModule,
+                    observabilityScope: observabilityScope,
+                    platformVersionProvider: platformVersionProvider
+                )
+                prebuiltPackage.modules.append(moduleBuilder)
+
+                let product = try Product(
+                    package: prebuiltPackage.package.identity,
+                    name: prebuilt.libraryName,
+                    type: .library(.automatic),
+                    modules: [prebuiltModule])
+                let productBuilder = ResolvedProductBuilder(product: product, packageBuilder: prebuiltPackage, moduleBuilders: [moduleBuilder])
+                prebuiltPackage.products.append(productBuilder)
+
+                prebuiltProducts[prebuiltPackage.package.identity, default: [:]][prebuilt.libraryName] = productBuilder
+            }
+        }
+
         // find uses of prebuilts and adjust the modules to use them
         for packageBuilder in packageBuilders {
             guard packageBuilder.prebuilts == nil else {
@@ -905,41 +940,25 @@ private func createResolvedPackages(
                     continue
                 }
 
-                // Add condition on prebuilt dependencies to be non-host since we still need to build from source
-                moduleBuilder.dependencies = moduleBuilder.dependencies.map {
-                    if case .product(let productBuilder, conditions: _) = $0, prebuiltLibraries.contains(where: { $0.value.products.contains(productBuilder.product.name) }) {
-                        return .product(productBuilder, conditions: [.host(.init(forHost: false))])
+                // Make dependencies on source products from the prebuilts conditional on not host
+                moduleBuilder.dependencies = moduleBuilder.dependencies.compactMap {
+                    if case .product(let productBuilder, conditions: var conditions) = $0,
+                        prebuiltLibraries.contains(where: { $0.value.products.contains(productBuilder.product.name) })
+                    {
+                        conditions.append(.host(false))
+                        return .product(productBuilder, conditions: conditions)
                     } else {
                         return $0
                     }
                 }
 
-                // Add build settings to hook up the prebuilts when on host
-                for prebuilt in prebuiltLibraries.values {
-                    var libPathAssignment = BuildSettings.Assignment()
-                    libPathAssignment.values.append(prebuilt.path.appending(component: "lib").pathString)
-                    libPathAssignment.conditions.append(.host(.init(forHost: true)))
-                    moduleBuilder.module.buildSettings.add(libPathAssignment, for: .PREBUILT_LIBRARY_PATHS)
-
-                    var libsAssignment = BuildSettings.Assignment()
-                    libsAssignment.values.append(prebuilt.libraryName)
-                    libsAssignment.conditions.append(.host(.init(forHost: true)))
-                    moduleBuilder.module.buildSettings.add(libsAssignment, for: .PREBUILT_LIBRARIES)
-
-                    var includeAssignment = BuildSettings.Assignment()
-                    includeAssignment.values.append(prebuilt.path.appending(component: "Modules").pathString)
-                    if let checkoutPath = prebuilt.checkoutPath, let includePath = prebuilt.includePath {
-                        for includeDir in includePath {
-                            includeAssignment.values.append(checkoutPath.appending(includeDir).pathString)
-                        }
-                    } else {
-                        for cModule in prebuilt.cModules {
-                            includeAssignment.values.append(prebuilt.path.appending(components: "include", cModule).pathString)
-                        }
+                // Add dependencies to prebuilt products conditional on for host
+                moduleBuilder.dependencies.append(contentsOf: prebuiltLibraries.compactMap {
+                    guard let productBuilder = prebuiltProducts[$0.value.identity]?[$0.key] else {
+                        return nil
                     }
-                    includeAssignment.conditions.append(.host(.init(forHost: true)))
-                    moduleBuilder.module.buildSettings.add(includeAssignment, for: .PREBUILT_INCLUDE_PATHS)
-                }
+                    return .product(productBuilder, conditions: [.host(true)])
+                })
             }
         }
     }

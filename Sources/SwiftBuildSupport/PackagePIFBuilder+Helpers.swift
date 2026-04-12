@@ -364,10 +364,6 @@ extension PackageModel.BuildSettings.Declaration {
         case .OTHER_LDFLAGS, .LINK_LIBRARIES, .LINK_FRAMEWORKS:
             true
 
-        // Prebuilts
-        case .PREBUILT_INCLUDE_PATHS, .PREBUILT_LIBRARY_PATHS, .PREBUILT_LIBRARIES:
-            true
-
         default:
             true
         }
@@ -701,18 +697,6 @@ extension PackageGraph.ResolvedModule {
                     singleValueSetting = nil
                     multipleValueSetting = .HEADER_SEARCH_PATHS
                     values = settingAssignment.values.map { self.sourceDirAbsolutePath.pathString + "/" + $0 }
-                case .PREBUILT_INCLUDE_PATHS:
-                    singleValueSetting = nil
-                    multipleValueSetting = .OTHER_SWIFT_FLAGS
-                    values = settingAssignment.values.flatMap { ["-I", $0] }
-                case .PREBUILT_LIBRARY_PATHS:
-                    singleValueSetting = nil
-                    multipleValueSetting = .LIBRARY_SEARCH_PATHS
-                    values = settingAssignment.values
-                case .PREBUILT_LIBRARIES:
-                    singleValueSetting = nil
-                    multipleValueSetting = .OTHER_LDFLAGS
-                    values = settingAssignment.values.map { "-l\($0)" }
                 case .OTHER_SWIFT_FLAGS:
                     singleValueSetting = nil
                     multipleValueSetting = .OTHER_SWIFT_FLAGS
@@ -758,9 +742,7 @@ extension PackageGraph.ResolvedModule {
                     // Handle imparted settings for OTHER_LDFLAGS and prebuilts include paths (always multiple values)
                     // TODO: Do we realy need to impart OTHER_LDFLAGS?
                     // TODO: Doing that for the PREBUILT_LIBRARIES was causing duplicate library warnings.
-                    if let multipleValueSetting = multipleValueSetting,
-                        declaration != .PREBUILT_LIBRARIES,
-                        (multipleValueSetting == .OTHER_LDFLAGS || declaration == .PREBUILT_INCLUDE_PATHS) {
+                    if let multipleValueSetting = multipleValueSetting, multipleValueSetting == .OTHER_LDFLAGS {
                         allSettings.impartedMultipleValueSettings[pifPlatform, default: [:]][multipleValueSetting, default: []].append(contentsOf: values)
                     }
 

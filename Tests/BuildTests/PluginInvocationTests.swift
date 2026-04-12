@@ -235,7 +235,8 @@ final class PluginInvocationTests: XCTestCase {
         let pluginRunner = MockPluginScriptRunner()
         let buildParameters = mockBuildParameters(
             destination: .host,
-            environment: BuildEnvironment(platform: .macOS, configuration: .debug),
+            platform: .macOS,
+            configuration: .debug,
             buildSystem: .native,
         )
 
@@ -969,7 +970,8 @@ final class PluginInvocationTests: XCTestCase {
                 let outputDir = packageDir.appending(".build")
                 let buildParameters = mockBuildParameters(
                     destination: .host,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .debug),
+                    platform: .macOS,
+                    configuration: .debug,
                     buildSystem: .swiftbuild,
                 )
 
@@ -1112,7 +1114,8 @@ final class PluginInvocationTests: XCTestCase {
                 let outputDir = packageDir.appending(".build")
                 let buildParameters = mockBuildParameters(
                     destination: .host,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .debug),
+                    platform: .macOS,
+                    configuration: .debug,
                     buildSystem: .swiftbuild,
                 )
 
@@ -1467,7 +1470,8 @@ final class PluginInvocationTests: XCTestCase {
             let outputDir = packageDir.appending(".build")
             let buildParameters = mockBuildParameters(
                 destination: .host,
-                environment: BuildEnvironment(platform: .macOS, configuration: .debug),
+                platform: .macOS,
+                configuration: .debug,
                 buildSystem: .swiftbuild,
             )
 

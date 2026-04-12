@@ -437,6 +437,8 @@ extension WorkspaceStateStorage {
                         self = .xcframework
                     case .artifactsArchive(let types):
                         self = .typedArtifactsArchive(types.map { $0.rawValue })
+                    case .prebuilt:
+                        fatalError("TODO")
                     case .unknown:
                         self = .unknown
                     }
@@ -477,7 +479,7 @@ extension WorkspaceStateStorage {
                 self.checkoutPath = managedPrebuilt.checkoutPath
                 self.products = managedPrebuilt.products
                 self.includePath = managedPrebuilt.includePath
-                self.cModules = managedPrebuilt.cModules
+                self.cModules = []
             }
         }
 
@@ -552,8 +554,7 @@ extension Workspace.ManagedPrebuilt {
             path: prebuilt.path,
             checkoutPath: prebuilt.checkoutPath,
             products: prebuilt.products,
-            includePath: prebuilt.includePath,
-            cModules: prebuilt.cModules
+            includePath: prebuilt.includePath ?? []
         )
     }
 }
@@ -603,14 +604,6 @@ extension WorkspaceStateStorage {
     struct V6: Codable {
         let version: Int
         let object: Container
-
-        init(dependencies: Workspace.ManagedDependencies, artifacts: Workspace.ManagedArtifacts) {
-            self.version = 6
-            self.object = .init(
-                dependencies: dependencies.map { .init($0) }.sorted { $0.packageRef.identity < $1.packageRef.identity },
-                artifacts: artifacts.map { .init($0) }.sorted { $0.packageRef.identity < $1.packageRef.identity }
-            )
-        }
 
         struct Container: Codable {
             var dependencies: [Dependency]
@@ -834,6 +827,8 @@ extension WorkspaceStateStorage {
                         self = .xcframework
                     case .artifactsArchive:
                         self = .artifactsArchive
+                    case .prebuilt:
+                        fatalError("TODO")
                     case .unknown:
                         self = .unknown
                     }
@@ -959,14 +954,6 @@ extension WorkspaceStateStorage {
     struct V5: Codable {
         let version: Int
         let object: Container
-
-        init(dependencies: Workspace.ManagedDependencies, artifacts: Workspace.ManagedArtifacts) {
-            self.version = 5
-            self.object = .init(
-                dependencies: dependencies.map { .init($0) }.sorted { $0.packageRef.identity < $1.packageRef.identity },
-                artifacts: artifacts.map { .init($0) }.sorted { $0.packageRef.identity < $1.packageRef.identity }
-            )
-        }
 
         struct Container: Codable {
             var dependencies: [Dependency]

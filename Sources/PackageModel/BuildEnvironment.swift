@@ -12,13 +12,16 @@
 
 /// A build environment with which to evaluate conditions.
 public struct BuildEnvironment {
+    /// The platform that is the target of the build
     public let platform: Platform
-    public let forHost: Bool
+    /// True if platform is the host platform for macros and build tools
+    public let isHost: Bool
+    /// The build configuration for the build
     public let configuration: BuildConfiguration?
 
-    public init(platform: Platform, forHost:Bool, configuration: BuildConfiguration? = nil) {
+    public init(platform: Platform, isHost: Bool = false, configuration: BuildConfiguration? = nil) {
         self.platform = platform
-        self.forHost = forHost
+        self.isHost = isHost
         self.configuration = configuration
     }
 }

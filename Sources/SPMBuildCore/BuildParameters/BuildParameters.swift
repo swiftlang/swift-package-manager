@@ -93,7 +93,7 @@ public struct BuildParameters: Encodable {
 
     /// The current build environment.
     public var buildEnvironment: BuildEnvironment {
-        BuildEnvironment(platform: currentPlatform, forHost: destination == .host, configuration: configuration)
+        BuildEnvironment(platform: currentPlatform, isHost: destination == .host, configuration: configuration)
     }
 
     /// The current platform we're building for.
