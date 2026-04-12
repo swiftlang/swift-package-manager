@@ -17,7 +17,7 @@ import Foundation
 import PackageModel
 import SourceControl
 
-public import SwiftDiagnostics
+import SwiftDiagnostics
 import SwiftParser
 import SwiftParserDiagnostics
 import SwiftSyntax
