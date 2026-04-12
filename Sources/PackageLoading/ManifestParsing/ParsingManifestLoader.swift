@@ -45,19 +45,22 @@ public typealias SyntaxDiagnostic = SwiftDiagnostics.Diagnostic
 /// than continue to manifest parsing.
 public final class ParsingManifestLoader: ManifestLoaderProtocol {
     let pruneDependencies: Bool
-    let config: StaticBuildConfiguration
+
+    /// Build configurations indexed by language mode.
+    let configurations: [SwiftLanguageVersion: StaticBuildConfiguration]
+
     let environment: [String: String]?
 
     /// Initialize the manifest loader with the given static build
     /// configuration, which will be used to evaluate `#if` conditions in
     /// the manifest.
     public init(
-        configuration: StaticBuildConfiguration,
+        configurations: [SwiftLanguageVersion: StaticBuildConfiguration],
         pruneDependencies: Bool = false,
         environment: [String: String]?
     ) {
         self.pruneDependencies = pruneDependencies
-        self.config = configuration
+        self.configurations = configurations
         self.environment = environment
     }
 
@@ -69,11 +72,17 @@ public final class ParsingManifestLoader: ManifestLoaderProtocol {
         extraManifestFlags: [String],
         environment: [String: String]?
     ) throws {
-        self.init(
-            configuration: try StaticBuildConfiguration.getHostConfiguration(
+        var configurations: [SwiftLanguageVersion: StaticBuildConfiguration] = [:]
+        for version in SwiftLanguageVersion.supportedSwiftLanguageVersions {
+            let config = try StaticBuildConfiguration.getHostConfiguration(
                 usingSwiftCompiler: toolchain.swiftCompilerPathForManifests,
-                extraManifestFlags: extraManifestFlags
-            ),
+                extraManifestFlags: extraManifestFlags + ["-swift-version", version.rawValue]
+            )
+            configurations[version] = config
+        }
+
+        self.init(
+            configurations: configurations,
             pruneDependencies: pruneDependencies,
             environment: environment
         )
@@ -196,10 +205,9 @@ public final class ParsingManifestLoader: ManifestLoaderProtocol {
         // from the compiler reflects its default language mode, but the
         // manifest is compiled with the language version implied by its
         // tools version (e.g., tools version 6.0 → Swift 6 mode).
-        var config = self.config
         let toolsLanguageVersion = manifestToolsVersion.swiftLanguageVersion
-        if let parsedVersion = VersionTuple(parsing: toolsLanguageVersion.rawValue) {
-            config.languageMode = parsedVersion
+        guard let config = configurations[toolsLanguageVersion] else {
+            throw .unknownLanguageMode(toolsLanguageVersion)
         }
 
         // Parse the source file.

@@ -955,4 +955,39 @@ final class ParsingLoaderTests: PackageDescriptionLoadingTests {
             return manifest
         }
     }
+
+    func testLanguageModeAdjustment() async throws {
+        let content = """
+            // swift-tools-version:5.5
+            import PackageDescription
+
+            #if swift(>=5.6)
+            let package = Package(
+                name: "UseDocC",
+                products: [
+                    .library(name: "A", targets: ["A"]),
+                ],
+                targets: [
+                    // Product Targets
+                    .target(
+                        name: "A"
+                    ),
+                ]
+            )
+            #endif
+            """
+
+        try await forEachManifestLoader { loader in
+            let observability = ObservabilitySystem.makeForTesting()
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                content,
+                customManifestLoader: loader,
+                observabilityScope: observability.topScope
+            )
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertNoDiagnostics(validationDiagnostics)
+
+            return manifest
+        }
+    }
 }

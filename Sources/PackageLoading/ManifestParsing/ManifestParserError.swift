@@ -13,6 +13,7 @@
 #if !DISABLE_PARSING_MANIFEST_LOADER
 import Basics
 import Foundation
+import PackageModel
 import SwiftDiagnostics
 
 /// An error that can be produced when parsing a manifest directly.
@@ -29,6 +30,9 @@ public enum ManifestParserError: Error {
 
     /// The manifest file is missing a package name.
     case missingPackageName
+
+    /// Unhandled Swift language mode.
+    case unknownLanguageMode(SwiftLanguageVersion)
 }
 
 extension ManifestParserError: CustomStringConvertible {
@@ -42,6 +46,8 @@ extension ManifestParserError: CustomStringConvertible {
             return "Could not read package manifest at \(path): \(reason)"
         case .missingPackageName:
             return "Could not find the package name"
+        case .unknownLanguageMode(let version):
+            return "Could not handle language mode \(version)"
         }
     }
 }
