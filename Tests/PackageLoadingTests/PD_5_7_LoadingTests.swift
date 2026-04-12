@@ -331,7 +331,7 @@ final class PackageDescription5_7LoadingTests: PackageDescriptionLoadingTests {
                         .plugin(
                             name: "Generate",
                             capability: .command(
-                                intent: .documentationGeneration()
+                                intent: .documentationGeneration
                             )
                         ),
                         .plugin(
@@ -346,7 +346,7 @@ final class PackageDescription5_7LoadingTests: PackageDescriptionLoadingTests {
                         .plugin(
                             name: "Format",
                             capability: .command(
-                                intent: .sourceCodeFormatting()
+                                intent: .sourceCodeFormatting
                             )
                         ),
                     ]
