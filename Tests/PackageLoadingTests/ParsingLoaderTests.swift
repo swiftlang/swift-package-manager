@@ -990,4 +990,54 @@ final class ParsingLoaderTests: PackageDescriptionLoadingTests {
             return manifest
         }
     }
+
+    func testPackageAppend() async throws {
+        let content = """
+            // swift-tools-version:5.5
+            import PackageDescription
+
+            let package = Package(
+                name: "MyPackage",
+                products: [
+                    .library(name: "A", targets: ["A"]),
+                ],
+                dependencies: [
+                    .package(url: "https://github.com/vapor/vapor", from: "4.0.0"),
+                ],
+                targets: [
+                    // Product Targets
+                    .target(
+                        name: "A",
+                        dependencies: [
+                            .product(name: "Vapor", package: "vapor"),
+                        ]
+                    ),
+                ]
+            )
+
+            package.dependencies.append(
+                .package(url: "https://github.com/apple/swift-docc-plugin", from: "1.0.0")
+            )
+            package.targets.append(contentsOf: [
+                .target(name: "B"),
+                .target(name: "C"),
+            ])
+            package.products += [
+                .library(name: "B", targets: ["B"]),
+            ]
+            """
+
+        try await forEachManifestLoader { loader in
+            let observability = ObservabilitySystem.makeForTesting()
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                content,
+                customManifestLoader: loader,
+                observabilityScope: observability.topScope
+            )
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertNoDiagnostics(validationDiagnostics)
+
+            return manifest
+        }
+    }
 }

@@ -487,6 +487,123 @@ class ManifestParseVisitor: ActiveSyntaxAnyVisitor {
     override func visit(_: CodeBlockItemSyntax) -> SyntaxVisitorContinueKind {
         .visitChildren
     }
+
+    /// Handle top-level function calls like `package.dependencies.append(...)` or
+    /// `package.targets.append(contentsOf: [...])`.
+    override func visit(_ node: FunctionCallExprSyntax) -> SyntaxVisitorContinueKind {
+        // Match package.<property>.append(...) or package.<property>.append(contentsOf: ...)
+        guard let memberAccess = node.calledExpression.as(MemberAccessExprSyntax.self),
+              let methodName = memberAccess.declName.baseName.identifier?.name,
+              (methodName == "append"),
+              let propertyAccess = memberAccess.base?.as(MemberAccessExprSyntax.self),
+              let propertyName = propertyAccess.declName.baseName.identifier?.name,
+              let baseRef = propertyAccess.base?.as(DeclReferenceExprSyntax.self),
+              baseRef.baseName.text == "package" else {
+            return visitAny(Syntax(node))
+        }
+
+        guard let firstArg = node.arguments.first else {
+            return visitAny(Syntax(node))
+        }
+
+        if firstArg.label?.text == "contentsOf" {
+            // package.<property>.append(contentsOf: [...])
+            appendToPackageProperty(propertyName, arrayExpr: firstArg.expression)
+        } else if firstArg.label == nil {
+            // package.<property>.append(<element>)
+            appendToPackageProperty(propertyName, elementExpr: firstArg.expression)
+        } else {
+            return visitAny(Syntax(node))
+        }
+
+        return .skipChildren
+    }
+
+    /// Handle top-level `package.<property> += [...]` expressions.
+    override func visit(_ node: InfixOperatorExprSyntax) -> SyntaxVisitorContinueKind {
+        // Match package.<property> += <array>
+        guard let op = node.operator.as(BinaryOperatorExprSyntax.self),
+              op.operator.text.trimmingCharacters(in: .whitespaces) == "+=",
+              let propertyAccess = node.leftOperand.as(MemberAccessExprSyntax.self),
+              let propertyName = propertyAccess.declName.baseName.identifier?.name,
+              let baseRef = propertyAccess.base?.as(DeclReferenceExprSyntax.self),
+              baseRef.baseName.text == "package" else {
+            return visitAny(Syntax(node))
+        }
+
+        appendToPackageProperty(propertyName, arrayExpr: node.rightOperand)
+        return .skipChildren
+    }
+
+    /// Append a single element to a package property by name.
+    private func appendToPackageProperty(_ propertyName: String, elementExpr: ExprSyntax) {
+        switch propertyName {
+        case "dependencies":
+            var dep: PackageDependency?
+            resolve(elementExpr, description: "package dependency", into: &dep) { expr throws(ResolutionError) in
+                try self.parsePackageDependency(expr)
+            }
+            if let dep { self.dependencies = (self.dependencies ?? []) + [dep] }
+        case "targets":
+            var target: TargetDescription?
+            resolve(elementExpr, description: "target", into: &target)
+            if let target { self.targets = (self.targets ?? []) + [target] }
+        case "products":
+            var product: ProductDescription?
+            resolve(elementExpr, description: "product", into: &product)
+            if let product { self.products = (self.products ?? []) + [product] }
+        case "platforms":
+            var platform: PlatformDescription?
+            resolve(elementExpr, description: "platform", into: &platform)
+            if let platform { self.platforms = (self.platforms ?? []) + [platform] }
+        case "providers":
+            var provider: SystemPackageProviderDescription?
+            resolve(elementExpr, description: "system package provider", into: &provider)
+            if let provider { self.providers = (self.providers ?? []) + [provider] }
+        case "traits":
+            var trait: TraitDescription?
+            resolve(elementExpr, description: "trait", into: &trait)
+            if let trait { self.traits = (self.traits ?? []) + [trait] }
+        default:
+            limitations.append(.unsupportedExpression(elementExpr, expected: "known package property"))
+        }
+    }
+
+    /// Append an array expression to a package property by name.
+    private func appendToPackageProperty(_ propertyName: String, arrayExpr: ExprSyntax) {
+        switch propertyName {
+        case "dependencies":
+            var newDeps: [PackageDependency]?
+            resolve(arrayExpr, description: "array of package dependencies", into: &newDeps) { expr throws(ResolutionError) in
+                try self.resolveArray(expr) { expr throws(ResolutionError) in
+                    try self.parsePackageDependency(expr)
+                }
+            }
+            if let newDeps { self.dependencies = (self.dependencies ?? []) + newDeps }
+        case "targets":
+            var newTargets: [TargetDescription]?
+            resolve(arrayExpr, description: "array of targets", into: &newTargets)
+            if let newTargets { self.targets = (self.targets ?? []) + newTargets }
+        case "products":
+            var newProducts: [ProductDescription]?
+            resolve(arrayExpr, description: "array of products", into: &newProducts)
+            if let newProducts { self.products = (self.products ?? []) + newProducts }
+        case "platforms":
+            var newPlatforms: [PlatformDescription]?
+            resolve(arrayExpr, description: "array of platforms", into: &newPlatforms)
+            if let newPlatforms { self.platforms = (self.platforms ?? []) + newPlatforms }
+        case "providers":
+            var newProviders: [SystemPackageProviderDescription]?
+            resolve(arrayExpr, description: "array of system package providers", into: &newProviders)
+            if let newProviders { self.providers = (self.providers ?? []) + newProviders }
+        case "traits":
+            var newTraits: [TraitDescription]?
+            resolve(arrayExpr, description: "array of traits", into: &newTraits)
+            if let newTraits { self.traits = (self.traits ?? []) + newTraits }
+        default:
+            limitations.append(.unsupportedExpression(arrayExpr, expected: "known package property"))
+        }
+    }
 }
 
 /// MARK: Handling arrays and variable resolution
