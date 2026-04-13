@@ -261,5 +261,30 @@ struct SwiftPMBuildServerTests {
             #expect(settingsResponse.compilerArguments.contains(["-Xcc", "-DBar"]))
         }
     }
+
+    @Test
+    func pluginScriptArgs() async throws {
+        try await withSwiftPMBSP(fixtureName: "Miscellaneous/Plugins/MySourceGenPlugin") { connection, _, _ in
+            let targetResponse = try await connection.send(WorkspaceBuildTargetsRequest())
+
+            let pluginTargets = targetResponse.targets.filter { ($0.displayName == "MySourceGenBuildToolPlugin" || $0.displayName == "MySourceGenPrebuildPlugin") && $0.id.uri.scheme == "swiftpm" }
+            #expect(pluginTargets.count == 2)
+            for pluginTarget in pluginTargets {
+                #expect(pluginTarget.tags.contains(.notBuildable))
+
+                let sourcesResponse = try await connection.send(BuildTargetSourcesRequest(targets: [pluginTarget.id]))
+                let pluginSources = try #require(sourcesResponse.items.only?.sources)
+                #expect(!pluginSources.isEmpty)
+                #expect(pluginSources.allSatisfy { $0.uri.fileURL?.pathExtension == "swift" })
+
+                for source in pluginSources {
+                    let settingsResponse = try #require(try await connection.send(TextDocumentSourceKitOptionsRequest(textDocument: TextDocumentIdentifier(source.uri), target: pluginTarget.id, language: .swift)))
+                    #expect(settingsResponse.compilerArguments.contains("-package-description-version"))
+                    #expect(settingsResponse.compilerArguments.contains("-parse-as-library"))
+                    try await AsyncProcess.checkNonZeroExit(arguments: [UserToolchain.default.swiftCompilerPath.pathString, "-typecheck"] + settingsResponse.compilerArguments)
+                }
+            }
+        }
+    }
 }
 #endif
