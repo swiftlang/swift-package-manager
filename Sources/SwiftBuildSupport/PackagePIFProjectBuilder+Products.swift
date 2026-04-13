@@ -540,7 +540,8 @@ extension PackagePIFProjectBuilder {
             linkedPackageBinaries: linkedPackageBinaries,
             swiftLanguageVersion: mainModule.packageSwiftLanguageVersion(manifest: packageManifest),
             declaredPlatforms: self.declaredPlatforms,
-            deploymentTargets: mainTargetDeploymentTargets
+            deploymentTargets: mainTargetDeploymentTargets,
+            toolsVersion: pifBuilder.packageManifest.toolsVersion
         )
         self.builtModulesAndProducts.append(moduleOrProduct)
 
@@ -926,7 +927,8 @@ extension PackagePIFProjectBuilder {
             linkedPackageBinaries: linkedPackageBinaries,
             swiftLanguageVersion: nil,
             declaredPlatforms: self.declaredPlatforms,
-            deploymentTargets: self.deploymentTargets
+            deploymentTargets: self.deploymentTargets,
+            toolsVersion: pifBuilder.packageManifest.toolsVersion
         )
     }
 
@@ -976,7 +978,8 @@ extension PackagePIFProjectBuilder {
             linkedPackageBinaries: [],
             swiftLanguageVersion: nil,
             declaredPlatforms: self.declaredPlatforms,
-            deploymentTargets: self.deploymentTargets
+            deploymentTargets: self.deploymentTargets,
+            toolsVersion: pifBuilder.packageManifest.toolsVersion
         )
         self.builtModulesAndProducts.append(systemLibrary)
     }
@@ -1035,11 +1038,13 @@ extension PackagePIFProjectBuilder {
             moduleName: pluginProduct.c99name,
             pifTarget: .aggregate(self.project[keyPath: pluginTargetKeyPath]),
             indexableFileURLs: [],
+            pluginScriptSourcePaths: pluginProduct.pluginModules?.only?.sources.paths ?? [],
             headerFiles: [],
             linkedPackageBinaries: [],
             swiftLanguageVersion: nil,
             declaredPlatforms: self.declaredPlatforms,
-            deploymentTargets: self.deploymentTargets
+            deploymentTargets: self.deploymentTargets,
+            toolsVersion: pifBuilder.packageManifest.toolsVersion
         )
         self.builtModulesAndProducts.append(pluginProductMetadata)
     }
@@ -1143,7 +1148,8 @@ extension PackagePIFProjectBuilder {
             linkedPackageBinaries: [],
             swiftLanguageVersion: nil,
             declaredPlatforms: self.declaredPlatforms,
-            deploymentTargets: self.deploymentTargets
+            deploymentTargets: self.deploymentTargets,
+            toolsVersion: pifBuilder.packageManifest.toolsVersion
         )
         self.builtModulesAndProducts.append(testRunner)
     }

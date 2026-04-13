@@ -259,7 +259,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
     public weak var delegate: SPMBuildCore.BuildSystemDelegate?
 
     /// Configuration for building and invoking plugins.
-    private let pluginConfiguration: PluginConfiguration
+    package let pluginConfiguration: PluginConfiguration
 
     /// Additional rules for different file types generated from plugins.
     private let additionalFileRules: [FileRuleDescription]
