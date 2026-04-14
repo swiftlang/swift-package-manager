@@ -224,7 +224,6 @@ struct TestCommandTests {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let configuration = BuildConfiguration.debug
-        try await withKnownIssue("fails to build the package", isIntermittent: true) {
             // default should run with testability
             try await fixture(name: "Miscellaneous/TestableExe") { fixturePath in
                 let result = try await execute(
@@ -233,11 +232,8 @@ struct TestCommandTests {
                     configuration: configuration,
                     buildSystem: buildSystem,
                 )
-                #expect(result.stderr.contains("-enable-testing"))
+                #expect(result.stderr.contains("-enable-testing") == true)
             }
-        } when: {
-            buildSystem == .swiftbuild && .windows == ProcessInfo.hostOperatingSystem
-        }
     }
 
     @Test(
@@ -252,7 +248,6 @@ struct TestCommandTests {
     ) async throws {
         let configuration = BuildConfiguration.debug
         // disabled
-        try await withKnownIssue("fails to build", isIntermittent: true) {
             try await fixture(name: "Miscellaneous/TestableExe") { fixturePath in
                 let error = await #expect(throws: SwiftPMError.self) {
                     try await execute(
@@ -272,9 +267,6 @@ struct TestCommandTests {
                     "got stdout: \(stdout), stderr: \(stderr)",
                 )
             }
-        } when: {
-            buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows
-        }
     }
 
     @Test(
@@ -287,7 +279,6 @@ struct TestCommandTests {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let configuration = BuildConfiguration.debug
-        try await withKnownIssue("failes to build the package", isIntermittent: true) {
             try await fixture(name: "Miscellaneous/TestableExe") { fixturePath in
                 let result = try await execute(
                     ["--enable-testable-imports", "--vv"],
@@ -295,11 +286,8 @@ struct TestCommandTests {
                     configuration: configuration,
                     buildSystem: buildSystem,
                 )
-                #expect(result.stderr.contains("-enable-testing"))
+                #expect(result.stderr.contains("-enable-testing") == true)
             }
-        } when: {
-            (buildSystem == .swiftbuild && .windows == ProcessInfo.hostOperatingSystem)
-        }
     }
 
     @Test(
