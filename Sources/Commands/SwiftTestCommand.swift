@@ -168,6 +168,16 @@ struct TestCommandOptions: ParsableArguments {
     @Option(help: .hidden)
     var experimentalMaximumParallelizationWidth: Int? = nil
 
+    /// The maximum number of times each test will repeat (Swift Testing only).
+    @Option(name: .customLong("maximum-repetitions"),
+            help: "The maximum number of times each test will repeat (Swift Testing only).")
+    var maximumRepetitions: Int?
+
+    /// The condition upon which to stop repeating (Swift Testing only).
+    @Option(name: .customLong("repeat-until"),
+            help: "The condition upon which to stop repeating. Possible values: pass, fail (Swift Testing only).")
+    var repeatUntil: String?
+
     /// List the tests and exit.
     @Flag(name: [.customLong("list-tests"), .customShort("l")],
           help: "List test methods in specifier format.")
@@ -573,7 +583,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             var commandLineArguments = [String]()
             var originalCommandLineArguments = CommandLine.arguments.dropFirst().makeIterator()
             while let arg = originalCommandLineArguments.next() {
-                if arg == "--xunit-output" {
+                if arg == "--xunit-output" || arg == "--maximum-repetitions" {
                     _ = originalCommandLineArguments.next()
                 } else {
                     commandLineArguments.append(arg)
@@ -593,6 +603,10 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                     xunitPath = xunitPath.parentDirectory.appending(xunitFileName)
                 }
                 additionalArguments += ["--xunit-output", xunitPath.pathString]
+            }
+
+            if let maximumRepetitions = options.maximumRepetitions {
+                additionalArguments += ["--repetitions", String(maximumRepetitions)]
             }
         }
 
