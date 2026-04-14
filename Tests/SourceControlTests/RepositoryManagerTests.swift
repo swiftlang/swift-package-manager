@@ -338,22 +338,24 @@ final class RepositoryManagerTests: XCTestCase {
 
         try await testWithTemporaryDirectory { path in
             let provider = DummyRepositoryProvider(fileSystem: fs)
-            let delegate = DummyRepositoryManagerDelegate()
+            // Concurrent phase: no delegate — pendingLookups coalesces callers
+            // so delegate callback count is not 1:1 with lookup calls, making
+            // DispatchGroup accounting invalid.
             let manager = RepositoryManager(
                 fileSystem: fs,
                 path: path,
                 provider: provider,
-                delegate: delegate
+                delegate: nil
             )
             let dummyRepoPath = try AbsolutePath(validating: "/dummy")
             let dummyRepo = RepositorySpecifier(path: dummyRepoPath)
 
             let results = ThreadSafeKeyValueStore<Int, RepositoryManager.RepositoryHandle>()
             let concurrency = 10000
+
             try await withThrowingTaskGroup(of: Void.self) { group in
                 for index in 0 ..< concurrency {
                     group.addTask {
-                        delegate.prepare(fetchExpected: index == 0, updateExpected: index > 0)
                         results[index] = try await manager.lookup(
                             package: PackageIdentity(path: dummyRepoPath),
                             repository: dummyRepo,
@@ -367,16 +369,31 @@ final class RepositoryManagerTests: XCTestCase {
 
             XCTAssertNoDiagnostics(observability.diagnostics)
 
-            try await delegate.wait(timeout: .now() + 2)
-            XCTAssertEqual(delegate.willFetch.count, 1)
-            XCTAssertEqual(delegate.didFetch.count, 1)
-            XCTAssertEqual(delegate.willUpdate.count, concurrency - 1)
-            XCTAssertEqual(delegate.didUpdate.count, concurrency - 1)
-
+            // All callers received a valid handle.
             XCTAssertEqual(results.count, concurrency)
             for index in 0 ..< concurrency {
                 XCTAssertEqual(results[index]?.repository, dummyRepo)
             }
+
+            // Sequential follow-up with delegate: a later .always lookup
+            // must still trigger an update after concurrent phase completes.
+            let delegate = DummyRepositoryManagerDelegate()
+            let manager2 = RepositoryManager(
+                fileSystem: fs,
+                path: path,
+                provider: provider,
+                delegate: delegate
+            )
+            delegate.prepare(fetchExpected: false, updateExpected: true)
+            _ = try await manager2.lookup(
+                package: PackageIdentity(path: dummyRepoPath),
+                repository: dummyRepo,
+                updateStrategy: .always,
+                observabilityScope: observability.topScope
+            )
+            try await delegate.wait(timeout: .now() + 2)
+            XCTAssertEqual(delegate.willUpdate.count, 1)
+            XCTAssertEqual(delegate.didUpdate.count, 1)
         }
     }
 

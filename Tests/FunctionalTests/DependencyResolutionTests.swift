@@ -150,7 +150,8 @@ struct DependencyResolutionTests {
                     "Path \(executablePath) does not exist",
                 )
                 let path = try SwiftPM.packagePath(for: "Foo", packageRoot: packageRoot)
-                #expect(try GitRepository(path: path).getTags().contains("1.2.3"))
+                let tags = try await GitRepository(path: path).getTags()
+                #expect(tags.contains("1.2.3"))
             }
         } when: {
             ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild

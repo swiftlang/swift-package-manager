@@ -805,7 +805,8 @@ struct PackageCommandTests {
                     buildSystem: buildSystem,
                 )
                 let path = try SwiftPM.packagePath(for: "Foo", packageRoot: packageRoot)
-                #expect(try GitRepository(path: path).getTags() == ["1.2.3"])
+                let resolvedTags = try await GitRepository(path: path).getTags()
+                #expect(resolvedTags == ["1.2.3"])
             }
         }
 
@@ -833,7 +834,8 @@ struct PackageCommandTests {
                 do {
                     let checkoutPath = try SwiftPM.packagePath(for: "Foo", packageRoot: packageRoot)
                     let checkoutRepo = GitRepository(path: checkoutPath)
-                    #expect(try checkoutRepo.getTags() == ["1.2.3"])
+                    let checkoutTags = try await checkoutRepo.getTags()
+                    #expect(checkoutTags == ["1.2.3"])
                     _ = try checkoutRepo.revision(forTag: "1.2.3")
                 }
 
@@ -3260,7 +3262,7 @@ struct PackageCommandTests {
             let barPath = fixturePath.appending("bar")
             let barRepo = GitRepository(path: barPath)
             try barRepo.checkout(newBranch: "YOLO")
-            let yoloRevision = try barRepo.getCurrentRevision()
+            let yoloRevision = try await barRepo.getCurrentRevision()
 
             // Try to resolve `bar` at a branch.
             do {
