@@ -51,6 +51,63 @@ extension AuthorizationProvider {
     }
 }
 
+// MARK: - Environment
+
+public struct EnvironmentAuthorizationProvider: AuthorizationProvider {
+    private let environment: Environment
+
+    public enum Kind: Sendable {
+        case registry
+        case sourceControl
+    }
+
+    private let kind: Kind
+
+    public init(environment: Environment = .current, kind: Kind) {
+        self.environment = environment
+        self.kind = kind
+    }
+
+    public func authentication(for url: URL) -> (user: String, password: String)? {
+        switch kind {
+        case .registry:
+            if let token = nonEmpty(environment[.swiftpmRegistryToken]) {
+                return (user: "token", password: token)
+            }
+            if let login = nonEmpty(environment[.swiftpmRegistryLogin]),
+               let password = nonEmpty(environment[.swiftpmRegistryPassword]) {
+                return (user: login, password: password)
+            }
+            return nil
+        case .sourceControl:
+            if let token = nonEmpty(environment[.swiftpmSourceControlToken]) {
+                return (user: "token", password: token)
+            }
+            return nil
+        }
+    }
+
+    private func nonEmpty(_ value: String?) -> String? {
+        guard let value, !value.isEmpty else { return nil }
+        return value
+    }
+}
+
+// MARK: - In-memory netrc
+
+public struct InMemoryNetrcAuthorizationProvider: AuthorizationProvider {
+    private let netrc: Netrc
+
+    public init(content: String) throws {
+        self.netrc = try NetrcParser.parse(content)
+    }
+
+    public func authentication(for url: URL) -> (user: String, password: String)? {
+        guard let auth = netrc.authorization(for: url) else { return nil }
+        return (user: auth.login, password: auth.password)
+    }
+}
+
 // MARK: - netrc
 
 public final class NetrcAuthorizationProvider: AuthorizationProvider, AuthorizationWriter {
@@ -468,6 +525,10 @@ public struct CompositeAuthorizationProvider: AuthorizationProvider {
         for provider in self.providers {
             if let authentication = provider.authentication(for: url) {
                 switch provider {
+                case is EnvironmentAuthorizationProvider:
+                    self.observabilityScope.emit(info: "credentials for \(url) found in environment variables")
+                case is InMemoryNetrcAuthorizationProvider:
+                    self.observabilityScope.emit(info: "credentials for \(url) found in SWIFTPM_NETRC_DATA environment variable")
                 case let provider as NetrcAuthorizationProvider:
                     self.observabilityScope.emit(info: "credentials for \(url) found in netrc file at \(provider.path)")
                 #if canImport(Security)
