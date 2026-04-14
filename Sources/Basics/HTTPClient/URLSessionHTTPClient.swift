@@ -184,11 +184,37 @@ private final class DataTaskManager: NSObject, URLSessionDataDelegate {
         }
     }
 
-    public func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
-        guard let task = self.tasks.removeValue(forKey: task.taskIdentifier) else {
+    public func urlSession(
+        _ session: URLSession,
+        task: URLSessionTask,
+        didReceive challenge: URLAuthenticationChallenge,
+        completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void
+    ) {
+        switch challenge.protectionSpace.authenticationMethod {
+        case NSURLAuthenticationMethodHTTPBasic,
+            NSURLAuthenticationMethodHTTPDigest,
+            NSURLAuthenticationMethodNTLM:
+            if var dataTask = self.tasks[task.taskIdentifier] {
+                dataTask.response = challenge.failureResponse as? HTTPURLResponse
+                dataTask.authChallengeCancelled = true
+                self.tasks[task.taskIdentifier] = dataTask
+            }
+            completionHandler(.cancelAuthenticationChallenge, nil)
+        default:
+            completionHandler(.performDefaultHandling, nil)
+        }
+    }
+
+    public func urlSession(
+        _ session: URLSession,
+        task downloadTask: URLSessionTask,
+        didCompleteWithError error: Error?
+    ) {
+        guard let task = self.tasks.removeValue(forKey: downloadTask.taskIdentifier) else {
             return
         }
-        if let error {
+
+        if let error, !task.authChallengeCancelled {
             task.completionHandler(.failure(error))
         } else if let response = task.response {
             task.completionHandler(.success(response.response(body: task.buffer)))
@@ -234,6 +260,7 @@ private final class DataTaskManager: NSObject, URLSessionDataDelegate {
         var response: HTTPURLResponse?
         var expectedContentLength: Int64?
         var buffer: Data?
+        var authChallengeCancelled: Bool = false
 
         init(
             task: URLSessionDataTask,
@@ -325,6 +352,26 @@ private final class DownloadTaskManager: NSObject, URLSessionDownloadDelegate {
 
     public func urlSession(
         _ session: URLSession,
+        task: URLSessionTask,
+        didReceive challenge: URLAuthenticationChallenge,
+        completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void
+    ) {
+        switch challenge.protectionSpace.authenticationMethod {
+        case NSURLAuthenticationMethodHTTPBasic,
+            NSURLAuthenticationMethodHTTPDigest,
+            NSURLAuthenticationMethodNTLM:
+            if var downloadTask = self.tasks[task.taskIdentifier] {
+                downloadTask.authChallengeCancelled = true
+                self.tasks[task.taskIdentifier] = downloadTask
+            }
+            completionHandler(.cancelAuthenticationChallenge, nil)
+        default:
+            completionHandler(.performDefaultHandling, nil)
+        }
+    }
+
+    public func urlSession(
+        _ session: URLSession,
         task downloadTask: URLSessionTask,
         didCompleteWithError error: Error?
     ) {
@@ -333,7 +380,7 @@ private final class DownloadTaskManager: NSObject, URLSessionDownloadDelegate {
         }
 
         do {
-            if let error {
+            if let error, !task.authChallengeCancelled {
                 throw HTTPClientError.downloadError(error.interpolationDescription)
             } else if let error = task.moveFileError {
                 throw error
@@ -378,6 +425,7 @@ private final class DownloadTaskManager: NSObject, URLSessionDownloadDelegate {
         let authorizationProvider: LegacyHTTPClientConfiguration.AuthorizationProvider?
 
         var moveFileError: Error?
+        var authChallengeCancelled: Bool = false
 
         init(
             task: URLSessionDownloadTask,
