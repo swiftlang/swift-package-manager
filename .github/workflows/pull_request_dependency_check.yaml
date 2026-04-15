@@ -8,4 +8,4 @@ permissions:
 
 jobs:
   check_dependencies:
-    uses: bkhouri/github-workflows/.github/workflows/github_actions_dependencies.yml@t/main/pr_dependency-check
+    uses: swiftlang/github-workflows/.github/workflows/github_actions_dependencies.yml@main
