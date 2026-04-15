@@ -44,7 +44,7 @@ public struct DefaultIdentityResolver: IdentityResolver {
             return try self.resolveIdentity(for: path)
         case .remoteSourceControl(let url):
             return try self.resolveIdentity(for: url)
-        case .registry(let identity):
+        case .registry(let identity, _):
             return identity
         }
     }

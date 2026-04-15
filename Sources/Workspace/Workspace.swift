@@ -77,6 +77,20 @@ public struct PackageFetchDetails {
 public class Workspace {
     public typealias Delegate = WorkspaceDelegate
 
+    public typealias SCMToRegistryMap = ThreadSafeKeyValueStore<
+        SourceControlURL,
+        (result: Result<PackageIdentity?, Error>, expirationTime: DispatchTime)
+    >
+
+//    public struct IdentityLookupCache {
+//        public let cache = ThreadSafeKeyValueStore<
+//            SourceControlURL,
+//            (result: Result<PackageIdentity?, Error>, expirationTime: DispatchTime)
+//        >()
+//
+//        public let forceResolvedVersions: Bool
+//    }
+
     /// The delegate interface.
     private(set) weak var delegate: Delegate?
 
@@ -124,6 +138,9 @@ public class Workspace {
 
     /// Utility to map dependencies
     let dependencyMapper: DependencyMapper
+
+    let identityLookupCache = SCMToRegistryMap()
+//    let identityLookupCache: IdentityLookupCache
 
     /// The custom package container provider used by this workspace, if any.
     let customPackageContainerProvider: PackageContainerProvider?

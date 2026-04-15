@@ -125,7 +125,11 @@ public protocol ManifestLoaderProtocol {
         dependencyMapper: DependencyMapper,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
-        delegateQueue: DispatchQueue
+        delegateQueue: DispatchQueue,
+        identityLookupCache: ThreadSafeKeyValueStore<
+        SourceControlURL,
+        (result: Result<PackageIdentity?, Error>, expirationTime: DispatchTime)
+    >
     ) async throws -> Manifest
 
     /// Reset any internal cache held by the manifest loader.
@@ -198,7 +202,11 @@ extension ManifestLoaderProtocol {
         dependencyMapper: DependencyMapper,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
-        delegateQueue: DispatchQueue
+        delegateQueue: DispatchQueue,
+        identityLookupCache: ThreadSafeKeyValueStore<
+        SourceControlURL,
+        (result: Result<PackageIdentity?, Error>, expirationTime: DispatchTime)
+    >
     ) async throws -> Manifest {
         // find the manifest path and parse it's tools-version
         let manifestPath = try ManifestLoader.findManifest(
@@ -225,7 +233,8 @@ extension ManifestLoaderProtocol {
             dependencyMapper: dependencyMapper,
             fileSystem: fileSystem,
             observabilityScope: observabilityScope,
-            delegateQueue: delegateQueue
+            delegateQueue: delegateQueue,
+            identityLookupCache: identityLookupCache
         )
     }
 }
@@ -310,7 +319,11 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         dependencyMapper: DependencyMapper,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
-        delegateQueue: DispatchQueue
+        delegateQueue: DispatchQueue,
+        identityLookupCache: ThreadSafeKeyValueStore<
+        SourceControlURL,
+        (result: Result<PackageIdentity?, Error>, expirationTime: DispatchTime)
+    >
     ) async throws -> Manifest {
         // Inform the delegate.
         let start = DispatchTime.now()

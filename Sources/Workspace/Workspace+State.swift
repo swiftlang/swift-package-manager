@@ -203,7 +203,8 @@ extension WorkspaceStateStorage {
         init(
             dependencies: Workspace.ManagedDependencies,
             artifacts: Workspace.ManagedArtifacts,
-            prebuilts: Workspace.ManagedPrebuilts
+            prebuilts: Workspace.ManagedPrebuilts,
+            identityLookupCache: [String: String]? = nil
         ) {
             self.version = 7
             self.object = .init(
@@ -217,6 +218,7 @@ extension WorkspaceStateStorage {
             var dependencies: [Dependency]
             var artifacts: [Artifact]
             var prebuilts: [Prebuilt]
+            var identityLookupCache: [String: String]?
         }
 
         struct Dependency: Codable {
@@ -485,10 +487,12 @@ extension WorkspaceStateStorage {
             let identity: String
             let kind: Kind
             let location: String
+            let originalLocation: String?
             let name: String
 
             init(_ reference: PackageModel.PackageReference) {
                 self.identity = reference.identity.description
+                var originalURL: String? = nil
                 switch reference.kind {
                 case .root(let path):
                     self.kind = .root
@@ -502,11 +506,13 @@ extension WorkspaceStateStorage {
                 case .remoteSourceControl(let url):
                     self.kind = .remoteSourceControl
                     self.location = url.absoluteString
-                case .registry:
+                case .registry(_, let scmURL):
                     self.kind = .registry
                     // FIXME: placeholder
                     self.location = self.identity.description
+                    originalURL = scmURL?.absoluteString
                 }
+                self.originalLocation = originalURL
                 self.name = reference.deprecatedName
             }
 
@@ -572,7 +578,12 @@ extension PackageModel.PackageReference {
         case .remoteSourceControl:
             kind = .remoteSourceControl(SourceControlURL(reference.location))
         case .registry:
-            kind = .registry(identity)
+            let scmURL: SourceControlURL? = if let url = reference.originalLocation {
+                SourceControlURL(url)
+            } else {
+                nil
+            }
+            kind = .registry(identity, scmURL)
         }
 
         self.init(
@@ -928,7 +939,7 @@ extension PackageModel.PackageReference {
         case .remoteSourceControl:
             kind = .remoteSourceControl(SourceControlURL(reference.location))
         case .registry:
-            kind = .registry(identity)
+            kind = .registry(identity, nil)
         }
 
         self.init(
@@ -1255,7 +1266,7 @@ extension PackageModel.PackageReference {
         case .remoteSourceControl:
             kind = .remoteSourceControl(SourceControlURL(reference.location))
         case .registry:
-            kind = .registry(identity)
+            kind = .registry(identity, nil)
         }
 
         self.init(

@@ -640,7 +640,6 @@ public final class RegistryClient: AsyncCancellable {
         observabilityScope: ObservabilityScope
     ) async throws -> String {
         let (registryIdentity, registry) = try self.unwrapRegistry(from: package)
-
         try await withAvailabilityCheck(
             registry: registry,
             observabilityScope: observabilityScope
@@ -806,6 +805,7 @@ public final class RegistryClient: AsyncCancellable {
 
         // first get the release metadata
         // TODO: this should be included in the archive to save the extra HTTP call
+        print("getting source archive for registry")
         let versionMetadata = try await self.getPackageVersionMetadata(
             package: package,
             version: version,

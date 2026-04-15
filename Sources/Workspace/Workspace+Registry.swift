@@ -58,10 +58,10 @@ extension Workspace {
         private let transformationMode: TransformationMode
 
         private let cacheTTL = DispatchTimeInterval.seconds(300) // 5m
-        private let identityLookupCache = ThreadSafeKeyValueStore<
-            SourceControlURL,
-            (result: Result<PackageIdentity?, Error>, expirationTime: DispatchTime)
-        >()
+//        private let identityLookupCache = ThreadSafeKeyValueStore<
+//            SourceControlURL,
+//            (result: Result<PackageIdentity?, Error>, expirationTime: DispatchTime)
+//        >()
 
         init(
             underlying: ManifestLoaderProtocol,
@@ -84,7 +84,11 @@ extension Workspace {
             dependencyMapper: any DependencyMapper,
             fileSystem: any FileSystem,
             observabilityScope: ObservabilityScope,
-            delegateQueue: DispatchQueue
+            delegateQueue: DispatchQueue,
+            identityLookupCache: ThreadSafeKeyValueStore<
+            SourceControlURL,
+            (result: Result<PackageIdentity?, Error>, expirationTime: DispatchTime)
+            >
         ) async throws -> Manifest {
             let manifest = try await self.underlying.load(
                 manifestPath: manifestPath,
@@ -97,11 +101,13 @@ extension Workspace {
                 dependencyMapper: dependencyMapper,
                 fileSystem: fileSystem,
                 observabilityScope: observabilityScope,
-                delegateQueue: delegateQueue
+                delegateQueue: delegateQueue,
+                identityLookupCache: .init()
             )
             return try await self.transformSourceControlDependenciesToRegistry(
                 manifest: manifest,
                 transformationMode: transformationMode,
+                identityLookupCache: identityLookupCache,
                 observabilityScope: observabilityScope
             )
         }
@@ -117,6 +123,10 @@ extension Workspace {
         private func transformSourceControlDependenciesToRegistry(
             manifest: Manifest,
             transformationMode: TransformationMode,
+            identityLookupCache: ThreadSafeKeyValueStore<
+            SourceControlURL,
+            (result: Result<PackageIdentity?, Error>, expirationTime: DispatchTime)
+        >,
             observabilityScope: ObservabilityScope
         ) async throws -> Manifest {
             var transformations = [PackageDependency: PackageIdentity]()
@@ -128,6 +138,7 @@ extension Workspace {
                             do {
                                 let identity = try await self.mapRegistryIdentity(
                                     url: url,
+                                    identityLookupCache: identityLookupCache,
                                     observabilityScope: observabilityScope
                                 )
                                 return (dependency, identity)
@@ -174,7 +185,7 @@ extension Workspace {
             for dependency in manifest.dependencies {
                 var modifiedDependency = dependency
                 if let registryIdentity = transformations[dependency] {
-                    guard case .sourceControl(let settings) = dependency, case .remote = settings.location else {
+                    guard case .sourceControl(let settings) = dependency, case .remote(let scmURL) = settings.location else {
                         // an implementation mistake
                         throw InternalError("unexpected non-source-control dependency: \(dependency)")
                     }
@@ -195,6 +206,7 @@ extension Workspace {
                             traits: settings.traits
                         )
                     case .swizzle:
+                        // TODO bp
                         // we replace the *entire* source control dependency with a registry one
                         // this helps de-dupe across source control and registry dependencies
                         // and also encourages use of registry over source control
@@ -211,7 +223,8 @@ extension Workspace {
                                 identity: registryIdentity,
                                 requirement: requirement,
                                 productFilter: settings.productFilter,
-                                traits: settings.traits
+                                traits: settings.traits,
+                                sourceControlURL: scmURL
                             )
                         case .branch, .revision:
                             // branch and revision dependencies are not supported by the registry
@@ -330,9 +343,15 @@ extension Workspace {
 
         private func mapRegistryIdentity(
             url: SourceControlURL,
+            identityLookupCache: ThreadSafeKeyValueStore<
+            SourceControlURL,
+            (result:
+                Result<PackageIdentity?, Error>,
+             expirationTime: DispatchTime
+            )>,
             observabilityScope: ObservabilityScope
         ) async throws -> PackageIdentity? {
-            if let cached = self.identityLookupCache[url], cached.expirationTime > .now() {
+            if let cached = identityLookupCache[url], cached.expirationTime > .now() {
                 switch cached.result {
                 case .success(let identity):
                     return identity;
@@ -343,15 +362,18 @@ extension Workspace {
             }
 
             do {
+                // TODO bp :
+                // - possibly propogate the resolvedFileStrategy here?
+                // - ensure that the cache is up to date
                 let identities = try await self.registryClient.lookupIdentities(
                     scmURL: url,
                     observabilityScope: observabilityScope
                 )
                 let identity = identities.sorted().first
-                self.identityLookupCache[url] = (result: .success(identity), expirationTime: .now() + self.cacheTTL)
+                identityLookupCache[url] = (result: .success(identity), expirationTime: .now() + self.cacheTTL)
                 return identity
             } catch {
-                self.identityLookupCache[url] = (result: .failure(error), expirationTime: .now() + self.cacheTTL)
+                identityLookupCache[url] = (result: .failure(error), expirationTime: .now() + self.cacheTTL)
                 throw error
             }
         }

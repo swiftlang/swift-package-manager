@@ -163,6 +163,7 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
         public let requirement: Requirement
         public let productFilter: ProductFilter
         package let traits: Set<Trait>?
+        public let sourceControlURL: SourceControlURL?
 
         /// The dependency requirement.
         public enum Requirement: Equatable, Hashable, Sendable {
@@ -435,14 +436,16 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
         identity: PackageIdentity,
         requirement: Registry.Requirement,
         productFilter: ProductFilter,
-        traits: Set<Trait>?
+        traits: Set<Trait>?,
+        sourceControlURL: SourceControlURL? = nil
     ) -> Self {
         .registry(
             .init(
                 identity: identity,
                 requirement: requirement,
                 productFilter: productFilter,
-                traits: traits
+                traits: traits,
+                sourceControlURL: sourceControlURL
             )
         )
     }

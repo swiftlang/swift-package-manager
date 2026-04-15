@@ -18,6 +18,7 @@ import class Basics.ObservabilityScope
 import func Basics.os_signpost
 import struct Basics.RelativePath
 import enum Basics.SignpostName
+import struct Basics.SourceControlURL
 import class Basics.ThreadSafeKeyValueStore
 import class Dispatch.DispatchGroup
 import struct Dispatch.DispatchTime
@@ -370,6 +371,29 @@ extension Workspace {
             return (dependencyManifests,
                 .notRequired
             )
+        }
+
+        // Create the identity mapping between the registry and scm, if applicable.
+        for resolvedPackage in resolvedPackagesStore.resolvedPackages.values {
+            if case let .registry(id, .some(url)) = resolvedPackage.packageRef.kind {
+                self.identityLookupCache[url] = (
+                    result: .success(id),
+                    expirationTime: .now().advanced(by: .seconds(300))
+                )
+            }
+        }
+
+        // Track SCM packages that don't have a mapped registry equivalent;
+        // this will avoid having to make any unnecessary calls to registry
+        // endpoints.
+        for resolvedPackage in resolvedPackagesStore.resolvedPackages.values {
+            if case .remoteSourceControl(let url) = resolvedPackage.packageRef.kind,
+               self.identityLookupCache[url] == nil {
+                self.identityLookupCache[url] = (
+                    result: .success(nil),
+                    expirationTime: .now().advanced(by: .seconds(300))
+                )
+            }
         }
 
         // Request all the containers to fetch them in parallel.

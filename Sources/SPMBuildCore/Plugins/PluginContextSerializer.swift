@@ -260,7 +260,7 @@ internal struct PluginContextSerializer {
                 return .repository(url: path.asURL.absoluteString, displayVersion: package.manifest.version?.description ?? "no version", scmRevision: package.manifest.revision ?? "no revision")
             case .remoteSourceControl(let url):
                 return .repository(url: url.absoluteString, displayVersion: package.manifest.version?.description ?? "no version", scmRevision: package.manifest.revision ?? "no revision")
-            case .registry(let identity):
+            case .registry(let identity, _):
                 return .registry(identity: identity.description, displayVersion: package.manifest.version?.description ?? "no version")
             }
         }

@@ -859,7 +859,8 @@ extension Workspace {
                 dependencyMapper: self.dependencyMapper,
                 fileSystem: fileSystem,
                 observabilityScope: manifestLoadingScope,
-                delegateQueue: .sharedConcurrent
+                delegateQueue: .sharedConcurrent,
+                identityLookupCache: self.identityLookupCache
             )
         } catch {
             let duration = start.distance(to: .now())

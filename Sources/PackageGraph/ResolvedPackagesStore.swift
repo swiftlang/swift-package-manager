@@ -439,11 +439,13 @@ private struct ResolvedPackagesStorage {
             let identity: PackageIdentity
             let kind: Kind
             let location: String
+            let originalLocation: String?
             let state: State
 
             init(_ pin: ResolvedPackagesStore.ResolvedPackage, mirrors: DependencyMirrors) throws {
                 let kind: Kind
                 let location: String
+                var originalLocation: String? = nil
                 switch pin.packageRef.kind {
                 case .localSourceControl(let path):
                     kind = .localSourceControl
@@ -451,9 +453,10 @@ private struct ResolvedPackagesStorage {
                 case .remoteSourceControl(let url):
                     kind = .remoteSourceControl
                     location = url.absoluteString
-                case .registry:
+                case .registry(_, let originalURL):
                     kind = .registry
                     location = "" // FIXME: this is likely not correct
+                    originalLocation = originalURL?.absoluteString
                 default:
                     throw StringError("invalid package type \(pin.packageRef.kind)")
                 }
@@ -463,6 +466,7 @@ private struct ResolvedPackagesStorage {
                 // rdar://52529014, rdar://52529011: pin file should store the original location but remap when loading
                 self.location = mirrors.original(for: location) ?? location
                 self.state = .init(pin.state)
+                self.originalLocation = originalLocation
             }
         }
 
@@ -564,7 +568,7 @@ extension ResolvedPackagesStore.ResolvedPackage {
         case .remoteSourceControl:
             packageRef = .remoteSourceControl(identity: identity, url: SourceControlURL(location))
         case .registry:
-            packageRef = .registry(identity: identity)
+            packageRef = .registry(identity: identity, originalURL: pin.originalLocation)
         }
         self.init(
             packageRef: packageRef,

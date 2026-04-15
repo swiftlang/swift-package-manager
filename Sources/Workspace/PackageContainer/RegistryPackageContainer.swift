@@ -30,6 +30,7 @@ public class RegistryPackageContainer: PackageContainer {
     private let manifestLoader: ManifestLoaderProtocol
     private let currentToolsVersion: ToolsVersion
     private let observabilityScope: ObservabilityScope
+    private let identityLookupCache: Workspace.SCMToRegistryMap
 
     private var knownVersionsCache = AsyncThrowingValueMemoizer<[Version]>()
     private var toolsVersionsCache = ThrowingAsyncKeyValueMemoizer<Version, ToolsVersion>()
@@ -44,7 +45,8 @@ public class RegistryPackageContainer: PackageContainer {
         registryClient: RegistryClient,
         manifestLoader: ManifestLoaderProtocol,
         currentToolsVersion: ToolsVersion,
-        observabilityScope: ObservabilityScope
+        observabilityScope: ObservabilityScope,
+        identityLookupCache: Workspace.SCMToRegistryMap
     ) {
         self.package = package
         self.identityResolver = identityResolver
@@ -55,6 +57,7 @@ public class RegistryPackageContainer: PackageContainer {
         self.observabilityScope = observabilityScope.makeChildScope(
             description: "RegistryPackageContainer",
             metadata: package.diagnosticsMetadata)
+        self.identityLookupCache = identityLookupCache
     }
 
     // MARK: - PackageContainer
@@ -148,7 +151,8 @@ public class RegistryPackageContainer: PackageContainer {
                 dependencyMapper: self.dependencyMapper,
                 fileSystem: result.fileSystem,
                 observabilityScope: self.observabilityScope,
-                delegateQueue: .sharedConcurrent
+                delegateQueue: .sharedConcurrent,
+                identityLookupCache: self.identityLookupCache
             )
         }
 
