@@ -169,14 +169,12 @@ struct TestCommandOptions: ParsableArguments {
     var experimentalMaximumParallelizationWidth: Int? = nil
 
     /// The maximum number of times each test will repeat (Swift Testing only).
-    @Option(name: .customLong("maximum-repetitions"),
-            help: "The maximum number of times each test will repeat (Swift Testing only).")
-    var maximumRepetitions: Int?
+    @Option(help: .hidden)
+    var experimentalMaximumRepetitions: Int?
 
     /// The condition upon which to stop repeating (Swift Testing only).
-    @Option(name: .customLong("repeat-until"),
-            help: "The condition upon which to stop repeating. Possible values: pass, fail (Swift Testing only).")
-    var repeatUntil: String?
+    @Option(help: .hidden)
+    var experimentalRepeatUntil: String?
 
     /// List the tests and exit.
     @Flag(name: [.customLong("list-tests"), .customShort("l")],
@@ -583,7 +581,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             var commandLineArguments = [String]()
             var originalCommandLineArguments = CommandLine.arguments.dropFirst().makeIterator()
             while let arg = originalCommandLineArguments.next() {
-                if arg == "--xunit-output" || arg == "--maximum-repetitions" {
+                if arg == "--xunit-output" || arg == "--experimental-maximum-repetitions" || arg == "--experimental-repeat-until" {
                     _ = originalCommandLineArguments.next()
                 } else {
                     commandLineArguments.append(arg)
@@ -605,8 +603,12 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                 additionalArguments += ["--xunit-output", xunitPath.pathString]
             }
 
-            if let maximumRepetitions = options.maximumRepetitions {
+            if let maximumRepetitions = options.experimentalMaximumRepetitions {
                 additionalArguments += ["--repetitions", String(maximumRepetitions)]
+            }
+
+            if let repeatUntil = options.experimentalRepeatUntil {
+                additionalArguments += ["--repeat-until", repeatUntil]
             }
         }
 
