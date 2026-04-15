@@ -772,7 +772,6 @@ struct MiscellaneousTestCase {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let configuration = BuildConfiguration.debug
-        try await withKnownIssue(isIntermittent: true) {
         try await fixture(name: "Miscellaneous/TestableExe") { fixturePath in
             do {
                 let (stdout, stderr) = try await executeSwiftTest(
@@ -815,9 +814,6 @@ struct MiscellaneousTestCase {
                 Issue.record("\(error)")
 #endif
             }
-        }
-        } when: {
-            ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild
         }
     }
 
