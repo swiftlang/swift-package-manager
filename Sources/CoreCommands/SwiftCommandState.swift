@@ -786,18 +786,24 @@ public final class SwiftCommandState {
         do {
             let workspace = try getActiveWorkspace(enableAllTraits: enableAllTraits)
 
+            // Create a dedicated observability scope for package graph loading so that the `packageGraphObservabilityScope.errorsReported`
+            // below only considers errors reported from this call to `loadPackageGraph`. This ensures that in an interactive context like
+            // when using `swift package experimental-build-server`, a package graph load which initially fails doesn't cause all subsequent
+            // package graph load attempts to also fail due to sharing the same `errorsReported` bit.
+            let packageGraphObservabilityScope = self.observabilityScope.makeChildScope(description: "Loading Package Graph")
+
             // Fetch and load the package graph.
             let graph = try await workspace.loadPackageGraph(
                 rootInput: self.getWorkspaceRoot(),
                 explicitProduct: explicitProduct,
                 forceResolvedVersions: self.options.resolver.forceResolvedVersions,
                 testEntryPointPath: testEntryPointPath,
-                observabilityScope: self.observabilityScope
+                observabilityScope: packageGraphObservabilityScope
             )
 
             // Throw if there were errors when loading the graph.
             // The actual errors will be printed before exiting.
-            guard !self.observabilityScope.errorsReported else {
+            guard !packageGraphObservabilityScope.errorsReported else {
                 throw ExitCode.failure
             }
             return graph

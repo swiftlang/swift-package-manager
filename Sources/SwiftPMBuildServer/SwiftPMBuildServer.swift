@@ -216,7 +216,19 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
             await request.reply {
                 var underlyingRequest = request.params
                 underlyingRequest.targets.removeAll(where: \.isSwiftPMBuildServerTargetID)
-                var sourcesResponse = try await connectionToUnderlyingBuildServer.send(underlyingRequest)
+                var sourcesResponse: BuildTargetSourcesResponse
+                do {
+                    sourcesResponse = try await connectionToUnderlyingBuildServer.send(underlyingRequest)
+                } catch {
+                    // If the client requested info for at least one target with the SwiftPM scheme (a manifest/plugin),
+                    // warn and return a potentially partial response. Otherwise, report the underlying error.
+                    if request.params.targets.contains(where: \.isSwiftPMBuildServerTargetID) {
+                        logToClient(.warning, "Underlying build server reported error for BuildTargetSources request: '\(error)'")
+                        sourcesResponse = .init(items: [])
+                    } else {
+                        throw error
+                    }
+                }
                 for target in request.params.targets.filter({ $0.isSwiftPMBuildServerTargetID }) {
                     if target == .forPackageManifest {
                         sourcesResponse.items.append(manifestSourcesItem())
@@ -274,7 +286,13 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
             }
         case let request as RequestAndReply<WorkspaceBuildTargetsRequest>:
             await request.reply {
-                var targetsResponse = try await connectionToUnderlyingBuildServer.send(request.params)
+                var targetsResponse: WorkspaceBuildTargetsResponse
+                do {
+                    targetsResponse = try await connectionToUnderlyingBuildServer.send(request.params)
+                } catch {
+                    logToClient(.warning, "Underlying build server reported error for WorkspaceBuildTargets request: '\(error)'")
+                    targetsResponse = .init(targets: [])
+                }
                 targetsResponse.targets.append(manifestTarget())
                 targetsResponse.targets.append(contentsOf: pluginTargetsList())
                 return targetsResponse
