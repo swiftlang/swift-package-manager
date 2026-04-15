@@ -603,12 +603,19 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                 additionalArguments += ["--xunit-output", xunitPath.pathString]
             }
 
+            var hasRepetitionArgument = false
             if let maximumRepetitions = options.experimentalMaximumRepetitions {
                 additionalArguments += ["--repetitions", String(maximumRepetitions)]
+                hasRepetitionArgument = true
             }
 
             if let repeatUntil = options.experimentalRepeatUntil {
                 additionalArguments += ["--repeat-until", repeatUntil]
+                hasRepetitionArgument = true
+            }
+
+            if hasRepetitionArgument {
+                additionalArguments.append("--experimental-per-test-case-repetition")
             }
         }
 
