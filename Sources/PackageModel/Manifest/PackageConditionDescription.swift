@@ -87,21 +87,28 @@ public enum PackageCondition: Hashable, Sendable {
 public struct PlatformsCondition: Hashable, Sendable {
     public let platforms: [Platform]
 
-    public let excludedPlatforms: [Platform]
+    /// Condition matches if this is set and the build environment prebuiltsSupported matches.
+    // TODO: ideally we can specify a platforms condition that identifies the whether the
+    // build environment matches the PrebuiltsPlatform or not. The Platform type needs to
+    // be as descriptive as PrebuiltsPlatform and we need to support boolean operations like `not`.
+    public let prebuiltsSupported: Bool?
 
-    public init(platforms: [Platform], excludedPlatforms: [Platform] = []) {
+    public init(platforms: [Platform]) {
         assert(!platforms.isEmpty, "List of platforms should not be empty")
         self.platforms = platforms
-        self.excludedPlatforms = excludedPlatforms
+        self.prebuiltsSupported = nil
     }
 
-    public init(excludedPlatforms: [Platform]) {
+    public init(prebuiltsSupported: Bool) {
+        self.prebuiltsSupported = prebuiltsSupported
         self.platforms = []
-        self.excludedPlatforms = excludedPlatforms
     }
 
     public func satisfies(_ environment: BuildEnvironment) -> Bool {
-        platforms.contains(environment.platform) && !excludedPlatforms.contains(environment.platform)
+        if let prebuiltsSupported {
+            return environment.supportsPrebuilts == prebuiltsSupported
+        }
+        return platforms.contains(environment.platform)
     }
 }
 

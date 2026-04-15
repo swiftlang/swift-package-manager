@@ -922,7 +922,7 @@ private func createResolvedPackages(
 
         // find uses of prebuilts and adjust the modules to use them
         for packageBuilder in packageBuilders {
-            guard packageBuilder.prebuilts == nil, let host = Platform.host else {
+            guard packageBuilder.prebuilts == nil else {
                 // Skip the prebuilts packages
                 continue
             }
@@ -940,24 +940,24 @@ private func createResolvedPackages(
                     continue
                 }
 
-                // Make dependencies on source products from the prebuilts conditional on not host platform
+                // Make dependencies on source products from the prebuilts conditional if platform doesn't support prebuilts
                 moduleBuilder.dependencies = moduleBuilder.dependencies.compactMap {
                     if case .product(let productBuilder, conditions: var conditions) = $0,
                         prebuiltLibraries.contains(where: { $0.value.products.contains(productBuilder.product.name) })
                     {
-                        conditions.append(.platforms(.init(excludedPlatforms: [host])))
+                        conditions.append(.platforms(.init(prebuiltsSupported: false)))
                         return .product(productBuilder, conditions: conditions)
                     } else {
                         return $0
                     }
                 }
 
-                // Add dependencies to prebuilt products conditional on for host platform
+                // Add dependencies to prebuilt products conditional support for prebuilts
                 moduleBuilder.dependencies.append(contentsOf: prebuiltLibraries.compactMap {
                     guard let productBuilder = prebuiltProducts[$0.value.identity]?[$0.key] else {
                         return nil
                     }
-                    return .product(productBuilder, conditions: [.platforms(.init(platforms: [host]))])
+                    return .product(productBuilder, conditions: [.platforms(.init(prebuiltsSupported: true))])
                 })
             }
         }
