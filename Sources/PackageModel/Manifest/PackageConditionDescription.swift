@@ -35,7 +35,6 @@ public struct PackageConditionDescription: Codable, Hashable, Sendable {
 /// build configurations.
 public enum PackageCondition: Hashable, Sendable {
     case platforms(PlatformsCondition)
-    case host(HostCondition)
     case configuration(ConfigurationCondition)
     case traits(TraitCondition)
 
@@ -45,8 +44,6 @@ public enum PackageCondition: Hashable, Sendable {
             return configuration.satisfies(environment)
         case .platforms(let platforms):
             return platforms.satisfies(environment)
-        case .host(let host):
-            return host.satisfies(environment)
         case .traits(let traits):
             return traits.satisfies(environment)
         }
@@ -58,14 +55,6 @@ public enum PackageCondition: Hashable, Sendable {
         }
 
         return platformsCondition
-    }
-
-    public var hostCondition: HostCondition? {
-        guard case let .host(hostCondition) = self else {
-            return nil
-        }
-
-        return hostCondition
     }
 
     public var configurationCondition: ConfigurationCondition? {
@@ -93,33 +82,26 @@ public enum PackageCondition: Hashable, Sendable {
     }
 }
 
-/// Platforms condition implies that an assignment is valid on these platforms.
+/// Platforms condition implies that an assignment is valid on these platforms
+/// and invalid on the excluded platforms
 public struct PlatformsCondition: Hashable, Sendable {
     public let platforms: [Platform]
 
-    public init(platforms: [Platform]) {
+    public let excludedPlatforms: [Platform]
+
+    public init(platforms: [Platform], excludedPlatforms: [Platform] = []) {
         assert(!platforms.isEmpty, "List of platforms should not be empty")
         self.platforms = platforms
+        self.excludedPlatforms = excludedPlatforms
+    }
+
+    public init(excludedPlatforms: [Platform]) {
+        self.platforms = []
+        self.excludedPlatforms = excludedPlatforms
     }
 
     public func satisfies(_ environment: BuildEnvironment) -> Bool {
-        platforms.contains(environment.platform)
-    }
-}
-
-/// Condition that is satisfied if building for host matches the build environment.
-/// This is for SwiftPM's use for now to make prebuilts conditional on host builds
-/// so are not made available in the manifest.
-public struct HostCondition: Hashable, Sendable, ExpressibleByBooleanLiteral {
-    /// True for conditional on building for host
-    public let forHost: Bool
-
-    public init(booleanLiteral value: Bool) {
-        forHost = value
-    }
-
-    public func satisfies(_ environment: BuildEnvironment) -> Bool {
-        self.forHost == environment.isHost
+        platforms.contains(environment.platform) && !excludedPlatforms.contains(environment.platform)
     }
 }
 

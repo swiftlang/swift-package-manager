@@ -139,12 +139,11 @@ public func mockBuildParameters(
 
 public func mockBuildParameters(
     destination: BuildParameters.Destination,
-    platform: PackageModel.Platform,
-    configuration: BuildConfiguration? = nil,
+    environment: BuildEnvironment,
     buildSystem: BuildSystemProvider.Kind,
 ) -> BuildParameters {
     let triple: Basics.Triple
-    switch platform {
+    switch environment.platform {
     case .macOS:
         triple = Triple.x86_64MacOS
     case .linux:
@@ -159,7 +158,7 @@ public func mockBuildParameters(
 
     return mockBuildParameters(
         destination: destination,
-        config: configuration ?? .debug,
+        config: environment.configuration ?? .debug,
         buildSystemKind: buildSystem,
         triple: triple,
     )

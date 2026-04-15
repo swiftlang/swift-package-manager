@@ -52,6 +52,121 @@ class PrebuiltsBuildPlanTests: XCTestCase {
         ]
     )
 
+    func testPrebuiltsFlags() async throws {
+        // Make sure the include path for the prebuilts get passed to the
+        // generated test entry point and discover targets on Linux/Windows
+        let observability = ObservabilitySystem.makeForTesting()
+
+        let fs = InMemoryFileSystem(
+            emptyFiles: [
+                "/MyPackage/Sources/MyMacroMacros/MyMacroMacros.swift",
+                "/MyPackage/Sources/MyMacros/MyMacros.swift",
+                "/MyPackage/Sources/MyMacroTests/MyMacroTests.swift",
+                "/swift-syntax/Sources/SwiftSyntaxMacros/SwiftSyntaxMacros.swift",
+                "/swift-syntax/Sources/SwiftSyntaxMacrosTestSupport/SwiftSyntaxMacrosTestSupport.swift",
+                "/swift-syntax/Sources/SwiftCompilerPlugin/SwiftCompilerPlugin.swift",
+            ]
+        )
+
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "MyPackage",
+                    path: "/MyPackage",
+                    dependencies: [
+                        .remoteSourceControl(url: "https://github.com/swiftlang/swift-syntax", requirement: .exact("600.0.1")),
+                    ],
+                    products: [
+                        ProductDescription(
+                            name: "MyMacros",
+                            type: .library(.automatic),
+                            targets: ["MyMacros"]
+                        )
+                    ],
+                    targets: [
+                        TargetDescription(
+                            name: "MyMacroMacros",
+                            dependencies: [
+                                .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
+                                .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
+                            ],
+                            type: .macro),
+                        TargetDescription(
+                            name: "MyMacros",
+                            dependencies: [
+                                "MyMacroMacros",
+                            ]
+                        ),
+                        TargetDescription(
+                            name: "MyMacroTests",
+                            dependencies: [
+                                "MyMacroMacros",
+                                .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax"),
+                            ],
+                            type: .test
+                        )
+                    ]
+                ),
+                Manifest.createRemoteSourceControlManifest(
+                    displayName: "swift-syntax",
+                    url: "https://github.com/swiftlang/swift-syntax",
+                    path: "/swift-syntax",
+                    products: [
+                        ProductDescription(
+                            name: "SwiftSyntaxMacros",
+                            type: .library(.automatic),
+                            targets: ["SwiftSyntaxMacros"]
+                        ),
+                        ProductDescription(
+                            name: "SwiftSyntaxMacrosTestSupport",
+                            type: .library(.automatic),
+                            targets: ["SwiftSyntaxMacrosTestSupport"]
+                        ),
+                        ProductDescription(
+                            name: "SwiftCompilerPlugin",
+                            type: .library(.automatic),
+                            targets: ["SwiftCompilerPlugin"]
+                        ),
+                    ],
+                    targets: [
+                        TargetDescription(name: "SwiftSyntaxMacros"),
+                        TargetDescription(name: "SwiftSyntaxMacrosTestSupport"),
+                        TargetDescription(name: "SwiftCompilerPlugin"),
+                    ]
+                )
+            ],
+            prebuilts: [prebuiltLibrary.identity: [prebuiltLibrary]],
+            observabilityScope: observability.topScope
+        )
+
+        func checkTriple(triple: Basics.Triple) async throws {
+            let result = try await BuildPlanResult(
+                plan: mockBuildPlan(
+                    triple: triple,
+                    graph: graph,
+                    fileSystem: fs,
+                    observabilityScope: observability.topScope
+                )
+            )
+
+#if os(Windows)
+            let modulesDir = "\(prebuiltLibrary.path.pathString)\\Modules"
+#else
+            let modulesDir = "\(prebuiltLibrary.path.pathString)/Modules"
+#endif
+            let mytest = try XCTUnwrap(result.allTargets(named: "MyMacroTests").first)
+            XCTAssert(try mytest.swift().compileArguments().contains(modulesDir))
+            let entryPoint = try XCTUnwrap(result.allTargets(named: "MyPackagePackageTests").first)
+            XCTAssert(try entryPoint.swift().compileArguments().contains(modulesDir))
+            let discovery = try XCTUnwrap(result.allTargets(named: "MyPackagePackageDiscoveredTests").first)
+            XCTAssert(try discovery.swift().compileArguments().contains(modulesDir))
+        }
+
+        try await checkTriple(triple: .x86_64Linux)
+        try await checkTriple(triple: .x86_64Windows)
+    }
+
     // Make sure the include path for the prebuilts get passed to the
     // generated test entry point and discover targets on Linux/Windows
     func testPrebuiltsWithIncludePath() async throws {

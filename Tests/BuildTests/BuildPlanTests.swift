@@ -955,8 +955,10 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
 
         do {
             let plan = try await mockBuildPlan(
-                platform: .linux,
-                configuration: .release,
+                environment: BuildEnvironment(
+                    platform: .linux,
+                    configuration: .release
+                ),
                 graph: graph,
                 fileSystem: fs,
                 observabilityScope: observability.topScope
@@ -995,8 +997,10 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
 
         do {
             let plan = try await mockBuildPlan(
-                platform: .macOS,
-                configuration: .debug,
+                environment: BuildEnvironment(
+                    platform: .macOS,
+                    configuration: .debug
+                ),
                 graph: graph,
                 fileSystem: fs,
                 observabilityScope: observability.topScope
@@ -1501,8 +1505,10 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
 
         do {
             let result = try await BuildPlanResult(plan: mockBuildPlan(
-                platform: .linux,
-                configuration: .release,
+                environment: BuildEnvironment(
+                    platform: .linux,
+                    configuration: .release
+                ),
                 graph: graph,
                 fileSystem: fs,
                 observabilityScope: observability.topScope
@@ -1518,8 +1524,10 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
 
         do {
             let result = try await BuildPlanResult(plan: mockBuildPlan(
-                platform: .macOS,
-                configuration: .debug,
+                environment: BuildEnvironment(
+                    platform: .macOS,
+                    configuration: .debug
+                ),
                 graph: graph,
                 fileSystem: fs,
                 observabilityScope: observability.topScope
@@ -2096,8 +2104,10 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         do {
             // WMO should be on in release
             let plan = try await mockBuildPlan(
-                platform: .linux,
-                configuration: .release,
+                environment: BuildEnvironment(
+                    platform: .linux,
+                    configuration: .release
+                ),
                 graph: graph,
                 fileSystem: fs,
                 observabilityScope: observability.topScope
@@ -3522,8 +3532,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             try graphResult.check(reachableBuildTargets: "ATarget", "BTarget1", "BTarget2", in: linuxDebug)
 
             let planResult = try await BuildPlanResult(plan: mockBuildPlan(
-                platform: linuxDebug.platform,
-                configuration: linuxDebug.configuration,
+                environment: linuxDebug,
                 graph: graph,
                 fileSystem: fileSystem,
                 observabilityScope: observability.topScope
@@ -3538,8 +3547,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             try graphResult.check(reachableBuildTargets: "ATarget", "BTarget2", "BTarget3", in: macosDebug)
 
             let planResult = try await BuildPlanResult(plan: mockBuildPlan(
-                platform: macosDebug.platform,
-                configuration: macosDebug.configuration,
+                environment: macosDebug,
                 graph: graph,
                 fileSystem: fileSystem,
                 observabilityScope: observability.topScope
@@ -3554,8 +3562,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             try graphResult.check(reachableBuildTargets: "ATarget", "CTarget", in: androidRelease)
 
             let planResult = try await BuildPlanResult(plan: mockBuildPlan(
-                platform: androidRelease.platform,
-                configuration: androidRelease.configuration,
+                environment: androidRelease,
                 graph: graph,
                 fileSystem: fileSystem,
                 observabilityScope: observability.topScope
@@ -4636,8 +4643,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         // Test debug configuration
         do {
             let result = try await BuildPlanResult(plan: mockBuildPlan(
-                platform: .macOS,
-                configuration: .debug,
+                environment: BuildEnvironment(platform: .macOS, configuration: .debug),
                 graph: graph,
                 fileSystem: fs,
                 observabilityScope: observability.topScope
@@ -4659,8 +4665,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         // Test release configuration
         do {
             let result = try await BuildPlanResult(plan: mockBuildPlan(
-                platform: .macOS,
-                configuration: .release,
+                environment: BuildEnvironment(platform: .macOS, configuration: .release),
                 graph: graph,
                 fileSystem: fs,
                 observabilityScope: observability.topScope
@@ -4726,8 +4731,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         // Test debug configuration
         do {
             let result = try await BuildPlanResult(plan: mockBuildPlan(
-                platform: .macOS,
-                configuration: .debug,
+                environment: BuildEnvironment(platform: .macOS, configuration: .debug),
                 graph: graph,
                 fileSystem: fs,
                 observabilityScope: observability.topScope
@@ -4745,8 +4749,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         // Test release configuration
         do {
             let result = try await BuildPlanResult(plan: mockBuildPlan(
-                platform: .macOS,
-                configuration: .release,
+                environment: BuildEnvironment(platform: .macOS, configuration: .release),
                 graph: graph,
                 fileSystem: fs,
                 observabilityScope: observability.topScope
@@ -4866,8 +4869,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         // Test debug configuration
         do {
             let result = try await BuildPlanResult(plan: mockBuildPlan(
-                platform: .macOS,
-                configuration: .debug,
+                environment: BuildEnvironment(platform: .macOS, configuration: .debug),
                 graph: graph,
                 fileSystem: fs,
                 observabilityScope: observability.topScope
@@ -4898,8 +4900,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         // Test release configuration
         do {
             let result = try await BuildPlanResult(plan: mockBuildPlan(
-                platform: .macOS,
-                configuration: .release,
+                environment: BuildEnvironment(platform: .macOS, configuration: .release),
                 graph: graph,
                 fileSystem: fs,
                 observabilityScope: observability.topScope
@@ -7084,8 +7085,10 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         let result = try await BuildPlanResult(plan: mockBuildPlan(
-            platform: .linux,
-            configuration: .release,
+            environment: BuildEnvironment(
+                platform: .linux,
+                configuration: .release
+            ),
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope

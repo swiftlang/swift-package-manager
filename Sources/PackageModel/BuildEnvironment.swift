@@ -14,14 +14,11 @@
 public struct BuildEnvironment {
     /// The platform that is the target of the build
     public let platform: Platform
-    /// True if platform is the host platform for macros and build tools
-    public let isHost: Bool
     /// The build configuration for the build
     public let configuration: BuildConfiguration?
 
-    public init(platform: Platform, isHost: Bool = false, configuration: BuildConfiguration? = nil) {
+    public init(platform: Platform, configuration: BuildConfiguration? = nil) {
         self.platform = platform
-        self.isHost = isHost
         self.configuration = configuration
     }
 }

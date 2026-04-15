@@ -54,8 +54,10 @@ struct LLBuildManifestBuilderTests {
         // macOS, release build
 
         var plan = try await mockBuildPlan(
-            platform: .macOS,
-            configuration: .release,
+            environment: BuildEnvironment(
+                platform: .macOS,
+                configuration: .release
+            ),
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -82,8 +84,10 @@ struct LLBuildManifestBuilderTests {
         // macOS, debug build
 
         plan = try await mockBuildPlan(
-            platform: .macOS,
-            configuration: .debug,
+            environment: BuildEnvironment(
+                platform: .macOS,
+                configuration: .debug
+            ),
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -123,8 +127,10 @@ struct LLBuildManifestBuilderTests {
         // Linux, release build
 
         plan = try await mockBuildPlan(
-            platform: .linux,
-            configuration: .release,
+            environment: BuildEnvironment(
+                platform: .linux,
+                configuration: .release
+            ),
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -147,8 +153,10 @@ struct LLBuildManifestBuilderTests {
         // Linux, debug build
 
         plan = try await mockBuildPlan(
-            platform: .linux,
-            configuration: .debug,
+            environment: BuildEnvironment(
+                platform: .linux,
+                configuration: .debug
+            ),
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope

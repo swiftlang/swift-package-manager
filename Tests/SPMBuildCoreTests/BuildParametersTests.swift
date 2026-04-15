@@ -12,6 +12,7 @@
 
 @testable import SPMBuildCore
 import Basics
+import struct PackageModel.BuildEnvironment
 import _InternalTestSupport
 import Testing
 
@@ -20,8 +21,7 @@ struct BuildParametersTests {
     func configurationDependentProperties() throws {
         var parameters = mockBuildParameters(
             destination: .host,
-            platform: .linux,
-            configuration: .debug,
+            environment: BuildEnvironment(platform: .linux, configuration: .debug),
             buildSystem: .swiftbuild,
         )
         #expect(parameters.enableTestability)

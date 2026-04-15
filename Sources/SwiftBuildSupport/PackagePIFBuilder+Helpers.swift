@@ -320,7 +320,6 @@ extension Sequence<PackageModel.PackageCondition> {
         for packageCondition in self {
             switch packageCondition {
             case .platforms(let condition): platformConditions.append(condition)
-            case .host(_): break // TODO: DOUG what do?
             case .configuration(let condition): configurationConditions.append(condition)
             case .traits(let condition): traitConditions.append(condition)
             }
@@ -328,6 +327,7 @@ extension Sequence<PackageModel.PackageCondition> {
 
         // Determine the *platform* conditions, if any.
         // An empty set means that there are no platform restrictions.
+        // TODO: platform exclusions
         let platforms: [PackageModel.Platform?] = if platformConditions.isEmpty {
             [nil]
         } else {

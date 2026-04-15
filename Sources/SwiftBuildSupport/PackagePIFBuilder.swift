@@ -20,6 +20,7 @@ import struct Basics.Diagnostic
 import struct Basics.ObservabilityMetadata
 import class Basics.ObservabilityScope
 
+import class PackageModel.BinaryModule
 import class PackageModel.Manifest
 import class PackageModel.Package
 import class PackageModel.Product
@@ -536,7 +537,9 @@ public final class PackagePIFBuilder {
                 break
 
             case .binary:
-                // Skip binary module targets.
+                if let binaryModule = module.underlying as? BinaryModule, case .prebuilt = binaryModule.kind {
+                    print("Hey!")
+                }
                 break
 
             case .plugin:
