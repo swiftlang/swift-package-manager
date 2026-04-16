@@ -47,6 +47,7 @@ public final class SwiftSDKBundleStore {
 
     enum Error: Swift.Error, CustomStringConvertible {
         case noMatchingSwiftSDK(selector: String, hostTriple: Triple)
+        case noMatchingSwiftSDKWithTriple(selector: String, hostTriple: Triple, targetTriple: Triple)
 
         var description: String {
             switch self {
@@ -55,6 +56,12 @@ public final class SwiftSDKBundleStore {
                 No Swift SDK found matching query `\(selector)` and host triple \
                 `\(hostTriple.tripleString)`. Use `swift sdk list` command to see \
                 available Swift SDKs.
+                """
+            case let .noMatchingSwiftSDKWithTriple(selector, hostTriple, targetTriple):
+                return """
+                No Swift SDK found matching query `\(selector)`, target triple \
+                `\(targetTriple.tripleString)`, and host triple `\(hostTriple.tripleString)`. \
+                Use `swift sdk list` command to see available Swift SDKs.
                 """
             }
         }
@@ -123,10 +130,12 @@ public final class SwiftSDKBundleStore {
     /// - Parameters:
     ///   - query: either an artifact ID or target triple to filter with.
     ///   - hostTriple: triple of the host building with these Swift SDKs.
+    ///   - targetTriple: optional separate target triple to look for
     /// - Returns: ``SwiftSDK`` value matching `query` either by artifact ID or target triple, `nil` if none found.
     public func selectBundle(
         matching selector: String,
-        hostTriple: Triple
+        hostTriple: Triple,
+        targetTriple: Triple? = nil
     ) throws -> SwiftSDK {
         let validBundles = try self.allValidBundles
 
@@ -134,6 +143,18 @@ public final class SwiftSDKBundleStore {
             throw StringError(
                 "No valid Swift SDK bundles found at \(self.swiftSDKsDirectory)."
             )
+        }
+
+        if let triple = targetTriple {
+            guard var selectedSwiftSDK = validBundles.selectSwiftSDK(
+                id: selector,
+                hostTriple: hostTriple,
+                targetTriple: triple
+            ) else {
+                throw Error.noMatchingSwiftSDKWithTriple(selector: selector, hostTriple: hostTriple, targetTriple: triple)
+            }
+            selectedSwiftSDK.applyPathCLIOptions()
+            return selectedSwiftSDK
         }
 
         guard var selectedSwiftSDKs = validBundles.selectSwiftSDK(

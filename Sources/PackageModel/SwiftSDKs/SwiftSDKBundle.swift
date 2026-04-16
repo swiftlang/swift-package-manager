@@ -67,7 +67,7 @@ extension [SwiftSDKBundle] {
                         }
                     }
 
-                    return variant.swiftSDKs.first { $0.targetTriple == targetTriple }
+                    return variant.swiftSDKs.first { $0.targetTriple?.tripleString == targetTriple.tripleString }
                 }
             }
         }
