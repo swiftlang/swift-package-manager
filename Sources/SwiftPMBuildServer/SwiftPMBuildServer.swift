@@ -478,7 +478,7 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
     private func rebuildPluginMapping(pifAccompanyingMetadata: [PackagePIFBuilder.ModuleOrProduct]) {
         var plugins: [BuildTargetIdentifier: PluginInfo] = [:]
         for moduleOrProduct in pifAccompanyingMetadata {
-            guard [.buildToolPlugin, .commandPlugin].contains(moduleOrProduct.type),
+            guard [.buildToolPlugin, .commandPlugin, .plugin].contains(moduleOrProduct.type),
                   let moduleName = moduleOrProduct.moduleName,
                   let toolsVersion = moduleOrProduct.toolsVersion,
                   !moduleOrProduct.pluginScriptSourcePaths.isEmpty else {
