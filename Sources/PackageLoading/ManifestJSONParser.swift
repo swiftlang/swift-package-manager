@@ -99,7 +99,6 @@ enum ManifestJSONParser {
                 dependency: $0,
                 toolsVersion: toolsVersion,
                 parentPackagePath: packagePath,
-//                identityResolver: identityResolver,
                 dependencyMapper: dependencyMapper,
                 fileSystem: fileSystem
             )
@@ -166,7 +165,6 @@ enum ManifestJSONParser {
         dependency: Serialization.PackageDependency,
         toolsVersion: ToolsVersion,
         parentPackagePath: AbsolutePath,
-//        identityResolver: IdentityResolver,
         dependencyMapper: DependencyMapper,
         fileSystem: FileSystem
     ) throws -> PackageDependency {

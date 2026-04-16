@@ -81,7 +81,7 @@ extension Workspace {
             dependencyMapper: any DependencyMapper,
             fileSystem: any FileSystem,
             observabilityScope: ObservabilityScope,
-            delegateQueue: DispatchQueue,
+            delegateQueue: DispatchQueue
         ) async throws -> Manifest {
             let manifest = try await self.underlying.load(
                 manifestPath: manifestPath,
@@ -192,7 +192,6 @@ extension Workspace {
                             traits: settings.traits
                         )
                     case .swizzle:
-                        // TODO bp
                         // we replace the *entire* source control dependency with a registry one
                         // this helps de-dupe across source control and registry dependencies
                         // and also encourages use of registry over source control

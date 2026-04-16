@@ -56,7 +56,6 @@ public class RegistryDownloadsManager: AsyncCancellable {
         version: Version,
         observabilityScope: ObservabilityScope
     ) async throws -> Basics.AbsolutePath {
-        print("BP performing lookup for package \(package) in registrydownloadsmanager")
         let packageRelativePath: Basics.RelativePath
         let packagePath: Basics.AbsolutePath
 
