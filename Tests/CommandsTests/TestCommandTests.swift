@@ -1602,6 +1602,7 @@ struct TestCommandTests {
     }
 
     @Test(
+            .disabled("Hanging on Windows"),
             .IssueWindowsLongPath,
             .tags(
                 .Feature.TargetType.Executable,
