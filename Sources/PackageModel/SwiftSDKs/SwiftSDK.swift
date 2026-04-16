@@ -786,7 +786,7 @@ public struct SwiftSDK: Equatable {
             swiftSDK = targetSwiftSDK
         } else if let swiftSDKSelector {
             do {
-                swiftSDK = try store.selectBundle(matching: swiftSDKSelector, hostTriple: hostTriple)
+                swiftSDK = try store.selectBundle(matching: swiftSDKSelector, hostTriple: hostTriple, targetTriple: customCompileTriple)
             } catch {
                 // If a user-installed bundle for the selector doesn't exist, check if the
                 // selector is recognized as a default SDK.
