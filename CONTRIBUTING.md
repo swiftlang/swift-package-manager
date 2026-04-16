@@ -139,8 +139,6 @@ With a Swift toolchain installed and the SwiftPM code cloned, you are ready to m
 ```bash
 $> swift build
 ```
-
-### Running
 A successful build will create a `.build/` directory with the following approximate structure:
 
 ```
@@ -162,9 +160,7 @@ $> /path/to/swiftpm/.build/x86_64-apple-macosx/debug/swift-package init
 $> /path/to/swiftpm/.build/x86_64-apple-macosx/debug/swift-build
 ```
 
-### Running on Swift 6.4 and newer
-
-Since Swift 6.4, the binary artifacts are now in `.build/out/Products/Debug`.
+`swift-build` writes the binary artifacts to a different location:
 
 To test `swift package init` and `swift build`, run
 
