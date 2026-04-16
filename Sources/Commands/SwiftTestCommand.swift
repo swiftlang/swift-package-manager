@@ -328,7 +328,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                 productsBuildParameters: buildParameters,
                 swiftCommandState: swiftCommandState
             )
-            results.append(result)
+            results.append(TestProductResult(productName: testProducts[0].productName, library: .xctest, result: result))
         }
 
         // Run XCTest.
@@ -617,30 +617,11 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                                  (options.testLibraryOptions.isExplicitlyEnabled(.swiftTesting, swiftCommandState: swiftCommandState) ||
                                   testProduct.testEntryPointPath == nil)
 
-        // Create a list of testing libraries to run in sequence, checking for actual tests
+        // Create a list of testing libraries to run in sequence
         var librariesToRun: [TestingLibrary] = []
-        var skippedLibraries: [(TestingLibrary, String)] = []
 
-        // Only add XCTest if it's enabled AND has tests to run
         if xctestEnabled {
-            // Always check for XCTest tests by getting test suites
-            let testSuites = try TestingSupport.getTestSuites(
-                in: testProducts,
-                swiftCommandState: swiftCommandState,
-                enableCodeCoverage: options.enableCodeCoverage,
-                shouldSkipBuilding: options.sharedOptions.shouldSkipBuilding,
-                experimentalTestOutput: options.enableExperimentalTestOutput,
-                sanitizers: globalOptions.build.sanitizers
-            )
-            let filteredTests = try testSuites
-                .filteredTests(specifier: options.testCaseSpecifier)
-                .skippedTests(specifier: options.skippedTests(fileSystem: swiftCommandState.fileSystem))
-
-            if !filteredTests.isEmpty {
-                librariesToRun.append(.xctest)
-            } else {
-                skippedLibraries.append((.xctest, "no XCTest tests found"))
-            }
+            librariesToRun.append(.xctest)
         }
 
         if swiftTestingEnabled {
@@ -649,26 +630,23 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
 
         // Ensure we have at least one library to run
         guard !librariesToRun.isEmpty else {
-            if !skippedLibraries.isEmpty {
-                let skippedMessages = skippedLibraries.map { library, reason in
-                    let libraryName = library == .xctest ? "XCTest" : "Swift Testing"
-                    return "\(libraryName): \(reason)"
-                }
-                throw StringError("No testing libraries have tests to debug. Skipped: \(skippedMessages.joined(separator: ", "))")
-            }
             throw StringError("No testing libraries are enabled for debugging")
         }
 
+        let targets = try librariesToRun.map {
+            DebuggableTestSession.Target(
+                library: $0,
+                additionalArgs: try additionalLLDBArguments(
+                    for: $0, 
+                    testProducts: testProducts, 
+                    swiftCommandState: swiftCommandState
+                ),
+                bundlePath: testBundlePath(for: $0, testProduct: testProduct)
+            )
+        }
+
         try await runTestLibrariesWithLLDB(
-            target: DebuggableTestSession(
-                targets: librariesToRun.map {
-                    DebuggableTestSession.Target(
-                        library: $0,
-                        additionalArgs: try additionalLLDBArguments(for: $0, testProducts: testProducts, swiftCommandState: swiftCommandState),
-                        bundlePath: testBundlePath(for: $0, testProduct: testProduct)
-                    )
-                }
-            ),
+            target: DebuggableTestSession(targets: targets),
             testProducts: testProducts,
             productsBuildParameters: productsBuildParameters,
             swiftCommandState: swiftCommandState,
@@ -682,7 +660,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         // Determine test binary path and arguments based on the testing library
         switch library {
         case .xctest:
-            let (xctestArgs, _) = try xctestArgs(for: testProducts, swiftCommandState: swiftCommandState)
+            let (xctestArgs, _, _) = try xctestArgs(for: testProducts, swiftCommandState: swiftCommandState)
             return xctestArgs
 
         case .swiftTesting:
@@ -723,7 +701,8 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                 destinationBuildParameters: productsBuildParameters,
                 sanitizers: globalOptions.build.sanitizers,
                 library: .xctest, // TODO
-                testProductPaths: testProducts.map(\.bundlePath)
+                testProductPaths: testProducts.map(\.bundlePath),
+                interopMode: nil
             ),
             cancellator: swiftCommandState.cancellator,
             fileSystem: swiftCommandState.fileSystem,
