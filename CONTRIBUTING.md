@@ -140,7 +140,7 @@ With a Swift toolchain installed and the SwiftPM code cloned, you are ready to m
 $> swift build
 ```
 
-### Runnning
+### Running
 A successful build will create a `.build/` directory with the following approximate structure:
 
 ```
