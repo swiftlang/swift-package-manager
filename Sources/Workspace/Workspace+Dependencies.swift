@@ -373,28 +373,41 @@ extension Workspace {
             )
         }
 
+        // Populate the identity lookup cache via the Package.resolved.
+        // This will only ever be done if the user has passed in `--force-resolved-versions`
+        self.identityLookupCache.deriveCache(
+            from: resolvedPackagesStore.resolvedPackages,
+            self.configuration.sourceControlToRegistryDependencyTransformation
+        )
         // Create the identity mapping between the registry and scm, if applicable.
-        for resolvedPackage in resolvedPackagesStore.resolvedPackages.values {
-            if case let .registry(id, .some(url)) = resolvedPackage.packageRef.kind {
-                self.identityLookupCache[url] = (
-                    result: .success(id),
-                    expirationTime: .now().advanced(by: .seconds(300))
-                )
-            }
-        }
+//        for resolvedPackage in resolvedPackagesStore.resolvedPackages.values {
+//            if case let .registry(id, .some(url)) = resolvedPackage.packageRef.kind {
+//                self.identityLookupCache[storing: url] = .success(id)
+//            }
+//        }
 
-        // Track SCM packages that don't have a mapped registry equivalent;
-        // this will avoid having to make any unnecessary calls to registry
-        // endpoints.
-        for resolvedPackage in resolvedPackagesStore.resolvedPackages.values {
-            if case .remoteSourceControl(let url) = resolvedPackage.packageRef.kind,
-               self.identityLookupCache[url] == nil {
-                self.identityLookupCache[url] = (
-                    result: .success(nil),
-                    expirationTime: .now().advanced(by: .seconds(300))
-                )
-            }
-        }
+//        let transformationMode = self.configuration.sourceControlToRegistryDependencyTransformation
+
+        // Track SCM packages that don't have a mapped registry equivalent,
+        // only if the transformation mode is `.swizzle`; this will avoid
+        // having to make any unnecessary calls to registry endpoints.
+        //
+        // Additionally for cases where `--use-registry-identity-for-scm` is used,
+        // the package kind remains that of a remote source control while using a
+        // registry identity to de-duplicate references to this package elsewhere in
+        // the package graph. Here, we do not want to keep track of any mapping since
+        // it still may have a registry equivalent.
+//        if transformationMode == .swizzle {
+//            for resolvedPackage in resolvedPackagesStore.resolvedPackages.values {
+//                if case .remoteSourceControl(let url) = resolvedPackage.packageRef.kind,
+//                   self.identityLookupCache[url] == nil {
+//                    self.identityLookupCache[url] = (
+//                        result: .success(nil),
+//                        expirationTime: .now().advanced(by: .seconds(300))
+//                    )
+//                }
+//            }
+//        }
 
         // Request all the containers to fetch them in parallel.
         //

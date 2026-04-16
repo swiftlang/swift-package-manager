@@ -77,20 +77,6 @@ public struct PackageFetchDetails {
 public class Workspace {
     public typealias Delegate = WorkspaceDelegate
 
-    public typealias SCMToRegistryMap = ThreadSafeKeyValueStore<
-        SourceControlURL,
-        (result: Result<PackageIdentity?, Error>, expirationTime: DispatchTime)
-    >
-
-//    public struct IdentityLookupCache {
-//        public let cache = ThreadSafeKeyValueStore<
-//            SourceControlURL,
-//            (result: Result<PackageIdentity?, Error>, expirationTime: DispatchTime)
-//        >()
-//
-//        public let forceResolvedVersions: Bool
-//    }
-
     /// The delegate interface.
     private(set) weak var delegate: Delegate?
 
@@ -139,8 +125,11 @@ public class Workspace {
     /// Utility to map dependencies
     let dependencyMapper: DependencyMapper
 
-    let identityLookupCache = SCMToRegistryMap()
-//    let identityLookupCache: IdentityLookupCache
+    /// Utility to resolve scm packages who have been mapped to registry packages
+    /// through the use of `--replace-scm-with-registry`/`--use-registry-identity-for-scm`.
+    ///
+    /// This cache will be ignored if `--disable-scm-to-registry-transformation` is used.
+    let identityLookupCache: IdentityLookupCache
 
     /// The custom package container provider used by this workspace, if any.
     let customPackageContainerProvider: PackageContainerProvider?
@@ -569,13 +558,16 @@ public class Workspace {
         // register the registry dependencies downloader with the cancellation handler
         cancellator?.register(name: "registry downloads", handler: registryDownloadsManager)
 
+        let identityLookupCache: IdentityLookupCache = .init()
+
         if let transformationMode = RegistryAwareManifestLoader
             .TransformationMode(configuration.sourceControlToRegistryDependencyTransformation)
         {
             manifestLoader = RegistryAwareManifestLoader(
                 underlying: manifestLoader,
                 registryClient: registryClient,
-                transformationMode: transformationMode
+                transformationMode: transformationMode,
+                identityLookupCache: identityLookupCache,
             )
         }
 
@@ -658,7 +650,8 @@ public class Workspace {
             fingerprints: fingerprints,
             resolvedPackagesStore: resolvedPackagesStore,
             prebuiltsManager: prebuiltsManager,
-            state: state
+            state: state,
+            identityLookupCache: identityLookupCache
         )
     }
 
@@ -681,7 +674,8 @@ public class Workspace {
         fingerprints: PackageFingerprintStorage?,
         resolvedPackagesStore: LoadableResult<ResolvedPackagesStore>,
         prebuiltsManager: PrebuiltsManager?,
-        state: WorkspaceState
+        state: WorkspaceState,
+        identityLookupCache: IdentityLookupCache
     ) {
         self.fileSystem = fileSystem
         self.configuration = configuration
@@ -707,6 +701,8 @@ public class Workspace {
         self.prebuiltsManager = prebuiltsManager
 
         self.state = state
+
+        self.identityLookupCache = identityLookupCache
     }
 }
 
@@ -1465,7 +1461,8 @@ extension Workspace {
             fingerprints: self.fingerprints,
             resolvedPackagesStore: self.resolvedPackagesStore,
             prebuiltsManager: prebuiltsManager,
-            state: self.state
+            state: self.state,
+            identityLookupCache: self.identityLookupCache
         )
     }
 }

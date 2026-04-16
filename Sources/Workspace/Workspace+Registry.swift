@@ -56,21 +56,18 @@ extension Workspace {
         private let underlying: ManifestLoaderProtocol
         private let registryClient: RegistryClient
         private let transformationMode: TransformationMode
-
-        private let cacheTTL = DispatchTimeInterval.seconds(300) // 5m
-//        private let identityLookupCache = ThreadSafeKeyValueStore<
-//            SourceControlURL,
-//            (result: Result<PackageIdentity?, Error>, expirationTime: DispatchTime)
-//        >()
+        private let identityLookupCache: Workspace.IdentityLookupCache
 
         init(
             underlying: ManifestLoaderProtocol,
             registryClient: RegistryClient,
-            transformationMode: TransformationMode
+            transformationMode: TransformationMode,
+            identityLookupCache: Workspace.IdentityLookupCache
         ) {
             self.underlying = underlying
             self.registryClient = registryClient
             self.transformationMode = transformationMode
+            self.identityLookupCache = identityLookupCache
         }
 
         func load(
@@ -85,10 +82,6 @@ extension Workspace {
             fileSystem: any FileSystem,
             observabilityScope: ObservabilityScope,
             delegateQueue: DispatchQueue,
-            identityLookupCache: ThreadSafeKeyValueStore<
-            SourceControlURL,
-            (result: Result<PackageIdentity?, Error>, expirationTime: DispatchTime)
-            >
         ) async throws -> Manifest {
             let manifest = try await self.underlying.load(
                 manifestPath: manifestPath,
@@ -101,13 +94,11 @@ extension Workspace {
                 dependencyMapper: dependencyMapper,
                 fileSystem: fileSystem,
                 observabilityScope: observabilityScope,
-                delegateQueue: delegateQueue,
-                identityLookupCache: .init()
+                delegateQueue: delegateQueue
             )
             return try await self.transformSourceControlDependenciesToRegistry(
                 manifest: manifest,
                 transformationMode: transformationMode,
-                identityLookupCache: identityLookupCache,
                 observabilityScope: observabilityScope
             )
         }
@@ -123,10 +114,6 @@ extension Workspace {
         private func transformSourceControlDependenciesToRegistry(
             manifest: Manifest,
             transformationMode: TransformationMode,
-            identityLookupCache: ThreadSafeKeyValueStore<
-            SourceControlURL,
-            (result: Result<PackageIdentity?, Error>, expirationTime: DispatchTime)
-        >,
             observabilityScope: ObservabilityScope
         ) async throws -> Manifest {
             var transformations = [PackageDependency: PackageIdentity]()
@@ -138,7 +125,6 @@ extension Workspace {
                             do {
                                 let identity = try await self.mapRegistryIdentity(
                                     url: url,
-                                    identityLookupCache: identityLookupCache,
                                     observabilityScope: observabilityScope
                                 )
                                 return (dependency, identity)
@@ -343,18 +329,15 @@ extension Workspace {
 
         private func mapRegistryIdentity(
             url: SourceControlURL,
-            identityLookupCache: ThreadSafeKeyValueStore<
-            SourceControlURL,
-            (result:
-                Result<PackageIdentity?, Error>,
-             expirationTime: DispatchTime
-            )>,
             observabilityScope: ObservabilityScope
         ) async throws -> PackageIdentity? {
             if let cached = identityLookupCache[url], cached.expirationTime > .now() {
                 switch cached.result {
                 case .success(let identity):
-                    return identity;
+                    return identity
+                case .notApplicable:
+                    // scm package does not have a valid registry mapping
+                    return nil
                 case .failure:
                     // server error, do not try again
                     return nil
@@ -362,18 +345,15 @@ extension Workspace {
             }
 
             do {
-                // TODO bp :
-                // - possibly propogate the resolvedFileStrategy here?
-                // - ensure that the cache is up to date
                 let identities = try await self.registryClient.lookupIdentities(
                     scmURL: url,
                     observabilityScope: observabilityScope
                 )
                 let identity = identities.sorted().first
-                identityLookupCache[url] = (result: .success(identity), expirationTime: .now() + self.cacheTTL)
+                identityLookupCache[storing: url] = .success(identity)
                 return identity
             } catch {
-                identityLookupCache[url] = (result: .failure(error), expirationTime: .now() + self.cacheTTL)
+                identityLookupCache[storing: url] = .failure(error)
                 throw error
             }
         }
@@ -467,5 +447,73 @@ extension Workspace {
 
         // remove the local copy
         try registryDownloadsManager.remove(package: dependency.packageRef.identity)
+    }
+}
+
+extension Workspace {
+    public class IdentityLookupCache {
+        public typealias Key = SourceControlURL
+        public typealias Value = CacheResult
+        public typealias CacheResult = (result: IdentityMapResult<PackageIdentity?, Error>, expirationTime: DispatchTime)
+
+
+        public enum IdentityMapResult<Success, Failure> {
+            /// Represents a successful mapping of a source control URL to its registry identity
+            case success(Success)
+            /// Represents a failure to retrieve an identity from the registry
+            case failure(Failure)
+            /// Represents a scenario wherein a scm package has no valid registry identity mapping
+            case notApplicable
+        }
+
+        /// Tracks the mapping of scm packages to their registry identities
+        private let cache = ThreadSafeKeyValueStore<SourceControlURL, CacheResult>()
+        private let cacheTTL = DispatchTimeInterval.seconds(300) // 5m
+
+        public subscript(key: Key) -> CacheResult? {
+            get { self.cache[key] }
+            set { self.cache[key] = newValue }
+        }
+
+        public subscript(storing key: Key) -> IdentityMapResult<PackageIdentity?, Error>? {
+            get { self.cache[key]?.result }
+            set {
+                guard let newValue else {
+                    cache.removeValue(forKey: key)
+                    return
+                }
+                self.cache[key] = (
+                    result: newValue,
+                    expirationTime: .now() + self.cacheTTL
+                )
+            }
+        }
+
+        /// Derives an identity lookup cache from the Package.resolved file if applicable.
+        /// Asserts against the transformation mode set in the Workspace to determine how to store
+        /// source control packages and their identity mappings.
+        public func deriveCache(from resolvedPackages: ResolvedPackagesStore.ResolvedPackages, _ transformationMode: WorkspaceConfiguration.SourceControlToRegistryDependencyTransformation) {
+            guard transformationMode != .disabled else {
+                return
+            }
+
+            // First run, create a mapping between registry packages and their scm location, if applicable.
+            for resolvedPackage in resolvedPackages.values {
+                if case let .registry(id, .some(url)) = resolvedPackage.packageRef.kind {
+                    self[storing: url] = .success(id)
+                }
+            }
+
+            // Second pass; identify source control packages that may have had their
+            // identifiers modified to that of a registry id
+            if transformationMode == .swizzle {
+                for resolvedPackage in resolvedPackages.values {
+                    if case .remoteSourceControl(let url) = resolvedPackage.packageRef.kind,
+                        self.cache[url] == nil {
+                        self[storing: url] = .notApplicable
+                    }
+                }
+            }
+        }
     }
 }
