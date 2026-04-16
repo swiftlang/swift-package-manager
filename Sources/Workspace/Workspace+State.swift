@@ -203,8 +203,7 @@ extension WorkspaceStateStorage {
         init(
             dependencies: Workspace.ManagedDependencies,
             artifacts: Workspace.ManagedArtifacts,
-            prebuilts: Workspace.ManagedPrebuilts,
-            identityLookupCache: [String: String]? = nil
+            prebuilts: Workspace.ManagedPrebuilts
         ) {
             self.version = 7
             self.object = .init(
@@ -218,7 +217,6 @@ extension WorkspaceStateStorage {
             var dependencies: [Dependency]
             var artifacts: [Artifact]
             var prebuilts: [Prebuilt]
-            var identityLookupCache: [String: String]?
         }
 
         struct Dependency: Codable {

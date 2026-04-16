@@ -504,8 +504,10 @@ extension Workspace {
                 }
             }
 
-            // Second pass; identify source control packages that may have had their
-            // identifiers modified to that of a registry id
+            // Second pass;
+            // Track SCM packages that don't have a mapped registry equivalent,
+            // only if the transformation mode is `.swizzle`; this will avoid
+            // having to make any unnecessary calls to registry endpoints.
             if transformationMode == .swizzle {
                 for resolvedPackage in resolvedPackages.values {
                     if case .remoteSourceControl(let url) = resolvedPackage.packageRef.kind,
