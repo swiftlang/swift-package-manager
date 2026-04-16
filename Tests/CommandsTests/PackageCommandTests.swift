@@ -5445,8 +5445,10 @@ struct PackageCommandTests {
 
                     try await runPlugin(flags: [], diagnostics: ["print"]) { stdout, stderr in
                         #expect(stdout == isOnlyPrint)
+                        let buidlSystemDeprecationDiag = Basics.Diagnostic.deprecatedBuildSystem(buildSystem: buildSystem)
                         let filteredStderr = stderr.components(separatedBy: "\n")
-                            .filter { !$0.contains("Unable to locate libSwiftScan") }.joined(separator: "\n")
+                            .filter { !$0.contains("Unable to locate libSwiftScan") }
+                            .filter { !$0.contains(buidlSystemDeprecationDiag.message)}.joined(separator: "\n")
                         #expect(filteredStderr == isEmpty)
                     }
 
@@ -5839,10 +5841,12 @@ struct PackageCommandTests {
                 )
                 #expect(stdout == isEmpty)
                 // Filter some unrelated output that could show up on stderr.
+                let buidlSystemDeprecationDiag = Basics.Diagnostic.deprecatedBuildSystem(buildSystem: buildSystem)
                 let filteredStderr = stderr.components(separatedBy: "\n")
                     .filter { !$0.contains("Unable to locate libSwiftScan") }
                     .filter { !($0.contains("warning: ") && $0.contains("unable to find libclang")) }
                     .filter { !$0.contains("Build description")}
+                    .filter { !$0.contains(buidlSystemDeprecationDiag.message)}
                     .joined(separator: "\n")
                 #expect(filteredStderr == isEmpty)
             }
@@ -5858,10 +5862,12 @@ struct PackageCommandTests {
                 )
                 #expect(stdout.contains(containsLogtext))
                 // Filter some unrelated output that could show up on stderr.
+                let deprecatedBuildSystemDiag = Basics.Diagnostic.deprecatedBuildSystem(buildSystem: buildSystem)
                 let filteredStderr = stderr.components(separatedBy: "\n")
                     .filter { !$0.contains("Unable to locate libSwiftScan") }
                     .filter { !($0.contains("warning: ") && $0.contains("unable to find libclang")) }
                     .filter { !$0.contains("Build description")}
+                    .filter { !$0.contains(deprecatedBuildSystemDiag.message)}
                     .joined(separator: "\n")
                 #expect(filteredStderr == isEmpty)
             }

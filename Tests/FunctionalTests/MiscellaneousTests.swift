@@ -1287,8 +1287,11 @@ struct MiscellaneousTestCase {
                     case .native:
                         let errors = stderr.components(separatedBy: .newlines).filter { !$0.contains("[logging] misuse") && !$0.isEmpty }
                                                                         .filter { !$0.contains("Unable to locate libSwiftScan") }
-                        #expect(errors == [])
-                    case .swiftbuild, .xcode:
+                        #expect(errors == ["warning: \(Basics.Diagnostic.deprecatedBuildSystem(buildSystem: buildSystem).message)"])
+                    case  .xcode:
+                        let errors = stderr.components(separatedBy: .newlines)
+                        #expect(errors == ["warning: \(Basics.Diagnostic.deprecatedBuildSystem(buildSystem: buildSystem).message)"])
+                    case .swiftbuild:
                         break
                 }
             }
