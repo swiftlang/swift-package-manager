@@ -24,7 +24,9 @@ import class Basics.ObservabilityScope
 import class Basics.ObservabilitySystem
 import class Basics.ThreadSafeArrayStore
 
+import class PackageModel.BinaryModule
 import enum PackageModel.BuildConfiguration
+import struct PackageModel.BuildEnvironment
 import enum PackageModel.BuildSettings
 import class PackageModel.ClangModule
 import struct PackageModel.ConfigurationCondition
@@ -290,22 +292,34 @@ extension PackageModel.Platform {
 }
 
 extension Sequence<PackageModel.PackageCondition> {
-    func toPlatformFilter(toolsVersion: ToolsVersion) -> Set<ProjectModel.PlatformFilter> {
-        let pifPlatforms = self.flatMap { packageCondition -> [ProjectModel.BuildSettings.Platform] in
-            guard let platforms = packageCondition.platformsCondition?.platforms else {
+    func toPlatformFilter(toolsVersion: ToolsVersion, hostBuildEnvironment: PackageModel.BuildEnvironment) -> Set<ProjectModel.PlatformFilter> {
+        let platformFilters = self.flatMap { packageCondition -> [ProjectModel.PlatformFilter] in
+            guard let platformsCondition = packageCondition.platformsCondition else {
                 return []
             }
 
-            var pifPlatformsForCondition: [ProjectModel.BuildSettings.Platform] = platforms
-                .compactMap { try? ProjectModel.BuildSettings.Platform(from: $0) }
+            if hostBuildEnvironment.supportsPrebuilts == true,
+                let include = platformsCondition.includeIfPrebuiltsSupported,
+                let hostPlatform = try? ProjectModel.BuildSettings.Platform(from: hostBuildEnvironment.platform)
+            {
+                return hostPlatform.toPlatformFilter().map({
+                    var filter = $0
+                    // host platforms supports prebuilts so exclude this dependency
+                    filter.exclude = !include
+                    return filter
+                })
+            } else {
+                var pifPlatformsForCondition: [ProjectModel.BuildSettings.Platform] = platformsCondition.platforms
+                    .compactMap { try? ProjectModel.BuildSettings.Platform(from: $0) }
 
-            // Treat catalyst like macOS for backwards compatibility with older tools versions.
-            if pifPlatformsForCondition.contains(.macOS), toolsVersion < ToolsVersion.v5_5 {
-                pifPlatformsForCondition.append(.macCatalyst)
+                // Treat catalyst like macOS for backwards compatibility with older tools versions.
+                if pifPlatformsForCondition.contains(.macOS), toolsVersion < ToolsVersion.v5_5 {
+                    pifPlatformsForCondition.append(.macCatalyst)
+                }
+                return pifPlatformsForCondition.flatMap({ $0.toPlatformFilter() })
             }
-            return pifPlatformsForCondition
         }
-        return Set(pifPlatforms.flatMap { $0.toPlatformFilter() })
+        return Set(platformFilters)
     }
 
     var splitIntoConcreteConditions: (
@@ -864,6 +878,18 @@ extension PackageGraph.ResolvedProduct {
         }
     }
 
+    /// Is this a prebuilt product?
+    var isPrebuiltProduct: Bool {
+        guard let module = modules.only,
+              let binaryModule = module.underlying as? BinaryModule,
+              case .prebuilt = binaryModule.kind
+        else {
+            return false
+        }
+
+        return true
+    }
+
     var isExecutable: Bool {
         switch self.type {
         case .executable, .snippet:
@@ -884,7 +910,12 @@ extension PackageGraph.ResolvedProduct {
     /// Returns the corresponding *system library* module, if this is a system library product.
     var systemModule: SystemLibraryModule? {
         guard self.isSystemLibraryProduct else { return nil }
-        return (self.modules.only?.underlying as! SystemLibraryModule)
+        return (self.modules.only?.underlying as? SystemLibraryModule)
+    }
+
+    var prebuiltModule: BinaryModule? {
+        guard self.isPrebuiltProduct else { return nil }
+        return (self.modules.only?.underlying as? BinaryModule)
     }
 
     /// Returns the corresponding *plugin* module, if this is a plugin product.

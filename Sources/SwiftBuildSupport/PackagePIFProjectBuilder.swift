@@ -61,6 +61,7 @@ struct PackagePIFProjectBuilder {
     let declaredPlatforms: [PackageModel.Platform]?
     let deploymentTargets: [PackageModel.Platform: String?]
 
+
     /// Current set of names of any package products that are explicitly declared dynamic libraries.
     private let dynamicLibraryProductNames: Set<String>
 

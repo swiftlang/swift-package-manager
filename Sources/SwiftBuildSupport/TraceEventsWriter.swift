@@ -147,6 +147,7 @@ package final class TraceEventsWriter {
     package func taskCompleted(
         _ info: SwiftBuildMessage.TaskCompleteInfo,
         startedInfo: SwiftBuildMessage.TaskStartedInfo,
+        targetInfo: SwiftBuildMessage.TargetStartedInfo?
     ) {
         let taskID = TaskID(info.taskID)
         let endInstant = ContinuousClock.now
@@ -166,6 +167,9 @@ package final class TraceEventsWriter {
         args["description"] = .string(startedInfo.executionDescription)
         if let cmdLine = startedInfo.commandLineDisplayString {
             args["commandLine"] = .string(cmdLine)
+        }
+        if let targetInfo {
+            args["target"] = .string(targetInfo.targetName)
         }
         args["result"] = .string("\(info.result)")
         appendEvent(TraceEvent(

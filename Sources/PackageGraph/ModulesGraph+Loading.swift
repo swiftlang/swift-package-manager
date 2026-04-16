@@ -940,24 +940,24 @@ private func createResolvedPackages(
                     continue
                 }
 
-                // Make dependencies on source products from the prebuilts conditional if platform doesn't support prebuilts
+                // Make dependencies on the source products conditional on prebuilts not supported
                 moduleBuilder.dependencies = moduleBuilder.dependencies.compactMap {
                     if case .product(let productBuilder, conditions: var conditions) = $0,
                         prebuiltLibraries.contains(where: { $0.value.products.contains(productBuilder.product.name) })
                     {
-                        conditions.append(.platforms(.init(prebuiltsSupported: false)))
+                        conditions.append(.platforms(.init(includeIfPrebuiltsSupported: false)))
                         return .product(productBuilder, conditions: conditions)
                     } else {
                         return $0
                     }
                 }
 
-                // Add dependencies to prebuilt products conditional support for prebuilts
+                // Add dependencies to prebuilt products conditional on prebuilts being supported
                 moduleBuilder.dependencies.append(contentsOf: prebuiltLibraries.compactMap {
                     guard let productBuilder = prebuiltProducts[$0.value.identity]?[$0.key] else {
                         return nil
                     }
-                    return .product(productBuilder, conditions: [.platforms(.init(prebuiltsSupported: true))])
+                    return .product(productBuilder, conditions: [.platforms(.init(includeIfPrebuiltsSupported: true))])
                 })
             }
         }

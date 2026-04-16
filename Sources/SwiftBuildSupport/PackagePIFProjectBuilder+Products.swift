@@ -371,11 +371,15 @@ extension PackagePIFProjectBuilder {
                         Self.createBinaryModuleFileReference(binaryModule, id: id)
                     }
                     let toolsVersion = self.package.manifest.toolsVersion
+                    let hostBuildEnvironment = self.pifBuilder.hostBuildEnvironment
                     self.project[keyPath: mainModuleTargetKeyPath].addLibrary { id in
                         BuildFile(
                             id: id,
                             fileRef: binaryFileRef,
-                            platformFilters: packageConditions.toPlatformFilter(toolsVersion: toolsVersion),
+                            platformFilters: packageConditions.toPlatformFilter(
+                                toolsVersion: toolsVersion,
+                                hostBuildEnvironment: hostBuildEnvironment
+                            ),
                             codeSignOnCopy: true,
                             removeHeadersOnCopy: true
                         )
@@ -386,8 +390,10 @@ extension PackagePIFProjectBuilder {
                     let dependencyId = moduleDependency.pifTargetGUID
                     self.project[keyPath: mainModuleTargetKeyPath].common.addDependency(
                         on: dependencyId,
-                        platformFilters: packageConditions
-                            .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
+                        platformFilters: packageConditions.toPlatformFilter(
+                            toolsVersion: package.manifest.toolsVersion,
+                            hostBuildEnvironment: pifBuilder.hostBuildEnvironment
+                        ),
                         linkProduct: false
                     )
                     log(.debug, indent: 1, "Added use of plugin target '\(dependencyId)'")
@@ -396,8 +402,10 @@ extension PackagePIFProjectBuilder {
                     let dependencyId = moduleDependency.pifTargetGUID
                     self.project[keyPath: mainModuleTargetKeyPath].common.addDependency(
                         on: dependencyId,
-                        platformFilters: packageConditions
-                            .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
+                        platformFilters: packageConditions.toPlatformFilter(
+                            toolsVersion: package.manifest.toolsVersion,
+                            hostBuildEnvironment: pifBuilder.hostBuildEnvironment
+                        ),
                         linkProduct: false
                     )
                     log(.debug, indent: 1, "Added dependency on product '\(dependencyId)'")
@@ -406,8 +414,10 @@ extension PackagePIFProjectBuilder {
                     if product.type == .test {
                         self.project[keyPath: mainModuleTargetKeyPath].common.addDependency(
                             on: moduleDependency.pifTargetGUID(suffix: .testable),
-                            platformFilters: packageConditions
-                                .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
+                            platformFilters: packageConditions.toPlatformFilter(
+                                toolsVersion: package.manifest.toolsVersion,
+                                hostBuildEnvironment: pifBuilder.hostBuildEnvironment
+                            ),
                             linkProduct: true
                         )
                         log(
@@ -442,8 +452,10 @@ extension PackagePIFProjectBuilder {
                         let productDependencyGUID = productDependency.pifTargetGUID
                         self.project[keyPath: mainModuleTargetKeyPath].common.addDependency(
                             on: productDependencyGUID,
-                            platformFilters: packageConditions
-                                .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
+                            platformFilters: packageConditions.toPlatformFilter(
+                                toolsVersion: package.manifest.toolsVersion,
+                                hostBuildEnvironment: pifBuilder.hostBuildEnvironment
+                            ),
                             linkProduct: false
                         )
                         log(.debug, indent: 1, "Added dependency on product '\(productDependencyGUID)'")
@@ -455,8 +467,10 @@ extension PackagePIFProjectBuilder {
                         let moduleDependencyGUID = moduleDependency.pifTargetGUID(suffix: .testable)
                         self.project[keyPath: mainModuleTargetKeyPath].common.addDependency(
                             on: moduleDependencyGUID,
-                            platformFilters: packageConditions
-                                .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
+                            platformFilters: packageConditions.toPlatformFilter(
+                                toolsVersion: package.manifest.toolsVersion,
+                                hostBuildEnvironment: pifBuilder.hostBuildEnvironment
+                            ),
                             // Only link the testable version of executables which use Swift, as we do not currently support renaming entrypoints written in other languages.
                             linkProduct: moduleDependency.usesSwift
                         )
@@ -468,8 +482,10 @@ extension PackagePIFProjectBuilder {
                     let dependencyGUID = moduleDependency.pifTargetGUID
                     self.project[keyPath: mainModuleTargetKeyPath].common.addDependency(
                         on: dependencyGUID,
-                        platformFilters: packageConditions
-                            .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
+                        platformFilters: packageConditions.toPlatformFilter(
+                            toolsVersion: package.manifest.toolsVersion,
+                            hostBuildEnvironment: pifBuilder.hostBuildEnvironment
+                        ),
                         linkProduct: shouldLinkProduct
                     )
                     log(
@@ -550,7 +566,10 @@ extension PackagePIFProjectBuilder {
             let shouldLinkProduct = isLinkable
             self.project[keyPath: targetKeyPath].common.addDependency(
                 on: product.pifTargetGUID,
-                platformFilters: packageConditions.toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
+                platformFilters: packageConditions.toPlatformFilter(
+                    toolsVersion: package.manifest.toolsVersion,
+                    hostBuildEnvironment: pifBuilder.hostBuildEnvironment
+                ),
                 linkProduct: shouldLinkProduct
             )
             log(
@@ -776,11 +795,15 @@ extension PackagePIFProjectBuilder {
                         FileReference(id: id, path: binaryTarget.artifactPath.pathString)
                     }
                     let toolsVersion = package.manifest.toolsVersion
+                    let hostBuildEnvironment = pifBuilder.hostBuildEnvironment
                     self.project[keyPath: libraryUmbrellaTargetKeyPath].addLibrary { id in
                         BuildFile(
                             id: id,
                             fileRef: binaryFileRef,
-                            platformFilters: packageConditions.toPlatformFilter(toolsVersion: toolsVersion),
+                            platformFilters: packageConditions.toPlatformFilter(
+                                toolsVersion: toolsVersion,
+                                hostBuildEnvironment: hostBuildEnvironment
+                            ),
                             codeSignOnCopy: true,
                             removeHeadersOnCopy: true
                         )
@@ -793,8 +816,10 @@ extension PackagePIFProjectBuilder {
                     let dependencyId = moduleDependency.pifTargetGUID
                     self.project[keyPath: libraryUmbrellaTargetKeyPath].common.addDependency(
                         on: dependencyId,
-                        platformFilters: packageConditions
-                            .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
+                        platformFilters: packageConditions.toPlatformFilter(
+                            toolsVersion: package.manifest.toolsVersion,
+                            hostBuildEnvironment: pifBuilder.hostBuildEnvironment
+                        ),
                         linkProduct: false
                     )
                     log(.debug, indent: 1, "Added use of plugin target '\(dependencyId)'")
@@ -814,8 +839,10 @@ extension PackagePIFProjectBuilder {
                     {
                         self.project[keyPath: libraryUmbrellaTargetKeyPath].common.addDependency(
                             on: product.pifTargetGUID,
-                            platformFilters: packageConditions
-                                .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
+                            platformFilters: packageConditions.toPlatformFilter(
+                                toolsVersion: package.manifest.toolsVersion,
+                                hostBuildEnvironment: pifBuilder.hostBuildEnvironment
+                            ),
                             linkProduct: false
                         )
                         log(.debug, indent: 1, "Added dependency on product '\(product.pifTargetGUID)'")
@@ -831,7 +858,10 @@ extension PackagePIFProjectBuilder {
 
                 self.project[keyPath: libraryUmbrellaTargetKeyPath].common.addDependency(
                     on: moduleDependency.pifTargetGUID,
-                    platformFilters: packageConditions.toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
+                    platformFilters: packageConditions.toPlatformFilter(
+                        toolsVersion: package.manifest.toolsVersion,
+                        hostBuildEnvironment: pifBuilder.hostBuildEnvironment
+                    ),
                     linkProduct: true
                 )
                 log(.debug, indent: 1, "Added linked dependency on target '\(moduleDependency.pifTargetGUID)'")
@@ -849,8 +879,10 @@ extension PackagePIFProjectBuilder {
                     let shouldLinkProduct = productDependency.isLinkable
                     self.project[keyPath: libraryUmbrellaTargetKeyPath].common.addDependency(
                         on: productDependency.pifTargetGUID,
-                        platformFilters: packageConditions
-                            .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
+                        platformFilters: packageConditions.toPlatformFilter(
+                            toolsVersion: package.manifest.toolsVersion,
+                            hostBuildEnvironment: pifBuilder.hostBuildEnvironment
+                        ),
                         linkProduct: shouldLinkProduct
                     )
                     log(
@@ -964,6 +996,55 @@ extension PackagePIFProjectBuilder {
             deploymentTargets: self.deploymentTargets
         )
         self.builtModulesAndProducts.append(systemLibrary)
+    }
+
+    // MARK: - Prebuilt Products
+
+    mutating func makePrebuiltProduct(_ product: PackageGraph.ResolvedProduct) throws {
+        let prebuiltTargetKeyPath = try self.project.addTarget { _ in
+            ProjectModel.Target(
+                id: product.pifTargetGUID,
+                productType: .packageProduct,
+                name: product.targetName(),
+                productName: product.name
+            )
+        }
+        do {
+            let prebuiltTarget = self.project[keyPath: prebuiltTargetKeyPath]
+            log(
+                .debug,
+                "Created target '\(prebuiltTarget.id)' of type '\(prebuiltTarget.productType)' " +
+                "with name '\(prebuiltTarget.name)' and product name '\(prebuiltTarget.productName)'"
+            )
+        }
+
+        let buildSettings = self.package.underlying.packageBaseBuildSettings
+        self.project[keyPath: prebuiltTargetKeyPath].common.addBuildConfig { id in
+            BuildConfig(id: id, name: "Debug", settings: buildSettings)
+        }
+        self.project[keyPath: prebuiltTargetKeyPath].common.addBuildConfig { id in
+            BuildConfig(id: id, name: "Release", settings: buildSettings)
+        }
+
+        self.project[keyPath: prebuiltTargetKeyPath].common.addDependency(
+            on: product.prebuiltModule!.pifTargetGUID,
+            platformFilters: [],
+            linkProduct: false
+        )
+
+        let prebuiltProduct = PackagePIFBuilder.ModuleOrProduct(
+            type: .staticArchive,
+            name: product.name,
+            moduleName: product.c99name,
+            pifTarget: .target(self.project[keyPath: prebuiltTargetKeyPath]),
+            indexableFileURLs: [],
+            headerFiles: [],
+            linkedPackageBinaries: [],
+            swiftLanguageVersion: nil,
+            declaredPlatforms: self.declaredPlatforms,
+            deploymentTargets: self.deploymentTargets
+        )
+        self.builtModulesAndProducts.append(prebuiltProduct)
     }
 
     // MARK: - Plugin Product
