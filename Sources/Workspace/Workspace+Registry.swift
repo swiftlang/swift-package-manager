@@ -348,6 +348,11 @@ extension Workspace {
                     observabilityScope: observabilityScope
                 )
                 let identity = identities.sorted().first
+                if identity == nil {
+                    observabilityScope.emit(
+                        warning: "no registry identity found for '\(url)'; dependency will not be transformed. Ensure the package is published with 'repositoryURLs' metadata."
+                    )
+                }
                 self.identityLookupCache[url] = (result: .success(identity), expirationTime: .now() + self.cacheTTL)
                 return identity
             } catch {
