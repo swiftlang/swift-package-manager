@@ -207,6 +207,8 @@ final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOut
             InProcessTool(self.buildExecutionContext, type: TestDiscoveryCommand.self)
         case TestEntryPointTool.name:
             InProcessTool(self.buildExecutionContext, type: TestEntryPointCommand.self)
+        case PlaygroundRunnerTool.name:
+            InProcessTool(self.buildExecutionContext, type: PlaygroundRunnerCommand.self)
         case PackageStructureTool.name:
             InProcessTool(self.buildExecutionContext, type: PackageStructureCommand.self)
         case CopyTool.name:
