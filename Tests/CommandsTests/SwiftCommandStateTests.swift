@@ -28,6 +28,35 @@ import protocol TSCBasic.OutputByteStream
 import enum TSCBasic.SystemError
 import var TSCBasic.stderrStream
 
+import Testing
+
+@Suite()
+struct SwiftCommandStateTestSuites {
+    @Test(
+        .tags(
+            .TestSize.small,
+        ),
+        arguments: [
+            AbsolutePath.root,
+            AbsolutePath.root.appending(component: "cacheDir"),
+            AbsolutePath.root.appending(components: "foo", "bar", "baz"),
+        ]
+    )
+    func cacheDirTagFileContainsExpectedContents(
+        cacheDirectory: AbsolutePath,
+    ) async throws {
+        let fs = InMemoryFileSystem()
+        // let cacheDirectory = AbsolutePath.root.appending(components: components)
+
+        let actual = try #require(createCacheDirFile(inDirectory: cacheDirectory, fs))
+
+        let contents = try fs.readFileContents(actual).description
+        let contentArray = contents.split(whereSeparator: \.isNewline)
+        try #require(contentArray.isEmpty == false, "Content array is empty, when it shouldn't be. Content is: \(contents)")
+        #expect(contentArray[0] == "Signature: 8a477f597d28d172789f06886806bc55")
+    }
+}
+
 final class SwiftCommandStateTests: XCTestCase {
     /// Original working directory before the test ran (if known).
     private var originalWorkingDirectory: AbsolutePath? = .none
@@ -549,6 +578,7 @@ final class SwiftCommandStateTests: XCTestCase {
             }
         }
     }
+
 }
 
 extension SwiftCommandState {

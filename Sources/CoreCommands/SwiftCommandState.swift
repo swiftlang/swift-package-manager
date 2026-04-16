@@ -128,6 +128,9 @@ extension SwiftCommand {
             workspaceLoaderProvider: self.workspaceLoaderProvider,
             createPackagePath: self.createPackagePath
         )
+        defer {
+            _ = createCacheDirFile(inDirectory: swiftCommandState.scratchDirectory)
+        }
 
         // We use this to attempt to catch misuse of the locking APIs since we only release the lock from here.
         swiftCommandState.setNeedsLocking()
@@ -154,12 +157,36 @@ extension SwiftCommand {
     }
 }
 
+package func createCacheDirFile(
+    inDirectory directory: AbsolutePath,
+    _ fileSystem: FileSystem = localFileSystem) -> AbsolutePath? {
+    // https://bford.info/cachedir/
+    let path = directory.appending("CACHEDIR.TAG")
+    do {
+        let contents = """
+            Signature: 8a477f597d28d172789f06886806bc55
+            # This file is a cache directory tag created by (Swift Package Manager).
+            # For information about cache directory tags, see:
+            #.   http://www.brynosaurus.com/cachedir/
+            """
+        try fileSystem.createDirectory(path.parentDirectory, recursive: true)
+        try fileSystem.writeFileContents(path, string: contents)
+        return path
+    } catch {
+        // Don't error out if we fail to create the CACHEDIR.TAG file, as this is not critical to the functioning of the tool.
+        return nil
+    }
+
+}
 public protocol AsyncSwiftCommand: AsyncParsableCommand, _SwiftCommand {
     func run(_ swiftCommandState: SwiftCommandState) async throws
+    var addCacheDirTagFile: Bool { get }
 }
 
 extension AsyncSwiftCommand {
     public static var _errorLabel: String { "error" }
+
+    public var addCacheDirTagFile: Bool { true }
 
     // FIXME: It doesn't seem great to have this be duplicated with `SwiftCommand`.
     public func run() async throws {
@@ -170,6 +197,11 @@ extension AsyncSwiftCommand {
             workspaceLoaderProvider: self.workspaceLoaderProvider,
             createPackagePath: self.createPackagePath
         )
+        defer {
+            if self.addCacheDirTagFile {
+                _ = createCacheDirFile(inDirectory: swiftCommandState.scratchDirectory)
+            }
+        }
 
         // We use this to attempt to catch misuse of the locking APIs since we only release the lock from here.
         swiftCommandState.setNeedsLocking()
