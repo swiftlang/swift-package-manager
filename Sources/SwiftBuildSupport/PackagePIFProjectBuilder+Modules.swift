@@ -142,10 +142,12 @@ extension PackagePIFProjectBuilder {
             pifTarget: .target(self.project[keyPath: pluginTargetKeyPath]),
             indexableFileURLs: [],
             headerFiles: [],
+            pluginScriptSourcePaths: pluginModule.sources.paths,
             linkedPackageBinaries: [],
             swiftLanguageVersion: nil,
             declaredPlatforms: self.declaredPlatforms,
-            deploymentTargets: self.deploymentTargets
+            deploymentTargets: self.deploymentTargets,
+            toolsVersion: pifBuilder.packageManifest.toolsVersion
         )
         self.builtModulesAndProducts.append(pluginModuleMetadata)
     }
@@ -877,7 +879,8 @@ extension PackagePIFProjectBuilder {
             linkedPackageBinaries: linkedPackageBinaries,
             swiftLanguageVersion: sourceModule.packageSwiftLanguageVersion(manifest: packageManifest),
             declaredPlatforms: self.declaredPlatforms,
-            deploymentTargets: self.deploymentTargets
+            deploymentTargets: self.deploymentTargets,
+            toolsVersion: pifBuilder.packageManifest.toolsVersion
         )
 
         return (moduleOrProduct, resourceBundleName)
@@ -963,7 +966,8 @@ extension PackagePIFProjectBuilder {
             linkedPackageBinaries: [],
             swiftLanguageVersion: nil,
             declaredPlatforms: self.declaredPlatforms,
-            deploymentTargets: self.deploymentTargets
+            deploymentTargets: self.deploymentTargets,
+            toolsVersion: pifBuilder.packageManifest.toolsVersion
         )
         self.builtModulesAndProducts.append(systemModule)
     }

@@ -985,6 +985,14 @@ let package = Package(
                 "Basics"
             ]
         ),
+        .testTarget(
+            name: "SwiftPMWebAssemblyIntegrationTests",
+            dependencies: [
+                "_InternalTestSupport",
+                "Basics",
+                "PackageModel",
+            ]
+        ),
         // Examples (These are built to ensure they stay up to date with the API.)
         .executableTarget(
             name: "package-info",

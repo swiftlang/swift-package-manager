@@ -26,7 +26,7 @@ jobs:
           - buildSystem: "native"
             linuxSwiftVersion: '["nightly-main"]'
     name: Build (${{ matrix.buildSystem }}) (exectable target built using ${{ matrix.executableTargetBuildSystem }})
-    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@0.0.9
+    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@0.0.10
     with:
       enable_cross_pr_testing: true
       linux_os_versions: '["amazonlinux2", "bookworm", "noble", "jammy", "rhel-ubi9"]'
@@ -56,7 +56,7 @@ jobs:
         buildSystem: ["swiftbuild"]
     name: Build (${{ matrix.buildSystem }}) (exectable target built using ${{ matrix.executableTargetBuildSystem }})
     needs: [soundness]
-    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@0.0.9
+    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@0.0.10
     with:
       linux_os_versions: '["amazonlinux2", "bookworm", "noble", "jammy", "rhel-ubi9"]'
       linux_swift_versions: '["nightly-main"]'
@@ -75,7 +75,7 @@ jobs:
 
   soundness:
     name: Soundness
-    uses: swiftlang/github-workflows/.github/workflows/soundness.yml@0.0.9
+    uses: swiftlang/github-workflows/.github/workflows/soundness.yml@0.0.10
     with:
       license_header_check_project_name: "Swift"
       license_header_check_enabled: true
@@ -87,3 +87,17 @@ jobs:
       broken_symlink_check_enabled: true
       python_lint_check_enabled: true
       yamllint_check_enabled: true
+
+  wasm-integration-tests:
+    name: WASM Integration Tests
+    needs: [soundness]
+    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@0.0.10
+    with:
+      enable_linux_checks: false
+      enable_windows_checks: false
+      enable_macos_checks: false
+      enable_wasm_sdk_build: true
+      wasm_sdk_versions: '["nightly-main"]'
+      wasm_sdk_pre_build_command: ./.github/scripts/prebuild.sh
+      # This is a hack - replace the build command with a test command and drop the --swift-sdk arg the workflow appends.
+      wasm_sdk_build_command: "swift test --filter WebAssemblyIntegrationTests #"

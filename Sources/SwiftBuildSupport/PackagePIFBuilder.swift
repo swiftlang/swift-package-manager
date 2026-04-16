@@ -29,6 +29,7 @@ import enum PackageModel.PrebuiltsPlatform
 import struct PackageModel.Resource
 import struct PackageModel.PackageIdentity
 import enum PackageModel.ProductType
+import struct PackageModel.ToolsVersion
 
 import struct PackageGraph.ModulesGraph
 import struct PackageGraph.ResolvedModule
@@ -350,7 +351,8 @@ public final class PackagePIFBuilder {
             linkedPackageBinaries: [],
             swiftLanguageVersion: nil,
             declaredPlatforms: nil,
-            deploymentTargets: nil
+            deploymentTargets: nil,
+            toolsVersion: nil
         )
         return placeholderModule
     }
@@ -369,12 +371,17 @@ public final class PackagePIFBuilder {
 
         public var indexableFileURLs: [SourceControlURL]
         public var headerFiles: Set<AbsolutePath>
+        /// Source files implementing the plugin represented by this target, which
+        /// are compiled during build planning as opposed to participating in the
+        /// build itself.
+        public var pluginScriptSourcePaths: [AbsolutePath]
         public var linkedPackageBinaries: [LinkedPackageBinary]
 
         public var swiftLanguageVersion: String?
 
         public var declaredPlatforms: [PackageModel.Platform]?
         public var deploymentTargets: [PackageModel.Platform: String?]?
+        public var toolsVersion: ToolsVersion?
     }
 
     public struct LinkedPackageBinary {
@@ -721,22 +728,26 @@ extension PackagePIFBuilder.ModuleOrProduct {
         moduleName: String?,
         pifTarget: ProjectModel.BaseTarget?,
         indexableFileURLs: [SourceControlURL] = [],
+        pluginScriptSourcePaths: [AbsolutePath] = [],
         headerFiles: Set<AbsolutePath> = [],
         linkedPackageBinaries: [PackagePIFBuilder.LinkedPackageBinary] = [],
         swiftLanguageVersion: String? = nil,
         declaredPlatforms: [PackageModel.Platform]? = [],
-        deploymentTargets: [PackageModel.Platform: String?]? = [:]
+        deploymentTargets: [PackageModel.Platform: String?]? = [:],
+        toolsVersion: ToolsVersion?
     ) {
         self.type = moduleOrProductType
         self.name = name
         self.moduleName = moduleName
         self.pifTarget = pifTarget
         self.indexableFileURLs = indexableFileURLs
+        self.pluginScriptSourcePaths = pluginScriptSourcePaths
         self.headerFiles = headerFiles
         self.linkedPackageBinaries = linkedPackageBinaries
         self.swiftLanguageVersion = swiftLanguageVersion
         self.declaredPlatforms = declaredPlatforms
         self.deploymentTargets = deploymentTargets
+        self.toolsVersion = toolsVersion
     }
 }
 

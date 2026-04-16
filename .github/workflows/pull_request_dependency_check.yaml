@@ -1,0 +1,11 @@
+on:
+  pull_request_target:
+    types: [opened, edited, reopened, labeled, unlabeled, synchronize]
+
+permissions:
+  issues: read
+  pull-requests: read
+
+jobs:
+  check_dependencies:
+    uses: swiftlang/github-workflows/.github/workflows/github_actions_dependencies.yml@main

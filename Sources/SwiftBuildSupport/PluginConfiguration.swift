@@ -15,13 +15,13 @@
 
 public struct PluginConfiguration {
     /// Entity responsible for compiling and running plugin scripts.
-    let scriptRunner: PluginScriptRunner
+    public let scriptRunner: PluginScriptRunner
 
     /// Directory where plugin intermediate files are stored.
-    let workDirectory: Basics.AbsolutePath
+    public let workDirectory: Basics.AbsolutePath
 
     /// Whether to sandbox commands from build tool plugins.
-    let disableSandbox: Bool
+    public let disableSandbox: Bool
 
     public init(
         scriptRunner: PluginScriptRunner,

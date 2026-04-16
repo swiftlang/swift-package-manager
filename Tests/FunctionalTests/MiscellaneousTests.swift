@@ -230,7 +230,7 @@ struct MiscellaneousTestCase {
         try await withKnownIssue(isIntermittent: true) {
         try await fixture(name: "Miscellaneous/DependencyEdges/Internal") { fixturePath in
             let binPath = try fixturePath.appending(components: buildSystem.binPath(for: configuration))
-            let executable = binPath.appending(components: "Foo")
+            let executable = binPath.appending(components: executableName("Foo"))
             let execPath = executable.pathString
 
             try await executeSwiftBuild(
@@ -276,11 +276,10 @@ struct MiscellaneousTestCase {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let configuration = BuildConfiguration.debug
-        try await withKnownIssue {
         try await fixture(name: "DependencyResolution/External/Complex", createGitRepo: true) { fixturePath in
             let packageRoot = fixturePath.appending(component: "app")
             let binPath = try packageRoot.appending(components: buildSystem.binPath(for: configuration))
-            let executable = binPath.appending(component: "Dealer")
+            let executable = binPath.appending(component: executableName("Dealer"))
             let execPath = executable.pathString
 
             try await executeSwiftBuild(
@@ -309,10 +308,6 @@ struct MiscellaneousTestCase {
             let output2 = try await AsyncProcess.checkNonZeroExit(args: execPath).withSwiftLineEnding
             #expect(output2 == "♠︎A\n♠︎A\n♠︎A\n♠︎A\n♠︎A\n♠︎A\n♠︎A\n♠︎A\n♠︎A\n♠︎A\n")
         }
-        } when: {
-            (ProcessInfo.hostOperatingSystem == .windows && buildSystem == .native && configuration == .debug)
-            || (ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild)
-        }
     }
 
     /**
@@ -333,7 +328,7 @@ struct MiscellaneousTestCase {
         try await fixture(name: "Miscellaneous/DependencyEdges/External", createGitRepo: true) { fixturePath in
             let packageRoot = fixturePath.appending("root")
             let binPath = try packageRoot.appending(components: buildSystem.binPath(for: configuration))
-            let executable = binPath.appending(component: "dep2")
+            let executable = binPath.appending(component: executableName("dep2"))
             let execpath = [executable.pathString]
 
             try await executeSwiftBuild(
@@ -341,7 +336,6 @@ struct MiscellaneousTestCase {
                 configuration: configuration,
                 buildSystem: buildSystem,
             )
-            try await withKnownIssue {
                 try requireFileExists(at: executable)
                 let output = try await AsyncProcess.checkNonZeroExit(arguments: execpath)
                 #expect(output == "Hello\(ProcessInfo.EOL)")
@@ -362,9 +356,6 @@ struct MiscellaneousTestCase {
                 try requireFileExists(at: executable)
                 let output2 = try await AsyncProcess.checkNonZeroExit(arguments: execpath)
                 #expect(output2 == "Goodbye\(ProcessInfo.EOL)")
-            } when: {
-                (ProcessInfo.hostOperatingSystem == .windows)
-            }
         }
     }
 
@@ -772,7 +763,6 @@ struct MiscellaneousTestCase {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let configuration = BuildConfiguration.debug
-        try await withKnownIssue(isIntermittent: true) {
         try await fixture(name: "Miscellaneous/TestableExe") { fixturePath in
             do {
                 let (stdout, stderr) = try await executeSwiftTest(
@@ -815,9 +805,6 @@ struct MiscellaneousTestCase {
                 Issue.record("\(error)")
 #endif
             }
-        }
-        } when: {
-            ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild
         }
     }
 
@@ -1300,8 +1287,11 @@ struct MiscellaneousTestCase {
                     case .native:
                         let errors = stderr.components(separatedBy: .newlines).filter { !$0.contains("[logging] misuse") && !$0.isEmpty }
                                                                         .filter { !$0.contains("Unable to locate libSwiftScan") }
-                        #expect(errors == [])
-                    case .swiftbuild, .xcode:
+                        #expect(errors == ["warning: \(Basics.Diagnostic.deprecatedBuildSystem(buildSystem: buildSystem).message)"])
+                    case  .xcode:
+                        let errors = stderr.components(separatedBy: .newlines)
+                        #expect(errors == ["warning: \(Basics.Diagnostic.deprecatedBuildSystem(buildSystem: buildSystem).message)"])
+                    case .swiftbuild:
                         break
                 }
             }
