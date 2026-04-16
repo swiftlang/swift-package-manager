@@ -576,8 +576,8 @@ struct SBOMExtractComponentsTests {
         )
         
         // Create package references
-        let registryPackageRef = PackageReference.registry(identity: registryPackageIdentity)
-        
+        let registryPackageRef = PackageReference.registry(identity: registryPackageIdentity, originalURL: nil)
+
         // Create modules graph
         let graph = try ModulesGraph(
             rootPackages: [rootResolvedPackage],

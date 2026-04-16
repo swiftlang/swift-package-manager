@@ -469,6 +469,10 @@ extension Workspace {
         private let cache = ThreadSafeKeyValueStore<SourceControlURL, CacheResult>()
         private let cacheTTL = DispatchTimeInterval.seconds(300) // 5m
 
+        public var isEmpty: Bool {
+            return self.cache.isEmpty
+        }
+
         public subscript(key: Key) -> CacheResult? {
             get { self.cache[key] }
             set { self.cache[key] = newValue }
