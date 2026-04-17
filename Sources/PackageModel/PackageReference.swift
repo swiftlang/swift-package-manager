@@ -32,7 +32,7 @@ public struct PackageReference {
         case remoteSourceControl(SourceControlURL)
 
         /// A package from  a registry.
-        case registry(PackageIdentity, SourceControlURL?)
+        case registry(PackageIdentity, SourceControlURL? = nil)
 
         // FIXME: we should not need this once we migrate off URLs
         //@available(*, deprecated)

@@ -274,7 +274,7 @@ public final class MockWorkspace {
                 sourceControlSpecifier = RepositorySpecifier(url: url)
             case (_, .registry(let identity, let alternativeURLs, _)):
                 packageLocation = identity.description
-                packageKind = .registry(identity, nil)
+                packageKind = .registry(identity)
                 registryIdentity = identity
                 registryAlternativeURLs = alternativeURLs
             }

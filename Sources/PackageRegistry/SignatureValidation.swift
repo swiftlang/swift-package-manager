@@ -649,7 +649,7 @@ extension ObservabilityMetadata {
     public static func registryPackageMetadata(identity: PackageIdentity.RegistryIdentity) -> Self {
         var metadata = ObservabilityMetadata()
         metadata.packageIdentity = identity.underlying
-        metadata.packageKind = .registry(identity.underlying, nil)
+        metadata.packageKind = .registry(identity.underlying)
         return metadata
     }
 }

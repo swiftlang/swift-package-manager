@@ -346,6 +346,19 @@ extension Workspace {
         // Ensure the cache path exists.
         self.createCacheDirectories(observabilityScope: observabilityScope)
 
+        // Populate the identity lookup cache via the Package.resolved.
+        // This will only ever be done if the user has passed in `--force-resolved-versions`
+        do {
+            self.identityLookupCache.deriveCache(
+                from: try self.resolvedPackagesStore.load().resolvedPackages,
+                self.configuration.sourceControlToRegistryDependencyTransformation
+            )
+        } catch {
+            // If we cannot load the resolved file, send log to user and
+            // continue.
+            observabilityScope.emit(debug: "Unable to prepopulate identity lookup cache", underlyingError: error)
+        }
+
         let rootManifests = try await self.loadRootManifests(
             packages: root.packages,
             observabilityScope: observabilityScope
@@ -372,13 +385,6 @@ extension Workspace {
                 .notRequired
             )
         }
-
-        // Populate the identity lookup cache via the Package.resolved.
-        // This will only ever be done if the user has passed in `--force-resolved-versions`
-        self.identityLookupCache.deriveCache(
-            from: resolvedPackagesStore.resolvedPackages,
-            self.configuration.sourceControlToRegistryDependencyTransformation
-        )
 
         // Request all the containers to fetch them in parallel.
         //

@@ -937,7 +937,7 @@ extension PackageModel.PackageReference {
         case .remoteSourceControl:
             kind = .remoteSourceControl(SourceControlURL(reference.location))
         case .registry:
-            kind = .registry(identity, nil)
+            kind = .registry(identity)
         }
 
         self.init(
@@ -1264,7 +1264,7 @@ extension PackageModel.PackageReference {
         case .remoteSourceControl:
             kind = .remoteSourceControl(SourceControlURL(reference.location))
         case .registry:
-            kind = .registry(identity, nil)
+            kind = .registry(identity)
         }
 
         self.init(

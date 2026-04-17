@@ -126,9 +126,10 @@ public class Workspace {
     let dependencyMapper: DependencyMapper
 
     /// Utility to resolve scm packages who have been mapped to registry packages
-    /// through the use of `--replace-scm-with-registry`/`--use-registry-identity-for-scm`.
+    /// through the use of `--replace-scm-with-registry`.
     ///
-    /// This cache will be ignored if `--disable-scm-to-registry-transformation` is used.
+    /// This cache will be ignored if either `--disable-scm-to-registry-transformation`
+    /// or `--use-registry-identity-for-scm` are used.
     let identityLookupCache: IdentityLookupCache
 
     /// The custom package container provider used by this workspace, if any.
