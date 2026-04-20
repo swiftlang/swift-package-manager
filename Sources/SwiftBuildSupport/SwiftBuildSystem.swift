@@ -759,15 +759,6 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         }
     }
 
-    private func buildTargetInfo(session: SWBBuildServiceSession) async throws -> SWBBuildTargetInfo {
-        let (toolchainPath, isEmbeddedInXcode) = try toolchainDeveloperPathInfo(toolchain: buildParameters.toolchain)
-        if isEmbeddedInXcode {
-            return try await session.buildTargetInfo(triple: buildParameters.triple.tripleString)
-        } else {
-            return try await session.buildTargetInfo(triple: buildParameters.triple.tripleString)
-        }
-    }
-
     private func makeRunDestination(session: SWBBuildServiceSession) async throws -> SwiftBuild.SWBRunDestinationInfo {
         if let sdkManifestPath = self.buildParameters.toolchain.swiftSDK.swiftSDKManifest {
             return SwiftBuild.SWBRunDestinationInfo(
@@ -777,7 +768,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                 disableOnlyActiveArch: (buildParameters.architectures?.count ?? 1) > 1,
             )
         } else {
-            let buildTargetInfo = try await self.buildTargetInfo(session: session)
+            let buildTargetInfo = try await session.buildTargetInfo(triple: buildParameters.triple.tripleString)
 
             return SwiftBuild.SWBRunDestinationInfo(
                 buildTarget: .toolchainSDK(
@@ -890,7 +881,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                 .joined(separator: " ")
         }
 
-        let buildTargetInfo = try await self.buildTargetInfo(session: session)
+        let buildTargetInfo = try await session.buildTargetInfo(triple: buildParameters.triple.tripleString)
         if let deploymentTargetSettingName = buildTargetInfo.deploymentTargetSettingName, let value = buildTargetInfo.deploymentTarget {
             // Only override the deployment target if a version is explicitly specified;
             // for Apple platforms this normally comes from the package manifest and may
@@ -1121,13 +1112,9 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             break
         }
         if let omitFramePointers = parameters.omitFramePointers {
-            if omitFramePointers {
-                settings["CLANG_OMIT_FRAME_POINTERS"] = "YES"
-                settings["SWIFT_OMIT_FRAME_POINTERS"] = "YES"
-            } else {
-                settings["CLANG_OMIT_FRAME_POINTERS"] = "NO"
-                settings["SWIFT_OMIT_FRAME_POINTERS"] = "NO"
-            }
+            let value = omitFramePointers ? "YES" : "NO"
+            settings["CLANG_OMIT_FRAME_POINTERS"] = value
+            settings["SWIFT_OMIT_FRAME_POINTERS"] = value
         }
         return settings
     }
@@ -1174,11 +1161,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         if triple.isDarwin() && parameters.shouldLinkStaticSwiftStdlib {
             self.observabilityScope.emit(Basics.Diagnostic.swiftBackDeployWarning)
         } else {
-            if parameters.shouldLinkStaticSwiftStdlib {
-                settings["SWIFT_FORCE_STATIC_LINK_STDLIB"] = "YES"
-            } else {
-                settings["SWIFT_FORCE_STATIC_LINK_STDLIB"] = "NO"
-            }
+            settings["SWIFT_FORCE_STATIC_LINK_STDLIB"] = parameters.shouldLinkStaticSwiftStdlib ? "YES" : "NO"
         }
 
         return settings
@@ -1190,13 +1173,8 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         // Coverage settings
         settings["CLANG_COVERAGE_MAPPING"] = parameters.enableCodeCoverage ? "YES" : "NO"
 
-        switch parameters.explicitlyEnabledTestability {
-        case true:
-            settings["ENABLE_TESTABILITY"] = "YES"
-        case false:
-            settings["ENABLE_TESTABILITY"] = "NO"
-        default:
-            break
+        if let testability = parameters.explicitlyEnabledTestability {
+            settings["ENABLE_TESTABILITY"] = testability ? "YES" : "NO"
         }
 
         // TODO: experimentalTestOutput
