@@ -200,7 +200,7 @@ extension Manifest {
         Self.createManifest(
             displayName: displayName,
             path: path,
-            packageKind: .registry(identity, nil),
+            packageKind: .registry(identity),
             packageIdentity: .plain(displayName.lowercased()),
             packageLocation: identity.description,
             defaultLocalization: defaultLocalization,
