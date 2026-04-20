@@ -80,7 +80,7 @@ private func findWasmKit(sdkID: String) throws -> AbsolutePath? {
     let hostTriple = try Triple.getVersionedHostTriple(
         usingSwiftCompiler: hostToolchain.swiftCompilerPath
     )
-    let swiftSDK = try bundleStore.selectBundle(matching: sdkID, hostTriple: hostTriple)
+    let (_, swiftSDK) = try bundleStore.selectBundle(matching: sdkID, hostTriple: hostTriple)
 
     return swiftSDK.toolset.knownTools[.debugger]?.path
 }

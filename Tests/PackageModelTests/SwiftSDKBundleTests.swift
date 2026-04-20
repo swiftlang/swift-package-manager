@@ -375,12 +375,13 @@ final class SwiftSDKBundleTests: XCTestCase {
             try await store.install(bundlePathOrURL: bundle.path, archiver)
         }
 
-        let sdk = try store.selectBundle(
+        let (id, sdk) = try store.selectBundle(
             matching: "\(testArtifactID)1",
             hostTriple: Triple("arm64-apple-macosx14.0")
         )
 
         XCTAssertEqual(sdk.targetTriple, targetTriple)
+        XCTAssertEqual(id, "\(testArtifactID)1")
         XCTAssertEqual(output, [
             .installationSuccessful(
                 bundlePathOrURL: bundles[0].path,
@@ -392,13 +393,107 @@ final class SwiftSDKBundleTests: XCTestCase {
             ),
         ])
 
-        let tripleSDK = try store.selectBundle(
+        let (name, tripleSDK) = try store.selectBundle(
             matching: "\(testArtifactID)1",
             hostTriple: Triple("arm64-apple-macosx14.0"),
             targetTriple: targetTriple
         )
 
         XCTAssertEqual(tripleSDK.targetTriple, targetTriple)
+        XCTAssertEqual(name, "\(testArtifactID)1")
+
+        let (match, matchSDK) = try store.selectBundle(
+            matching: "\(targetTriple.tripleString)",
+            hostTriple: Triple("i686-apple-macosx14.0")
+        )
+
+        XCTAssertEqual(matchSDK.targetTriple, targetTriple)
+        XCTAssertEqual(match, "\(testArtifactID)2")
+    }
+
+    func testBundleSelectionByTripleAndErrors() async throws {
+        let (fileSystem, bundles, swiftSDKsDirectory) = try generateTestFileSystem(
+            bundleArtifacts: [
+                .init(id: "\(testArtifactID)1", supportedTriples: [arm64Triple]),
+                .init(id: "\(testArtifactID)2", supportedTriples: [arm64Triple]),
+                .init(id: "\(targetTriple.tripleString)", supportedTriples: [i686Triple])
+            ]
+        )
+        let system = ObservabilitySystem.makeForTesting()
+
+        var output = [SwiftSDKBundleStore.Output]()
+        let store = SwiftSDKBundleStore(
+            swiftSDKsDirectory: swiftSDKsDirectory,
+            hostToolchainBinDir: "/tmp",
+            fileSystem: fileSystem,
+            observabilityScope: system.topScope,
+            outputHandler: {
+                output.append($0)
+            }
+        )
+
+        let archiver = MockArchiver()
+        for bundle in bundles {
+            try await store.install(bundlePathOrURL: bundle.path, archiver)
+        }
+
+        XCTAssertThrowsError(try store.selectBundle(
+            matching: "\(testArtifactID)3",
+            hostTriple: Triple("arm64-apple-macosx14.0"),
+            targetTriple: targetTriple
+        )) { error in
+            XCTAssertEqual(
+                "\(error)",
+                """
+                No Swift SDK found matching query `\(testArtifactID)3`, target triple \
+                `\(targetTriple.tripleString)`, and host triple `arm64-apple-macosx14.0`. \
+                Use the `swift sdk list` command to see available Swift SDKs.
+                """
+            )
+        }
+
+        XCTAssertThrowsError(try store.selectBundle(
+            matching: targetTriple.tripleString,
+            hostTriple: Triple("arm64-apple-macosx14.0")
+        )) { error in
+            XCTAssertEqual(
+                "\(error)",
+                """
+                The query for `\(targetTriple.tripleString)` and host triple `arm64-apple-macosx14.0` \
+                matched multiple SDKs: \(testArtifactID)1, \(testArtifactID)2. Use the \
+                `swift sdk list` command to see available Swift SDKs and try a different \
+                query like `--swift-sdk \(testArtifactID)1 --triple \(targetTriple.tripleString)` or remove an SDK.
+                """
+            )
+        }
+
+        XCTAssertThrowsError(try store.selectBundle(
+            matching: "\(targetTriple.tripleString)",
+            hostTriple: Triple("i686-apple-macosx14.0")
+        )) { error in
+            XCTAssertEqual(
+                "\(error)",
+                """
+                The query for `\(targetTriple.tripleString)` and host triple `i686-apple-macosx14.0` \
+                matched both an SDK and a target triple. Use the `swift sdk list` command \
+                to see available Swift SDKs and remove one of them.
+                """
+            )
+        }
+
+        XCTAssertThrowsError(try store.selectBundle(
+            matching: "armv7-unknown-linux",
+            hostTriple: Triple("arm64-apple-macosx14.0")
+        )) { error in
+            XCTAssertEqual(
+                "\(error)",
+                """
+                No Swift SDK found matching query `armv7-unknown-linux` and host triple \
+                `arm64-apple-macosx14.0`. Use the `swift sdk list` command to see \
+                available Swift SDKs.
+                """
+            )
+        }
     }
 
     func testTargetSDKDerivation() async throws {
@@ -586,12 +681,13 @@ final class SwiftSDKBundleTests: XCTestCase {
             }
 
             let hostTriple = try Triple("arm64-apple-macosx14.0")
-            let sdk = try store.selectBundle(
+            let (id, sdk) = try store.selectBundle(
                 matching: testArtifactID,
                 hostTriple: hostTriple
             )
 
             XCTAssertEqual(sdk.targetTriple, targetTriple)
+            XCTAssertEqual(id, testArtifactID)
             XCTAssertEqual(output, [
                 .installationSuccessful(
                     bundlePathOrURL: bundles[0].path,
