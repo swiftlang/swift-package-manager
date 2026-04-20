@@ -148,6 +148,18 @@ $> <path from `swift build --show-bin-path`>/swift-package init
 $> <path from `swift build --show-bin-path`>/swift-build
 ```
 
+To build and run in one step, use `swift run`:
+
+```bash
+swift run swift-package init
+```
+
+To run actions on packages outside elsewhere in the file system, use the `--package-path` flag:
+
+```bash
+swift run swift-package resolve --package-path /path/to/test/package
+```
+
 ### Testing
 
 ```bash
