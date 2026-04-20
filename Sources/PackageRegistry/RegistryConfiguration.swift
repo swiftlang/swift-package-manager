@@ -40,7 +40,7 @@ public struct RegistryConfiguration: Hashable {
         self.scopedRegistries = [:]
         self.registryAuthentication = [:]
         self.security = .none
-        self.replaceScmWithRegistry = false
+        self.replaceScmWithRegistry = nil
     }
 
     public mutating func merge(_ other: RegistryConfiguration) {
@@ -376,7 +376,7 @@ extension RegistryConfiguration: Codable {
                 forKey: .authentication
             ) ?? [:]
             self.security = try container.decodeIfPresent(Security.self, forKey: .security) ?? nil
-            self.replaceScmWithRegistry = try container.decode(Bool.self, forKey: .replaceScmWithRegistry)
+            self.replaceScmWithRegistry = try container.decodeIfPresent(Bool.self, forKey: .replaceScmWithRegistry)
         case nil:
             throw DecodingError.dataCorruptedError(
                 forKey: .version,
