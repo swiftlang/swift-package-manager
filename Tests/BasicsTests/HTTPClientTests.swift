@@ -449,6 +449,141 @@ struct HTTPClientTests {
         }
     }
 
+    @Test
+    func maxConcurrentRequestsPerHostAndMaxConcurrentRequestsCompose() async throws {
+        let globalLimit = 3
+        let perHostLimit = 2
+        let globalCount = SendableBox(0)
+        let hostACount = SendableBox(0)
+        let hostBCount = SendableBox(0)
+
+        var configuration = HTTPClient.Configuration()
+        configuration.maxConcurrentRequests = globalLimit
+        configuration.maxConcurrentRequestsPerHost = perHostLimit
+        let httpClient = HTTPClient(configuration: configuration) { request, _ in
+            await globalCount.increment()
+            let hostCounter = request.url.host == "hosta" ? hostACount : hostBCount
+            await hostCounter.increment()
+            if await globalCount.value > globalLimit {
+                Issue.record("global concurrency exceeded: \(await globalCount.value) > \(globalLimit)")
+            }
+            if await hostCounter.value > perHostLimit {
+                Issue.record("per-host concurrency for \(request.url.host ?? "?") exceeded: \(await hostCounter.value) > \(perHostLimit)")
+            }
+            try await Task.sleep(nanoseconds: 50_000_000)
+            await hostCounter.decrement()
+            await globalCount.decrement()
+            return .okay()
+        }
+
+        try await withThrowingTaskGroup(of: HTTPClient.Response.self) { group in
+            for _ in 0..<4 {
+                group.addTask { try await httpClient.get("http://hosta/test") }
+                group.addTask { try await httpClient.get("http://hostb/test") }
+            }
+            var results = [HTTPClient.Response]()
+            for try await result in group {
+                results.append(result)
+            }
+            #expect(results.count == 8)
+        }
+    }
+
+    @Test
+    func maxConcurrentRequestsPerHostNilByDefaultPreservesBehavior() async throws {
+        let maxConcurrentRequests = 4
+        let concurrentRequests = SendableBox(0)
+        let observedMax = SendableBox(0)
+
+        var configuration = HTTPClient.Configuration()
+        configuration.maxConcurrentRequests = maxConcurrentRequests
+        let httpClient = HTTPClient(configuration: configuration) { _, _ in
+            await concurrentRequests.increment()
+            let current = await concurrentRequests.value
+            let previousMax = await observedMax.value
+            if current > previousMax {
+                await observedMax.set(current)
+            }
+            if current > maxConcurrentRequests {
+                Issue.record("global concurrency exceeded: \(current) > \(maxConcurrentRequests)")
+            }
+            try await Task.sleep(nanoseconds: 50_000_000)
+            await concurrentRequests.decrement()
+            return .okay()
+        }
+
+        try await withThrowingTaskGroup(of: HTTPClient.Response.self) { group in
+            for _ in 0..<20 {
+                group.addTask { try await httpClient.get("http://localhost/test") }
+            }
+            for try await _ in group {}
+        }
+        #expect(await observedMax.value == maxConcurrentRequests, "global gate should still allow up to \(maxConcurrentRequests) when per-host gate is nil")
+    }
+
+    @Test
+    func maxConcurrentRequestsPerHostBypassedForHostlessURL() async throws {
+        let concurrentRequests = SendableBox(0)
+        let observedMax = SendableBox(0)
+
+        var configuration = HTTPClient.Configuration()
+        configuration.maxConcurrentRequestsPerHost = 1
+        let httpClient = HTTPClient(configuration: configuration) { _, _ in
+            await concurrentRequests.increment()
+            let current = await concurrentRequests.value
+            let previousMax = await observedMax.value
+            if current > previousMax {
+                await observedMax.set(current)
+            }
+            try await Task.sleep(nanoseconds: 50_000_000)
+            await concurrentRequests.decrement()
+            return .okay()
+        }
+
+        try await withThrowingTaskGroup(of: HTTPClient.Response.self) { group in
+            for _ in 0..<5 {
+                group.addTask { try await httpClient.get("file:///tmp/x") }
+            }
+            for try await _ in group {}
+        }
+        #expect(await observedMax.value > 1, "per-host gate should be bypassed when url has no host")
+    }
+
+    @Test
+    func maxConcurrentRequestsPerHost() async throws {
+        let maxConcurrentRequestsPerHost = 2
+        let hostACount = SendableBox(0)
+        let hostBCount = SendableBox(0)
+
+        var configuration = HTTPClient.Configuration()
+        configuration.maxConcurrentRequestsPerHost = maxConcurrentRequestsPerHost
+        let httpClient = HTTPClient(configuration: configuration) { request, _ in
+            let counter = request.url.host == "hosta" ? hostACount : hostBCount
+            await counter.increment()
+            if await counter.value > maxConcurrentRequestsPerHost {
+                Issue.record("too many concurrent requests for \(request.url.host ?? "?"): \(await counter.value), expected at most \(maxConcurrentRequestsPerHost)")
+            }
+            try await Task.sleep(nanoseconds: 50_000_000)
+            await counter.decrement()
+            return .okay()
+        }
+
+        try await withThrowingTaskGroup(of: HTTPClient.Response.self) { group in
+            for _ in 0..<5 {
+                group.addTask { try await httpClient.get("http://hosta/test") }
+                group.addTask { try await httpClient.get("http://hostb/test") }
+            }
+            var results = [HTTPClient.Response]()
+            for try await result in group {
+                results.append(result)
+            }
+            #expect(results.count == 10)
+            for result in results {
+                #expect(result.statusCode == 200)
+            }
+        }
+    }
+
     private func expectRequestHeaders(_ headers: HTTPClientHeaders, expected: HTTPClientHeaders, sourceLocation: SourceLocation = #_sourceLocation) {
         let noAgent = HTTPClientHeaders(headers.filter { $0.name != "User-Agent" })
         #expect(noAgent == expected, sourceLocation: sourceLocation)
