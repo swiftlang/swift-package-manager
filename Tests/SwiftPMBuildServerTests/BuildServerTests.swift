@@ -20,9 +20,19 @@ import SwiftPMBuildServer
 import _InternalTestSupport
 import Testing
 
-final fileprivate class NotificationCollectingMessageHandler: MessageHandler {
-    func handle(_ notification: some NotificationType) {}
+final fileprivate class NotificationCollectingMessageHandler: MessageHandler, @unchecked Sendable {
+    private let lock = NSLock()
+    private var _notifications: [Any] = []
+
+    func handle(_ notification: some NotificationType) {
+        lock.withLock { _notifications.append(notification) }
+    }
+
     func handle<Request>(_ request: Request, id: RequestID, reply: @escaping @Sendable (LSPResult<Request.Response>) -> Void) where Request : RequestType {}
+
+    func notifications<T: NotificationType>(of type: T.Type) -> [T] {
+        lock.withLock { _notifications.compactMap { $0 as? T } }
+    }
 }
 
 fileprivate func withSwiftPMBSP(fixtureName: String, extraBSPArgs: [String] = [], body: (Connection, NotificationCollectingMessageHandler, AbsolutePath) async throws -> Void) async throws {
@@ -168,6 +178,39 @@ struct SwiftPMBuildServerTests {
             let updatedSourcesItem = try #require(updatedSourcesResponse.items.only)
             #expect(updatedSourcesItem.sources.count == 2)
             #expect(updatedSourcesItem.sources.map(\.uri.fileURL?.lastPathComponent).sorted() == ["Bar.swift", "Foo.swift"])
+        }
+    }
+
+    @Test
+    func packageReloadNotifications() async throws {
+        try await withSwiftPMBSP(fixtureName: "Miscellaneous/Simple") { connection, notificationCollector, fixturePath in
+            #expect(notificationCollector.notifications(of: TaskStartNotification.self).count == 1)
+            #expect(notificationCollector.notifications(of: TaskFinishNotification.self).count == 1)
+
+            try localFileSystem.writeFileContents(fixturePath.appending(component: "Bar.swift"), body: {
+                $0.write("public let baz = \"hello\"")
+            })
+
+            connection.send(OnWatchedFilesDidChangeNotification(changes: [
+                .init(uri: .init(.init(filePath: fixturePath.appending(component: "Bar.swift").pathString)), type: .created)
+            ]))
+            _ = try await connection.send(WorkspaceWaitForBuildSystemUpdatesRequest())
+
+            #expect(notificationCollector.notifications(of: TaskStartNotification.self).count == 2)
+            #expect(notificationCollector.notifications(of: TaskFinishNotification.self).count == 2)
+
+            let taskStarts = notificationCollector.notifications(of: TaskStartNotification.self)
+            #expect(taskStarts.count == 2)
+            for start in taskStarts {
+                #expect(start.taskId.id == "package-reloading")
+                #expect(WorkDoneProgressTask(fromLSPAny: start.data)?.title == "SwiftPM: Reloading Package")
+            }
+
+            let taskFinishes = notificationCollector.notifications(of: TaskFinishNotification.self)
+            #expect(taskFinishes.count == 2)
+            for finish in taskFinishes {
+                #expect(finish.taskId.id == "package-reloading")
+            }
         }
     }
 
