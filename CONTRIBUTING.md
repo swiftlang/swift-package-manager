@@ -154,7 +154,7 @@ To build and run in one step, use `swift run`:
 swift run swift-package init
 ```
 
-To run actions on packages outside elsewhere in the file system, use the `--package-path` flag:
+To run actions on packages elsewhere in the file system, use the `--package-path` flag:
 
 ```bash
 swift run swift-package resolve --package-path /path/to/test/package
