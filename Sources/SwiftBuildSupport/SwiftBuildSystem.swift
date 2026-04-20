@@ -773,7 +773,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             return SwiftBuild.SWBRunDestinationInfo(
                 buildTarget: .toolchainSDK(
                     platform: buildTargetInfo.platformName,
-                    sdk: buildTargetInfo.sdkName,
+                    sdk: buildParameters.sdkRootOverride?.pathString ?? buildTargetInfo.sdkName,
                     sdkVariant: buildTargetInfo.sdkVariant
                 ),
                 targetArchitecture: buildParameters.triple.archName,
