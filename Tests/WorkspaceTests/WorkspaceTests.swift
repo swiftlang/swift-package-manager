@@ -5263,7 +5263,7 @@ final class WorkspaceTests: XCTestCase {
             let revision = try fooRepo.resolveRevision(tag: "1.0.0")
             let newState = ResolvedPackagesStore.ResolutionState.version("1.0.0", revision: revision.identifier)
 
-            resolvedPackagesStore.track(packageRef: fooPin.packageRef, state: newState)
+            resolvedPackagesStore.track(packageRef: fooPin.packageRef, state: newState, scm: nil)
             try resolvedPackagesStore.saveState(toolsVersion: ToolsVersion.current, originHash: .none)
         }
 
@@ -15992,7 +15992,7 @@ final class WorkspaceTests: XCTestCase {
             try Manifest.createManifest(
                 displayName: "Foo",
                 path: packagePath.appending(component: Manifest.filename),
-                packageKind: .registry("org.foo", nil),
+                packageKind: .registry("org.foo"),
                 packageIdentity: .plain("Foo"),
                 packageLocation: "org.foo",
                 toolsVersion: .current,
@@ -16386,7 +16386,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    // Test 1: End-to-end — forceResolvedVersions + swizzle resolves correctly
+    // End-to-end — forceResolvedVersions + swizzle resolves correctly
     // without making registry network requests on the second run.
     func testForceResolvedWithReplaceScmWithRegistryResolvesCorrectly() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
@@ -16475,7 +16475,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    // Test 2: identityLookupCache is pre-populated from Package.resolved entries
+    // identityLookupCache is pre-populated from Package.resolved entries
     // (both positive registry mappings and nil mappings for SCM-only packages)
     // when --force-resolved-versions is active.
     func testIdentityLookupCachePrePopulatedFromResolvedFileOnForceResolved() async throws {
@@ -16551,25 +16551,22 @@ final class WorkspaceTests: XCTestCase {
         let ws = try workspace.getOrCreateWorkspace()
 
         // org.foo was a registry pin with originalLocation — positive mapping expected.
-        let fooCacheEntry = ws.identityLookupCache[fooSCMURL]
-        XCTAssertNotNil(fooCacheEntry, "Expected cache entry for foo SCM URL from Package.resolved")
-        if case .success(let identity) = fooCacheEntry?.result {
+        let fooCacheEntry = try XCTUnwrap(ws.identityLookupCache[fooSCMURL], "Expected cache entry for foo SCM URL")
+        if case .success(let identity) = fooCacheEntry.result {
             XCTAssertEqual(identity, PackageIdentity("org.foo"))
         } else {
             XCTFail("Expected .success(org.foo) in identityLookupCache for foo SCM URL")
         }
-
         // bar was a remoteSourceControl pin — nil mapping expected (second pass).
-        let barCacheEntry = ws.identityLookupCache[barSCMURL]
-        XCTAssertNotNil(barCacheEntry, "Expected cache entry for bar SCM URL from Package.resolved")
-        if case .notApplicable = barCacheEntry?.result {
-            XCTSkip()
-        } else {
-            XCTFail("Expected .notApplicable in identityLookupCache for bar SCM URL")
-        }
-    }
+        let barCacheEntry = try XCTUnwrap(ws.identityLookupCache[barSCMURL])
 
-    // Test 3: identityLookupCache is NOT pre-populated at workspace creation —
+        if case .notApplicable = barCacheEntry.result {
+            // expected — bar is SCM-only, no registry mapping
+        } else {
+            XCTFail("Expected .notApplicable for bar (SCM-only package)")
+        }                                                                                                                              }
+
+    // identityLookupCache is NOT pre-populated at workspace creation —
     // pre-population only happens inside tryResolveBasedOnResolvedVersionsFile,
     // which is only called when forceResolvedVersions is true.
     func testIdentityLookupCacheNotPrePopulatedWithoutForceResolved() async throws {
@@ -16671,6 +16668,55 @@ final class WorkspaceTests: XCTestCase {
             freshWS2.identityLookupCache[fooSCMURL] != nil,
             "Cache should contain foo SCM URL after forceResolvedVersions run (pre-populated from Package.resolved)"
         )
+    }
+
+    func testRegistryDownloadManagedDependencyHasScmUrlAfterSwizzle() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    path: "root",
+                    targets: [MockTarget(name: "RootTarget", dependencies: [
+                        .product(name: "FooProduct", package: "org.foo"),
+                    ])],
+                    products: [],
+                    dependencies: [
+                        .sourceControl(url: "https://git/org/foo", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    toolsVersion: .v5_6
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "FooPackage",
+                    identity: "org.foo",
+                    alternativeURLs: ["https://git/org/foo"],
+                    targets: [MockTarget(name: "FooTarget")],
+                    products: [MockProduct(name: "FooProduct", modules: ["FooTarget"])],
+                    versions: ["1.0.0", "1.1.0"]
+                ),
+            ]
+        )
+
+        workspace.sourceControlToRegistryDependencyTransformation = .swizzle
+        try await workspace.checkPackageGraph(roots: ["root"]) { _, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+
+        // The managed dependency for org.foo should carry the original SCM URL
+        let ws = try workspace.getOrCreateWorkspace()
+        let deps = await ws.state.dependencies
+        let fooDep = try XCTUnwrap(deps[PackageIdentity.plain("org.foo")])
+        guard case .registryDownload(_, let scmUrl) = fooDep.state else {
+            return XCTFail("Expected registryDownload state for org.foo")
+        }
+        XCTAssertEqual(scmUrl, SourceControlURL("https://git/org/foo"),
+            "registryDownload should carry the original SCM URL it was swizzled from")
     }
 
     func makeRegistryClient(

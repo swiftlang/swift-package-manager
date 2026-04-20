@@ -39,9 +39,13 @@ public final class ResolvedPackagesStore {
         /// The resolved state.
         public let state: ResolutionState
 
-        public init(packageRef: PackageReference, state: ResolutionState) {
+        /// The original source control URL for a registry package that was mapped from a source control package.
+        public var originalScmUrl: SourceControlURL?
+
+        public init(packageRef: PackageReference, state: ResolutionState, originalScmUrl: SourceControlURL?) {
             self.packageRef = packageRef
             self.state = state
+            self.originalScmUrl = originalScmUrl
         }
     }
 
@@ -131,10 +135,11 @@ public final class ResolvedPackagesStore {
     /// - Parameters:
     ///   - packageRef: The package reference to track.
     ///   - state: The state to track with.
-    public func track(packageRef: PackageReference, state: ResolutionState) {
+    public func track(packageRef: PackageReference, state: ResolutionState, scm: SourceControlURL? = nil) {
         self.add(.init(
             packageRef: packageRef,
-            state: state
+            state: state,
+            originalScmUrl: scm
         ))
     }
 
@@ -445,7 +450,6 @@ private struct ResolvedPackagesStorage {
             init(_ pin: ResolvedPackagesStore.ResolvedPackage, mirrors: DependencyMirrors) throws {
                 let kind: Kind
                 let location: String
-                var originalLocation: String? = nil
                 switch pin.packageRef.kind {
                 case .localSourceControl(let path):
                     kind = .localSourceControl
@@ -453,10 +457,9 @@ private struct ResolvedPackagesStorage {
                 case .remoteSourceControl(let url):
                     kind = .remoteSourceControl
                     location = url.absoluteString
-                case .registry(_, let originalURL):
+                case .registry:
                     kind = .registry
                     location = "" // FIXME: this is likely not correct
-                    originalLocation = originalURL?.absoluteString
                 default:
                     throw StringError("invalid package type \(pin.packageRef.kind)")
                 }
@@ -466,7 +469,7 @@ private struct ResolvedPackagesStorage {
                 // rdar://52529014, rdar://52529011: pin file should store the original location but remap when loading
                 self.location = mirrors.original(for: location) ?? location
                 self.state = .init(pin.state)
-                self.originalLocation = originalLocation
+                self.originalLocation = pin.originalScmUrl?.absoluteString
             }
         }
 
@@ -538,7 +541,8 @@ extension ResolvedPackagesStore.ResolvedPackage {
         }
         self.init(
             packageRef: packageRef,
-            state: try .init(pin.state)
+            state: try .init(pin.state),
+            originalScmUrl: nil
         )
     }
 }
@@ -570,9 +574,15 @@ extension ResolvedPackagesStore.ResolvedPackage {
         case .registry:
             packageRef = .registry(identity: identity, originalURL: pin.originalLocation)
         }
+        let scm: SourceControlURL? = if let url = pin.originalLocation {
+            SourceControlURL(url)
+        } else {
+            nil
+        }
         self.init(
             packageRef: packageRef,
-            state: try .init(pin.state)
+            state: try .init(pin.state),
+            originalScmUrl: scm
         )
     }
 }

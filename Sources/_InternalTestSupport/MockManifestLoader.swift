@@ -100,7 +100,7 @@ extension ManifestLoader {
         case .remoteSourceControl(let url):
             packageIdentity = try identityResolver.resolveIdentity(for: url)
             packageLocation = url.absoluteString
-        case .registry(let identity, _):
+        case .registry(let identity):
             packageIdentity = identity
             // FIXME: placeholder
             packageLocation = identity.description
@@ -146,7 +146,7 @@ extension ManifestLoader {
         case .remoteSourceControl(let url):
             packageIdentity = try identityResolver.resolveIdentity(for: url)
             packageLocation = url.absoluteString
-        case .registry(let identity, _):
+        case .registry(let identity):
             packageIdentity = identity
             // FIXME: placeholder
             packageLocation = identity.description

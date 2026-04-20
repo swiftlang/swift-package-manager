@@ -27,7 +27,7 @@ extension PackageDependency {
                 packageKind = .remoteSourceControl(url)
             }
         case .registry(let settings):
-            packageKind = .registry(settings.identity, settings.sourceControlURL)
+            packageKind = .registry(settings.identity)
         }
         return PackageReference(identity: self.identity, kind: packageKind)
     }

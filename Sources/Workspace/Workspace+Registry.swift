@@ -209,7 +209,6 @@ extension Workspace {
                                 requirement: requirement,
                                 productFilter: settings.productFilter,
                                 traits: settings.traits,
-                                sourceControlURL: scmURL
                             )
                         case .branch, .revision:
                             // branch and revision dependencies are not supported by the registry
@@ -407,11 +406,13 @@ extension Workspace {
             debug: "adding '\(package.identity)' (\(package.locationString)) to managed dependencies",
             metadata: package.diagnosticsMetadata
         )
+        let scm = self.identityLookupCache.scmURL(for: package.identity)
         try await self.state.add(
             dependency: .registryDownload(
                 packageRef: package,
                 version: version,
-                subpath: downloadPath.relative(to: self.location.registryDownloadDirectory)
+                subpath: downloadPath.relative(to: self.location.registryDownloadDirectory),
+                scmUrl: scm
             )
         )
         try await self.state.save()
@@ -473,6 +474,10 @@ extension Workspace {
             return self.cache.isEmpty
         }
 
+        public var description: String {
+            self.cache.get().description
+        }
+
         public subscript(key: Key) -> CacheResult? {
             get { self.cache[key] }
             set { self.cache[key] = newValue }
@@ -502,7 +507,9 @@ extension Workspace {
 
             // First run, create a mapping between registry packages and their scm location, if applicable.
             for resolvedPackage in resolvedPackages.values {
-                if case let .registry(id, .some(url)) = resolvedPackage.packageRef.kind {
+                if case let .registry(id) = resolvedPackage.packageRef.kind,
+                   let url = resolvedPackage.originalScmUrl
+                {
                     self[storing: url] = .success(id)
                 }
             }
@@ -519,6 +526,20 @@ extension Workspace {
                     }
                 }
             }
+        }
+
+        public func scmURL(for registryId: PackageIdentity) -> SourceControlURL? {
+            for (url, result) in self.cache.get() {
+                guard case .success(.some(let id)) = result.result else {
+                    continue
+                }
+
+                if id == registryId {
+                    return url
+                }
+            }
+
+            return nil
         }
     }
 }

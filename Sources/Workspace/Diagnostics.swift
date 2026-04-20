@@ -189,7 +189,7 @@ struct BinaryArtifactsManagerError: Error, CustomStringConvertible {
     static func exhaustedAttempts(missing: [PackageReference]) -> Self {
         let missing = missing.sorted(by: { $0.identity < $1.identity }).map {
             switch $0.kind {
-            case .registry(let identity, _):
+            case .registry(let identity):
                 return "'\(identity.description)'"
             case .remoteSourceControl(let url):
                 return "'\($0.identity)' from \(url)"

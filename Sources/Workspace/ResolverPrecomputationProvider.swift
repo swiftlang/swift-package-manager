@@ -98,7 +98,7 @@ private struct LocalPackageContainer: PackageContainer {
         switch dependency?.state {
         case .sourceControlCheckout(.version(let version, revision: _)):
             return [version]
-        case .registryDownload(let version):
+        case .registryDownload(let version, _):
             return [version]
         default:
             return []
@@ -127,7 +127,7 @@ private struct LocalPackageContainer: PackageContainer {
         switch dependency?.state {
         case .sourceControlCheckout(.version(version, revision: _)):
             return try manifest.dependencyConstraints(productFilter: productFilter, enabledTraits)
-        case .registryDownload(version: version):
+        case .registryDownload(version: version, _):
             return try manifest.dependencyConstraints(productFilter: productFilter, enabledTraits)
         default:
             throw InternalError("expected version based state, but state was \(String(describing: dependency?.state))")

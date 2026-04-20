@@ -32,7 +32,7 @@ public struct PackageReference {
         case remoteSourceControl(SourceControlURL)
 
         /// A package from  a registry.
-        case registry(PackageIdentity, SourceControlURL? = nil)
+        case registry(PackageIdentity)
 
         // FIXME: we should not need this once we migrate off URLs
         //@available(*, deprecated)
@@ -46,7 +46,7 @@ public struct PackageReference {
                 return path.pathString
             case .remoteSourceControl(let url):
                 return url.absoluteString
-            case .registry(let identity, _):
+            case .registry(let identity):
                 // FIXME: this is a placeholder
                 return identity.description
             }
@@ -68,7 +68,7 @@ public struct PackageReference {
                 return "localSourceControl \(path)"
             case .remoteSourceControl(let url):
                 return "remoteSourceControl \(url)"
-            case .registry(let identity, _):
+            case .registry(let identity):
                 return "registry \(identity)"
             }
         }
@@ -130,7 +130,7 @@ public struct PackageReference {
             self.deprecatedName = name ?? PackageIdentityParser.computeDefaultName(fromPath: path)
         case .remoteSourceControl(let url):
             self.deprecatedName = name ?? PackageIdentityParser.computeDefaultName(fromURL: url)
-        case .registry(let identity, _):
+        case .registry(let identity):
             // FIXME: this is a placeholder
             self.deprecatedName = name ?? identity.description
         }
@@ -164,7 +164,7 @@ public struct PackageReference {
             nil
         }
 
-        return PackageReference(identity: identity, kind: .registry(identity, originalURL))
+        return PackageReference(identity: identity, kind: .registry(identity))
     }
 }
 

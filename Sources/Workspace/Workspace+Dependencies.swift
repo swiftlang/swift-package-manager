@@ -437,7 +437,7 @@ extension Workspace {
             switch dependency.state {
             case .sourceControlCheckout(let checkoutState):
                 return !pin.state.equals(checkoutState)
-            case .registryDownload(let version):
+            case .registryDownload(let version, _):
                 return !pin.state.equals(version)
             case .edited, .fileSystem, .custom:
                 return true
@@ -1133,7 +1133,7 @@ extension Workspace {
             case .version(let version):
                 let stateChange: PackageStateChange
                 switch currentDependency?.state {
-                case .sourceControlCheckout(.version(version, _)), .registryDownload(version), .custom(version, _):
+                case .sourceControlCheckout(.version(version, _)), .registryDownload(version, _), .custom(version, _):
                     stateChange = .unchanged
                 case .edited, .fileSystem, .sourceControlCheckout, .registryDownload, .custom:
                     stateChange = .updated(.init(requirement: .version(version), products: binding.products))
