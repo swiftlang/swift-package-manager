@@ -694,8 +694,8 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             var swiftTestingArgs = ["--testing-library", "swift-testing", "--enable-swift-testing"]
 
             if let separatorIndex = commandLineArguments.firstIndex(of: "--") {
-                // Only pass arguments after the "--" separator
-                swiftTestingArgs += Array(commandLineArguments.dropFirst(separatorIndex + 1))
+                let offset = commandLineArguments.distance(from: commandLineArguments.startIndex, to: separatorIndex)
+                swiftTestingArgs += Array(commandLineArguments.dropFirst(offset + 1))
             }
             return swiftTestingArgs
         }
@@ -730,7 +730,6 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                 testProductPaths: Array(Set(testProducts.flatMap { [$0.bundlePath, $0.binaryPath] })),
                 interopMode: nil
             ),
-            cancellator: swiftCommandState.cancellator,
             fileSystem: swiftCommandState.fileSystem,
             observabilityScope: swiftCommandState.observabilityScope,
             verbose: globalOptions.logging.verbose

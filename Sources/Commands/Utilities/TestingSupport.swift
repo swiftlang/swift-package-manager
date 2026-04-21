@@ -487,7 +487,6 @@ final class DebugTestRunner {
     private let buildParameters: BuildParameters
     private let toolchain: UserToolchain
     private let testEnv: Environment
-    private let cancellator: Cancellator
     private let fileSystem: FileSystem
     private let observabilityScope: ObservabilityScope
     private let verbose: Bool
@@ -498,7 +497,6 @@ final class DebugTestRunner {
         buildParameters: BuildParameters,
         toolchain: UserToolchain,
         testEnv: Environment,
-        cancellator: Cancellator,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         verbose: Bool = false
@@ -507,7 +505,6 @@ final class DebugTestRunner {
         self.buildParameters = buildParameters
         self.toolchain = toolchain
         self.testEnv = testEnv
-        self.cancellator = cancellator
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope
         self.verbose = verbose
