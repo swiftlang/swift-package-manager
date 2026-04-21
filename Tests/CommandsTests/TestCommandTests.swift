@@ -1770,6 +1770,40 @@ struct TestCommandTests {
             )
         }
 
+        @Test(arguments: SupportedBuildSystemOnAllPlatforms)
+        func lldbWithAllTestingLibrariesDisabledThrowsError(buildSystem: BuildSystemProvider.Kind) async throws {
+            try await fixture(name: "Miscellaneous/TestDebugging") { fixturePath in
+                let (_, stderr) = try await execute(
+                    ["--debugger", "--disable-xctest", "--disable-swift-testing"],
+                    packagePath: fixturePath,
+                    buildSystem: buildSystem,
+                    throwIfCommandFails: false
+                )
+
+                #expect(
+                    stderr.contains("No testing libraries are enabled for debugging"),
+                    "Expected error about no testing libraries, got stderr: \(stderr)"
+                )
+            }
+        }
+
+        @Test(arguments: SupportedBuildSystemOnAllPlatforms)
+        func lldbWithNoTestTargetsThrowsError(buildSystem: BuildSystemProvider.Kind) async throws {
+            try await fixture(name: "Miscellaneous/AtMainSupport") { fixturePath in
+                let (_, stderr) = try await execute(
+                    ["--debugger"],
+                    packagePath: fixturePath,
+                    buildSystem: buildSystem,
+                    throwIfCommandFails: false
+                )
+
+                #expect(
+                    stderr.contains("no tests found"),
+                    "Expected error about no tests found, got stderr: \(stderr)"
+                )
+            }
+        }
+
         @Test(
             arguments: SupportedBuildSystemOnAllPlatforms,
         )
@@ -1865,8 +1899,9 @@ struct TestCommandTests {
                     "Expected LLDB to create targets, got stdout: \(stdout), stderr: \(stderr)",
                 )
 
+                let productName = buildSystem == .native ? "TestDebuggingPackageTests" : "TestDebuggingTests"
                 #expect(
-                    stdout.contains("TestDebuggingTests (XCTest)") && stdout.contains("TestDebuggingTests (Swift Testing)"),
+                    stdout.contains("\(productName) (XCTest)") && stdout.contains("\(productName) (Swift Testing)"),
                     "Expected labeled LLDB targets, got stdout: \(stdout), stderr: \(stderr)",
                 )
 
