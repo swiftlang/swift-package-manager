@@ -25,6 +25,11 @@ import var TSCBasic.stdoutStream
 
 import enum SwiftBuild.ProjectModel
 
+public struct PIFGenerationResult {
+    public var pif: String
+    public var accompanyingMetadata: [PackagePIFBuilder.ModuleOrProduct]
+}
+
 fileprivate func memoize<T>(to cache: inout T?, build: () async throws -> T) async rethrows -> T {
     if let value = cache {
         return value
@@ -153,14 +158,14 @@ public final class PIFBuilder {
         printPIFManifestGraphviz: Bool = false,
         buildParameters: BuildParameters,
         hostBuildParameters: BuildParameters
-    ) async throws -> String {
+    ) async throws -> PIFGenerationResult {
         let encoder = prettyPrint ? JSONEncoder.makeWithDefaults() : JSONEncoder()
 
         if !preservePIFModelStructure {
             encoder.userInfo[.encodeForSwiftBuild] = true
         }
 
-        let topLevelObject = try await self.constructPIF(buildParameters: buildParameters, hostBuildParameters: hostBuildParameters)
+        let (topLevelObject, modulesAndProducts) = try await self.constructPIF(buildParameters: buildParameters, hostBuildParameters: hostBuildParameters)
 
         // Sign the PIF objects before encoding it for Swift Build.
         try PIF.sign(workspace: topLevelObject.workspace)
@@ -178,10 +183,10 @@ public final class PIFBuilder {
             throw PIFGenerationError.printedPIFManifestGraphviz
         }
 
-        return pifString
+        return PIFGenerationResult(pif: pifString, accompanyingMetadata: modulesAndProducts)
     }
 
-    private var cachedPIF: PIF.TopLevelObject?
+    private var cachedPIF: (PIF.TopLevelObject, [PackagePIFBuilder.ModuleOrProduct])?
 
     /// Compute the available build tools, and their destination build path for host for each plugin.
     private func availableBuildPluginTools(
@@ -463,7 +468,7 @@ public final class PIFBuilder {
     package func constructPIF(
         buildParameters: BuildParameters,
         hostBuildParameters: BuildParameters
-    ) async throws -> PIF.TopLevelObject {
+    ) async throws -> (PIF.TopLevelObject, [PackagePIFBuilder.ModuleOrProduct]) {
         return try await memoize(to: &self.cachedPIF) {
             let rootPackages = self.graph.rootPackages
             guard !rootPackages.isEmpty else {
@@ -472,8 +477,10 @@ public final class PIFBuilder {
 
             let packagesAndPIFBuilders = try await makePIFBuilders(buildParameters: buildParameters, hostBuildParameters: hostBuildParameters)
 
+            var modulesAndProducts: [PackagePIFBuilder.ModuleOrProduct] = []
             let packagesAndPIFProjects = try packagesAndPIFBuilders.map { (package, pifBuilder, _) in
-                try pifBuilder.build()
+                let builtModulesAndProducts = try pifBuilder.build()
+                modulesAndProducts.append(contentsOf: builtModulesAndProducts)
                 let pifProject: ProjectModel.Project = pifBuilder.pifProject
                 return (package, pifProject)
             }
@@ -498,7 +505,7 @@ public final class PIFBuilder {
                 path: try getCommonParentDirectory(paths: rootPackagesPaths),
                 projects: pifProjects
             )
-            return PIF.TopLevelObject(workspace: workspace)
+            return (PIF.TopLevelObject(workspace: workspace), modulesAndProducts)
         }
     }
 
@@ -574,7 +581,7 @@ public final class PIFBuilder {
         addLocalRpaths: Bool,
         materializeStaticArchiveProductsForRootPackages: Bool,
         createDynamicVariantsForLibraryProducts: Bool
-    ) async throws -> String {
+    ) async throws -> PIFGenerationResult {
         let parameters = PIFBuilderParameters(
             buildParameters,
             supportedSwiftVersions: [],

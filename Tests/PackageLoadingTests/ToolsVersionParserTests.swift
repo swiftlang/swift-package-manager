@@ -838,13 +838,24 @@ final class ToolsVersionParserTests: XCTestCase {
         XCTAssertEqual(version.description, "5.0.0")
     }
 
-    func testExperimentalFlag() throws {
-        let version = try ToolsVersionParser.parse(utf8String: "// swift-tools-version: 6.3;(experimentalCGen)")
-        XCTAssertEqual(version, ToolsVersion(version: .init(6, 3, 0)))
-        XCTAssertTrue(version.experimentalFeatures?.contains(.experimentalCGen) == true)
+    func testExperimentalFlags() throws {
+        let cgen = try ToolsVersionParser.parse(utf8String: "// swift-tools-version: 6.3;(experimentalCGen)")
+        XCTAssertEqual(cgen, ToolsVersion(version: .init(6, 3, 0)))
+        XCTAssertTrue(cgen.experimentalFeatures?.contains(.experimentalCGen) == true)
+        XCTAssertTrue(cgen.experimentalFeatures?.contains(.experimentalMultiLang) ?? false == false)
 
-        let version2 = try ToolsVersionParser.parse(utf8String: "// swift-tools-version: 6.3;(experimentalIgnored)")
-        XCTAssertEqual(version2, ToolsVersion(version: .init(6, 3, 0)))
-        XCTAssertNil(version2.experimentalFeatures)
+        let multiLang = try ToolsVersionParser.parse(utf8String: "// swift-tools-version: 6.4;(experimentalMultiLang)")
+        XCTAssertEqual(multiLang, ToolsVersion(version: .init(6, 4, 0)))
+        XCTAssertTrue(multiLang.experimentalFeatures?.contains(.experimentalMultiLang) == true)
+        XCTAssertTrue(multiLang.experimentalFeatures?.contains(.experimentalCGen) ?? false == false)
+
+        let both = try ToolsVersionParser.parse(utf8String: "// swift-tools-version: 6.4;(experimentalCGen,experimentalMultiLang)")
+        XCTAssertEqual(both, ToolsVersion(version: .init(6, 4, 0)))
+        XCTAssertTrue(both.experimentalFeatures?.contains(.experimentalMultiLang) == true)
+        XCTAssertTrue(both.experimentalFeatures?.contains(.experimentalCGen) == true)
+
+        let invalid = try ToolsVersionParser.parse(utf8String: "// swift-tools-version: 6.3;(experimentalIgnored)")
+        XCTAssertEqual(invalid, ToolsVersion(version: .init(6, 3, 0)))
+        XCTAssertNil(invalid.experimentalFeatures)
     }
 }

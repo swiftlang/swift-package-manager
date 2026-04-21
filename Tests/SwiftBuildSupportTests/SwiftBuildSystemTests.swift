@@ -399,6 +399,32 @@ struct SwiftBuildSystemTests {
         }
     }
 
+    @Test
+    func cFlagsAppliedToSwiftInBuildRequest() async throws {
+        try await withTemporaryDirectory { tempDir in
+            try await withInstantiatedSwiftBuildSystem(
+                fromFixture: "PIFBuilder/Simple",
+                buildParameters: mockBuildParameters(
+                    destination: .host,
+                    flags: .init(cCompilerFlags: [BuildFlag(value: "-DFoo", source: .commandLineOptions)]),
+                    buildSystemKind: .swiftbuild
+                ),
+            ) { swiftBuild, service, session, observabilityScope, buildParameters in
+                let buildRequest = try await swiftBuild.makeBuildRequest(
+                    service: service,
+                    session: session,
+                    configuredTargets: [],
+                    derivedDataPath: tempDir,
+                    symbolGraphOptions: nil,
+                    setToolchainSetting: false
+                )
+
+                #expect(buildRequest.parameters.overrides.synthesized?.table["OTHER_CFLAGS"]?.contains("-DFoo") == true)
+                #expect(buildRequest.parameters.overrides.synthesized?.table["OTHER_SWIFT_FLAGS"]?.contains("-Xcc -DFoo") == true)
+            }
+        }
+    }
+
     @Suite
     struct DebuggingSettingsTests {
 

@@ -42,6 +42,10 @@ public struct MockToolchain: PackageModel.Toolchain {
         manifestLibraryPath: AbsolutePath("/fake/manifestLib/path"), pluginLibraryPath: AbsolutePath("/fake/pluginLibrary/path")
     )
     public var swiftSDK: PackageModel.SwiftSDK
+    public let targetTriple = Basics.Triple.macOS
+    public let swiftCompilerEnvironment: Basics.Environment = .mockEnvironment
+    public let swiftCompilerFlags: [String] = []
+    public let swiftCompilerPathForManifests = AbsolutePath("/fake/path/to/manifest/swiftc")
 
     public func getClangCompiler() throws -> AbsolutePath {
         "/fake/path/to/clang"

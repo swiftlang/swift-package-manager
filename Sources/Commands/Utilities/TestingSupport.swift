@@ -79,10 +79,10 @@ enum TestingSupport {
         shouldSkipBuilding: Bool,
         experimentalTestOutput: Bool,
         sanitizers: [Sanitizer]
-    ) throws -> [AbsolutePath: [TestSuite]] {
+    ) throws -> [BuiltTestProduct: [TestSuite]] {
         let testSuitesByProduct = try testProducts
             .map {(
-                $0.bundlePath,
+                $0,
                 try Self.getTestSuites(
                     fromTestAt: $0.bundlePath,
                     swiftCommandState: swiftCommandState,

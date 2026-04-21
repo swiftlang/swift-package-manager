@@ -132,6 +132,8 @@ extension PackagePIFProjectBuilder {
         settings[.SWIFT_PACKAGE_NAME] = mainModule.packageName
 
         if mainModule.type == .test {
+            settings[.BUILD_SERVER_PROTOCOL_TARGET_TAGS, default: ["$(inherited)"]].append("test")
+
             // FIXME: we shouldn't always include both the deep and shallow bundle paths here, but for that we'll need rdar://31867023
             if pifBuilder.addLocalRpaths {
                 settings[.LD_RUNPATH_SEARCH_PATHS] = [
@@ -541,7 +543,8 @@ extension PackagePIFProjectBuilder {
             linkedPackageBinaries: linkedPackageBinaries,
             swiftLanguageVersion: mainModule.packageSwiftLanguageVersion(manifest: packageManifest),
             declaredPlatforms: self.declaredPlatforms,
-            deploymentTargets: mainTargetDeploymentTargets
+            deploymentTargets: mainTargetDeploymentTargets,
+            toolsVersion: pifBuilder.packageManifest.toolsVersion
         )
         self.builtModulesAndProducts.append(moduleOrProduct)
 
@@ -943,7 +946,8 @@ extension PackagePIFProjectBuilder {
             linkedPackageBinaries: linkedPackageBinaries,
             swiftLanguageVersion: nil,
             declaredPlatforms: self.declaredPlatforms,
-            deploymentTargets: self.deploymentTargets
+            deploymentTargets: self.deploymentTargets,
+            toolsVersion: pifBuilder.packageManifest.toolsVersion
         )
     }
 
@@ -993,7 +997,8 @@ extension PackagePIFProjectBuilder {
             linkedPackageBinaries: [],
             swiftLanguageVersion: nil,
             declaredPlatforms: self.declaredPlatforms,
-            deploymentTargets: self.deploymentTargets
+            deploymentTargets: self.deploymentTargets,
+            toolsVersion: pifBuilder.packageManifest.toolsVersion
         )
         self.builtModulesAndProducts.append(systemLibrary)
     }
@@ -1101,11 +1106,13 @@ extension PackagePIFProjectBuilder {
             moduleName: pluginProduct.c99name,
             pifTarget: .aggregate(self.project[keyPath: pluginTargetKeyPath]),
             indexableFileURLs: [],
+            pluginScriptSourcePaths: pluginProduct.pluginModules?.only?.sources.paths ?? [],
             headerFiles: [],
             linkedPackageBinaries: [],
             swiftLanguageVersion: nil,
             declaredPlatforms: self.declaredPlatforms,
-            deploymentTargets: self.deploymentTargets
+            deploymentTargets: self.deploymentTargets,
+            toolsVersion: pifBuilder.packageManifest.toolsVersion
         )
         self.builtModulesAndProducts.append(pluginProductMetadata)
     }
@@ -1209,7 +1216,8 @@ extension PackagePIFProjectBuilder {
             linkedPackageBinaries: [],
             swiftLanguageVersion: nil,
             declaredPlatforms: self.declaredPlatforms,
-            deploymentTargets: self.deploymentTargets
+            deploymentTargets: self.deploymentTargets,
+            toolsVersion: pifBuilder.packageManifest.toolsVersion
         )
         self.builtModulesAndProducts.append(testRunner)
     }

@@ -37,6 +37,16 @@ public final class RegistryClient: AsyncCancellable {
     private static let availabilityCacheTTL: DispatchTimeInterval = .seconds(5 * 60)
     private static let metadataCacheTTL: DispatchTimeInterval = .seconds(60 * 60)
 
+    /// A value below Foundation's `httpMaximumConnectionsPerHost` default of 6. 
+    /// Without this limit the RegistryClient may fetch too many resources in parallel
+    /// from the same registry, which can lead to starvation of other requests due to
+    /// libcurl's pending queue. If pending requests don't start receiving bytes within
+    /// 60s requests will fail with a timeout (NSURLError -1001). By ensuring we're below
+    /// the Foundation default we ensure requests aren't started by blocked behind the 6
+    /// active connections, waiting for bytes and potentially timing out if the requests in
+    /// flight take a long time to complete.
+    private static let defaultMaxConcurrentRequestsPerHost: Int = 4
+
     private var configuration: RegistryConfiguration
     private let archiverProvider: (FileSystem) -> Archiver
     private let httpClient: HTTPClient
@@ -77,27 +87,38 @@ public final class RegistryClient: AsyncCancellable {
 
         if let authorizationProvider {
             self.authorizationProvider = { url in
-                guard let registryAuthentication = try? configuration.authentication(for: url) else {
-                    return .none
-                }
                 guard let (user, password) = authorizationProvider.authentication(for: url) else {
                     return .none
                 }
 
-                switch registryAuthentication.type {
+                // authentication(for:) throws only for hostless URLs, which environment
+                // variable providers may still return credentials for. In that case, fall
+                // through to type inference below.
+                let authType = (try? configuration.authentication(for: url))?.type
+
+                switch authType {
                 case .basic:
                     let authorizationString = "\(user):\(password)"
                     let authorizationData = Data(authorizationString.utf8)
                     return "Basic \(authorizationData.base64EncodedString())"
                 case .token: // `user` value is irrelevant in this case
                     return "Bearer \(password)"
+                case nil:
+                    if user == "token" {
+                        return "Bearer \(password)"
+                    }
+                    let authorizationString = "\(user):\(password)"
+                    let authorizationData = Data(authorizationString.utf8)
+                    return "Basic \(authorizationData.base64EncodedString())"
                 }
             }
         } else {
             self.authorizationProvider = .none
         }
 
-        self.httpClient = customHTTPClient ?? HTTPClient()
+        self.httpClient = customHTTPClient ?? HTTPClient(
+            configuration: .init(maxConcurrentRequestsPerHost: Self.defaultMaxConcurrentRequestsPerHost)
+        )
         self.archiverProvider = customArchiverProvider ?? { fileSystem in UniversalArchiver(fileSystem) }
         self.fingerprintStorage = fingerprintStorage
         self.fingerprintCheckingMode = fingerprintCheckingMode
@@ -1254,7 +1275,6 @@ public final class RegistryClient: AsyncCancellable {
             --\(boundary)\r
             Content-Disposition: form-data; name=\"metadata\"\r
             Content-Type: application/json\r
-            Content-Transfer-Encoding: quoted-printable\r
             \r
             \(metadataContent)
             """.utf8)

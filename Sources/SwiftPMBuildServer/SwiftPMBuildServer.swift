@@ -21,6 +21,7 @@ import Workspace
 import BuildServerProtocol
 import LanguageServerProtocol
 import LanguageServerProtocolTransport
+import PackageModel
 import ToolsProtocolsSwiftExtensions
 
 // Remove these extensions once they've been added to swift-tools-protocols
@@ -111,6 +112,16 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
         }
     }
     var state: ServerState = .waitingForInitializeRequest
+
+    private var headersByTargetGUID: [String: Set<Basics.AbsolutePath>] = [:]
+
+    private struct PluginInfo {
+        var name: String
+        var sourceFiles: [Basics.AbsolutePath]
+        var toolsVersion: ToolsVersion
+    }
+    private var pluginsByTargetGUID: [BuildTargetIdentifier: PluginInfo] = [:]
+
     /// Allows customization of server exit behavior.
     var exitHandler: (Int) -> Void
 
@@ -205,12 +216,51 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
             await request.reply {
                 var underlyingRequest = request.params
                 underlyingRequest.targets.removeAll(where: \.isSwiftPMBuildServerTargetID)
-                var sourcesResponse = try await connectionToUnderlyingBuildServer.send(underlyingRequest)
+                var sourcesResponse: BuildTargetSourcesResponse
+                do {
+                    sourcesResponse = try await connectionToUnderlyingBuildServer.send(underlyingRequest)
+                } catch {
+                    // If the client requested info for at least one target with the SwiftPM scheme (a manifest/plugin),
+                    // warn and return a potentially partial response. Otherwise, report the underlying error.
+                    if request.params.targets.contains(where: \.isSwiftPMBuildServerTargetID) {
+                        logToClient(.warning, "Underlying build server reported error for BuildTargetSources request: '\(error)'")
+                        sourcesResponse = .init(items: [])
+                    } else {
+                        throw error
+                    }
+                }
                 for target in request.params.targets.filter({ $0.isSwiftPMBuildServerTargetID }) {
                     if target == .forPackageManifest {
-                        sourcesResponse.items.append(await manifestSourcesItem())
+                        sourcesResponse.items.append(manifestSourcesItem())
+                    } else if let pluginInfo = self.pluginsByTargetGUID[target] {
+                        sourcesResponse.items.append(SourcesItem(
+                            target: target,
+                            sources: pluginInfo.sourceFiles.map { path in
+                                SourceItem(uri: DocumentURI(path.asURL), kind: .file, generated: false)
+                            }
+                        ))
                     } else {
-                        await logToClient(.warning, "SwiftPM build server processed target sources request for unexpected target '\(target)'")
+                        logToClient(.warning, "SwiftPM build server processed target sources request for unexpected target '\(target)'")
+                    }
+                }
+
+                // Add entries for the target's headers, which are not currently represented in the PIF.
+                for index in sourcesResponse.items.indices {
+                    guard let targetGUID = sourcesResponse.items[index].target.targetGUID else {
+                        logToClient(.warning, "Unable to determine target GUID for \(sourcesResponse.items[index].target) when looking up headers")
+                        continue
+                    }
+                    let headers = self.headersByTargetGUID[targetGUID] ?? []
+                    for header in headers {
+                        sourcesResponse.items[index].sources.append(
+                            SourceItem(
+                                uri: DocumentURI(header.asURL),
+                                kind: .file,
+                                generated: false,
+                                dataKind: .sourceKit,
+                                data: SourceKitSourceItemData(kind: .header).encodeToLSPAny()
+                            )
+                        )
                     }
                 }
                 return sourcesResponse
@@ -219,16 +269,32 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
             await request.reply { try await self.initialize(request: request.params) }
         case let request as RequestAndReply<TextDocumentSourceKitOptionsRequest>:
             await request.reply {
-                if request.params.target.isSwiftPMBuildServerTargetID {
+                if request.params.target == .forPackageManifest {
                     return try await manifestSourceKitOptions(request: request.params)
-                } else {
-                    return try await connectionToUnderlyingBuildServer.send(request.params)
                 }
+                if let pluginInfo = pluginsByTargetGUID[request.params.target] {
+                    return try pluginSourceKitOptions(request: request.params, pluginInfo: pluginInfo)
+                }
+                if let targetGUID = request.params.target.targetGUID,
+                   let headers = headersByTargetGUID[targetGUID],
+                   let requestPath = try? request.params.textDocument.uri.fileURL?.filePath,
+                   headers.contains(requestPath),
+                   let response = try await self.headerSourceKitOptions(request: request.params){
+                    return response
+                }
+                return try await connectionToUnderlyingBuildServer.send(request.params)
             }
         case let request as RequestAndReply<WorkspaceBuildTargetsRequest>:
             await request.reply {
-                var targetsResponse = try await connectionToUnderlyingBuildServer.send(request.params)
-                targetsResponse.targets.append(await manifestTarget())
+                var targetsResponse: WorkspaceBuildTargetsResponse
+                do {
+                    targetsResponse = try await connectionToUnderlyingBuildServer.send(request.params)
+                } catch {
+                    logToClient(.warning, "Underlying build server reported error for WorkspaceBuildTargets request: '\(error)'")
+                    targetsResponse = .init(targets: [])
+                }
+                targetsResponse.targets.append(manifestTarget())
+                targetsResponse.targets.append(contentsOf: pluginTargetsList())
                 return targetsResponse
             }
         case let request as RequestAndReply<WorkspaceWaitForBuildSystemUpdatesRequest>:
@@ -268,7 +334,6 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
     }
 
     private func manifestTarget() -> BuildTarget {
-        // In the future, we should add a new target to represent plugin scripts so they can load the PackagePlugin module.
         return BuildTarget(
             id: .forPackageManifest,
             displayName: "Package Manifest",
@@ -276,6 +341,18 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
             languageIds: [.swift],
             dependencies: []
         )
+    }
+
+    private func pluginTargetsList() -> [BuildTarget] {
+        pluginsByTargetGUID.map { (targetGUID, pluginInfo) in
+            BuildTarget(
+                id: targetGUID,
+                displayName: pluginInfo.name,
+                tags: [.notBuildable],
+                languageIds: [.swift],
+                dependencies: []
+            )
+        }
     }
 
     private let versionSpecificManifestRegex = #/^Package@swift-(\d+)(?:\.(\d+))?(?:\.(\d+))?.swift$/#
@@ -314,6 +391,110 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
         return TextDocumentSourceKitOptionsResponse(compilerArguments: compilerArgs)
     }
 
+    private func pluginSourceKitOptions(request: TextDocumentSourceKitOptionsRequest, pluginInfo: PluginInfo) throws -> TextDocumentSourceKitOptionsResponse? {
+        let compilerArgs = self.buildSystem.pluginConfiguration.scriptRunner.buildCommandLine(
+            sourceFiles: pluginInfo.sourceFiles,
+            pluginName: pluginInfo.name,
+            toolsVersion: pluginInfo.toolsVersion,
+            workers: buildSystem.buildParameters.workers,
+            observabilityScope: nil
+        ).commandLine.dropFirst()
+        return TextDocumentSourceKitOptionsResponse(compilerArguments: Array(compilerArgs))
+    }
+
+    /// If the requested file is a known header, returns compiler arguments derived from a substitute source file
+    private func headerSourceKitOptions(
+        request: TextDocumentSourceKitOptionsRequest
+    ) async throws -> TextDocumentSourceKitOptionsResponse? {
+        guard let fileURL = request.textDocument.uri.fileURL,
+              let filePath = try? fileURL.filePath else {
+            return nil
+        }
+
+        var substituteSourceFile: URI? = nil
+        let sourcesResponse = try await connectionToUnderlyingBuildServer.send(BuildTargetSourcesRequest(targets: [request.target]))
+        for sourcesItem in sourcesResponse.items {
+            for sourceFile in sourcesItem.sources {
+                let language = SourceKitSourceItemData(fromLSPAny: sourceFile.data)?.language
+                switch language {
+                case .c, .cpp, .objective_c, .objective_cpp, nil:
+                    // SourceKit-LSP historically chose the first source file of a C-family target as the substitute.
+                    // Here, we specifically look for the first C/C++/ObjC/ObjC++ file so this is futureproof against
+                    // mixed Swift/C-family targets. However, we may also want to consider if e.g. a .hpp header should
+                    // use a C++ source file over a C source file if a target has both.
+                    substituteSourceFile = sourceFile.uri
+                default:
+                    break
+                }
+            }
+        }
+
+        guard let substituteSourceFile, let substituteSourceFilePath = try? substituteSourceFile.fileURL?.filePath else {
+            logToClient(.info, "Unable to find a substitute source file for '\(filePath)'")
+            return nil
+        }
+        logToClient(.info, "Getting compiler arguments for '\(filePath)' using substitute file '\(substituteSourceFilePath)'")
+
+        let substituteRequest = TextDocumentSourceKitOptionsRequest(
+            textDocument: TextDocumentIdentifier(substituteSourceFile),
+            target: request.target,
+            language: request.language
+        )
+        guard let substituteResponse = try await connectionToUnderlyingBuildServer.send(substituteRequest) else {
+            return nil
+        }
+
+        // Replace the substitute file path with the header path
+        // It's possible the arguments use relative paths while the `originalFile` given
+        // is an absolute/real path value. We guess based on suffixes instead of hitting
+        // the file system. Copied from SourceKit-LSP
+        var arguments = substituteResponse.compilerArguments
+        let substituteBasename = substituteSourceFilePath.basename
+        if let index = arguments.lastIndex(where: {
+            $0.hasSuffix(substituteBasename) && substituteSourceFilePath.pathString.hasSuffix($0)
+        }) {
+            arguments[index] = filePath.pathString
+        }
+
+        return TextDocumentSourceKitOptionsResponse(
+            compilerArguments: arguments,
+            workingDirectory: substituteResponse.workingDirectory,
+            data: substituteResponse.data
+        )
+    }
+
+    private func rebuildHeaderMapping(pifAccompanyingMetadata: [PackagePIFBuilder.ModuleOrProduct]) async {
+        var headers: [String: Set<Basics.AbsolutePath>] = [:]
+        for moduleOrProduct in pifAccompanyingMetadata {
+            guard let pifTarget = moduleOrProduct.pifTarget else { continue }
+            let guid = pifTarget.id.value
+            if !moduleOrProduct.headerFiles.isEmpty {
+                headers[guid] = moduleOrProduct.headerFiles
+            }
+        }
+        self.headersByTargetGUID = headers
+    }
+
+    private func rebuildPluginMapping(pifAccompanyingMetadata: [PackagePIFBuilder.ModuleOrProduct]) {
+        var plugins: [BuildTargetIdentifier: PluginInfo] = [:]
+        for moduleOrProduct in pifAccompanyingMetadata {
+            guard [.buildToolPlugin, .commandPlugin, .plugin].contains(moduleOrProduct.type),
+                  let moduleName = moduleOrProduct.moduleName,
+                  let toolsVersion = moduleOrProduct.toolsVersion,
+                  !moduleOrProduct.pluginScriptSourcePaths.isEmpty else {
+                continue
+            }
+            let targetID = BuildTargetIdentifier.forPlugin(name: moduleName)
+            plugins[targetID] = PluginInfo(
+                name: moduleName,
+                sourceFiles: moduleOrProduct.pluginScriptSourcePaths,
+                toolsVersion: toolsVersion
+            )
+
+        }
+        self.pluginsByTargetGUID = plugins
+    }
+
     private func shutdown() -> VoidResponse {
         state = .shutdown
         return VoidResponse()
@@ -344,14 +525,30 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
 
     public func scheduleRegeneratingBuildDescription() {
         packageLoadingQueue.async { [buildSystem] in
+            let reloadingTaskID = TaskId(id: "package-reloading")
             do {
-                try await buildSystem.writePIF(buildParameters: buildSystem.buildParameters)
+                self.connectionToClient.send(
+                    TaskStartNotification(
+                        taskId: reloadingTaskID,
+                        data: WorkDoneProgressTask(title: "SwiftPM: Reloading Package").encodeToLSPAny()
+                    )
+                )
+                let result = try await buildSystem.generatePIFAndAccompanyingMetadata(preserveStructure: false)
+                try localFileSystem.writeIfChanged(path: buildSystem.buildParameters.pifManifest, string: result.pif)
+                await self.rebuildHeaderMapping(pifAccompanyingMetadata: result.accompanyingMetadata)
+                self.rebuildPluginMapping(pifAccompanyingMetadata: result.accompanyingMetadata)
                 self.connectionToUnderlyingBuildServer.send(OnWatchedFilesDidChangeNotification(changes: [
                     .init(uri: .init(buildSystem.buildParameters.pifManifest.asURL), type: .changed)
                 ]))
                 _ = try await self.connectionToUnderlyingBuildServer.send(WorkspaceWaitForBuildSystemUpdatesRequest())
+                self.connectionToClient.send(
+                    TaskFinishNotification(taskId: reloadingTaskID, status: .ok)
+                )
             } catch {
                 self.logToClient(.warning, "error regenerating build description: \(error)")
+                self.connectionToClient.send(
+                    TaskFinishNotification(taskId: reloadingTaskID, status: .error)
+                )
             }
         }
     }
@@ -362,8 +559,20 @@ extension BuildTargetIdentifier {
 
     static let forPackageManifest = BuildTargetIdentifier(uri: try! URI(string: "\(swiftPMBuildServerTargetScheme)://package-manifest"))
 
+    static func forPlugin(name: String) -> BuildTargetIdentifier {
+        BuildTargetIdentifier(uri: try! URI(string: "\(swiftPMBuildServerTargetScheme)://plugin?name=\(name)"))
+    }
+
     var isSwiftPMBuildServerTargetID: Bool {
         uri.scheme == Self.swiftPMBuildServerTargetScheme
+    }
+
+    var targetGUID: String? {
+        guard let components = URLComponents(url: uri.arbitrarySchemeURL, resolvingAgainstBaseURL: false),
+              let value = components.queryItems?.last(where: { $0.name == "targetGUID" })?.value else {
+            return nil
+        }
+        return value
     }
 }
 #endif

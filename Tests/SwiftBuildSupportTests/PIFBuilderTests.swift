@@ -99,7 +99,7 @@ fileprivate func withGeneratedPIF(
             fileSystem: localFileSystem,
             observabilityScope: observabilitySystem.topScope
         )
-        let pif = try await builder.constructPIF(
+        let (pif, _) = try await builder.constructPIF(
             buildParameters: buildParameters,
             hostBuildParameters: hostBuildParameters
         )
@@ -391,7 +391,7 @@ struct PIFBuilderTests {
         )
 
         // Act
-        let pif = try await pifBuilder.constructPIF(
+        let (pif, _) = try await pifBuilder.constructPIF(
             buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild),
             hostBuildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
         )
@@ -826,7 +826,7 @@ struct PIFBuilderTests {
             fileSystem: fs,
             observabilityScope: observability.topScope
         )
-        let pif = try await pifBuilder.constructPIF(
+        let (pif, _) = try await pifBuilder.constructPIF(
             buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild),
             hostBuildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
         )
@@ -965,7 +965,7 @@ struct PIFBuilderTests {
             observabilityScope: observability.topScope
         )
 
-        let pif = try await pifBuilder.constructPIF(
+        let (pif, _) = try await pifBuilder.constructPIF(
             buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild),
             hostBuildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
         )
@@ -1024,5 +1024,92 @@ struct PIFBuilderTests {
                 }
             }
         }
+    }
+
+    @Test func mixedSourceTarget() async throws {
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                "/Pkg/Sources/lib/file1.swift",
+                "/Pkg/Sources/lib/file2.c"
+        )
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Pkg",
+                    path: "/Pkg",
+                    toolsVersion: try #require(ToolsVersion(string: "6.4.0", experimentalFeatures: [.experimentalMultiLang])),
+                    targets: [
+                        TargetDescription(name: "lib"),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+        #expect(observability.diagnostics.isEmpty)
+
+        let pifBuilder = PIFBuilder(
+            graph: graph,
+            parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
+                temporaryDirectory: AbsolutePath.root.appending("tmp"),
+                addLocalRpaths: true
+            ),
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+
+        let (pif, _) = try await pifBuilder.constructPIF(
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild),
+            hostBuildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+        )
+
+        let project = try pif.workspace.project(named: "Pkg")
+        let lib = try project.target(named: "lib")
+
+        // Ensure both sources are included
+        let sourcesPhase: ProjectModel.SourcesBuildPhase = try #require(lib.common.buildPhases.compactMap({
+            guard case let .sources(sourcesBuildPhase) = $0 else {
+                return nil
+            }
+            return sourcesBuildPhase
+        }).only)
+
+        let sources: [Basics.AbsolutePath] = sourcesPhase.files.compactMap({
+            guard case .reference(id: let refId) = $0.ref else {
+                return nil
+            }
+            return try? project.underlying.mainGroup.findSource(ref: refId)
+        }).sorted()
+        let expected: [Basics.AbsolutePath] = [
+            "/Pkg/Sources/lib/file1.swift",
+            "/Pkg/Sources/lib/file2.c",
+        ]
+        #expect(sources == expected)
+     }
+}
+
+extension ProjectModel.Group {
+    func findSource(ref: GUID) throws -> Basics.AbsolutePath? {
+        for child in subitems {
+            switch child {
+            case .file(let file):
+                if file.id == ref {
+                    if let file = try? Basics.AbsolutePath(validating: file.path) {
+                        return file
+                    }
+                    guard self.pathBase == .absolute else {
+                        return nil
+                    }
+                    let groupPath = try Basics.AbsolutePath(validating: self.path)
+                    return groupPath.appending(file.path)
+                }
+            case .group(let group):
+                if let file = try group.findSource(ref: ref) {
+                    return file
+                }
+            }
+        }
+        return nil
     }
 }

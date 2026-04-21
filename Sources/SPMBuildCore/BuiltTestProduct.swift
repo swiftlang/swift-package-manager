@@ -13,7 +13,7 @@
 import Basics
 
 /// Represents a test product which is built and is present on disk.
-public struct BuiltTestProduct: Codable {
+public struct BuiltTestProduct: Codable, Hashable {
     /// The test product name.
     public let productName: String
 

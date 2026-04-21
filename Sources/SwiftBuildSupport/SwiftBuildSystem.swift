@@ -259,7 +259,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
     public weak var delegate: SPMBuildCore.BuildSystemDelegate?
 
     /// Configuration for building and invoking plugins.
-    private let pluginConfiguration: PluginConfiguration
+    package let pluginConfiguration: PluginConfiguration
 
     /// Additional rules for different file types generated from plugins.
     private let additionalFileRules: [FileRuleDescription]
@@ -759,15 +759,6 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         }
     }
 
-    private func buildTargetInfo(session: SWBBuildServiceSession) async throws -> SWBBuildTargetInfo {
-        let (toolchainPath, isEmbeddedInXcode) = try toolchainDeveloperPathInfo(toolchain: buildParameters.toolchain)
-        if isEmbeddedInXcode {
-            return try await session.buildTargetInfo(triple: buildParameters.triple.tripleString)
-        } else {
-            return try await session.buildTargetInfo(triple: buildParameters.triple.tripleString)
-        }
-    }
-
     private func makeRunDestination(session: SWBBuildServiceSession) async throws -> SwiftBuild.SWBRunDestinationInfo {
         if let sdkManifestPath = self.buildParameters.toolchain.swiftSDK.swiftSDKManifest {
             return SwiftBuild.SWBRunDestinationInfo(
@@ -777,7 +768,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                 disableOnlyActiveArch: (buildParameters.architectures?.count ?? 1) > 1,
             )
         } else {
-            let buildTargetInfo = try await self.buildTargetInfo(session: session)
+            let buildTargetInfo = try await session.buildTargetInfo(triple: buildParameters.triple.tripleString)
 
             return SwiftBuild.SWBRunDestinationInfo(
                 buildTarget: .toolchainSDK(
@@ -890,7 +881,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                 .joined(separator: " ")
         }
 
-        let buildTargetInfo = try await self.buildTargetInfo(session: session)
+        let buildTargetInfo = try await session.buildTargetInfo(triple: buildParameters.triple.tripleString)
         if let deploymentTargetSettingName = buildTargetInfo.deploymentTargetSettingName, let value = buildTargetInfo.deploymentTarget {
             // Only override the deployment target if a version is explicitly specified;
             // for Apple platforms this normally comes from the package manifest and may
@@ -908,7 +899,16 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             }
         }
 
-        let swiftCompilerFlags = buildParameters.toolchain.extraFlags.swiftCompilerFlags + buildParameters.flags.swiftCompilerFlags
+        var swiftCompilerFlags = buildParameters.toolchain.extraFlags.swiftCompilerFlags + buildParameters.flags.swiftCompilerFlags
+        swiftCompilerFlags += buildParameters.toolchain.extraFlags.cCompilerFlags.asSwiftcCCompilerFlags()
+        // User arguments (from -Xcc) should follow generated arguments to allow user overrides
+        swiftCompilerFlags += buildParameters.flags.cCompilerFlags.asSwiftcCCompilerFlags()
+
+        // TODO: Pass -Xcxx flags to swiftc (#6491)
+        // Uncomment when downstream support arrives.
+        // swiftCompilerFlags += buildParameters.toolchain.extraFlags.cxxCompilerFlags.rawFlags.asSwiftcCXXCompilerFlags()
+        // // User arguments (from -Xcxx) should follow generated arguments to allow user overrides
+        // swiftCompilerFlags += buildParameters.flags.cxxCompilerFlags.rawFlags.asSwiftcCXXCompilerFlags()
         let compilerAndLinkerFlags = [
             "OTHER_CFLAGS": buildParameters.toolchain.extraFlags.cCompilerFlags + buildParameters.flags.cCompilerFlags,
             "OTHER_CPLUSPLUSFLAGS": buildParameters.toolchain.extraFlags.cxxCompilerFlags + buildParameters.flags.cxxCompilerFlags,
@@ -1112,13 +1112,9 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             break
         }
         if let omitFramePointers = parameters.omitFramePointers {
-            if omitFramePointers {
-                settings["CLANG_OMIT_FRAME_POINTERS"] = "YES"
-                settings["SWIFT_OMIT_FRAME_POINTERS"] = "YES"
-            } else {
-                settings["CLANG_OMIT_FRAME_POINTERS"] = "NO"
-                settings["SWIFT_OMIT_FRAME_POINTERS"] = "NO"
-            }
+            let value = omitFramePointers ? "YES" : "NO"
+            settings["CLANG_OMIT_FRAME_POINTERS"] = value
+            settings["SWIFT_OMIT_FRAME_POINTERS"] = value
         }
         return settings
     }
@@ -1165,11 +1161,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         if triple.isDarwin() && parameters.shouldLinkStaticSwiftStdlib {
             self.observabilityScope.emit(Basics.Diagnostic.swiftBackDeployWarning)
         } else {
-            if parameters.shouldLinkStaticSwiftStdlib {
-                settings["SWIFT_FORCE_STATIC_LINK_STDLIB"] = "YES"
-            } else {
-                settings["SWIFT_FORCE_STATIC_LINK_STDLIB"] = "NO"
-            }
+            settings["SWIFT_FORCE_STATIC_LINK_STDLIB"] = parameters.shouldLinkStaticSwiftStdlib ? "YES" : "NO"
         }
 
         return settings
@@ -1181,13 +1173,8 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         // Coverage settings
         settings["CLANG_COVERAGE_MAPPING"] = parameters.enableCodeCoverage ? "YES" : "NO"
 
-        switch parameters.explicitlyEnabledTestability {
-        case true:
-            settings["ENABLE_TESTABILITY"] = "YES"
-        case false:
-            settings["ENABLE_TESTABILITY"] = "NO"
-        default:
-            break
+        if let testability = parameters.explicitlyEnabledTestability {
+            settings["ENABLE_TESTABILITY"] = testability ? "YES" : "NO"
         }
 
         // TODO: experimentalTestOutput
@@ -1259,17 +1246,20 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         }
     }
 
-    public func generatePIF(preserveStructure: Bool) async throws -> String {
+    public func generatePIFAndAccompanyingMetadata(preserveStructure: Bool) async throws -> PIFGenerationResult {
         pifBuilder = .init()
         packageGraph = .init()
         let pifBuilder = try await getPIFBuilder()
-        let pif = try await pifBuilder.generatePIF(
+        return try await pifBuilder.generatePIF(
             preservePIFModelStructure: preserveStructure,
             printPIFManifestGraphviz: buildParameters.printPIFManifestGraphviz,
             buildParameters: buildParameters,
             hostBuildParameters: hostBuildParameters
         )
-        return pif
+    }
+
+    public func generatePIF(preserveStructure: Bool) async throws -> String {
+        return try await generatePIFAndAccompanyingMetadata(preserveStructure: preserveStructure).pif
     }
 
     public func writePIF(buildParameters: BuildParameters) async throws {
@@ -1372,5 +1362,11 @@ fileprivate extension [BuildFlag] {
                 return false
             }
         }.map { $0.value }
+    }
+
+    /// Converts a set of C compiler flags into an equivalent set to be
+    /// indirected through the Swift compiler instead.
+    func asSwiftcCCompilerFlags() -> [BuildFlag] {
+        self.flatMap { [BuildFlag(value: "-Xcc", source: $0.source), $0] }
     }
 }

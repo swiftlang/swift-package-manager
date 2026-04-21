@@ -220,8 +220,9 @@ public struct TargetSourcesBuilder {
         try diagnoseInfoPlistConflicts(in: resources)
         diagnoseInvalidResource(in: target.resources)
 
-        // It's an error to contain mixed language source files.
-        if sources.containsMixedLanguage {
+        // It's an error to contain mixed language source files
+        // Unless experimental flag is turned on
+        if sources.containsMixedLanguage && !toolsVersion.experimentalMultiLang {
             throw Module.Error.mixedSources(targetPath)
         }
 

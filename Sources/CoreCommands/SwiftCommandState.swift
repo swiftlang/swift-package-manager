@@ -128,6 +128,9 @@ extension SwiftCommand {
             workspaceLoaderProvider: self.workspaceLoaderProvider,
             createPackagePath: self.createPackagePath
         )
+        defer {
+            _ = createCacheDirFile(inDirectory: swiftCommandState.scratchDirectory)
+        }
 
         // We use this to attempt to catch misuse of the locking APIs since we only release the lock from here.
         swiftCommandState.setNeedsLocking()
@@ -145,6 +148,11 @@ extension SwiftCommand {
 
         swiftCommandState.releaseLockIfNeeded()
 
+        if globalOptions.build._buildSystem != .swiftbuild {
+            swiftCommandState.observabilityScope.emit(
+                .deprecatedBuildSystem(buildSystem: globalOptions.build._buildSystem)
+            )
+        }
         // wait for all observability items to process
         swiftCommandState.waitForObservabilityEvents(timeout: .now() + 5)
 
@@ -154,12 +162,36 @@ extension SwiftCommand {
     }
 }
 
+package func createCacheDirFile(
+    inDirectory directory: AbsolutePath,
+    _ fileSystem: FileSystem = localFileSystem) -> AbsolutePath? {
+    // https://bford.info/cachedir/
+    let path = directory.appending("CACHEDIR.TAG")
+    do {
+        let contents = """
+            Signature: 8a477f597d28d172789f06886806bc55
+            # This file is a cache directory tag created by (Swift Package Manager).
+            # For information about cache directory tags, see:
+            #.   http://www.brynosaurus.com/cachedir/
+            """
+        try fileSystem.createDirectory(path.parentDirectory, recursive: true)
+        try fileSystem.writeFileContents(path, string: contents)
+        return path
+    } catch {
+        // Don't error out if we fail to create the CACHEDIR.TAG file, as this is not critical to the functioning of the tool.
+        return nil
+    }
+
+}
 public protocol AsyncSwiftCommand: AsyncParsableCommand, _SwiftCommand {
     func run(_ swiftCommandState: SwiftCommandState) async throws
+    var addCacheDirTagFile: Bool { get }
 }
 
 extension AsyncSwiftCommand {
     public static var _errorLabel: String { "error" }
+
+    public var addCacheDirTagFile: Bool { true }
 
     // FIXME: It doesn't seem great to have this be duplicated with `SwiftCommand`.
     public func run() async throws {
@@ -170,6 +202,11 @@ extension AsyncSwiftCommand {
             workspaceLoaderProvider: self.workspaceLoaderProvider,
             createPackagePath: self.createPackagePath
         )
+        defer {
+            if self.addCacheDirTagFile {
+                _ = createCacheDirFile(inDirectory: swiftCommandState.scratchDirectory)
+            }
+        }
 
         // We use this to attempt to catch misuse of the locking APIs since we only release the lock from here.
         swiftCommandState.setNeedsLocking()
@@ -186,6 +223,12 @@ extension AsyncSwiftCommand {
         }
 
         swiftCommandState.releaseLockIfNeeded()
+
+        if globalOptions.build._buildSystem != .swiftbuild {
+            swiftCommandState.observabilityScope.emit(
+                .deprecatedBuildSystem(buildSystem: globalOptions.build._buildSystem)
+            )
+        }
 
         // wait for all observability items to process
         swiftCommandState.waitForObservabilityEvents(timeout: .now() + 5)
@@ -786,18 +829,24 @@ public final class SwiftCommandState {
         do {
             let workspace = try getActiveWorkspace(enableAllTraits: enableAllTraits)
 
+            // Create a dedicated observability scope for package graph loading so that the `packageGraphObservabilityScope.errorsReported`
+            // below only considers errors reported from this call to `loadPackageGraph`. This ensures that in an interactive context like
+            // when using `swift package experimental-build-server`, a package graph load which initially fails doesn't cause all subsequent
+            // package graph load attempts to also fail due to sharing the same `errorsReported` bit.
+            let packageGraphObservabilityScope = self.observabilityScope.makeChildScope(description: "Loading Package Graph")
+
             // Fetch and load the package graph.
             let graph = try await workspace.loadPackageGraph(
                 rootInput: self.getWorkspaceRoot(),
                 explicitProduct: explicitProduct,
                 forceResolvedVersions: self.options.resolver.forceResolvedVersions,
                 testEntryPointPath: testEntryPointPath,
-                observabilityScope: self.observabilityScope
+                observabilityScope: packageGraphObservabilityScope
             )
 
             // Throw if there were errors when loading the graph.
             // The actual errors will be printed before exiting.
-            guard !self.observabilityScope.errorsReported else {
+            guard !packageGraphObservabilityScope.errorsReported else {
                 throw ExitCode.failure
             }
             return graph
@@ -1425,6 +1474,12 @@ extension BuildOptions.DebugInfoFormat {
 extension Basics.Diagnostic {
     public static func mutuallyExclusiveArgumentsError(arguments: [String]) -> Self {
         .error(arguments.map { "'\($0)'" }.spm_localizedJoin(type: .conjunction) + " are mutually exclusive")
+    }
+
+    package static func deprecatedBuildSystem(buildSystem: BuildSystemProvider.Kind) -> Self {
+        .warning(
+            "'--build-system \(buildSystem)' has been deprecated and will be removed in a future release; please report an issue at https://github.com/swiftlang/swift-package-manager/issues if you are unable to adopt the default build system."
+        )
     }
 }
 

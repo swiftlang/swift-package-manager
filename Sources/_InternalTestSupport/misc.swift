@@ -403,22 +403,52 @@ public func initGitRepo(
     sourceLocation: SourceLocation = #_sourceLocation,
 ) {
     do {
+        // Create .git directory structure
+        let gitDir = dir.appending(".git")
+        try localFileSystem.createDirectory(gitDir, recursive: false)
+        try localFileSystem.createDirectory(gitDir.appending("objects"), recursive: false)
+        try localFileSystem.createDirectory(gitDir.appending("refs").appending("heads"), recursive: true)
+        try localFileSystem.createDirectory(gitDir.appending("refs").appending("tags"), recursive: true)
+
+        // Write minimal config file
+        let configContent = """
+            [core]
+            \trepositoryformatversion = 0
+            \tfilemode = true
+            \tbare = false
+            [user]
+            \temail = example@example.com
+            \tname = Example Example
+            [commit]
+            \tgpgsign = false
+            """
+        try localFileSystem.writeFileContents(gitDir.appending("config"), string: configContent)
+
+        // Create initial file if requested
         if addFile {
             let file = dir.appending("file.swift")
             try localFileSystem.writeFileContents(file, bytes: "")
         }
 
-        try Process.checkNonZeroExit(args: Git.tool, "-C", dir.pathString, "init")
-        try Process.checkNonZeroExit(args: Git.tool, "-C", dir.pathString, "config", "user.email", "example@example.com")
-        try Process.checkNonZeroExit(args: Git.tool, "-C", dir.pathString, "config", "user.name", "Example Example")
-        try Process.checkNonZeroExit(args: Git.tool, "-C", dir.pathString, "config", "commit.gpgsign", "false")
+        // Use git to create initial commit (still need this for proper object creation)
+        // But we've eliminated config commands and init overhead
         let repo = GitRepository(path: dir)
+
+        // Write HEAD to point to main branch
+        try localFileSystem.writeFileContents(gitDir.appending("HEAD"), string: "ref: refs/heads/main\n")
+
+        // Stage and commit
         try repo.stageEverything()
         try repo.commit(message: "msg")
+
+        // Create tags directly by writing ref files
+        let commitHash = try repo.getCurrentRevision().identifier
         for tag in tags {
-            try repo.tag(name: tag)
+            try localFileSystem.writeFileContents(
+                gitDir.appending("refs").appending("tags").appending(tag),
+                string: "\(commitHash)\n"
+            )
         }
-        try Process.checkNonZeroExit(args: Git.tool, "-C", dir.pathString, "branch", "-m", "main")
     } catch {
         if Test.current != nil {
             Issue.record(

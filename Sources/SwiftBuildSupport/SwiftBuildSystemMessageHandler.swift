@@ -142,7 +142,11 @@ public final class SwiftBuildSystemMessageHandler {
         }
 
         guard info.result == .success else {
-            emitFailedTaskOutput(info, startedInfo)
+            // Don't emit error output for tasks that were cancelled (e.g. collateral damage
+            // when another task failed and the build was aborted). These are not real errors.
+            if info.result != .cancelled {
+                emitFailedTaskOutput(info, startedInfo)
+            }
             return
         }
 
