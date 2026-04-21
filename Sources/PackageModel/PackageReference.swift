@@ -157,13 +157,7 @@ public struct PackageReference {
         PackageReference(identity: identity, kind: .remoteSourceControl(url))
     }
 
-    public static func registry(identity: PackageIdentity, originalURL: String?) -> PackageReference {
-        let originalURL: SourceControlURL? = if let originalURL {
-            SourceControlURL(originalURL)
-        } else {
-            nil
-        }
-
+    public static func registry(identity: PackageIdentity) -> PackageReference {
         return PackageReference(identity: identity, kind: .registry(identity))
     }
 }

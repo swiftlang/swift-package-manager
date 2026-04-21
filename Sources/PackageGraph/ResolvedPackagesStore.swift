@@ -572,7 +572,7 @@ extension ResolvedPackagesStore.ResolvedPackage {
         case .remoteSourceControl:
             packageRef = .remoteSourceControl(identity: identity, url: SourceControlURL(location))
         case .registry:
-            packageRef = .registry(identity: identity, originalURL: pin.originalLocation)
+            packageRef = .registry(identity: identity)
         }
         let scm: SourceControlURL? = if let url = pin.originalLocation {
             SourceControlURL(url)

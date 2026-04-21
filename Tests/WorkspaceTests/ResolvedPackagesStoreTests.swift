@@ -143,7 +143,7 @@ final class ResolvedPackagesStoreTests: XCTestCase {
 
             var store = try ResolvedPackagesStore(packageResolvedFile: packageResolvedFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
             store.track(
-                packageRef: .registry(identity: identity, originalURL: nil),
+                packageRef: .registry(identity: identity),
                 state: .version("1.2.3", revision: .none)
             )
             try store.saveState(toolsVersion: ToolsVersion.current, originHash: .none)
@@ -589,7 +589,7 @@ final class ResolvedPackagesStoreTests: XCTestCase {
             mirrors: .init()
         )
         store.track(
-            packageRef: .registry(identity: identity, originalURL: nil),
+            packageRef: .registry(identity: identity),
             state: .version("1.7.0", revision: .none),
             scm: scmURL
         )
@@ -623,7 +623,7 @@ final class ResolvedPackagesStoreTests: XCTestCase {
             mirrors: .init()
         )
         store.track(
-            packageRef: .registry(identity: identity, originalURL: nil),
+            packageRef: .registry(identity: identity),
             state: .version("1.0.0", revision: .none)
             // no scm: parameter
         )
