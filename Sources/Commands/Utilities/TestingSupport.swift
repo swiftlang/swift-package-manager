@@ -38,6 +38,7 @@ import func TSCBasic.exec
 
 struct DebuggableTestSession {
     struct Target {
+        let productName: String
         let library: TestingLibrary
         let additionalArgs: [String]
         let bundlePath: AbsolutePath
@@ -609,7 +610,7 @@ final class DebugTestRunner {
 
         for testingLibrary in target.targets {
             let (executable, args) = try getExecutableAndArgs(for: testingLibrary)
-            lldbCommands.append("target create \"\(executable.pathString)\"")
+            lldbCommands.append("target create -l \"\(testingLibrary.productName) (\(testingLibrary.library))\" \"\(executable.pathString)\"")
             lldbCommands.append("settings clear target.run-args")
 
             for arg in args {

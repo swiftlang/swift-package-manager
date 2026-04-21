@@ -320,7 +320,9 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                 productsBuildParameters: buildParameters,
                 swiftCommandState: swiftCommandState
             )
-            results.append(TestProductResult(productName: testProducts[0].productName, library: .xctest, result: result))
+            results.append(contentsOf: testProducts.map {
+                TestProductResult(productName: $0.productName, library: .xctest, result: result)
+            })
         }
 
         // Run XCTest.
@@ -577,8 +579,8 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
     ///
     /// This method handles debugging for enabled testing libraries:
     /// 1. If both XCTest and Swift Testing are enabled, prompts user to choose or runs both in separate sessions
-    /// 2. Validates that exactly one test product is available for debugging
-    /// 3. Creates a DebugTestRunner and launches LLDB with the test binary
+    /// 2. Creates LLDB targets for each test product and enabled testing library
+    /// 3. Creates a DebugTestRunner and launches LLDB with the test binaries
     ///
     /// - Parameters:
     ///   - testProducts: The built test products
@@ -590,51 +592,76 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         productsBuildParameters: BuildParameters,
         swiftCommandState: SwiftCommandState
     ) async throws -> TestRunner.Result {
-        // Validate that we have exactly one test product for debugging
-        guard testProducts.count == 1 else {
-            if testProducts.isEmpty {
-                throw StringError("No test products found for debugging")
-            } else {
-                let productNames = testProducts.map { $0.productName }.joined(separator: ", ")
-                throw StringError("Multiple test products found (\(productNames)). Specify a single target with --filter when using --debugger")
+        guard !testProducts.isEmpty else {
+            throw StringError("No test products found for debugging")
+        }
+
+        let toolchain = try swiftCommandState.getTargetToolchain()
+
+        let xctestEnabled = options.testLibraryOptions.isEnabled(.xctest, swiftCommandState: swiftCommandState)
+        lazy var testEntryPointPath = testProducts.lazy.compactMap(\.testEntryPointPath).first
+        let swiftTestingEnabled = options.testLibraryOptions.isEnabled(.swiftTesting, swiftCommandState: swiftCommandState) &&
+                                 (options.testLibraryOptions.isExplicitlyEnabled(.swiftTesting, swiftCommandState: swiftCommandState) ||
+                                  testEntryPointPath == nil)
+
+        var productsWithXCTests = Set<AbsolutePath>()
+        if xctestEnabled {
+            let xctestSuites = try TestingSupport.getTestSuites(
+                in: testProducts,
+                swiftCommandState: swiftCommandState,
+                enableCodeCoverage: options.enableCodeCoverage,
+                shouldSkipBuilding: options.sharedOptions.shouldSkipBuilding,
+                experimentalTestOutput: options.enableExperimentalTestOutput,
+                sanitizers: globalOptions.build.sanitizers
+            )
+            for (product, suites) in xctestSuites where !suites.isEmpty {
+                productsWithXCTests.insert(product.bundlePath)
             }
         }
 
-        let testProduct = testProducts[0]
-        let toolchain = try swiftCommandState.getTargetToolchain()
-
-        // Determine which testing libraries are enabled
-        let xctestEnabled = options.testLibraryOptions.isEnabled(.xctest, swiftCommandState: swiftCommandState)
-        let swiftTestingEnabled = options.testLibraryOptions.isEnabled(.swiftTesting, swiftCommandState: swiftCommandState) &&
-                                 (options.testLibraryOptions.isExplicitlyEnabled(.swiftTesting, swiftCommandState: swiftCommandState) ||
-                                  testProduct.testEntryPointPath == nil)
-
-        // Create a list of testing libraries to run in sequence
-        var librariesToRun: [TestingLibrary] = []
-
-        if xctestEnabled {
-            librariesToRun.append(.xctest)
-        }
-
+        var productsWithSwiftTests = Set<AbsolutePath>()
         if swiftTestingEnabled {
-            librariesToRun.append(.swiftTesting)
-        }
-
-        // Ensure we have at least one library to run
-        guard !librariesToRun.isEmpty else {
-            throw StringError("No testing libraries are enabled for debugging")
-        }
-
-        let targets = try librariesToRun.map {
-            DebuggableTestSession.Target(
-                library: $0,
-                additionalArgs: try additionalLLDBArguments(
-                    for: $0, 
-                    testProducts: testProducts, 
-                    swiftCommandState: swiftCommandState
-                ),
-                bundlePath: testBundlePath(for: $0, testProduct: testProduct)
+            let swiftTestingSuites = try TestingSupport.getSwiftTestingSuites(
+                in: testProducts,
+                swiftCommandState: swiftCommandState,
+                shouldSkipBuilding: options.sharedOptions.shouldSkipBuilding,
+                sanitizers: globalOptions.build.sanitizers
             )
+            for (binaryPath, tests) in swiftTestingSuites where !tests.isEmpty {
+                productsWithSwiftTests.insert(binaryPath)
+            }
+        }
+
+        var targets = [DebuggableTestSession.Target]()
+        for testProduct in testProducts {
+            if productsWithXCTests.contains(testProduct.bundlePath) {
+                targets.append(DebuggableTestSession.Target(
+                    productName: testProduct.productName,
+                    library: .xctest,
+                    additionalArgs: try additionalLLDBArguments(
+                        for: .xctest,
+                        testProduct: testProduct,
+                        swiftCommandState: swiftCommandState
+                    ),
+                    bundlePath: testBundlePath(for: .xctest, testProduct: testProduct)
+                ))
+            }
+            if productsWithSwiftTests.contains(testProduct.binaryPath) {
+                targets.append(DebuggableTestSession.Target(
+                    productName: testProduct.productName,
+                    library: .swiftTesting,
+                    additionalArgs: try additionalLLDBArguments(
+                        for: .swiftTesting,
+                        testProduct: testProduct,
+                        swiftCommandState: swiftCommandState
+                    ),
+                    bundlePath: testBundlePath(for: .swiftTesting, testProduct: testProduct)
+                ))
+            }
+        }
+
+        guard !targets.isEmpty else {
+            throw StringError("No testing libraries are enabled for debugging")
         }
 
         try await runTestLibrariesWithLLDB(
@@ -648,11 +675,10 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         return .success
     }
 
-    private func additionalLLDBArguments(for library: TestingLibrary, testProducts: [BuiltTestProduct], swiftCommandState: SwiftCommandState) throws -> [String] {
-        // Determine test binary path and arguments based on the testing library
+    private func additionalLLDBArguments(for library: TestingLibrary, testProduct: BuiltTestProduct, swiftCommandState: SwiftCommandState) throws -> [String] {
         switch library {
         case .xctest:
-            let (xctestArgs, _, _) = try xctestArgs(for: testProducts, swiftCommandState: swiftCommandState)
+            let (xctestArgs, _, _) = try xctestArgs(for: [testProduct], swiftCommandState: swiftCommandState)
             return xctestArgs
 
         case .swiftTesting:
@@ -692,8 +718,8 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                 toolchain: toolchain,
                 destinationBuildParameters: productsBuildParameters,
                 sanitizers: globalOptions.build.sanitizers,
-                library: .xctest, // TODO
-                testProductPaths: testProducts.map(\.bundlePath),
+                library: .swiftTesting,
+                testProductPaths: Array(Set(testProducts.flatMap { [$0.bundlePath, $0.binaryPath] })),
                 interopMode: nil
             ),
             cancellator: swiftCommandState.cancellator,
