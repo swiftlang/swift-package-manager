@@ -1900,10 +1900,16 @@ struct TestCommandTests {
                 )
 
                 let productName = buildSystem == .native ? "TestDebuggingPackageTests" : "TestDebuggingTests"
-                #expect(
-                    stdout.contains("\(productName) (XCTest)") && stdout.contains("\(productName) (Swift Testing)"),
-                    "Expected labeled LLDB targets, got stdout: \(stdout), stderr: \(stderr)",
-                )
+                withKnownIssue {
+                    #expect(
+                        stdout.contains("\(productName) (XCTest)") && stdout.contains("\(productName) (Swift Testing)"),
+                        "Expected labeled LLDB targets, got stdout: \(stdout), stderr: \(stderr)",
+                    )
+                } when: {
+                    // Smoke-test CI's lldb is too old to support `target create -l`,
+                    // so the production code skips emitting labels there.
+                    CiEnvironment.runningInSmokeTestPipeline
+                }
 
                 #expect(
                     getNumberOfMatches(of: "breakpoint set", in: stdout) == 2,
@@ -1930,10 +1936,16 @@ struct TestCommandTests {
                     buildSystem: buildSystem,
                 )
 
-                #expect(
-                    !stderr.contains("error:"),
-                    "Expected no errors, got stdout: \(stdout), stderr: \(stderr)",
-                )
+                withKnownIssue {
+                    #expect(
+                        !stderr.contains("error:"),
+                        "Expected no errors, got stdout: \(stdout), stderr: \(stderr)",
+                    )
+                } when: {
+                    // Smoke-test CI's lldb lacks Python bindings, so `command script import`
+                    // and `script print(...)` emit Python errors to stderr.
+                    CiEnvironment.runningInSmokeTestPipeline
+                }
 
                 let targetCreateCount = getNumberOfMatches(of: "target create", in: stdout)
                 // Native build system produces a single umbrella product (2 targets: xctest + swift-testing).
@@ -1964,10 +1976,16 @@ struct TestCommandTests {
                     buildSystem: buildSystem,
                 )
 
-                #expect(
-                    !stderr.contains("error:"),
-                    "Expected no errors, got stdout: \(stdout), stderr: \(stderr)",
-                )
+                withKnownIssue {
+                    #expect(
+                        !stderr.contains("error:"),
+                        "Expected no errors, got stdout: \(stdout), stderr: \(stderr)",
+                    )
+                } when: {
+                    // Smoke-test CI's lldb lacks Python bindings, so `command script import`
+                    // and `script print(...)` emit Python errors to stderr.
+                    CiEnvironment.runningInSmokeTestPipeline
+                }
 
                 let targetCreateCount = getNumberOfMatches(of: "target create", in: stdout)
                 // Native: 1 umbrella product → 1 xctest target.
@@ -1993,10 +2011,16 @@ struct TestCommandTests {
                     buildSystem: buildSystem,
                 )
 
-                #expect(
-                    !stderr.contains("error:"),
-                    "Expected no errors, got stdout: \(stdout), stderr: \(stderr)",
-                )
+                withKnownIssue {
+                    #expect(
+                        !stderr.contains("error:"),
+                        "Expected no errors, got stdout: \(stdout), stderr: \(stderr)",
+                    )
+                } when: {
+                    // Smoke-test CI's lldb lacks Python bindings, so `command script import`
+                    // and `script print(...)` emit Python errors to stderr.
+                    CiEnvironment.runningInSmokeTestPipeline
+                }
 
                 let targetCreateCount = getNumberOfMatches(of: "target create", in: stdout)
                 // Native: 1 umbrella product → 1 swift-testing target.
