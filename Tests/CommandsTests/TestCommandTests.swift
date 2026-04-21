@@ -2009,6 +2009,35 @@ struct TestCommandTests {
             }
         }
 
+        @Test(arguments: SupportedBuildSystemOnAllPlatforms)
+        func lldbRunExecutesTestsSuccessfully(buildSystem: BuildSystemProvider.Kind) async throws {
+            try await fixture(name: "Miscellaneous/TestDebugging") { fixturePath in
+                let (stdout, stderr) = try await executeSwiftTest(
+                    fixturePath,
+                    configuration: .debug,
+                    extraArgs: [
+                        "--debugger",
+                        "--disable-swift-testing",
+                        "--verbose",
+                        "--filter", "XCTestCalculatorTests/testAdditionPasses",
+                    ] + getBuildSystemArgs(for: buildSystem),
+                    env: ["SWIFTPM_TESTS_LLDB_RUN": "1"],
+                    buildSystem: buildSystem,
+                    throwIfCommandFails: false
+                )
+
+                #expect(
+                    stdout.contains("Process") && stdout.contains("launched"),
+                    "Expected LLDB to launch the process, got stdout: \(stdout), stderr: \(stderr)"
+                )
+
+                #expect(
+                    stdout.contains("exited with status = 0"),
+                    "Expected process to exit with status 0, got stdout: \(stdout), stderr: \(stderr)"
+                )
+            }
+        }
+
         func args(_ args: [String], for buildSystem: BuildSystemProvider.Kind, buildConfiguration: BuildConfiguration = .debug) -> [String] {
             return args + buildConfiguration.buildArgs + getBuildSystemArgs(for: buildSystem)
         }

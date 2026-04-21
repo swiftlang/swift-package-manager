@@ -590,6 +590,9 @@ final class DebugTestRunner {
         }
 
         if Environment.current["SWIFTPM_TESTS_MODULECACHE"] != nil {
+            if Environment.current["SWIFTPM_TESTS_LLDB_RUN"] != nil {
+                lldbCommands.append("run")
+            }
             lldbCommands.append("quit")
         }
 
@@ -662,7 +665,7 @@ final class DebugTestRunner {
             guard let xctestPath = toolchain.xctestPath else {
                 throw StringError("XCTest not found in toolchain")
             }
-            return (xctestPath, [target.bundlePath.pathString] + target.additionalArgs)
+            return (xctestPath, target.additionalArgs + [target.bundlePath.pathString])
             #else
             return (target.bundlePath, target.additionalArgs)
             #endif
