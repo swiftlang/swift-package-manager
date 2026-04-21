@@ -563,8 +563,6 @@ extension Workspace {
                 continue
             }
 
-            let hostPlatform = prebuiltsManager.hostPlatform
-
             for library in prebuiltManifest.libraries {
                 if let path = try await prebuiltsManager
                     .downloadPrebuilt(
