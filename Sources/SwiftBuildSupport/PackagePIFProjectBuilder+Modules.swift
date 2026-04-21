@@ -1021,7 +1021,8 @@ extension PackagePIFProjectBuilder {
             linkedPackageBinaries: [],
             swiftLanguageVersion: nil,
             declaredPlatforms: self.declaredPlatforms,
-            deploymentTargets: self.deploymentTargets
+            deploymentTargets: self.deploymentTargets,
+            toolsVersion: pifBuilder.packageManifest.toolsVersion
         )
         self.builtModulesAndProducts.append(prebuiltModule)
     }
