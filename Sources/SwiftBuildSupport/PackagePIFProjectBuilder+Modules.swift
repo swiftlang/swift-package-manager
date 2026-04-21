@@ -671,7 +671,6 @@ extension PackagePIFProjectBuilder {
 
         if desiredModuleType == .macro {
             settings[.SWIFT_IMPLEMENTS_MACROS_FOR_MODULE_NAMES] = [sourceModule.c99name]
-            settings[.SUPPORTED_PLATFORMS] = ["$(HOST_PLATFORM)"]
 
             // Don't install the Swift module when building the macro executable, lest it conflict with the testable variant.
             // The contents of the testable variant's module will exactly match the binary linked by dependencies (test targets).
@@ -679,6 +678,7 @@ extension PackagePIFProjectBuilder {
         }
         if sourceModule.type == .macro {
             settings[.SKIP_BUILDING_DOCUMENTATION] = "YES"
+            settings[.SUPPORTED_PLATFORMS] = ["$(HOST_PLATFORM)"]
         }
 
         sourceModule.addParseAsLibrarySettings(to: &settings, toolsVersion: package.manifest.toolsVersion, fileSystem: pifBuilder.fileSystem)
