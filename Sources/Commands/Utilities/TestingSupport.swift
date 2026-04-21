@@ -609,7 +609,14 @@ final class DebugTestRunner {
 
         for testingLibrary in target.targets {
             let (executable, args) = try getExecutableAndArgs(for: testingLibrary)
-            lldbCommands.append("target create -l \"\(testingLibrary.productName) (\(testingLibrary.library))\" \"\(executable.pathString)\"")
+            // Smoke-test CI doesn't ship the toolchain's lldb alongside the in-development
+            // swiftc; it falls back to an older system lldb on PATH that doesn't support
+            // `target create -l`. Skip the label there so the command parses.
+            if Environment.current["SWIFTCI_USE_LOCAL_DEPS"] != nil {
+                lldbCommands.append("target create \"\(executable.pathString)\"")
+            } else {
+                lldbCommands.append("target create -l \"\(testingLibrary.productName) (\(testingLibrary.library))\" \"\(executable.pathString)\"")
+            }
             lldbCommands.append("settings clear target.run-args")
 
             for arg in args {
