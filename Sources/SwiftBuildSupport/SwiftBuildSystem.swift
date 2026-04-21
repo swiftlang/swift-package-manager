@@ -901,40 +901,11 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             }
         }
 
-        var swiftCompilerFlags = buildParameters.toolchain.extraFlags.swiftCompilerFlags + buildParameters.flags.swiftCompilerFlags
-        swiftCompilerFlags += buildParameters.toolchain.extraFlags.cCompilerFlags.asSwiftcCCompilerFlags()
-        // User arguments (from -Xcc) should follow generated arguments to allow user overrides
-        swiftCompilerFlags += buildParameters.flags.cCompilerFlags.asSwiftcCCompilerFlags()
-
-        // TODO: Pass -Xcxx flags to swiftc (#6491)
-        // Uncomment when downstream support arrives.
-        // swiftCompilerFlags += buildParameters.toolchain.extraFlags.cxxCompilerFlags.rawFlags.asSwiftcCXXCompilerFlags()
-        // // User arguments (from -Xcxx) should follow generated arguments to allow user overrides
-        // swiftCompilerFlags += buildParameters.flags.cxxCompilerFlags.rawFlags.asSwiftcCXXCompilerFlags()
-        let compilerAndLinkerFlags = [
-            "OTHER_CFLAGS": buildParameters.toolchain.extraFlags.cCompilerFlags + buildParameters.flags.cCompilerFlags,
-            "OTHER_CPLUSPLUSFLAGS": buildParameters.toolchain.extraFlags.cxxCompilerFlags + buildParameters.flags.cxxCompilerFlags,
-            "OTHER_SWIFT_FLAGS": swiftCompilerFlags,
-            "OTHER_LDFLAGS": (buildParameters.toolchain.extraFlags.linkerFlags + buildParameters.flags.linkerFlags)
-        ]
-        for (settingName, buildFlags) in compilerAndLinkerFlags {
-            var rawFlags = buildFlags.rawFlagsForSwiftBuild
-            if settingName == "OTHER_LDFLAGS" {
-                rawFlags = rawFlags.asSwiftcLinkerFlags()
-            }
-            settings[settingName] = (verboseFlag + ["$(inherited)"] +
-                rawFlags.map { $0.shellEscaped() }).joined(separator: " ")
+        func reportConflict(_ a: String, _ b: String) throws -> String {
+            throw StringError("Build parameters constructed conflicting settings overrides '\(a)' and '\(b)'")
         }
 
-        // Historically, SwiftPM passed -Xswiftc flags to swiftc when used as a linker driver.
-        // To maintain compatibility, forward swift compiler flags to OTHER_LDFLAGS when using
-        // swiftc to link.
-        if !swiftCompilerFlags.rawFlagsForSwiftBuild.isEmpty {
-            settings["OTHER_LDFLAGS_SWIFTC_LINKER_DRIVER_swiftc"] =
-            (["$(inherited)"] + swiftCompilerFlags.rawFlagsForSwiftBuild.map { $0.shellEscaped() }).joined(separator: " ")
-            settings["OTHER_LDFLAGS"] =
-                (settings["OTHER_LDFLAGS"] ?? "$(inherited)") + " $(OTHER_LDFLAGS_SWIFTC_LINKER_DRIVER_$(LINKER_DRIVER))"
-        }
+        try settings.merge(Self.constructExtraToolFlagsSettingsOverrides(from: buildParameters, verbosityFlags: verboseFlag), uniquingKeysWith: reportConflict)
 
         if buildParameters.driverParameters.emitSILFiles {
             settings["SWIFT_EMIT_SIL_FILES"] = "YES"
@@ -1008,9 +979,6 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         settings["ADD_TOOLCHAIN_CONCURRENCY_BACK_DEPLOY_RPATH"] = "YES"
         settings["ADD_TOOLCHAIN_SPAN_BACK_DEPLOY_RPATH"] = "YES"
 
-        func reportConflict(_ a: String, _ b: String) throws -> String {
-            throw StringError("Build parameters constructed conflicting settings overrides '\(a)' and '\(b)'")
-        }
         try settings.merge(Self.constructDebuggingSettingsOverrides(from: buildParameters.debuggingParameters), uniquingKeysWith: reportConflict)
         try settings.merge(Self.constructDriverSettingsOverrides(from: buildParameters.driverParameters), uniquingKeysWith: reportConflict)
         try settings.merge(self.constructLinkerSettingsOverrides(from: buildParameters.linkingParameters, triple: buildParameters.triple), uniquingKeysWith: reportConflict)
@@ -1094,6 +1062,83 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         }
 
         return request
+    }
+
+    private static func constructExtraToolFlagsSettingsOverrides(from buildParameters: BuildParameters, verbosityFlags: [String]) -> [String: String] {
+        var settings: [String: String] = [:]
+        var swiftCompilerFlags = buildParameters.toolchain.extraFlags.swiftCompilerFlags + buildParameters.flags.swiftCompilerFlags
+        swiftCompilerFlags += buildParameters.toolchain.extraFlags.cCompilerFlags.asSwiftcCCompilerFlags()
+        // User arguments (from -Xcc) should follow generated arguments to allow user overrides
+        swiftCompilerFlags += buildParameters.flags.cCompilerFlags.asSwiftcCCompilerFlags()
+        // TODO: Pass -Xcxx flags to swiftc (#6491)
+        // Uncomment when downstream support arrives.
+        // swiftCompilerFlags += buildParameters.toolchain.extraFlags.cxxCompilerFlags.rawFlags.asSwiftcCXXCompilerFlags()
+        // // User arguments (from -Xcxx) should follow generated arguments to allow user overrides
+        // swiftCompilerFlags += buildParameters.flags.cxxCompilerFlags.rawFlags.asSwiftcCXXCompilerFlags()
+        let compilerAndLinkerFlags = [
+            "OTHER_CFLAGS": buildParameters.toolchain.extraFlags.cCompilerFlags + buildParameters.flags.cCompilerFlags,
+            "OTHER_CPLUSPLUSFLAGS": buildParameters.toolchain.extraFlags.cxxCompilerFlags + buildParameters.flags.cxxCompilerFlags,
+            "OTHER_SWIFT_FLAGS": swiftCompilerFlags,
+            // Historically, SwiftPM passed -Xswiftc flags to swiftc when used as a linker driver.
+            // To maintain compatibility, forward swift compiler flags to OTHER_LDFLAGS when using
+            // swiftc to link.
+            "OTHER_LDFLAGS_SWIFTC_LINKER_DRIVER_swiftc": swiftCompilerFlags,
+            "OTHER_LDFLAGS": (buildParameters.toolchain.extraFlags.linkerFlags + buildParameters.flags.linkerFlags),
+        ]
+        for (settingName, buildFlags) in compilerAndLinkerFlags {
+            var rawFlags = buildFlags.filter {
+                switch $0.source {
+                case .commandLineOptions:
+                    // Flags specified by the user. These are generally the only ones that should be passed on. Match the native build system behavior of passing them to all compiles.
+                    return true
+                case .plugin:
+                    // Flags specified by a command plugin. Ideally these would match the behavior of flags passed on the command line, but for compatibility with the native build system we treat these as destination-only flags.
+                    return false
+                case .debugging:
+                    // Handled by the underlying build system.
+                    return false
+                case .toolset:
+                    // Swift Build loads toolset flags internally as part of loading Swift SDKs, or by passing the custom toolsets
+                    // via the SWIFT_SDK_TOOLSETS build setting, and may introspect them to override build settings.
+                    // Don't duplicate them here.
+                    return false
+                case .defaultSwiftTestingSearchPath:
+                    // Swift Build computes these internally. It's important not to add them a second time here
+                    // as it can break the intended search path ordering, for example, if the user is building
+                    // Swift Testing as a package dependency.
+                    return false
+                case .defaultWindowsSettings:
+                    // Swift Build computes these internally.
+                    return false
+                case .swiftSDK:
+                    // Swift Build loads Swift SDK flags internally, and may introspect them to override build
+                    // settings. Don't duplicate them here.
+                    return false
+                case nil:
+                    // Remaining flags are legacy build system specific (one occurrence only), or in tests.
+                    return false
+                }
+            }.map(\.value)
+            var rawDestinationOnlyFlags = buildFlags.filter {
+                switch $0.source {
+                case .plugin:
+                    // See comment in the switch above.
+                    return true
+                case .commandLineOptions, .debugging, .toolset, .defaultSwiftTestingSearchPath, .defaultWindowsSettings, .swiftSDK, nil:
+                    // Already included or excluded appropriately by the switch above.
+                    return false
+                }
+            }.map(\.value)
+            if settingName == "OTHER_LDFLAGS" {
+                rawFlags = rawFlags.asSwiftcLinkerFlags()
+                rawDestinationOnlyFlags = rawDestinationOnlyFlags.asSwiftcLinkerFlags()
+            }
+            settings[settingName] = (verbosityFlags + ["$(inherited)"] + rawFlags.map { $0.shellEscaped() }).joined(separator: " ")
+            settings["\(settingName)[__destination_platform=YES]"] = (["$(inherited)"] + rawDestinationOnlyFlags.map { $0.shellEscaped() }).joined(separator: " ")
+        }
+        settings["OTHER_LDFLAGS"] = (settings["OTHER_LDFLAGS"] ?? "$(inherited)") + " $(OTHER_LDFLAGS_SWIFTC_LINKER_DRIVER_$(LINKER_DRIVER))"
+
+        return settings
     }
 
     private static func constructDebuggingSettingsOverrides(from parameters: BuildParameters.Debugging) -> [String: String] {
