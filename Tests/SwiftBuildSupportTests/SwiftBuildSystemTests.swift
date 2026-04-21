@@ -75,10 +75,11 @@ func withInstantiatedSwiftBuildSystem(
                 observabilityScope: observabilitySystem.topScope,
                 pluginConfiguration: PluginConfiguration(
                     scriptRunner: pluginScriptRunner,
-                    workDirectory: AbsolutePath("/tmp/plugin-script-working-dir"),
+                    workDirectory: tmpDir.appending("plugin-script-working-dir"),
                     disableSandbox: true,
                 ),
                 delegate: nil,
+                scratchDirectory: tmpDir.appending("scratchDirectory"),
             )
 
             try await SwiftBuildSupport.withService(

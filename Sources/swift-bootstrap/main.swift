@@ -437,6 +437,7 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
                         disableSandbox: false
                     ),
                     delegate: nil,
+                    scratchDirectory: scratchDirectory,
                 )
             }
         }
