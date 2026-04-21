@@ -1951,6 +1951,11 @@ struct TestCommandTests {
                 )
 
                 #expect(
+                    stdout.contains("TestDebuggingTests (XCTest)") && stdout.contains("TestDebuggingTests (Swift Testing)"),
+                    "Expected labeled LLDB targets, got stdout: \(stdout), stderr: \(stderr)",
+                )
+
+                #expect(
                     getNumberOfMatches(of: "breakpoint set", in: stdout) == 2,
                     "Expected combined failure breakpoint setup, got stdout: \(stdout), stderr: \(stderr)",
                 )
@@ -1958,6 +1963,98 @@ struct TestCommandTests {
                 #expect(
                     stdout.contains("command script import"),
                     "Expected Python script import for multi-target switching, got stdout: \(stdout), stderr: \(stderr)",
+                )
+            }
+        }
+
+        @Test(
+            arguments: SupportedBuildSystemOnAllPlatforms
+        )
+        func debuggerFlagWithMultipleTestProducts(buildSystem: BuildSystemProvider.Kind) async throws {
+            let configuration = BuildConfiguration.debug
+            try await fixture(name: "Miscellaneous/TestDebuggingMultiProduct") { fixturePath in
+                let (stdout, stderr) = try await execute(
+                    ["--debugger", "--verbose"],
+                    packagePath: fixturePath,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                )
+
+                #expect(
+                    !stderr.contains("error:"),
+                    "Expected no errors, got stdout: \(stdout), stderr: \(stderr)",
+                )
+
+                let targetCreateCount = getNumberOfMatches(of: "target create", in: stdout)
+                // Native build system produces a single umbrella product (2 targets: xctest + swift-testing).
+                // Swiftbuild produces one product per test target (4 targets: 2 products x 2 libraries).
+                let expectedMinTargets = buildSystem == .native ? 2 : 4
+                #expect(
+                    targetCreateCount >= expectedMinTargets,
+                    "Expected at least \(expectedMinTargets) LLDB targets, got \(targetCreateCount). stdout: \(stdout), stderr: \(stderr)",
+                )
+
+                #expect(
+                    stdout.contains("command script import"),
+                    "Expected Python script import for multi-target switching, got stdout: \(stdout), stderr: \(stderr)",
+                )
+            }
+        }
+
+        @Test(
+            arguments: SupportedBuildSystemOnAllPlatforms
+        )
+        func debuggerFlagWithMultipleTestProductsXCTestOnly(buildSystem: BuildSystemProvider.Kind) async throws {
+            let configuration = BuildConfiguration.debug
+            try await fixture(name: "Miscellaneous/TestDebuggingMultiProduct") { fixturePath in
+                let (stdout, stderr) = try await execute(
+                    ["--debugger", "--disable-swift-testing", "--verbose"],
+                    packagePath: fixturePath,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                )
+
+                #expect(
+                    !stderr.contains("error:"),
+                    "Expected no errors, got stdout: \(stdout), stderr: \(stderr)",
+                )
+
+                let targetCreateCount = getNumberOfMatches(of: "target create", in: stdout)
+                // Native: 1 umbrella product → 1 xctest target.
+                // Swiftbuild: 2 products → 2 xctest targets.
+                let expectedMinTargets = buildSystem == .native ? 1 : 2
+                #expect(
+                    targetCreateCount >= expectedMinTargets,
+                    "Expected at least \(expectedMinTargets) LLDB targets, got \(targetCreateCount). stdout: \(stdout), stderr: \(stderr)",
+                )
+            }
+        }
+
+        @Test(
+            arguments: SupportedBuildSystemOnAllPlatforms
+        )
+        func debuggerFlagWithMultipleTestProductsSwiftTestingOnly(buildSystem: BuildSystemProvider.Kind) async throws {
+            let configuration = BuildConfiguration.debug
+            try await fixture(name: "Miscellaneous/TestDebuggingMultiProduct") { fixturePath in
+                let (stdout, stderr) = try await execute(
+                    ["--debugger", "--disable-xctest", "--verbose"],
+                    packagePath: fixturePath,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                )
+
+                #expect(
+                    !stderr.contains("error:"),
+                    "Expected no errors, got stdout: \(stdout), stderr: \(stderr)",
+                )
+
+                let targetCreateCount = getNumberOfMatches(of: "target create", in: stdout)
+                // Native: 1 umbrella product → 1 swift-testing target.
+                // Swiftbuild: 2 products → 2 swift-testing targets.
+                let expectedMinTargets = buildSystem == .native ? 1 : 2
+                #expect(
+                    targetCreateCount >= expectedMinTargets,
+                    "Expected at least \(expectedMinTargets) LLDB targets, got \(targetCreateCount). stdout: \(stdout), stderr: \(stderr)",
                 )
             }
         }
