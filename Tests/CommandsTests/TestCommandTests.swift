@@ -2013,38 +2013,46 @@ struct TestCommandTests {
         )
         func debuggerFlagWithMultipleTestProducts(buildSystem: BuildSystemProvider.Kind) async throws {
             let configuration = BuildConfiguration.debug
-            try await fixture(name: "Miscellaneous/TestDebuggingMultiProduct") { fixturePath in
-                let (stdout, stderr) = try await execute(
-                    ["--debugger", "--verbose"],
-                    packagePath: fixturePath,
-                    configuration: configuration,
-                    buildSystem: buildSystem,
-                )
-
-                withKnownIssue {
-                    #expect(
-                        !stderr.contains("error:"),
-                        "Expected no errors, got stdout: \(stdout), stderr: \(stderr)",
+            try await withKnownIssue {
+                try await fixture(name: "Miscellaneous/TestDebuggingMultiProduct") { fixturePath in
+                    let (stdout, stderr) = try await execute(
+                        ["--debugger", "--verbose"],
+                        packagePath: fixturePath,
+                        configuration: configuration,
+                        buildSystem: buildSystem,
                     )
-                } when: {
-                    // Smoke-test CI's lldb lacks Python bindings, so `command script import`
-                    // and `script print(...)` emit Python errors to stderr.
-                    CiEnvironment.runningInSmokeTestPipeline
+
+                    withKnownIssue {
+                        #expect(
+                            !stderr.contains("error:"),
+                            "Expected no errors, got stdout: \(stdout), stderr: \(stderr)",
+                        )
+                    } when: {
+                        // Smoke-test CI's lldb lacks Python bindings, so `command script import`
+                        // and `script print(...)` emit Python errors to stderr.
+                        CiEnvironment.runningInSmokeTestPipeline
+                    }
+
+                    let targetCreateCount = getNumberOfMatches(of: "target create", in: stdout)
+                    // Native build system produces a single umbrella product (2 targets: xctest + swift-testing).
+                    // Swiftbuild produces one product per test target (4 targets: 2 products x 2 libraries).
+                    let expectedMinTargets = buildSystem == .native ? 2 : 4
+                    #expect(
+                        targetCreateCount >= expectedMinTargets,
+                        "Expected at least \(expectedMinTargets) LLDB targets, got \(targetCreateCount). stdout: \(stdout), stderr: \(stderr)",
+                    )
+
+                    #expect(
+                        stdout.contains("command script import"),
+                        "Expected Python script import for multi-target switching, got stdout: \(stdout), stderr: \(stderr)",
+                    )
                 }
-
-                let targetCreateCount = getNumberOfMatches(of: "target create", in: stdout)
-                // Native build system produces a single umbrella product (2 targets: xctest + swift-testing).
-                // Swiftbuild produces one product per test target (4 targets: 2 products x 2 libraries).
-                let expectedMinTargets = buildSystem == .native ? 2 : 4
-                #expect(
-                    targetCreateCount >= expectedMinTargets,
-                    "Expected at least \(expectedMinTargets) LLDB targets, got \(targetCreateCount). stdout: \(stdout), stderr: \(stderr)",
-                )
-
-                #expect(
-                    stdout.contains("command script import"),
-                    "Expected Python script import for multi-target switching, got stdout: \(stdout), stderr: \(stderr)",
-                )
+            } when: {
+                // swift-build on Windows fails to emit the per-target *.LinkFileList
+                // for the second test runner in a multi-test-target package, so the
+                // build itself fails before lldb is ever invoked. Same root cause as
+                // noteTestFailures with TestMixedFailuresAcrossTargets.
+                buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows
             }
         }
 
@@ -2053,34 +2061,42 @@ struct TestCommandTests {
         )
         func debuggerFlagWithMultipleTestProductsXCTestOnly(buildSystem: BuildSystemProvider.Kind) async throws {
             let configuration = BuildConfiguration.debug
-            try await fixture(name: "Miscellaneous/TestDebuggingMultiProduct") { fixturePath in
-                let (stdout, stderr) = try await execute(
-                    ["--debugger", "--disable-swift-testing", "--verbose"],
-                    packagePath: fixturePath,
-                    configuration: configuration,
-                    buildSystem: buildSystem,
-                )
-
-                withKnownIssue {
-                    #expect(
-                        !stderr.contains("error:"),
-                        "Expected no errors, got stdout: \(stdout), stderr: \(stderr)",
+            try await withKnownIssue {
+                try await fixture(name: "Miscellaneous/TestDebuggingMultiProduct") { fixturePath in
+                    let (stdout, stderr) = try await execute(
+                        ["--debugger", "--disable-swift-testing", "--verbose"],
+                        packagePath: fixturePath,
+                        configuration: configuration,
+                        buildSystem: buildSystem,
                     )
-                } when: {
-                    // Only the multi-product swiftbuild path emits the Python target-switcher
-                    // script; the native single-umbrella path doesn't, so it has no Python
-                    // errors to suppress on smoke-test CI (whose lldb lacks Python bindings).
-                    CiEnvironment.runningInSmokeTestPipeline && buildSystem == .swiftbuild
-                }
 
-                let targetCreateCount = getNumberOfMatches(of: "target create", in: stdout)
-                // Native: 1 umbrella product → 1 xctest target.
-                // Swiftbuild: 2 products → 2 xctest targets.
-                let expectedMinTargets = buildSystem == .native ? 1 : 2
-                #expect(
-                    targetCreateCount >= expectedMinTargets,
-                    "Expected at least \(expectedMinTargets) LLDB targets, got \(targetCreateCount). stdout: \(stdout), stderr: \(stderr)",
-                )
+                    withKnownIssue {
+                        #expect(
+                            !stderr.contains("error:"),
+                            "Expected no errors, got stdout: \(stdout), stderr: \(stderr)",
+                        )
+                    } when: {
+                        // Only the multi-product swiftbuild path emits the Python target-switcher
+                        // script; the native single-umbrella path doesn't, so it has no Python
+                        // errors to suppress on smoke-test CI (whose lldb lacks Python bindings).
+                        CiEnvironment.runningInSmokeTestPipeline && buildSystem == .swiftbuild
+                    }
+
+                    let targetCreateCount = getNumberOfMatches(of: "target create", in: stdout)
+                    // Native: 1 umbrella product → 1 xctest target.
+                    // Swiftbuild: 2 products → 2 xctest targets.
+                    let expectedMinTargets = buildSystem == .native ? 1 : 2
+                    #expect(
+                        targetCreateCount >= expectedMinTargets,
+                        "Expected at least \(expectedMinTargets) LLDB targets, got \(targetCreateCount). stdout: \(stdout), stderr: \(stderr)",
+                    )
+                }
+            } when: {
+                // swift-build on Windows fails to emit the per-target *.LinkFileList
+                // for the second test runner in a multi-test-target package, so the
+                // build itself fails before lldb is ever invoked. Same root cause as
+                // noteTestFailures with TestMixedFailuresAcrossTargets.
+                buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows
             }
         }
 
@@ -2089,34 +2105,42 @@ struct TestCommandTests {
         )
         func debuggerFlagWithMultipleTestProductsSwiftTestingOnly(buildSystem: BuildSystemProvider.Kind) async throws {
             let configuration = BuildConfiguration.debug
-            try await fixture(name: "Miscellaneous/TestDebuggingMultiProduct") { fixturePath in
-                let (stdout, stderr) = try await execute(
-                    ["--debugger", "--disable-xctest", "--verbose"],
-                    packagePath: fixturePath,
-                    configuration: configuration,
-                    buildSystem: buildSystem,
-                )
-
-                withKnownIssue {
-                    #expect(
-                        !stderr.contains("error:"),
-                        "Expected no errors, got stdout: \(stdout), stderr: \(stderr)",
+            try await withKnownIssue {
+                try await fixture(name: "Miscellaneous/TestDebuggingMultiProduct") { fixturePath in
+                    let (stdout, stderr) = try await execute(
+                        ["--debugger", "--disable-xctest", "--verbose"],
+                        packagePath: fixturePath,
+                        configuration: configuration,
+                        buildSystem: buildSystem,
                     )
-                } when: {
-                    // Only the multi-product swiftbuild path emits the Python target-switcher
-                    // script; the native single-umbrella path doesn't, so it has no Python
-                    // errors to suppress on smoke-test CI (whose lldb lacks Python bindings).
-                    CiEnvironment.runningInSmokeTestPipeline && buildSystem == .swiftbuild
-                }
 
-                let targetCreateCount = getNumberOfMatches(of: "target create", in: stdout)
-                // Native: 1 umbrella product → 1 swift-testing target.
-                // Swiftbuild: 2 products → 2 swift-testing targets.
-                let expectedMinTargets = buildSystem == .native ? 1 : 2
-                #expect(
-                    targetCreateCount >= expectedMinTargets,
-                    "Expected at least \(expectedMinTargets) LLDB targets, got \(targetCreateCount). stdout: \(stdout), stderr: \(stderr)",
-                )
+                    withKnownIssue {
+                        #expect(
+                            !stderr.contains("error:"),
+                            "Expected no errors, got stdout: \(stdout), stderr: \(stderr)",
+                        )
+                    } when: {
+                        // Only the multi-product swiftbuild path emits the Python target-switcher
+                        // script; the native single-umbrella path doesn't, so it has no Python
+                        // errors to suppress on smoke-test CI (whose lldb lacks Python bindings).
+                        CiEnvironment.runningInSmokeTestPipeline && buildSystem == .swiftbuild
+                    }
+
+                    let targetCreateCount = getNumberOfMatches(of: "target create", in: stdout)
+                    // Native: 1 umbrella product → 1 swift-testing target.
+                    // Swiftbuild: 2 products → 2 swift-testing targets.
+                    let expectedMinTargets = buildSystem == .native ? 1 : 2
+                    #expect(
+                        targetCreateCount >= expectedMinTargets,
+                        "Expected at least \(expectedMinTargets) LLDB targets, got \(targetCreateCount). stdout: \(stdout), stderr: \(stderr)",
+                    )
+                }
+            } when: {
+                // swift-build on Windows fails to emit the per-target *.LinkFileList
+                // for the second test runner in a multi-test-target package, so the
+                // build itself fails before lldb is ever invoked. Same root cause as
+                // noteTestFailures with TestMixedFailuresAcrossTargets.
+                buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows
             }
         }
 
