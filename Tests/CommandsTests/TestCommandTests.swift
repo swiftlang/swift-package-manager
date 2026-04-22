@@ -1982,9 +1982,10 @@ struct TestCommandTests {
                         "Expected no errors, got stdout: \(stdout), stderr: \(stderr)",
                     )
                 } when: {
-                    // Smoke-test CI's lldb lacks Python bindings, so `command script import`
-                    // and `script print(...)` emit Python errors to stderr.
-                    CiEnvironment.runningInSmokeTestPipeline
+                    // Only the multi-product swiftbuild path emits the Python target-switcher
+                    // script; the native single-umbrella path doesn't, so it has no Python
+                    // errors to suppress on smoke-test CI (whose lldb lacks Python bindings).
+                    CiEnvironment.runningInSmokeTestPipeline && buildSystem == .swiftbuild
                 }
 
                 let targetCreateCount = getNumberOfMatches(of: "target create", in: stdout)
@@ -2017,9 +2018,10 @@ struct TestCommandTests {
                         "Expected no errors, got stdout: \(stdout), stderr: \(stderr)",
                     )
                 } when: {
-                    // Smoke-test CI's lldb lacks Python bindings, so `command script import`
-                    // and `script print(...)` emit Python errors to stderr.
-                    CiEnvironment.runningInSmokeTestPipeline
+                    // Only the multi-product swiftbuild path emits the Python target-switcher
+                    // script; the native single-umbrella path doesn't, so it has no Python
+                    // errors to suppress on smoke-test CI (whose lldb lacks Python bindings).
+                    CiEnvironment.runningInSmokeTestPipeline && buildSystem == .swiftbuild
                 }
 
                 let targetCreateCount = getNumberOfMatches(of: "target create", in: stdout)
