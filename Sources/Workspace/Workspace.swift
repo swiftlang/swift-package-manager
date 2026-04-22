@@ -820,6 +820,8 @@ extension Workspace {
             defaultRequirement = checkoutState.requirement
         case .registryDownload(let version), .custom(let version, _):
             defaultRequirement = .versionSet(.exact(version))
+        case .sourceArchiveDownload(let state):
+            defaultRequirement = .versionSet(.exact(state.version))
         case .fileSystem:
             throw StringError("local dependency '\(dependency.packageRef.identity)' can't be resolved")
         case .edited:
@@ -1408,7 +1410,15 @@ extension Workspace {
         case .localSourceControl:
             break // NOOP
         case .remoteSourceControl:
-            try await self.removeRepository(dependency: dependencyToRemove)
+            switch dependencyToRemove.state {
+            case .sourceArchiveDownload:
+                let path = self.path(to: dependencyToRemove)
+                if fileSystem.exists(path) {
+                    try fileSystem.removeFileTree(path)
+                }
+            default:
+                try await self.removeRepository(dependency: dependencyToRemove)
+            }
         case .registry:
             try self.removeRegistryArchive(for: dependencyToRemove)
         }
@@ -1522,8 +1532,10 @@ extension Workspace {
                 case .unversioned:
                     result.append("unversioned")
                 }
-            case .registryDownload(let version)?, .custom(let version, _):
+            case .registryDownload(let version)?, .custom(let version, _)?:
                 result.append("resolved to '\(version)'")
+            case .sourceArchiveDownload(let state)?:
+                result.append("resolved to '\(state.version)'")
             case .edited?:
                 result.append("edited")
             case .fileSystem?:
@@ -1566,6 +1578,14 @@ extension Workspace.Location {
     /// Returns the path to the dependency's edit directory.
     func editSubdirectory(for dependency: Workspace.ManagedDependency) -> AbsolutePath {
         self.editsDirectory.appending(dependency.subpath)
+    }
+
+    func sourceArchiveSubdirectory(for dependency: Workspace.ManagedDependency) -> AbsolutePath {
+        self.sourceArchiveDirectory.appending(dependency.subpath)
+    }
+
+    func shallowCloneSubdirectory(for dependency: Workspace.ManagedDependency) -> AbsolutePath {
+        self.shallowCloneDirectory.appending(dependency.subpath)
     }
 }
 
