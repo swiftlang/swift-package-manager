@@ -127,6 +127,7 @@ enum Serialization {
         }
         enum SourceControlRequirement: Codable {
             case exact(Version)
+            case exactLiteral(Version)
             case range(lowerBound: Version, upperBound: Version)
             case revision(String)
             case branch(String)
@@ -134,6 +135,7 @@ enum Serialization {
 
         enum RegistryRequirement: Codable {
             case exact(Version)
+            case exactLiteral(Version)
             case range(lowerBound: Version, upperBound: Version)
         }
 

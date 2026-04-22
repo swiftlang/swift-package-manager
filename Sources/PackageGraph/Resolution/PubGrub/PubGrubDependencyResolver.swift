@@ -80,11 +80,16 @@ public struct PubGrubDependencyResolver {
             }
         }
 
-        func decide(_ node: DependencyResolutionNode, at version: Version) {
-            let term = Term(node, .exact(version))
+        func decide(
+            _ node: DependencyResolutionNode,
+            at version: Version,
+            requirement: VersionSetSpecifier? = nil
+        ) {
+            let decisionRequirement = requirement ?? .exact(version)
+            let term = Term(node, decisionRequirement)
             self.lock.withLock {
                 assert(term.isValidDecision(for: self.solution))
-                self.solution.decide(node, at: version)
+                self.solution.decide(node, at: version, requirement: decisionRequirement)
             }
         }
 
@@ -249,6 +254,8 @@ public struct PubGrubDependencyResolver {
             let boundVersion: BoundVersion
             switch assignment.term.requirement {
             case .exact(let version):
+                boundVersion = .version(version)
+            case .exactLiteral(let version):
                 boundVersion = .version(version)
             case .range, .any, .empty, .ranges:
                 throw InternalError("unexpected requirement value for assignment \(assignment.term)")
@@ -764,7 +771,13 @@ public struct PubGrubDependencyResolver {
         // Decide this version if there was no conflict with its dependencies.
         if !haveConflict {
             self.delegate?.didResolve(term: pkgTerm, version: version, duration: start.distance(to: .now()))
-            state.decide(pkgTerm.node, at: version)
+            let decisionRequirement: VersionSetSpecifier = switch pkgTerm.requirement {
+            case .exactLiteral:
+                .exactLiteral(version)
+            case .exact, .range, .ranges, .any, .empty:
+                .exact(version)
+            }
+            state.decide(pkgTerm.node, at: version, requirement: decisionRequirement)
         }
 
         return pkgTerm.node

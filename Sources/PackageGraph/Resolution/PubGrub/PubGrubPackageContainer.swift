@@ -84,10 +84,14 @@ final class PubGrubPackageContainer {
         if let pinnedVersion = self.pinnedVersion {
             if versionSet.contains(pinnedVersion) {
                 if !self.underlying.shouldInvalidatePinnedVersions {
-                    versionSet = .exact(pinnedVersion)
+                    versionSet = .exactLiteral(pinnedVersion)
                 } else {
                     // Make sure the pinned version is still available
-                    let version = try await self.underlying.versionsDescending().first { pinnedVersion == $0 }
+                    let version = try await self.underlying.versionsDescending().first {
+                        pinnedVersion.buildMetadataIdentifiers.isEmpty
+                            ? pinnedVersion == $0
+                            : pinnedVersion.description == $0.description
+                    }
                     if version != nil {
                         return version
                     }

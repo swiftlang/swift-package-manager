@@ -62,9 +62,18 @@ public struct PartialSolution {
 
     /// Create a new decision assignment and add it to the partial solution's
     /// list of known assignments.
-    public mutating func decide(_ node: DependencyResolutionNode, at version: Version) {
+    public mutating func decide(
+        _ node: DependencyResolutionNode,
+        at version: Version,
+        requirement: VersionSetSpecifier? = nil
+    ) {
         self.decisions[node] = version
-        let term = Term(node, .exact(version))
+        let decisionRequirement = requirement ?? .exact(version)
+        precondition(
+            decisionRequirement.isExact,
+            "Cannot create a decision assignment with a non-exact version selection: \(decisionRequirement)"
+        )
+        let term = Term(node, decisionRequirement)
         let decision = Assignment.decision(term, decisionLevel: self.decisionLevel)
         self.assignments.append(decision)
         self.register(decision)

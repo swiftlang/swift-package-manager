@@ -136,6 +136,8 @@ extension Serialization.PackageDependency.SourceControlRequirement {
             self = .range(lowerBound: .init(range.lowerBound), upperBound: .init(range.upperBound))
         case .exact(let version):
             self = .exact(.init(version))
+        case .exactLiteral(let version):
+            self = .exactLiteral(.init(version))
         case .revision(let revision):
             self = .revision(revision)
         case .branch(let branch):
@@ -149,6 +151,8 @@ extension Serialization.PackageDependency.RegistryRequirement {
         switch requirement {
         case .exact(let version):
             self = .exact(.init(version))
+        case .exactLiteral(let version):
+            self = .exactLiteral(.init(version))
         case .range(let range):
             self = .range(lowerBound: .init(range.lowerBound), upperBound: .init(range.upperBound))
         }
