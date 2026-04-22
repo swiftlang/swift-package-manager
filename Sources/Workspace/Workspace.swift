@@ -133,6 +133,9 @@ public class Workspace {
         self.customPackageContainerProvider ?? self
     }
 
+    /// The repository provider for direct git operations (shallow clones, editing).
+    let repositoryProvider: RepositoryProvider
+
     /// Source control repository manager used for interacting with source control based dependencies
     let repositoryManager: RepositoryManager
 
@@ -150,6 +153,19 @@ public class Workspace {
 
     /// The package fingerprints storage
     let fingerprints: PackageFingerprintStorage?
+
+    /// The authorization provider for authenticated HTTP access.
+    let authorizationProvider: (any AuthorizationProvider)?
+
+    /// Shared HTTP client for source archive operations (resolution and download).
+    let sourceArchiveHTTPClient: HTTPClient
+
+    /// Archiver for source archive extraction. Defaults to ``ZipArchiver``.
+    let sourceArchiveArchiver: (any Archiver)?
+
+    /// Process-lifetime cache for resolved tags, shared across all
+    /// SourceArchivePackageContainer instances to avoid redundant git ls-remote calls.
+    let sourceArchiveTagMemoizer = ThrowingAsyncKeyValueMemoizer<String, [ResolvedTag]>()
 
     /// The workspace configuration settings
     let configuration: WorkspaceConfiguration
@@ -383,6 +399,8 @@ public class Workspace {
         customIdentityResolver: IdentityResolver? = .none,
         customDependencyMapper: DependencyMapper? = .none,
         customChecksumAlgorithm: HashAlgorithm? = .none,
+        customSourceArchiveHTTPClient: HTTPClient? = .none,
+        customSourceArchiveArchiver: (any Archiver)? = .none,
         // delegate
         delegate: Delegate? = .none
     ) throws -> Workspace {
@@ -412,6 +430,8 @@ public class Workspace {
             customIdentityResolver: customIdentityResolver,
             customDependencyMapper: customDependencyMapper,
             customChecksumAlgorithm: customChecksumAlgorithm,
+            customSourceArchiveHTTPClient: customSourceArchiveHTTPClient,
+            customSourceArchiveArchiver: customSourceArchiveArchiver,
             delegate: delegate
         )
     }
@@ -444,6 +464,8 @@ public class Workspace {
         customIdentityResolver: IdentityResolver?,
         customDependencyMapper: DependencyMapper?,
         customChecksumAlgorithm: HashAlgorithm?,
+        customSourceArchiveHTTPClient: HTTPClient? = nil,
+        customSourceArchiveArchiver: (any Archiver)? = nil,
         // delegate
         delegate: Delegate?
     ) throws {
@@ -632,6 +654,7 @@ public class Workspace {
             manifestLoader: manifestLoader,
             currentToolsVersion: currentToolsVersion,
             customPackageContainerProvider: customPackageContainerProvider,
+            repositoryProvider: repositoryProvider,
             repositoryManager: repositoryManager,
             registryClient: registryClient,
             registryDownloadsManager: registryDownloadsManager,
@@ -639,6 +662,9 @@ public class Workspace {
             identityResolver: identityResolver,
             dependencyMapper: dependencyMapper,
             fingerprints: fingerprints,
+            authorizationProvider: authorizationProvider,
+            customSourceArchiveHTTPClient: customSourceArchiveHTTPClient,
+            customSourceArchiveArchiver: customSourceArchiveArchiver,
             resolvedPackagesStore: resolvedPackagesStore,
             prebuiltsManager: prebuiltsManager,
             state: state
@@ -655,6 +681,7 @@ public class Workspace {
         manifestLoader: ManifestLoaderProtocol,
         currentToolsVersion: ToolsVersion,
         customPackageContainerProvider: PackageContainerProvider?,
+        repositoryProvider: RepositoryProvider,
         repositoryManager: RepositoryManager,
         registryClient: RegistryClient,
         registryDownloadsManager: RegistryDownloadsManager,
@@ -662,6 +689,9 @@ public class Workspace {
         identityResolver: IdentityResolver,
         dependencyMapper: DependencyMapper,
         fingerprints: PackageFingerprintStorage?,
+        authorizationProvider: (any AuthorizationProvider)?,
+        customSourceArchiveHTTPClient: HTTPClient? = nil,
+        customSourceArchiveArchiver: (any Archiver)? = nil,
         resolvedPackagesStore: LoadableResult<ResolvedPackagesStore>,
         prebuiltsManager: PrebuiltsManager?,
         state: WorkspaceState
@@ -677,6 +707,7 @@ public class Workspace {
         self.currentToolsVersion = currentToolsVersion
 
         self.customPackageContainerProvider = customPackageContainerProvider
+        self.repositoryProvider = repositoryProvider
         self.repositoryManager = repositoryManager
         self.registryClient = registryClient
         self.registryDownloadsManager = registryDownloadsManager
@@ -685,6 +716,9 @@ public class Workspace {
         self.identityResolver = identityResolver
         self.dependencyMapper = dependencyMapper
         self.fingerprints = fingerprints
+        self.authorizationProvider = authorizationProvider
+        self.sourceArchiveHTTPClient = customSourceArchiveHTTPClient ?? HTTPClient()
+        self.sourceArchiveArchiver = customSourceArchiveArchiver
 
         self.resolvedPackagesStore = resolvedPackagesStore
         self.prebuiltsManager = prebuiltsManager
@@ -820,6 +854,8 @@ extension Workspace {
             defaultRequirement = checkoutState.requirement
         case .registryDownload(let version), .custom(let version, _):
             defaultRequirement = .versionSet(.exact(version))
+        case .sourceArchiveDownload(let state):
+            defaultRequirement = .versionSet(.exact(state.version))
         case .fileSystem:
             throw StringError("local dependency '\(dependency.packageRef.identity)' can't be resolved")
         case .edited:
@@ -1408,7 +1444,16 @@ extension Workspace {
         case .localSourceControl:
             break // NOOP
         case .remoteSourceControl:
-            try await self.removeRepository(dependency: dependencyToRemove)
+            switch dependencyToRemove.state {
+            case .sourceArchiveDownload(let state):
+                if state.hasSubmodules {
+                    try self.removeShallowClone(for: dependencyToRemove)
+                } else {
+                    try self.removeSourceArchive(for: dependencyToRemove)
+                }
+            default:
+                try await self.removeRepository(dependency: dependencyToRemove)
+            }
         case .registry:
             try self.removeRegistryArchive(for: dependencyToRemove)
         }
@@ -1428,7 +1473,7 @@ extension Workspace {
     public func updateConfiguration(with traitConfiguration: TraitConfiguration) -> Workspace {
         var newConfig = self.configuration
         newConfig.traitConfiguration = traitConfiguration
-        
+
         return Workspace(
             fileSystem: self.fileSystem,
             configuration: newConfig,
@@ -1439,6 +1484,7 @@ extension Workspace {
             manifestLoader: self.manifestLoader,
             currentToolsVersion: self.currentToolsVersion,
             customPackageContainerProvider: self.customPackageContainerProvider,
+            repositoryProvider: self.repositoryProvider,
             repositoryManager: self.repositoryManager,
             registryClient: self.registryClient,
             registryDownloadsManager: self.registryDownloadsManager,
@@ -1446,6 +1492,9 @@ extension Workspace {
             identityResolver: self.identityResolver,
             dependencyMapper: self.dependencyMapper,
             fingerprints: self.fingerprints,
+            authorizationProvider: self.authorizationProvider,
+            customSourceArchiveHTTPClient: self.sourceArchiveHTTPClient,
+            customSourceArchiveArchiver: self.sourceArchiveArchiver,
             resolvedPackagesStore: self.resolvedPackagesStore,
             prebuiltsManager: prebuiltsManager,
             state: self.state
@@ -1522,8 +1571,10 @@ extension Workspace {
                 case .unversioned:
                     result.append("unversioned")
                 }
-            case .registryDownload(let version)?, .custom(let version, _):
+            case .registryDownload(let version)?, .custom(let version, _)?:
                 result.append("resolved to '\(version)'")
+            case .sourceArchiveDownload(let state)?:
+                result.append("resolved to '\(state.version)'")
             case .edited?:
                 result.append("edited")
             case .fileSystem?:
@@ -1566,6 +1617,16 @@ extension Workspace.Location {
     /// Returns the path to the dependency's edit directory.
     func editSubdirectory(for dependency: Workspace.ManagedDependency) -> AbsolutePath {
         self.editsDirectory.appending(dependency.subpath)
+    }
+
+    /// Returns the path to the dependency's source archive directory.
+    func sourceArchiveSubdirectory(for dependency: Workspace.ManagedDependency) -> AbsolutePath {
+        self.sourceArchiveDirectory.appending(dependency.subpath)
+    }
+
+    /// Returns the path to the dependency's shallow clone directory.
+    func shallowCloneSubdirectory(for dependency: Workspace.ManagedDependency) -> AbsolutePath {
+        self.shallowCloneDirectory.appending(dependency.subpath)
     }
 }
 

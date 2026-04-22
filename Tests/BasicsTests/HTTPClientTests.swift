@@ -218,7 +218,6 @@ struct HTTPClientTests {
 
         do {
             let authorization = UUID().uuidString
-
             let httpClient = HTTPClient { request, _ in
                 #expect(request.headers.contains("Authorization"), "expecting Authorization")
                 #expect(request.headers.get("Authorization").first == authorization)

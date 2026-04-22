@@ -592,6 +592,8 @@ public final class SwiftCommandState {
                 usePrebuilts: self.options.caching.usePrebuilts,
                 prebuiltsDownloadURL: options.caching.prebuiltsDownloadURL,
                 prebuiltsRootCertPath: options.caching.prebuiltsRootCertPath,
+                useSourceArchives: self.options.resolver.useSourceArchiveDownloads
+                    || ProcessInfo.processInfo.environment["SWIFTPM_USE_SOURCE_ARCHIVES"] == "1",
                 pruneDependencies: self.options.resolver.pruneDependencies,
                 traitConfiguration: self.traitConfiguration
             ),
@@ -653,6 +655,12 @@ public final class SwiftCommandState {
         repositoryManager.purgeCache(observabilityScope: observabilityScope)
         registryDownloadsManager.purgeCache(observabilityScope: observabilityScope)
         await manifestLoader.purgeCache(observabilityScope: observabilityScope)
+
+        let sourceArchivesCachePath = self.sharedCacheDirectory.appending(component: Workspace.Location.sourceArchivesCacheRoot)
+        if self.fileSystem.exists(sourceArchivesCachePath) {
+            try? self.fileSystem.removeFileTree(sourceArchivesCachePath)
+            observabilityScope.emit(info: "purged source archives cache at \(sourceArchivesCachePath)")
+        }
     }
 
     public func getRootPackageInformation(_ enableAllTraits: Bool = false) async throws -> (dependencies: [PackageIdentity: [PackageIdentity]], targets: [PackageIdentity: [String]]) {

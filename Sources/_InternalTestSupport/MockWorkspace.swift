@@ -105,6 +105,8 @@ public final class MockWorkspace {
     public let traitConfiguration: TraitConfiguration
     public var enabledTraitsMap: EnabledTraitsMap
     public let pruneDependencies: Bool
+    let useSourceArchives: Bool
+    let customSourceArchiveHTTPClient: HTTPClient?
 
     public init(
         sandbox: AbsolutePath,
@@ -127,7 +129,9 @@ public final class MockWorkspace {
         customHostTriple: Triple = hostTriple,
         traitConfiguration: TraitConfiguration = .default,
         pruneDependencies: Bool = false,
-        enabledTraitsMap: EnabledTraitsMap = .init()
+        enabledTraitsMap: EnabledTraitsMap = .init(),
+        useSourceArchives: Bool = false,
+        customSourceArchiveHTTPClient: HTTPClient? = nil
     ) async throws {
         try fileSystem.createMockToolchain()
 
@@ -167,6 +171,8 @@ public final class MockWorkspace {
         self.traitConfiguration = traitConfiguration
         self.pruneDependencies = pruneDependencies
         self.enabledTraitsMap = enabledTraitsMap
+        self.useSourceArchives = useSourceArchives
+        self.customSourceArchiveHTTPClient = customSourceArchiveHTTPClient
         try await self.create()
     }
 
@@ -411,6 +417,7 @@ public final class MockWorkspace {
                 usePrebuilts: self.customPrebuiltsManager != nil,
                 prebuiltsDownloadURL: nil,
                 prebuiltsRootCertPath: nil,
+                useSourceArchives: self.useSourceArchives,
                 pruneDependencies: self.pruneDependencies,
                 traitConfiguration: self.traitConfiguration
             ),
@@ -426,6 +433,7 @@ public final class MockWorkspace {
             customPrebuiltsManager: self.customPrebuiltsManager,
             customIdentityResolver: self.identityResolver,
             customChecksumAlgorithm: self.checksumAlgorithm,
+            customSourceArchiveHTTPClient: self.customSourceArchiveHTTPClient,
             delegate: self.delegate
         )
 
@@ -781,6 +789,7 @@ public final class MockWorkspace {
 
         case checkout(CheckoutState)
         case registryDownload(TSCUtility.Version)
+        case sourceArchiveDownload(TSCUtility.Version)
         case edited(AbsolutePath?)
         case local
         case custom(TSCUtility.Version, AbsolutePath)
@@ -842,6 +851,11 @@ public final class MockWorkspace {
                     return XCTFail("invalid dependency state \(dependency.state)", file: file, line: line)
                 }
                 XCTAssertEqual(dependencyVersion, downloadVersion, file: file, line: line)
+            case .sourceArchiveDownload(let downloadVersion):
+                guard case .sourceArchiveDownload(let state) = dependency.state else {
+                    return XCTFail("invalid dependency state \(dependency.state)", file: file, line: line)
+                }
+                XCTAssertEqual(state.version, downloadVersion, file: file, line: line)
             case .edited(let path):
                 guard case .edited(_, unmanagedPath: path) = dependency.state else {
                     XCTFail("Expected edited dependency; found '\(dependency.state)' instead", file: file, line: line)
@@ -1030,6 +1044,11 @@ public final class MockWorkspace {
                     XCTFail("state dont match \(checkoutState) \(pin.state)", file: file, line: line)
                 }
             case .registryDownload(let downloadVersion):
+                guard case .version(let pinVersion, _) = pin.state else {
+                    return XCTFail("invalid pin state \(pin.state)", file: file, line: line)
+                }
+                XCTAssertEqual(pinVersion, downloadVersion, file: file, line: line)
+            case .sourceArchiveDownload(let downloadVersion):
                 guard case .version(let pinVersion, _) = pin.state else {
                     return XCTFail("invalid pin state \(pin.state)", file: file, line: line)
                 }

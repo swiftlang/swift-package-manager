@@ -160,7 +160,7 @@ extension Workspace {
                         result.insert(packageRef)
                     }
 
-                case .registryDownload, .custom:
+                case .registryDownload, .custom, .sourceArchiveDownload:
                     continue
 
                 case .fileSystem, .edited:
@@ -409,7 +409,7 @@ extension Workspace {
                         products: productFilter
                     )
                     allConstraints.append(constraint)
-                case .sourceControlCheckout, .registryDownload, .fileSystem, .custom:
+                case .sourceControlCheckout, .registryDownload, .fileSystem, .custom, .sourceArchiveDownload:
                     break
                 }
                 allConstraints += try externalManifest.dependencyConstraints(
@@ -427,7 +427,7 @@ extension Workspace {
 
             for (_, managedDependency, productFilter, _) in dependencies {
                 switch managedDependency.state {
-                case .sourceControlCheckout, .registryDownload, .fileSystem, .custom: continue
+                case .sourceControlCheckout, .registryDownload, .fileSystem, .custom, .sourceArchiveDownload: continue
                 case .edited: break
                 }
                 // FIXME: We shouldn't need to construct a new package reference object here.
@@ -465,6 +465,12 @@ extension Workspace {
             path
         case .custom(_, let path):
             path
+        case .sourceArchiveDownload(let state):
+            if state.hasSubmodules {
+                self.location.shallowCloneSubdirectory(for: dependency)
+            } else {
+                self.location.sourceArchiveSubdirectory(for: dependency)
+            }
         }
     }
 
@@ -782,6 +788,9 @@ extension Workspace {
         case .custom(let availableVersion, _):
             packageKind = managedDependency.packageRef.kind
             packageVersion = availableVersion
+        case .sourceArchiveDownload(let state):
+            packageKind = managedDependency.packageRef.kind
+            packageVersion = state.version
         case .edited, .fileSystem:
             packageKind = .fileSystem(packagePath)
             packageVersion = .none
@@ -988,6 +997,13 @@ extension Workspace {
                     observabilityScope
                         .emit(.editedDependencyMissing(packageName: dependency.packageRef.identity.description))
 
+                case .sourceArchiveDownload:
+                    // Remove the stale state so the dependency is re-fetched during resolve.
+                    await self.state.remove(identity: dependency.packageRef.identity)
+                    try await self.state.save()
+                    observabilityScope
+                        .emit(.checkedOutDependencyMissing(packageName: dependency.packageRef.identity.description))
+
                 case .fileSystem:
                     await self.state.remove(identity: dependency.packageRef.identity)
                     try await self.state.save()
@@ -1008,7 +1024,7 @@ extension Workspace {
 
         switch state {
         // File-system based dependencies do not provide a custom file system object.
-        case .fileSystem:
+        case .fileSystem, .sourceArchiveDownload:
             return nil
         case .custom:
             let container = try await withCheckedThrowingContinuation { continuation in
