@@ -776,7 +776,7 @@ extension Workspace {
             default:
                 packageVersion = .none
             }
-        case .registryDownload(let downloadedVersion):
+        case .registryDownload(let downloadedVersion, _):
             packageKind = managedDependency.packageRef.kind
             packageVersion = downloadedVersion
         case .custom(let availableVersion, _):
@@ -943,7 +943,7 @@ extension Workspace {
                     observabilityScope
                         .emit(.checkedOutDependencyMissing(packageName: dependency.packageRef.identity.description))
 
-                case .registryDownload(let version):
+                case .registryDownload(let version, _):
                     // If some downloaded dependency has been removed, retrieve it again.
                     _ = try await self.downloadRegistryArchive(
                         package: dependency.packageRef,

@@ -128,22 +128,26 @@ extension ResolvedPackagesStore.ResolvedPackage {
         case .sourceControlCheckout(.version(let version, let revision)):
             self.init(
                 packageRef: dependency.packageRef,
-                state: .version(version, revision: revision.identifier)
+                state: .version(version, revision: revision.identifier),
+                originalScmUrl: nil
             )
         case .sourceControlCheckout(.branch(let branch, let revision)):
             self.init(
                 packageRef: dependency.packageRef,
-                state: .branch(name: branch, revision: revision.identifier)
+                state: .branch(name: branch, revision: revision.identifier),
+                originalScmUrl: nil
             )
         case .sourceControlCheckout(.revision(let revision)):
             self.init(
                 packageRef: dependency.packageRef,
-                state: .revision(revision.identifier)
+                state: .revision(revision.identifier),
+                originalScmUrl: nil
             )
-        case .registryDownload(let version):
+        case .registryDownload(let version, let scm):
             self.init(
                 packageRef: dependency.packageRef,
-                state: .version(version, revision: .none)
+                state: .version(version, revision: .none),
+                originalScmUrl: scm
             )
         case .edited, .fileSystem, .custom:
             // NOOP
