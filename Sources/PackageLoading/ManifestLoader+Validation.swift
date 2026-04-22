@@ -127,6 +127,24 @@ public struct ManifestValidator {
             }
         }
 
+        // Check against target setting condition traits.
+        let targets = self.manifest.targets
+
+        for target in targets {
+            let settings = target.settings
+            for setting in settings {
+                guard let traits = setting.condition?.traits else {
+                    continue
+                }
+
+                for trait in traits {
+                    if !traitKeys.contains(trait) {
+                        diagnostics.append(.invalidTraitInSettingsCondition(trait: trait, target: target))
+                    }
+                }
+            }
+        }
+
         return diagnostics
     }
 
@@ -370,6 +388,10 @@ extension Basics.Diagnostic {
 
     static func invalidEnabledTrait(trait: String, enabledBy enablerTrait: String) -> Self {
         .error("Trait \(enablerTrait) enables \(trait) which is not defined in the package")
+    }
+
+    static func invalidTraitInSettingsCondition(trait: String, target: TargetDescription) -> Self {
+        .error("Trait '\(trait)' referenced in the build settings condition for target '\(target.name)' is not defined in the package")
     }
 
     static func invalidDefaultTrait(defaultTrait: String) -> Self {
