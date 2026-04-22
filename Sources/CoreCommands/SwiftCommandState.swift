@@ -583,7 +583,7 @@ public final class SwiftCommandState {
                 signingEntityCheckingMode: self.options.security.signingEntityCheckingMode,
                 skipSignatureValidation: !self.options.security.signatureValidation,
                 sourceControlToRegistryDependencyTransformation: self.options.resolver
-                    .sourceControlToRegistryDependencyTransformation.workspaceConfiguration,
+                    .sourceControlToRegistryDependencyTransformation?.workspaceConfiguration,
                 defaultRegistry: self.options.resolver.defaultRegistryURL.flatMap {
                     // TODO: should supportsAvailability be a flag as well?
                     .init(url: $0, supportsAvailability: true)
