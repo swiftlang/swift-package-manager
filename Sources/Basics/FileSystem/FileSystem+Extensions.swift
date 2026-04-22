@@ -624,6 +624,35 @@ extension FileSystem {
 
         try self.removeFileTree(tempDirectory)
     }
+
+    package func validateNoEscapingSymlinks(
+        in directory: AbsolutePath,
+        resolveSymlinks resolve: @escaping (AbsolutePath) throws -> AbsolutePath = { try resolveSymlinks($0) }
+    ) throws {
+        let resolvedRoot = try resolve(directory)
+        try self.validateNoEscapingSymlinks(in: directory, root: resolvedRoot, resolveSymlinks: resolve)
+    }
+
+    private func validateNoEscapingSymlinks(
+        in directory: AbsolutePath,
+        root: AbsolutePath,
+        resolveSymlinks resolve: (AbsolutePath) throws -> AbsolutePath
+    ) throws {
+        let contents = try self.getDirectoryContents(directory)
+        for entry in contents {
+            let entryPath = directory.appending(component: entry)
+            if self.isSymlink(entryPath) {
+                let resolvedPath = try resolve(entryPath)
+                guard resolvedPath.isDescendantOfOrEqual(to: root) else {
+                    throw StringError(
+                        "symlink '\(entry)' points to '\(resolvedPath)' which is outside '\(root)'"
+                    )
+                }
+            } else if self.isDirectory(entryPath) {
+                try self.validateNoEscapingSymlinks(in: entryPath, root: root, resolveSymlinks: resolve)
+            }
+        }
+    }
 }
 
 // MARK: - Locking

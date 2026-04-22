@@ -10412,6 +10412,72 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    func testDownloadArchiveIndexFileRejectsPathTraversalFileName() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+        try fs.createMockToolchain()
+        let hostToolchain = try UserToolchain.mockHostToolchain(fs)
+
+        let ari = """
+        {
+            "schemaVersion": "1.0",
+            "archives": [
+                {
+                    "fileName": "../../evil.zip",
+                    "checksum": "a",
+                    "supportedTriples": ["\(hostToolchain.targetTriple.tripleString)"]
+                }
+            ]
+        }
+        """
+        let checksumAlgorithm = MockHashAlgorithm()
+        let ariChecksum = checksumAlgorithm.hash(ari).hexadecimalRepresentation
+
+        let httpClient = HTTPClient { request, _ in
+            switch request.kind {
+            case .generic:
+                switch request.url.lastPathComponent {
+                case "a.artifactbundleindex":
+                    return .okay(body: ari)
+                default:
+                    throw StringError("unexpected url \(request.url)")
+                }
+            case .download:
+                throw StringError("should not download")
+            }
+        }
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(
+                            name: "A",
+                            type: .binary,
+                            url: "https://a.com/a.artifactbundleindex",
+                            checksum: ariChecksum
+                        ),
+                    ]
+                ),
+            ],
+            binaryArtifactsManager: .init(
+                httpClient: httpClient
+            )
+        )
+
+        await workspace.checkPackageGraphFailure(roots: ["Root"]) { diagnostics in
+            testDiagnostics(diagnostics) { result in
+                result.check(
+                    diagnostic: .contains("invalid archive fileName '../../evil.zip'"),
+                    severity: .error
+                )
+            }
+        }
+    }
+
     func testDownloadArchiveIndexTripleNotFound() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()

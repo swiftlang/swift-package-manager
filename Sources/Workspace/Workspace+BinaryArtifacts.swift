@@ -203,6 +203,11 @@ extension Workspace {
                                         "No supported archive was found for '\(self.hostToolchain.targetTriple.tripleString)'"
                                     )
                                 }
+                                guard !supportedArchive.fileName.contains("..") else {
+                                    throw StringError(
+                                        "invalid archive fileName '\(supportedArchive.fileName)'"
+                                    )
+                                }
                                 // add relevant archive
                                 return RemoteArtifact(
                                     packageRef: indexFile.packageRef,
@@ -319,6 +324,9 @@ extension Workspace {
                                     try await self.archiver.extract(
                                         from: archivePath,
                                         to: tempExtractionDirectory
+                                    )
+                                    try self.fileSystem.validateNoEscapingSymlinks(
+                                        in: tempExtractionDirectory
                                     )
 
                                     defer {
@@ -469,6 +477,9 @@ extension Workspace {
 
                         do {
                             try await self.archiver.extract(from: artifact.path, to: tempExtractionDirectory)
+                            try self.fileSystem.validateNoEscapingSymlinks(
+                                in: tempExtractionDirectory
+                            )
 
                             return observabilityScope.trap {
                                 try self.fileSystem.withLock(on: destinationDirectory, type: .exclusive) {
