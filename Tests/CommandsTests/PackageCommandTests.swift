@@ -4655,11 +4655,11 @@ struct PackageCommandTests {
                     #expect(error.stderr.contains("This is text from the plugin"))
                     #expect(error.stderr.contains("error: This is an error from the plugin"))
                     switch buildSystem {
-                        case .native:
+                    case .native, .swiftbuild:
                             #expect(
                                 error.stderr.contains("build planning stopped due to build-tool plugin failures")
                             )
-                        case .swiftbuild, .xcode:
+                        case .xcode:
                             break
                     }
                 }
