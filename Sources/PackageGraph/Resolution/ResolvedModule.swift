@@ -167,8 +167,7 @@ public struct ResolvedModule {
     public let supportedPlatforms: [SupportedPlatform]
 
     /// A constraint on which platforms this module needs to build for.
-    /// `.host` for modules reachable only via host-only paths (macros, plugins,
-    /// macro-dependent tests); `.all` otherwise.
+    /// Note: currently only set to .host if prebuilts are enabled.
     public let platformConstraint: PlatformConstraint
 
     @_spi(SwiftPMInternal)
