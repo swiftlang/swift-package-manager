@@ -391,6 +391,14 @@ final class SwiftSDKBundleTests: XCTestCase {
                 bundleName: AbsolutePath(bundles[1].path).components.last!
             ),
         ])
+
+        let tripleSDK = try store.selectBundle(
+            matching: "\(testArtifactID)1",
+            hostTriple: Triple("arm64-apple-macosx14.0"),
+            targetTriple: targetTriple
+        )
+
+        XCTAssertEqual(tripleSDK.targetTriple, targetTriple)
     }
 
     func testTargetSDKDerivation() async throws {

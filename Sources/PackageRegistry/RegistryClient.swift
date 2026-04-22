@@ -37,6 +37,16 @@ public final class RegistryClient: AsyncCancellable {
     private static let availabilityCacheTTL: DispatchTimeInterval = .seconds(5 * 60)
     private static let metadataCacheTTL: DispatchTimeInterval = .seconds(60 * 60)
 
+    /// A value below Foundation's `httpMaximumConnectionsPerHost` default of 6. 
+    /// Without this limit the RegistryClient may fetch too many resources in parallel
+    /// from the same registry, which can lead to starvation of other requests due to
+    /// libcurl's pending queue. If pending requests don't start receiving bytes within
+    /// 60s requests will fail with a timeout (NSURLError -1001). By ensuring we're below
+    /// the Foundation default we ensure requests aren't started by blocked behind the 6
+    /// active connections, waiting for bytes and potentially timing out if the requests in
+    /// flight take a long time to complete.
+    private static let defaultMaxConcurrentRequestsPerHost: Int = 4
+
     private var configuration: RegistryConfiguration
     private let archiverProvider: (FileSystem) -> Archiver
     private let httpClient: HTTPClient
@@ -106,7 +116,9 @@ public final class RegistryClient: AsyncCancellable {
             self.authorizationProvider = .none
         }
 
-        self.httpClient = customHTTPClient ?? HTTPClient()
+        self.httpClient = customHTTPClient ?? HTTPClient(
+            configuration: .init(maxConcurrentRequestsPerHost: Self.defaultMaxConcurrentRequestsPerHost)
+        )
         self.archiverProvider = customArchiverProvider ?? { fileSystem in UniversalArchiver(fileSystem) }
         self.fingerprintStorage = fingerprintStorage
         self.fingerprintCheckingMode = fingerprintCheckingMode

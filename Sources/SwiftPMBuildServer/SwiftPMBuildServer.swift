@@ -525,7 +525,14 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
 
     public func scheduleRegeneratingBuildDescription() {
         packageLoadingQueue.async { [buildSystem] in
+            let reloadingTaskID = TaskId(id: "package-reloading")
             do {
+                self.connectionToClient.send(
+                    TaskStartNotification(
+                        taskId: reloadingTaskID,
+                        data: WorkDoneProgressTask(title: "SwiftPM: Reloading Package").encodeToLSPAny()
+                    )
+                )
                 let result = try await buildSystem.generatePIFAndAccompanyingMetadata(preserveStructure: false)
                 try localFileSystem.writeIfChanged(path: buildSystem.buildParameters.pifManifest, string: result.pif)
                 await self.rebuildHeaderMapping(pifAccompanyingMetadata: result.accompanyingMetadata)
@@ -534,8 +541,14 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
                     .init(uri: .init(buildSystem.buildParameters.pifManifest.asURL), type: .changed)
                 ]))
                 _ = try await self.connectionToUnderlyingBuildServer.send(WorkspaceWaitForBuildSystemUpdatesRequest())
+                self.connectionToClient.send(
+                    TaskFinishNotification(taskId: reloadingTaskID, status: .ok)
+                )
             } catch {
                 self.logToClient(.warning, "error regenerating build description: \(error)")
+                self.connectionToClient.send(
+                    TaskFinishNotification(taskId: reloadingTaskID, status: .error)
+                )
             }
         }
     }
