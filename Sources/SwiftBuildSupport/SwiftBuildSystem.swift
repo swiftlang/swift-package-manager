@@ -829,7 +829,9 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                     settings["ENABLE_THREAD_SANITIZER"] = "YES"
                 case .undefined:
                     settings["ENABLE_UNDEFINED_BEHAVIOR_SANITIZER"] = "YES"
-                case .fuzzer, .scudo:
+                case .scudo:
+                    settings["ENABLE_SCUDO_SANITIZER"] = "YES"
+                case .fuzzer:
                     throw StringError("\(sanitizer) is not currently supported with this build system.")
             }
         }
