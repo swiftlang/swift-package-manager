@@ -751,4 +751,27 @@ struct SwiftBuildSystemTests {
             #expect(otherLDFlags.contains("$(OTHER_LDFLAGS_SWIFTC_LINKER_DRIVER_$(LINKER_DRIVER))"))
         }
     }
+
+    @Test
+    func sdkRootOverrideIsSetInRunDestination() async throws {
+        let sdkRoot = AbsolutePath("/fake/sdk/root")
+        try await withInstantiatedSwiftBuildSystem(
+            fromFixture: "PIFBuilder/Simple",
+            buildParameters: mockBuildParameters(
+                destination: .host,
+                buildSystemKind: .swiftbuild,
+                sdkRootOverride: sdkRoot,
+            ),
+        ) { swiftBuild, service, session, observabilityScope, buildParameters in
+            let buildSettings = try await swiftBuild.makeBuildParameters(
+                service: service,
+                session: session,
+                symbolGraphOptions: nil,
+                setToolchainSetting: false,
+            )
+
+            let runDestination = try #require(buildSettings.activeRunDestination)
+            #expect(runDestination.sdk == sdkRoot.pathString)
+        }
+    }
 }

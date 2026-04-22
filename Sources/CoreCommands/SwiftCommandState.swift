@@ -1006,6 +1006,7 @@ public final class SwiftCommandState {
             configuration: self.options.build.configuration ?? self.preferredBuildConfiguration,
             toolchain: toolchain,
             triple: triple,
+            sdkRootOverride: self.options.build.customCompileSDK ?? self.environment["SDKROOT"].flatMap({ try? AbsolutePath(validating: $0) }),
             flags: options.build.buildFlags,
             buildSystemKind: options.build.buildSystem,
             pkgConfigDirectories: options.locations.pkgConfigDirectories,
