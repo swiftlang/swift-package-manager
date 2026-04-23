@@ -39,6 +39,28 @@ struct EnvironmentKeyTests {
         #expect(string == #""Test""#)
     }
 
+    @Test(
+        .tags(
+            .TestSize.small,
+        ),
+        arguments: [
+            ConfigurableEnvVar.SWIFTPM_NETRC_DATA,
+            ConfigurableEnvVar.SWIFTPM_SOURCE_CONTROL_TOKEN,
+            ConfigurableEnvVar.SWIFTPM_REGISTRY_LOGIN,
+            ConfigurableEnvVar.SWIFTPM_REGISTRY_PASSWORD,
+            ConfigurableEnvVar.SWIFTPM_REGISTRY_TOKEN,
+            ConfigurableEnvVar.SWIFTPM_BUILD_SBOM_SPEC,
+            ConfigurableEnvVar.SWIFTPM_BUILD_SBOM_FILTER,
+            ConfigurableEnvVar.SWIFTPM_BUILD_SBOM_OUTPUT_DIR,
+            ConfigurableEnvVar.SWIFTPM_BUILD_SBOM_WARNING_ONLY,
+        ],
+    ) func nonCachableEnvVars(
+        envVar: ConfigurableEnvVar,
+    ) async throws {
+        #expect(
+            EnvironmentKey.nonCachable.contains(EnvironmentKey("\(envVar)"))
+        )
+    }
     @Test
     func equatable() {
         let key0 = EnvironmentKey("Test")

@@ -24,12 +24,6 @@ public struct EnvironmentKey {
 extension EnvironmentKey {
     package static let path: Self = "PATH"
 
-    package static let swiftpmRegistryToken: Self = "SWIFTPM_REGISTRY_TOKEN"
-    package static let swiftpmRegistryLogin: Self = "SWIFTPM_REGISTRY_LOGIN"
-    package static let swiftpmRegistryPassword: Self = "SWIFTPM_REGISTRY_PASSWORD"
-    package static let swiftpmSourceControlToken: Self = "SWIFTPM_SOURCE_CONTROL_TOKEN"
-    package static let swiftpmNetrcData: Self = "SWIFTPM_NETRC_DATA"
-
     package static var libraryPath: Self {
         #if os(Windows)
         path
@@ -41,7 +35,7 @@ extension EnvironmentKey {
     }
 
     /// A set of known keys which should not be included in cache keys.
-    package static let nonCachable: Set<Self> = [
+    package static let nonCachable: Set<Self> = Set([
         "TERM",
         "TERM_PROGRAM",
         "TERM_PROGRAM_VERSION",
@@ -57,12 +51,7 @@ extension EnvironmentKey {
         "VSCODE_IPC_HOOK_CLI",
         "HYPERFINE_RANDOMIZED_ENVIRONMENT_OFFSET",
         "SSH_AUTH_SOCK",
-        .swiftpmRegistryToken,
-        .swiftpmRegistryLogin,
-        .swiftpmRegistryPassword,
-        .swiftpmSourceControlToken,
-        .swiftpmNetrcData,
-    ]
+    ]).union(ConfigurableEnvVar.nonCachableEnvVars())
 }
 
 extension EnvironmentKey: CodingKeyRepresentable {}
