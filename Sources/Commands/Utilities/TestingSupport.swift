@@ -33,6 +33,7 @@ import TSCLibc
 import var TSCBasic.stderrStream
 import var TSCBasic.stdoutStream
 import func TSCBasic.withTemporaryFile
+import func TSCBasic.withTemporaryDirectory
 import func TSCBasic.exec
 
 struct DebuggableTestSession {
@@ -508,6 +509,17 @@ final class DebugTestRunner {
     private let observabilityScope: ObservabilityScope
     private let verbose: Bool
 
+    /// Builds an inline LLDB `script` command that registers an
+    /// `SBDebugger.SetDestroyCallback` to delete the given directory
+    /// when LLDB tears down. Fires on `quit`, `exit`, EOF, and most
+    /// normal shutdown paths; hard crashes / SIGKILL still bypass it.
+    static func atexitCleanupCommand(tempDirectory: AbsolutePath) -> String {
+        let escaped = tempDirectory.pathString
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+        return "script import shutil; lldb.debugger.SetDestroyCallback(lambda _id, d=\"\(escaped)\": shutil.rmtree(d, ignore_errors=True))"
+    }
+
     /// Creates an instance of debug test runner.
     init(
         target: DebuggableTestSession,
@@ -550,12 +562,6 @@ final class DebugTestRunner {
         try safeExec(path: lldbPath.pathString, args: [lldbPath.pathString] + lldbArgs, observabilityScope: observabilityScope)
     }
 
-    /// Returns the path to the Python script file.
-    private func pythonScriptFilePath() throws -> AbsolutePath {
-        let tempDir = try fileSystem.tempDirectory
-        return tempDir.appending("target_switcher.py")
-    }
-
     /// Prepares LLDB arguments for debugging based on the testing library.
     ///
     /// This method creates a temporary LLDB command file with the necessary setup commands
@@ -565,14 +571,20 @@ final class DebugTestRunner {
     /// - Returns: Array of LLDB command line arguments
     /// - Throws: Various errors if required tools are not found or file operations fail
     private func prepareLLDBArguments(for target: DebuggableTestSession) throws -> [String] {
-        let tempDir = try fileSystem.tempDirectory
-        let lldbCommandFile = tempDir.appending("lldb-commands.txt")
+        // One unique scratch directory per invocation so concurrent runs don't collide on fixed filenames
+        let scratchDir = try withTemporaryDirectory(
+            dir: try fileSystem.tempDirectory,
+            prefix: "swiftpm-lldb-",
+            removeTreeOnDeinit: false
+        ) { $0 }
 
         var lldbCommands: [String] = []
         guard !target.targets.isEmpty else {
             throw StringError("No testing libraries found for debugging")
         }
-        try setupTargets(&lldbCommands)
+        try setupTargets(&lldbCommands, scratchDir: scratchDir)
+
+        lldbCommands.append(Self.atexitCleanupCommand(tempDirectory: scratchDir))
 
         // Clear the screen of all the previous commands to unclutter the users initial state.
         // Skip clearing in verbose mode so startup commands remain visible
@@ -588,13 +600,14 @@ final class DebugTestRunner {
         }
 
         let commandScript = lldbCommands.joined(separator: "\n")
+        let lldbCommandFile = scratchDir.appending("lldb-commands.txt")
         try fileSystem.writeFileContents(lldbCommandFile, string: commandScript)
 
         // Return script file arguments without batch mode to allow interactive debugging
         return ["-s", lldbCommandFile.pathString]
     }
 
-    private func setupTargets(_ lldbCommands: inout [String]) throws {
+    private func setupTargets(_ lldbCommands: inout [String], scratchDir: AbsolutePath) throws {
         var hasSwiftTesting = false
         var hasXCTest = false
 
@@ -627,7 +640,7 @@ final class DebugTestRunner {
         setupCommandAliases(&lldbCommands, hasSwiftTesting: hasSwiftTesting, hasXCTest: hasXCTest)
 
         if target.isMultiSession {
-            let scriptPath = try createTargetSwitchingScript()
+            let scriptPath = try createTargetSwitchingScript(in: scratchDir)
             lldbCommands.append("command script import \"\(scriptPath.pathString)\"")
             lldbCommands.append("target select 0")
         }
@@ -693,8 +706,8 @@ final class DebugTestRunner {
     }
 
     /// Creates a Python script that handles automatic target switching
-    private func createTargetSwitchingScript() throws -> AbsolutePath {
-        let scriptPath = try pythonScriptFilePath()
+    private func createTargetSwitchingScript(in scratchDir: AbsolutePath) throws -> AbsolutePath {
+        let scriptPath = scratchDir.appending("target_switcher.py")
 
         let pythonScript = """
 # target_switcher.py
