@@ -9496,14 +9496,14 @@ final class WorkspaceTests: XCTestCase {
             "https://mirror.example.com/artifacts/a.zip",
         ])
 
-        // Verify managed artifacts store the mirrored archive URL
+        // Verify managed artifacts store the mirrored index URL and index checksum
         await workspace.checkManagedArtifacts { result in
             result.check(
                 packageIdentity: .plain("a"),
                 targetName: "A",
                 source: .remote(
-                    url: "https://mirror.example.com/artifacts/a.zip",
-                    checksum: "a1"
+                    url: "https://mirror.example.com/artifacts/index.artifactbundleindex",
+                    checksum: indexFileChecksum
                 ),
                 path: workspace.artifactsDir.appending(components: "a", "A", "A.xcframework")
             )
@@ -10036,8 +10036,8 @@ final class WorkspaceTests: XCTestCase {
                 packageIdentity: .plain("a"),
                 targetName: "A1",
                 source: .remote(
-                    url: "https://a.com/a1.zip",
-                    checksum: "a1"
+                    url: "https://a.com/a1.artifactbundleindex",
+                    checksum: ariFilesChecksums[0]
                 ),
                 path: workspace.artifactsDir.appending(components: "a", "A1", "A1.artifactbundle")
             )
@@ -10045,8 +10045,8 @@ final class WorkspaceTests: XCTestCase {
                 packageIdentity: .plain("a"),
                 targetName: "A2",
                 source: .remote(
-                    url: "https://a.com/a2/a2.zip",
-                    checksum: "a2"
+                    url: "https://a.com/a2.artifactbundleindex",
+                    checksum: ariFilesChecksums[1]
                 ),
                 path: workspace.artifactsDir.appending(components: "a", "A2", "A2.artifactbundle")
             )
@@ -10230,6 +10230,77 @@ final class WorkspaceTests: XCTestCase {
                     severity: .error
                 )
             }
+        }
+    }
+
+    func testDownloadArchiveIndexFileSkipsDownloadWhenChecksumMatches() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let httpClient = HTTPClient { request, _ in
+            throw StringError("unexpected network request: \(request.url)")
+        }
+
+        let checksumAlgorithm = MockHashAlgorithm()
+        let indexChecksum = "matching-checksum"
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(
+                            name: "A",
+                            type: .binary,
+                            url: "https://a.com/a.artifactbundleindex",
+                            checksum: indexChecksum
+                        ),
+                    ]
+                ),
+            ],
+            binaryArtifactsManager: .init(
+                httpClient: httpClient,
+                archiver: MockArchiver(),
+                useCache: false
+            ),
+            checksumAlgorithm: checksumAlgorithm
+        )
+
+        let rootPath = try workspace.pathToRoot(withName: "Root")
+        let rootRef = PackageReference.root(identity: PackageIdentity(path: rootPath), path: rootPath)
+        let artifactPath = workspace.artifactsDir.appending(components: "root", "A", "A.xcframework")
+
+        try await workspace.set(
+            managedArtifacts: [
+                .init(
+                    packageRef: rootRef,
+                    targetName: "A",
+                    source: .remote(
+                        url: "https://a.com/a.artifactbundleindex",
+                        checksum: indexChecksum
+                    ),
+                    path: artifactPath,
+                    kind: .xcframework
+                ),
+            ]
+        )
+
+        try await workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+
+        await workspace.checkManagedArtifacts { result in
+            result.check(
+                packageIdentity: .plain("root"),
+                targetName: "A",
+                source: .remote(
+                    url: "https://a.com/a.artifactbundleindex",
+                    checksum: indexChecksum
+                ),
+                path: artifactPath
+            )
         }
     }
 
