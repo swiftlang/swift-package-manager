@@ -909,7 +909,13 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
     private func validateArguments(swiftCommandState: SwiftCommandState) throws {
         // Validation for --debugger first, since it affects other validations.
         if options.shouldLaunchInLLDB {
-            try validateLLDBCompatibility(swiftCommandState: swiftCommandState)
+            try Self.validateLLDBCompatibility(
+                configuration: options.globalOptions.build.configuration ?? swiftCommandState.preferredBuildConfiguration,
+                shouldRunInParallel: options.shouldRunInParallel,
+                numberOfWorkers: options.numberOfWorkers,
+                shouldListTests: options._deprecated_shouldListTests,
+                shouldPrintCodeCovPath: options.shouldPrintCodeCovPath
+            )
         }
 
         // Validation for --num-workers.
@@ -935,32 +941,36 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         }
     }
 
-    /// Validates that --debugger is compatible with other provided arguments
+    /// Validates that --debugger is compatible with other provided arguments.
     ///
-    /// - Throws: if --debugger is used with incompatible flags
-    private func validateLLDBCompatibility(swiftCommandState: SwiftCommandState) throws {
-        // --debugger cannot be used with release configuration
-        let configuration = options.globalOptions.build.configuration ?? swiftCommandState.preferredBuildConfiguration
+    /// Extracted as a static function so the validation logic can be tested
+    /// directly without invoking the full command pipeline.
+    ///
+    /// - Throws: if --debugger is used with incompatible flags.
+    static func validateLLDBCompatibility(
+        configuration: BuildConfiguration,
+        shouldRunInParallel: Bool,
+        numberOfWorkers: Int?,
+        shouldListTests: Bool,
+        shouldPrintCodeCovPath: Bool
+    ) throws {
         if configuration == .release {
             throw StringError("--debugger cannot be used with release configuration (debugging requires debug symbols)")
         }
 
-        // --debugger cannot be used with parallel testing
-        if options.shouldRunInParallel {
+        if shouldRunInParallel {
             throw StringError("--debugger cannot be used with --parallel (debugging requires sequential execution)")
         }
 
-        // --debugger cannot be used with --num-workers (which requires --parallel anyway)
-        if options.numberOfWorkers != nil {
+        if numberOfWorkers != nil {
             throw StringError("--debugger cannot be used with --num-workers (debugging requires sequential execution)")
         }
 
-        // --debugger cannot be used with information-only modes that exit early
-        if options._deprecated_shouldListTests {
+        if shouldListTests {
             throw StringError("--debugger cannot be used with --list-tests (use 'swift test list' for listing tests)")
         }
 
-        if options.shouldPrintCodeCovPath {
+        if shouldPrintCodeCovPath {
             throw StringError("--debugger cannot be used with --show-codecov-path (debugging session cannot show paths)")
         }
     }
