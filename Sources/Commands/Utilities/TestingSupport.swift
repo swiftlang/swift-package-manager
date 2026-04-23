@@ -627,7 +627,7 @@ final class DebugTestRunner {
                 lldbCommands.append("settings append target.run-args \"\(arg)\"")
             }
 
-            let modulePath = getModulePath(for: testingLibrary)
+            let modulePath = try getModulePath(for: testingLibrary)
             lldbCommands.append("target modules add \"\(modulePath.pathString)\"")
 
             if testingLibrary.library == .swiftTesting {
@@ -693,16 +693,15 @@ final class DebugTestRunner {
     }
 
     /// Gets the module path for symbol loading
-    private func getModulePath(for target: DebuggableTestSession.Target) -> AbsolutePath {
-        var modulePath = target.bundlePath
-        if target.library == .xctest && buildParameters.triple.isDarwin() {
-            if let name = target.bundlePath.components.last?.replacing(".xctest", with: "") {
-                if let relativePath = try? RelativePath(validating: "Contents/MacOS/\(name)") {
-                    modulePath = target.bundlePath.appending(relativePath)
-                }
-            }
+    private func getModulePath(for target: DebuggableTestSession.Target) throws -> AbsolutePath {
+        guard target.library == .xctest && buildParameters.triple.isDarwin() else {
+            return target.bundlePath
         }
-        return modulePath
+        guard let name = target.bundlePath.components.last?.replacing(".xctest", with: "") else {
+            return target.bundlePath
+        }
+        let relativePath = try RelativePath(validating: "Contents/MacOS/\(name)")
+        return target.bundlePath.appending(relativePath)
     }
 
     /// Creates a Python script that handles automatic target switching
