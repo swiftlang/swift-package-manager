@@ -152,7 +152,8 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
                 fileSystem: swiftCommandState.fileSystem,
                 executablePath: interpreterPath,
                 originalWorkingDirectory: swiftCommandState.originalWorkingDirectory,
-                arguments: arguments
+                arguments: arguments,
+                observabilityScope: swiftCommandState.observabilityScope
             )
 
         case .debugger:
@@ -182,12 +183,17 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
                         fileSystem: swiftCommandState.fileSystem,
                         executablePath: debuggerPath,
                         originalWorkingDirectory: swiftCommandState.originalWorkingDirectory,
-                        arguments: debugger.extraCLIOptions + [productAbsolutePath.pathString] + options.arguments
+                        arguments: debugger.extraCLIOptions + [productAbsolutePath.pathString] + options.arguments,
+                        observabilityScope: swiftCommandState.observabilityScope
                     )
                 } else {
                     let pathRelativeToWorkingDirectory = productAbsolutePath.relative(to: swiftCommandState.originalWorkingDirectory)
                     let lldbPath = try swiftCommandState.getTargetToolchain().getLLDB()
-                    try safeExec(path: lldbPath.pathString, args: ["--", pathRelativeToWorkingDirectory.pathString] + options.arguments)
+                    try safeExec(
+                        path: lldbPath.pathString,
+                        args: ["--", pathRelativeToWorkingDirectory.pathString] + options.arguments,
+                        observabilityScope: swiftCommandState.observabilityScope
+                    )
                 }
             } catch let error as RunError {
                 swiftCommandState.observabilityScope.emit(error)
@@ -206,7 +212,8 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
                     fileSystem: swiftCommandState.fileSystem,
                     executablePath: swiftInterpreterPath,
                     originalWorkingDirectory: swiftCommandState.originalWorkingDirectory,
-                    arguments: arguments
+                    arguments: arguments,
+                    observabilityScope: swiftCommandState.observabilityScope
                 )
                 return
             }
@@ -244,7 +251,8 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
                     fileSystem: swiftCommandState.fileSystem,
                     executablePath: runnerPath,
                     originalWorkingDirectory: swiftCommandState.originalWorkingDirectory,
-                    arguments: arguments
+                    arguments: arguments,
+                    observabilityScope: swiftCommandState.observabilityScope
                 )
             } catch Diagnostics.fatalError {
                 throw ExitCode.failure
@@ -293,7 +301,8 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
         fileSystem: FileSystem,
         executablePath: AbsolutePath,
         originalWorkingDirectory: AbsolutePath,
-        arguments: [String]
+        arguments: [String],
+        observabilityScope: ObservabilityScope
     ) throws {
         // Make sure we are running from the original working directory.
         let cwd: AbsolutePath? = fileSystem.currentWorkingDirectory
@@ -302,7 +311,7 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
         }
 
         let pathRelativeToWorkingDirectory = executablePath.relative(to: originalWorkingDirectory)
-        try safeExec(path: executablePath.pathString, args: [pathRelativeToWorkingDirectory.pathString] + arguments)
+        try safeExec(path: executablePath.pathString, args: [pathRelativeToWorkingDirectory.pathString] + arguments, observabilityScope: observabilityScope)
     }
 
     /// Determines if a path points to a valid swift file.
