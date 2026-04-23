@@ -510,7 +510,6 @@ func safeExec(path: String, args: [String], observabilityScope: ObservabilitySco
     try exec(path: path, args: args)
 }
 
-/// A class to run tests under LLDB debugger.
 struct DebugTestRunner {
     private let target: DebuggableTestSession
     private let buildParameters: BuildParameters
@@ -558,7 +557,7 @@ struct DebugTestRunner {
         do {
             lldbPath = try toolchain.getLLDB()
         } catch {
-            observabilityScope.emit(error: "LLDB not found in toolchain: \(error)")
+            observabilityScope.emit(error: "Unable to get LLDB: \(error)")
             throw error
         }
 
@@ -578,7 +577,7 @@ struct DebugTestRunner {
     /// This method creates a temporary LLDB command file with the necessary setup commands
     /// for debugging tests, including target creation, argument configuration, and symbol loading.
     ///
-    /// - Parameter library: The testing library being used (XCTest or Swift Testing)
+    /// - Parameter target: The testing target being used (XCTest or Swift Testing)
     /// - Returns: Array of LLDB command line arguments
     /// - Throws: Various errors if required tools are not found or file operations fail
     private func prepareLLDBArguments(for target: DebuggableTestSession) throws -> [String] {
