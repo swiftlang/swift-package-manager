@@ -583,18 +583,8 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         }
     }
 
-    /// Runs test products under LLDB debugger for interactive debugging.
-    ///
-    /// This method handles debugging for enabled testing libraries:
-    /// 1. If both XCTest and Swift Testing are enabled, prompts user to choose or runs both in separate sessions
-    /// 2. Creates LLDB targets for each test product and enabled testing library
-    /// 3. Creates a DebugTestRunner and launches LLDB with the test binaries
-    ///
-    /// - Parameters:
-    ///   - testProducts: The built test products
-    ///   - productsBuildParameters: Build parameters for the products
-    ///   - swiftCommandState: The Swift command state
-    /// - Returns: The test result (typically .success since LLDB takes over)
+    /// Builds a `DebuggableTestSession` covering every enabled testing library across
+    /// the given products and launches it under LLDB via `DebugTestRunner`.
     private func runTestProductsWithLLDB(
         _ testProducts: [BuiltTestProduct],
         productsBuildParameters: BuildParameters,
@@ -735,7 +725,6 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             verbose: globalOptions.logging.verbose
         )
 
-        // Launch LLDB using AsyncProcess with proper input/output forwarding
         try debugRunner.run()
     }
 
