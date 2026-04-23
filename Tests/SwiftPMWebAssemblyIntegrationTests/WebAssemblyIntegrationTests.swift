@@ -14,6 +14,7 @@ import Basics
 import Foundation
 import PackageModel
 import _InternalTestSupport
+import SPMBuildCore
 import Testing
 
 import class Basics.AsyncProcess
@@ -147,6 +148,61 @@ private struct WebAssemblyIntegrationTests {
             let stdout = try result.utf8Output().trimmingCharacters(in: .whitespacesAndNewlines)
             #expect(result.exitStatus == .terminated(code: 0), "wasmkit exited with non-zero status")
             #expect(stdout == "Hello from WebAssembly!", "Unexpected output: \(stdout)")
+        }
+    }
+
+    @Test(.requiresWebAssemblySwiftSDK, arguments: SupportedBuildSystemOnAllPlatforms)
+    func flagOverrides(buildSystem: BuildSystemProvider.Kind) async throws {
+        try await fixture(name: "Miscellaneous/FlagOverrides") { fixturePath in
+            let (compilerPath, sdkID) = try #require(try await findCompilerAndWebAssemblySDKIDForTesting())
+
+            var env = Environment()
+            env["SWIFT_EXEC"] = compilerPath.pathString
+
+            let runOutput = try await executeSwiftRun(
+                fixturePath,
+                "FlagOverrides",
+                extraArgs: ["--swift-sdk", sdkID],
+                Xswiftc: ["-DONE"],
+                env: env,
+                buildSystem: buildSystem,
+            )
+
+            let lines = runOutput.stdout.split(separator: "\n").map(String.init)
+            #expect(lines.contains("Executable flag: ONE"))
+            #expect(lines.contains("Plugin tool flag: ONE"))
+        }
+    }
+
+    @Test(.requiresWebAssemblySwiftSDK, arguments: SupportedBuildSystemOnAllPlatforms)
+    func flagOverridesCommandPlugin(buildSystem: BuildSystemProvider.Kind) async throws {
+        try await fixture(name: "Miscellaneous/FlagOverrides") { fixturePath in
+            let (compilerPath, sdkID) = try #require(try await findCompilerAndWebAssemblySDKIDForTesting())
+
+            var env = Environment()
+            env["SWIFT_EXEC"] = compilerPath.pathString
+
+            let pluginOutput = try await executeSwiftPackage(
+                fixturePath,
+                extraArgs: ["--swift-sdk", sdkID, "--allow-writing-to-package-directory", "build-and-run", "-DONE"],
+                env: env,
+                buildSystem: buildSystem,
+            )
+
+            let wasmBinary = try AbsolutePath(
+                validating: pluginOutput.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+            )
+            #expect(localFileSystem.exists(wasmBinary), "Expected .wasm binary at \(wasmBinary)")
+
+            let wasmkitPath = try #require(try findWasmKit(sdkID: sdkID), "wasmkit not found in Swift SDK \(sdkID)")
+            let result = try await AsyncProcess.popen(
+                arguments: [wasmkitPath.pathString, "run", wasmBinary.pathString]
+            )
+            let stdout = try result.utf8Output().trimmingCharacters(in: .whitespacesAndNewlines)
+            #expect(result.exitStatus == .terminated(code: 0), "wasmkit exited with non-zero status")
+            let lines = stdout.split(separator: "\n").map(String.init)
+            #expect(lines.contains("Executable flag: ONE"))
+            #expect(lines.contains("Plugin tool flag: NONE"))
         }
     }
 }
