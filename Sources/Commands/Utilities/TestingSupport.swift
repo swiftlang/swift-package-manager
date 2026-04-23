@@ -512,29 +512,7 @@ final class DebugTestRunner {
 
     /// Launches the test binary under LLDB for interactive debugging.
     ///
-    /// This method:
-    /// 1. Discovers LLDB using the toolchain
-    /// 2. Configures the environment for debugging
-    /// 3. Launches LLDB with the proper test runner as target
-    /// 4. Provides interactive debugging experience through appropriate process management
-    ///
-    /// **Implementation approach varies by testing library:**
-    /// - **XCTest**: Uses PTY (pseudo-terminal) via `runInPty()` to support LLDB's full-screen
-    ///   terminal features while maintaining parent process control for sequential execution
-    /// - **Swift Testing**: Uses `exec()` to replace the current process (works because Swift Testing
-    ///   is always the last library in the sequence, avoiding the need for sequential execution)
-    ///
-    /// The PTY approach is necessary for XCTest because LLDB requires advanced terminal features
-    /// (ANSI escape sequences, raw input mode, terminal sizing) that simple stdin/stdout redirection
-    /// cannot provide, while still allowing the parent process to show completion messages and
-    /// run multiple testing libraries sequentially.
-    ///
-    /// **Test Mode**: When running Swift Package Manager's own tests (detected via environment variables),
-    /// this method uses `AsyncProcess` instead of `exec()` to launch LLDB as a subprocess without stdin.
-    /// This allows the parent test process to capture LLDB's output for validation while ensuring LLDB
-    /// exits immediately due to lack of interactive input.
-    ///
-    /// - Throws: Various errors if LLDB cannot be found or launched
+    /// Uses `exec()` so LLDB inherits the controlling terminal directly.
     func run() throws {
         let lldbPath: AbsolutePath
         do {
@@ -547,15 +525,11 @@ final class DebugTestRunner {
         let lldbArgs = try prepareLLDBArguments(for: target)
         observabilityScope.emit(info: "LLDB will run: \(lldbPath.pathString) \(lldbArgs.joined(separator: " "))")
 
-        // Set environment variables from testEnv on the current process
-        // so they are inherited by the exec'd LLDB process. Exec will replace
-        // this process.
+        // Set on the current process so the exec'd LLDB inherits them.
         for (key, value) in testEnv {
             try Environment.set(key: key, value: value)
         }
 
-        // Normal interactive mode - use exec to replace the current process with LLDB
-        // This avoids PTY issues that interfere with LLDB's command line editing
         try safeExec(path: lldbPath.pathString, args: [lldbPath.pathString] + lldbArgs)
     }
 
