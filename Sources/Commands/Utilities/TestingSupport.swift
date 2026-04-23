@@ -451,14 +451,26 @@ extension ToolsVersion {
 /// all signals before exec so the child process starts with clean state.
 /// We also mark all non-standard file descriptors as close-on-exec to avoid
 /// leaking them to the new process.
-func safeExec(path: String, args: [String]) throws -> Never {
+func safeExec(path: String, args: [String], observabilityScope: ObservabilityScope) throws -> Never {
     #if !os(Windows)
     for i in 1..<NSIG {
-        signal(i, SIG_DFL)
+        // SIGKILL and SIGSTOP cannot be caught or reset; skipping them avoids
+        // bogus SIG_ERR returns that would mask real failures.
+        if i == SIGKILL || i == SIGSTOP {
+            continue
+        }
+        let prior = signal(i, SIG_DFL)
+        if unsafeBitCast(prior, to: OpaquePointer?.self) == unsafeBitCast(SIG_ERR, to: OpaquePointer?.self) {
+            let err = String(cString: strerror(errno))
+            observabilityScope.emit(warning: "safeExec: signal(\(i), SIG_DFL) failed: \(err)")
+        }
     }
     var sig_set_all = sigset_t()
     sigfillset(&sig_set_all)
-    sigprocmask(SIG_UNBLOCK, &sig_set_all, nil)
+    if sigprocmask(SIG_UNBLOCK, &sig_set_all, nil) != 0 {
+        let err = String(cString: strerror(errno))
+        observabilityScope.emit(warning: "safeExec: sigprocmask(SIG_UNBLOCK) failed: \(err) -- LLDB may not receive Ctrl-C")
+    }
 
     #if os(FreeBSD) || os(OpenBSD)
     #if os(FreeBSD)
@@ -473,7 +485,12 @@ func safeExec(path: String, args: [String]) throws -> Never {
     #endif
 
     for i in 3..<number_fds {
-        _ = fcntl(i, F_SETFD, FD_CLOEXEC)
+        // EBADF is expected for unopened slots; anything else means a real FD
+        // would leak into the exec'd process.
+        if fcntl(i, F_SETFD, FD_CLOEXEC) == -1 && errno != EBADF {
+            let err = String(cString: strerror(errno))
+            observabilityScope.emit(warning: "safeExec: fcntl(\(i), F_SETFD, FD_CLOEXEC) failed: \(err)")
+        }
     }
     #endif
     #endif
@@ -530,7 +547,7 @@ final class DebugTestRunner {
             try Environment.set(key: key, value: value)
         }
 
-        try safeExec(path: lldbPath.pathString, args: [lldbPath.pathString] + lldbArgs)
+        try safeExec(path: lldbPath.pathString, args: [lldbPath.pathString] + lldbArgs, observabilityScope: observabilityScope)
     }
 
     /// Returns the path to the Python script file.
