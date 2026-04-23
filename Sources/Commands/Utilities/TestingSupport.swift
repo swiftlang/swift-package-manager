@@ -692,6 +692,26 @@ max_targets = 0
 debugger_ref = None
 sequence_active = True  # Start active by default
 
+def _log_error(message):
+    \"\"\"Emit a diagnostic to stderr; never raise.\"\"\"
+    try:
+        sys.stderr.write("[swift test] " + str(message) + "\\n")
+        sys.stderr.flush()
+    except Exception:
+        pass
+
+def _run_lldb_command(command):
+    \"\"\"Run an LLDB command and surface failures via stderr.\"\"\"
+    if not debugger_ref:
+        _log_error("skipping command, no debugger: " + command)
+        return False
+    return_obj = lldb.SBCommandReturnObject()
+    debugger_ref.GetCommandInterpreter().HandleCommand(command, return_obj)
+    if not return_obj.Succeeded():
+        _log_error("command failed: " + command + " -- " + (return_obj.GetError() or "<no error>"))
+        return False
+    return True
+
 def sync_breakpoints_to_target(source_target, dest_target):
     \"\"\"Synchronize breakpoints from source target to destination target.\"\"\"
     if not source_target or not dest_target:
@@ -774,6 +794,8 @@ def sync_breakpoints_to_target(source_target, dest_target):
                     new_bp.SetEnabled(bp.IsEnabled())
                     new_bp.SetCondition(bp.GetCondition())
                     new_bp.SetIgnoreCount(bp.GetIgnoreCount())
+                else:
+                    _log_error("failed to create breakpoint by name: " + function_name)
 
         # Handle resolved location-based breakpoints (file/line)
         # Only process if the breakpoint has resolved locations
@@ -802,6 +824,8 @@ def sync_breakpoints_to_target(source_target, dest_target):
                         new_bp.SetEnabled(bp.IsEnabled())
                         new_bp.SetCondition(bp.GetCondition())
                         new_bp.SetIgnoreCount(bp.GetIgnoreCount())
+                    else:
+                        _log_error("failed to create breakpoint at " + str(file_name) + ":" + str(line_number))
 
 def sync_breakpoints_to_all_targets():
     \"\"\"Synchronize breakpoints from current target to all other targets.\"\"\"
@@ -830,15 +854,18 @@ def monitor_breakpoints():
     last_breakpoint_count = 0
 
     while True:  # Keep running forever, not just while current_target_index < max_targets
-        if debugger_ref:
-            current_target = debugger_ref.GetSelectedTarget()
-            if current_target:
-                current_bp_count = current_target.GetNumBreakpoints()
+        try:
+            if debugger_ref:
+                current_target = debugger_ref.GetSelectedTarget()
+                if current_target:
+                    current_bp_count = current_target.GetNumBreakpoints()
 
-                # If breakpoint count changed, sync to all targets
-                if current_bp_count != last_breakpoint_count:
-                    sync_breakpoints_to_all_targets()
-                    last_breakpoint_count = current_bp_count
+                    # If breakpoint count changed, sync to all targets
+                    if current_bp_count != last_breakpoint_count:
+                        sync_breakpoints_to_all_targets()
+                        last_breakpoint_count = current_bp_count
+        except Exception as e:
+            _log_error("monitor_breakpoints iteration failed: " + repr(e))
 
         time.sleep(0.5)  # Check every 500ms
 
@@ -847,54 +874,57 @@ def check_process_status():
     global current_target_index, max_targets, debugger_ref, sequence_active
 
     while True:  # Keep running forever, don't exit
-        if debugger_ref:
-            target = debugger_ref.GetSelectedTarget()
-            if target:
-                process = target.GetProcess()
-                if process and process.GetState() == lldb.eStateExited:
-                    # Process has exited
-                    if sequence_active and current_target_index < max_targets:
-                        # We're in an active sequence, trigger switch
-                        current_target_index += 1
+        try:
+            if debugger_ref:
+                target = debugger_ref.GetSelectedTarget()
+                if target:
+                    process = target.GetProcess()
+                    if process and process.GetState() == lldb.eStateExited:
+                        # Process has exited
+                        if sequence_active and current_target_index < max_targets:
+                            # We're in an active sequence, trigger switch
+                            current_target_index += 1
 
-                        if current_target_index < max_targets:
-                            # Switch to next target and launch immediately
-                            print("\\n")
-                            debugger_ref.HandleCommand(f'target select {current_target_index}')
-                            print(" ")
+                            if current_target_index < max_targets:
+                                # Switch to next target and launch immediately
+                                print("\\n")
+                                _run_lldb_command(f'target select {current_target_index}')
+                                print(" ")
 
-                            # Get target name for user feedback
-                            new_target = debugger_ref.GetSelectedTarget()
-                            target_name = new_target.GetExecutable().GetFilename() if new_target else "Unknown"
+                                # Get target name for user feedback
+                                new_target = debugger_ref.GetSelectedTarget()
+                                target_name = new_target.GetExecutable().GetFilename() if new_target else "Unknown"
 
-                            # Launch the next target immediately with pause on main
-                            debugger_ref.HandleCommand('process launch') # -m to pause on main
-                        else:
-                            # Reset to first target and deactivate sequence until user runs again
-                            current_target_index = 0
-                            sequence_active = False  # Pause automatic switching
+                                # Launch the next target immediately with pause on main
+                                _run_lldb_command('process launch') # -m to pause on main
+                            else:
+                                # Reset to first target and deactivate sequence until user runs again
+                                current_target_index = 0
+                                sequence_active = False  # Pause automatic switching
 
-                            print("\\n")
-                            debugger_ref.HandleCommand('target select 0')
-                            print("\\nAll testing targets completed.")
-                            print("Type 'run' to restart the entire test sequence from the beginning.\\n")
+                                print("\\n")
+                                _run_lldb_command('target select 0')
+                                print("\\nAll testing targets completed.")
+                                print("Type 'run' to restart the entire test sequence from the beginning.\\n")
 
-                            # Clear the current line and move cursor to start
-                            sys.stdout.write("\\033[2K\\r")
-                            # Reprint a fake prompt
-                            sys.stdout.write("(lldb) ")
-                            sys.stdout.flush()
-                elif process and process.GetState() in [lldb.eStateRunning, lldb.eStateLaunching]:
-                    # Process is running - if sequence was inactive, reactivate it
-                    if not sequence_active:
-                        sequence_active = True
-                        # Find which target is currently selected to set the correct index
-                        selected_target = debugger_ref.GetSelectedTarget()
-                        if selected_target:
-                            for i in range(max_targets):
-                                if debugger_ref.GetTargetAtIndex(i) == selected_target:
-                                    current_target_index = i
-                                    break
+                                # Clear the current line and move cursor to start
+                                sys.stdout.write("\\033[2K\\r")
+                                # Reprint a fake prompt
+                                sys.stdout.write("(lldb) ")
+                                sys.stdout.flush()
+                    elif process and process.GetState() in [lldb.eStateRunning, lldb.eStateLaunching]:
+                        # Process is running - if sequence was inactive, reactivate it
+                        if not sequence_active:
+                            sequence_active = True
+                            # Find which target is currently selected to set the correct index
+                            selected_target = debugger_ref.GetSelectedTarget()
+                            if selected_target:
+                                for i in range(max_targets):
+                                    if debugger_ref.GetTargetAtIndex(i) == selected_target:
+                                        current_target_index = i
+                                        break
+        except Exception as e:
+            _log_error("check_process_status iteration failed: " + repr(e))
 
         time.sleep(0.1)  # Check every 100ms
 
