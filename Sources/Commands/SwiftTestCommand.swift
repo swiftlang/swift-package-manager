@@ -635,35 +635,33 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             if productsWithXCTests.contains(testProduct.bundlePath) {
                 targets.append(DebuggableTestSession.Target(
                     productName: testProduct.productName,
-                    library: .xctest,
+                    kind: .xctest(bundlePath: testProduct.bundlePath),
                     additionalArgs: try additionalLLDBArguments(
                         for: .xctest,
                         testProduct: testProduct,
                         swiftCommandState: swiftCommandState
-                    ),
-                    bundlePath: testBundlePath(for: .xctest, testProduct: testProduct)
+                    )
                 ))
             }
             if productsWithSwiftTests.contains(testProduct.binaryPath) {
                 targets.append(DebuggableTestSession.Target(
                     productName: testProduct.productName,
-                    library: .swiftTesting,
+                    kind: .swiftTesting(binaryPath: testProduct.binaryPath),
                     additionalArgs: try additionalLLDBArguments(
                         for: .swiftTesting,
                         testProduct: testProduct,
                         swiftCommandState: swiftCommandState
-                    ),
-                    bundlePath: testBundlePath(for: .swiftTesting, testProduct: testProduct)
+                    )
                 ))
             }
         }
 
-        guard !targets.isEmpty else {
+        guard let sessionTargets = NonEmpty(targets) else {
             throw StringError("No testing libraries are enabled for debugging")
         }
 
         try await runTestLibrariesWithLLDB(
-            target: DebuggableTestSession(targets: targets),
+            target: DebuggableTestSession(targets: sessionTargets),
             testProducts: testProducts,
             productsBuildParameters: productsBuildParameters,
             swiftCommandState: swiftCommandState,
@@ -688,15 +686,6 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                 swiftTestingArgs += Array(commandLineArguments.dropFirst(offset + 1))
             }
             return swiftTestingArgs
-        }
-    }
-
-    private func testBundlePath(for library: TestingLibrary, testProduct: BuiltTestProduct) -> AbsolutePath {
-        switch library {
-        case .xctest:
-            testProduct.bundlePath
-        case .swiftTesting:
-            testProduct.binaryPath
         }
     }
 

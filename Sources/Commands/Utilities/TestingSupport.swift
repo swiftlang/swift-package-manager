@@ -38,17 +38,28 @@ import func TSCBasic.exec
 
 struct DebuggableTestSession {
     struct Target {
+        enum Kind {
+            case xctest(bundlePath: AbsolutePath)
+            case swiftTesting(binaryPath: AbsolutePath)
+        }
+
         let productName: String
-        let library: TestingLibrary
+        let kind: Kind
         let additionalArgs: [String]
-        let bundlePath: AbsolutePath
+
+        var library: TestingLibrary {
+            switch kind {
+            case .xctest: .xctest
+            case .swiftTesting: .swiftTesting
+            }
+        }
     }
 
-    let targets: [Target]
+    let targets: NonEmpty<Target>
 
     /// Whether this is part of a multi-session sequence
     var isMultiSession: Bool {
-        targets.count > 1
+        !targets.rest.isEmpty
     }
 }
 
@@ -500,7 +511,7 @@ func safeExec(path: String, args: [String], observabilityScope: ObservabilitySco
 }
 
 /// A class to run tests under LLDB debugger.
-final class DebugTestRunner {
+struct DebugTestRunner {
     private let target: DebuggableTestSession
     private let buildParameters: BuildParameters
     private let toolchain: UserToolchain
@@ -579,9 +590,6 @@ final class DebugTestRunner {
         ) { $0 }
 
         var lldbCommands: [String] = []
-        guard !target.targets.isEmpty else {
-            throw StringError("No testing libraries found for debugging")
-        }
         try setupTargets(&lldbCommands, scratchDir: scratchDir)
 
         lldbCommands.append(Self.atexitCleanupCommand(tempDirectory: scratchDir))
@@ -630,10 +638,11 @@ final class DebugTestRunner {
             let modulePath = try getModulePath(for: testingLibrary)
             lldbCommands.append("target modules add \"\(modulePath.pathString)\"")
 
-            if testingLibrary.library == .swiftTesting {
-                hasSwiftTesting = true
-            } else if testingLibrary.library == .xctest {
+            switch testingLibrary.kind {
+            case .xctest:
                 hasXCTest = true
+            case .swiftTesting:
+                hasSwiftTesting = true
             }
         }
 
@@ -670,22 +679,22 @@ final class DebugTestRunner {
 
     /// Gets the executable path and arguments for a given testing library
     private func getExecutableAndArgs(for target: DebuggableTestSession.Target) throws -> (AbsolutePath, [String]) {
-        switch target.library {
-        case .xctest:
+        switch target.kind {
+        case .xctest(let bundlePath):
             #if os(macOS)
             guard let xctestPath = toolchain.xctestPath else {
                 throw StringError("XCTest not found in toolchain")
             }
-            return (xctestPath, target.additionalArgs + [target.bundlePath.pathString])
+            return (xctestPath, target.additionalArgs + [bundlePath.pathString])
             #else
-            return (target.bundlePath, target.additionalArgs)
+            return (bundlePath, target.additionalArgs)
             #endif
-        case .swiftTesting:
+        case .swiftTesting(let binaryPath):
             #if os(macOS)
             let executable = try toolchain.getSwiftTestingHelper()
-            let args = ["--test-bundle-path", target.bundlePath.pathString] + target.additionalArgs
+            let args = ["--test-bundle-path", binaryPath.pathString] + target.additionalArgs
             #else
-            let executable = target.bundlePath
+            let executable = binaryPath
             let args = target.additionalArgs
             #endif
             return (executable, args)
@@ -694,14 +703,19 @@ final class DebugTestRunner {
 
     /// Gets the module path for symbol loading
     private func getModulePath(for target: DebuggableTestSession.Target) throws -> AbsolutePath {
-        guard target.library == .xctest && buildParameters.triple.isDarwin() else {
-            return target.bundlePath
+        switch target.kind {
+        case .xctest(let bundlePath):
+            guard buildParameters.triple.isDarwin() else {
+                return bundlePath
+            }
+            guard let name = bundlePath.components.last?.replacing(".xctest", with: "") else {
+                return bundlePath
+            }
+            let relativePath = try RelativePath(validating: "Contents/MacOS/\(name)")
+            return bundlePath.appending(relativePath)
+        case .swiftTesting(let binaryPath):
+            return binaryPath
         }
-        guard let name = target.bundlePath.components.last?.replacing(".xctest", with: "") else {
-            return target.bundlePath
-        }
-        let relativePath = try RelativePath(validating: "Contents/MacOS/\(name)")
-        return target.bundlePath.appending(relativePath)
     }
 
     /// Creates a Python script that handles automatic target switching
