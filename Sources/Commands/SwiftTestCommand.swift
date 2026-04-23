@@ -323,14 +323,14 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         var results = [TestProductResult]()
 
         if options.shouldLaunchInLLDB {
-            let result = try await runTestProductsWithLLDB(
+            // runTestProductsWithLLDB will replace the running swift-test process with lldb
+            // and so we don't expect any code after this call to execute.
+            try await runTestProductsWithLLDB(
                 testProducts,
                 productsBuildParameters: buildParameters,
                 swiftCommandState: swiftCommandState
             )
-            results.append(contentsOf: testProducts.map {
-                TestProductResult(productName: $0.productName, library: .xctest, result: result)
-            })
+            return
         }
 
         // Run XCTest.
@@ -589,7 +589,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         _ testProducts: [BuiltTestProduct],
         productsBuildParameters: BuildParameters,
         swiftCommandState: SwiftCommandState
-    ) async throws -> TestRunner.Result {
+    ) async throws {
         guard !testProducts.isEmpty else {
             throw StringError("No test products found for debugging")
         }
@@ -667,8 +667,6 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             swiftCommandState: swiftCommandState,
             toolchain: toolchain
         )
-
-        return .success
     }
 
     private func additionalLLDBArguments(for library: TestingLibrary, testProduct: BuiltTestProduct, swiftCommandState: SwiftCommandState) throws -> [String] {
@@ -696,7 +694,6 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         swiftCommandState: SwiftCommandState,
         toolchain: UserToolchain
     ) async throws {
-        // Create and launch the debug test runner
         let debugRunner = DebugTestRunner(
             target: target,
             buildParameters: productsBuildParameters,
