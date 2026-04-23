@@ -376,7 +376,8 @@ extension PackagePIFProjectBuilder {
         // Ensure the intermediates for this target don't clash with the intermediates of a target representing a package product with the same name
         settings[.TARGET_TEMP_DIR_SUFFIX] = "-t"
 
-        if sourceModule.platformConstraint == .host {
+        if sourceModule.platformConstraint == .host
+            || self.pifBuilder.hostOnlyModuleIds.contains(sourceModule.id) {
             settings[.SUPPORTED_PLATFORMS] = ["$(HOST_PLATFORM)"]
         }
         if shouldGenerateBundleAccessor {

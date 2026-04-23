@@ -169,6 +169,14 @@ extension PackagePIFProjectBuilder {
             }
         }
 
+        // Restrict products whose main module is reachable only via host-only
+        // chains (plugin tools, etc.) to the host platform. Applies across
+        // product types; the macro-prebuilts branch above handles ARCHS
+        // pinning separately.
+        if self.pifBuilder.hostOnlyModuleIds.contains(mainModule.id) {
+            settings[.SUPPORTED_PLATFORMS] = ["$(HOST_PLATFORM)"]
+        }
+
         mainModule.addParseAsLibrarySettings(to: &settings, toolsVersion: package.manifest.toolsVersion, fileSystem: pifBuilder.fileSystem)
 
         let mainTargetDeploymentTargets = mainModule.deploymentTargets(using: pifBuilder.delegate)
@@ -418,7 +426,13 @@ extension PackagePIFProjectBuilder {
                     log(.debug, indent: 1, "Added dependency on product '\(dependencyId)'")
 
                     // Link with a testable version of the macro if appropriate.
-                    if product.type == .test {
+                    // Skip when the macro is host-only-reachable: linking the
+                    // testable variant + its transitive product deps into a
+                    // potentially wasm-targeted test product would pull in
+                    // missing wasm `.o` files (the macro and its swift-syntax
+                    // deps are only built for the host).
+                    let isHostOnlyMacro = self.pifBuilder.hostOnlyModuleIds.contains(moduleDependency.id)
+                    if product.type == .test && !isHostOnlyMacro {
                         self.project[keyPath: mainModuleTargetKeyPath].common.addDependency(
                             on: moduleDependency.pifTargetGUID(suffix: .testable),
                             platformFilters: packageConditions

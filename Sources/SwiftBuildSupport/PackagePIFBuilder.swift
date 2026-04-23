@@ -50,6 +50,14 @@ public final class PackagePIFBuilder {
     let modulesGraph: ModulesGraph
     private let package: ResolvedPackage
 
+    /// IDs of modules that are reachable only via host-only chains (macros,
+    /// plugins, plugin tools). When emitting PIF settings, restrict
+    /// `SUPPORTED_PLATFORMS` to `$(HOST_PLATFORM)` for these modules.
+    ///
+    /// Computed in init based on `modulesGraph`. Stable for the builder's
+    /// lifetime.
+    let hostOnlyModuleIds: Set<ResolvedModule.ID>
+
     /// Contains the package declarative specification.
     let packageManifest: PackageModel.Manifest // FIXME: Can't we just use `package.manifest` instead? —— Paulo
 
@@ -232,6 +240,7 @@ public final class PackagePIFBuilder {
         self.package = resolvedPackage
         self.packageManifest = packageManifest
         self.modulesGraph = modulesGraph
+        self.hostOnlyModuleIds = Self.computeHostOnlyReachableModules(in: modulesGraph)
         self.delegate = delegate
         self.buildToolPluginResultsByTargetName = buildToolPluginResultsByTargetName
         self.createDylibForDynamicProducts = createDylibForDynamicProducts
@@ -262,6 +271,7 @@ public final class PackagePIFBuilder {
         self.package = resolvedPackage
         self.packageManifest = packageManifest
         self.modulesGraph = modulesGraph
+        self.hostOnlyModuleIds = Self.computeHostOnlyReachableModules(in: modulesGraph)
         self.delegate = delegate
         self.buildToolPluginResultsByTargetName = buildToolPluginResultsByTargetName.mapValues { [$0] }
         self.createDylibForDynamicProducts = createDylibForDynamicProducts
