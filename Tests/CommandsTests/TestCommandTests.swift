@@ -1738,8 +1738,11 @@ struct TestCommandTests {
             )
         }
 
+        /// Smoke test that verifies `validateLLDBCompatibility` is wired into
+        /// the command pipeline. The individual incompatibility rules are
+        /// covered directly by `ValidationTests` below.
         @Test(arguments: SupportedBuildSystemOnAllPlatforms)
-        func lldbWithParallelThrowsError(buildSystem: BuildSystemProvider.Kind) async throws {
+        func lldbValidationIsWiredIntoCommandPipeline(buildSystem: BuildSystemProvider.Kind) async throws {
             let args = args(["--debugger", "--parallel"], for: buildSystem)
             let command = try #require(SwiftTestCommand.parseAsRoot(args) as? SwiftTestCommand)
             let (state, outputStream) = try commandState()
@@ -1752,106 +1755,10 @@ struct TestCommandTests {
 
             // The output stream is written to asynchronously on a DispatchQueue and can
             // receive output after the command has thrown.
-            let found = try await waitForOutputStreamToContain(outputStream, "--debugger cannot be used with --parallel")
+            let found = try await waitForOutputStreamToContain(outputStream, "--debugger")
             #expect(
                 found,
-                "Expected error about incompatible flags, got: \(outputStream.bytes.description)"
-            )
-        }
-
-        @Test(arguments: SupportedBuildSystemOnAllPlatforms)
-        func lldbWithNumWorkersThrowsError(buildSystem: BuildSystemProvider.Kind) async throws {
-            let args = args(["--debugger", "--parallel", "--num-workers", "2"], for: buildSystem)
-            let command = try #require(SwiftTestCommand.parseAsRoot(args) as? SwiftTestCommand)
-            let (state, outputStream) = try commandState()
-
-            let error = await #expect(throws: ExitCode.self) {
-                try await command.run(state)
-            }
-
-            #expect(error == ExitCode.failure, "Expected ExitCode.failure, got \(String(describing: error))")
-
-            // Should hit the --parallel error first since validation is done in order
-            let found = try await waitForOutputStreamToContain(outputStream, "--debugger cannot be used with --parallel")
-            #expect(
-                found,
-                "Expected error about incompatible flags, got: \(outputStream.bytes.description)"
-            )
-        }
-
-        @Test(arguments: SupportedBuildSystemOnAllPlatforms)
-        func lldbWithNumWorkersOnlyThrowsError(buildSystem: BuildSystemProvider.Kind) async throws {
-            let args = args(["--debugger", "--num-workers", "2"], for: buildSystem)
-            let command = try #require(SwiftTestCommand.parseAsRoot(args) as? SwiftTestCommand)
-            let (state, outputStream) = try commandState()
-
-            let error = await #expect(throws: ExitCode.self) {
-                try await command.run(state)
-            }
-
-            #expect(error == ExitCode.failure, "Expected ExitCode.failure, got \(String(describing: error))")
-
-            let found = try await waitForOutputStreamToContain(outputStream, "--debugger cannot be used with --num-workers")
-            #expect(
-                found,
-                "Expected error about incompatible flags, got: \(outputStream.bytes.description)"
-            )
-        }
-
-        @Test(arguments: SupportedBuildSystemOnAllPlatforms)
-        func lldbWithListTestsThrowsError(buildSystem: BuildSystemProvider.Kind) async throws {
-            let args = args(["--debugger", "--list-tests"], for: buildSystem)
-            let command = try #require(SwiftTestCommand.parseAsRoot(args) as? SwiftTestCommand)
-            let (state, outputStream) = try commandState()
-
-            let error = await #expect(throws: ExitCode.self) {
-                try await command.run(state)
-            }
-
-            #expect(error == ExitCode.failure, "Expected ExitCode.failure, got \(String(describing: error))")
-
-            let found = try await waitForOutputStreamToContain(outputStream, "--debugger cannot be used with --list-tests")
-            #expect(
-                found,
-                "Expected error about incompatible flags, got: \(outputStream.bytes.description)"
-            )
-        }
-
-        @Test(arguments: SupportedBuildSystemOnAllPlatforms)
-        func lldbWithShowCodecovPathThrowsError(buildSystem: BuildSystemProvider.Kind) async throws {
-            let args = args(["--debugger", "--show-codecov-path"], for: buildSystem)
-            let command = try #require(SwiftTestCommand.parseAsRoot(args) as? SwiftTestCommand)
-            let (state, outputStream) = try commandState()
-
-            let error = await #expect(throws: ExitCode.self) {
-                try await command.run(state)
-            }
-
-            #expect(error == ExitCode.failure, "Expected ExitCode.failure, got \(String(describing: error))")
-
-            let found = try await waitForOutputStreamToContain(outputStream, "--debugger cannot be used with --show-codecov-path")
-            #expect(
-                found,
-                "Expected error about incompatible flags, got: \(outputStream.bytes.description)"
-            )
-        }
-
-        @Test(arguments: SupportedBuildSystemOnAllPlatforms)
-        func lldbWithReleaseConfigurationThrowsError(buildSystem: BuildSystemProvider.Kind) async throws {
-            let args = args(["--debugger"], for: buildSystem, buildConfiguration: .release)
-            let command = try #require(SwiftTestCommand.parseAsRoot(args) as? SwiftTestCommand)
-            let (state, outputStream) = try commandState()
-
-            let error = await #expect(throws: ExitCode.self) {
-                try await command.run(state)
-            }
-
-            #expect(error == ExitCode.failure, "Expected ExitCode.failure, got \(String(describing: error))")
-
-            let found = try await waitForOutputStreamToContain(outputStream, "--debugger cannot be used with release configuration")
-            #expect(
-                found,
-                "Expected error about incompatible flags, got: \(outputStream.bytes.description)"
+                "Expected validation error to surface via the command pipeline, got: \(outputStream.bytes.description)"
             )
         }
 
@@ -2169,6 +2076,103 @@ struct TestCommandTests {
                 #expect(
                     stdout.contains("exited with status = 0"),
                     "Expected process to exit with status 0, got stdout: \(stdout), stderr: \(stderr)"
+                )
+            }
+        }
+
+        /// Direct unit tests for the validation logic, exercising
+        /// `validateLLDBCompatibility` without going through the full
+        /// command pipeline.
+        @Suite
+        struct ValidationTests {
+            private func expectValidationError(
+                configuration: BuildConfiguration = .debug,
+                shouldRunInParallel: Bool = false,
+                numberOfWorkers: Int? = nil,
+                shouldListTests: Bool = false,
+                shouldPrintCodeCovPath: Bool = false,
+                containing substrings: [String]
+            ) {
+                let error = #expect(throws: StringError.self) {
+                    try SwiftTestCommand.validateLLDBCompatibility(
+                        configuration: configuration,
+                        shouldRunInParallel: shouldRunInParallel,
+                        numberOfWorkers: numberOfWorkers,
+                        shouldListTests: shouldListTests,
+                        shouldPrintCodeCovPath: shouldPrintCodeCovPath
+                    )
+                }
+                let message = error?.description ?? ""
+                for substring in substrings {
+                    #expect(
+                        message.contains(substring),
+                        "Expected error message to contain '\(substring)', got: \(message)"
+                    )
+                }
+            }
+
+            @Test
+            func releaseConfigurationIsRejected() {
+                expectValidationError(
+                    configuration: .release,
+                    containing: ["--debugger", "release configuration"]
+                )
+            }
+
+            @Test
+            func parallelFlagIsRejected() {
+                expectValidationError(
+                    shouldRunInParallel: true,
+                    containing: ["--debugger", "--parallel"]
+                )
+            }
+
+            @Test
+            func numWorkersIsRejected() {
+                expectValidationError(
+                    numberOfWorkers: 2,
+                    containing: ["--debugger", "--num-workers"]
+                )
+            }
+
+            @Test
+            func listTestsIsRejected() {
+                expectValidationError(
+                    shouldListTests: true,
+                    containing: ["--debugger", "--list-tests"]
+                )
+            }
+
+            @Test
+            func showCodeCovPathIsRejected() {
+                expectValidationError(
+                    shouldPrintCodeCovPath: true,
+                    containing: ["--debugger", "--show-codecov-path"]
+                )
+            }
+
+            @Test
+            func compatibleOptionsPassValidation() throws {
+                try SwiftTestCommand.validateLLDBCompatibility(
+                    configuration: .debug,
+                    shouldRunInParallel: false,
+                    numberOfWorkers: nil,
+                    shouldListTests: false,
+                    shouldPrintCodeCovPath: false
+                )
+            }
+
+            @Test
+            func configurationIsCheckedBeforeOtherFlags() {
+                // When multiple incompatible flags are set, the release-configuration
+                // check fires first so callers see a single, deterministic error.
+                expectValidationError(
+                    configuration: .release,
+                    shouldRunInParallel: true,
+                    numberOfWorkers: 2,
+                    shouldListTests: true,
+                    shouldPrintCodeCovPath: true,
+                    containing: ["release configuration"]
                 )
             }
         }
