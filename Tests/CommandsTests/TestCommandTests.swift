@@ -1983,10 +1983,8 @@ struct TestCommandTests {
                             "Expected no errors, got stdout: \(stdout), stderr: \(stderr)",
                         )
                     } when: {
-                        // Only the multi-product swiftbuild path emits the Python target-switcher
-                        // script; the native single-umbrella path doesn't, so it has no Python
-                        // errors to suppress on smoke-test CI (whose lldb lacks Python bindings).
-                        CiEnvironment.runningInSmokeTestPipeline && buildSystem == .swiftbuild
+                        // Smoke-test CI's lldb is too old and lacks Python bindings.
+                        CiEnvironment.runningInSmokeTestPipeline
                     }
 
                     let targetCreateCount = getNumberOfMatches(of: "target create", in: stdout)
@@ -2027,10 +2025,8 @@ struct TestCommandTests {
                             "Expected no errors, got stdout: \(stdout), stderr: \(stderr)",
                         )
                     } when: {
-                        // Only the multi-product swiftbuild path emits the Python target-switcher
-                        // script; the native single-umbrella path doesn't, so it has no Python
-                        // errors to suppress on smoke-test CI (whose lldb lacks Python bindings).
-                        CiEnvironment.runningInSmokeTestPipeline && buildSystem == .swiftbuild
+                        // Smoke-test CI's lldb is too old and lacks Python bindings.
+                        CiEnvironment.runningInSmokeTestPipeline
                     }
 
                     let targetCreateCount = getNumberOfMatches(of: "target create", in: stdout)
@@ -2068,15 +2064,21 @@ struct TestCommandTests {
                     throwIfCommandFails: false
                 )
 
-                #expect(
-                    stdout.contains("Process") && stdout.contains("launched"),
-                    "Expected LLDB to launch the process, got stdout: \(stdout), stderr: \(stderr)"
-                )
+                withKnownIssue {
+                    #expect(
+                        stdout.contains("Process") && stdout.contains("launched"),
+                        "Expected LLDB to launch the process, got stdout: \(stdout), stderr: \(stderr)"
+                    )
 
-                #expect(
-                    stdout.contains("exited with status = 0"),
-                    "Expected process to exit with status 0, got stdout: \(stdout), stderr: \(stderr)"
-                )
+                    #expect(
+                        stdout.contains("exited with status = 0"),
+                        "Expected process to exit with status 0, got stdout: \(stdout), stderr: \(stderr)"
+                    )
+                } when: {
+                    // Smoke-test CI runs an old /opt/swift/5.9.2/usr/bin/lldb that was built
+                    // without Python bindings.
+                    CiEnvironment.runningInSmokeTestPipeline
+                }
             }
         }
 
