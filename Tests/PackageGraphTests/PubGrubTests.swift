@@ -1734,6 +1734,70 @@ final class PubGrubTests: XCTestCase {
             ]
         )
     }
+
+    func testPubGrubPackageContainerCanTrustPinnedVersion() async throws {
+        final class FailingVersionEnumerationContainer: PackageContainer {
+            enum UnexpectedCall: Error {
+                case versionEnumeration
+            }
+
+            let package: PackageReference
+            let shouldInvalidatePinnedVersions = true
+
+            init(package: PackageReference) {
+                self.package = package
+            }
+
+            func isToolsVersionCompatible(at version: Version) async -> Bool { true }
+            func toolsVersion(for version: Version) async throws -> ToolsVersion { .current }
+            func toolsVersionsAppropriateVersionsDescending() async throws -> [Version] {
+                throw UnexpectedCall.versionEnumeration
+            }
+            func versionsAscending() async throws -> [Version] {
+                throw UnexpectedCall.versionEnumeration
+            }
+            func getDependencies(
+                at version: Version,
+                productFilter: ProductFilter,
+                _ enabledTraits: EnabledTraits = ["default"]
+            ) async throws -> [PackageContainerConstraint] {
+                []
+            }
+            func getDependencies(
+                at revision: String,
+                productFilter: ProductFilter,
+                _ enabledTraits: EnabledTraits = ["default"]
+            ) async throws -> [PackageContainerConstraint] {
+                []
+            }
+            func getUnversionedDependencies(
+                productFilter: ProductFilter,
+                _ enabledTraits: EnabledTraits = ["default"]
+            ) async throws -> [PackageContainerConstraint] {
+                []
+            }
+            func loadPackageReference(at boundVersion: BoundVersion) async throws -> PackageReference { self.package }
+        }
+
+        let path = AbsolutePath("/Package")
+        let package = PackageReference.localSourceControl(identity: .init(path: path), path: path)
+        let pinnedVersion = Version(1, 2, 3)
+        let container = PubGrubPackageContainer(
+            underlying: FailingVersionEnumerationContainer(package: package),
+            resolvedPackages: [
+                package.identity: .init(
+                    packageRef: package,
+                    state: .version(pinnedVersion, revision: nil)
+                )
+            ],
+            trustPinnedVersions: true
+        )
+        let term = Term("package@1.2.3")
+
+        let version = try await container.getBestAvailableVersion(for: term)
+
+        XCTAssertEqual(version, pinnedVersion)
+    }
 }
 
 final class PubGrubTestsBasicGraphs: XCTestCase {

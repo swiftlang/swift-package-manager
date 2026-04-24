@@ -147,6 +147,7 @@ public struct PubGrubDependencyResolver {
         provider: PackageContainerProvider,
         resolvedPackages: ResolvedPackagesStore.ResolvedPackages = [:],
         skipDependenciesUpdates: Bool = false,
+        skipUpdateForResolvedPackages: Bool = false,
         prefetchBasedOnResolvedFile: Bool = false,
         observabilityScope: ObservabilityScope,
         delegate: DependencyResolverDelegate? = nil
@@ -158,6 +159,7 @@ public struct PubGrubDependencyResolver {
         self.provider = ContainerProvider(
             provider: self.packageContainerProvider,
             skipUpdate: self.skipDependenciesUpdates,
+            skipUpdateForResolvedPackages: skipUpdateForResolvedPackages,
             resolvedPackages: self.resolvedPackages,
             observabilityScope: observabilityScope
         )
