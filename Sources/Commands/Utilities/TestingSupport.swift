@@ -533,14 +533,21 @@ struct DebugTestRunner {
     private let observabilityScope: ObservabilityScope
     private let verbose: Bool
 
+    /// Escapes a string for embedding inside a double-quoted LLDB command
+    /// argument. Backslash must be doubled first so the escape we introduce
+    /// for `"` isn't itself re-escaped. Windows paths and product names
+    /// containing `\` or `"` would otherwise corrupt the command file.
+    static func escapeForQuotedLLDBArgument(_ s: String) -> String {
+        s.replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+    }
+
     /// Builds an inline LLDB `script` command that registers an
     /// `SBDebugger.SetDestroyCallback` to delete the given directory
     /// when LLDB tears down. Fires on `quit`, `exit`, EOF, and most
     /// normal shutdown paths; hard crashes / SIGKILL still bypass it.
     static func atexitCleanupCommand(tempDirectory: AbsolutePath) -> String {
-        let escaped = tempDirectory.pathString
-            .replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "\"", with: "\\\"")
+        let escaped = escapeForQuotedLLDBArgument(tempDirectory.pathString)
         return "script import shutil; lldb.debugger.SetDestroyCallback(lambda _id, d=\"\(escaped)\": shutil.rmtree(d, ignore_errors=True))"
     }
 
@@ -634,22 +641,24 @@ struct DebugTestRunner {
 
         for testingLibrary in target.targets {
             let (executable, args) = try getExecutableAndArgs(for: testingLibrary)
+            let escapedExecutable = Self.escapeForQuotedLLDBArgument(executable.pathString)
+            let escapedProductName = Self.escapeForQuotedLLDBArgument(testingLibrary.productName)
             // Smoke-test CI doesn't ship the toolchain's lldb alongside the in-development
             // swiftc; it falls back to an older system lldb on PATH that doesn't support
             // `target create -l`. Skip the label there so the command parses.
             if Environment.current["SWIFTCI_USE_LOCAL_DEPS"] != nil {
-                lldbCommands.append("target create \"\(executable.pathString)\"")
+                lldbCommands.append("target create \"\(escapedExecutable)\"")
             } else {
-                lldbCommands.append("target create -l \"\(testingLibrary.productName) (\(testingLibrary.library))\" \"\(executable.pathString)\"")
+                lldbCommands.append("target create -l \"\(escapedProductName) (\(testingLibrary.library))\" \"\(escapedExecutable)\"")
             }
             lldbCommands.append("settings clear target.run-args")
 
             for arg in args {
-                lldbCommands.append("settings append target.run-args \"\(arg)\"")
+                lldbCommands.append("settings append target.run-args \"\(Self.escapeForQuotedLLDBArgument(arg))\"")
             }
 
             let modulePath = try getModulePath(for: testingLibrary)
-            lldbCommands.append("target modules add \"\(modulePath.pathString)\"")
+            lldbCommands.append("target modules add \"\(Self.escapeForQuotedLLDBArgument(modulePath.pathString))\"")
 
             switch testingLibrary.kind {
             case .xctest:
@@ -663,7 +672,7 @@ struct DebugTestRunner {
 
         if target.isMultiSession {
             let scriptPath = try createTargetSwitchingScript(in: scratchDir)
-            lldbCommands.append("command script import \"\(scriptPath.pathString)\"")
+            lldbCommands.append("command script import \"\(Self.escapeForQuotedLLDBArgument(scriptPath.pathString))\"")
             lldbCommands.append("target select 0")
         }
     }
