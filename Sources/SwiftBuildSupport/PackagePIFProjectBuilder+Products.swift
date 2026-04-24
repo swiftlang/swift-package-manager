@@ -1171,6 +1171,12 @@ extension PackagePIFProjectBuilder {
     mutating func makePackageTestProduct() throws {
         let productName = packageManifest.umbrellaPackageTestsProductName
         let packageIdentity = package.identity
+
+        // Keep the historical aggregate umbrella — non-wasm callers (swift
+        // test, build-server, any tooling that resolves `umbrellaProductName`
+        // in the PIF) expect a target named `<Name>PackageTests-product` with
+        // build-only deps on every test target. Changing that target's shape
+        // would silently break those callers.
         let packageTestProductKeyPath = try project.addAggregateTarget { _ in
             ProjectModel.AggregateTarget(
                 id: PackagePIFBuilder.targetGUID(forProductName: productName, withId: "\(packageIdentity.description)-\(productName)"),
@@ -1184,11 +1190,17 @@ extension PackagePIFProjectBuilder {
             }
         }
 
+        // Collect unit-test ids once so both the aggregate and the wasm
+        // umbrella below iterate the same set.
+        var unitTestIds: [GUID] = []
         for target in project.targets {
             switch target {
             case .target(let target):
                 switch target.productType {
-                case .unitTest, .swiftpmTestRunner:
+                case .unitTest:
+                    unitTestIds.append(target.id)
+                    fallthrough
+                case .swiftpmTestRunner:
                     project[keyPath: packageTestProductKeyPath].common.addDependency(
                         on: target.id,
                         platformFilters: [],
@@ -1201,6 +1213,126 @@ extension PackagePIFProjectBuilder {
                 break
             }
         }
+
+        // Emit a wasm-only real `.swiftpmTestRunner` umbrella alongside the
+        // aggregate when there is at least one unit-test archive to link.
+        // The JavaScriptKit PackageToJS plugin probes
+        // `<packageDir>/.build/debug/<Name>PackageTests.wasm` on disk; the
+        // aggregate (which produces no binary) would never satisfy that
+        // probe. A shell-script phase at the end of link mirrors the umbrella
+        // `.wasm` into that path.
+        guard !unitTestIds.isEmpty else { return }
+
+        let umbrellaProductName = "\(productName)-wasm"
+        let umbrellaTargetName = PackagePIFBuilder.targetName(forProductName: umbrellaProductName)
+        let umbrellaModuleName = "\(productName.spm_mangledToC99ExtendedIdentifier())_wasm_test_runner"
+        let umbrellaGuid = PackagePIFBuilder.targetGUID(
+            forProductName: umbrellaProductName,
+            withId: "\(packageIdentity.description)-\(umbrellaProductName)"
+        )
+        let umbrellaKeyPath = try project.addTarget { _ in
+            ProjectModel.Target(
+                id: umbrellaGuid,
+                productType: .swiftpmTestRunner,
+                name: umbrellaTargetName,
+                productName: productName
+            )
+        }
+
+        var settings: BuildSettings = self.package.underlying.packageBaseBuildSettings
+        // `PRODUCT_NAME` is set literally (not `$(TARGET_NAME)`) because
+        // `targetName(forProductName:)` appends `-product` — we want the
+        // emitted `.wasm` to be `<Name>PackageTests.wasm`, matching the
+        // JS Kit plugin probe, not `<Name>PackageTests-wasm-product.wasm`.
+        settings[.PRODUCT_NAME] = productName
+        settings[.PRODUCT_MODULE_NAME] = umbrellaModuleName
+        settings[.PRODUCT_BUNDLE_IDENTIFIER] = "\(packageIdentity).\(productName)"
+            .spm_mangledToBundleIdentifier()
+        settings[.SKIP_INSTALL] = "NO"
+        settings[.SWIFT_VERSION] = "5.0"
+        settings[.LINKER_DRIVER] = "swiftc"
+        // Gate the umbrella so only wasm destinations build it. This is a
+        // literal string rather than `$(HOST_PLATFORM)` (the convention for
+        // host-only targets elsewhere in this file) because the target is
+        // tied specifically to the wasm platform registered by
+        // `swift-build/Sources/SWBWebAssemblyPlatform/Plugin.swift`, not to
+        // whatever platform the host happens to be.
+        settings[.SUPPORTED_PLATFORMS] = ["webassembly"]
+
+        // Empty sources phase so the auto-generated test_entry_point.swift
+        // compiles into the umbrella.
+        project[keyPath: umbrellaKeyPath].common.addSourcesBuildPhase { id in
+            ProjectModel.SourcesBuildPhase(id: id)
+        }
+
+        // After link, mirror the umbrella `.wasm` into `<pkg>/.build/debug/`
+        // where the JavaScriptKit PackageToJS plugin probes. Using a shell
+        // phase (rather than overriding `CONFIGURATION_BUILD_DIR`) keeps the
+        // default `BUILT_PRODUCTS_DIR` on the module search path so the
+        // auto-generated entry-point can resolve each unit-test `.swiftmodule`.
+        // The copy lands via a tempfile + rename so concurrent `stat` calls
+        // from plugins never observe a torn file.
+        project[keyPath: umbrellaKeyPath].common.addShellScriptBuildPhase { id in
+            ProjectModel.ShellScriptBuildPhase(
+                id: id,
+                name: "Mirror umbrella test runner into .build/debug",
+                scriptContents: """
+                set -e
+                src="$BUILT_PRODUCTS_DIR/$FULL_PRODUCT_NAME"
+                dst_dir="$SRCROOT/.build/debug"
+                dst="$dst_dir/$FULL_PRODUCT_NAME"
+                mkdir -p "$dst_dir"
+                cp "$src" "$dst.tmp.$$"
+                mv -f "$dst.tmp.$$" "$dst"
+                """,
+                shellPath: "/bin/sh",
+                inputPaths: ["$(BUILT_PRODUCTS_DIR)/$(FULL_PRODUCT_NAME)"],
+                outputPaths: ["$(SRCROOT)/.build/debug/$(FULL_PRODUCT_NAME)"],
+                emitEnvironment: false,
+                alwaysOutOfDate: false,
+                originalObjectID: "MirrorToBuildDebug"
+            )
+        }
+
+        for unitTestId in unitTestIds {
+            project[keyPath: umbrellaKeyPath].common.addDependency(
+                on: unitTestId,
+                platformFilters: [],
+                linkProduct: true
+            )
+        }
+
+        // Make the aggregate umbrella pull the wasm sibling into the build
+        // graph so `swift package ... js test` (which requests the aggregate
+        // by its historical name) triggers the umbrella build on wasm. The
+        // umbrella's own `SUPPORTED_PLATFORMS = ["webassembly"]` filters it
+        // out on non-wasm destinations.
+        project[keyPath: packageTestProductKeyPath].common.addDependency(
+            on: umbrellaGuid,
+            platformFilters: [],
+            linkProduct: false
+        )
+
+        for config in ["Debug", "Release"] {
+            project[keyPath: umbrellaKeyPath].common.addBuildConfig { id in
+                BuildConfig(id: id, name: config, settings: settings)
+            }
+        }
+
+        let umbrellaProduct = PackagePIFBuilder.ModuleOrProduct(
+            type: .unitTestRunner,
+            name: umbrellaProductName,
+            moduleName: umbrellaModuleName,
+            pifTarget: .target(project[keyPath: umbrellaKeyPath]),
+            indexableFileURLs: [],
+            headerFiles: [],
+            linkedPackageBinaries: [],
+            swiftLanguageVersion: nil,
+            declaredPlatforms: self.declaredPlatforms,
+            deploymentTargets: self.deploymentTargets,
+            toolsVersion: pifBuilder.packageManifest.toolsVersion
+        )
+        self.builtModulesAndProducts.append(umbrellaProduct)
     }
 }
 

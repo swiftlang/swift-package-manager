@@ -1087,6 +1087,133 @@ struct PIFBuilderTests {
         ]
         #expect(sources == expected)
      }
+
+    /// Ensures `makePackageTestProduct` emits both the historical aggregate
+    /// (`<Name>PackageTests-product`) for non-wasm callers AND a wasm-only
+    /// real `.swiftpmTestRunner` sibling (`<Name>PackageTests-wasm-product`)
+    /// whose shape the JavaScriptKit PackageToJS plugin's on-disk probe relies on:
+    ///
+    /// - The wasm sibling's `productType == .swiftpmTestRunner` (was an
+    ///   `AggregateTarget` before, which produces no binary and silently
+    ///   dropped the probe on wasm).
+    /// - `SUPPORTED_PLATFORMS = ["webassembly"]` so only wasm cross-compiles
+    ///   actually emit the umbrella; native destinations keep the aggregate
+    ///   plus per-target `-test-runner` products unchanged.
+    /// - `PRODUCT_NAME == productName` (literal `<Name>PackageTests`) so the
+    ///   emitted binary is `<Name>PackageTests.wasm`, matching the plugin
+    ///   probe — if this were `"$(TARGET_NAME)"` the binary would be
+    ///   `<Name>PackageTests-wasm-product.wasm`.
+    /// - A link-product dependency on every `.unitTest` target, and none on
+    ///   itself.
+    /// - A shell-script build phase with the correct `inputPaths`/`outputPaths`
+    ///   that mirrors the umbrella binary into
+    ///   `$(SRCROOT)/.build/debug/$(FULL_PRODUCT_NAME)`, the path probed by
+    ///   `JavaScriptKit/Plugins/PackageToJS/Sources/PackageToJSPlugin.swift`.
+    @Test func umbrellaPackageTestsProductIsWasmSwiftpmTestRunner() async throws {
+        try await withGeneratedPIF(fromFixture: "PIFBuilder/MultiTest") { pif, observabilitySystem in
+            let errors = observabilitySystem.diagnostics.filter { $0.severity == .error }
+            #expect(errors.isEmpty, "Expected no errors during PIF generation, but got: \(errors)")
+
+            let project = try pif.workspace.project(named: "MultiTest")
+
+            // Historical aggregate preserved for non-wasm callers.
+            let aggregate = try project.target(named: "MultiTestPackageTests-product")
+            guard case .aggregate = aggregate else {
+                Issue.record("historical aggregate must remain an AggregateTarget")
+                return
+            }
+
+            // Wasm-only sibling real target.
+            let umbrella = try project.target(named: "MultiTestPackageTests-wasm-product")
+            guard case .target(let umbrellaTarget) = umbrella else {
+                Issue.record("wasm umbrella must be a real Target, not an AggregateTarget")
+                return
+            }
+
+            // The aggregate must depend on the wasm umbrella so requesting
+            // the historical product name pulls the umbrella into the build
+            // graph on wasm destinations.
+            let aggregateDeps = Set(aggregate.common.dependencies.map { $0.targetId })
+            #expect(
+                aggregateDeps.contains(umbrellaTarget.id),
+                "aggregate umbrella must depend on the wasm sibling"
+            )
+
+            #expect(umbrellaTarget.productType == .swiftpmTestRunner)
+
+            let debugConfig = try umbrella.buildConfig(named: .debug)
+            #expect(debugConfig.settings[.SUPPORTED_PLATFORMS] == ["webassembly"])
+            // `PRODUCT_NAME` must be the literal `<Name>PackageTests` so the
+            // emitted `.wasm` matches the PackageToJS plugin probe path.
+            #expect(debugConfig.settings[.PRODUCT_NAME] == "MultiTestPackageTests")
+
+            // Every `.unitTest` target in the project must be a link-dep of
+            // the umbrella.
+            let unitTestIds = Set(project.underlying.targets.compactMap { baseTarget -> GUID? in
+                guard case .target(let target) = baseTarget, target.productType == .unitTest else {
+                    return nil
+                }
+                return target.id
+            })
+            #expect(!unitTestIds.isEmpty, "fixture must declare at least one unit-test target")
+
+            let umbrellaLinkDeps = Set(umbrella.common.dependencies.map { $0.targetId })
+            for unitTestId in unitTestIds {
+                #expect(
+                    umbrellaLinkDeps.contains(unitTestId),
+                    "umbrella target must depend on unit-test id \(unitTestId.value)"
+                )
+            }
+            #expect(
+                !umbrellaLinkDeps.contains(umbrellaTarget.id),
+                "umbrella must not self-link"
+            )
+
+            // Shell-script mirror phase with the expected input/output shape.
+            let scriptPhases = umbrella.common.buildPhases.compactMap { phase -> ProjectModel.ShellScriptBuildPhase? in
+                if case .shellScript(let script) = phase { return script }
+                return nil
+            }
+            let mirrorPhase = try #require(
+                scriptPhases.first { $0.outputPaths.contains { $0.contains(".build/debug") } },
+                "umbrella must ship a shell-script phase mirroring the product into .build/debug"
+            )
+            #expect(mirrorPhase.outputPaths == ["$(SRCROOT)/.build/debug/$(FULL_PRODUCT_NAME)"])
+            #expect(mirrorPhase.inputPaths == ["$(BUILT_PRODUCTS_DIR)/$(FULL_PRODUCT_NAME)"])
+            #expect(
+                mirrorPhase.scriptContents.contains("$SRCROOT/.build/debug"),
+                "mirror phase must copy into $SRCROOT/.build/debug"
+            )
+            // Atomic copy: tempfile + rename.
+            #expect(
+                mirrorPhase.scriptContents.contains("mv -f"),
+                "mirror phase must use tempfile + rename so torn reads are impossible"
+            )
+        }
+    }
+
+    /// A library-only package (no test targets) must still produce the
+    /// historical aggregate (for compat) but MUST NOT emit a wasm umbrella:
+    /// a `.swiftpmTestRunner` with zero link-deps has no archives to link
+    /// and would fail downstream. The production code guards this with an
+    /// `unitTestIds.isEmpty` early-return.
+    @Test func umbrellaIsSkippedWhenPackageHasNoTestTargets() async throws {
+        try await withGeneratedPIF(fromFixture: "PIFBuilder/BasicExecutable") { pif, observabilitySystem in
+            let errors = observabilitySystem.diagnostics.filter { $0.severity == .error }
+            #expect(errors.isEmpty, "Expected no errors during PIF generation, but got: \(errors)")
+
+            let project = try pif.workspace.project(named: "BasicExecutable")
+
+            let hasWasmUmbrella = project.underlying.targets.contains { baseTarget in
+                if case .target(let target) = baseTarget,
+                   target.common.name.hasSuffix("PackageTests-wasm-product") {
+                    return true
+                }
+                return false
+            }
+            #expect(!hasWasmUmbrella, "wasm umbrella must not appear when the package has no test targets")
+        }
+    }
 }
 
 extension ProjectModel.Group {
