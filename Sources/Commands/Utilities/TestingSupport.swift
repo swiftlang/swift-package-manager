@@ -609,30 +609,38 @@ struct DebugTestRunner {
             removeTreeOnDeinit: false
         ) { $0 }
 
-        var lldbCommands: [String] = []
-        try setupTargets(&lldbCommands, scratchDir: scratchDir)
+        // On success, cleanup is handed off to LLDB's SetDestroyCallback via
+        // atexitCleanupCommand. If we throw before exec, that callback never
+        // runs, so we must clean up ourselves or leak /tmp/swiftpm-lldb-*.
+        do {
+            var lldbCommands: [String] = []
+            try setupTargets(&lldbCommands, scratchDir: scratchDir)
 
-        lldbCommands.append(Self.atexitCleanupCommand(tempDirectory: scratchDir))
+            lldbCommands.append(Self.atexitCleanupCommand(tempDirectory: scratchDir))
 
-        // Clear the screen of all the previous commands to unclutter the users initial state.
-        // Skip clearing in verbose mode so startup commands remain visible
-        if !verbose {
-            lldbCommands.append("script print(\"\\033[H\\033[J\", end=\"\")")
-        }
-
-        if Environment.current["SWIFTPM_TESTS_MODULECACHE"] != nil {
-            if Environment.current["SWIFTPM_TESTS_LLDB_RUN"] != nil {
-                lldbCommands.append("run")
+            // Clear the screen of all the previous commands to unclutter the users initial state.
+            // Skip clearing in verbose mode so startup commands remain visible
+            if !verbose {
+                lldbCommands.append("script print(\"\\033[H\\033[J\", end=\"\")")
             }
-            lldbCommands.append("quit")
+
+            if Environment.current["SWIFTPM_TESTS_MODULECACHE"] != nil {
+                if Environment.current["SWIFTPM_TESTS_LLDB_RUN"] != nil {
+                    lldbCommands.append("run")
+                }
+                lldbCommands.append("quit")
+            }
+
+            let commandScript = lldbCommands.joined(separator: "\n")
+            let lldbCommandFile = scratchDir.appending("lldb-commands.txt")
+            try fileSystem.writeFileContents(lldbCommandFile, string: commandScript)
+
+            // Return script file arguments without batch mode to allow interactive debugging
+            return ["-s", lldbCommandFile.pathString]
+        } catch {
+            try? fileSystem.removeFileTree(scratchDir)
+            throw error
         }
-
-        let commandScript = lldbCommands.joined(separator: "\n")
-        let lldbCommandFile = scratchDir.appending("lldb-commands.txt")
-        try fileSystem.writeFileContents(lldbCommandFile, string: commandScript)
-
-        // Return script file arguments without batch mode to allow interactive debugging
-        return ["-s", lldbCommandFile.pathString]
     }
 
     private func setupTargets(_ lldbCommands: inout [String], scratchDir: AbsolutePath) throws {
