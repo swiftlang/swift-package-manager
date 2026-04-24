@@ -125,6 +125,13 @@ public class Workspace {
     /// Utility to map dependencies
     let dependencyMapper: DependencyMapper
 
+    /// Utility to resolve scm packages who have been mapped to registry packages
+    /// through the use of `--replace-scm-with-registry`.
+    ///
+    /// This cache will be ignored if either `--disable-scm-to-registry-transformation`
+    /// or `--use-registry-identity-for-scm` are used.
+    let identityLookupCache: IdentityLookupCache
+
     /// The custom package container provider used by this workspace, if any.
     let customPackageContainerProvider: PackageContainerProvider?
 
@@ -552,13 +559,16 @@ public class Workspace {
         // register the registry dependencies downloader with the cancellation handler
         cancellator?.register(name: "registry downloads", handler: registryDownloadsManager)
 
+        let identityLookupCache: IdentityLookupCache = .init()
+
         if let transformationMode = RegistryAwareManifestLoader
             .TransformationMode(configuration.sourceControlToRegistryDependencyTransformation)
         {
             manifestLoader = RegistryAwareManifestLoader(
                 underlying: manifestLoader,
                 registryClient: registryClient,
-                transformationMode: transformationMode
+                transformationMode: transformationMode,
+                identityLookupCache: identityLookupCache,
             )
         }
 
@@ -641,7 +651,8 @@ public class Workspace {
             fingerprints: fingerprints,
             resolvedPackagesStore: resolvedPackagesStore,
             prebuiltsManager: prebuiltsManager,
-            state: state
+            state: state,
+            identityLookupCache: identityLookupCache
         )
     }
 
@@ -664,7 +675,8 @@ public class Workspace {
         fingerprints: PackageFingerprintStorage?,
         resolvedPackagesStore: LoadableResult<ResolvedPackagesStore>,
         prebuiltsManager: PrebuiltsManager?,
-        state: WorkspaceState
+        state: WorkspaceState,
+        identityLookupCache: IdentityLookupCache
     ) {
         self.fileSystem = fileSystem
         self.configuration = configuration
@@ -690,6 +702,8 @@ public class Workspace {
         self.prebuiltsManager = prebuiltsManager
 
         self.state = state
+
+        self.identityLookupCache = identityLookupCache
     }
 }
 
@@ -818,7 +832,7 @@ extension Workspace {
         switch dependency.state {
         case .sourceControlCheckout(let checkoutState):
             defaultRequirement = checkoutState.requirement
-        case .registryDownload(let version), .custom(let version, _):
+        case .registryDownload(let version, _), .custom(let version, _):
             defaultRequirement = .versionSet(.exact(version))
         case .fileSystem:
             throw StringError("local dependency '\(dependency.packageRef.identity)' can't be resolved")
@@ -1448,7 +1462,8 @@ extension Workspace {
             fingerprints: self.fingerprints,
             resolvedPackagesStore: self.resolvedPackagesStore,
             prebuiltsManager: prebuiltsManager,
-            state: self.state
+            state: self.state,
+            identityLookupCache: self.identityLookupCache
         )
     }
 }
@@ -1522,7 +1537,7 @@ extension Workspace {
                 case .unversioned:
                     result.append("unversioned")
                 }
-            case .registryDownload(let version)?, .custom(let version, _):
+            case .registryDownload(let version, _)?, .custom(let version, _):
                 result.append("resolved to '\(version)'")
             case .edited?:
                 result.append("edited")
