@@ -63,6 +63,25 @@ struct DebuggableTestSession {
     }
 }
 
+enum DebuggerError: Swift.Error {
+    case noTestProducts
+    case noEnabledTestingLibraries
+    case xctestNotFoundInToolchain
+}
+
+extension DebuggerError: CustomStringConvertible {
+    var description: String {
+        switch self {
+        case .noTestProducts:
+            return "No test products found for debugging"
+        case .noEnabledTestingLibraries:
+            return "No testing libraries are enabled for debugging"
+        case .xctestNotFoundInToolchain:
+            return "XCTest not found in toolchain"
+        }
+    }
+}
+
 /// Internal helper functionality for the SwiftTestTool command and for the
 /// plugin support.
 ///
@@ -713,7 +732,7 @@ struct DebugTestRunner {
         case .xctest(let bundlePath):
             #if os(macOS)
             guard let xctestPath = toolchain.xctestPath else {
-                throw StringError("XCTest not found in toolchain")
+                throw DebuggerError.xctestNotFoundInToolchain
             }
             return (xctestPath, target.additionalArgs + [bundlePath.pathString])
             #else
