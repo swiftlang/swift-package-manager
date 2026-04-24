@@ -937,8 +937,8 @@ def check_process_status():
                                 new_target = debugger_ref.GetSelectedTarget()
                                 target_name = new_target.GetExecutable().GetFilename() if new_target else "Unknown"
 
-                                # Launch the next target immediately with pause on main
-                                _run_lldb_command('process launch') # -m to pause on main
+                                # Launch the next target immediately
+                                _run_lldb_command('process launch')
                             else:
                                 # Reset to first target and deactivate sequence until user runs again
                                 current_target_index = 0

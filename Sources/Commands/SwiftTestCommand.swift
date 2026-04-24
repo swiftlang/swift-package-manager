@@ -694,7 +694,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                 toolchain: toolchain,
                 destinationBuildParameters: productsBuildParameters,
                 sanitizers: globalOptions.build.sanitizers,
-                library: .swiftTesting,
+                library: .swiftTesting, // This is ignored by the DebugTestRunner, so we just hardcode it
                 testProductPaths: Array(Set(testProducts.flatMap { [$0.bundlePath, $0.binaryPath] })),
                 interopMode: nil
             ),
