@@ -583,7 +583,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         swiftCommandState: SwiftCommandState
     ) async throws {
         guard !testProducts.isEmpty else {
-            throw StringError("No test products found for debugging")
+            throw DebuggerError.noTestProducts
         }
 
         let toolchain = try swiftCommandState.getTargetToolchain()
@@ -649,7 +649,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         }
 
         guard let sessionTargets = NonEmpty(targets) else {
-            throw StringError("No testing libraries are enabled for debugging")
+            throw DebuggerError.noEnabledTestingLibraries
         }
 
         try await runTestLibrariesWithLLDB(
