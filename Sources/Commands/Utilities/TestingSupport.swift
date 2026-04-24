@@ -505,9 +505,23 @@ func safeExec(path: String, args: [String], observabilityScope: ObservabilitySco
         }
     }
     #endif
-    #endif
 
+    // Once signal handlers have been reset, the signal mask unblocked, and
+    // callers (e.g. DebugTestRunner) have written test env vars into the
+    // running process, there is no safe way to restore prior state. A bad
+    // exec path (ENOENT, EACCES, ...) should not return to SwiftPM with a
+    // corrupted signal table.
+    do {
+        try exec(path: path, args: args)
+    } catch {
+        observabilityScope.emit(
+            error: "safeExec: exec(\(path)) failed after mutating process state; aborting: \(error)"
+        )
+        _exit(EXIT_FAILURE)
+    }
+    #else
     try exec(path: path, args: args)
+    #endif
 }
 
 struct DebugTestRunner {
