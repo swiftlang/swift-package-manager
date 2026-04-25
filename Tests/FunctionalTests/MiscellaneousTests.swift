@@ -983,7 +983,7 @@ struct MiscellaneousTestCase {
                 )
                 // package resolution output goes to stderr
                 #expect(output.stderr.contains("Creating working copy for \(prefix.appending("Foo"))"))
-                expectFileDoesNotExists(at: appPath.appending(components: ["Packages", "Foo"]))
+                expectFileDoesNotExist(at: appPath.appending(components: ["Packages", "Foo"]))
             }
 
             // build again in edit mode
@@ -1013,7 +1013,7 @@ struct MiscellaneousTestCase {
         let configuration = BuildConfiguration.debug
         try await fixture(name: "Miscellaneous/Simple") { path in
             let customPath = path.appending(components: "custom", pathOption)
-            expectFileDoesNotExists(at: customPath)
+            expectFileDoesNotExist(at: customPath)
             expectDirectoryDoesNotExist(at: customPath)
             try await executeSwiftBuild(
                 path,
@@ -1050,7 +1050,7 @@ struct MiscellaneousTestCase {
                 }
             }
             let customPath = path.appending(components: "custom", pathOption)
-            expectFileDoesNotExists(at: customPath)
+            expectFileDoesNotExist(at: customPath)
             expectDirectoryDoesNotExist(at: customPath)
             try await withKnownIssue(isIntermittent: true) {
                 await expectThrowsCommandExecutionError(
@@ -1064,7 +1064,7 @@ struct MiscellaneousTestCase {
                     let stderr = error.stderr
                     #expect(stderr.contains("error: invalid access to"), "expected permissions error. stderr: '\(stderr)', stdout '\(error.stdout)'")
                 }
-                expectFileDoesNotExists(at: customPath)
+                expectFileDoesNotExist(at: customPath)
                 expectDirectoryDoesNotExist(at: customPath)
             } when: {
                 ProcessInfo.hostOperatingSystem != .macOS // `FileSystem` many not support `chmod` on this host OS

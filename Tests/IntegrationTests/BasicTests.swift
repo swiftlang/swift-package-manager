@@ -168,8 +168,8 @@ private struct BasicTests {
             #expect(toolOutput.lowercased().contains("hello, world!"))
 
             // Check there were no compile errors or warnings.
-            #expect(packageOutput.stdout.contains("error") == false)
-            #expect(packageOutput.stdout.contains("warning") == false)
+            #expect(packageOutput.stdout.contains("error") == false, "stdout: \(packageOutput.stdout)")
+            #expect(packageOutput.stdout.contains("warning") == false, "stdout: \(packageOutput.stdout)")
         }
     }
 
