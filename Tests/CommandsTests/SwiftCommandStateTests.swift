@@ -15,6 +15,7 @@
 @testable import Commands
 @testable import CoreCommands
 
+import struct SPMBuildCore.BuildSystemProvider
 @_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
 import func PackageGraph.loadModulesGraph
 
@@ -54,6 +55,44 @@ struct SwiftCommandStateTestSuites {
         let contentArray = contents.split(whereSeparator: \.isNewline)
         try #require(contentArray.isEmpty == false, "Content array is empty, when it shouldn't be. Content is: \(contents)")
         #expect(contentArray[0] == "Signature: 8a477f597d28d172789f06886806bc55")
+    }
+
+    @Test(
+        .tags(
+            .TestSize.small,
+        ),
+        arguments: getBuildData(for: BuildSystemProvider.Kind.allCases)
+    ) func createBuildSystemFileContainsExpectedContents(
+        buildData: BuildData,
+    ) async throws {
+        let fs = InMemoryFileSystem()
+        let dir = AbsolutePath.root.appending(components: "tmp", "output", "build")
+        let buildSystemDefinitionFile = dir.appending(".buildSystem_\(buildData.config)")
+
+        try requireFileDoesNotExist(
+            at: buildSystemDefinitionFile,
+            fileSystem: fs,
+        )
+        let actualBuildSystemDefinition = try #require(
+            createBuildSystemFile(
+                inDirectory: dir,
+                for: buildData.config,
+                buildSystem: buildData.buildSystem,
+                fileSystem: fs,
+            )
+        )
+
+        // Assert
+        try #require(actualBuildSystemDefinition == buildSystemDefinitionFile)
+        try requireFileExists(
+            at: actualBuildSystemDefinition,
+            fileSystem: fs
+        )
+        let contents = try fs.readFileContents(actualBuildSystemDefinition).description
+        #expect(
+            contents == "\(buildData.buildSystem)",
+            "Actual is not as expected",
+        )
     }
 }
 
