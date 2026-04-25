@@ -590,6 +590,14 @@ public struct BuildOptions: ParsableArguments {
     )
     public var linkTimeOptimizationMode: LinkTimeOptimizationMode?
 
+    /// Whether to build the Swift standard library from a package rather
+    /// than use the version in the toolchain.
+    @Flag(
+        name: .customLong("experimental-standard-library-package"),
+        help: .hidden
+    )
+    public var useStandardLibraryPackage: Bool = false
+
     @Flag(inversion: .prefixedEnableDisable, help: .hidden)
     public var getTaskAllowEntitlement: Bool? = nil
 

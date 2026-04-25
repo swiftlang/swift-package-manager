@@ -273,7 +273,11 @@ public final class SwiftCommandState {
             packages = try [self.getPackageRoot()]
         }
 
-        return PackageGraphRootInput(packages: packages, traitConfiguration: self.traitConfiguration)
+        return PackageGraphRootInput(
+            packages: packages,
+            dependencies: self._implicitDependencies.map { $0.package },
+            traitConfiguration: self.traitConfiguration
+        )
     }
 
     /// Scratch space (.build) directory.
@@ -593,7 +597,8 @@ public final class SwiftCommandState {
                 prebuiltsDownloadURL: options.caching.prebuiltsDownloadURL,
                 prebuiltsRootCertPath: options.caching.prebuiltsRootCertPath,
                 pruneDependencies: self.options.resolver.pruneDependencies,
-                traitConfiguration: self.traitConfiguration
+                traitConfiguration: self.traitConfiguration,
+                implicitDependencies: self._implicitDependencies
             ),
             cancellator: self.cancellator,
             initializationWarningHandler: { self.observabilityScope.emit(warning: $0) },
@@ -1018,6 +1023,8 @@ public final class SwiftCommandState {
             indexStoreMode: options.build.indexStoreMode.buildParameter,
             prepareForIndexing: prepareForIndexingMode,
             enableXCFrameworksOnLinux: options.build.enableXCFrameworksOnLinux,
+            useStandardLibraryPackage:
+                options.build.useStandardLibraryPackage && destination == .target,
             debuggingParameters: .init(
                 debugInfoFormat: self.options.build.debugInfoFormat.buildParameter,
                 triple: triple,
@@ -1194,6 +1201,17 @@ public final class SwiftCommandState {
             pruneDependencies: self.options.resolver.pruneDependencies
         )
     })
+
+    /// The implicit dependencies to be added to the
+    private lazy var _implicitDependencies: [ImplicitDependency] = {
+        var deps: [ImplicitDependency] = []
+
+        if self.options.build.useStandardLibraryPackage {
+            deps.append(Workspace.standardLibraryPackageImplicitDependencies)
+        }
+
+        return deps
+    }()
 
     /// An enum indicating the execution status of run commands.
     public enum ExecutionStatus {
