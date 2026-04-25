@@ -17,6 +17,7 @@ import Testing
 fileprivate func fileErrorMessage(
     at path: AbsolutePath,
     prefix: Comment?,
+    fileSystem fs: FileSystem = localFileSystem,
     comment: Comment,
 ) -> Comment {
     let commentPrefix =
@@ -29,22 +30,24 @@ fileprivate func fileErrorMessage(
     let commentSuffix: String
     do {
         let parentDir = path.parentDirectory
-        commentSuffix = try " Directory contents of \(parentDir) : \(localFileSystem.getDirectoryContents(parentDir))."
+        commentSuffix = try " Directory contents of \(parentDir) : \(fs.getDirectoryContents(parentDir))."
     } catch {
         commentSuffix = ""
     }
-    return Comment("\(commentPrefix)\(comment) \(commentSuffix).")
+    return Comment("\(commentPrefix)\(comment)\(commentSuffix)")
 }
 public func expectFileExists(
     at path: AbsolutePath,
     _ comment: Comment? = nil,
+    fileSystem fs: FileSystem = localFileSystem,
     sourceLocation: SourceLocation = #_sourceLocation,
 ) {
     #expect(
-        localFileSystem.exists(path),
+        fs.exists(path),
         fileErrorMessage(
             at: path,
             prefix: comment,
+            fileSystem: fs,
             comment: "File '\(path)' does not exist.",
         ),
         sourceLocation: sourceLocation,
@@ -54,13 +57,15 @@ public func expectFileExists(
 public func requireFileExists(
     at path: AbsolutePath,
     _ comment: Comment? = nil,
+    fileSystem fs: FileSystem = localFileSystem,
     sourceLocation: SourceLocation = #_sourceLocation,
 ) throws {
     try #require(
-        localFileSystem.exists(path),
+        fs.exists(path),
         fileErrorMessage(
             at: path,
             prefix: comment,
+            fileSystem: fs,
             comment: "File '\(path)' does not exist.",
         ),
         sourceLocation: sourceLocation,
@@ -70,13 +75,15 @@ public func requireFileExists(
 public func expectFileDoesNotExists(
     at path: AbsolutePath,
     _ comment: Comment? = nil,
+    fileSystem fs: FileSystem = localFileSystem,
     sourceLocation: SourceLocation = #_sourceLocation,
 ) {
     #expect(
-        !localFileSystem.exists(path),
+        !fs.exists(path),
         fileErrorMessage(
             at: path,
             prefix: comment,
+            fileSystem: fs,
             comment: "File: '\(path)' was not expected to exist, but does.",
         ),
         sourceLocation: sourceLocation,
@@ -85,13 +92,15 @@ public func expectFileDoesNotExists(
 public func requireFileDoesNotExists(
     at path: AbsolutePath,
     _ comment: Comment? = nil,
+    fileSystem fs: FileSystem = localFileSystem,
     sourceLocation: SourceLocation = #_sourceLocation,
 ) throws {
     try #require(
-        !localFileSystem.exists(path),
+        !fs.exists(path),
         fileErrorMessage(
             at: path,
             prefix: comment,
+            fileSystem: fs,
             comment: "File: '\(path)' was not expected to exist, but does.",
         ),
         sourceLocation: sourceLocation,
@@ -101,6 +110,7 @@ public func requireFileDoesNotExists(
 public func expectFileIsExecutable(
     at fixturePath: AbsolutePath,
     _ comment: Comment? = nil,
+    fileSystem fs: FileSystem = localFileSystem,
     sourceLocation: SourceLocation = #_sourceLocation,
 ) {
     let commentPrefix =
@@ -110,7 +120,7 @@ public func expectFileIsExecutable(
             ""
         }
     #expect(
-        localFileSystem.isExecutableFile(fixturePath),
+        fs.isExecutableFile(fixturePath),
         "\(commentPrefix)File '\(fixturePath)' expected to be executable, but is not.",
         sourceLocation: sourceLocation,
     )
@@ -118,7 +128,8 @@ public func expectFileIsExecutable(
 
 private func directoryExistsErrorMessage(
     for path: AbsolutePath,
-    comment: Comment?
+    comment: Comment?,
+    fileSystem fs: FileSystem = localFileSystem,
 ) -> Comment {
     let commentPrefix =
         if let comment {
@@ -128,7 +139,7 @@ private func directoryExistsErrorMessage(
         }
     let msgSuffix: String
     do {
-        msgSuffix = try "Directory contents: \(localFileSystem.getDirectoryContents(path))"
+        msgSuffix = try "Directory contents: \(fs.getDirectoryContents(path))"
     } catch {
         msgSuffix = ""
     }
@@ -138,40 +149,76 @@ private func directoryExistsErrorMessage(
 public func requireDirectoryExists(
     at path: AbsolutePath,
     _ comment: Comment? = nil,
-    fileSystem: FileSystem = localFileSystem,
+    fileSystem fs: FileSystem = localFileSystem,
     sourceLocation: SourceLocation = #_sourceLocation,
 ) throws {
     try #require(
-        localFileSystem.isDirectory(path),
+        fs.isDirectory(path),
         directoryExistsErrorMessage(for: path, comment: comment),
         sourceLocation: sourceLocation,
     )
 }
 
+@available(*, deprecated, message: "use `expectDirectoryExist` instead.")
 public func expectDirectoryExists(
     at path: AbsolutePath,
     _ comment: Comment? = nil,
+    fileSystem fs: FileSystem = localFileSystem,
     sourceLocation: SourceLocation = #_sourceLocation,
 ) {
-    #expect(
-        localFileSystem.isDirectory(path),
-        directoryExistsErrorMessage(for: path, comment: comment),
+    expectDirectoryExists(
+        at: path,
+        comment,
+        fileSystem: fs,
         sourceLocation: sourceLocation,
     )
 }
 
+public func expectDirectoryExist(
+    at path: AbsolutePath,
+    _ comment: Comment? = nil,
+    fileSystem fs: FileSystem = localFileSystem,
+    sourceLocation: SourceLocation = #_sourceLocation,
+) {
+    #expect(
+        fs.isDirectory(path),
+        directoryExistsErrorMessage(for: path, comment: comment, fileSystem: fs),
+        sourceLocation: sourceLocation,
+    )
+}
+
+public func requireDirectoryDoesNotExist(
+    at path: AbsolutePath,
+    fileSystem fs: FileSystem = localFileSystem,
+    sourceLocation: SourceLocation = #_sourceLocation,
+) throws {
+    let msgSuffix: String
+    do {
+        msgSuffix = try "Directory contents: \(fs.getDirectoryContents(path))"
+    } catch {
+        msgSuffix = ""
+    }
+    try #require(
+        !fs.isDirectory(path),
+        "Directory exists unexpectedly: '\(path)'.\(msgSuffix)",
+        sourceLocation: sourceLocation,
+    )
+}
+
+
 public func expectDirectoryDoesNotExist(
     at path: AbsolutePath,
+    fileSystem fs: FileSystem = localFileSystem,
     sourceLocation: SourceLocation = #_sourceLocation,
 ) {
     let msgSuffix: String
     do {
-        msgSuffix = try "Directory contents: \(localFileSystem.getDirectoryContents(path))"
+        msgSuffix = try "Directory contents: \(fs.getDirectoryContents(path))"
     } catch {
         msgSuffix = ""
     }
     #expect(
-        !localFileSystem.isDirectory(path),
+        !fs.isDirectory(path),
         "Directory exists unexpectedly: '\(path)'.\(msgSuffix)",
         sourceLocation: sourceLocation,
     )
@@ -181,10 +228,11 @@ public func expectDirectoryDoesNotExist(
 package func expectDirectoryContainsFile(
     dir: AbsolutePath,
     filename: String,
+    fileSystem fs: FileSystem = localFileSystem,
     sourceLocation: SourceLocation = #_sourceLocation,
 ) {
     do {
-        for entry in try walk(dir) {
+        for entry in try walk(dir, fileSystem: fs) {
             if entry.basename == filename { return }
         }
     } catch {
