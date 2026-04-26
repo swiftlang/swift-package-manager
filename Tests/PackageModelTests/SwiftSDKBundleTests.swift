@@ -771,4 +771,68 @@ final class SwiftSDKBundleTests: XCTestCase {
             XCTAssertFalse(fileSystem.isFile(targetTripleConfigPath), "Reset configuration should clear configuration folder")
         }
     }
+
+    /// Regression test for `swift sdk configure --swift-static-resources-path X`
+    /// previously overwriting `swiftResourcesPath` (the dynamic-link path) instead of
+    /// `swiftStaticResourcesPath` due to a typo in `PathsConfiguration.merge(with:relativeTo:)`.
+    func testConfigureSwiftResourcesPaths() async throws {
+        let (fileSystem, bundles, swiftSDKsDirectory) = try generateTestFileSystem(
+            bundleArtifacts: [
+                .init(id: testArtifactID, supportedTriples: [arm64Triple]),
+            ]
+        )
+        let system = ObservabilitySystem.makeForTesting()
+        let store = SwiftSDKBundleStore(
+            swiftSDKsDirectory: swiftSDKsDirectory,
+            hostToolchainBinDir: "/tmp",
+            fileSystem: fileSystem,
+            observabilityScope: system.topScope,
+            outputHandler: { _ in }
+        )
+
+        let archiver = MockArchiver()
+        for bundle in bundles {
+            try await store.install(bundlePathOrURL: bundle.path, archiver)
+        }
+
+        let hostTriple = try Triple("arm64-apple-macosx14.0")
+        let config = try SwiftSDKConfigurationStore(
+            hostTimeTriple: hostTriple,
+            swiftSDKBundleStore: store
+        )
+
+        #if os(Windows)
+        let dynamicResourcesPath = "C:\\some\\swift\\resources"
+        let staticResourcesPath = "C:\\some\\swift_static\\resources"
+        #else
+        let dynamicResourcesPath = "/some/swift/resources"
+        let staticResourcesPath = "/some/swift_static/resources"
+        #endif
+
+        var args = SwiftSDK.PathsConfiguration<String>()
+        args.swiftResourcesPath = dynamicResourcesPath
+        args.swiftStaticResourcesPath = staticResourcesPath
+        let configSuccess = try config.configure(
+            sdkID: testArtifactID,
+            targetTriple: targetTriple.tripleString,
+            showConfiguration: false,
+            resetConfiguration: false,
+            config: args
+        )
+        XCTAssertTrue(configSuccess)
+
+        let updatedConfig = try config.readConfiguration(
+            sdkID: testArtifactID,
+            targetTriple: targetTriple
+        )
+        XCTAssertEqual(
+            updatedConfig?.pathsConfiguration.swiftResourcesPath?.pathString,
+            dynamicResourcesPath,
+            "swiftResourcesPath should not be clobbered by swiftStaticResourcesPath"
+        )
+        XCTAssertEqual(
+            updatedConfig?.pathsConfiguration.swiftStaticResourcesPath?.pathString,
+            staticResourcesPath
+        )
+    }
 }
