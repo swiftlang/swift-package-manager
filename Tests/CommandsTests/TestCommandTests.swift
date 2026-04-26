@@ -1962,17 +1962,16 @@ struct TestCommandTests {
             }
         }
 
-        @Test(arguments: SupportedBuildSystemOnAllPlatforms)
-        func lldbRunExecutesTestsSuccessfully(buildSystem: BuildSystemProvider.Kind) async throws {
+        @Test(arguments: SupportedBuildSystemOnAllPlatforms, ["XCTestCalculatorTests/testAdditionPasses", "calculatorAdditionPasses()"])
+        func lldbRunExecutesTestsSuccessfully(buildSystem: BuildSystemProvider.Kind, test: String) async throws {
             try await fixture(name: "Miscellaneous/TestDebugging") { fixturePath in
                 let (stdout, stderr) = try await executeSwiftTest(
                     fixturePath,
                     configuration: .debug,
                     extraArgs: [
                         "--debugger",
-                        "--disable-swift-testing",
                         "--verbose",
-                        "--filter", "XCTestCalculatorTests/testAdditionPasses",
+                        "--filter", test,
                     ] + getBuildSystemArgs(for: buildSystem),
                     env: ["SWIFTPM_TESTS_LLDB_RUN": "1"],
                     buildSystem: buildSystem,

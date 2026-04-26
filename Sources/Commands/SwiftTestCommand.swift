@@ -594,6 +594,8 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                                  (options.testLibraryOptions.isExplicitlyEnabled(.swiftTesting, swiftCommandState: swiftCommandState) ||
                                   testEntryPointPath == nil)
 
+        let skipSpecifier = options.skippedTests(fileSystem: swiftCommandState.fileSystem)
+
         var productsWithXCTests = Set<AbsolutePath>()
         if xctestEnabled {
             let xctestSuites = try TestingSupport.getTestSuites(
@@ -604,9 +606,10 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                 experimentalTestOutput: options.enableExperimentalTestOutput,
                 sanitizers: globalOptions.build.sanitizers
             )
-            for (product, suites) in xctestSuites where !suites.isEmpty {
-                productsWithXCTests.insert(product.bundlePath)
-            }
+            let matchingTests = try xctestSuites
+                .filteredTests(specifier: options.testCaseSpecifier)
+                .skippedTests(specifier: skipSpecifier)
+            productsWithXCTests = Set(matchingTests.map(\.testProduct.bundlePath))
         }
 
         var productsWithSwiftTests = Set<AbsolutePath>()
@@ -617,7 +620,10 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                 shouldSkipBuilding: options.sharedOptions.shouldSkipBuilding,
                 sanitizers: globalOptions.build.sanitizers
             )
-            for (binaryPath, tests) in swiftTestingSuites where !tests.isEmpty {
+            let matchingTests = try swiftTestingSuites
+                .filteredTests(specifier: options.testCaseSpecifier)
+                .skippedTests(specifier: skipSpecifier)
+            for (binaryPath, tests) in matchingTests where !tests.isEmpty {
                 productsWithSwiftTests.insert(binaryPath)
             }
         }
