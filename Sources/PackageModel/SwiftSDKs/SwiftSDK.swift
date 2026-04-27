@@ -412,7 +412,7 @@ public struct SwiftSDK: Equatable {
             }
 
             if let swiftStaticResourcesPath = newConfiguration.swiftStaticResourcesPath {
-                self.swiftResourcesPath = try AbsolutePath(validating: swiftStaticResourcesPath, relativeTo: basePath)
+                self.swiftStaticResourcesPath = try AbsolutePath(validating: swiftStaticResourcesPath, relativeTo: basePath)
                 updatedProperties.append("swiftStaticResourcesPath")
             }
 
@@ -786,7 +786,28 @@ public struct SwiftSDK: Equatable {
             swiftSDK = targetSwiftSDK
         } else if let swiftSDKSelector {
             do {
-                (_, swiftSDK) = try store.selectBundle(matching: swiftSDKSelector, hostTriple: hostTriple, targetTriple: customCompileTriple)
+                var ID: String
+                (ID, swiftSDK) = try store.selectBundle(matching: swiftSDKSelector, hostTriple: hostTriple, targetTriple: customCompileTriple)
+
+                // Override with user's manual config
+                do {
+                    let configurationStore = try SwiftSDKConfigurationStore(
+                        hostTimeTriple: hostTriple,
+                        swiftSDKBundleStore: store
+                    )
+                    if let configSDK = try configurationStore.readConfiguration(
+                        sdkID: ID,
+                        targetTriple: swiftSDK.targetTriple!)
+                    {
+                        swiftSDK = configSDK
+                    }
+                } catch {
+                    // Do nothing to override if a custom SDK config is not found.
+                    observabilityScope.emit(
+                        warning: "problem getting custom configuration for SDK",
+                        underlyingError: error
+                    )
+                }
             } catch {
                 // If a user-installed bundle for the selector doesn't exist, check if the
                 // selector is recognized as a default SDK.

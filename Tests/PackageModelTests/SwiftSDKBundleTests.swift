@@ -656,7 +656,7 @@ final class SwiftSDKBundleTests: XCTestCase {
     }
 
     func testConfigureSDKRootPath() async throws {
-        func createConfigurationStore() async throws -> (SwiftSDKConfigurationStore, FileSystem) {
+        func createConfigurationStore() async throws -> (SwiftSDKBundleStore, SwiftSDKConfigurationStore, FileSystem, TestingObservability) {
             let (fileSystem, bundles, swiftSDKsDirectory) = try generateTestFileSystem(
                 bundleArtifacts: [
                     .init(id: testArtifactID, supportedTriples: [arm64Triple, i686Triple]),
@@ -700,11 +700,11 @@ final class SwiftSDKBundleTests: XCTestCase {
                 swiftSDKBundleStore: store
             )
 
-            return (config, fileSystem)
+            return (store, config, fileSystem, system)
         }
 
         do {
-            let (config, _) = try await createConfigurationStore()
+            let (_, config, _, _) = try await createConfigurationStore()
             let args = SwiftSDK.PathsConfiguration<String>()
             let configSuccess = try config.configure(
                 sdkID: testArtifactID,
@@ -725,7 +725,7 @@ final class SwiftSDKBundleTests: XCTestCase {
         #endif
 
         do {
-            let (config, fileSystem) = try await createConfigurationStore()
+            let (bundleStore, config, fileSystem, observeSystem) = try await createConfigurationStore()
             var args = SwiftSDK.PathsConfiguration<String>()
             args.sdkRootPath = sdkRootPath
             let configSuccess = try config.configure(
@@ -743,12 +743,25 @@ final class SwiftSDKBundleTests: XCTestCase {
                 targetTriple: targetTriple
             )
             XCTAssertEqual(args.sdkRootPath, updatedConfig?.pathsConfiguration.sdkRootPath?.pathString)
+
+            let hostSwiftSDK = try SwiftSDK.hostSwiftSDK(environment: [:])
+            let hostTriple = try! Triple("arm64-apple-macosx14.0")
+            let targetSwiftSDK = try SwiftSDK.deriveTargetSwiftSDK(
+                hostSwiftSDK: hostSwiftSDK,
+                hostTriple: hostTriple,
+                swiftSDKSelector: testArtifactID,
+                store: bundleStore,
+                observabilityScope: observeSystem.topScope,
+                fileSystem: fileSystem
+            )
+            XCTAssertEqual(targetSwiftSDK.pathsConfiguration.sdkRootPath?.pathString, args.sdkRootPath)
         }
 
         do {
-            let (config, fileSystem) = try await createConfigurationStore()
+            let (_, config, fileSystem, _) = try await createConfigurationStore()
             var args = SwiftSDK.PathsConfiguration<String>()
             args.sdkRootPath = sdkRootPath
+            XCTAssertFalse(fileSystem.isFile(targetTripleConfigPath))
             // an empty targetTriple will configure all triples
             let configSuccess = try config.configure(
                 sdkID: testArtifactID,
