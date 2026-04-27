@@ -48,40 +48,48 @@ final class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        let observability = ObservabilitySystem.makeForTesting()
-        let (manifest, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
-        XCTAssertNoDiagnostics(observability.diagnostics)
-        XCTAssertNoDiagnostics(validationDiagnostics)
+        try await forEachManifestLoader { loader in
+            let observability = ObservabilitySystem.makeForTesting()
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                content,
+                customManifestLoader: loader,
+                observabilityScope: observability.topScope
+            )
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertNoDiagnostics(validationDiagnostics)
 
-        XCTAssertEqual(manifest.displayName, "Trivial")
+            XCTAssertEqual(manifest.displayName, "Trivial")
 
-        // Check targets.
-        let foo = manifest.targetMap["foo"]!
-        XCTAssertEqual(foo.name, "foo")
-        XCTAssertFalse(foo.isTest)
-        XCTAssertEqual(foo.dependencies, ["dep1", .product(name: "product"), .target(name: "target")])
+            // Check targets.
+            let foo = manifest.targetMap["foo"]!
+            XCTAssertEqual(foo.name, "foo")
+            XCTAssertFalse(foo.isTest)
+            XCTAssertEqual(foo.dependencies, ["dep1", .product(name: "product"), .target(name: "target")])
 
-        let bar = manifest.targetMap["bar"]!
-        XCTAssertEqual(bar.name, "bar")
-        XCTAssertTrue(bar.isTest)
-        XCTAssertEqual(bar.dependencies, ["foo"])
+            let bar = manifest.targetMap["bar"]!
+            XCTAssertEqual(bar.name, "bar")
+            XCTAssertTrue(bar.isTest)
+            XCTAssertEqual(bar.dependencies, ["foo"])
 
-        // Check dependencies.
-        let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map{ ($0.identity.description, $0) })
-        XCTAssertEqual(deps["foo1"], .localSourceControl(path: "/foo1", requirement: .upToNextMajor(from: "1.0.0")))
+            // Check dependencies.
+            let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map{ ($0.identity.description, $0) })
+            XCTAssertEqual(deps["foo1"], .localSourceControl(path: "/foo1", requirement: .upToNextMajor(from: "1.0.0")))
 
-        // Check products.
-        let products = Dictionary(uniqueKeysWithValues: manifest.products.map{ ($0.name, $0) })
+            // Check products.
+            let products = Dictionary(uniqueKeysWithValues: manifest.products.map{ ($0.name, $0) })
 
-        let tool = products["tool"]!
-        XCTAssertEqual(tool.name, "tool")
-        XCTAssertEqual(tool.targets, ["tool"])
-        XCTAssertEqual(tool.type, .executable)
+            let tool = products["tool"]!
+            XCTAssertEqual(tool.name, "tool")
+            XCTAssertEqual(tool.targets, ["tool"])
+            XCTAssertEqual(tool.type, .executable)
 
-        let fooProduct = products["Foo"]!
-        XCTAssertEqual(fooProduct.name, "Foo")
-        XCTAssertEqual(fooProduct.type, .library(.automatic))
-        XCTAssertEqual(fooProduct.targets, ["foo"])
+            let fooProduct = products["Foo"]!
+            XCTAssertEqual(fooProduct.name, "Foo")
+            XCTAssertEqual(fooProduct.type, .library(.automatic))
+            XCTAssertEqual(fooProduct.targets, ["foo"])
+            
+            return manifest
+        }
     }
 
     func testSwiftLanguageVersion() async throws {
@@ -94,12 +102,20 @@ final class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
                 )
                 """
 
-            let observability = ObservabilitySystem.makeForTesting()
-            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
-            XCTAssertNoDiagnostics(observability.diagnostics)
-            XCTAssertNoDiagnostics(validationDiagnostics)
+            try await forEachManifestLoader { loader in
+                let observability = ObservabilitySystem.makeForTesting()
+                let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                    content,
+                    customManifestLoader: loader,
+                    observabilityScope: observability.topScope
+                )
+                XCTAssertNoDiagnostics(observability.diagnostics)
+                XCTAssertNoDiagnostics(validationDiagnostics)
 
-            XCTAssertEqual(manifest.swiftLanguageVersions, [.v4, .v4_2, .v5])
+                XCTAssertEqual(manifest.swiftLanguageVersions, [.v4, .v4_2, .v5])
+                
+                return manifest
+            }
         }
 
         do {
@@ -154,16 +170,24 @@ final class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        let observability = ObservabilitySystem.makeForTesting()
-        let (manifest, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
-        XCTAssertNoDiagnostics(observability.diagnostics)
-        XCTAssertNoDiagnostics(validationDiagnostics)
+        try await forEachManifestLoader { loader in
+            let observability = ObservabilitySystem.makeForTesting()
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                content,
+                customManifestLoader: loader,
+                observabilityScope: observability.topScope
+            )
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertNoDiagnostics(validationDiagnostics)
 
-        XCTAssertEqual(manifest.platforms, [
-            PlatformDescription(name: "macos", version: "10.13", options: ["option1", "option2"]),
-            PlatformDescription(name: "ios", version: "12.2", options: ["option2"]),
-            PlatformDescription(name: "tvos", version: "12.3.4", options: ["option5", "option7", "option9"]),
-        ])
+            XCTAssertEqual(manifest.platforms, [
+                PlatformDescription(name: "macos", version: "10.13", options: ["option1", "option2"]),
+                PlatformDescription(name: "ios", version: "12.2", options: ["option2"]),
+                PlatformDescription(name: "tvos", version: "12.3.4", options: ["option5", "option7", "option9"]),
+            ])
+            
+            return manifest
+        }
     }
 
     func testPlatforms() async throws {
@@ -179,17 +203,25 @@ final class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
                 )
                 """
 
-            let observability = ObservabilitySystem.makeForTesting()
-            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
-            XCTAssertNoDiagnostics(observability.diagnostics)
-            XCTAssertNoDiagnostics(validationDiagnostics)
+            try await forEachManifestLoader { loader in
+                let observability = ObservabilitySystem.makeForTesting()
+                let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                    content,
+                    customManifestLoader: loader,
+                    observabilityScope: observability.topScope
+                )
+                XCTAssertNoDiagnostics(observability.diagnostics)
+                XCTAssertNoDiagnostics(validationDiagnostics)
 
-            XCTAssertEqual(manifest.platforms, [
-                PlatformDescription(name: "macos", version: "10.13"),
-                PlatformDescription(name: "ios", version: "12.2"),
-                PlatformDescription(name: "tvos", version: "12.0"),
-                PlatformDescription(name: "watchos", version: "3.0"),
-            ])
+                XCTAssertEqual(manifest.platforms, [
+                    PlatformDescription(name: "macos", version: "10.13"),
+                    PlatformDescription(name: "ios", version: "12.2"),
+                    PlatformDescription(name: "tvos", version: "12.0"),
+                    PlatformDescription(name: "watchos", version: "3.0"),
+                ])
+                
+                return manifest
+            }
         }
 
         // Test invalid custom versions.
@@ -340,25 +372,29 @@ final class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        let observability = ObservabilitySystem.makeForTesting()
-        let (manifest, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
-        XCTAssertNoDiagnostics(observability.diagnostics)
-        XCTAssertNoDiagnostics(validationDiagnostics)
+        try await forEachManifestLoader { loader in
+            let observability = ObservabilitySystem.makeForTesting()
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(content, customManifestLoader: loader, observabilityScope: observability.topScope)
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertNoDiagnostics(validationDiagnostics)
 
-        let settings = manifest.targets[0].settings
+            let settings = manifest.targets[0].settings
 
-        XCTAssertEqual(settings[0], .init(tool: .c, kind: .headerSearchPath("path/to/foo")))
-        XCTAssertEqual(settings[1], .init(tool: .c, kind: .define("C"), condition: .init(platformNames: ["linux"])))
-        XCTAssertEqual(settings[2], .init(tool: .c, kind: .define("CC=4"), condition: .init(platformNames: ["linux"], config: "release")))
+            XCTAssertEqual(settings[0], .init(tool: .c, kind: .headerSearchPath("path/to/foo")))
+            XCTAssertEqual(settings[1], .init(tool: .c, kind: .define("C"), condition: .init(platformNames: ["linux"])))
+            XCTAssertEqual(settings[2], .init(tool: .c, kind: .define("CC=4"), condition: .init(platformNames: ["linux"], config: "release")))
 
-        XCTAssertEqual(settings[3], .init(tool: .cxx, kind: .headerSearchPath("path/to/bar")))
-        XCTAssertEqual(settings[4], .init(tool: .cxx, kind: .define("CXX")))
+            XCTAssertEqual(settings[3], .init(tool: .cxx, kind: .headerSearchPath("path/to/bar")))
+            XCTAssertEqual(settings[4], .init(tool: .cxx, kind: .define("CXX")))
 
-        XCTAssertEqual(settings[5], .init(tool: .swift, kind: .define("SWIFT"), condition: .init(config: "release")))
-        XCTAssertEqual(settings[6], .init(tool: .swift, kind: .define("SWIFT_DEBUG"), condition: .init(platformNames: ["watchos"], config: "debug")))
+            XCTAssertEqual(settings[5], .init(tool: .swift, kind: .define("SWIFT"), condition: .init(config: "release")))
+            XCTAssertEqual(settings[6], .init(tool: .swift, kind: .define("SWIFT_DEBUG"), condition: .init(platformNames: ["watchos"], config: "debug")))
 
-        XCTAssertEqual(settings[7], .init(tool: .linker, kind: .linkedLibrary("libz")))
-        XCTAssertEqual(settings[8], .init(tool: .linker, kind: .linkedFramework("CoreData"), condition: .init(platformNames: ["macos", "tvos"])))
+            XCTAssertEqual(settings[7], .init(tool: .linker, kind: .linkedLibrary("libz")))
+            XCTAssertEqual(settings[8], .init(tool: .linker, kind: .linkedFramework("CoreData"), condition: .init(platformNames: ["macos", "tvos"])))
+            
+            return manifest
+        }
     }
 
     func testSerializedDiagnostics() async throws {
@@ -484,9 +520,19 @@ final class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
                 )
                 """
 
-            let observability = ObservabilitySystem.makeForTesting()
-            _ = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
-            XCTAssertNoDiagnostics(observability.diagnostics)
+            try await forEachManifestLoader { loader in
+                let observability = ObservabilitySystem.makeForTesting()
+                let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                    content,
+                    customManifestLoader: loader,
+                    observabilityScope: observability.topScope
+                )
+                XCTAssertNoDiagnostics(observability.diagnostics)
+                XCTAssertNoDiagnostics(validationDiagnostics)
+                XCTAssertEqual(manifest.targets[0].settings, [])
+                
+                return manifest
+            }
         }
     }
 
@@ -519,21 +565,30 @@ final class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
         }
 
         do {
-            let observability = ObservabilitySystem.makeForTesting()
-            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(content, toolsVersion: .v5_2, observabilityScope: observability.topScope)
-            XCTAssertNoDiagnostics(observability.diagnostics)
-            XCTAssertNoDiagnostics(validationDiagnostics)
+            try await forEachManifestLoader { loader in
+                let observability = ObservabilitySystem.makeForTesting()
+                let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                    content,
+                    toolsVersion: .v5_2,
+                    customManifestLoader: loader,
+                    observabilityScope: observability.topScope
+                )
+                XCTAssertNoDiagnostics(observability.diagnostics)
+                XCTAssertNoDiagnostics(validationDiagnostics)
 
-            XCTAssertEqual(manifest.displayName, "Foo")
+                XCTAssertEqual(manifest.displayName, "Foo")
 
-            // Check targets.
-            let foo = manifest.targetMap["foo"]!
-            XCTAssertEqual(foo.name, "foo")
-            XCTAssertFalse(foo.isTest)
-            XCTAssertEqual(foo.dependencies, [])
+                // Check targets.
+                let foo = manifest.targetMap["foo"]!
+                XCTAssertEqual(foo.name, "foo")
+                XCTAssertFalse(foo.isTest)
+                XCTAssertEqual(foo.dependencies, [])
 
-            let settings = foo.settings
-            XCTAssertEqual(settings[0], .init(tool: .c, kind: .define("LLVM_ON_WIN32"), condition: .init(platformNames: ["windows"])))
+                let settings = foo.settings
+                XCTAssertEqual(settings[0], .init(tool: .c, kind: .define("LLVM_ON_WIN32"), condition: .init(platformNames: ["windows"])))
+                
+                return manifest
+            }
         }
     }
 

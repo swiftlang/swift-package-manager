@@ -52,43 +52,51 @@ final class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        let observability = ObservabilitySystem.makeForTesting()
-        let (manifest, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
-        XCTAssertNoDiagnostics(observability.diagnostics)
-        XCTAssertNoDiagnostics(validationDiagnostics)
+        try await forEachManifestLoader { loader in
+            let observability = ObservabilitySystem.makeForTesting()
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                content,
+                customManifestLoader: loader,
+                observabilityScope: observability.topScope
+            )
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertNoDiagnostics(validationDiagnostics)
 
-        XCTAssertEqual(manifest.displayName, "Trivial")
+            XCTAssertEqual(manifest.displayName, "Trivial")
 
-        // Check targets.
-        let foo = manifest.targetMap["foo"]!
-        XCTAssertEqual(foo.name, "foo")
-        XCTAssertFalse(foo.isTest)
-        XCTAssertEqual(foo.dependencies, ["dep1", .product(name: "product"), .target(name: "target")])
+            // Check targets.
+            let foo = manifest.targetMap["foo"]!
+            XCTAssertEqual(foo.name, "foo")
+            XCTAssertFalse(foo.isTest)
+            XCTAssertEqual(foo.dependencies, ["dep1", .product(name: "product"), .target(name: "target")])
 
-        let bar = manifest.targetMap["bar"]!
-        XCTAssertEqual(bar.name, "bar")
-        XCTAssertTrue(bar.isTest)
-        XCTAssertEqual(bar.dependencies, ["foo"])
+            let bar = manifest.targetMap["bar"]!
+            XCTAssertEqual(bar.name, "bar")
+            XCTAssertTrue(bar.isTest)
+            XCTAssertEqual(bar.dependencies, ["foo"])
 
-        // Check dependencies.
-        let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map{ ($0.identity.description, $0) })
-        XCTAssertEqual(deps["foo1"], .localSourceControl(path: "/foo1", requirement: .upToNextMajor(from: "1.0.0")))
+            // Check dependencies.
+            let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map{ ($0.identity.description, $0) })
+            XCTAssertEqual(deps["foo1"], .localSourceControl(path: "/foo1", requirement: .upToNextMajor(from: "1.0.0")))
 
-        // Check products.
-        let products = Dictionary(uniqueKeysWithValues: manifest.products.map{ ($0.name, $0) })
+            // Check products.
+            let products = Dictionary(uniqueKeysWithValues: manifest.products.map{ ($0.name, $0) })
 
-        let tool = products["tool"]!
-        XCTAssertEqual(tool.name, "tool")
-        XCTAssertEqual(tool.targets, ["tool"])
-        XCTAssertEqual(tool.type, .executable)
+            let tool = products["tool"]!
+            XCTAssertEqual(tool.name, "tool")
+            XCTAssertEqual(tool.targets, ["tool"])
+            XCTAssertEqual(tool.type, .executable)
 
-        let fooProduct = products["Foo"]!
-        XCTAssertEqual(fooProduct.name, "Foo")
-        XCTAssertEqual(fooProduct.type, .library(.automatic))
-        XCTAssertEqual(fooProduct.targets, ["foo"])
+            let fooProduct = products["Foo"]!
+            XCTAssertEqual(fooProduct.name, "Foo")
+            XCTAssertEqual(fooProduct.type, .library(.automatic))
+            XCTAssertEqual(fooProduct.targets, ["foo"])
+            
+            return manifest
+        }
     }
 
-    func testSwiftLanguageVersions() async throws {
+    func testSwiftLanguageVersionsDiagnostics() async throws {
         // Ensure integer values are not accepted.
         do {
             let content = """
@@ -114,7 +122,9 @@ final class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                 }
             }
         }
+    }
 
+    func testSwiftLanguageVersionsNew() async throws {
         // Check when Swift language versions is empty.
         do {
             let content = """
@@ -125,12 +135,20 @@ final class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                 )
                 """
 
-            let observability = ObservabilitySystem.makeForTesting()
-            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
-            XCTAssertNoDiagnostics(observability.diagnostics)
-            XCTAssertNoDiagnostics(validationDiagnostics)
+            try await forEachManifestLoader { loader in
+                let observability = ObservabilitySystem.makeForTesting()
+                let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                    content,
+                    customManifestLoader: loader,
+                    observabilityScope: observability.topScope
+                )
+                XCTAssertNoDiagnostics(observability.diagnostics)
+                XCTAssertNoDiagnostics(validationDiagnostics)
 
-            XCTAssertEqual(manifest.swiftLanguageVersions, [])
+                XCTAssertEqual(manifest.swiftLanguageVersions, [])
+                
+                return manifest
+            }
         }
 
         do {
@@ -142,17 +160,27 @@ final class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                 )
                 """
 
-            let observability = ObservabilitySystem.makeForTesting()
-            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
-            XCTAssertNoDiagnostics(observability.diagnostics)
-            XCTAssertNoDiagnostics(validationDiagnostics)
+            try await forEachManifestLoader { loader in
+                let observability = ObservabilitySystem.makeForTesting()
+                let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                    content,
+                    customManifestLoader: loader,
+                    observabilityScope: observability.topScope
+                )
+                XCTAssertNoDiagnostics(observability.diagnostics)
+                XCTAssertNoDiagnostics(validationDiagnostics)
 
-            XCTAssertEqual(
-                manifest.swiftLanguageVersions,
-                [.v3, .v4, .v4_2, SwiftLanguageVersion(string: "5")!]
-            )
+                XCTAssertEqual(
+                    manifest.swiftLanguageVersions,
+                    [.v3, .v4, .v4_2, SwiftLanguageVersion(string: "5")!]
+                )
+                
+                return manifest
+            }
         }
 
+        // The third test case checks that .v5 is unavailable in PackageDescription 4.2
+        // This only applies to the compilation-based manifest loader, not the parsing loader
         do {
             let content = """
                 import PackageDescription
@@ -163,7 +191,11 @@ final class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                 """
 
             let observability = ObservabilitySystem.makeForTesting()
-            await XCTAssertAsyncThrowsError(try await loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") { error in
+            await XCTAssertAsyncThrowsError(try await loadAndValidateManifest(
+                content,
+                customManifestLoader: nil,
+                observabilityScope: observability.topScope
+            ), "expected error") { error in
                 if case ManifestParseError.invalidManifestFormat(let message, _, _) = error {
                     XCTAssertMatch(message, .contains("is unavailable"))
                     XCTAssertMatch(message, .contains("was introduced in PackageDescription 5"))
@@ -270,62 +302,70 @@ final class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        let observability = ObservabilitySystem.makeForTesting()
-        let (manifest, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
-        XCTAssertNoDiagnostics(observability.diagnostics)
-        XCTAssertNoDiagnostics(validationDiagnostics)
+        try await forEachManifestLoader { loader in
+            let observability = ObservabilitySystem.makeForTesting()
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                content,
+                customManifestLoader: loader,
+                observabilityScope: observability.topScope
+            )
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertNoDiagnostics(validationDiagnostics)
 
-        let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map{ ($0.identity.description, $0) })
-        XCTAssertEqual(deps["foo1"], .localSourceControl(path: "/foo1", requirement: .upToNextMajor(from: "1.0.0")))
-        XCTAssertEqual(deps["foo2"], .localSourceControl(path: "/foo2", requirement: .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")))
+            let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map{ ($0.identity.description, $0) })
+            XCTAssertEqual(deps["foo1"], .localSourceControl(path: "/foo1", requirement: .upToNextMajor(from: "1.0.0")))
+            XCTAssertEqual(deps["foo2"], .localSourceControl(path: "/foo2", requirement: .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")))
 
-        if case .fileSystem(let dep) = deps["foo3"] {
-            XCTAssertEqual(dep.path, "/foo3")
-        } else {
-            XCTFail("expected to be local dependency")
-        }
+            if case .fileSystem(let dep) = deps["foo3"] {
+                XCTAssertEqual(dep.path, "/foo3")
+            } else {
+                XCTFail("expected to be local dependency")
+            }
 
-        if case .fileSystem(let dep) = deps["foo4"] {
-            XCTAssertEqual(dep.path, "/path/to/foo4")
-        } else {
-            XCTFail("expected to be local dependency")
-        }
+            if case .fileSystem(let dep) = deps["foo4"] {
+                XCTAssertEqual(dep.path, "/path/to/foo4")
+            } else {
+                XCTFail("expected to be local dependency")
+            }
 
-        XCTAssertEqual(deps["foo5"], .localSourceControl(path: "/foo5", requirement: .exact("1.2.3")))
-        XCTAssertEqual(deps["foo6"], .localSourceControl(path: "/foo6", requirement: .range("1.2.3"..<"2.0.0")))
-        XCTAssertEqual(deps["foo7"], .localSourceControl(path: "/foo7", requirement: .branch("main")))
-        XCTAssertEqual(deps["foo8"], .localSourceControl(path: "/foo8", requirement: .upToNextMinor(from: "1.3.4")))
-        XCTAssertEqual(deps["foo9"], .localSourceControl(path: "/foo9", requirement: .upToNextMajor(from: "1.3.4")))
+            XCTAssertEqual(deps["foo5"], .localSourceControl(path: "/foo5", requirement: .exact("1.2.3")))
+            XCTAssertEqual(deps["foo6"], .localSourceControl(path: "/foo6", requirement: .range("1.2.3"..<"2.0.0")))
+            XCTAssertEqual(deps["foo7"], .localSourceControl(path: "/foo7", requirement: .branch("main")))
+            XCTAssertEqual(deps["foo8"], .localSourceControl(path: "/foo8", requirement: .upToNextMinor(from: "1.3.4")))
+            XCTAssertEqual(deps["foo9"], .localSourceControl(path: "/foo9", requirement: .upToNextMajor(from: "1.3.4")))
 
-        let homeDir = "/home/user"
-        if case .fileSystem(let dep) = deps["foo10"] {
-            XCTAssertEqual(dep.path, try AbsolutePath(validating: "\(homeDir)/path/to/foo10"))
-        } else {
-            XCTFail("expected to be local dependency")
-        }
+            let homeDir = "/home/user"
+            if case .fileSystem(let dep) = deps["foo10"] {
+                XCTAssertEqual(dep.path, try AbsolutePath(validating: "\(homeDir)/path/to/foo10"))
+            } else {
+                XCTFail("expected to be local dependency")
+            }
 
-        if case .fileSystem(let dep) = deps["~foo11"] {
-            XCTAssertEqual(dep.path, "/~foo11")
-        } else {
-            XCTFail("expected to be local dependency")
-        }
+            if case .fileSystem(let dep) = deps["~foo11"] {
+                XCTAssertEqual(dep.path, "/~foo11")
+            } else {
+                XCTFail("expected to be local dependency")
+            }
 
-        if case .fileSystem(let dep) = deps["foo12"] {
-            XCTAssertEqual(dep.path, try AbsolutePath(validating: "\(homeDir)/path/to/~/foo12"))
-        } else {
-            XCTFail("expected to be local dependency")
-        }
+            if case .fileSystem(let dep) = deps["foo12"] {
+                XCTAssertEqual(dep.path, try AbsolutePath(validating: "\(homeDir)/path/to/~/foo12"))
+            } else {
+                XCTFail("expected to be local dependency")
+            }
 
-        if case .fileSystem(let dep) = deps["~"] {
-            XCTAssertEqual(dep.path, "/~")
-        } else {
-            XCTFail("expected to be local dependency")
-        }
+            if case .fileSystem(let dep) = deps["~"] {
+                XCTAssertEqual(dep.path, "/~")
+            } else {
+                XCTFail("expected to be local dependency")
+            }
 
-        if case .fileSystem(let dep) = deps["foo13"] {
-            XCTAssertEqual(dep.path, "/path/to/foo13")
-        } else {
-            XCTFail("expected to be local dependency")
+            if case .fileSystem(let dep) = deps["foo13"] {
+                XCTAssertEqual(dep.path, "/path/to/foo13")
+            } else {
+                XCTFail("expected to be local dependency")
+            }
+            
+            return manifest
         }
     }
 
@@ -349,22 +389,30 @@ final class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        let observability = ObservabilitySystem.makeForTesting()
-        let (manifest, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
-        XCTAssertNoDiagnostics(observability.diagnostics)
-        XCTAssertNoDiagnostics(validationDiagnostics)
+        try await forEachManifestLoader { loader in
+            let observability = ObservabilitySystem.makeForTesting()
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                content,
+                customManifestLoader: loader,
+                observabilityScope: observability.topScope
+            )
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertNoDiagnostics(validationDiagnostics)
 
-        let foo = manifest.targetMap["foo"]!
-        XCTAssertEqual(foo.name, "foo")
-        XCTAssertFalse(foo.isTest)
-        XCTAssertEqual(foo.type, .regular)
-        XCTAssertEqual(foo.dependencies, ["bar"])
+            let foo = manifest.targetMap["foo"]!
+            XCTAssertEqual(foo.name, "foo")
+            XCTAssertFalse(foo.isTest)
+            XCTAssertEqual(foo.type, .regular)
+            XCTAssertEqual(foo.dependencies, ["bar"])
 
-        let bar = manifest.targetMap["bar"]!
-        XCTAssertEqual(bar.name, "bar")
-        XCTAssertEqual(bar.type, .system)
-        XCTAssertEqual(bar.pkgConfig, "libbar")
-        XCTAssertEqual(bar.providers, [.brew(["libgit"]), .apt(["a", "b"])])
+            let bar = manifest.targetMap["bar"]!
+            XCTAssertEqual(bar.name, "bar")
+            XCTAssertEqual(bar.type, .system)
+            XCTAssertEqual(bar.pkgConfig, "libbar")
+            XCTAssertEqual(bar.providers, [.brew(["libgit"]), .apt(["a", "b"])])
+
+            return manifest
+        }
     }
 
     /// Check that we load the manifest appropriate for the current version, if

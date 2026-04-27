@@ -84,21 +84,29 @@ final class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        let observability = ObservabilitySystem.makeForTesting()
-        let (manifest, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
-        XCTAssertNoDiagnostics(observability.diagnostics)
-        XCTAssertNoDiagnostics(validationDiagnostics)
+        try await forEachManifestLoader { loader in
+            let observability = ObservabilitySystem.makeForTesting()
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                content,
+                customManifestLoader: loader,
+                observabilityScope: observability.topScope
+            )
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertNoDiagnostics(validationDiagnostics)
 
-        XCTAssertEqual(manifest.displayName, "Trivial")
-        XCTAssertEqual(manifest.dependencies[0].nameForModuleDependencyResolutionOnly, "Foo")
-        XCTAssertEqual(manifest.dependencies[1].nameForModuleDependencyResolutionOnly, "Foo2")
-        XCTAssertEqual(manifest.dependencies[2].nameForModuleDependencyResolutionOnly, "Foo3")
-        XCTAssertEqual(manifest.dependencies[3].nameForModuleDependencyResolutionOnly, "Foo4")
-        XCTAssertEqual(manifest.dependencies[4].nameForModuleDependencyResolutionOnly, "Foo5")
-        XCTAssertEqual(manifest.dependencies[5].nameForModuleDependencyResolutionOnly, "bar")
-        XCTAssertEqual(manifest.dependencies[6].nameForModuleDependencyResolutionOnly, "Bar2")
-        XCTAssertEqual(manifest.dependencies[7].nameForModuleDependencyResolutionOnly, "Baz")
-        XCTAssertEqual(manifest.dependencies[8].nameForModuleDependencyResolutionOnly, "swift")
+            XCTAssertEqual(manifest.displayName, "Trivial")
+            XCTAssertEqual(manifest.dependencies[0].nameForModuleDependencyResolutionOnly, "Foo")
+            XCTAssertEqual(manifest.dependencies[1].nameForModuleDependencyResolutionOnly, "Foo2")
+            XCTAssertEqual(manifest.dependencies[2].nameForModuleDependencyResolutionOnly, "Foo3")
+            XCTAssertEqual(manifest.dependencies[3].nameForModuleDependencyResolutionOnly, "Foo4")
+            XCTAssertEqual(manifest.dependencies[4].nameForModuleDependencyResolutionOnly, "Foo5")
+            XCTAssertEqual(manifest.dependencies[5].nameForModuleDependencyResolutionOnly, "bar")
+            XCTAssertEqual(manifest.dependencies[6].nameForModuleDependencyResolutionOnly, "Bar2")
+            XCTAssertEqual(manifest.dependencies[7].nameForModuleDependencyResolutionOnly, "Baz")
+            XCTAssertEqual(manifest.dependencies[8].nameForModuleDependencyResolutionOnly, "swift")
+            
+            return manifest
+        }
     }
 
     func testTargetDependencyProductInvalidPackage() async throws {
@@ -123,12 +131,19 @@ final class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
                 )
                 """
 
-            let observability = ObservabilitySystem.makeForTesting()
-            let (_, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
-            XCTAssertNoDiagnostics(observability.diagnostics)
-            testDiagnostics(validationDiagnostics) { result in
-                result.checkUnordered(diagnostic: "unknown package 'foo1' in dependencies of target 'Target1'; valid packages are: 'foo' (from 'http://scm.com/org/foo'), 'bar' (from 'http://scm.com/org/bar')", severity: .error)
-                result.checkUnordered(diagnostic: "unknown dependency 'foos' in target 'Target2'; valid dependencies are: 'foo' (from 'http://scm.com/org/foo'), 'bar' (from 'http://scm.com/org/bar')", severity: .error)
+            try await forEachManifestLoader { loader in
+                let observability = ObservabilitySystem.makeForTesting()
+                let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                    content,
+                    customManifestLoader: loader,
+                    observabilityScope: observability.topScope
+                )
+                XCTAssertNoDiagnostics(observability.diagnostics)
+                testDiagnostics(validationDiagnostics) { result in
+                    result.checkUnordered(diagnostic: "unknown package 'foo1' in dependencies of target 'Target1'; valid packages are: 'foo' (from 'http://scm.com/org/foo'), 'bar' (from 'http://scm.com/org/bar')", severity: .error)
+                    result.checkUnordered(diagnostic: "unknown dependency 'foos' in target 'Target2'; valid dependencies are: 'foo' (from 'http://scm.com/org/foo'), 'bar' (from 'http://scm.com/org/bar')", severity: .error)
+                }
+                return manifest
             }
         }
 
@@ -153,12 +168,19 @@ final class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
                 )
                 """
 
-            let observability = ObservabilitySystem.makeForTesting()
-            let (_, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
-            XCTAssertNoDiagnostics(observability.diagnostics)
-            testDiagnostics(validationDiagnostics) { result in
-                result.checkUnordered(diagnostic: "unknown package 'foo1' in dependencies of target 'Target1'; valid packages are: 'Foo' (from 'http://scm.com/org/foo'), 'Bar' (from 'http://scm.com/org/bar')", severity: .error)
-                result.checkUnordered(diagnostic: "unknown dependency 'foos' in target 'Target2'; valid dependencies are: 'Foo' (from 'http://scm.com/org/foo'), 'Bar' (from 'http://scm.com/org/bar')", severity: .error)
+            try await forEachManifestLoader { loader in
+                let observability = ObservabilitySystem.makeForTesting()
+                let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                    content,
+                    customManifestLoader: loader,
+                    observabilityScope: observability.topScope
+                )
+                XCTAssertNoDiagnostics(observability.diagnostics)
+                testDiagnostics(validationDiagnostics) { result in
+                    result.checkUnordered(diagnostic: "unknown package 'foo1' in dependencies of target 'Target1'; valid packages are: 'Foo' (from 'http://scm.com/org/foo'), 'Bar' (from 'http://scm.com/org/bar')", severity: .error)
+                    result.checkUnordered(diagnostic: "unknown dependency 'foos' in target 'Target2'; valid dependencies are: 'Foo' (from 'http://scm.com/org/foo'), 'Bar' (from 'http://scm.com/org/bar')", severity: .error)
+                }
+                return manifest
             }
         }
 
@@ -184,11 +206,19 @@ final class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
                 )
                 """
 
-            let observability = ObservabilitySystem.makeForTesting()
-            let (_, validationDiagnostics) = try await loadAndValidateManifest(content, packageKind: .root(.root), observabilityScope: observability.topScope)
-            XCTAssertNoDiagnostics(observability.diagnostics)
-            testDiagnostics(validationDiagnostics) { result in
-                result.check(diagnostic: "unknown package 'foo1' in dependencies of target 'Target1'; valid packages are: 'Foo' (from 'http://scm.com/org/foo1')", severity: .error)
+            try await forEachManifestLoader { loader in
+                let observability = ObservabilitySystem.makeForTesting()
+                let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                    content,
+                    packageKind: .root(.root),
+                    customManifestLoader: loader,
+                    observabilityScope: observability.topScope
+                )
+                XCTAssertNoDiagnostics(observability.diagnostics)
+                testDiagnostics(validationDiagnostics) { result in
+                    result.check(diagnostic: "unknown package 'foo1' in dependencies of target 'Target1'; valid packages are: 'Foo' (from 'http://scm.com/org/foo1')", severity: .error)
+                }
+                return manifest
             }
         }
 
@@ -214,14 +244,21 @@ final class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
                 )
                 """
 
-            let observability = ObservabilitySystem.makeForTesting()
-            let (_, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
-            XCTAssertNoDiagnostics(observability.diagnostics)
-            testDiagnostics(validationDiagnostics) { result in
-                let fooPkg: AbsolutePath = "/foo"
-                let barPkg: AbsolutePath = "/bar"
-                result.checkUnordered(diagnostic: "unknown package 'foo1' in dependencies of target 'Target1'; valid packages are: 'foo' (at '\(fooPkg)'), 'bar' (at '\(barPkg)')", severity: .error)
-                result.checkUnordered(diagnostic: "unknown dependency 'foos' in target 'Target2'; valid dependencies are: 'foo' (at '\(fooPkg)'), 'bar' (at '\(barPkg)')", severity: .error)
+            try await forEachManifestLoader { loader in
+                let observability = ObservabilitySystem.makeForTesting()
+                let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                    content,
+                    customManifestLoader: loader,
+                    observabilityScope: observability.topScope
+                )
+                XCTAssertNoDiagnostics(observability.diagnostics)
+                testDiagnostics(validationDiagnostics) { result in
+                    let fooPkg: AbsolutePath = "/foo"
+                    let barPkg: AbsolutePath = "/bar"
+                    result.checkUnordered(diagnostic: "unknown package 'foo1' in dependencies of target 'Target1'; valid packages are: 'foo' (at '\(fooPkg)'), 'bar' (at '\(barPkg)')", severity: .error)
+                    result.checkUnordered(diagnostic: "unknown dependency 'foos' in target 'Target2'; valid dependencies are: 'foo' (at '\(fooPkg)'), 'bar' (at '\(barPkg)')", severity: .error)
+                }
+                return manifest
             }
         }
 
@@ -246,14 +283,21 @@ final class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
                 )
                 """
 
-            let observability = ObservabilitySystem.makeForTesting()
-            let (_, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
-            XCTAssertNoDiagnostics(observability.diagnostics)
-            testDiagnostics(validationDiagnostics) { result in
-                let foo1Pkg: AbsolutePath = "/foo1"
-                let bar1Pkg: AbsolutePath = "/bar1"
-                result.checkUnordered(diagnostic: "unknown package 'foo1' in dependencies of target 'Target1'; valid packages are: 'Foo' (at '\(foo1Pkg)'), 'Bar' (at '\(bar1Pkg)')", severity: .error)
-                result.checkUnordered(diagnostic: "unknown dependency 'foos' in target 'Target2'; valid dependencies are: 'Foo' (at '\(foo1Pkg)'), 'Bar' (at '\(bar1Pkg)')", severity: .error)
+            try await forEachManifestLoader { loader in
+                let observability = ObservabilitySystem.makeForTesting()
+                let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                    content,
+                    customManifestLoader: loader,
+                    observabilityScope: observability.topScope
+                )
+                XCTAssertNoDiagnostics(observability.diagnostics)
+                testDiagnostics(validationDiagnostics) { result in
+                    let foo1Pkg: AbsolutePath = "/foo1"
+                    let bar1Pkg: AbsolutePath = "/bar1"
+                    result.checkUnordered(diagnostic: "unknown package 'foo1' in dependencies of target 'Target1'; valid packages are: 'Foo' (at '\(foo1Pkg)'), 'Bar' (at '\(bar1Pkg)')", severity: .error)
+                    result.checkUnordered(diagnostic: "unknown dependency 'foos' in target 'Target2'; valid dependencies are: 'Foo' (at '\(foo1Pkg)'), 'Bar' (at '\(bar1Pkg)')", severity: .error)
+                }
+                return manifest
             }
         }
     }
@@ -279,19 +323,27 @@ final class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        let observability = ObservabilitySystem.makeForTesting()
-        let (manifest, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
-        XCTAssertNoDiagnostics(observability.diagnostics)
-        XCTAssertNoDiagnostics(validationDiagnostics)
+        try await forEachManifestLoader { loader in
+            let observability = ObservabilitySystem.makeForTesting()
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                content,
+                customManifestLoader: loader,
+                observabilityScope: observability.topScope
+            )
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertNoDiagnostics(validationDiagnostics)
 
-        let dependencies = Dictionary(uniqueKeysWithValues: manifest.dependencies.map{ ($0.nameForModuleDependencyResolutionOnly, $0) })
-        let dependencyFoobar = dependencies["Foobar"]!
-        let dependencyBarfoo = dependencies["Barfoo"]!
-        let targetFoo = manifest.targetMap["foo"]!
-        let targetBar = manifest.targetMap["bar"]!
-        XCTAssertEqual(manifest.packageDependency(referencedBy: targetFoo.dependencies[0]), dependencyFoobar)
-        XCTAssertEqual(manifest.packageDependency(referencedBy: targetFoo.dependencies[1]), dependencyBarfoo)
-        XCTAssertEqual(manifest.packageDependency(referencedBy: targetBar.dependencies[0]), nil)
+            let dependencies = Dictionary(uniqueKeysWithValues: manifest.dependencies.map{ ($0.nameForModuleDependencyResolutionOnly, $0) })
+            let dependencyFoobar = dependencies["Foobar"]!
+            let dependencyBarfoo = dependencies["Barfoo"]!
+            let targetFoo = manifest.targetMap["foo"]!
+            let targetBar = manifest.targetMap["bar"]!
+            XCTAssertEqual(manifest.packageDependency(referencedBy: targetFoo.dependencies[0]), dependencyFoobar)
+            XCTAssertEqual(manifest.packageDependency(referencedBy: targetFoo.dependencies[1]), dependencyBarfoo)
+            XCTAssertEqual(manifest.packageDependency(referencedBy: targetBar.dependencies[0]), nil)
+            
+            return manifest
+        }
     }
 
     func testResourcesUnavailable() async throws {
