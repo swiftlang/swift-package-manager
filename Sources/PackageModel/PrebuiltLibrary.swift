@@ -14,7 +14,7 @@ import Foundation
 import Basics
 
 /// A structure representing a prebuilt library to be used instead of a source dependency
-public struct PrebuiltLibrary {
+public struct PrebuiltLibrary: Codable {
     /// The package identity.
     public let identity: PackageIdentity
 
@@ -31,10 +31,26 @@ public struct PrebuiltLibrary {
     public let products: [String]
 
     /// The include path relative to the checkouts dir
-    public let includePath: [RelativePath]?
+    public let includePath: [RelativePath]
 
-    /// The C modules that need their includes directory added to the include path
-    public let cModules: [String]
+    /// The path to the library
+    public var libraryPath: AbsolutePath {
+        #if os(Windows)
+        let libName = "\(libraryName).lib"
+        #else
+        let libName = "lib\(libraryName).a"
+        #endif
+        return path.appending(components: ["lib", libName])
+    }
+
+    /// The header path to the Swift modules and C Module headers
+    public var headerPaths: [AbsolutePath] {
+        var paths = [path.appending(component: "Modules")]
+        if let checkoutPath {
+            paths += includePath.map { checkoutPath.appending($0) }
+        }
+        return paths
+    }
 
     public init(
         identity: PackageIdentity,
@@ -42,8 +58,7 @@ public struct PrebuiltLibrary {
         path: AbsolutePath,
         checkoutPath: AbsolutePath?,
         products: [String],
-        includePath: [RelativePath]? = nil,
-        cModules: [String] = []
+        includePath: [RelativePath]
     ) {
         self.identity = identity
         self.libraryName = libraryName
@@ -51,7 +66,6 @@ public struct PrebuiltLibrary {
         self.checkoutPath = checkoutPath
         self.products = products
         self.includePath = includePath
-        self.cModules = cModules
     }
 }
 

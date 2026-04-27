@@ -425,6 +425,24 @@ public final class PIFBuilder {
                 }
             }
 
+            // host build environment to determine whether prebuilts should be enabled
+            // TODO: shouldn't need this once Platforms are rich enough to describe PrebuiltsPlatforms
+            let hostBuildEnvironment: PackageModel.BuildEnvironment
+            if hostBuildParameters.buildEnvironment.supportsPrebuilts,
+                (hostBuildParameters.buildEnvironment.platform == buildParameters.buildEnvironment.platform && !buildParameters.buildEnvironment.supportsPrebuilts)
+                || (hostBuildParameters.triple.isWindows() && buildParameters.triple.isWindows() && hostBuildParameters.triple.arch != buildParameters.triple.arch)
+            {
+                // Disable where Host and target are same platform but target doesn't support prebuilts (usually Linux)
+                // Also on Windows if host and target are different architectures
+                hostBuildEnvironment = BuildEnvironment(
+                    platform: hostBuildParameters.buildEnvironment.platform,
+                    supportsPrebuilts: false,
+                    configuration: hostBuildParameters.buildEnvironment.configuration
+                )
+            } else {
+                hostBuildEnvironment = hostBuildParameters.buildEnvironment
+            }
+
             let packagePIFBuilderDelegate = PackagePIFBuilderDelegate(
                 package: package
             )
@@ -440,6 +458,7 @@ public final class PIFBuilder {
                 addLocalRpaths: self.parameters.addLocalRpaths,
                 packageDisplayVersion: package.manifest.displayName,
                 pkgConfigDirectories: self.parameters.pkgConfigDirectories,
+                hostBuildEnvironment: hostBuildEnvironment,
                 fileSystem: self.fileSystem,
                 observabilityScope: self.observabilityScope
             )

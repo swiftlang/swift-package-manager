@@ -277,16 +277,17 @@ public final class SwiftBuildSystemMessageHandler {
             }
         case .taskComplete(let info):
             let startedInfo = try buildState.completed(task: info)
+            let targetInfo = try buildState.target(for: startedInfo)
 
             traceEventsWriter?.taskCompleted(
                 info,
                 startedInfo: startedInfo,
+                targetInfo: targetInfo
             )
 
             // Handler for task output, handling failures if applicable.
             try self.handleTaskOutput(info, startedInfo, self.enableBacktraces)
 
-            let targetInfo = try buildState.target(for: startedInfo)
             callback = { [weak self] buildSystem in
                 self?.buildDelegate?.buildSystem(buildSystem, didFinishCommand: BuildSystemCommand(startedInfo, targetInfo: targetInfo))
             }
