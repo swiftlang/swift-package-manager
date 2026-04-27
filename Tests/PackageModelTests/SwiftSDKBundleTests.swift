@@ -616,6 +616,19 @@ final class SwiftSDKBundleTests: XCTestCase {
                 )
             }
         }
+
+        XCTAssertThrowsError(try store.selectBundle(
+            matching: artifactID,
+            hostTriple: hostTriple
+        )) { error in
+            XCTAssertEqual(
+                "\(error)",
+                """
+                The query for `\(artifactID)` and host triple `\(hostTriple.tripleString)` \
+                has multiple target triples. Use the `--triple` flag to specify a triple.
+                """
+            )
+        }
     }
 
     func testTargetSDKDerivation() async throws {
