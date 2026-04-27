@@ -242,6 +242,7 @@ package final class SwiftBuildSystemPlanningOperationDelegate: SWBPlanningOperat
 }
 
 public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
+    internal let scratchDirectory: Basics.AbsolutePath
     package let buildParameters: BuildParameters
     package let hostBuildParameters: BuildParameters
     private let packageGraphLoader: () async throws -> ModulesGraph
@@ -317,7 +318,8 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         pluginConfiguration: PluginConfiguration,
-        delegate: BuildSystemDelegate?
+        delegate: BuildSystemDelegate?,
+        scratchDirectory: Basics.AbsolutePath, // currently used to create the symbolic links
     ) throws {
         self.buildParameters = buildParameters
         self.hostBuildParameters = hostBuildParameters
@@ -330,6 +332,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         self.observabilityScope = observabilityScope.makeChildScope(description: "Swift Build System")
         self.pluginConfiguration = pluginConfiguration
         self.delegate = delegate
+        self.scratchDirectory = scratchDirectory
     }
 
     private func createREPLArguments(
@@ -405,6 +408,17 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             serializedDiagnosticPathsByTargetName: .failure(StringError("Building was skipped")),
             replArguments: nil,
         )
+
+        defer {
+            if self.fileSystem.exists(self.buildParameters.buildPath, followSymlink: true) {
+                createBuildSymbolicLinks(
+                    self.scratchDirectory.appending(component: self.buildParameters.configuration.dirname),
+                    pointingAt: self.buildParameters.buildPath,
+                    fileSystem: self.fileSystem,
+                    observabilityScope: self.observabilityScope,
+                )
+            }
+        }
 
         guard !buildParameters.shouldSkipBuilding else {
             result.serializedDiagnosticPathsByTargetName = .failure(StringError("Building was skipped"))

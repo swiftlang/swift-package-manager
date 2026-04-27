@@ -610,39 +610,6 @@ private func swiftArgs(
     return args
 }
 
-@available(*,
-    deprecated,
-    renamed: "loadModulesGraph",
-    message: "Rename for consistency: the type of this functions return value is named `ModulesGraph`."
-)
-public func loadPackageGraph(
-    identityResolver: IdentityResolver = DefaultIdentityResolver(),
-    fileSystem: FileSystem,
-    manifests: [Manifest],
-    binaryArtifacts: [PackageIdentity: [String: BinaryArtifact]] = [:],
-    explicitProduct: String? = .none,
-    shouldCreateMultipleTestProducts: Bool = false,
-    createREPLProduct: Bool = false,
-    useXCBuildFileRules: Bool = false,
-    customXCTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]? = .none,
-    observabilityScope: ObservabilityScope,
-    traitConfiguration: TraitConfiguration = .default
-) throws -> ModulesGraph {
-    try loadModulesGraph(
-        identityResolver: identityResolver,
-        fileSystem: fileSystem,
-        manifests: manifests,
-        binaryArtifacts: binaryArtifacts,
-        explicitProduct: explicitProduct,
-        shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
-        createREPLProduct: createREPLProduct,
-        useXCBuildFileRules: useXCBuildFileRules,
-        customXCTestMinimumDeploymentTargets: customXCTestMinimumDeploymentTargets,
-        observabilityScope: observabilityScope,
-        traitConfiguration: traitConfiguration
-    )
-}
-
 public let emptyZipFile = ByteString([0x80, 0x75, 0x05, 0x06] + [UInt8](repeating: 0x00, count: 18))
 
 extension FileSystem {

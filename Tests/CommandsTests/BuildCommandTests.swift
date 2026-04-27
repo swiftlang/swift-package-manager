@@ -155,18 +155,42 @@ struct BuildCommandTestCases {
         let configuration = buildData.config
         // Test is not implemented for Xcode build system
         try await fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { fixturePath in
-            let fullPath = try resolveSymlinks(fixturePath)
+            try await withTemporaryDirectory { tempDir in
+                let scratchPath = tempDir.appending("build")
+                let fullPath = try resolveSymlinks(fixturePath)
+                let originalSymlink = scratchPath.appending("\(configuration)")
 
-            let targetPath = try fullPath.appending(components: buildSystem.binPath(for: configuration))
-            let path = try await execute(
-                ["--show-bin-path"],
-                packagePath: fullPath,
-                configuration: configuration,
-                buildSystem: buildSystem,
-            ).stdout.trimmingCharacters(in: .whitespacesAndNewlines)
-            #expect(
-                AbsolutePath(path).pathString == targetPath.pathString
-            )
+                let targetPath = try scratchPath.appending(components: buildSystem.binPath(for: configuration, scratchPath: []))
+                let commonBuildArgs = [
+                    "--scratch-path",
+                    scratchPath.pathString,
+                ]
+                let path = try await execute(
+                    [
+                        "--show-bin-path",
+                    ] + commonBuildArgs,
+                    packagePath: fullPath,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                ).stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+
+                #expect(
+                    AbsolutePath(path).pathString == targetPath.pathString
+                )
+
+                // The original symlink should not exists
+                expectFileDoesNotExists(at: originalSymlink)
+
+                // Let's build the package
+                try await executeSwiftBuild(
+                    fullPath,
+                    configuration: configuration,
+                    extraArgs: commonBuildArgs,
+                    buildSystem: buildSystem,
+                )
+
+                try expectSymlink(originalSymlink, pointsTo: AbsolutePath(path))
+            }
         }
     }
 
