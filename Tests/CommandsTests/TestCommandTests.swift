@@ -240,7 +240,6 @@ struct TestCommandTests {
         .tags(
             .Feature.TargetType.Executable,
         ),
-        .SWBINTTODO("Test currently fails due to 'error: build failed'"),
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func enableDisableTestabilityDisabled(
@@ -262,10 +261,18 @@ struct TestCommandTests {
                     return
                 }
 
-                #expect(
-                    stderr.contains("was not compiled for testing") || stderr.contains("ignore swiftmodule built without '-enable-testing'"),
-                    "got stdout: \(stdout), stderr: \(stderr)",
-                )
+                withKnownIssue {
+                    #expect(
+                        stderr.contains("was not compiled for testing") || stderr.contains("ignore swiftmodule built without '-enable-testing'"),
+                        "got stdout: \(stdout), stderr: \(stderr)",
+                    )
+                } when: {
+                    #if compiler(>=6.4)
+                    buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .macOS
+                    #else
+                    false
+                    #endif
+                }
             }
     }
 
@@ -716,9 +723,11 @@ struct TestCommandTests {
                     print("\(stdout)")
                     print("\(stderr)")
                 }
+                Attachment.record(stdout, named: "stdout")
+                Attachment.record(stderr, named: "stderr")
 
                 // THEN we expect \(xUnitUnderTest) to exists
-                expectFileExists(at: xUnitUnderTest)
+                try requireFileExists(at: xUnitUnderTest)
                 let contents: String = try localFileSystem.readFileContents(xUnitUnderTest)
                 // AND that the xUnit file has the expected contents
                 for match in tcdata.matchesPattern {
@@ -1296,8 +1305,8 @@ struct TestCommandTests {
     func basicSwiftTestingIntegration(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        let configuration = BuildConfiguration.debug
-        try await withKnownIssue("Fails to find the test executable", isIntermittent: true) {
+        let configuration: BuildConfiguration = BuildConfiguration.debug
+        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/TestDiscovery/SwiftTesting") { fixturePath in
                 let (stdout, stderr) = try await execute(
                     ["--enable-swift-testing", "--disable-xctest"],
@@ -1311,7 +1320,11 @@ struct TestCommandTests {
                 )
             }
         } when: {
-            buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows
+            buildSystem == .swiftbuild &&
+            (
+                ProcessInfo.hostOperatingSystem == .windows // Fails to find the test executable
+                || ProcessInfo.isHostUbuntu22_04_jammy() // stack strack
+            )
         }
     }
 

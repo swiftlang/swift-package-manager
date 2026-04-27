@@ -18,4 +18,4 @@ if "%verbose%" == "true" (
     echo "[mytool-windows] '%input%' '%output%'"
 )
 @echo on
-echo f | xcopy.exe /f "%input%" "%output%"
+echo f | copy.exe "%input%" "%output%"
