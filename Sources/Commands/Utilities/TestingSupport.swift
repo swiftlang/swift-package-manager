@@ -174,7 +174,7 @@ enum TestingSupport {
             .map {(
                 $0.binaryPath,
                 try Self.getSwiftTestingSuites(
-                    fromTestAt: $0.binaryPath,
+                    testProduct: $0,
                     swiftCommandState: swiftCommandState,
                     shouldSkipBuilding: shouldSkipBuilding,
                     sanitizers: sanitizers
@@ -188,13 +188,13 @@ enum TestingSupport {
     /// On Linux, the test binary handles `--list-tests` directly.
     ///
     /// - Parameters:
-    ///     - path: Path to the test binary.
+    ///     - testProduct: The test product.
     ///
     /// - Throws: TestError, SystemError, TSCUtility.Error
     ///
     /// - Returns: Array of test identifiers in the format "Module.Suite/testFunction()"
     static func getSwiftTestingSuites(
-        fromTestAt path: AbsolutePath,
+        testProduct: BuiltTestProduct,
         swiftCommandState: SwiftCommandState,
         shouldSkipBuilding: Bool,
         sanitizers: [Sanitizer]
@@ -212,24 +212,24 @@ enum TestingSupport {
             ).productsBuildParameters,
             sanitizers: sanitizers,
             library: .swiftTesting,
-            testProductPaths: [path],
+            testProductPaths: [testProduct.bundlePath],
             interopMode: nil // Interop not required when listing tests
         )
 
         var args: [String]
         #if os(macOS)
         let helper = try toolchain.getSwiftTestingHelper()
-        args = [helper.pathString, "--test-bundle-path", path.pathString,
+        args = [helper.pathString, "--test-bundle-path", testProduct.binaryPath.pathString,
                 "--list-tests", "--testing-library", "swift-testing",
-                path.pathString]
+                testProduct.binaryPath.pathString]
         #else
-        args = [path.pathString, "--list-tests", "--testing-library", "swift-testing"]
+        args = [testProduct.binaryPath.pathString, "--list-tests", "--testing-library", "swift-testing"]
         #endif
 
         let output: String
         do {
             output = try Self.runProcessWithExistenceCheck(
-                path: path,
+                path: testProduct.binaryPath,
                 fileSystem: swiftCommandState.fileSystem,
                 args: args,
                 env: env
