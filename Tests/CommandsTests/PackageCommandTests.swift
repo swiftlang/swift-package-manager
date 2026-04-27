@@ -1285,6 +1285,56 @@ struct PackageCommandTests {
             }
     }
 
+    @Test(
+        .requireSwift6_3,
+        .tags(
+            .Feature.Command.Package.DumpSymbolGraph,
+        ),
+        .IssueWindowsLongPath,
+        .requiresSymbolgraphExtract,
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func dumpSymbolGraphForExecutable(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await testWithTemporaryDirectory { tmpPath in
+            let packageDir = tmpPath.appending(components: "MyPackage")
+            try localFileSystem.createDirectory(packageDir)
+            try localFileSystem.writeFileContents(
+                packageDir.appending(components: "Package.swift"),
+                string: """
+                    // swift-tools-version: 6.3
+                    import PackageDescription
+                    let package = Package(
+                        name: "MyPackage",
+                        targets: [
+                            .executableTarget(name: "MyCommand"),
+                        ]
+                    )
+                    """
+            )
+            let mainPath = packageDir.appending(components: "Sources", "MyCommand", "main.swift")
+            try localFileSystem.createDirectory(mainPath.parentDirectory, recursive: true)
+            try localFileSystem.writeFileContents(mainPath, string: #"print("Hello World")"#)
+
+            let outputDir = tmpPath.appending(components: "symbolgraphs")
+            try localFileSystem.createDirectory(outputDir)
+
+            try await execute(
+                ["dump-symbol-graph", "--output-dir", outputDir.pathString],
+                packagePath: packageDir,
+                configuration: .debug,
+                buildSystem: buildSystem,
+            )
+
+            let outputFiles = try localFileSystem.getDirectoryContents(outputDir)
+            #expect(
+                outputFiles.contains { $0.hasPrefix("MyCommand") && $0.hasSuffix(".symbols.json") },
+                "No symbol graph files found for executable target 'MyCommand', dir contains: \(outputFiles)"
+            )
+        }
+    }
+
     @Suite(
         .tags(
             .Feature.Command.Package.CompletionTool,
