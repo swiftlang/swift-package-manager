@@ -114,6 +114,7 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
     var state: ServerState = .waitingForInitializeRequest
 
     private var headersByTargetGUID: [String: Set<Basics.AbsolutePath>] = [:]
+    private var doccCatalogsByTargetGUID: [String: Set<Basics.AbsolutePath>] = [:]
 
     private struct PluginInfo {
         var name: String
@@ -259,6 +260,18 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
                                 generated: false,
                                 dataKind: .sourceKit,
                                 data: SourceKitSourceItemData(kind: .header).encodeToLSPAny()
+                            )
+                        )
+                    }
+                    let doccCatalogs = self.doccCatalogsByTargetGUID[targetGUID] ?? []
+                    for doccCatalog in doccCatalogs {
+                        sourcesResponse.items[index].sources.append(
+                            SourceItem(
+                                uri: DocumentURI(doccCatalog.asURL),
+                                kind: .directory,
+                                generated: false,
+                                dataKind: .sourceKit,
+                                data: SourceKitSourceItemData(kind: .doccCatalog).encodeToLSPAny()
                             )
                         )
                     }
@@ -475,6 +488,18 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
         self.headersByTargetGUID = headers
     }
 
+    private func rebuildDocCCatalogMapping(pifAccompanyingMetadata: [PackagePIFBuilder.ModuleOrProduct]) async {
+        var doccCatalogs: [String: Set<Basics.AbsolutePath>] = [:]
+        for moduleOrProduct in pifAccompanyingMetadata {
+            guard let pifTarget = moduleOrProduct.pifTarget else { continue }
+            let guid = pifTarget.id.value
+            if !moduleOrProduct.doccCatalogs.isEmpty {
+                doccCatalogs[guid] = moduleOrProduct.doccCatalogs
+            }
+        }
+        self.doccCatalogsByTargetGUID = doccCatalogs
+    }
+
     private func rebuildPluginMapping(pifAccompanyingMetadata: [PackagePIFBuilder.ModuleOrProduct]) {
         var plugins: [BuildTargetIdentifier: PluginInfo] = [:]
         for moduleOrProduct in pifAccompanyingMetadata {
@@ -536,6 +561,7 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
                 let result = try await buildSystem.generatePIFAndAccompanyingMetadata(preserveStructure: false)
                 try localFileSystem.writeIfChanged(path: buildSystem.buildParameters.pifManifest, string: result.pif)
                 await self.rebuildHeaderMapping(pifAccompanyingMetadata: result.accompanyingMetadata)
+                await self.rebuildDocCCatalogMapping(pifAccompanyingMetadata: result.accompanyingMetadata)
                 self.rebuildPluginMapping(pifAccompanyingMetadata: result.accompanyingMetadata)
                 self.connectionToUnderlyingBuildServer.send(OnWatchedFilesDidChangeNotification(changes: [
                     .init(uri: .init(buildSystem.buildParameters.pifManifest.asURL), type: .changed)

@@ -409,5 +409,23 @@ struct SwiftPMBuildServerTests {
             }
         }
     }
+
+    @Test
+    func doccCatalogSources() async throws {
+        try await withSwiftPMBSP(fixtureName: "Miscellaneous/LibraryWithDocC") { connection, _, _ in
+            let targetResponse = try await connection.send(WorkspaceBuildTargetsRequest())
+            let myLibTarget = try #require(targetResponse.targets.first(where: { $0.displayName == "MyLib" }))
+            let sourcesResponse = try await connection.send(BuildTargetSourcesRequest(targets: [myLibTarget.id]))
+            let sources = try #require(sourcesResponse.items.only?.sources)
+
+            let swiftSource = try #require(sources.first(where: { $0.uri.fileURL?.lastPathComponent == "MyLib.swift" }))
+            #expect(swiftSource.kind == .file)
+
+            let doccCatalog = try #require(sources.first(where: { $0.uri.fileURL?.pathExtension == "docc" }))
+            #expect(doccCatalog.kind == .directory)
+            #expect(doccCatalog.uri.fileURL?.lastPathComponent == "Documentation.docc")
+            #expect(doccCatalog.sourceKitData?.kind == .doccCatalog)
+        }
+    }
 }
 #endif
