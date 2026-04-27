@@ -16701,7 +16701,124 @@ final class WorkspaceTests: XCTestCase {
             // expected — bar is SCM-only, no registry mapping
         } else {
             XCTFail("Expected .notApplicable for bar (SCM-only package)")
-        }                                                                                                                              }
+        }
+    }
+
+    // When a mirror remaps a SCM URL, the notApplicable entries written by
+    // deriveCache's second pass must be keyed by the ORIGINAL (pre-mirror) URL,
+    // because mapRegistryIdentity looks up the cache using the raw manifest URL
+    // before the dependency mapper has run.  If the entries are keyed by the
+    // mirrored URL instead, every SCM-only package that goes through a mirror
+    // causes a live registry lookup on every --force-resolved-versions invocation,
+    // defeating the lockfile guarantee and risking spurious "resolution required"
+    // errors when --replace-scm-with-registry is also active.
+    func testIdentityLookupCachePrePopulatedCorrectlyWithMirrorsOnForceResolved() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+        let fooSCMURL = SourceControlURL("https://git/org/foo")
+        let barSCMURL = SourceControlURL("https://git/org/bar")
+
+        // Bar's SCM URL is mirrored to a different host.
+        let mirrors = try DependencyMirrors()
+        try mirrors.set(mirror: "https://git/mirror/bar", for: barSCMURL.absoluteString)
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    path: "root",
+                    targets: [
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [
+                                .product(
+                                    name: "FooProduct",
+                                    package: "Foo"
+                                ),
+                            ]
+                        ),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .sourceControl(url: "https://git/org/foo", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    toolsVersion: .v5_6
+                ),
+            ],
+            packages: [
+                // org.foo: registry package with SCM alternative URL, no mirror.
+                MockPackage(
+                    name: "FooPackage",
+                    identity: "org.foo",
+                    alternativeURLs: ["https://git/org/foo"],
+                    targets: [
+                        MockTarget(name: "FooTarget", dependencies: [
+                            .product(name: "Bar", package: "Bar"),
+                        ]),
+                    ],
+                    products: [
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                    ],
+                    dependencies: [
+                        .sourceControl(url: "https://git/org/bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                // Bar: pure SCM package served at the mirror URL, no registry identity.
+                MockPackage(
+                    name: "BarPackage",
+                    url: "https://git/mirror/bar",
+                    targets: [MockTarget(name: "BarTarget")],
+                    products: [MockProduct(name: "Bar", modules: ["BarTarget"])],
+                    versions: ["1.0.0"]
+                ),
+            ],
+            mirrors: mirrors
+        )
+
+        // Run 1: produce Package.resolved with swizzle.
+        // foo → swizzled to org.foo (registry); bar → SCM checkout at mirror URL.
+        workspace.sourceControlToRegistryDependencyTransformation = .swizzle
+        try await workspace.checkPackageGraph(roots: ["root"]) { _, _ in }
+
+        // Reset, keep Package.resolved.
+        try await workspace.closeWorkspace(resetState: true, resetResolvedFile: false)
+
+        // Run 2: forceResolvedVersions + swizzle.
+        // deriveCache's second pass must key bar's notApplicable entry by barSCMURL
+        // (the original URL) so that mapRegistryIdentity's lookup hits the cache
+        // rather than falling through to a live registry call.
+        workspace.sourceControlToRegistryDependencyTransformation = .swizzle
+        try await workspace.checkPackageGraph(roots: ["root"], forceResolvedVersions: true) { _, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+
+        let ws = try workspace.getOrCreateWorkspace()
+
+        // org.foo: positive mapping from first pass — must still be correct with a mirror on bar.
+        let fooCacheEntry = try XCTUnwrap(ws.identityLookupCache[fooSCMURL], "Expected cache entry for foo SCM URL")
+        if case .success(let identity) = fooCacheEntry.result {
+            XCTAssertEqual(identity, PackageIdentity("org.foo"))
+        } else {
+            XCTFail("Expected .success(org.foo) in identityLookupCache for foo SCM URL")
+        }
+
+        // bar: SCM-only pin that goes through a mirror.
+        // The notApplicable entry must be keyed by barSCMURL (the original URL),
+        // not the mirrored URL.  If nil here, deriveCache stored the entry under
+        // the mirrored URL and the cache pre-population is broken for mirrored SCM packages.
+        let barCacheEntry = try XCTUnwrap(
+            ws.identityLookupCache[barSCMURL],
+            "Expected notApplicable entry at original SCM URL — nil means the entry was stored under the mirror URL instead"
+        )
+        if case .notApplicable = barCacheEntry.result {
+            // Correct: pre-populated from Package.resolved using the original URL.
+        } else {
+            XCTFail("Expected .notApplicable for bar — got \(barCacheEntry.result), meaning a live registry lookup occurred instead of using the pre-populated cache entry")
+        }
+    }
 
     // identityLookupCache is NOT pre-populated at workspace creation —
     // pre-population only happens inside tryResolveBasedOnResolvedVersionsFile,
