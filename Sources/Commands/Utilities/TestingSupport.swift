@@ -39,7 +39,7 @@ import func TSCBasic.exec
 struct DebuggableTestSession {
     struct Target {
         enum Kind {
-            case xctest(bundlePath: AbsolutePath)
+            case xctest(bundlePath: AbsolutePath, binaryPath: AbsolutePath)
             case swiftTesting(binaryPath: AbsolutePath)
         }
 
@@ -729,14 +729,14 @@ struct DebugTestRunner {
     /// Gets the executable path and arguments for a given testing library
     private func getExecutableAndArgs(for target: DebuggableTestSession.Target) throws -> (AbsolutePath, [String]) {
         switch target.kind {
-        case .xctest(let bundlePath):
+        case .xctest(let bundlePath, let binaryPath):
             #if os(macOS)
             guard let xctestPath = toolchain.xctestPath else {
                 throw DebuggerError.xctestNotFoundInToolchain
             }
             return (xctestPath, target.additionalArgs + [bundlePath.pathString])
             #else
-            return (bundlePath, target.additionalArgs)
+            return (binaryPath, target.additionalArgs)
             #endif
         case .swiftTesting(let binaryPath):
             #if os(macOS)
@@ -753,16 +753,7 @@ struct DebugTestRunner {
     /// Gets the module path for symbol loading
     private func getModulePath(for target: DebuggableTestSession.Target) throws -> AbsolutePath {
         switch target.kind {
-        case .xctest(let bundlePath):
-            guard buildParameters.triple.isDarwin() else {
-                return bundlePath
-            }
-            guard let name = bundlePath.components.last?.replacing(".xctest", with: "") else {
-                return bundlePath
-            }
-            let relativePath = try RelativePath(validating: "Contents/MacOS/\(name)")
-            return bundlePath.appending(relativePath)
-        case .swiftTesting(let binaryPath):
+        case .xctest(_, let binaryPath), .swiftTesting(let binaryPath):
             return binaryPath
         }
     }

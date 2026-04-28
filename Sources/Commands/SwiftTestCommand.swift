@@ -597,7 +597,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         let toolchain = try swiftCommandState.getTargetToolchain()
 
         let xctestEnabled = options.testLibraryOptions.isEnabled(.xctest, swiftCommandState: swiftCommandState)
-        lazy var testEntryPointPath = testProducts.lazy.compactMap(\.testEntryPointPath).first
+        let testEntryPointPath = testProducts.lazy.compactMap(\.testEntryPointPath).first
         let swiftTestingEnabled = options.testLibraryOptions.isEnabled(.swiftTesting, swiftCommandState: swiftCommandState) &&
                                  (options.testLibraryOptions.isExplicitlyEnabled(.swiftTesting, swiftCommandState: swiftCommandState) ||
                                   testEntryPointPath == nil)
@@ -641,7 +641,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             if productsWithXCTests.contains(testProduct.bundlePath) {
                 targets.append(DebuggableTestSession.Target(
                     productName: testProduct.productName,
-                    kind: .xctest(bundlePath: testProduct.bundlePath),
+                    kind: .xctest(bundlePath: testProduct.bundlePath, binaryPath: testProduct.binaryPath),
                     additionalArgs: try additionalLLDBArguments(
                         for: .xctest,
                         testProduct: testProduct,
