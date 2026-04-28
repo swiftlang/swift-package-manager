@@ -583,6 +583,8 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             while let arg = originalCommandLineArguments.next() {
                 if arg == "--xunit-output" || arg == "--experimental-maximum-repetitions" || arg == "--experimental-repeat-until" {
                     _ = originalCommandLineArguments.next()
+                } else if arg.hasPrefix("--xunit-output=") {
+                    // Drop the combined form so it is not passed through in addition to SPM's `--xunit-output`.
                 } else {
                     commandLineArguments.append(arg)
                 }
