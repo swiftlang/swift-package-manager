@@ -34,7 +34,6 @@ import struct XCTest.XCTSkip
 
 import class TSCBasic.Process
 import struct TSCBasic.ByteString
-import struct Basics.AsyncProcessResult
 
 import enum TSCUtility.Git
 
