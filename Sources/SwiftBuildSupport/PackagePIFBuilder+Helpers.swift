@@ -92,6 +92,16 @@ extension PackageModel.Module {
     func pifTargetGUID(suffix: TargetSuffix?) -> GUID {
         PackagePIFBuilder.targetGUID(forModuleName: self.name, suffix: suffix)
     }
+
+    var doccCatalogPaths: Set<AbsolutePath> {
+        var result: Set<AbsolutePath> = []
+        for path in self.resources.map(\.path) + self.ignored + self.others {
+            if path.extension == "docc" {
+                result.insert(path)
+            }
+        }
+        return result
+    }
 }
 
 extension PackageGraph.ResolvedModule {
