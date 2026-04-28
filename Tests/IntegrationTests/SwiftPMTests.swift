@@ -234,6 +234,8 @@ private struct SwiftPMTests {
     @Test(
         .requireSwift6_2,
         .issue("https://github.com/swiftlang/swift-package-manager/issues/9588", relationship: .defect),
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/9600", relationship: .defect),
+        .IssueWindowsPathNoEntry,
         .tags(
             .UserWorkflow,
             .Feature.CodeCoverage,
@@ -243,13 +245,12 @@ private struct SwiftPMTests {
             .Feature.PackageType.Empty,
             .Feature.TargetType.Test,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func testCodeCoverageMergedAcrossSubprocesses(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let config = BuildConfiguration.debug
-        try await withKnownIssue(isIntermittent: true) {
         try await withTemporaryDirectory(removeTreeOnDeinit: false) { tmpDir in
             let packagePath = tmpDir.appending(component: "test-package-coverage")
             try localFileSystem.createDirectory(packagePath)
@@ -330,11 +331,14 @@ private struct SwiftPMTests {
 
             // Check for 100% coverage for Subject.swift, which should happen because the per-PID files got merged.
             try withKnownIssue(isIntermittent: true) {
-                let data = try #require(coverage.data.first, "covege JSON = \(coverage)")
-                let subjectCoverage = try #require(data.files.first(where: { $0.filename.hasSuffix("Subject.swift") }), "covege JSON = \(data.files)")
+                let data = try #require(coverage.data.first, "coverage JSON = \(coverage)")
+                let subjectCoverage = try #require(data.files.first(where: { $0.filename.hasSuffix("Subject.swift") }), "coverage data files JSON = \(data.files)")
                 #expect(subjectCoverage.summary.functions.count == 2)
                 #expect(subjectCoverage.summary.functions.covered == 2)
                 #expect(subjectCoverage.summary.functions.percent == 100)
+            } when: {
+                [.windows, .linux].contains(ProcessInfo.hostOperatingSystem) && buildSystem == .swiftbuild
+            }
 
                 // Check the directory with the coverage path contains the profraw files.
                 let coverageDirectory = coveragePath.parentDirectory
@@ -347,7 +351,10 @@ private struct SwiftPMTests {
                 // Then check that %p expanded as we expected: to something that plausibly looks like a PID.
                 for profrawFile in profrawFiles {
                     let shouldBePID = try #require(profrawFile.split(separator: ".").dropLast().last)
-                    #expect(Int(shouldBePID) != nil)
+                    #expect(
+                        Int(shouldBePID) != nil,
+                        "last component of rofraw filename (\(profrawFile)) is not a valid pid",
+                    )
                 }
 
                 // Group the files by binary identifier (have a different prefix, before the per-PID suffix).
@@ -355,14 +362,11 @@ private struct SwiftPMTests {
 
                 // Check each group has 3 files: one per PID (the above suite has 2 exit tests => 2 forks => 3 PIDs total).
                 for binarySpecificProfrawFiles in groups {
-                    #expect(binarySpecificProfrawFiles.count == 3)
+                    #expect(
+                        binarySpecificProfrawFiles.count == 3,
+                        "Binary Specific profraw files are: \(binarySpecificProfrawFiles)"
+                    )
                 }
-            } when: {
-                [.linux, .windows].contains(ProcessInfo.hostOperatingSystem) && buildSystem == .swiftbuild
-            }
-        }
-        } when: {
-            ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild
         }
     }
 }
