@@ -72,6 +72,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
     private var knownVersionsCache = ThreadSafeBox<[Version: String]?>()
     private var manifestsCache = ThrowingAsyncKeyValueMemoizer<String, Manifest>()
     private var toolsVersionsCache = ThreadSafeKeyValueStore<Version, ToolsVersion>()
+    private var identityLookupCache: Workspace.IdentityLookupCache
 
     /// This is used to remember if tools version of a particular version is
     /// valid or not.
@@ -87,7 +88,8 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         currentToolsVersion: ToolsVersion,
         fingerprintStorage: PackageFingerprintStorage?,
         fingerprintCheckingMode: FingerprintCheckingMode,
-        observabilityScope: ObservabilityScope
+        observabilityScope: ObservabilityScope,
+        identityLookupCache: Workspace.IdentityLookupCache
     ) throws {
         self.package = package
         self.identityResolver = identityResolver
@@ -101,6 +103,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         self.observabilityScope = observabilityScope.makeChildScope(
             description: "SourceControlPackageContainer",
             metadata: package.diagnosticsMetadata)
+        self.identityLookupCache = identityLookupCache
     }
 
     // Compute the map of known versions.

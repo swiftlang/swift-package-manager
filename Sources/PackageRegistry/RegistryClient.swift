@@ -661,7 +661,6 @@ public final class RegistryClient: AsyncCancellable {
         observabilityScope: ObservabilityScope
     ) async throws -> String {
         let (registryIdentity, registry) = try self.unwrapRegistry(from: package)
-
         try await withAvailabilityCheck(
             registry: registry,
             observabilityScope: observabilityScope
