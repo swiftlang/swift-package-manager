@@ -140,25 +140,24 @@ With a Swift toolchain installed and the SwiftPM code cloned, you are ready to m
 $> swift build
 ```
 
-A successful build will create a `.build/` directory with the following approximate structure:
-
-```
-artifacts
-checkouts
-debug
-repositories
-x86_64-apple-macosx
-```
-
-Binary artifacts are located in `x86_64-apple-macosx/` when building on macOS,
-or the equivalent on other architectures and operating systems.
-
-These binaries can be used to test the code modification. For example, to test the `swift package init` and `swift build` commands from the new SwiftPM artifacts in `.build/`:
+A successful build will create a `.build/` directory. To run the binary artifacts that were just built, run `swift build --show-bin-path`. Copy that path, and append the command you want to test. For example, to test the `swift package init` and `swift build` commands from the new SwiftPM artifacts in `.build/`:
 
 ```bash
 $> cd /tmp && mkdir hello && cd hello
-$> /path/to/swiftpm/.build/x86_64-apple-macosx/debug/swift-package init
-$> /path/to/swiftpm/.build/x86_64-apple-macosx/debug/swift-build
+$> <path from `swift build --show-bin-path`>/swift-package init
+$> <path from `swift build --show-bin-path`>/swift-build
+```
+
+To build and run in one step, use `swift run`:
+
+```bash
+swift run swift-package init
+```
+
+To run actions on packages elsewhere in the file system, use the `--package-path` flag:
+
+```bash
+swift run swift-package resolve --package-path /path/to/test/package
 ```
 
 ### Testing
