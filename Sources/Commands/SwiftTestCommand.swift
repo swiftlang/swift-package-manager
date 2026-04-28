@@ -168,6 +168,14 @@ struct TestCommandOptions: ParsableArguments {
     @Option(help: .hidden)
     var experimentalMaximumParallelizationWidth: Int? = nil
 
+    /// The maximum number of times each test will repeat (Swift Testing only).
+    @Option(help: .hidden)
+    var experimentalMaximumRepetitions: Int?
+
+    /// The condition upon which to stop repeating (Swift Testing only).
+    @Option(help: .hidden)
+    var experimentalRepeatUntil: String?
+
     /// List the tests and exit.
     @Flag(name: [.customLong("list-tests"), .customShort("l")],
           help: "List test methods in specifier format.")
@@ -573,8 +581,10 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             var commandLineArguments = [String]()
             var originalCommandLineArguments = CommandLine.arguments.dropFirst().makeIterator()
             while let arg = originalCommandLineArguments.next() {
-                if arg == "--xunit-output" {
+                if arg == "--xunit-output" || arg == "--experimental-maximum-repetitions" || arg == "--experimental-repeat-until" {
                     _ = originalCommandLineArguments.next()
+                } else if arg.hasPrefix("--xunit-output=") {
+                    // Drop the combined form so it is not passed through in addition to SPM's `--xunit-output`.
                 } else {
                     commandLineArguments.append(arg)
                 }
@@ -593,6 +603,21 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                     xunitPath = xunitPath.parentDirectory.appending(xunitFileName)
                 }
                 additionalArguments += ["--xunit-output", xunitPath.pathString]
+            }
+
+            var hasRepetitionArgument = false
+            if let maximumRepetitions = options.experimentalMaximumRepetitions {
+                additionalArguments += ["--repetitions", String(maximumRepetitions)]
+                hasRepetitionArgument = true
+            }
+
+            if let repeatUntil = options.experimentalRepeatUntil {
+                additionalArguments += ["--repeat-until", repeatUntil]
+                hasRepetitionArgument = true
+            }
+
+            if hasRepetitionArgument {
+                additionalArguments.append("--experimental-per-test-case-repetition")
             }
         }
 

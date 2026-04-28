@@ -72,7 +72,26 @@ struct TaskBacktraceTests {
                 buildSystem: .swiftbuild,
                 throwIfCommandFails: false
             )
-            #expect(stderr.contains("'--experimental-task-backtraces' requires '--verbose' or '--very-verbose'"))
+            #expect(stderr.contains("'--experimental-task-backtraces' requires '--verbose', '--very-verbose', or '--experimental-trace-events-file'"))
+        }
+    }
+
+    @Test(
+        .tags(.TestSize.large, .Feature.TaskBacktraces)
+    )
+    func taskBacktracesDoesNotWarnWhenTraceEventsFileProvided() async throws {
+        try await fixture(name: "Miscellaneous/Simple") { fixturePath in
+            let traceFile = fixturePath.appending("trace.json")
+            let (_, stderr) = try await executeSwiftBuild(
+                fixturePath,
+                extraArgs: [
+                    "--experimental-task-backtraces",
+                    "--experimental-trace-events-file", traceFile.pathString,
+                ],
+                buildSystem: .swiftbuild,
+                throwIfCommandFails: false
+            )
+            #expect(!stderr.contains("'--experimental-task-backtraces' requires"))
         }
     }
 

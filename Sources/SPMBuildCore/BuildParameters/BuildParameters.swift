@@ -66,6 +66,9 @@ public struct BuildParameters: Encodable {
     /// The triple for which the code is built using these build parameters.
     public var triple: Triple
 
+    /// If set, overrides the SDK root path.
+    public var sdkRootOverride: Basics.AbsolutePath?
+
     /// Extra build flags.
     public var flags: BuildFlags
 
@@ -178,6 +181,7 @@ public struct BuildParameters: Encodable {
         configuration: BuildConfiguration,
         toolchain: Toolchain,
         triple: Triple? = nil,
+        sdkRootOverride: Basics.AbsolutePath? = nil,
         flags: BuildFlags,
         buildSystemKind: BuildSystemProvider.Kind,
         pkgConfigDirectories: [Basics.AbsolutePath] = [],
@@ -215,6 +219,7 @@ public struct BuildParameters: Encodable {
         self.configuration = configuration
         self._toolchain = _Toolchain(toolchain: toolchain)
         self.triple = triple
+        self.sdkRootOverride = sdkRootOverride
         self.buildSystemKind = buildSystemKind
         switch self.debuggingParameters.debugInfoFormat {
         case .dwarf, nil:

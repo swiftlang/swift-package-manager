@@ -678,6 +678,7 @@ extension PackagePIFProjectBuilder {
         }
         if sourceModule.type == .macro {
             settings[.SKIP_BUILDING_DOCUMENTATION] = "YES"
+            // The testable executable for macros needs to be HOST_PLATFORM too for prebuilts to work
             settings[.SUPPORTED_PLATFORMS] = ["$(HOST_PLATFORM)"]
         }
 

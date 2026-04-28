@@ -69,16 +69,16 @@ public struct PackageManager {
         /// A Boolean value that indicates whether to print build logs to the console.
         public var echoLogs: Bool
 
-        /// Additional flags to pass to all C compiler invocations.
+        /// Additional flags to pass to all C compiler invocations for the destination platform.
         public var otherCFlags: [String] = []
 
-        /// Additional flags to pass to all C++ compiler invocations.
+        /// Additional flags to pass to all C++ compiler invocations for the destination platform.
         public var otherCxxFlags: [String] = []
 
-        /// Additional flags to pass to all Swift compiler invocations.
+        /// Additional flags to pass to all Swift compiler invocations for the destination platform.
         public var otherSwiftcFlags: [String] = []
 
-        /// Additional flags to pass to all linker invocations.
+        /// Additional flags to pass to all linker invocations for the destination platform.
         public var otherLinkerFlags: [String] = []
 
         /// Creates a new sert of build parameters.

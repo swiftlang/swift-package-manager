@@ -13,9 +13,11 @@
 import ArgumentParser
 
 import struct Basics.AbsolutePath
+import enum Basics.ConfigurableEnvVar
 import var Basics.localFileSystem
 import enum Basics.TestingLibrary
 import struct Basics.Triple
+import struct Basics.Environment
 
 import struct Foundation.URL
 
@@ -35,7 +37,6 @@ import enum SBOMModel.SBOMCommandError
 
 import struct SPMBuildCore.BuildParameters
 import struct SPMBuildCore.BuildSystemProvider
-import enum SPMBuildCore.ConfigurableEnvVar
 
 import struct TSCBasic.StringError
 
@@ -816,7 +817,7 @@ public struct SBOMOptions: ParsableArguments {
             if !_sbomSpecs.isEmpty {
                 return _sbomSpecs
             }
-            if let envSpecs = SPMBuildCore.ConfigurableEnvVar.SWIFTPM_BUILD_SBOM_SPEC.getEnvVar() {
+            if let envSpecs = Basics.ConfigurableEnvVar.SWIFTPM_BUILD_SBOM_SPEC.value(from: Environment.current) {
                 let specStrings = envSpecs.components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) }
                 var specs: Set<SBOMModel.Spec> = []
                 for specString in specStrings {
@@ -838,7 +839,7 @@ public struct SBOMOptions: ParsableArguments {
         if let cmdLineDir = _sbomDirectory {
             return cmdLineDir
         }
-        if let envDir = SPMBuildCore.ConfigurableEnvVar.SWIFTPM_BUILD_SBOM_OUTPUT_DIR.getEnvVar() {
+        if let envDir = ConfigurableEnvVar.SWIFTPM_BUILD_SBOM_OUTPUT_DIR.value(from: Environment.current) {
             guard let path = AbsolutePath(argument: envDir) else {
                 return nil
             }
@@ -854,7 +855,7 @@ public struct SBOMOptions: ParsableArguments {
             if let cliFilter = _sbomFilter {
                 return cliFilter
             }
-            if let envFilter = SPMBuildCore.ConfigurableEnvVar.SWIFTPM_BUILD_SBOM_FILTER.getEnvVar() {
+            if let envFilter = Basics.ConfigurableEnvVar.SWIFTPM_BUILD_SBOM_FILTER.value(from: Environment.current) {
                 guard let filter = SBOMModel.Filter(rawValue: envFilter) else {
                     throw SBOMModel.SBOMCommandError.invalidFilterValue(value: envFilter)
                 }
@@ -869,7 +870,7 @@ public struct SBOMOptions: ParsableArguments {
         if _sbomWarningOnly {
             return true
         }
-        if let envWarningOnly = SPMBuildCore.ConfigurableEnvVar.SWIFTPM_BUILD_SBOM_WARNING_ONLY.getEnvVar() {
+        if let envWarningOnly = Basics.ConfigurableEnvVar.SWIFTPM_BUILD_SBOM_WARNING_ONLY.value(from: Environment.current) {
             let lowercased = envWarningOnly.lowercased()
             return !["false", "0", "no"].contains(lowercased)
         }

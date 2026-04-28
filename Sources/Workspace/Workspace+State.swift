@@ -293,8 +293,14 @@ extension WorkspaceStateStorage {
                         return try self.init(underlying: .sourceControlCheckout(.init(checkout)))
                     case "registryDownload":
                         let version = try container.decode(String.self, forKey: .version)
+                        let urlString = try container.decodeIfPresent(String.self, forKey: .scmUrl)
+                        let scm: SourceControlURL? = if let urlString {
+                            SourceControlURL(urlString)
+                        } else {
+                            nil
+                        }
                         return try self
-                            .init(underlying: .registryDownload(version: TSCUtility.Version(versionString: version)))
+                            .init(underlying: .registryDownload(version: TSCUtility.Version(versionString: version), scmUrl: scm))
                     case "edited":
                         let path = try container.decode(Basics.AbsolutePath?.self, forKey: .path)
                         return try self.init(underlying: .edited(
@@ -322,9 +328,10 @@ extension WorkspaceStateStorage {
                     case .sourceControlCheckout(let state):
                         try container.encode("sourceControlCheckout", forKey: .name)
                         try container.encode(CheckoutInfo(state), forKey: .checkoutState)
-                    case .registryDownload(let version):
+                    case .registryDownload(let version, let scm):
                         try container.encode("registryDownload", forKey: .name)
                         try container.encode(version, forKey: .version)
+                        try container.encodeIfPresent(scm?.absoluteString, forKey: .scmUrl)
                     case .edited(_, let path):
                         try container.encode("edited", forKey: .name)
                         try container.encode(path, forKey: .path)
@@ -339,6 +346,7 @@ extension WorkspaceStateStorage {
                     case name
                     case path
                     case version
+                    case scmUrl
                     case checkoutState
                 }
 
@@ -685,7 +693,7 @@ extension WorkspaceStateStorage {
                     case "registryDownload":
                         let version = try container.decode(String.self, forKey: .version)
                         return try self
-                            .init(underlying: .registryDownload(version: TSCUtility.Version(versionString: version)))
+                            .init(underlying: .registryDownload(version: TSCUtility.Version(versionString: version), scmUrl: nil))
                     case "edited":
                         let path = try container.decode(Basics.AbsolutePath?.self, forKey: .path)
                         return try self.init(underlying: .edited(
@@ -713,7 +721,7 @@ extension WorkspaceStateStorage {
                     case .sourceControlCheckout(let state):
                         try container.encode("sourceControlCheckout", forKey: .name)
                         try container.encode(CheckoutInfo(state), forKey: .checkoutState)
-                    case .registryDownload(let version):
+                    case .registryDownload(let version, _):
                         try container.encode("registryDownload", forKey: .name)
                         try container.encode(version, forKey: .version)
                     case .edited(_, let path):
@@ -1035,7 +1043,7 @@ extension WorkspaceStateStorage {
                     case "registryDownload":
                         let version = try container.decode(String.self, forKey: .version)
                         return try self
-                            .init(underlying: .registryDownload(version: TSCUtility.Version(versionString: version)))
+                            .init(underlying: .registryDownload(version: TSCUtility.Version(versionString: version), scmUrl: nil))
                     case "edited":
                         let path = try container.decode(Basics.AbsolutePath?.self, forKey: .path)
                         return try self.init(underlying: .edited(
@@ -1063,7 +1071,7 @@ extension WorkspaceStateStorage {
                     case .sourceControlCheckout(let state):
                         try container.encode("sourceControlCheckout", forKey: .name)
                         try container.encode(CheckoutInfo(state), forKey: .checkoutState)
-                    case .registryDownload(let version):
+                    case .registryDownload(let version, _):
                         try container.encode("registryDownload", forKey: .name)
                         try container.encode(version, forKey: .version)
                     case .edited(_, let path):
