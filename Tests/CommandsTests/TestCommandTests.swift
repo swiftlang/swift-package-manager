@@ -1718,6 +1718,9 @@ struct TestCommandTests {
             }
         } when: {
             .windows == ProcessInfo.hostOperatingSystem
+        }
+    }
+
     // MARK: - LLDB Flag Validation Tests
 
     @Suite
