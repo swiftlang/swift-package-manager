@@ -395,7 +395,7 @@ class GitRepositoryTests: XCTestCase {
             let testRepoPath = path.appending("test-repo")
             try makeDirectories(testRepoPath)
             initGitRepo(testRepoPath, tag: "initial")
-            let initialRevision = try GitRepository(path: testRepoPath).getCurrentRevision()
+            let initialRevision = try await GitRepository(path: testRepoPath).getCurrentRevision()
 
             // Add a couple files and a directory.
             try localFileSystem.writeFileContents(testRepoPath.appending("test.txt"), bytes: "Hi")
@@ -403,7 +403,7 @@ class GitRepositoryTests: XCTestCase {
             try testRepo.stage(file: "test.txt")
             try testRepo.commit()
             try testRepo.tag(name: "test-tag")
-            let currentRevision = try GitRepository(path: testRepoPath).getCurrentRevision()
+            let currentRevision = try await GitRepository(path: testRepoPath).getCurrentRevision()
 
             // Fetch the repository using the provider.
             let testClonePath = path.appending("clone")
@@ -443,7 +443,8 @@ class GitRepositoryTests: XCTestCase {
             try makeDirectories(testRepoPath)
             initGitRepo(testRepoPath, tag: "1.2.3")
             let repo = GitRepository(path: testRepoPath)
-            XCTAssertEqual(try repo.getTags(), ["1.2.3"])
+            let tags1 = try await repo.getTags()
+            XCTAssertEqual(tags1, ["1.2.3"])
 
             // Clone it somewhere.
             let testClonePath = path.appending("clone")
@@ -451,12 +452,14 @@ class GitRepositoryTests: XCTestCase {
             let repoSpec = RepositorySpecifier(path: testRepoPath)
             try await provider.fetch(repository: repoSpec, to: testClonePath)
             let clonedRepo = provider.open(repository: repoSpec, at: testClonePath)
-            XCTAssertEqual(try clonedRepo.getTags(), ["1.2.3"])
+            let tags2 = try await clonedRepo.getTags()
+            XCTAssertEqual(tags2, ["1.2.3"])
 
             // Clone off a checkout.
             let checkoutPath = path.appending("checkout")
             let checkoutRepo = try await provider.createWorkingCopy(repository: repoSpec, sourcePath: testClonePath, at: checkoutPath, editable: false)
-            XCTAssertEqual(try checkoutRepo.getTags(), ["1.2.3"])
+            let tags3 = try await checkoutRepo.getTags()
+            XCTAssertEqual(tags3, ["1.2.3"])
 
             // Add a new file to original repo.
             try localFileSystem.writeFileContents(testRepoPath.appending("test.txt"), bytes: "Hi")
@@ -466,12 +469,14 @@ class GitRepositoryTests: XCTestCase {
             try testRepo.tag(name: "2.0.0")
 
             // Update the cloned repo.
-            try clonedRepo.fetch()
-            XCTAssertEqual(try clonedRepo.getTags().sorted(), ["1.2.3", "2.0.0"])
+            try await clonedRepo.fetch()
+            let tags4 = try await clonedRepo.getTags()
+            XCTAssertEqual(tags4.sorted(), ["1.2.3", "2.0.0"])
 
             // Update the checkout.
-            try checkoutRepo.fetch()
-            XCTAssertEqual(try checkoutRepo.getTags().sorted(), ["1.2.3", "2.0.0"])
+            try await checkoutRepo.fetch()
+            let tags5 = try await checkoutRepo.getTags()
+            XCTAssertEqual(tags5.sorted(), ["1.2.3", "2.0.0"])
         }
     }
 
@@ -580,7 +585,7 @@ class GitRepositoryTests: XCTestCase {
             initGitRepo(testRepoPath)
 
             let repo = GitRepository(path: testRepoPath)
-            var currentRevision = try repo.getCurrentRevision()
+            var currentRevision = try await repo.getCurrentRevision()
             // This is the default branch of a new repo.
             XCTAssertTrue(repo.exists(revision: Revision(identifier: "main")))
             // Check a non existent revision.
@@ -588,16 +593,18 @@ class GitRepositoryTests: XCTestCase {
             // Checkout a new branch using command line.
             try await AsyncProcess.checkNonZeroExit(args: Git.tool, "-C", testRepoPath.pathString, "checkout", "-b", "TestBranch1")
             XCTAssertTrue(repo.exists(revision: Revision(identifier: "TestBranch1")))
-            XCTAssertEqual(try repo.getCurrentRevision(), currentRevision)
+            let revAfterBranch1 = try await repo.getCurrentRevision()
+            XCTAssertEqual(revAfterBranch1, currentRevision)
 
             // Make sure we're on the new branch right now.
             XCTAssertEqual(try repo.currentBranch(), "TestBranch1")
 
             // Checkout new branch using our API.
-            currentRevision = try repo.getCurrentRevision()
+            currentRevision = try await repo.getCurrentRevision()
             try repo.checkout(newBranch: "TestBranch2")
             XCTAssert(repo.exists(revision: Revision(identifier: "TestBranch2")))
-            XCTAssertEqual(try repo.getCurrentRevision(), currentRevision)
+            let revAfterBranch2 = try await repo.getCurrentRevision()
+            XCTAssertEqual(revAfterBranch2, currentRevision)
             XCTAssertEqual(try repo.currentBranch(), "TestBranch2")
         }
     }
@@ -722,8 +729,8 @@ class GitRepositoryTests: XCTestCase {
             try foo.tag(name: "1.0.1")
 
             // Update our bare and working repos.
-            try fooRepo.fetch()
-            try fooWorkingRepo.fetch()
+            try await fooRepo.fetch()
+            try await fooWorkingRepo.fetch()
             // Checkout the tag with submodule and expect submodules files to be present.
             try fooWorkingRepo.checkout(tag: "1.0.1")
             XCTAssertFileExists(fooWorkingPath.appending(components: "bar", "hello.txt"))
@@ -748,8 +755,8 @@ class GitRepositoryTests: XCTestCase {
             try foo.commit()
             try foo.tag(name: "1.0.2")
 
-            try fooRepo.fetch()
-            try fooWorkingRepo.fetch()
+            try await fooRepo.fetch()
+            try await fooWorkingRepo.fetch()
             // We should see the new file we added in the submodule.
             try fooWorkingRepo.checkout(tag: "1.0.2")
             XCTAssertFileExists(fooWorkingPath.appending(components: "bar", "hello.txt"))
@@ -770,7 +777,8 @@ class GitRepositoryTests: XCTestCase {
             try makeDirectories(testRepoPath)
             initGitRepo(testRepoPath, tag: "1.2.3")
             let repo = GitRepository(path: testRepoPath)
-            XCTAssertEqual(try repo.getTags(), ["1.2.3"])
+            let tagsA = try await repo.getTags()
+            XCTAssertEqual(tagsA, ["1.2.3"])
 
             // Clone it somewhere.
             let testClonePath = path.appending("clone")
@@ -778,7 +786,8 @@ class GitRepositoryTests: XCTestCase {
             let repoSpec = RepositorySpecifier(path: testRepoPath)
             try await provider.fetch(repository: repoSpec, to: testClonePath)
             let clonedRepo = provider.open(repository: repoSpec, at: testClonePath)
-            XCTAssertEqual(try clonedRepo.getTags(), ["1.2.3"])
+            let tagsB = try await clonedRepo.getTags()
+            XCTAssertEqual(tagsB, ["1.2.3"])
 
             // Clone off a checkout.
             let checkoutPath = path.appending("checkout")
@@ -1254,10 +1263,12 @@ class GitRepositoryTests: XCTestCase {
             let gitWorkingCopy = try XCTUnwrap(workingCopy as? GitRepository)
 
             try gitWorkingCopy.checkout(tag: "before-lfs")
-            XCTAssertFalse(try gitWorkingCopy.hasLFSTrackedFiles())
+            let hasLFS1 = try await gitWorkingCopy.hasLFSTrackedFiles()
+            XCTAssertFalse(hasLFS1)
 
             try gitWorkingCopy.checkout(tag: "after-lfs")
-            XCTAssertTrue(try gitWorkingCopy.hasLFSTrackedFiles())
+            let hasLFS2 = try await gitWorkingCopy.hasLFSTrackedFiles()
+            XCTAssertTrue(hasLFS2)
         }
     }
 
