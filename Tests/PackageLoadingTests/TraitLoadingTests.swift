@@ -315,4 +315,50 @@ final class TraitLoadingTests: PackageDescriptionLoadingTests {
             )
         )
     }
+
+    func testTargetBuildSettingsConditionTraits() async throws {
+        let content =  """
+            import PackageDescription
+            let package = Package(
+                name: "Foo",
+                targets: [
+                    .target(
+                        name: "Target",
+                        cSettings: [
+                            .headerSearchPath("path/to/headers", .when(traits: ["UndefinedTrait2"])),
+                        ],
+                        cxxSettings: [
+                            .define("CXX_FLAG", .when(traits: ["UndefinedTrait3"])),
+                        ],
+                        swiftSettings: [
+                            .define("DEFINE1", .when(traits: ["Trait1"])),
+                        ],
+                        linkerSettings: [
+                            .linkedFramework("_Framework", .when(traits: ["UndefinedTrait1"]))
+                        ],
+                    )
+                ]
+            )
+            """
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let (_, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
+        XCTAssertNoDiagnostics(observability.diagnostics)
+        let firstDiagnostic = try XCTUnwrap(validationDiagnostics[0])
+        let secondDiagnostic = try XCTUnwrap(validationDiagnostics[1])
+        let thirdDiagnostic = try XCTUnwrap(validationDiagnostics[2])
+        let fourthDiagnostic = try XCTUnwrap(validationDiagnostics[3])
+
+        XCTAssertEqual(firstDiagnostic.severity, .error)
+        XCTAssertEqual(firstDiagnostic.message, "Trait 'UndefinedTrait2' referenced in the build settings condition for target 'Target' is not defined in the package")
+
+        XCTAssertEqual(secondDiagnostic.severity, .error)
+        XCTAssertEqual(secondDiagnostic.message, "Trait 'UndefinedTrait3' referenced in the build settings condition for target 'Target' is not defined in the package")
+
+        XCTAssertEqual(thirdDiagnostic.severity, .error)
+        XCTAssertEqual(thirdDiagnostic.message, "Trait 'Trait1' referenced in the build settings condition for target 'Target' is not defined in the package")
+
+        XCTAssertEqual(fourthDiagnostic.severity, .error)
+        XCTAssertEqual(fourthDiagnostic.message, "Trait 'UndefinedTrait1' referenced in the build settings condition for target 'Target' is not defined in the package")
+    }
 }
