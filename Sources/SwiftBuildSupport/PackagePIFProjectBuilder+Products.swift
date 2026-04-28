@@ -506,6 +506,9 @@ extension PackagePIFProjectBuilder {
             }
         }
 
+        // Custom source module build settings, if any.
+        pifBuilder.delegate.configureSourceModuleBuildSettings(sourceModule: mainModule, settings: &settings)
+
         // Until this point the build settings for the target have been the same between debug and release
         // configurations.
         // The custom manifest settings might cause them to diverge.
