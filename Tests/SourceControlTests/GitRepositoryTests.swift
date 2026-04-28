@@ -1013,6 +1013,23 @@ class GitRepositoryTests: XCTestCase {
             XCTAssertFalse(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(url: SourceControlURL(packageDir.pathString.appending(".git")))))
         }
     }
+    func testGitCloneErrorDescription() throws {
+        let processResult = AsyncProcessResult(
+            arguments: ["git", "clone"],
+            environment: .current,
+            exitStatus: .terminated(code: -1),
+            output: .failure(AsyncProcess.Error.missingExecutableProgram(program: "git")),
+            stderrOutput: .failure(AsyncProcess.Error.missingExecutableProgram(program: "git"))
+        )
+        let error = GitCloneError(
+            repository: RepositorySpecifier(url: "https://github.com/swiftlang/swift-syntax.git"),
+            message: "Failed to clone repository https://github.com/swiftlang/swift-syntax.git",
+            result: processResult
+        )
+        XCTAssertTrue(error.description.contains("could not find executable for 'git'"), "Description should contain the underlying error cause")
+        XCTAssertTrue(error.description.contains("Failed to clone"), "Description should contain the message")
+        XCTAssertFalse(error.description.hasSuffix(":\n"), "Description should not end with a colon and newline if output is empty")
+    }
 
     // MARK: - Git LFS Tests
 
