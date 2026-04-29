@@ -19,8 +19,9 @@ jobs:
     name: Build
     uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@0.0.11
     with:
-      enable_cross_pr_testing: true
+      enable_cross_pr_testing: false
       linux_os_versions: '["amazonlinux2", "bookworm", "noble", "jammy", "rhel-ubi9"]'
+      linux_host_archs: '["x86_64", "aarch64"]'
       linux_swift_versions: '["nightly-main", "nightly-6.2"]'
       linux_pre_build_command: ./.github/scripts/prebuild.sh
       linux_build_command: 'swift run swift-build --build-tests'
@@ -32,11 +33,8 @@ jobs:
       # android_sdk_build_command: "swift run swift-build --build-tests --build-system swiftbuild"
       # android_ndk_versions: '["r27d", "r29"]'
       enable_windows_checks: true
-      enable_macos_checks: true
-      macos_exclude_xcode_versions: "[{\"xcode_version\": \"16.4\"}]"
-      macos_build_command: 'swift run swift-build --build-tests'
+      enable_macos_checks: false
       enable_ios_checks: false
-      # ios_build_command: 'swift run swift-build --build-tests  --sdk \"$(xcrun --sdk iphoneos --show-sdk-path)\" --triple arm64-apple-ios'
 
   soundness:
     name: Soundness
@@ -53,6 +51,52 @@ jobs:
       python_lint_check_enabled: true
       yamllint_check_enabled: true
 
+  build-and-test-posix:
+    needs: [soundness]
+    strategy:
+      fail-fast: false
+    name: "Build and Test"
+    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@0.0.11
+    with:
+      enable_cross_pr_testing: false
+      enable_windows_checks: false
+      enable_linux_checks: true
+      # linux_os_versions: '["amazonlinux2", "bookworm", "noble", "jammy", "rhel-ubi9"]'
+      linux_os_versions: '["amazonlinux2", "jammy"]'
+      linux_host_archs: '["x86_64", "aarch64"]'
+      linux_swift_versions: '["nightly-main", "6.2.0"]'  # '["6.2.0"]'
+      linux_pre_build_command: ./.github/scripts/prebuild.sh
+      linux_build_command: 'swift --version && swift test --parallel  --experimental-xunit-message-failure --xunit-output linux-xunit.xml'
+      enable_macos_checks: true
+      # Need to run against macOS OSS Toolchain: https://github.com/swiftlang/github-workflows/issues/240
+      macos_build_timeout: 120
+      macos_xcode_versions: "[\"26.4\"]"
+      # macos_env_vars: |
+      #   SDKROOT="$(xcrun --sdk macosx --show-sdk-path)"
+      macos_build_command: 'swift --version && swift test --parallel --experimental-xunit-message-failure --xunit-output macos-xunit.xml'
+      enable_ios_checks: false
+      # ios_build_timeout: 240
+      # ios_build_command: 'swift --version && swift test--parallel --sdk \"$(xcrun --sdk iphoneos --show-sdk-path)\" --triple arm64-apple-ios --experimental-xunit-message-failure --xunit-output ios-xunit.xml'
+
+  # build-and-test-al2:
+  #   needs: [soundness]
+  #   strategy:
+  #     fail-fast: false
+  #   name: "Build and Test"
+  #   uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@0.0.11
+  #   with:
+  #     enable_cross_pr_testing: false
+  #     # linux_publish_test_results: true
+  #     enable_linux_checks: true
+  #     linux_os_versions: '["amazonlinux2"]'
+  #     linux_host_archs: '["x86_64", "aarch64"]'
+  #     linux_swift_versions: '["6.2.0"]'
+  #     linux_pre_build_command: ./.github/scripts/prebuild.sh
+  #     linux_build_command: 'swift --version && swift test --parallel  --experimental-xunit-message-failure --xunit-output linux-xunit.xml'
+  #     enable_windows_checks: false
+  #     enable_macos_checks: false
+  #     enable_ios_checks: false
+
   integration-tests:
     name: Integration Tests
     needs: [soundness]
@@ -65,19 +109,24 @@ jobs:
       wasm_sdk_versions: '["nightly-main"]'
       wasm_sdk_pre_build_command: ./.github/scripts/prebuild.sh
       # This is a hack - replace the build command with a test command and drop the --swift-sdk arg the workflow appends.
-      wasm_sdk_build_command: "swift test --parallel --experimental-xunit-message-failure --xunit-output wasm-xunit.xml --filter WebAssemblyIntegrationTests #"
+      wasm_sdk_build_command: "swift --version && swift test --parallel --experimental-xunit-message-failure --xunit-output wasm-xunit.xml --filter WebAssemblyIntegrationTests #"
       enable_linux_static_sdk_build: true
       linux_static_sdk_versions: '["nightly-main"]'
       linux_static_sdk_pre_build_command: ./.github/scripts/prebuild.sh
       # This is a hack - replace the build command with a test command and drop the --swift-sdk arg the workflow appends.
-      linux_static_sdk_build_command: "swift test --parallel --experimental-xunit-message-failure --xunit-output static-linux-xunit.xml --filter StaticLinuxIntegrationTests #"
+      linux_static_sdk_build_command: "swift --version && swift test --parallel --experimental-xunit-message-failure --xunit-output static-linux-xunit.xml --filter StaticLinuxIntegrationTests #"
       enable_android_sdk_build: true
-      android_sdk_build_command: "swift test  --parallel --experimental-xunit-message-failure --xunit-output android-xunit.xml --filter AndroidSDKIntegrationTests #"
+      android_sdk_build_command: "swift --version && swift test  --parallel --experimental-xunit-message-failure --xunit-output android-xunit.xml --filter AndroidSDKIntegrationTests #"
 
   required:
     name: Required
     runs-on: ubuntu-latest
-    needs: [build, soundness, integration-tests]
+    needs:
+      - build
+      - soundness
+      - integration-tests
+      - build-and-test-posix
+      # - build-and-test-al2
     steps:
       - name: Success
         run: echo "All required jobs succeeded."
