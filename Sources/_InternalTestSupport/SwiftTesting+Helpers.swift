@@ -294,16 +294,17 @@ private func _expectThrowsCommandExecutionError<R, T>(
 public func waitForOutputStreamToContain(
     _ outputStream: BufferedOutputByteStream,
     _ needle: String,
-    timeout: TimeInterval = 3.0,
-    retryInterval: TimeInterval = 0.05
+    timeout: Duration = .seconds(3),
+    retryInterval: Duration = .milliseconds(50)
 ) async throws -> Bool {
-    let startTime = Date()
-    while Date().timeIntervalSince(startTime) < timeout {
+    let clock = ContinuousClock()
+    let startTime = clock.now
+    while clock.now - startTime < timeout {
         if outputStream.bytes.description.contains(needle) {
             return true
         }
 
-        try await Task.sleep(nanoseconds: UInt64(retryInterval * 1_000_000_000))
+        try await Task.sleep(for: retryInterval)
     }
 
     return outputStream.bytes.description.contains(needle)
