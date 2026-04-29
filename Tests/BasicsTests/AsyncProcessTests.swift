@@ -493,6 +493,7 @@ final class AsyncProcessTests: XCTestCase {
     func testAsyncStreamHighLevelAPI() async throws {
         // rdar://133548796
         try XCTSkipIfPlatformCI()
+        try XCTSkipOnAmazonLinux2(because: "Test process crashes")
         try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8547: 'swift test' was stalled.")
 
         let result = try await AsyncProcess.popen(

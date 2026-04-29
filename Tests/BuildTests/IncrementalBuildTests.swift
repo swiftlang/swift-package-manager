@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2017 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2026 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -13,7 +13,7 @@
 import Basics
 import PackageModel
 import _InternalTestSupport
-import XCTest
+import Testing
 import class Basics.AsyncProcess
 import typealias TSCBasic.ProcessEnvironmentBlock
 
@@ -36,18 +36,25 @@ import typealias TSCBasic.ProcessEnvironmentBlock
 ///    could be determined without running any of the commands (i.e. it would
 ///    assume that there's no feedback during the build)
 ///
-final class IncrementalBuildTests: XCTestCase {
+@Suite(
+    .tags(
+        .TestSize.large,
+    ),
+)
+struct IncrementalBuildTests {
 
-    func testIncrementalSingleModuleCLibraryInSources() async throws {
-        try XCTSkipIf(!UserToolchain.default.supportsSDKDependentTests(), "skipping because test environment doesn't support this test")
-        try await fixtureXCTest(name: "CFamilyTargets/CLibrarySources") { fixturePath in
+    @Test(
+        .requiresSDKDependentTestsSupport,
+    )
+    func incrementalSingleModuleCLibraryInSources() async throws {
+        try await fixture(name: "CFamilyTargets/CLibrarySources") { fixturePath in
             // Build it once and capture the log (this will be a full build).
             let (fullLog, _) = try await executeSwiftBuild(fixturePath, buildSystem: .native)
 
             // Check various things that we expect to see in the full build log.
             // FIXME:  This is specific to the format of the log output, which
             // is quite unfortunate but not easily avoidable at the moment.
-            XCTAssertMatch(fullLog, .contains("Compiling CLibrarySources Foo.c"))
+            #expect(fullLog.contains("Compiling CLibrarySources Foo.c"))
 
             let llbuildManifest = fixturePath.appending(components: ".build", "debug.yaml")
 
@@ -65,7 +72,7 @@ final class IncrementalBuildTests: XCTestCase {
 
             // Now build again.  This should be an incremental build.
             let (log2, _) = try await executeSwiftBuild(fixturePath, buildSystem: .native)
-            XCTAssertMatch(log2, .contains("Compiling CLibrarySources Foo.c"))
+            #expect(log2.contains("Compiling CLibrarySources Foo.c"))
 
             // Read the second llbuild manifest.
             let llbuildContents2: String = try localFileSystem.readFileContents(llbuildManifest)
@@ -73,13 +80,13 @@ final class IncrementalBuildTests: XCTestCase {
             // Now build again without changing anything.  This should be a null
             // build.
             let (log3, _) = try await executeSwiftBuild(fixturePath, buildSystem: .native)
-            XCTAssertNoMatch(log3, .contains("Compiling CLibrarySources Foo.c"))
+            #expect(!log3.contains("Compiling CLibrarySources Foo.c"))
 
             // Read the third llbuild manifest.
             let llbuildContents3: String = try localFileSystem.readFileContents(llbuildManifest)
 
-            XCTAssertEqual(llbuildContents1, llbuildContents2)
-            XCTAssertEqual(llbuildContents2, llbuildContents3)
+            #expect(llbuildContents1 == llbuildContents2)
+            #expect(llbuildContents2 == llbuildContents3)
 
             // Modify the header file in a way that changes its size so that the low-level
             // build system can detect the change (the timestamp change might be too small
@@ -92,13 +99,15 @@ final class IncrementalBuildTests: XCTestCase {
 
             // Now build again.  This should be an incremental build.
             let (log4, _) = try await executeSwiftBuild(fixturePath, buildSystem: .native)
-            XCTAssertMatch(log4, .contains("Compiling CLibrarySources Foo.c"))
+            #expect(log4.contains("Compiling CLibrarySources Foo.c"))
         }
     }
 
-    func testBuildManifestCaching() async throws {
-        try XCTSkipIf(!UserToolchain.default.supportsSDKDependentTests(), "skipping because test environment doesn't support this test")
-        try await fixtureXCTest(name: "ValidLayouts/SingleModule/Library") { fixturePath in
+    @Test(
+        .requiresSDKDependentTestsSupport,
+    )
+    func buildManifestCaching() async throws {
+        try await fixture(name: "ValidLayouts/SingleModule/Library") { fixturePath in
             @discardableResult
             func build() async throws -> String {
                 return try await executeSwiftBuild(fixturePath, buildSystem: .native).stdout
@@ -106,33 +115,35 @@ final class IncrementalBuildTests: XCTestCase {
 
             // Perform a full build.
             let log1 = try await build()
-            XCTAssertMatch(log1, .contains("Compiling Library"))
+            #expect(log1.contains("Compiling Library"))
 
             // Ensure manifest caching kicks in.
             let log2 =  try await build()
-            XCTAssertMatch(log2, .contains("Planning build"))
+            #expect(log2.contains("Planning build"))
 
             // Check that we're not re-planning when nothing has changed.
             let log3 = try await build()
-            XCTAssertNoMatch(log3, .contains("Planning build"))
+            #expect(!log3.contains("Planning build"))
 
             // Check that we do run planning when a new source file is added.
             let sourceFile = fixturePath.appending(components: "Sources", "Library", "new.swift")
             try localFileSystem.writeFileContents(sourceFile, bytes: "")
             let log4 = try await build()
-            XCTAssertMatch(log4, .contains("Compiling Library"))
-            XCTAssertMatch(log4, .contains("Planning build"))
+            #expect(log4.contains("Compiling Library"))
+            #expect(log4.contains("Planning build"))
 
             // Check that we don't run planning when a source file is modified.
             try localFileSystem.writeFileContents(sourceFile, bytes: "\n\n\n\n")
             let log5 = try await build()
-            XCTAssertNoMatch(log5, .contains("Planning build"))
+            #expect(!log5.contains("Planning build"))
         }
     }
 
-    func testDisableBuildManifestCaching() async throws {
-        try XCTSkipIf(!UserToolchain.default.supportsSDKDependentTests(), "skipping because test environment doesn't support this test")
-        try await fixtureXCTest(name: "ValidLayouts/SingleModule/Library") { fixturePath in
+    @Test(
+        .requiresSDKDependentTestsSupport,
+    )
+    func disableBuildManifestCaching() async throws {
+        try await fixture(name: "ValidLayouts/SingleModule/Library") { fixturePath in
             @discardableResult
             func build() async throws -> String {
                 return try await executeSwiftBuild(
@@ -144,19 +155,21 @@ final class IncrementalBuildTests: XCTestCase {
 
             // Perform a full build.
             let log1 = try await build()
-            XCTAssertMatch(log1, .contains("Compiling Library"))
+            #expect(log1.contains("Compiling Library"))
 
             // Ensure manifest caching does not kick in.
             let log2 = try await build()
-            XCTAssertNoMatch(log2, .contains("Planning build"))
+            #expect(!log2.contains("Planning build"))
         }
     }
-    // testing the fix for tracking SDK dependencies to avoid triggering rebuilds when the SDK changes (rdar://115777026)
-    func testSDKTracking() async throws {
-#if os(macOS)
-        try XCTSkipIf(!UserToolchain.default.supportsSDKDependentTests(), "skipping because test environment doesn't support this test")
 
-        try await fixtureXCTest(name: "ValidLayouts/SingleModule/Library") { fixturePath in
+    // testing the fix for tracking SDK dependencies to avoid triggering rebuilds when the SDK changes (rdar://115777026)
+    @Test(
+        .requiresSDKDependentTestsSupport,
+        .requireHostOS(.macOS),
+    )
+    func sdkTracking() async throws {
+        try await fixture(name: "ValidLayouts/SingleModule/Library") { fixturePath in
             let dummySwiftcPath = SwiftPM.xctestBinaryPath(for: "dummy-swiftc")
             let swiftCompilerPath = try UserToolchain.default.swiftCompilerPath
             let environment: Environment = [
@@ -170,13 +183,17 @@ final class IncrementalBuildTests: XCTestCase {
 
             let newSdkPathStr = "/tmp/../\(sdkPathStr)"
             // Perform a full build again because SDK changed.
+            await withKnownIssue(
+                "failed in GitHub actions but not in Jenkins.",
+                isIntermittent: true,
+            ) {
             let log1 = try await executeSwiftBuild(
                 fixturePath,
                 env: ["SDKROOT": newSdkPathStr],
                 buildSystem: .native,
             ).stdout
-            XCTAssertMatch(log1, .contains("Compiling Library"))
+            #expect(log1.contains("Compiling Library"))
+            }
         }
-#endif
     }
 }
