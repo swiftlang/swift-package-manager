@@ -167,6 +167,13 @@ extension PackagePIFProjectBuilder {
                 settings[.INSTALL_PATH] = "/usr/local/bin"
                 settings[.LD_RUNPATH_SEARCH_PATHS] = ["$(inherited)", "@executable_path/../lib"]
             }
+
+            // When the fuzzing is enabled via build request overrides, rename the entry point of executables
+            // so that we use the libFuzzer entrypoint.
+            settings[.OTHER_SWIFT_FLAGS].lazilyInitializeAndMutate(initialValue: ["$(inherited)"]) {
+                $0.append("$(OTHER_SWIFT_FLAGS_ENABLE_LIBFUZZER_$(ENABLE_LIBFUZZER))")
+            }
+            settings[multiple: "OTHER_SWIFT_FLAGS_ENABLE_LIBFUZZER_YES"] = ["-Xfrontend", "-entry-point-function-name", "-Xfrontend", "\(mainModule.c99name)_main"]
         }
 
         mainModule.addParseAsLibrarySettings(to: &settings, toolsVersion: package.manifest.toolsVersion, fileSystem: pifBuilder.fileSystem)

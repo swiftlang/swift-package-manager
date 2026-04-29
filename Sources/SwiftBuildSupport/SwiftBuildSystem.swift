@@ -832,7 +832,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                 case .scudo:
                     settings["ENABLE_SCUDO_SANITIZER"] = "YES"
                 case .fuzzer:
-                    throw StringError("\(sanitizer) is not currently supported with this build system.")
+                    settings["ENABLE_LIBFUZZER"] = "YES"
             }
         }
 

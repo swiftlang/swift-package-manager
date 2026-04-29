@@ -1299,6 +1299,31 @@ struct MiscellaneousTestCase {
             ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild
         }
     }
+
+    @Test(
+        .tags(
+            .Feature.Command.Build,
+        ),
+        .skipHostOS(.windows, "libFuzzer is not included in the Windows distribution"),
+    )
+    func libFuzzerSupport() async throws {
+        try await withKnownIssue {
+            let configuration = BuildConfiguration.debug
+            try await fixture(name: "Miscellaneous/Fuzzer") { fixturePath in
+                let (stdout, stderr) = try await executeSwiftRun(
+                    fixturePath,
+                    nil,
+                    configuration: configuration,
+                    extraArgs: ["--sanitize", "fuzzer", "Fuzzer", "--", "-runs=10"],
+                    buildSystem: .swiftbuild
+                )
+                #expect(stderr.contains("Done 10 runs"))
+                #expect(!stdout.contains("regular main called"))
+            }
+        } when: {
+            ProcessInfo.isHostAmazonLinux2() // libFuzzer link issues occur on AL2
+        }
+    }
 }
 
 @Suite
