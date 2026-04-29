@@ -418,7 +418,7 @@ struct PIFBuilderTests {
             for platform in ProjectModel.BuildSettings.Platform.allCases {
                 let search_paths = releaseConfig.impartedBuildProperties.settings[.LIBRARY_SEARCH_PATHS, platform]
                 switch platform {
-                    case .macOS, .macCatalyst, .iOS, .watchOS, .tvOS, .xrOS, .driverKit, .freebsd, .android, .linux, .wasi, .openbsd, ._iOSDevice:
+                    case .macOS, .macCatalyst, .iOS, .watchOS, .tvOS, .xrOS, .driverKit, .freebsd, .android, .linux, .emscripten, .wasi, .openbsd, ._iOSDevice:
                          #expect(search_paths == nil, "for platform \(platform)")
                     case .windows:
                         #expect(search_paths == ["$(inherited)", "$(TARGET_BUILD_DIR)/ExecutableModules"], "for platform \(platform)")
