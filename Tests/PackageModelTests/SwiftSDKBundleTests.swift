@@ -728,9 +728,10 @@ final class SwiftSDKBundleTests: XCTestCase {
             let (bundleStore, config, fileSystem, observeSystem) = try await createConfigurationStore()
             var args = SwiftSDK.PathsConfiguration<String>()
             args.sdkRootPath = sdkRootPath
+            // an empty targetTriple will configure all triples
             let configSuccess = try config.configure(
                 sdkID: testArtifactID,
-                targetTriple: targetTriple.tripleString,
+                targetTriple: nil,
                 showConfiguration: false,
                 resetConfiguration: false,
                 config: args
@@ -738,14 +739,15 @@ final class SwiftSDKBundleTests: XCTestCase {
             XCTAssertTrue(configSuccess)
             XCTAssertTrue(fileSystem.isFile(targetTripleConfigPath))
 
-            let updatedConfig = try config.readConfiguration(
-                sdkID: testArtifactID,
-                targetTriple: targetTriple
-            )
-            XCTAssertEqual(args.sdkRootPath, updatedConfig?.pathsConfiguration.sdkRootPath?.pathString)
+            let validBundles = try bundleStore.allValidBundles
+            let hostTriple = try! Triple("arm64-apple-macosx14.0")
+            var swiftSDK = validBundles.selectSwiftSDK(id: testArtifactID,
+                                                       hostTriple: hostTriple,
+                                                       targetTriple: targetTriple)!
+            try config.readConfiguration(sdkID: testArtifactID, sdk: &swiftSDK)
+            XCTAssertEqual(swiftSDK.pathsConfiguration.sdkRootPath?.pathString, args.sdkRootPath)
 
             let hostSwiftSDK = try SwiftSDK.hostSwiftSDK(environment: [:])
-            let hostTriple = try! Triple("arm64-apple-macosx14.0")
             let targetSwiftSDK = try SwiftSDK.deriveTargetSwiftSDK(
                 hostSwiftSDK: hostSwiftSDK,
                 hostTriple: hostTriple,
@@ -762,10 +764,9 @@ final class SwiftSDKBundleTests: XCTestCase {
             var args = SwiftSDK.PathsConfiguration<String>()
             args.sdkRootPath = sdkRootPath
             XCTAssertFalse(fileSystem.isFile(targetTripleConfigPath))
-            // an empty targetTriple will configure all triples
             let configSuccess = try config.configure(
                 sdkID: testArtifactID,
-                targetTriple: nil,
+                targetTriple: targetTriple.tripleString,
                 showConfiguration: false,
                 resetConfiguration: false,
                 config: args
