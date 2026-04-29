@@ -456,9 +456,9 @@ struct PIFBuilderTests {
             for platform in ProjectModel.BuildSettings.Platform.allCases {
                 let ld_flags = releaseConfig.impartedBuildProperties.settings[.OTHER_LDFLAGS, platform]
                 switch platform {
-                    case .macOS, .macCatalyst, .iOS, .watchOS, .tvOS, .xrOS, .driverKit, .freebsd:
+                    case .macOS, .macCatalyst, .iOS, .watchOS, .tvOS, .xrOS, .driverKit, .freebsd, .emscripten, .wasi:
                          #expect(ld_flags == ["-lc++", "$(inherited)"], "for platform \(platform)")
-                    case .android, .linux, .wasi, .openbsd:
+                    case .android, .linux, .openbsd:
                         #expect(ld_flags == ["-lstdc++", "$(inherited)"], "for platform \(platform)")
                     case .windows, ._iOSDevice:
                         #expect(ld_flags == nil, "for platform \(platform)")
