@@ -19,8 +19,9 @@ jobs:
     name: Build
     uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@0.0.11
     with:
-      enable_cross_pr_testing: true
+      enable_cross_pr_testing: false
       linux_os_versions: '["amazonlinux2", "bookworm", "noble", "jammy", "rhel-ubi9"]'
+      linux_host_archs: '["x86_64", "aarch64"]'
       linux_swift_versions: '["nightly-main", "nightly-6.2"]'
       linux_pre_build_command: ./.github/scripts/prebuild.sh
       linux_build_command: 'swift run swift-build --build-tests'
@@ -29,11 +30,8 @@ jobs:
       windows_pre_build_command: 'Invoke-Program .\.github\scripts\prebuild.ps1'
       windows_build_command: 'Invoke-Program swift run -Xlinker /ignore:4217 --configuration release swift-build --build-tests --scratch-path .tests'
       enable_windows_checks: true
-      enable_macos_checks: true
-      macos_exclude_xcode_versions: "[{\"xcode_version\": \"16.4\"}]"
-      macos_build_command: 'swift run swift-build --build-tests'
+      enable_macos_checks: false
       enable_ios_checks: false
-      # ios_build_command: 'swift run swift-build --build-tests  --sdk \"$(xcrun --sdk iphoneos --show-sdk-path)\" --triple arm64-apple-ios'
 
   soundness:
     name: Soundness
@@ -49,6 +47,51 @@ jobs:
       broken_symlink_check_enabled: true
       python_lint_check_enabled: true
       yamllint_check_enabled: true
+
+  build-and-test-posix:
+    needs: [soundness]
+    strategy:
+      fail-fast: false
+    name: "Build and Test"
+    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@0.0.11
+    with:
+      enable_cross_pr_testing: false
+      enable_windows_checks: false
+      enable_linux_checks: true
+      # linux_os_versions: '["amazonlinux2", "bookworm", "noble", "jammy", "rhel-ubi9"]'
+      linux_host_archs: '["x86_64", "aarch64"]'
+      linux_swift_versions: '["6.2.0"]'  # '["nightly-main", "6.2.0"]'
+      linux_pre_build_command: ./.github/scripts/prebuild.sh
+      linux_build_command: 'swift run swift-test --parallel  --experimental-xunit-message-failure --xunit-output linux-xunit.xml'
+      enable_macos_checks: true
+      # Need to run against macOS OSS Toolchain: https://github.com/swiftlang/github-workflows/issues/240
+      macos_build_timeout: 120
+      macos_xcode_versions: "[\"26.4\"]"
+      # macos_env_vars: |
+      #   SDKROOT="$(xcrun --sdk macosx --show-sdk-path)"
+      macos_build_command: 'swift build --product swiftpm-testing-helper && swift run swift-test --parallel --experimental-xunit-message-failure --xunit-output macos-xunit.xml'
+      enable_ios_checks: false
+      # ios_build_timeout: 240
+      # ios_build_command: 'swift build --product swiftpm-testing-helper --sdk \"$(xcrun --sdk iphoneos --show-sdk-path)\" --triple arm64-apple-ios && swift run swift-test--parallel --sdk \"$(xcrun --sdk iphoneos --show-sdk-path)\" --triple arm64-apple-ios --experimental-xunit-message-failure --xunit-output ios-xunit.xml'
+
+  build-and-test-al2:
+    needs: [soundness]
+    strategy:
+      fail-fast: false
+    name: "Build and Test"
+    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@0.0.11
+    with:
+      enable_cross_pr_testing: false
+      # linux_publish_test_results: true
+      enable_linux_checks: true
+      linux_os_versions: '["amazonlinux2"]'
+      linux_host_archs: '["x86_64", "aarch64"]'
+      linux_swift_versions: '["6.2.0"]'
+      linux_pre_build_command: ./.github/scripts/prebuild.sh
+      linux_build_command: 'swift run swift-test --parallel  --experimental-xunit-message-failure --xunit-output linux-xunit.xml'
+      enable_windows_checks: false
+      enable_macos_checks: false
+      enable_ios_checks: false
 
   integration-tests:
     name: Integration Tests

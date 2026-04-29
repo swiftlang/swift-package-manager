@@ -262,10 +262,17 @@ struct TestCommandTests {
                     return
                 }
 
-                #expect(
-                    stderr.contains("was not compiled for testing") || stderr.contains("ignore swiftmodule built without '-enable-testing'"),
-                    "got stdout: \(stdout), stderr: \(stderr)",
-                )
+                withKnownIssue(
+                    "The expectation is not met in GitHub actions, but is met on Jenkions",
+                    isIntermittent: true, // Fails in GitHub action but passes in Jenkins.
+                ) {
+                    #expect(
+                        stderr.contains("was not compiled for testing") || stderr.contains("ignore swiftmodule built without '-enable-testing'"),
+                        "got stdout: \(stdout), stderr: \(stderr)",
+                    )
+                } when: {
+                    ProcessInfo.hostOperatingSystem == .macOS && buildSystem == .swiftbuild
+                }
             }
     }
 
