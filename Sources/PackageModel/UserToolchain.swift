@@ -857,7 +857,7 @@ public final class UserToolchain: Toolchain {
             xcbuildFlags: swiftSDK.toolset.knownTools[.xcbuild]?.extraCLIOptions ?? [])
 
         self.includeSearchPaths = swiftSDK.pathsConfiguration.includeSearchPaths ?? []
-        self.librarySearchPaths = swiftSDK.pathsConfiguration.includeSearchPaths ?? []
+        self.librarySearchPaths = swiftSDK.pathsConfiguration.librarySearchPaths ?? []
 
         self.librarianPath = try swiftSDK.toolset.knownTools[.librarian]?.path ?? UserToolchain.determineLibrarian(
             triple: triple,
