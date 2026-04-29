@@ -795,12 +795,7 @@ public struct SwiftSDK: Equatable {
                         hostTimeTriple: hostTriple,
                         swiftSDKBundleStore: store
                     )
-                    if let configSDK = try configurationStore.readConfiguration(
-                        sdkID: ID,
-                        targetTriple: swiftSDK.targetTriple!)
-                    {
-                        swiftSDK = configSDK
-                    }
+                    try configurationStore.readConfiguration(sdkID: ID, sdk: &swiftSDK)
                 } catch {
                     // Do nothing to override if a custom SDK config is not found.
                     observabilityScope.emit(
