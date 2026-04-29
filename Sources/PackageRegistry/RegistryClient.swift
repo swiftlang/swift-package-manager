@@ -950,12 +950,21 @@ public final class RegistryClient: AsyncCancellable {
                         debug: "extracting \(package) \(version) source archive to '\(destinationPath)'"
                     )
                 let archiver = self.archiverProvider(fileSystem)
-                // TODO: Bail if archive contains relative paths or overlapping files
                 do {
                     try await archiver.extract(from: downloadPath, to: destinationPath)
                     defer {
                         try? fileSystem.removeFileTree(downloadPath)
                     }
+                    // Reject any extracted entry whose symbolic link target
+                    // escapes the destination directory. Without this guard a
+                    // registry-hosted source archive containing a symlink such
+                    // as `evil -> /Users/victim/.ssh` followed by a regular
+                    // file at `evil/authorized_keys` would let the archiver
+                    // write outside the package's destination directory.
+                    // Mirrors the existing guard in
+                    // Sources/Workspace/Workspace+BinaryArtifacts.swift after
+                    // every archiver.extract call.
+                    try fileSystem.validateNoEscapingSymlinks(in: destinationPath)
                     observabilityScope
                         .emit(
                             debug: "extracted \(package) \(version) source archive to '\(destinationPath)' in \(extractStart.distance(to: .now()).descriptionInSeconds)"
