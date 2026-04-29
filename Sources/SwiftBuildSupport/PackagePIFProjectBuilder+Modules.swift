@@ -567,7 +567,7 @@ extension PackagePIFProjectBuilder {
             for platform in ProjectModel.BuildSettings.Platform.allCases {
                 // darwin & freebsd
                 switch platform {
-                    case .macOS, .macCatalyst, .iOS, .watchOS, .tvOS, .xrOS, .driverKit, .freebsd:
+                    case .macOS, .macCatalyst, .iOS, .watchOS, .tvOS, .xrOS, .driverKit, .freebsd, .emscripten:
                         impartedSettings[.OTHER_LDFLAGS, platform] = ["-lc++", "$(inherited)"]
                     case .android, .linux, .wasi, .openbsd:
                         impartedSettings[.OTHER_LDFLAGS, platform] = ["-lstdc++", "$(inherited)"]
