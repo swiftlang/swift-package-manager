@@ -167,12 +167,6 @@ struct SwiftSDKCommandTests {
     func configureSubcommand(
         command: SwiftPM,
     ) async throws {
-        let deprecationWarning = """
-            warning: `swift sdk configuration` command is deprecated and will be removed in a future version of \
-            SwiftPM. Use `swift sdk configure` instead.
-
-            """
-
         try await fixture(name: "SwiftSDKs") { fixturePath in
             let bundle = "test-sdk.artifactbundle.zip"
 
@@ -187,150 +181,134 @@ struct SwiftSDKCommandTests {
                 stdout.contains("\(bundle)` successfully installed as test-sdk.artifactbundle.")
             )
 
-            let deprecatedShowSubcommand = ["configuration", "show"]
+            var invocation =
+                [
+                    "configure", "--show-configuration",
+                    "--swift-sdks-path", fixturePath.pathString,
+                    "test-artifact",
+                    "aarch64-unknown-linux-gnu",
+                ]
+            (stdout, stderr) = try await command.execute(invocation)
 
-            for showSubcommand in [deprecatedShowSubcommand, ["configure", "--show-configuration"]] {
-                let invocation =
-                    showSubcommand + [
-                        "--swift-sdks-path", fixturePath.pathString,
-                        "test-artifact",
-                        "aarch64-unknown-linux-gnu",
-                    ]
-                (stdout, stderr) = try await command.execute(invocation)
-
-                if command == .experimentalSDK {
-                    #expect(stderr.contains(sdkCommandDeprecationWarning))
-                }
-
-                if showSubcommand == deprecatedShowSubcommand {
-                    #expect(stderr.contains(deprecationWarning))
-                }
-
-                let sdkSubpath = ["test-sdk.artifactbundle", "sdk", "sdk"]
-
-                #expect(
-                    stdout == """
-                        sdkRootPath: \(fixturePath.appending(components: sdkSubpath))
-                        swiftResourcesPath: not set
-                        swiftStaticResourcesPath: not set
-                        includeSearchPaths: not set
-                        librarySearchPaths: not set
-                        toolsetPaths: not set
-
-                        """
-                )
-
-                let deprecatedSetSubcommand = ["configuration", "set"]
-                let deprecatedResetSubcommand = ["configuration", "reset"]
-                for setSubcommand in [deprecatedSetSubcommand, ["configure"]] {
-                    for resetSubcommand in [deprecatedResetSubcommand, ["configure", "--reset"]] {
-                        var invocation =
-                            setSubcommand + [
-                                "--swift-resources-path", fixturePath.appending("foo").pathString,
-                                "--swift-sdks-path", fixturePath.pathString,
-                                "test-artifact",
-                                "aarch64-unknown-linux-gnu",
-                            ]
-                        (stdout, stderr) = try await command.execute(invocation)
-
-                        #expect(
-                            stdout == """
-                                info: These properties of Swift SDK `test-artifact` for target triple `aarch64-unknown-linux-gnu` \
-                                were successfully updated: swiftResourcesPath.
-
-                                """
-                        )
-
-                        if command == .experimentalSDK {
-                            #expect(stderr.contains(sdkCommandDeprecationWarning))
-                        }
-
-                        if setSubcommand == deprecatedSetSubcommand {
-                            #expect(stderr.contains(deprecationWarning))
-                        }
-
-                        invocation =
-                            showSubcommand + [
-                                "--swift-sdks-path", fixturePath.pathString,
-                                "test-artifact",
-                                "aarch64-unknown-linux-gnu",
-                            ]
-                        (stdout, stderr) = try await command.execute(invocation)
-
-                        #expect(
-                            stdout == """
-                                sdkRootPath: \(fixturePath.appending(components: sdkSubpath).pathString)
-                                swiftResourcesPath: \(fixturePath.appending("foo"))
-                                swiftStaticResourcesPath: not set
-                                includeSearchPaths: not set
-                                librarySearchPaths: not set
-                                toolsetPaths: not set
-
-                                """
-                        )
-
-                        invocation =
-                            setSubcommand + [
-                                "--swift-static-resources-path", fixturePath.appending("stat").pathString,
-                                "--swift-sdks-path", fixturePath.pathString,
-                                "test-artifact",
-                                "aarch64-unknown-linux-gnu",
-                            ]
-                        (stdout, stderr) = try await command.execute(invocation)
-
-                        #expect(
-                            stdout == """
-                                info: These properties of Swift SDK `test-artifact` for target triple `aarch64-unknown-linux-gnu` \
-                                were successfully updated: swiftStaticResourcesPath.
-
-                                """
-                        )
-
-                        invocation =
-                            showSubcommand + [
-                                "--swift-sdks-path", fixturePath.pathString,
-                                "test-artifact",
-                                "aarch64-unknown-linux-gnu",
-                            ]
-                        (stdout, stderr) = try await command.execute(invocation)
-
-                        #expect(
-                            stdout == """
-                                sdkRootPath: \(fixturePath.appending(components: sdkSubpath).pathString)
-                                swiftResourcesPath: \(fixturePath.appending("foo"))
-                                swiftStaticResourcesPath: \(fixturePath.appending("stat"))
-                                includeSearchPaths: not set
-                                librarySearchPaths: not set
-                                toolsetPaths: not set
-
-                                """
-                        )
-
-                        invocation =
-                            resetSubcommand + [
-                                "--swift-sdks-path", fixturePath.pathString,
-                                "test-artifact",
-                                "aarch64-unknown-linux-gnu",
-                            ]
-                        (stdout, stderr) = try await command.execute(invocation)
-
-                        if command == .experimentalSDK {
-                            #expect(stderr.contains(sdkCommandDeprecationWarning))
-                        }
-
-                        if resetSubcommand == deprecatedResetSubcommand {
-                            #expect(stderr.contains(deprecationWarning))
-                        }
-
-                        #expect(
-                            stdout == """
-                                info: All configuration properties of Swift SDK `test-artifact` for target triple `aarch64-unknown-linux-gnu` were successfully reset.
-
-                                """
-                        )
-                    }
-                }
+            if command == .experimentalSDK {
+                #expect(stderr.contains(sdkCommandDeprecationWarning))
             }
+
+            let sdkSubpath = ["test-sdk.artifactbundle", "sdk", "sdk"]
+
+            #expect(
+                stdout == """
+                    sdkRootPath: \(fixturePath.appending(components: sdkSubpath))
+                    swiftResourcesPath: not set
+                    swiftStaticResourcesPath: not set
+                    includeSearchPaths: not set
+                    librarySearchPaths: not set
+                    toolsetPaths: not set
+
+                    """
+            )
+
+            invocation =
+                [
+                    "configure",
+                    "--swift-resources-path", fixturePath.appending("foo").pathString,
+                    "--swift-sdks-path", fixturePath.pathString,
+                    "test-artifact",
+                    "aarch64-unknown-linux-gnu",
+                ]
+            (stdout, stderr) = try await command.execute(invocation)
+
+            #expect(
+                stdout == """
+                    info: These properties of Swift SDK `test-artifact` for target triple `aarch64-unknown-linux-gnu` \
+                    were successfully updated: swiftResourcesPath.
+
+                    """
+            )
+
+            if command == .experimentalSDK {
+                #expect(stderr.contains(sdkCommandDeprecationWarning))
+            }
+
+            invocation =
+                [
+                    "configure", "--show-configuration",
+                    "--swift-sdks-path", fixturePath.pathString,
+                    "test-artifact",
+                    "aarch64-unknown-linux-gnu",
+                ]
+            (stdout, stderr) = try await command.execute(invocation)
+
+            #expect(
+                stdout == """
+                    sdkRootPath: \(fixturePath.appending(components: sdkSubpath).pathString)
+                    swiftResourcesPath: \(fixturePath.appending("foo"))
+                    swiftStaticResourcesPath: not set
+                    includeSearchPaths: not set
+                    librarySearchPaths: not set
+                    toolsetPaths: not set
+
+                    """
+            )
+
+            invocation =
+                [
+                    "configure",
+                    "--swift-static-resources-path", fixturePath.appending("stat").pathString,
+                    "--swift-sdks-path", fixturePath.pathString,
+                    "test-artifact",
+                    "aarch64-unknown-linux-gnu",
+                ]
+            (stdout, stderr) = try await command.execute(invocation)
+
+            #expect(
+                stdout == """
+                    info: These properties of Swift SDK `test-artifact` for target triple `aarch64-unknown-linux-gnu` \
+                    were successfully updated: swiftStaticResourcesPath.
+
+                    """
+            )
+
+            invocation =
+                [
+                    "configure", "--show-configuration",
+                    "--swift-sdks-path", fixturePath.pathString,
+                    "test-artifact",
+                    "aarch64-unknown-linux-gnu",
+                ]
+            (stdout, stderr) = try await command.execute(invocation)
+
+            #expect(
+                stdout == """
+                    sdkRootPath: \(fixturePath.appending(components: sdkSubpath).pathString)
+                    swiftResourcesPath: \(fixturePath.appending("foo"))
+                    swiftStaticResourcesPath: \(fixturePath.appending("stat"))
+                    includeSearchPaths: not set
+                    librarySearchPaths: not set
+                    toolsetPaths: not set
+
+                    """
+            )
+
+            invocation =
+                [
+                    "configure", "--reset",
+                    "--swift-sdks-path", fixturePath.pathString,
+                    "test-artifact",
+                    "aarch64-unknown-linux-gnu",
+                ]
+            (stdout, stderr) = try await command.execute(invocation)
+
+            if command == .experimentalSDK {
+                #expect(stderr.contains(sdkCommandDeprecationWarning))
+            }
+
+            #expect(
+                stdout == """
+                    info: All configuration properties of Swift SDK `test-artifact` for target triple `aarch64-unknown-linux-gnu` were successfully reset.
+
+                    """
+            )
 
             await expectThrowsCommandExecutionError(
                 try await command.execute(
