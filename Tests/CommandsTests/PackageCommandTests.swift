@@ -3461,10 +3461,6 @@ struct PackageCommandTests {
     }
 
     @Test(
-        .issue(
-            "error: Package.resolved file is corrupted or malformed, needs investigation",
-            relationship: .defect
-        ),
         .tags(
             .Feature.Command.Package.Resolve,
         ),
@@ -3474,7 +3470,6 @@ struct PackageCommandTests {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let config = BuildConfiguration.debug
-        // try XCTSkipOnWindows(because: "error: Package.resolved file is corrupted or malformed, needs investigation")
         func writeResolvedFile(
             packageDir: AbsolutePath,
             repositoryURL: String,
@@ -3504,8 +3499,7 @@ struct PackageCommandTests {
                     """
             )
         }
-        try await withKnownIssue(isIntermittent: true) {
-            try await testWithTemporaryDirectory { tmpPath in
+        try await testWithTemporaryDirectory { tmpPath in
                 let packageDir = tmpPath.appending(components: "library")
                 try localFileSystem.writeFileContents(
                     packageDir.appending("Package.swift"),
@@ -3535,7 +3529,7 @@ struct PackageCommandTests {
                 try depGit.tag(name: "1.0.0")
 
                 let initialRevision = try depGit.revision(forTag: "1.0.0")
-                let repositoryURL = #"file://\#(packageDir.pathString)"#
+                let repositoryURL = packageDir.asURL.absoluteString
 
                 let clientDir = tmpPath.appending(components: "client")
                 try localFileSystem.writeFileContents(
@@ -3620,9 +3614,6 @@ struct PackageCommandTests {
                     #expect(!err.contains("Fetching \(repositoryURL)"))
                 }
             }
-        } when: {
-            ProcessInfo.hostOperatingSystem == .windows
-        }
     }
 
     @Test(
