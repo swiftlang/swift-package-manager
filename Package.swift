@@ -705,7 +705,7 @@ let package = Package(
         .executableTarget(
             /** Interacts with package collections */
             name: "swift-package-collection",
-            dependencies: ["Commands", "PackageCollectionsCommand"]
+            dependencies: ["PackageCollectionsCommand"]
         ),
         .executableTarget(
             /** Multi-command entry point for SwiftPM. */
@@ -722,7 +722,7 @@ let package = Package(
         .executableTarget(
             /** Interact with package registry */
             name: "swift-package-registry",
-            dependencies: ["Commands", "PackageRegistryCommand"]
+            dependencies: ["PackageRegistryCommand"]
         ),
         .executableTarget(
             /** Utility to produce the artifacts for prebuilts */
