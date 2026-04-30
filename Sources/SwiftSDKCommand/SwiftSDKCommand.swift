@@ -21,7 +21,6 @@ package struct SwiftSDKCommand: AsyncParsableCommand {
         version: SwiftVersion.current.completeDisplayString,
         subcommands: [
             ConfigureSwiftSDK.self,
-            DeprecatedSwiftSDKConfigurationCommand.self,
             InstallSwiftSDK.self,
             ListSwiftSDKs.self,
             RemoveSwiftSDK.self,

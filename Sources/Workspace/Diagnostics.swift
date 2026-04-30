@@ -186,6 +186,16 @@ struct BinaryArtifactsManagerError: Error, CustomStringConvertible {
         .init(description: "local binary target '\(targetName)' at '\(artifactPath)' does not contain a binary artifact.")
     }
 
+    static func artifactContainsEscapingSymlink(
+        targetName: String,
+        symlinkPath: AbsolutePath,
+        destination: String
+    ) -> Self {
+        .init(
+            description: "archive of binary target '\(targetName)' contains a symlink at '\(symlinkPath.basename)' that points to '\(destination)' outside the archive directory"
+        )
+    }
+
     static func exhaustedAttempts(missing: [PackageReference]) -> Self {
         let missing = missing.sorted(by: { $0.identity < $1.identity }).map {
             switch $0.kind {

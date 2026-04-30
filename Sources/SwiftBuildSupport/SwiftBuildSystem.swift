@@ -242,6 +242,7 @@ package final class SwiftBuildSystemPlanningOperationDelegate: SWBPlanningOperat
 }
 
 public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
+    internal let scratchDirectory: Basics.AbsolutePath
     package let buildParameters: BuildParameters
     package let hostBuildParameters: BuildParameters
     private let packageGraphLoader: () async throws -> ModulesGraph
@@ -274,13 +275,17 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                 for package in graph.rootPackages {
                     for product in package.products where product.type == .test {
                         let binaryPath = try buildParameters.binaryPath(for: product)
+                        let coverageBinaryPath = try buildParameters.buildPath.appending(
+                            buildParameters.testCoverageBinaryRelativePath(forTestProductName: product.name)
+                        )
                         builtProducts.append(
                             BuiltTestProduct(
                                 productName: product.name,
                                 umbrellaProductName: package.manifest.umbrellaPackageTestsProductName,
                                 binaryPath: binaryPath,
                                 packagePath: package.path,
-                                testEntryPointPath: product.underlying.testEntryPointPath
+                                testEntryPointPath: product.underlying.testEntryPointPath,
+                                coverageBinaryPath: coverageBinaryPath,
                             )
                         )
                     }
@@ -317,7 +322,8 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         pluginConfiguration: PluginConfiguration,
-        delegate: BuildSystemDelegate?
+        delegate: BuildSystemDelegate?,
+        scratchDirectory: Basics.AbsolutePath, // currently used to create the symbolic links
     ) throws {
         self.buildParameters = buildParameters
         self.hostBuildParameters = hostBuildParameters
@@ -330,6 +336,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         self.observabilityScope = observabilityScope.makeChildScope(description: "Swift Build System")
         self.pluginConfiguration = pluginConfiguration
         self.delegate = delegate
+        self.scratchDirectory = scratchDirectory
     }
 
     private func createREPLArguments(
@@ -405,6 +412,17 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             serializedDiagnosticPathsByTargetName: .failure(StringError("Building was skipped")),
             replArguments: nil,
         )
+
+        defer {
+            if self.fileSystem.exists(self.buildParameters.buildPath, followSymlink: true) {
+                createBuildSymbolicLinks(
+                    self.scratchDirectory.appending(component: self.buildParameters.configuration.dirname),
+                    pointingAt: self.buildParameters.buildPath,
+                    fileSystem: self.fileSystem,
+                    observabilityScope: self.observabilityScope,
+                )
+            }
+        }
 
         guard !buildParameters.shouldSkipBuilding else {
             result.serializedDiagnosticPathsByTargetName = .failure(StringError("Building was skipped"))
@@ -832,7 +850,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                 case .scudo:
                     settings["ENABLE_SCUDO_SANITIZER"] = "YES"
                 case .fuzzer:
-                    throw StringError("\(sanitizer) is not currently supported with this build system.")
+                    settings["ENABLE_LIBFUZZER"] = "YES"
             }
         }
 

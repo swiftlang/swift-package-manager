@@ -167,6 +167,13 @@ extension PackagePIFProjectBuilder {
                 settings[.INSTALL_PATH] = "/usr/local/bin"
                 settings[.LD_RUNPATH_SEARCH_PATHS] = ["$(inherited)", "@executable_path/../lib"]
             }
+
+            // When the fuzzing is enabled via build request overrides, rename the entry point of executables
+            // so that we use the libFuzzer entrypoint.
+            settings[.OTHER_SWIFT_FLAGS].lazilyInitializeAndMutate(initialValue: ["$(inherited)"]) {
+                $0.append("$(OTHER_SWIFT_FLAGS_ENABLE_LIBFUZZER_$(ENABLE_LIBFUZZER))")
+            }
+            settings[multiple: "OTHER_SWIFT_FLAGS_ENABLE_LIBFUZZER_YES"] = ["-Xfrontend", "-entry-point-function-name", "-Xfrontend", "\(mainModule.c99name)_main"]
         }
 
         mainModule.addParseAsLibrarySettings(to: &settings, toolsVersion: package.manifest.toolsVersion, fileSystem: pifBuilder.fileSystem)
@@ -241,6 +248,8 @@ extension PackagePIFProjectBuilder {
         }
 
         let headerFiles = Set(mainModule.headerFileAbsolutePaths)
+
+        let doccCatalogs = mainModule.underlying.doccCatalogPaths
 
         // Add any additional source files emitted by custom build commands.
         for path in generatedFiles.sources {
@@ -506,6 +515,9 @@ extension PackagePIFProjectBuilder {
             }
         }
 
+        // Custom source module build settings, if any.
+        pifBuilder.delegate.configureSourceModuleBuildSettings(sourceModule: mainModule, settings: &settings)
+
         // Until this point the build settings for the target have been the same between debug and release
         // configurations.
         // The custom manifest settings might cause them to diverge.
@@ -537,6 +549,7 @@ extension PackagePIFProjectBuilder {
             pifTarget: .target(self.project[keyPath: mainModuleTargetKeyPath]),
             indexableFileURLs: indexableFileURLs,
             headerFiles: headerFiles,
+            doccCatalogs: doccCatalogs,
             linkedPackageBinaries: linkedPackageBinaries,
             swiftLanguageVersion: mainModule.packageSwiftLanguageVersion(manifest: packageManifest),
             declaredPlatforms: self.declaredPlatforms,
@@ -1038,8 +1051,8 @@ extension PackagePIFProjectBuilder {
             moduleName: pluginProduct.c99name,
             pifTarget: .aggregate(self.project[keyPath: pluginTargetKeyPath]),
             indexableFileURLs: [],
-            pluginScriptSourcePaths: pluginProduct.pluginModules?.only?.sources.paths ?? [],
             headerFiles: [],
+            pluginScriptSourcePaths: pluginProduct.pluginModules?.only?.sources.paths ?? [],
             linkedPackageBinaries: [],
             swiftLanguageVersion: nil,
             declaredPlatforms: self.declaredPlatforms,

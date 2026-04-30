@@ -19,47 +19,6 @@ import Testing
 
 import class Basics.AsyncProcess
 
-package func swiftCompilerTag(compilerPath: AbsolutePath) async -> String? {
-    guard let result = try? await AsyncProcess.popen(args: compilerPath.pathString, "-print-target-info") else {
-        return nil
-    }
-    guard result.exitStatus == .terminated(code: 0) else {
-        return nil
-    }
-    struct SwiftPrintTargetInfo: Decodable {
-        var swiftCompilerTag: String
-    }
-    return try? JSONDecoder().decode(SwiftPrintTargetInfo.self, from: result.utf8Output()).swiftCompilerTag
-}
-
-package func findSwiftSDK(compilerPath: AbsolutePath, _ name: String) async -> String? {
-    guard let compilerTag = await swiftCompilerTag(compilerPath: compilerPath) else {
-        return nil
-    }
-    let prefix = "\(compilerTag)_"
-    guard let result = try? await SwiftPM.sdk.execute(["list"]) else {
-        return nil
-    }
-    let sdks = result.stdout.components(separatedBy: "\n")
-        .map { $0.spm_chomp() }
-        .filter { !$0.isEmpty }
-    let matchingSDKs = sdks.filter { sdk in
-        guard sdk.hasPrefix(prefix) else { return false }
-        let suffix = String(sdk.dropFirst(prefix.count))
-        return name == suffix
-    }
-    return matchingSDKs.count == 1 ? matchingSDKs[0] : nil
-}
-
-private func githubActionsToolchain() -> AbsolutePath? {
-    let userToolchainsDir = AbsolutePath("/github/home/.swift-toolchains")
-    let userToolchains = try? FileManager.default.contentsOfDirectory(atPath: userToolchainsDir.pathString)
-    guard let userToolchains, userToolchains.count == 1 else {
-        return nil
-    }
-    return userToolchainsDir.appending(component: userToolchains[0])
-}
-
 private func findWasmKit(sdkID: String) throws -> AbsolutePath? {
     let observability = ObservabilitySystem { _, _ in }
     let hostSDK = try SwiftSDK.hostSwiftSDK()
@@ -85,21 +44,9 @@ private func findWasmKit(sdkID: String) throws -> AbsolutePath? {
     return swiftSDK.toolset.knownTools[.debugger]?.path
 }
 
-func findCompilerAndWebAssemblySDKIDForTesting() async throws -> (AbsolutePath, String)? {
-    let compilerPath: AbsolutePath
-    if let githubActionsToolchain = githubActionsToolchain() {
-        compilerPath = githubActionsToolchain.appending(components: ["usr", "bin", "swiftc\(ProcessInfo.exeSuffix)"])
-    } else {
-        compilerPath = try UserToolchain(swiftSDK: SwiftSDK.hostSwiftSDK()).swiftCompilerPath
-    }
-
-    guard let sdkID = await findSwiftSDK(compilerPath: compilerPath, "wasm") else {
-        return nil
-    }
-
-    return (compilerPath, sdkID)
+private func findCompilerAndWebAssemblySDKIDForTesting() async throws -> (AbsolutePath, String)? {
+    try await findCompilerAndSDKIDForTesting { $0 == "wasm" }
 }
-
 
 extension Trait where Self == Testing.ConditionTrait {
     static var requiresWebAssemblySwiftSDK: Self {

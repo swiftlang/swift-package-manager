@@ -75,10 +75,11 @@ func withInstantiatedSwiftBuildSystem(
                 observabilityScope: observabilitySystem.topScope,
                 pluginConfiguration: PluginConfiguration(
                     scriptRunner: pluginScriptRunner,
-                    workDirectory: AbsolutePath("/tmp/plugin-script-working-dir"),
+                    workDirectory: tmpDir.appending("plugin-script-working-dir"),
                     disableSandbox: true,
                 ),
                 delegate: nil,
+                scratchDirectory: tmpDir.appending("scratchDirectory"),
             )
 
             try await SwiftBuildSupport.withService(
@@ -116,8 +117,7 @@ func withInstantiatedSwiftBuildSystem(
 extension PackageModel.Sanitizer {
     var hasSwiftBuildSupport: Bool {
         switch self {
-            case .address, .thread, .undefined, .scudo: true
-            case .fuzzer: false
+            case .address, .thread, .undefined, .scudo, .fuzzer: true
         }
     }
 
@@ -127,7 +127,7 @@ extension PackageModel.Sanitizer {
             case .thread: "ENABLE_THREAD_SANITIZER"
             case .undefined: "ENABLE_UNDEFINED_BEHAVIOR_SANITIZER"
             case .scudo: "ENABLE_SCUDO_SANITIZER"
-            case .fuzzer: nil
+            case .fuzzer: "ENABLE_LIBFUZZER"
         }
 
     }

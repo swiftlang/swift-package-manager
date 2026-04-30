@@ -89,7 +89,7 @@ jobs:
       yamllint_check_enabled: true
 
   wasm-integration-tests:
-    name: WASM Integration Tests
+    name: Wasm Integration Tests
     needs: [soundness]
     uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@0.0.11
     with:
@@ -101,3 +101,17 @@ jobs:
       wasm_sdk_pre_build_command: ./.github/scripts/prebuild.sh
       # This is a hack - replace the build command with a test command and drop the --swift-sdk arg the workflow appends.
       wasm_sdk_build_command: "swift test --filter WebAssemblyIntegrationTests #"
+
+  static-linux-integration-tests:
+    name: Static Linux Integration Tests
+    needs: [soundness]
+    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@0.0.11
+    with:
+      enable_linux_checks: false
+      enable_windows_checks: false
+      enable_macos_checks: false
+      enable_linux_static_sdk_build: true
+      linux_static_sdk_versions: '["nightly-main"]'
+      linux_static_sdk_pre_build_command: ./.github/scripts/prebuild.sh
+      # This is a hack - replace the build command with a test command and drop the --swift-sdk arg the workflow appends.
+      linux_static_sdk_build_command: "swift test --filter StaticLinuxIntegrationTests #"
