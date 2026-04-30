@@ -160,6 +160,8 @@ To run actions on packages elsewhere in the file system, use the `--package-path
 swift run swift-package resolve --package-path /path/to/test/package
 ```
 
+> SwiftPM does not currently have a way to specify runtime dependencies, doing a `swift run <target>` could fail as the dependency is not found. For example, with a "reset/clean" package workspace, doing swift run swift-test on macOS may fail to find the swiftpm-testing-helper executable.
+
 ### Testing
 
 ```bash
