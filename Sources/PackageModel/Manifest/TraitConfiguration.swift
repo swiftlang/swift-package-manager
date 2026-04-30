@@ -90,5 +90,12 @@ public enum TraitConfiguration: Codable, Hashable {
         }
     }
 
+    private enum CodingKeys: String, CodingKey {
+        case enableAllTraits
+        case disableAllTraits
+        case enabledTraits
+        case `default`
+    }
+
     private struct EmptyEncodable: Encodable {}
 }
