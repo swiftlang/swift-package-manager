@@ -89,7 +89,7 @@ jobs:
       yamllint_check_enabled: true
 
   wasm-integration-tests:
-    name: WASM Integration Tests
+    name: Wasm Integration Tests
     needs: [soundness]
     uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@0.0.11
     with:
