@@ -348,33 +348,69 @@ public struct BuildParameters: Encodable {
         case .library(.automatic), .plugin:
             fatalError("\(#file):\(#line) - Illegal call of function \(#function) with automatica library and plugin")
         case .test:
-            switch buildSystemKind {
-            case .native, .xcode:
-                let base = "\(product.name).xctest"
-                if self.triple.isDarwin() {
-                    return try RelativePath(validating: "\(base)/Contents/MacOS/\(product.name)")
-                } else {
-                    return try RelativePath(validating: base)
-                }
-            case .swiftbuild:
-                if self.triple.isDarwin() {
-                    let base = "\(product.name).xctest"
-                    return try RelativePath(validating: "\(base)/Contents/MacOS/\(product.name)")
-                } else {
-                    var base = "\(product.name)-test-runner"
-                    let ext = self.triple.executableExtension
-                    if !ext.isEmpty {
-                        base += ext
-                    }
-                    return try RelativePath(validating: base)
-                }
-            }
+            return try testBinaryRelativePath(forTestProductName: product.name)
         case .macro:
             #if BUILD_MACROS_AS_DYLIBS
             return try dynamicLibraryPath(for: product.name)
             #else
             return try executablePath(for: product.name)
             #endif
+        }
+    }
+
+    /// Returns the path (relative to the build directory) of the file you launch to run
+    /// the tests in a test product.
+    ///
+    /// For most build-system + platform combinations this is the single binary that
+    /// contains the compiled test code. On SwiftBuild + non-Darwin it's a thin launcher
+    /// that `dlopen`s the sibling shared library — in that case the test code (and its
+    /// coverage mapping) lives in ``testCoverageBinaryRelativePath(forTestProductName:)``.
+    public func testBinaryRelativePath(forTestProductName name: String) throws -> Basics.RelativePath {
+        switch buildSystemKind {
+        case .native, .xcode:
+            let base = "\(name).xctest"
+            if self.triple.isDarwin() {
+                return try RelativePath(validating: "\(base)/Contents/MacOS/\(name)")
+            } else {
+                return try RelativePath(validating: base)
+            }
+        case .swiftbuild:
+            if self.triple.isDarwin() {
+                let base = "\(name).xctest"
+                return try RelativePath(validating: "\(base)/Contents/MacOS/\(name)")
+            } else {
+                var base = "\(name)-test-runner"
+                let ext = self.triple.executableExtension
+                if !ext.isEmpty {
+                    base += ext
+                }
+                return try RelativePath(validating: base)
+            }
+        }
+    }
+
+    /// Returns the path (relative to the build directory) of the artifact whose coverage
+    /// mapping should be passed to `llvm-cov export`.
+    ///
+    /// For every build system + platform combination except SwiftBuild on non-Darwin this
+    /// is the same file returned by ``testBinaryRelativePath(forTestProductName:)``.
+    /// SwiftBuild on non-Darwin splits a test product into a `-test-runner` launcher plus
+    /// a sibling shared library (`<name>.so` / `<name>.dll`); the instrumented test code
+    /// lives in the shared library, so that's what `llvm-cov` needs to read. Pointing
+    /// `llvm-cov` at the launcher would report coverage only for the synthesized
+    /// `test_entry_point.swift` and hide every user source file (see rdar://168006617).
+    public func testCoverageBinaryRelativePath(forTestProductName name: String) throws -> Basics.RelativePath {
+        switch buildSystemKind {
+        case .native, .xcode:
+            return try testBinaryRelativePath(forTestProductName: name)
+        case .swiftbuild:
+            if self.triple.isDarwin() {
+                return try testBinaryRelativePath(forTestProductName: name)
+            } else {
+                // SwiftBuild's non-Darwin test product is `<name>{.so,.dll}` — no `lib` prefix,
+                // no platform suffix — sitting next to the `-test-runner` launcher.
+                return try RelativePath(validating: "\(name)\(self.triple.dynamicLibraryExtension)")
+            }
         }
     }
 }

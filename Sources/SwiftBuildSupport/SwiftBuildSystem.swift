@@ -275,13 +275,17 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                 for package in graph.rootPackages {
                     for product in package.products where product.type == .test {
                         let binaryPath = try buildParameters.binaryPath(for: product)
+                        let coverageBinaryPath = try buildParameters.buildPath.appending(
+                            buildParameters.testCoverageBinaryRelativePath(forTestProductName: product.name)
+                        )
                         builtProducts.append(
                             BuiltTestProduct(
                                 productName: product.name,
                                 umbrellaProductName: package.manifest.umbrellaPackageTestsProductName,
                                 binaryPath: binaryPath,
                                 packagePath: package.path,
-                                testEntryPointPath: product.underlying.testEntryPointPath
+                                testEntryPointPath: product.underlying.testEntryPointPath,
+                                coverageBinaryPath: coverageBinaryPath,
                             )
                         )
                     }
