@@ -67,7 +67,8 @@ extension Workspace: PackageContainerProvider {
                 fingerprintStorage: self.fingerprints,
                 fingerprintCheckingMode: FingerprintCheckingMode
                     .map(self.configuration.fingerprintCheckingMode),
-                observabilityScope: observabilityScope
+                observabilityScope: observabilityScope,
+                identityLookupCache: self.identityLookupCache
             )
             return result
         // Resolve the container using the registry
@@ -79,7 +80,8 @@ extension Workspace: PackageContainerProvider {
                 registryClient: self.registryClient,
                 manifestLoader: self.manifestLoader,
                 currentToolsVersion: self.currentToolsVersion,
-                observabilityScope: observabilityScope
+                observabilityScope: observabilityScope,
+                identityLookupCache: identityLookupCache
             )
             return container
         }

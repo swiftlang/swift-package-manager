@@ -257,7 +257,7 @@ struct ResourcesTests{
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let configuration = BuildConfiguration.debug
-        try await withKnownIssue {
+        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Resources/EmbedInCodeSimple") { fixturePath in
                 let execPath = try fixturePath.appending(components: buildSystem.binPath(for: configuration) + [executableName("EmbedInCodeSimple")])
                 try await executeSwiftBuild(

@@ -14,50 +14,10 @@ import Basics
 import Foundation
 import PackageModel
 import _InternalTestSupport
+import SPMBuildCore
 import Testing
 
 import class Basics.AsyncProcess
-
-package func swiftCompilerTag(compilerPath: AbsolutePath) async -> String? {
-    guard let result = try? await AsyncProcess.popen(args: compilerPath.pathString, "-print-target-info") else {
-        return nil
-    }
-    guard result.exitStatus == .terminated(code: 0) else {
-        return nil
-    }
-    struct SwiftPrintTargetInfo: Decodable {
-        var swiftCompilerTag: String
-    }
-    return try? JSONDecoder().decode(SwiftPrintTargetInfo.self, from: result.utf8Output()).swiftCompilerTag
-}
-
-package func findSwiftSDK(compilerPath: AbsolutePath, _ name: String) async -> String? {
-    guard let compilerTag = await swiftCompilerTag(compilerPath: compilerPath) else {
-        return nil
-    }
-    let prefix = "\(compilerTag)_"
-    guard let result = try? await SwiftPM.sdk.execute(["list"]) else {
-        return nil
-    }
-    let sdks = result.stdout.components(separatedBy: "\n")
-        .map { $0.spm_chomp() }
-        .filter { !$0.isEmpty }
-    let matchingSDKs = sdks.filter { sdk in
-        guard sdk.hasPrefix(prefix) else { return false }
-        let suffix = String(sdk.dropFirst(prefix.count))
-        return name == suffix
-    }
-    return matchingSDKs.count == 1 ? matchingSDKs[0] : nil
-}
-
-private func githubActionsToolchain() -> AbsolutePath? {
-    let userToolchainsDir = AbsolutePath("/github/home/.swift-toolchains")
-    let userToolchains = try? FileManager.default.contentsOfDirectory(atPath: userToolchainsDir.pathString)
-    guard let userToolchains, userToolchains.count == 1 else {
-        return nil
-    }
-    return userToolchainsDir.appending(component: userToolchains[0])
-}
 
 private func findWasmKit(sdkID: String) throws -> AbsolutePath? {
     let observability = ObservabilitySystem { _, _ in }
@@ -79,26 +39,14 @@ private func findWasmKit(sdkID: String) throws -> AbsolutePath? {
     let hostTriple = try Triple.getVersionedHostTriple(
         usingSwiftCompiler: hostToolchain.swiftCompilerPath
     )
-    let swiftSDK = try bundleStore.selectBundle(matching: sdkID, hostTriple: hostTriple)
+    let (_, swiftSDK) = try bundleStore.selectBundle(matching: sdkID, hostTriple: hostTriple)
 
     return swiftSDK.toolset.knownTools[.debugger]?.path
 }
 
-func findCompilerAndWebAssemblySDKIDForTesting() async throws -> (AbsolutePath, String)? {
-    let compilerPath: AbsolutePath
-    if let githubActionsToolchain = githubActionsToolchain() {
-        compilerPath = githubActionsToolchain.appending(components: ["usr", "bin", "swiftc\(ProcessInfo.exeSuffix)"])
-    } else {
-        compilerPath = try UserToolchain(swiftSDK: SwiftSDK.hostSwiftSDK()).swiftCompilerPath
-    }
-
-    guard let sdkID = await findSwiftSDK(compilerPath: compilerPath, "wasm") else {
-        return nil
-    }
-
-    return (compilerPath, sdkID)
+private func findCompilerAndWebAssemblySDKIDForTesting() async throws -> (AbsolutePath, String)? {
+    try await findCompilerAndSDKIDForTesting { $0 == "wasm" }
 }
-
 
 extension Trait where Self == Testing.ConditionTrait {
     static var requiresWebAssemblySwiftSDK: Self {
@@ -147,6 +95,61 @@ private struct WebAssemblyIntegrationTests {
             let stdout = try result.utf8Output().trimmingCharacters(in: .whitespacesAndNewlines)
             #expect(result.exitStatus == .terminated(code: 0), "wasmkit exited with non-zero status")
             #expect(stdout == "Hello from WebAssembly!", "Unexpected output: \(stdout)")
+        }
+    }
+
+    @Test(.requiresWebAssemblySwiftSDK, arguments: SupportedBuildSystemOnAllPlatforms)
+    func flagOverrides(buildSystem: BuildSystemProvider.Kind) async throws {
+        try await fixture(name: "Miscellaneous/FlagOverrides") { fixturePath in
+            let (compilerPath, sdkID) = try #require(try await findCompilerAndWebAssemblySDKIDForTesting())
+
+            var env = Environment()
+            env["SWIFT_EXEC"] = compilerPath.pathString
+
+            let runOutput = try await executeSwiftRun(
+                fixturePath,
+                "FlagOverrides",
+                extraArgs: ["--swift-sdk", sdkID],
+                Xswiftc: ["-DONE"],
+                env: env,
+                buildSystem: buildSystem,
+            )
+
+            let lines = runOutput.stdout.split(separator: "\n").map(String.init)
+            #expect(lines.contains("Executable flag: ONE"))
+            #expect(lines.contains("Plugin tool flag: ONE"))
+        }
+    }
+
+    @Test(.requiresWebAssemblySwiftSDK, arguments: SupportedBuildSystemOnAllPlatforms)
+    func flagOverridesCommandPlugin(buildSystem: BuildSystemProvider.Kind) async throws {
+        try await fixture(name: "Miscellaneous/FlagOverrides") { fixturePath in
+            let (compilerPath, sdkID) = try #require(try await findCompilerAndWebAssemblySDKIDForTesting())
+
+            var env = Environment()
+            env["SWIFT_EXEC"] = compilerPath.pathString
+
+            let pluginOutput = try await executeSwiftPackage(
+                fixturePath,
+                extraArgs: ["--swift-sdk", sdkID, "--allow-writing-to-package-directory", "build-and-run", "-DONE"],
+                env: env,
+                buildSystem: buildSystem,
+            )
+
+            let wasmBinary = try AbsolutePath(
+                validating: pluginOutput.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+            )
+            #expect(localFileSystem.exists(wasmBinary), "Expected .wasm binary at \(wasmBinary)")
+
+            let wasmkitPath = try #require(try findWasmKit(sdkID: sdkID), "wasmkit not found in Swift SDK \(sdkID)")
+            let result = try await AsyncProcess.popen(
+                arguments: [wasmkitPath.pathString, "run", wasmBinary.pathString]
+            )
+            let stdout = try result.utf8Output().trimmingCharacters(in: .whitespacesAndNewlines)
+            #expect(result.exitStatus == .terminated(code: 0), "wasmkit exited with non-zero status")
+            let lines = stdout.split(separator: "\n").map(String.init)
+            #expect(lines.contains("Executable flag: ONE"))
+            #expect(lines.contains("Plugin tool flag: NONE"))
         }
     }
 }

@@ -26,6 +26,7 @@ private let olderHostTriple = try! Triple("arm64-apple-darwin20.1.0")
 private let linuxGNUTargetTriple = try! Triple("x86_64-unknown-linux-gnu")
 private let linuxMuslTargetTriple = try! Triple("x86_64-unknown-linux-musl")
 private let androidTargetTriple = try! Triple("aarch64-unknown-linux-android28")
+private let androidx64TargetTriple = try! Triple("x86_64-unknown-linux-android35")
 private let wasiTargetTriple = try! Triple("wasm32-unknown-wasi")
 private let extraFlags = BuildFlags(
     cCompilerFlags: ["-fintegrated-as"].constructBuildFlags(source: .swiftSDK),
@@ -193,6 +194,20 @@ private let androidWithoutSDKRootPathSwiftSDKv4 = (
     {
         "targetTriples": {
             "\#(androidTargetTriple.tripleString)": {
+                "toolsetPaths": ["/tools/otherToolsNoRoot.json"]
+            }
+        },
+        "schemaVersion": "4.0"
+    }
+    """# as SerializedJSON
+)
+
+private let androidx64WithoutSDKRootPathSwiftSDKv4 = (
+    path: bundleRootPath.appending(component: "androidWithoutSDKRootPathSwiftSDKv4.json"),
+    json: #"""
+    {
+        "targetTriples": {
+            "\#(androidx64TargetTriple.tripleString)": {
                 "toolsetPaths": ["/tools/otherToolsNoRoot.json"]
             }
         },
@@ -379,6 +394,24 @@ private let parsedToolsetNoSDKRootPathDestination = SwiftSDK(
         rootPaths: []
     ),
     swiftSDKManifest: androidWithoutSDKRootPathSwiftSDKv4.path,
+    pathsConfiguration: .init(
+        sdkRootPath: nil,
+        toolsetPaths: ["/tools/otherToolsNoRoot.json"]
+            .map { try! AbsolutePath(validating: $0) }
+    )
+)
+
+private let parsedAndroidToolsetNoSDKRootPathDestination = SwiftSDK(
+    targetTriple: androidx64TargetTriple,
+    toolset: .init(
+        knownTools: [
+            .librarian: .init(path: try! AbsolutePath(validating: "\(usrBinTools[.librarian]!)")),
+            .linker: .init(path: try! AbsolutePath(validating: "\(usrBinTools[.linker]!)")),
+            .debugger: .init(path: try! AbsolutePath(validating: "\(usrBinTools[.debugger]!)")),
+        ],
+        rootPaths: []
+    ),
+    swiftSDKManifest: androidx64WithoutSDKRootPathSwiftSDKv4.path,
     pathsConfiguration: .init(
         sdkRootPath: nil,
         toolsetPaths: ["/tools/otherToolsNoRoot.json"]
@@ -678,14 +711,11 @@ final class SwiftSDKTests: XCTestCase {
             ),
         ]
 
-        let system = ObservabilitySystem.makeForTesting()
-
         XCTAssertEqual(
             bundles.selectSwiftSDK(
                 matching: "id1",
-                hostTriple: hostTriple,
-                observabilityScope: system.topScope
-            ),
+                hostTriple: hostTriple
+            ).idMatches.first,
             parsedDestinationV2GNU
         )
 
@@ -694,17 +724,15 @@ final class SwiftSDKTests: XCTestCase {
         XCTAssertNil(
             bundles.selectSwiftSDK(
                 matching: "id2",
-                hostTriple: hostTriple,
-                observabilityScope: system.topScope
-            )
+                hostTriple: hostTriple
+            ).idMatches.first
         )
 
         XCTAssertEqual(
             bundles.selectSwiftSDK(
                 matching: "id3",
-                hostTriple: hostTriple,
-                observabilityScope: system.topScope
-            ),
+                hostTriple: hostTriple
+            ).idMatches.first,
             parsedDestinationV2Musl
         )
 
@@ -720,9 +748,8 @@ final class SwiftSDKTests: XCTestCase {
         XCTAssertEqual(
             bundles.selectSwiftSDK(
                 matching: "id4",
-                hostTriple: hostTriple,
-                observabilityScope: system.topScope
-            ),
+                hostTriple: hostTriple
+            ).idMatches.first,
             parsedDestinationForOlderHost
         )
 
@@ -738,9 +765,8 @@ final class SwiftSDKTests: XCTestCase {
         XCTAssertEqual(
             bundles.selectSwiftSDK(
                 matching: "id5",
-                hostTriple: hostTriple,
-                observabilityScope: system.topScope
-            ),
+                hostTriple: hostTriple
+            ).idMatches.first,
             parsedDestinationV2GNU
         )
     }
@@ -768,5 +794,75 @@ final class SwiftSDKTests: XCTestCase {
         XCTAssert(cFlags.contains(["-F", "\(iOSPlatform.pathString)/Developer/Library/Frameworks"]))
         XCTAssertFalse(cFlags.contains { $0.lowercased().contains("macos") }, "Found macOS path in \(cFlags)")
         #endif
+    }
+
+    func testSelectSDKWithMultipleMatches() throws {
+        let bundles = [
+            SwiftSDKBundle(
+                path: try AbsolutePath(validating: "/droidSDKs.artifactsbundle"),
+                artifacts: [
+                    "droid-multiarch": [
+                        .init(
+                            metadata: .init(
+                                path: "droid",
+                                supportedTriples: [hostTriple]
+                            ),
+                            swiftSDKs: [parsedToolsetNoSDKRootPathDestination, parsedAndroidToolsetNoSDKRootPathDestination]
+                        ),
+                    ],
+                    "droid-single": [
+                        .init(
+                            metadata: .init(
+                                path: "droid-single",
+                                supportedTriples: [hostTriple]
+                            ),
+                            swiftSDKs: [parsedToolsetNoSDKRootPathDestination]
+                        ),
+                    ],
+                ]
+            ),
+        ]
+
+        XCTAssertEqual(
+            bundles.selectSwiftSDK(
+                id: "droid-multiarch",
+                hostTriple: hostTriple,
+                targetTriple: androidTargetTriple
+            ),
+            parsedToolsetNoSDKRootPathDestination
+        )
+
+        XCTAssertNil(
+            bundles.selectSwiftSDK(
+                id: "droid-single",
+                hostTriple: hostTriple,
+                targetTriple: androidx64TargetTriple
+            )
+        )
+
+        XCTAssertEqual(
+            bundles.selectSwiftSDK(
+                matching: androidTargetTriple.tripleString,
+                hostTriple: hostTriple
+            ).tripleMatches,
+            ["droid-multiarch" : parsedToolsetNoSDKRootPathDestination,
+             "droid-single" : parsedToolsetNoSDKRootPathDestination]
+        )
+
+        XCTAssertEqual(
+            bundles.selectSwiftSDK(
+                matching: androidx64TargetTriple.tripleString,
+                hostTriple: hostTriple
+            ).tripleMatches,
+            ["droid-multiarch" : parsedAndroidToolsetNoSDKRootPathDestination]
+        )
+
+        XCTAssertEqual(
+            bundles.selectSwiftSDK(
+                matching: "droid-multiarch",
+                hostTriple: hostTriple
+            ).idMatches,
+            [parsedToolsetNoSDKRootPathDestination, parsedAndroidToolsetNoSDKRootPathDestination]
+        )
     }
 }

@@ -7,11 +7,6 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_library(SwiftSDKCommand
-  Configuration/ConfigurationSubcommand.swift
-  Configuration/DeprecatedSwiftSDKConfigurationCommand.swift
-  Configuration/ResetConfiguration.swift
-  Configuration/SetConfiguration.swift
-  Configuration/ShowConfiguration.swift
   ConfigureSwiftSDK.swift
   SwiftSDKSubcommand.swift
   InstallSwiftSDK.swift

@@ -505,10 +505,11 @@ public final class SwiftCommandState {
         }
 
         if options.build.enableTaskBacktraces {
-            // Task backtraces require at least verbose output to be logged
-            if !options.logging.verbose && !options.logging.veryVerbose {
+            // Task backtraces require at least verbose output to be logged, unless
+            // they're being captured in an event trace file.
+            if !options.logging.verbose && !options.logging.veryVerbose && options.build.traceEventsFilePath == nil {
                 observabilityScope.emit(
-                    warning: "'--experimental-task-backtraces' requires '--verbose' or '--very-verbose'"
+                    warning: "'--experimental-task-backtraces' requires '--verbose', '--very-verbose', or '--experimental-trace-events-file'"
                 )
             }
 
@@ -1006,6 +1007,7 @@ public final class SwiftCommandState {
             configuration: self.options.build.configuration ?? self.preferredBuildConfiguration,
             toolchain: toolchain,
             triple: triple,
+            sdkRootOverride: self.options.build.customCompileSDK ?? self.environment["SDKROOT"].flatMap({ try? AbsolutePath(validating: $0) }),
             flags: options.build.buildFlags,
             buildSystemKind: options.build.buildSystem,
             pkgConfigDirectories: options.locations.pkgConfigDirectories,

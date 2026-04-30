@@ -182,7 +182,7 @@ internal struct SBOMExtractor {
             sha = revision
         }
         // Get registry or repo information
-        if resolvedPackage.packageRef.kind == .registry(packageIdentity) {
+        if case .registry(packageIdentity) = resolvedPackage.packageRef.kind {
             guard let registry = resolvedPackage.packageRef.identity.registry else {
                 return SBOMVersionInfo(
                     version: SBOMComponent.Version(revision: version),

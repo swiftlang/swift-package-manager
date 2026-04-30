@@ -635,6 +635,8 @@ extension PackagePIFProjectBuilder {
 
         let headerFiles = Set(sourceModule.headerFileAbsolutePaths)
 
+        let doccCatalogs = sourceModule.underlying.doccCatalogPaths
+
         // Add any additional source files emitted by custom build commands.
         for path in generatedFiles.sources {
             let sourceFileRef = self.project.mainGroup[keyPath: targetSourceFileGroupKeyPath].addFileReference { id in
@@ -876,6 +878,7 @@ extension PackagePIFProjectBuilder {
             pifTarget: .target(self.project[keyPath: sourceModuleTargetKeyPath]),
             indexableFileURLs: indexableFileURLs,
             headerFiles: headerFiles,
+            doccCatalogs: doccCatalogs,
             linkedPackageBinaries: linkedPackageBinaries,
             swiftLanguageVersion: sourceModule.packageSwiftLanguageVersion(manifest: packageManifest),
             declaredPlatforms: self.declaredPlatforms,

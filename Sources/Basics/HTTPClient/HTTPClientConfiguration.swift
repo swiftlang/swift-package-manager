@@ -23,7 +23,8 @@ public struct HTTPClientConfiguration: Sendable {
         authorizationProvider: AuthorizationProvider? = nil,
         retryStrategy: HTTPClientRetryStrategy? = nil,
         circuitBreakerStrategy: HTTPClientCircuitBreakerStrategy? = nil,
-        maxConcurrentRequests: Int? = nil
+        maxConcurrentRequests: Int? = nil,
+        maxConcurrentRequestsPerHost: Int? = nil
     ) {
         self.requestHeaders = requestHeaders
         self.requestTimeout = requestTimeout
@@ -31,6 +32,7 @@ public struct HTTPClientConfiguration: Sendable {
         self.retryStrategy = retryStrategy
         self.circuitBreakerStrategy = circuitBreakerStrategy
         self.maxConcurrentRequests = maxConcurrentRequests
+        self.maxConcurrentRequestsPerHost = maxConcurrentRequestsPerHost
     }
 
     public var requestHeaders: HTTPClientHeaders?
@@ -40,6 +42,7 @@ public struct HTTPClientConfiguration: Sendable {
     public var retryStrategy: HTTPClientRetryStrategy?
     public var circuitBreakerStrategy: HTTPClientCircuitBreakerStrategy?
     public var maxConcurrentRequests: Int?
+    public var maxConcurrentRequestsPerHost: Int?
 }
 
 public enum HTTPClientRetryStrategy: Sendable {

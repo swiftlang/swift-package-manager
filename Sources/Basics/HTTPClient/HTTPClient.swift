@@ -37,6 +37,9 @@ public actor HTTPClient {
     /// An `async`-friendly semaphore to handle limits on the number of concurrent requests.
     private let tokenBucket: TokenBucket
 
+    /// Per-host token buckets. Enforces `configuration.maxConcurrentRequestsPerHost` when set.
+    private var perHostTokenBuckets: [String: TokenBucket] = [:]
+
     /// Array of `HostErrors` values, which is used for applying a circuit-breaking strategy.
     private var hostsErrors = [String: HostErrors]()
 
@@ -47,6 +50,28 @@ public actor HTTPClient {
         self.configuration = configuration
         self.implementation = implementation ?? URLSessionHTTPClient().execute
         self.tokenBucket = TokenBucket(tokens: configuration.maxConcurrentRequests ?? Concurrency.maxOperations)
+    }
+
+    private func perHostTokenBucket(for host: String, limit: Int) -> TokenBucket {
+        if let existing = self.perHostTokenBuckets[host] {
+            return existing
+        }
+        let bucket = TokenBucket(tokens: limit)
+        self.perHostTokenBuckets[host] = bucket
+        return bucket
+    }
+
+    private func withPerHostGate<T: Sendable>(
+        for url: URL,
+        body: @Sendable () async throws -> T
+    ) async throws -> T {
+        guard let limit = configuration.maxConcurrentRequestsPerHost,
+              let host = url.host?.lowercased()
+        else {
+            return try await body()
+        }
+        let bucket = self.perHostTokenBucket(for: host, limit: limit)
+        return try await bucket.withToken(body)
     }
 
     /// Execute an HTTP request asynchronously
@@ -123,19 +148,21 @@ public actor HTTPClient {
         }
 
         let task = Task {
-            let response = try await self.tokenBucket.withToken {
-                try Task.checkCancellation()
+            let response = try await self.withPerHostGate(for: request.url) {
+                try await self.tokenBucket.withToken {
+                    try Task.checkCancellation()
 
-                return try await self.implementation(request) { received, expected in
-                    if let max = request.options.maximumResponseSizeInBytes {
-                        guard received < max else {
-                            // It's a responsibility of the underlying client implementation to cancel the request
-                            // when this closure throws an error
-                            throw HTTPClientError.responseTooLarge(received)
+                    return try await self.implementation(request) { received, expected in
+                        if let max = request.options.maximumResponseSizeInBytes {
+                            guard received < max else {
+                                // It's a responsibility of the underlying client implementation to cancel the request
+                                // when this closure throws an error
+                                throw HTTPClientError.responseTooLarge(received)
+                            }
                         }
-                    }
 
-                    try progress?(received, expected)
+                        try progress?(received, expected)
+                    }
                 }
             }
 
