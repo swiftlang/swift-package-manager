@@ -1,0 +1,8 @@
+Fixtures/**
+
+# The following files are formatted in a way where refomatting causing an format error
+Sources/Basics/Cancellator.swift
+Sources/Basics/SQLiteBackedCache.swift
+Sources/PackageLoading/PackageBuilder.swift
+Tests/BuildTests/BuildPlanTests.swift
+Tests/PackageModelTests/ManifestTests.swift
