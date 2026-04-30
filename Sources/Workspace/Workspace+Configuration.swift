@@ -912,6 +912,8 @@ public struct WorkspaceConfiguration {
         case disabled
         case identity
         case swizzle
+
+        public static var `default`: Self { .disabled }
     }
 
     public enum CheckingMode: String {
