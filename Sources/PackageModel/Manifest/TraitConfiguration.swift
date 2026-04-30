@@ -75,5 +75,20 @@ public enum TraitConfiguration: Codable, Hashable {
         }
     }
 
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        if container.contains(.enableAllTraits) {
+            self = .enableAllTraits
+        } else if container.contains(.disableAllTraits) {
+            self = .disableAllTraits
+        } else if container.contains(.enabledTraits) {
+            var nestedContainer = try container.nestedUnkeyedContainer(forKey: .enabledTraits)
+            let traits = try nestedContainer.decode([String].self)
+            self = .enabledTraits(Set(traits))
+        } else {
+            self = .default
+        }
+    }
+
     private struct EmptyEncodable: Encodable {}
 }
