@@ -68,7 +68,9 @@ public enum TraitConfiguration: Codable, Hashable {
             try nestedContainer.encode(EmptyEncodable())
         case .enabledTraits(let traits):
             var nestedContainer = container.nestedUnkeyedContainer(forKey: .enabledTraits)
-            try nestedContainer.encode(traits.sorted())
+            for trait in traits.sorted() {
+                try nestedContainer.encode(trait)
+            }
         case .default:
             var nestedContainer = container.nestedUnkeyedContainer(forKey: .default)
             try nestedContainer.encode(EmptyEncodable())
@@ -83,7 +85,10 @@ public enum TraitConfiguration: Codable, Hashable {
             self = .disableAllTraits
         } else if container.contains(.enabledTraits) {
             var nestedContainer = try container.nestedUnkeyedContainer(forKey: .enabledTraits)
-            let traits = try nestedContainer.decode([String].self)
+            var traits: [String] = []
+            while !nestedContainer.isAtEnd {
+                try traits.append(nestedContainer.decode(String.self))
+            }
             self = .enabledTraits(Set(traits))
         } else {
             self = .default
