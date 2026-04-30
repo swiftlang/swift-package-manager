@@ -402,6 +402,7 @@ extension RegistryConfiguration: Codable {
 
         try container.encode(self.registryAuthentication, forKey: .authentication)
         try container.encodeIfPresent(self.security, forKey: .security)
+        try container.encodeIfPresent(self.replaceScmWithRegistry, forKey: .replaceScmWithRegistry)
     }
 }
 
