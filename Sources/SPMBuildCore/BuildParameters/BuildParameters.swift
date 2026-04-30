@@ -265,7 +265,11 @@ public struct BuildParameters: Encodable {
                 // no suffix
             } else if self.triple.isAndroid() {
                 configDir += "-android"
-            } else if self.triple.isWasm {
+            } else if self.triple.isWasm && self.triple.isNoneOS() {
+                // Legacy suffix for bare-metal wasm (wasm32-unknown-none-wasm).
+                // All other wasm triples (wasi*, emscripten) fall through
+                // to `osNameUnversioned` below, which must match swift-build's
+                // `WebAssemblyPlatformExtension.platformName(triple:)` output.
                 configDir += "-webassembly"
             } else {
                 configDir += "-" + (self.triple.darwinPlatform?.platformName ?? self.triple.osNameUnversioned)
