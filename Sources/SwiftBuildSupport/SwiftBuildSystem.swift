@@ -997,7 +997,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         settings["ADD_TOOLCHAIN_CONCURRENCY_BACK_DEPLOY_RPATH"] = "YES"
         settings["ADD_TOOLCHAIN_SPAN_BACK_DEPLOY_RPATH"] = "YES"
 
-        try settings.merge(Self.constructDebuggingSettingsOverrides(from: buildParameters.debuggingParameters), uniquingKeysWith: reportConflict)
+        try settings.merge(Self.constructDebuggingSettingsOverrides(from: buildParameters.debuggingParameters, for: buildParameters.configuration), uniquingKeysWith: reportConflict)
         try settings.merge(Self.constructDriverSettingsOverrides(from: buildParameters.driverParameters), uniquingKeysWith: reportConflict)
         try settings.merge(self.constructLinkerSettingsOverrides(from: buildParameters.linkingParameters, triple: buildParameters.triple), uniquingKeysWith: reportConflict)
         try settings.merge(Self.constructTestingSettingsOverrides(from: buildParameters.testingParameters), uniquingKeysWith: reportConflict)
@@ -1159,7 +1159,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         return settings
     }
 
-    private static func constructDebuggingSettingsOverrides(from parameters: BuildParameters.Debugging) -> [String: String] {
+    private static func constructDebuggingSettingsOverrides(from parameters: BuildParameters.Debugging, for configuration: BuildConfiguration) -> [String: String] {
         var settings: [String: String] = [:]
         if parameters.shouldEnableDebuggingEntitlement {
             settings["DEPLOYMENT_POSTPROCESSING"] = "NO"
@@ -1167,7 +1167,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         // Set DEBUG_INFORMATION_FORMAT based on debugInfoFormat
         switch parameters.debugInfoFormat {
         case .dwarf:
-            settings["DEBUG_INFORMATION_FORMAT"] = "dwarf"
+            settings["DEBUG_INFORMATION_FORMAT"] =  configuration == .debug ? "dwarf" : "dwarf-with-dsym"
         case .codeview:
             settings["DEBUG_INFORMATION_FORMAT"] = "codeview"
         case .none?:
