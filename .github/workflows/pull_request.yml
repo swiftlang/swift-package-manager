@@ -16,62 +16,24 @@ jobs:
     needs: [soundness]
     strategy:
       fail-fast: false
-      matrix:
-        executableTargetBuildSystem: ["native"]
-        buildSystem: ["native", "swiftbuild"]
-        linuxSwiftVersion: ['["nightly-main", "nightly-6.2"]', '["nightly-main"]']
-        exclude:
-          - buildSystem: "swiftbuild"
-            linuxSwiftVersion: '["nightly-main", "nightly-6.2"]'
-          - buildSystem: "native"
-            linuxSwiftVersion: '["nightly-main"]'
-    name: Build (${{ matrix.buildSystem }}) (exectable target built using ${{ matrix.executableTargetBuildSystem }})
+    name: Build
     uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@0.0.11
     with:
       enable_cross_pr_testing: true
       linux_os_versions: '["amazonlinux2", "bookworm", "noble", "jammy", "rhel-ubi9"]'
-      linux_swift_versions: ${{ matrix.linuxSwiftVersion }}
+      linux_swift_versions: '["nightly-main", "nightly-6.2"]'
       linux_pre_build_command: ./.github/scripts/prebuild.sh
-      linux_build_command: 'swift run --build-system ${{ matrix.executableTargetBuildSystem }} swift-build --build-tests --build-system ${{ matrix.buildSystem}}'
-      # linux_build_command: 'swift run --build-system ${{ matrix.executableTargetBuildSystem }} swift-build --build-tests --build-system ${{ matrix.buildSystem}} && swift run --build-system ${{ matrix.executableTargetBuildSystem }} swift-test --parallel --build-system ${{ matrix.buildSystem}}'
+      linux_build_command: 'swift run swift-build --build-tests'
       windows_build_timeout: 180
-      windows_swift_versions: '["nightly-main"]'
+      windows_swift_versions: '["nightly-main", "nightly-6.2"]'
       windows_pre_build_command: 'Invoke-Program .\.github\scripts\prebuild.ps1'
-      windows_build_command: 'Invoke-Program swift run -Xlinker /ignore:4217 --configuration release --build-system ${{ matrix.executableTargetBuildSystem }} swift-build --build-tests -Xlinker /ignore:4217 --build-system ${{ matrix.buildSystem}}'
-      # windows_build_command: 'Invoke-Program swift run -Xlinker /ignore:4217 --build-system ${{ matrix.executableTargetBuildSystem }} swift-build --build-tests -Xlinker /ignore:4217 --build-system ${{ matrix.buildSystem}}; Invoke-Program swift run --build-system ${{ matrix.executableTargetBuildSystem }} -Xlinker /ignore:4217 swift-test -Xlinker /ignore:4217 --parallel --build-system ${{ matrix.buildSystem}}'
+      windows_build_command: 'Invoke-Program swift run -Xlinker /ignore:4217 --configuration release swift-build --build-tests --scratch-path .tests'
       enable_windows_checks: true
-      enable_ios_checks: false
       enable_macos_checks: true
       macos_exclude_xcode_versions: "[{\"xcode_version\": \"16.4\"}]"
-      macos_build_command: 'swift run --build-system ${{ matrix.executableTargetBuildSystem }} swift-build --build-tests --build-system ${{ matrix.buildSystem}}'
-      # macos_build_command: 'swift run --build-system ${{ matrix.executableTargetBuildSystem }} swift-build --build-tests --build-system ${{ matrix.buildSystem}} && swift run --build-system ${{ matrix.executableTargetBuildSystem }} swift-test --parallel --build-system ${{ matrix.buildSystem}}'
-      ios_build_command: 'swift run --build-system ${{ matrix.executableTargetBuildSystem }} swift-build --build-tests --build-system ${{ matrix.buildSystem}}  --sdk \"$(xcrun --sdk iphoneos --show-sdk-path)\" --triple arm64-apple-ios'
-      # ios_build_command: 'swift run --build-system ${{ matrix.executableTargetBuildSystem }} swift-build --build-tests --build-system ${{ matrix.buildSystem}} --sdk \"$(xcrun --sdk iphoneos --show-sdk-path)\" --triple arm64-apple-ios && swift run --build-system ${{ matrix.executableTargetBuildSystem }} swift-test --parallel --build-system ${{ matrix.buildSystem }} --sdk \"$(xcrun --sdk iphoneos --show-sdk-path)\" --triple arm64-apple-ios'
-
-  build-using-swiftbuild:
-    strategy:
-      fail-fast: false
-      matrix:
-        executableTargetBuildSystem: ["swiftbuild"]
-        buildSystem: ["swiftbuild"]
-    name: Build (${{ matrix.buildSystem }}) (exectable target built using ${{ matrix.executableTargetBuildSystem }})
-    needs: [soundness]
-    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@0.0.11
-    with:
-      linux_os_versions: '["amazonlinux2", "bookworm", "noble", "jammy", "rhel-ubi9"]'
-      linux_swift_versions: '["nightly-main"]'
-      linux_pre_build_command: ./.github/scripts/prebuild.sh
-      linux_build_command: 'swift run --build-system ${{ matrix.executableTargetBuildSystem }} swift-build --build-tests --build-system ${{ matrix.buildSystem }}'
-      enable_windows_checks: false
-      windows_build_timeout: 180
-      windows_swift_versions: '["nightly-main"]'
-      windows_pre_build_command: 'Invoke-Program .\.github\scripts\prebuild.ps1'
-      windows_build_command: 'Invoke-Program swift run --build-system ${{ matrix.executableTargetBuildSystem }} swift-build --build-tests --build-system ${{ matrix.buildSystem }}'
+      macos_build_command: 'swift run swift-build --build-tests'
       enable_ios_checks: false
-      enable_macos_checks: true
-      macos_exclude_xcode_versions: "[{\"xcode_version\": \"16.3\"}, {\"xcode_version\": \"16.4\"}]"
-      macos_build_command: 'swift run --build-system ${{ matrix.executableTargetBuildSystem }} swift-build --build-tests --build-system ${{ matrix.buildSystem }}'
-      ios_build_command: 'swift run --build-system ${{ matrix.executableTargetBuildSystem }} swift-build --build-tests --build-system ${{ matrix.buildSystem }} --sdk \"$(xcrun --sdk iphoneos --show-sdk-path)\" --triple arm64-apple-ios'
+      # ios_build_command: 'swift run swift-build --build-tests  --sdk \"$(xcrun --sdk iphoneos --show-sdk-path)\" --triple arm64-apple-ios'
 
   soundness:
     name: Soundness
@@ -88,8 +50,8 @@ jobs:
       python_lint_check_enabled: true
       yamllint_check_enabled: true
 
-  wasm-integration-tests:
-    name: Wasm Integration Tests
+  integration-tests:
+    name: Integration Tests
     needs: [soundness]
     uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@0.0.11
     with:
@@ -100,18 +62,9 @@ jobs:
       wasm_sdk_versions: '["nightly-main"]'
       wasm_sdk_pre_build_command: ./.github/scripts/prebuild.sh
       # This is a hack - replace the build command with a test command and drop the --swift-sdk arg the workflow appends.
-      wasm_sdk_build_command: "swift test --filter WebAssemblyIntegrationTests #"
-
-  static-linux-integration-tests:
-    name: Static Linux Integration Tests
-    needs: [soundness]
-    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@0.0.11
-    with:
-      enable_linux_checks: false
-      enable_windows_checks: false
-      enable_macos_checks: false
+      wasm_sdk_build_command: "swift test --parallel --experimental-xunit-message-failure --xunit-output wasm-xunit.xml --filter WebAssemblyIntegrationTests #"
       enable_linux_static_sdk_build: true
       linux_static_sdk_versions: '["nightly-main"]'
       linux_static_sdk_pre_build_command: ./.github/scripts/prebuild.sh
       # This is a hack - replace the build command with a test command and drop the --swift-sdk arg the workflow appends.
-      linux_static_sdk_build_command: "swift test --filter StaticLinuxIntegrationTests #"
+      linux_static_sdk_build_command: "swift test --parallel --experimental-xunit-message-failure --xunit-output static-linux-xunit.xml --filter StaticLinuxIntegrationTests #"
