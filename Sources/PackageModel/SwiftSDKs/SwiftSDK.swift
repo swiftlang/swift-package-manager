@@ -761,6 +761,7 @@ public struct SwiftSDK: Equatable {
     ) throws -> SwiftSDK {
         var swiftSDK: SwiftSDK
         var isBasedOnHostSDK: Bool = false
+        var loadedToolsetPaths: Bool = false
 
         // Create custom toolchain if present.
         if let customDestination = customCompileDestination {
@@ -795,7 +796,9 @@ public struct SwiftSDK: Equatable {
                         hostTimeTriple: hostTriple,
                         swiftSDKBundleStore: store
                     )
+                    let bundleToolsetPaths = swiftSDK.pathsConfiguration.toolsetPaths ?? []
                     try configurationStore.readConfiguration(sdkID: ID, sdk: &swiftSDK)
+                    loadedToolsetPaths = !bundleToolsetPaths.elementsEqual(swiftSDK.pathsConfiguration.toolsetPaths ?? [])
                 } catch {
                     // Do nothing to override if a custom SDK config is not found.
                     observabilityScope.emit(
@@ -817,6 +820,28 @@ public struct SwiftSDK: Equatable {
             // Otherwise use the host toolchain.
             swiftSDK = hostSwiftSDK
             isBasedOnHostSDK = true
+        }
+
+        // Override the current toolset in the SDK with a custom config.
+        if loadedToolsetPaths, let toolpaths = swiftSDK.pathsConfiguration.toolsetPaths {
+            let wasmKitProperties = Toolset.ToolProperties(
+                path: store.hostToolchainBinDir.appending("wasmkit"),
+                extraCLIOptions: ["run", "--dir", "."]
+            )
+            let defaultTools: [Toolset.KnownTool: Toolset.ToolProperties] = if swiftSDK.targetTriple!.isWasm {
+                [.debugger: wasmKitProperties, .testRunner: wasmKitProperties]
+            } else {
+                [:]
+            }
+            swiftSDK.toolset = try toolpaths.reduce(into: Toolset(knownTools: defaultTools, rootPaths: [])) {
+                try $0.merge(
+                    with: Toolset(
+                        from: $1,
+                        at: fileSystem,
+                        observabilityScope
+                    )
+                )
+            }
         }
 
         if !customToolsets.isEmpty {
