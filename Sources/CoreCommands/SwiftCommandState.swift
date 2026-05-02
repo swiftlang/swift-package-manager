@@ -1020,7 +1020,7 @@ public final class SwiftCommandState {
             prepareForIndexing: prepareForIndexingMode,
             enableXCFrameworksOnLinux: options.build.enableXCFrameworksOnLinux,
             debuggingParameters: .init(
-                debugInfoFormat: self.options.build.debugInfoFormat.buildParameter,
+                debugInfoFormat: self.options.build.debugInfoFormat?.buildParameter,
                 triple: triple,
                 shouldEnableDebuggingEntitlement:
                 self.options.build
@@ -1484,4 +1484,3 @@ extension Basics.Diagnostic {
         )
     }
 }
-
