@@ -736,17 +736,6 @@ let package = Package(
             dependencies: ["Commands", "PackageRegistryCommand"]
         ),
         .executableTarget(
-            /** Microbenchmark harness for PubGrubDependencyResolver. Not shipped. */
-            name: "swift-package-resolver-bench",
-            dependencies: [
-                .product(name: "ArgumentParser", package: "swift-argument-parser"),
-                .product(name: "OrderedCollections", package: "swift-collections"),
-                "Basics",
-                "PackageGraph",
-                "PackageModel",
-            ]
-        ),
-        .executableTarget(
             /** Utility to produce the artifacts for prebuilts */
             name: "swift-build-prebuilts",
             dependencies: [
