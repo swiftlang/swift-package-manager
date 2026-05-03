@@ -336,9 +336,8 @@ public struct PubGrubDependencyResolver {
         //      `versionBasedDependencies` and `constraints` sequentially in wave order
         //      after parallel fetches complete. This yields the same insertion order
         //      into both structures as the original sequential implementation.
-        while true {
+        while constraints.contains(where: { $0.requirement == .unversioned }) {
             let wave = constraints.filter { $0.requirement == .unversioned }
-            if wave.isEmpty { break }
             for constraint in wave { constraints.remove(constraint) }
 
             for constraint in wave {
@@ -407,10 +406,8 @@ public struct PubGrubDependencyResolver {
         // via `continue` or throw on a revision conflict) must run sequentially because
         // each successful check writes into `overriddenPackages` and a subsequent wave
         // member may need to observe that write to be skipped.
-        while true {
+        while constraints.contains(where: { $0.requirement.isRevision }) {
             let pending = constraints.filter { $0.requirement.isRevision }
-            if pending.isEmpty { break }
-
             var wave: [(constraint: Constraint, revision: String, revisionForDependencies: String)] = []
             for constraint in pending {
                 constraints.remove(constraint)
