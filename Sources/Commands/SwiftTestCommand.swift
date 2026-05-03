@@ -714,7 +714,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             ),
             fileSystem: swiftCommandState.fileSystem,
             observabilityScope: swiftCommandState.observabilityScope,
-            verbose: globalOptions.logging.verbose
+            verbose: globalOptions.logging.verbose || globalOptions.logging.veryVerbose
         )
 
         try debugRunner.run()
