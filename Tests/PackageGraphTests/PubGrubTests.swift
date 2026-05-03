@@ -946,246 +946,49 @@ final class PubGrubTests: XCTestCase {
         ])
     }
 
-    // MARK: - processInputs() behavioral baseline
-    //
-    // The following tests intentionally overlap with `testUnversioned*` and
-    // `testResolutionWith*BranchBased*` to pin down the behavior of
-    // `PubGrubDependencyResolver.processInputs(root:with:)` across both its
-    // unversioned (phase 1) and revision-based (phase 2) discovery loops.
-    // They exercise wide fanout, deep cascades, mixed-phase graphs, and
-    // run-to-run determinism so that any change to the discovery loop —
-    // for example, processing each phase's wavefront in parallel — can be
-    // validated against a stable baseline.
-
-    func testProcessInputsUnversionedWideFanout() async throws {
-        for name in ["a", "b", "c", "d", "e"] {
-            let dep = "\(name)Dep"
-            try builder.serve(name, at: .unversioned, with: [
-                name: [dep: (.versionSet(v1Range), .specific([dep]))]
-            ])
-            try builder.serve(dep, at: v1)
-        }
-
-        let resolver = builder.create()
-        let dependencies = try builder.create(dependencies: [
-            "a": (.unversioned, .specific(["a"])),
-            "b": (.unversioned, .specific(["b"])),
-            "c": (.unversioned, .specific(["c"])),
-            "d": (.unversioned, .specific(["d"])),
-            "e": (.unversioned, .specific(["e"])),
-        ])
-        let result = await resolver.solve(constraints: dependencies)
-
-        AssertResult(result, [
-            ("a", .unversioned),
-            ("b", .unversioned),
-            ("c", .unversioned),
-            ("d", .unversioned),
-            ("e", .unversioned),
-            ("aDep", .version(v1)),
-            ("bDep", .version(v1)),
-            ("cDep", .version(v1)),
-            ("dDep", .version(v1)),
-            ("eDep", .version(v1)),
-        ])
-    }
-
-    func testProcessInputsUnversionedDeepChain() async throws {
-        try builder.serve("a", at: .unversioned, with: [
-            "a": ["b": (.unversioned, .specific(["b"]))]
-        ])
-        try builder.serve("b", at: .unversioned, with: [
-            "b": ["c": (.unversioned, .specific(["c"]))]
-        ])
-        try builder.serve("c", at: .unversioned, with: [
-            "c": ["d": (.unversioned, .specific(["d"]))]
-        ])
-        try builder.serve("d", at: .unversioned, with: [
-            "d": ["leaf": (.versionSet(v1Range), .specific(["leaf"]))]
-        ])
-        try builder.serve("leaf", at: v1)
-        try builder.serve("leaf", at: v1_5)
-
-        let resolver = builder.create()
-        let dependencies = try builder.create(dependencies: [
-            "a": (.unversioned, .specific(["a"])),
-        ])
-        let result = await resolver.solve(constraints: dependencies)
-
-        AssertResult(result, [
-            ("a", .unversioned),
-            ("b", .unversioned),
-            ("c", .unversioned),
-            ("d", .unversioned),
-            ("leaf", .version(v1_5)),
-        ])
-    }
-
-    func testProcessInputsRevisionWideFanout() async throws {
-        try builder.serve("foo", at: .revision("master"), with: [
-            "foo": ["fooDep": (.versionSet(v1Range), .specific(["fooDep"]))]
-        ])
-        try builder.serve("bar", at: .revision("master"), with: [
-            "bar": ["barDep": (.versionSet(v1Range), .specific(["barDep"]))]
-        ])
-        try builder.serve("baz", at: .revision("master"), with: [
-            "baz": ["bazDep": (.versionSet(v1Range), .specific(["bazDep"]))]
-        ])
-        try builder.serve("fooDep", at: v1)
-        try builder.serve("barDep", at: v1)
-        try builder.serve("bazDep", at: v1)
-
-        let resolver = builder.create()
-        let dependencies = try builder.create(dependencies: [
-            "foo": (.revision("master"), .specific(["foo"])),
-            "bar": (.revision("master"), .specific(["bar"])),
-            "baz": (.revision("master"), .specific(["baz"])),
-        ])
-        let result = await resolver.solve(constraints: dependencies)
-
-        AssertResult(result, [
-            ("foo", .revision("master")),
-            ("bar", .revision("master")),
-            ("baz", .revision("master")),
-            ("fooDep", .version(v1)),
-            ("barDep", .version(v1)),
-            ("bazDep", .version(v1)),
-        ])
-    }
-
-    func testProcessInputsRevisionDeepChain() async throws {
-        try builder.serve("rA", at: .revision("main"), with: [
-            "rA": ["rB": (.revision("main"), .specific(["rB"]))]
-        ])
-        try builder.serve("rB", at: .revision("main"), with: [
-            "rB": ["rC": (.revision("main"), .specific(["rC"]))]
-        ])
-        try builder.serve("rC", at: .revision("main"), with: [
-            "rC": ["leaf": (.versionSet(v1Range), .specific(["leaf"]))]
-        ])
-        try builder.serve("leaf", at: v1)
-        try builder.serve("leaf", at: v1_1)
-
-        let resolver = builder.create()
-        let dependencies = try builder.create(dependencies: [
-            "rA": (.revision("main"), .specific(["rA"])),
-        ])
-        let result = await resolver.solve(constraints: dependencies)
-
-        AssertResult(result, [
-            ("rA", .revision("main")),
-            ("rB", .revision("main")),
-            ("rC", .revision("main")),
-            ("leaf", .version(v1_1)),
-        ])
-    }
-
-    func testProcessInputsMixedUnversionedAndRevisionFanout() async throws {
-        try builder.serve("uA", at: .unversioned, with: [
-            "uA": ["uADep": (.versionSet(v1Range), .specific(["uADep"]))]
-        ])
-        try builder.serve("uB", at: .unversioned, with: [
-            "uB": ["uBDep": (.versionSet(v1Range), .specific(["uBDep"]))]
-        ])
-        try builder.serve("rA", at: .revision("main"), with: [
-            "rA": ["rADep": (.versionSet(v1Range), .specific(["rADep"]))]
-        ])
-        try builder.serve("rB", at: .revision("main"), with: [
-            "rB": ["rBDep": (.versionSet(v1Range), .specific(["rBDep"]))]
-        ])
-        try builder.serve("uADep", at: v1)
-        try builder.serve("uBDep", at: v1)
-        try builder.serve("rADep", at: v1)
-        try builder.serve("rBDep", at: v1)
-
-        let resolver = builder.create()
-        let dependencies = try builder.create(dependencies: [
-            "uA": (.unversioned, .specific(["uA"])),
-            "rA": (.revision("main"), .specific(["rA"])),
-            "uB": (.unversioned, .specific(["uB"])),
-            "rB": (.revision("main"), .specific(["rB"])),
-        ])
-        let result = await resolver.solve(constraints: dependencies)
-
-        AssertResult(result, [
-            ("uA", .unversioned),
-            ("uB", .unversioned),
-            ("rA", .revision("main")),
-            ("rB", .revision("main")),
-            ("uADep", .version(v1)),
-            ("uBDep", .version(v1)),
-            ("rADep", .version(v1)),
-            ("rBDep", .version(v1)),
-        ])
-    }
-
-    func testProcessInputsUnversionedOverridesVersionedSibling() async throws {
-        // An unversioned constraint discovered in phase 1 must override any
-        // top-level version-set constraint on the same package, so that
-        // `overriddenPackages` excludes it from `rootIncompatibilities`.
-        try builder.serve("entry", at: .unversioned, with: [
-            "entry": ["shared": (.unversioned, .specific(["shared"]))]
-        ])
-        try builder.serve("shared", at: .unversioned)
-        try builder.serve("shared", at: v1)
-        try builder.serve("shared", at: v2)
-
-        let resolver = builder.create()
-        let dependencies = try builder.create(dependencies: [
-            "entry": (.unversioned, .specific(["entry"])),
-            "shared": (.versionSet(v1Range), .specific(["shared"])),
-        ])
-        let result = await resolver.solve(constraints: dependencies)
-
-        AssertResult(result, [
-            ("entry", .unversioned),
-            ("shared", .unversioned),
-        ])
-    }
-
-    func testProcessInputsDeterministicAcrossRuns() async throws {
+    func testResolutionIsDeterministicAcrossRuns() async throws {
+        // Solving the same graph many times must yield identical bindings.
+        // Catches race-induced ordering or skipped-constraint regressions
+        // that wouldn't surface in a single-run assertion. The graph mixes
+        // several top-level unversioned siblings with a branch-based dep so
+        // both discovery phases run with non-trivial wave sizes.
         let runCount = 8
         var results: [[String]] = []
 
-        for _ in 0..<runCount {
-            try builder.serve("uA", at: .unversioned, with: [
-                "uA": [
-                    "uB": (.unversioned, .specific(["uB"])),
-                    "vA": (.versionSet(v1Range), .specific(["vA"])),
-                ]
+        for _ in 0 ..< runCount {
+            for letter in ["a", "b", "c", "d"] {
+                try builder.serve(letter, at: .unversioned, with: [
+                    letter: ["v\(letter)": (.versionSet(v1Range), .specific(["v\(letter)"]))]
+                ])
+                try builder.serve("v\(letter)", at: v1)
+            }
+            try builder.serve("branch", at: .revision("main"), with: [
+                "branch": ["vbranch": (.versionSet(v1Range), .specific(["vbranch"]))]
             ])
-            try builder.serve("uB", at: .unversioned, with: [
-                "uB": ["vB": (.versionSet(v1Range), .specific(["vB"]))]
-            ])
-            try builder.serve("rA", at: .revision("main"), with: [
-                "rA": ["vC": (.versionSet(v1Range), .specific(["vC"]))]
-            ])
-            try builder.serve("vA", at: v1)
-            try builder.serve("vA", at: v1_5)
-            try builder.serve("vB", at: v1)
-            try builder.serve("vB", at: v1_5)
-            try builder.serve("vC", at: v1)
+            try builder.serve("vbranch", at: v1)
 
             let resolver = builder.create()
             let dependencies = try builder.create(dependencies: [
-                "uA": (.unversioned, .specific(["uA"])),
-                "rA": (.revision("main"), .specific(["rA"])),
+                "a": (.unversioned, .specific(["a"])),
+                "b": (.unversioned, .specific(["b"])),
+                "c": (.unversioned, .specific(["c"])),
+                "d": (.unversioned, .specific(["d"])),
+                "branch": (.revision("main"), .specific(["branch"])),
             ])
             let result = await resolver.solve(constraints: dependencies)
 
-            switch result {
-            case .success(let bindings):
-                let rendered = bindings
-                    .map { "\($0.package.identity)@\($0.boundVersion)" }
-                    .sorted()
-                results.append(rendered)
-            case .failure(let error):
-                XCTFail("Unexpected resolver failure: \(error)")
+            guard case .success(let bindings) = result else {
+                XCTFail("Expected resolution to succeed: \(result)")
                 return
             }
+            results.append(
+                bindings
+                    .map { "\($0.package.identity)@\($0.boundVersion)" }
+                    .sorted()
+            )
         }
 
-        XCTAssertEqual(results.first?.count, 6, "Expected 6 bindings (uA, uB, rA, vA, vB, vC)")
+        XCTAssertEqual(results.first?.count, 10, "Expected 10 bindings (a..d, va..vd, branch, vbranch)")
         for (i, run) in results.enumerated() where i > 0 {
             XCTAssertEqual(run, results[0], "Run \(i) bindings differ from run 0")
         }
