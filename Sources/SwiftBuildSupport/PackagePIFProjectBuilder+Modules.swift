@@ -562,6 +562,16 @@ extension PackagePIFProjectBuilder {
         )
         if enableDuplicateLinkageCulling {
             impartedSettings[.LD_WARN_DUPLICATE_LIBRARIES] = "NO"
+
+            for platform in ProjectModel.BuildSettings.Platform.allCases {
+                switch platform {
+                case .macOS, .macCatalyst, .iOS, .watchOS, .tvOS, .xrOS, .driverKit:
+                    let existing = impartedSettings[.OTHER_LDFLAGS, platform] ?? ["$(inherited)"]
+                    impartedSettings[.OTHER_LDFLAGS, platform] = ["-Xlinker", "-no_warn_duplicate_libraries"] + existing
+                case .android, .linux, .wasi, .openbsd, .freebsd, .windows, ._iOSDevice:
+                    break
+                }
+            }
         }
         if sourceModule.isCxx {
             for platform in ProjectModel.BuildSettings.Platform.allCases {
