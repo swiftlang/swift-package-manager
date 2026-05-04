@@ -352,37 +352,47 @@ public struct PubGrubDependencyResolver {
                 }
             }
 
-            let perConstraintDeps = try await withThrowingTaskGroup(
-                of: (Int, [(DependencyResolutionNode, [Constraint])]).self
-            ) { group in
+            // Tasks return their result wrapped in `Result` rather than throwing
+            // directly so the group can complete normally even when several
+            // tasks fail. After collecting, we throw the failure with the
+            // lowest wave index, preserving the deterministic error order of
+            // the previous sequential implementation.
+            let waveResults = await withTaskGroup(
+                of: (Int, Result<[(DependencyResolutionNode, [Constraint])], Error>).self
+            ) { group -> [Result<[(DependencyResolutionNode, [Constraint])], Error>] in
                 for (i, constraint) in wave.enumerated() {
                     group.addTask {
-                        var nodeDeps: [(DependencyResolutionNode, [Constraint])] = []
-                        for node in constraint.nodes() {
-                            let container = try await withCheckedThrowingContinuation { continuation in
-                                self.provider.getContainer(
-                                    for: node.package,
-                                    completion: { continuation.resume(with: $0) }
+                        do {
+                            var nodeDeps: [(DependencyResolutionNode, [Constraint])] = []
+                            for node in constraint.nodes() {
+                                let container = try await withCheckedThrowingContinuation { continuation in
+                                    self.provider.getContainer(
+                                        for: node.package,
+                                        completion: { continuation.resume(with: $0) }
+                                    )
+                                }
+                                let deps = try await container.underlying.getUnversionedDependencies(
+                                    productFilter: node.productFilter,
+                                    node.enabledTraits
                                 )
+                                nodeDeps.append((node, deps))
                             }
-                            let deps = try await container.underlying.getUnversionedDependencies(
-                                productFilter: node.productFilter,
-                                node.enabledTraits
-                            )
-                            nodeDeps.append((node, deps))
+                            return (i, .success(nodeDeps))
+                        } catch {
+                            return (i, .failure(error))
                         }
-                        return (i, nodeDeps)
                     }
                 }
-                var results = [[(DependencyResolutionNode, [Constraint])]](
-                    repeating: [],
+                var ordered = [Result<[(DependencyResolutionNode, [Constraint])], Error>?](
+                    repeating: nil,
                     count: wave.count
                 )
-                for try await (i, deps) in group {
-                    results[i] = deps
+                for await (i, result) in group {
+                    ordered[i] = result
                 }
-                return results
+                return ordered.map { $0! }
             }
+            let perConstraintDeps = try waveResults.map { try $0.get() }
 
             for nodeDepsList in perConstraintDeps {
                 for (node, deps) in nodeDepsList {
@@ -446,44 +456,51 @@ public struct PubGrubDependencyResolver {
 
             if wave.isEmpty { continue }
 
-            let perConstraintDeps = try await withThrowingTaskGroup(
-                of: (Int, [(DependencyResolutionNode, [Constraint])]).self
-            ) { group in
+            // See the unversioned phase for the rationale behind wrapping each
+            // task's result in `Result` and throwing the lowest-index failure.
+            let waveResults = await withTaskGroup(
+                of: (Int, Result<[(DependencyResolutionNode, [Constraint])], Error>).self
+            ) { group -> [Result<[(DependencyResolutionNode, [Constraint])], Error>] in
                 for (i, item) in wave.enumerated() {
                     let constraint = item.constraint
                     let revision = item.revision
                     let revisionForDependencies = item.revisionForDependencies
                     group.addTask {
-                        let container = try await withCheckedThrowingContinuation { continuation in
-                            self.provider.getContainer(
-                                for: constraint.package,
-                                completion: { continuation.resume(with: $0) }
-                            )
-                        }
-                        var nodeDeps: [(DependencyResolutionNode, [Constraint])] = []
-                        for node in constraint.nodes() {
-                            var unprocessedDependencies = try await container.underlying.getDependencies(
-                                at: revisionForDependencies,
-                                productFilter: constraint.products,
-                                node.enabledTraits
-                            )
-                            if let sharedRevision = node.revisionLock(revision: revision) {
-                                unprocessedDependencies.append(sharedRevision)
+                        do {
+                            let container = try await withCheckedThrowingContinuation { continuation in
+                                self.provider.getContainer(
+                                    for: constraint.package,
+                                    completion: { continuation.resume(with: $0) }
+                                )
                             }
-                            nodeDeps.append((node, unprocessedDependencies))
+                            var nodeDeps: [(DependencyResolutionNode, [Constraint])] = []
+                            for node in constraint.nodes() {
+                                var unprocessedDependencies = try await container.underlying.getDependencies(
+                                    at: revisionForDependencies,
+                                    productFilter: constraint.products,
+                                    node.enabledTraits
+                                )
+                                if let sharedRevision = node.revisionLock(revision: revision) {
+                                    unprocessedDependencies.append(sharedRevision)
+                                }
+                                nodeDeps.append((node, unprocessedDependencies))
+                            }
+                            return (i, .success(nodeDeps))
+                        } catch {
+                            return (i, .failure(error))
                         }
-                        return (i, nodeDeps)
                     }
                 }
-                var results = [[(DependencyResolutionNode, [Constraint])]](
-                    repeating: [],
+                var ordered = [Result<[(DependencyResolutionNode, [Constraint])], Error>?](
+                    repeating: nil,
                     count: wave.count
                 )
-                for try await (i, deps) in group {
-                    results[i] = deps
+                for await (i, result) in group {
+                    ordered[i] = result
                 }
-                return results
+                return ordered.map { $0! }
             }
+            let perConstraintDeps = try waveResults.map { try $0.get() }
 
             for (i, nodeDepsList) in perConstraintDeps.enumerated() {
                 let originalConstraint = wave[i].constraint

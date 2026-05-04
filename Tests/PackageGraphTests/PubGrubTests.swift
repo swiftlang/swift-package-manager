@@ -947,15 +947,16 @@ final class PubGrubTests: XCTestCase {
     }
 
     func testResolutionIsDeterministicAcrossRuns() async throws {
-        // Solving the same graph many times must yield identical bindings.
-        // Catches race-induced ordering or skipped-constraint regressions
-        // that wouldn't surface in a single-run assertion. The graph mixes
-        // several top-level unversioned siblings with a branch-based dep so
-        // both discovery phases run with non-trivial wave sizes.
+        // Solving the same graph many times must yield identical bindings,
+        // both in content and order. Run 0's bindings are also checked
+        // against an explicit expected list so the test catches "stable but
+        // wrong" results, not just "correct but unstable" ones. The graph
+        // mixes several top-level unversioned siblings with a branch-based
+        // dep so both discovery phases run with non-trivial wave sizes.
         let runCount = 8
-        var results: [[String]] = []
+        var firstRunRendered: [String]?
 
-        for _ in 0 ..< runCount {
+        for runIndex in 0 ..< runCount {
             for letter in ["a", "b", "c", "d"] {
                 try builder.serve(letter, at: .unversioned, with: [
                     letter: ["v\(letter)": (.versionSet(v1Range), .specific(["v\(letter)"]))]
@@ -977,20 +978,31 @@ final class PubGrubTests: XCTestCase {
             ])
             let result = await resolver.solve(constraints: dependencies)
 
+            if runIndex == 0 {
+                AssertResult(result, [
+                    ("a", .unversioned),
+                    ("b", .unversioned),
+                    ("c", .unversioned),
+                    ("d", .unversioned),
+                    ("va", .version(v1)),
+                    ("vb", .version(v1)),
+                    ("vc", .version(v1)),
+                    ("vd", .version(v1)),
+                    ("branch", .revision("main")),
+                    ("vbranch", .version(v1)),
+                ])
+            }
+
             guard case .success(let bindings) = result else {
-                XCTFail("Expected resolution to succeed: \(result)")
+                XCTFail("Run \(runIndex) failed: \(result)")
                 return
             }
-            results.append(
-                bindings
-                    .map { "\($0.package.identity)@\($0.boundVersion)" }
-                    .sorted()
-            )
-        }
-
-        XCTAssertEqual(results.first?.count, 10, "Expected 10 bindings (a..d, va..vd, branch, vbranch)")
-        for (i, run) in results.enumerated() where i > 0 {
-            XCTAssertEqual(run, results[0], "Run \(i) bindings differ from run 0")
+            let rendered = bindings.map { "\($0.package.identity)@\($0.boundVersion)" }
+            if let firstRunRendered {
+                XCTAssertEqual(rendered, firstRunRendered, "Run \(runIndex) bindings differ from run 0")
+            } else {
+                firstRunRendered = rendered
+            }
         }
     }
 
