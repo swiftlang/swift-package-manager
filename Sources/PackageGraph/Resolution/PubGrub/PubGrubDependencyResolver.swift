@@ -281,8 +281,14 @@ public struct PubGrubDependencyResolver {
                 return .init(package: package, boundVersion: details.binding, products: details.products)
             }
 
-        // Add overridden packages to the result.
-        for (package, override) in state.overriddenPackages {
+        // Add overridden packages to the result. Sort by `deprecatedName` to
+        // mirror the ordering applied to decisions above, so the final
+        // bindings are deterministic across runs (Swift's Dictionary does
+        // not guarantee a stable iteration order between equivalent
+        // instances).
+        let sortedOverridden = state.overriddenPackages
+            .sorted { $0.key.deprecatedName < $1.key.deprecatedName }
+        for (package, override) in sortedOverridden {
             let container = try await withCheckedThrowingContinuation { continuation in
                 self.provider.getContainer(for: package, completion: {
                     continuation.resume(with: $0)
