@@ -463,7 +463,9 @@ public struct BuildOptions: ParsableArguments {
     }
 
     /// The compilation destination’s target triple.
-    @Option(name: .customLong("triple"), transform: Triple.init)
+    @Option(name: .customLong("triple"),
+            help: "Filter for selecting the target triple from a Swift SDK bundle to build with.",
+            transform: Triple.init)
     public var customCompileTriple: Triple?
 
     /// Path to the compilation destination’s SDK.

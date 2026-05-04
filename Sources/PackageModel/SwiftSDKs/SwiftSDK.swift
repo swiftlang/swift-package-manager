@@ -784,10 +784,16 @@ public struct SwiftSDK: Equatable {
                   let targetSwiftSDK = SwiftSDK.defaultSwiftSDK(for: targetTriple, hostSDK: hostSwiftSDK)
         {
             swiftSDK = targetSwiftSDK
-        } else if let swiftSDKSelector {
+        } else if swiftSDKSelector != nil || customCompileTriple != nil {
             do {
                 var ID: String
-                (ID, swiftSDK) = try store.selectBundle(matching: swiftSDKSelector, hostTriple: hostTriple, targetTriple: customCompileTriple)
+                if let swiftSDKSelector {
+                    (ID, swiftSDK) = try store.selectBundle(matching: swiftSDKSelector, hostTriple: hostTriple, targetTriple: customCompileTriple)
+                } else if let customCompileTriple {
+                    (ID, swiftSDK) = try store.selectBundle(matching: customCompileTriple.tripleString, hostTriple: hostTriple)
+                } else {
+                    fatalError("Neither an SDK nor a triple matched somehow.")
+                }
 
                 // Override with user's manual config
                 do {
@@ -806,7 +812,7 @@ public struct SwiftSDK: Equatable {
             } catch {
                 // If a user-installed bundle for the selector doesn't exist, check if the
                 // selector is recognized as a default SDK.
-                if let targetTriple = try? Triple(swiftSDKSelector),
+                if let targetTriple = try? customCompileTriple ?? Triple(swiftSDKSelector!),
                    let defaultSDK = SwiftSDK.defaultSwiftSDK(for: targetTriple, hostSDK: hostSwiftSDK) {
                     swiftSDK = defaultSDK
                 } else {
