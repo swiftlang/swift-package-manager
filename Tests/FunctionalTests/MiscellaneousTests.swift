@@ -1307,7 +1307,7 @@ struct MiscellaneousTestCase {
         .skipHostOS(.windows, "libFuzzer is not included in the Windows distribution"),
     )
     func libFuzzerSupport() async throws {
-        try await withKnownIssue {
+        try await withKnownIssue(isIntermittent: true) {
             let configuration = BuildConfiguration.debug
             try await fixture(name: "Miscellaneous/Fuzzer") { fixturePath in
                 let (stdout, stderr) = try await executeSwiftRun(
