@@ -281,8 +281,14 @@ public struct PubGrubDependencyResolver {
                 return .init(package: package, boundVersion: details.binding, products: details.products)
             }
 
-        // Add overridden packages to the result.
-        for (package, override) in state.overriddenPackages {
+        // Add overridden packages to the result. Sort by `deprecatedName` to
+        // mirror the ordering applied to decisions above, so the final
+        // bindings are deterministic across runs (Swift's Dictionary does
+        // not guarantee a stable iteration order between equivalent
+        // instances).
+        let sortedOverridden = state.overriddenPackages
+            .sorted { $0.key.deprecatedName < $1.key.deprecatedName }
+        for (package, override) in sortedOverridden {
             let container = try await withCheckedThrowingContinuation { continuation in
                 self.provider.getContainer(for: package, completion: {
                     continuation.resume(with: $0)
@@ -323,133 +329,203 @@ public struct PubGrubDependencyResolver {
         // Some of these might be overridden as we discover local and branch-based references.
         var versionBasedDependencies = OrderedCollections.OrderedDictionary<DependencyResolutionNode, [VersionBasedConstraint]>()
 
-        // Process unversioned constraints in first phase. We go through all of the unversioned packages
-        // and collect them and their dependencies. This gives us the complete list of unversioned
-        // packages in the graph since unversioned packages can only be referred by other
-        // unversioned packages.
-        while let constraint = constraints.first(where: { $0.requirement == .unversioned }) {
-            constraints.remove(constraint)
+        // Process unversioned constraints in the first phase. Each iteration of the outer
+        // loop drains the wavefront of currently-known unversioned constraints and fetches
+        // their containers and dependencies in parallel; new unversioned constraints
+        // discovered in the wave are picked up by the next iteration.
+        //
+        // Order is preserved by:
+        //   1. Updating `overriddenPackages` for every wave member up front, sequentially
+        //      in wave order, so that downstream classification observes the full
+        //      wave's overrides.
+        //   2. Merging the per-wave-member discoveries back into
+        //      `versionBasedDependencies` and `constraints` sequentially in wave order
+        //      after parallel fetches complete. This yields the same insertion order
+        //      into both structures as the original sequential implementation.
+        while constraints.contains(where: { $0.requirement == .unversioned }) {
+            let wave = constraints.filter { $0.requirement == .unversioned }
+            for constraint in wave { constraints.remove(constraint) }
 
-            // Mark the package as overridden.
-            if var existing = overriddenPackages[constraint.package] {
-                guard existing.version == .unversioned else {
-                    throw InternalError("Overridden package is not unversioned: \(constraint.package)@\(existing.version)")
+            for constraint in wave {
+                if var existing = overriddenPackages[constraint.package] {
+                    guard existing.version == .unversioned else {
+                        throw InternalError("Overridden package is not unversioned: \(constraint.package)@\(existing.version)")
+                    }
+                    existing.products.formUnion(constraint.products)
+                    overriddenPackages[constraint.package] = existing
+                } else {
+                    overriddenPackages[constraint.package] = (version: .unversioned, products: constraint.products)
                 }
-                existing.products.formUnion(constraint.products)
-                overriddenPackages[constraint.package] = existing
-            } else {
-                overriddenPackages[constraint.package] = (version: .unversioned, products: constraint.products)
             }
 
-            for node in constraint.nodes() {
-                // Process dependencies of this package.
-                //
-                // We collect all version-based dependencies in a separate structure so they can
-                // be process at the end. This allows us to override them when there is a non-version
-                // based (unversioned/branch-based) constraint present in the graph.
-                let container = try await withCheckedThrowingContinuation { continuation in
-                    self.provider.getContainer(
-                        for: node.package,
-                        completion: {
-                            continuation.resume(with: $0)
+            // Tasks return their result wrapped in `Result` rather than throwing
+            // directly so the group can complete normally even when several
+            // tasks fail. After collecting, we throw the failure with the
+            // lowest wave index, preserving the deterministic error order of
+            // the previous sequential implementation.
+            let waveResults = await withTaskGroup(
+                of: (Int, Result<[(DependencyResolutionNode, [Constraint])], Error>).self
+            ) { group -> [Result<[(DependencyResolutionNode, [Constraint])], Error>] in
+                for (i, constraint) in wave.enumerated() {
+                    group.addTask {
+                        do {
+                            var nodeDeps: [(DependencyResolutionNode, [Constraint])] = []
+                            for node in constraint.nodes() {
+                                let container = try await withCheckedThrowingContinuation { continuation in
+                                    self.provider.getContainer(
+                                        for: node.package,
+                                        completion: { continuation.resume(with: $0) }
+                                    )
+                                }
+                                let deps = try await container.underlying.getUnversionedDependencies(
+                                    productFilter: node.productFilter,
+                                    node.enabledTraits
+                                )
+                                nodeDeps.append((node, deps))
+                            }
+                            return (i, .success(nodeDeps))
+                        } catch {
+                            return (i, .failure(error))
                         }
-                    )
+                    }
                 }
+                var ordered = [Result<[(DependencyResolutionNode, [Constraint])], Error>?](
+                    repeating: nil,
+                    count: wave.count
+                )
+                for await (i, result) in group {
+                    ordered[i] = result
+                }
+                return ordered.map { $0! }
+            }
+            let perConstraintDeps = try waveResults.map { try $0.get() }
 
-                for dependency in try await container.underlying
-                    .getUnversionedDependencies(productFilter: node.productFilter, node.enabledTraits)
-                {
-                    if let versionedBasedConstraints = VersionBasedConstraint.constraints(dependency) {
-                        for constraint in versionedBasedConstraints {
-                            versionBasedDependencies[node, default: []].append(constraint)
+            for nodeDepsList in perConstraintDeps {
+                for (node, deps) in nodeDepsList {
+                    for dependency in deps {
+                        if let versionedBasedConstraints = VersionBasedConstraint.constraints(dependency) {
+                            for vbc in versionedBasedConstraints {
+                                versionBasedDependencies[node, default: []].append(vbc)
+                            }
+                        } else if !overriddenPackages.keys.contains(dependency.package) {
+                            // Add the constraint if it's not already present. This will ensure we don't
+                            // end up looping infinitely due to a cycle (which are diagnosed separately).
+                            constraints.append(dependency)
                         }
-                    } else if !overriddenPackages.keys.contains(dependency.package) {
-                        // Add the constraint if its not already present. This will ensure we don't
-                        // end up looping infinitely due to a cycle (which are diagnosed separately).
-                        constraints.append(dependency)
                     }
                 }
             }
         }
 
-        // Process revision-based constraints in the second phase. Here we do the similar processing
-        // as the first phase but we also ignore the constraints that are overridden due to
-        // presence of unversioned constraints.
-        while let constraint = constraints.first(where: { $0.requirement.isRevision }) {
-            guard case .revision(let revision) = constraint.requirement else {
-                throw InternalError("Expected revision requirement")
-            }
-            constraints.remove(constraint)
-            let package = constraint.package
+        // Process revision-based constraints in the second phase. Same wave structure
+        // as phase 1, but the override checks (which can short-circuit a constraint
+        // via `continue` or throw on a revision conflict) must run sequentially because
+        // each successful check writes into `overriddenPackages` and a subsequent wave
+        // member may need to observe that write to be skipped.
+        while constraints.contains(where: { $0.requirement.isRevision }) {
+            let pending = constraints.filter { $0.requirement.isRevision }
+            var wave: [(constraint: Constraint, revision: String, revisionForDependencies: String)] = []
+            for constraint in pending {
+                constraints.remove(constraint)
 
-            // Check if there is an existing value for this package in the overridden packages.
-            switch overriddenPackages[package]?.version {
-            case .excluded?, .version?:
-                // These values are not possible.
-                throw InternalError("Unexpected value for overridden package \(package) in \(overriddenPackages)")
-            case .unversioned?:
-                // This package is overridden by an unversioned package so we can ignore this constraint.
-                continue
-            case .revision(let existingRevision, let branch)?:
-                // If this branch-based package was encountered before, ensure the references match.
-                if (branch ?? existingRevision) != revision {
-                    throw PubGrubError.unresolvable("\(package.identity) is required using two different revision-based requirements (\(existingRevision) and \(revision)), which is not supported")
-                } else {
-                    // Otherwise, continue since we've already processed this constraint. Any cycles will be diagnosed separately.
+                guard case .revision(let revision) = constraint.requirement else {
+                    throw InternalError("Expected revision requirement")
+                }
+                let package = constraint.package
+
+                switch overriddenPackages[package]?.version {
+                case .excluded?, .version?:
+                    throw InternalError("Unexpected value for overridden package \(package) in \(overriddenPackages)")
+                case .unversioned?:
+                    // Already overridden by an unversioned constraint; skip.
                     continue
+                case .revision(let existingRevision, let branch)?:
+                    if (branch ?? existingRevision) != revision {
+                        throw PubGrubError.unresolvable("\(package.identity) is required using two different revision-based requirements (\(existingRevision) and \(revision)), which is not supported")
+                    } else {
+                        continue
+                    }
+                case nil:
+                    break
                 }
-            case nil:
-                break
-            }
 
-            // Process dependencies of this package, similar to the first phase but branch-based dependencies
-            // are not allowed to contain local/unversioned packages.
-            let container = try await withCheckedThrowingContinuation { continuation in
-                self.provider.getContainer(for: package, completion: {
-                    continuation.resume(with: $0)
-                })
-            }
-
-            // If there is a pin for this revision-based dependency, get
-            // the dependencies at the pinned revision instead of using
-            // latest commit on that branch. Note that if this revision-based dependency is
-            // already a commit, then its pin entry doesn't matter in practice.
-            let revisionForDependencies: String
-            if case .branch(revision, let pinRevision) = self.resolvedPackages[package.identity]?.state {
-                revisionForDependencies = pinRevision
-
-                // Mark the package as overridden with the pinned revision and record the branch as well.
-                overriddenPackages[package] = (version: .revision(revisionForDependencies, branch: revision), products: constraint.products)
-            } else {
-                revisionForDependencies = revision
-
-                // Mark the package as overridden.
-                overriddenPackages[package] = (version: .revision(revision), products: constraint.products)
-            }
-
-            for node in constraint.nodes() {
-                var unprocessedDependencies = try await container.underlying.getDependencies(
-                    at: revisionForDependencies,
-                    productFilter: constraint.products,
-                    node.enabledTraits
-                )
-                if let sharedRevision = node.revisionLock(revision: revision) {
-                    unprocessedDependencies.append(sharedRevision)
+                let revisionForDependencies: String
+                if case .branch(revision, let pinRevision) = self.resolvedPackages[package.identity]?.state {
+                    revisionForDependencies = pinRevision
+                    overriddenPackages[package] = (version: .revision(revisionForDependencies, branch: revision), products: constraint.products)
+                } else {
+                    revisionForDependencies = revision
+                    overriddenPackages[package] = (version: .revision(revision), products: constraint.products)
                 }
-                for dependency in unprocessedDependencies {
-                    switch dependency.requirement {
-                    case .versionSet(let req):
-                        for node in dependency.nodes() {
-                            let versionedBasedConstraint = VersionBasedConstraint(node: node, req: req)
-                            versionBasedDependencies[.root(package: constraint.package), default: []].append(versionedBasedConstraint)
+                wave.append((constraint: constraint, revision: revision, revisionForDependencies: revisionForDependencies))
+            }
+
+            if wave.isEmpty { continue }
+
+            // See the unversioned phase for the rationale behind wrapping each
+            // task's result in `Result` and throwing the lowest-index failure.
+            let waveResults = await withTaskGroup(
+                of: (Int, Result<[(DependencyResolutionNode, [Constraint])], Error>).self
+            ) { group -> [Result<[(DependencyResolutionNode, [Constraint])], Error>] in
+                for (i, item) in wave.enumerated() {
+                    let constraint = item.constraint
+                    let revision = item.revision
+                    let revisionForDependencies = item.revisionForDependencies
+                    group.addTask {
+                        do {
+                            let container = try await withCheckedThrowingContinuation { continuation in
+                                self.provider.getContainer(
+                                    for: constraint.package,
+                                    completion: { continuation.resume(with: $0) }
+                                )
+                            }
+                            var nodeDeps: [(DependencyResolutionNode, [Constraint])] = []
+                            for node in constraint.nodes() {
+                                var unprocessedDependencies = try await container.underlying.getDependencies(
+                                    at: revisionForDependencies,
+                                    productFilter: constraint.products,
+                                    node.enabledTraits
+                                )
+                                if let sharedRevision = node.revisionLock(revision: revision) {
+                                    unprocessedDependencies.append(sharedRevision)
+                                }
+                                nodeDeps.append((node, unprocessedDependencies))
+                            }
+                            return (i, .success(nodeDeps))
+                        } catch {
+                            return (i, .failure(error))
                         }
-                    case .revision:
-                        constraints.append(dependency)
-                    case .unversioned:
-                        throw DependencyResolverError.revisionDependencyContainsLocalPackage(
-                            dependency: package.identity.description,
-                            localPackage: dependency.package.identity.description
-                        )
+                    }
+                }
+                var ordered = [Result<[(DependencyResolutionNode, [Constraint])], Error>?](
+                    repeating: nil,
+                    count: wave.count
+                )
+                for await (i, result) in group {
+                    ordered[i] = result
+                }
+                return ordered.map { $0! }
+            }
+            let perConstraintDeps = try waveResults.map { try $0.get() }
+
+            for (i, nodeDepsList) in perConstraintDeps.enumerated() {
+                let originalConstraint = wave[i].constraint
+                for (_, deps) in nodeDepsList {
+                    for dependency in deps {
+                        switch dependency.requirement {
+                        case .versionSet(let req):
+                            for node in dependency.nodes() {
+                                let versionedBasedConstraint = VersionBasedConstraint(node: node, req: req)
+                                versionBasedDependencies[.root(package: originalConstraint.package), default: []].append(versionedBasedConstraint)
+                            }
+                        case .revision:
+                            constraints.append(dependency)
+                        case .unversioned:
+                            throw DependencyResolverError.revisionDependencyContainsLocalPackage(
+                                dependency: originalConstraint.package.identity.description,
+                                localPackage: dependency.package.identity.description
+                            )
+                        }
                     }
                 }
             }
