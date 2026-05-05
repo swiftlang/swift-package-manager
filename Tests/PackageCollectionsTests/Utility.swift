@@ -22,9 +22,9 @@ import SourceControl
 
 import struct TSCUtility.Version
 
-func makeMockSources(count: Int = Int.random(in: 5 ... 10)) -> [PackageCollectionsModel.CollectionSource] {
+func makeMockSources(count: Int = Int.random(in: 5...10)) -> [PackageCollectionsModel.CollectionSource] {
     let isTrusted: [Bool?] = [true, false, nil]
-    return (0 ..< count).map { index in
+    return (0..<count).map { index in
         .init(type: .json, url: "https://source-\(index)", isTrusted: isTrusted.randomElement()!)
     }
 }
@@ -36,9 +36,9 @@ fileprivate let supportedPlatforms: [PackageModel.SupportedPlatform] = [
     .init(platform: .watchOS, version: "6"),
 ]
 
-func makeMockCollections(count: Int = Int.random(in: 50 ... 100), maxPackages: Int = 50, signed: Bool = true) -> [PackageCollectionsModel.Collection] {
-    (0 ..< count).map { collectionIndex in
-        let packages = (0 ..< Int.random(in: min(5, maxPackages) ... maxPackages)).map { packageIndex -> PackageCollectionsModel.Package in
+func makeMockCollections(count: Int = Int.random(in: 50...100), maxPackages: Int = 50, signed: Bool = true) -> [PackageCollectionsModel.Collection] {
+    (0..<count).map { collectionIndex in
+        let packages = (0..<Int.random(in: min(5, maxPackages)...maxPackages)).map { packageIndex -> PackageCollectionsModel.Package in
             makeMockPackage(id: "package-\(packageIndex)")
         }
 
@@ -53,39 +53,47 @@ func makeMockCollections(count: Int = Int.random(in: 50 ... 100), maxPackages: I
             )
         }
 
-        return PackageCollectionsModel.Collection(source: .init(type: .json, url: "https://feed-\(collectionIndex)"),
-                                                  name: "collection \(collectionIndex)",
-                                                  overview: "collection \(collectionIndex) description",
-                                                  keywords: (0 ..< Int.random(in: 1 ... 3)).map { "keyword \($0)" },
-                                                  packages: packages,
-                                                  createdAt: Date(),
-                                                  createdBy: PackageCollectionsModel.Collection.Author(name: "Jane Doe"),
-                                                  signature: signature)
+        return PackageCollectionsModel.Collection(
+            source: .init(type: .json, url: "https://feed-\(collectionIndex)"),
+            name: "collection \(collectionIndex)",
+            overview: "collection \(collectionIndex) description",
+            keywords: (0..<Int.random(in: 1...3)).map { "keyword \($0)" },
+            packages: packages,
+            createdAt: Date(),
+            createdBy: PackageCollectionsModel.Collection.Author(name: "Jane Doe"),
+            signature: signature
+        )
     }
 }
 
 func makeMockPackage(id: String) -> PackageCollectionsModel.Package {
-    let versions = (0 ..< Int.random(in: 1 ... 3)).map { versionIndex -> PackageCollectionsModel.Package.Version in
-        let targets = (0 ..< Int.random(in: 1 ... 5)).map {
-            PackageCollectionsModel.Target(name: "\(id)-target-\($0)",
-                                           moduleName: "module-\(id)-target-\($0)")
+    let versions = (0..<Int.random(in: 1...3)).map { versionIndex -> PackageCollectionsModel.Package.Version in
+        let targets = (0..<Int.random(in: 1...5)).map {
+            PackageCollectionsModel.Target(
+                name: "\(id)-target-\($0)",
+                moduleName: "module-\(id)-target-\($0)"
+            )
         }
-        let products = (0 ..< Int.random(in: 1 ... 3)).map {
-            PackageCollectionsModel.Product(name: "\(id)-product-\($0)",
-                                            type: .executable,
-                                            targets: targets)
+        let products = (0..<Int.random(in: 1...3)).map {
+            PackageCollectionsModel.Product(
+                name: "\(id)-product-\($0)",
+                type: .executable,
+                targets: targets
+            )
         }
-        let minimumPlatformVersions = (0 ..< Int.random(in: 1 ... 2)).map { _ in supportedPlatforms.randomElement()! }
+        let minimumPlatformVersions = (0..<Int.random(in: 1...2)).map { _ in supportedPlatforms.randomElement()! }
         let toolsVersion = ToolsVersion(string: "5.2")!
-        let manifests = [toolsVersion: PackageCollectionsModel.Package.Version.Manifest(
-            toolsVersion: toolsVersion,
-            packageName: id,
-            targets: targets,
-            products: products,
-            minimumPlatformVersions: minimumPlatformVersions
-        )]
+        let manifests = [
+            toolsVersion: PackageCollectionsModel.Package.Version.Manifest(
+                toolsVersion: toolsVersion,
+                packageName: id,
+                targets: targets,
+                products: products,
+                minimumPlatformVersions: minimumPlatformVersions
+            )
+        ]
 
-        let verifiedCompatibility = (0 ..< Int.random(in: 1 ... 3)).map { _ in
+        let verifiedCompatibility = (0..<Int.random(in: 1...3)).map { _ in
             PackageCollectionsModel.Compatibility(
                 platform: platforms.randomElement()!,
                 swiftVersion: SwiftLanguageVersion.knownSwiftLanguageVersions.randomElement()!
@@ -94,45 +102,53 @@ func makeMockPackage(id: String) -> PackageCollectionsModel.Package {
         let licenseType = PackageCollectionsModel.LicenseType.allCases.randomElement()!
         let license = PackageCollectionsModel.License(type: licenseType, url: "http://\(licenseType).license")
 
-        return PackageCollectionsModel.Package.Version(version: TSCUtility.Version(versionIndex, 0, 0),
-                                                       title: nil,
-                                                       summary: "\(versionIndex) description",
-                                                       manifests: manifests,
-                                                       defaultToolsVersion: toolsVersion,
-                                                       verifiedCompatibility: verifiedCompatibility,
-                                                       license: license,
-                                                       author: nil,
-                                                       signer: nil,
-                                                       createdAt: Date())
+        return PackageCollectionsModel.Package.Version(
+            version: TSCUtility.Version(versionIndex, 0, 0),
+            title: nil,
+            summary: "\(versionIndex) description",
+            manifests: manifests,
+            defaultToolsVersion: toolsVersion,
+            verifiedCompatibility: verifiedCompatibility,
+            license: license,
+            author: nil,
+            signer: nil,
+            createdAt: Date()
+        )
     }
 
-    return PackageCollectionsModel.Package(identity: PackageIdentity.plain("test-\(id).\(id)"),
-                                           location: "https://\(id)",
-                                           summary: "\(id) description",
-                                           keywords: (0 ..< Int.random(in: 1 ... 3)).map { "keyword \($0)" },
-                                           versions: versions,
-                                           watchersCount: Int.random(in: 1 ... 1000),
-                                           readmeURL: "https://\(id)-readme",
-                                           license: PackageCollectionsModel.License(type: .Apache2_0, url: "https://\(id).license"),
-                                           authors: nil,
-                                           languages: nil)
+    return PackageCollectionsModel.Package(
+        identity: PackageIdentity.plain("test-\(id).\(id)"),
+        location: "https://\(id)",
+        summary: "\(id) description",
+        keywords: (0..<Int.random(in: 1...3)).map { "keyword \($0)" },
+        versions: versions,
+        watchersCount: Int.random(in: 1...1000),
+        readmeURL: "https://\(id)-readme",
+        license: PackageCollectionsModel.License(type: .Apache2_0, url: "https://\(id).license"),
+        authors: nil,
+        languages: nil
+    )
 }
 
 func makeMockPackageBasicMetadata() -> PackageCollectionsModel.PackageBasicMetadata {
-    return .init(summary: UUID().uuidString,
-                 keywords: (0 ..< Int.random(in: 1 ... 3)).map { "keyword \($0)" },
-                 versions: (0 ..< Int.random(in: 1 ... 10)).map { .init(
-                    version: TSCUtility.Version($0, 0, 0),
-                    title: "title \($0)",
-                    summary: "description \($0)",
-                    author: nil,
-                    createdAt: Date()
-                 )},
-                 watchersCount: Int.random(in: 0 ... 50),
-                 readmeURL: "https://package-readme",
-                 license: PackageCollectionsModel.License(type: .Apache2_0, url: "https://package-license"),
-                 authors: (0 ..< Int.random(in: 1 ... 10)).map { .init(username: "\($0)", url: nil, service: nil) },
-                 languages: ["Swift"])
+    return .init(
+        summary: UUID().uuidString,
+        keywords: (0..<Int.random(in: 1...3)).map { "keyword \($0)" },
+        versions: (0..<Int.random(in: 1...10)).map {
+            .init(
+                version: TSCUtility.Version($0, 0, 0),
+                title: "title \($0)",
+                summary: "description \($0)",
+                author: nil,
+                createdAt: Date()
+            )
+        },
+        watchersCount: Int.random(in: 0...50),
+        readmeURL: "https://package-readme",
+        license: PackageCollectionsModel.License(type: .Apache2_0, url: "https://package-license"),
+        authors: (0..<Int.random(in: 1...10)).map { .init(username: "\($0)", url: nil, service: nil) },
+        languages: ["Swift"]
+    )
 }
 
 func makeMockStorage(_ collectionsStorageConfig: SQLitePackageCollectionsStorage.Configuration = .init()) -> PackageCollections.Storage {

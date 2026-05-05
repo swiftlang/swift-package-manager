@@ -44,7 +44,7 @@ internal actor SBOMVersionCache {
 internal struct ProductCacheKey: Hashable {
     internal let packageIdentity: PackageIdentity
     internal let productName: String
-    
+
     internal init(packageIdentity: PackageIdentity, productName: String) {
         self.packageIdentity = packageIdentity
         self.productName = productName

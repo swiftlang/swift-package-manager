@@ -19,7 +19,7 @@ public struct Context: Sendable {
     private static let model = try! ContextModel.decode()
 
     /// The directory that contains `Package.swift`.
-    public static var packageDirectory : String {
+    public static var packageDirectory: String {
         model.packageDirectory
     }
 
@@ -36,10 +36,10 @@ public struct Context: Sendable {
     }
 
     /// Snapshot of the system environment variables.
-    public static var environment : [String : String] {
+    public static var environment: [String: String] {
         model.environment
     }
-    
+
     private init() {
     }
 }

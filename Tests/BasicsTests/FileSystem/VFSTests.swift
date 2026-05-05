@@ -31,10 +31,9 @@ func testWithTemporaryDirectory(
             try? localFileSystem.chmod(.userWritable, path: tmpDirPath, options: [.recursive])
             try? localFileSystem.removeFileTree(tmpDirPath)
         }
-        try await  body(tmpDirPath)
+        try await body(tmpDirPath)
     }.value
 }
-
 
 struct VFSTests {
     @Test(
@@ -57,7 +56,7 @@ struct VFSTests {
             0x04, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
             0x68, 0x00, 0x00, 0x00, 0x64, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x02
+            0x02,
         ]
 
         let fs = localFileSystem
@@ -71,9 +70,9 @@ struct VFSTests {
 
                 let executable = tempDirPath.appending("exec-foo")
                 try fs.writeFileContents(executable, bytes: ByteString(contents))
-#if !os(Windows)
-                try fs.chmod(.executable, path: executable, options: [])
-#endif
+                #if !os(Windows)
+                    try fs.chmod(.executable, path: executable, options: [])
+                #endif
 
                 let executableSym = tempDirPath.appending("exec-sym")
                 try fs.createSymbolicLink(executableSym, pointingAt: executable, relative: false)
@@ -131,7 +130,7 @@ struct VFSTests {
             // getDirectoryContents()
             let dirContents = try vfs.getDirectoryContents(AbsolutePath("/"))
             #expect(dirContents.sorted() == ["best", "dir", "exec-foo", "exec-sym", "hello"])
-            #expect {try vfs.getDirectoryContents(AbsolutePath("/does-not-exist"))} throws: { error in
+            #expect { try vfs.getDirectoryContents(AbsolutePath("/does-not-exist")) } throws: { error in
                 (error.localizedDescription == "no such file or directory: \(AbsolutePath("/does-not-exist"))")
             }
 

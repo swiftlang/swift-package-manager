@@ -31,7 +31,7 @@ public enum VersionSetSpecifier: Hashable {
 }
 
 extension VersionSetSpecifier: Equatable {
-    public static func ==(lhs: VersionSetSpecifier, rhs: VersionSetSpecifier) -> Bool {
+    public static func == (lhs: VersionSetSpecifier, rhs: VersionSetSpecifier) -> Bool {
         switch (lhs, rhs) {
         // Basic cases.
         case (.any, .any):
@@ -121,14 +121,14 @@ extension VersionSetSpecifier {
                         // 1.0.0..<1.0.1 U 1.0.1..<1.0.1 is 1.0.0..<1.0.2
                         let version = range.lowerBound
                         if last.upperBound == version {
-                            newResult = last.lowerBound ..< version.nextPatch()
+                            newResult = last.lowerBound..<version.nextPatch()
                         } else {
                             continue
                         }
                     } else {
                         let lower = min(last.lowerBound, range.lowerBound)
                         let upper = max(last.upperBound, range.upperBound)
-                        newResult = lower ..< upper
+                        newResult = lower..<upper
                     }
 
                     result[result.count - 1] = newResult
@@ -159,7 +159,7 @@ extension VersionSetSpecifier {
             return VersionSetSpecifier.union(from: [v1..<v1, v2..<v2])
 
         case (.range(let v2), .exact(let v1)),
-             (.exact(let v1), .range(let v2)):
+            (.exact(let v1), .range(let v2)):
             return VersionSetSpecifier.union(from: [v1..<v1, v2])
 
         case (.ranges(let ranges), .exact(let exact)), (.exact(let exact), .ranges(let ranges)):
@@ -208,7 +208,7 @@ extension VersionSetSpecifier {
         case (.ranges(let ranges), .range(let range)), (.range(let range), .ranges(let ranges)):
             return .intersection(ranges, [range])
         case (.ranges(let lhs), .ranges(let rhs)):
-             return .intersection(lhs, rhs)
+            return .intersection(lhs, rhs)
         }
     }
 
@@ -506,12 +506,13 @@ extension VersionSetSpecifier: CustomStringConvertible {
         case .empty:
             return "empty"
         case .ranges(let ranges):
-            return "{" + ranges.map{
-                if $0.lowerBound == $0.upperBound {
-                    return $0.lowerBound.description
-                }
-                return $0.lowerBound.description + "..<" + $0.upperBound.description
-            }.joined(separator: ", ") + "}"
+            return "{"
+                + ranges.map {
+                    if $0.lowerBound == $0.upperBound {
+                        return $0.lowerBound.description
+                    }
+                    return $0.lowerBound.description + "..<" + $0.upperBound.description
+                }.joined(separator: ", ") + "}"
         case .range(let range):
             var upperBound = range.upperBound
             // Patch the version range representation. This shouldn't be
@@ -547,10 +548,12 @@ fileprivate extension Range where Bound == Version {
             return self
         }
 
-        return Range(uncheckedBounds: (
-            lower: self.lowerBound.withoutPrerelease,
-            upper: self.upperBound.withoutPrerelease
-        ))
+        return Range(
+            uncheckedBounds: (
+                lower: self.lowerBound.withoutPrerelease,
+                upper: self.upperBound.withoutPrerelease
+            )
+        )
     }
 }
 

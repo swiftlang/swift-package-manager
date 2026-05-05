@@ -14,17 +14,17 @@ import TSCBasic
 import Foundation
 
 #if SWIFT_PACKAGE && (os(Windows) || os(Android))
-#if USE_IMPL_ONLY_IMPORTS
-@_implementationOnly import SwiftToolchainCSQLite
+    #if USE_IMPL_ONLY_IMPORTS
+        @_implementationOnly import SwiftToolchainCSQLite
+    #else
+        import SwiftToolchainCSQLite
+    #endif
 #else
-import SwiftToolchainCSQLite
-#endif
-#else
-#if USE_IMPL_ONLY_IMPORTS
-@_implementationOnly import SPMSQLite3
-#else
-import SPMSQLite3
-#endif
+    #if USE_IMPL_ONLY_IMPORTS
+        @_implementationOnly import SPMSQLite3
+    #else
+        import SPMSQLite3
+    #endif
 #endif
 
 /// A minimal SQLite wrapper.
@@ -128,7 +128,8 @@ package final class SQLite {
         package var busyTimeoutSeconds: Int32 {
             get {
                 self._busyTimeoutSeconds
-            } set {
+            }
+            set {
                 self._busyTimeoutSeconds = newValue
             }
         }
@@ -137,7 +138,8 @@ package final class SQLite {
         internal var _busyTimeoutSeconds: Int32 {
             get {
                 Int32(truncatingIfNeeded: Int(Double(self.busyTimeoutMilliseconds) / 1000))
-            } set {
+            }
+            set {
                 self.busyTimeoutMilliseconds = newValue * 1000
             }
         }
@@ -325,7 +327,7 @@ private func sqlite_callback(
     let numColumns = Int(numColumns)
     var result: [SQLite.Column] = []
 
-    for idx in 0 ..< numColumns {
+    for idx in 0..<numColumns {
         var name = ""
         if let ptr = columnNames.advanced(by: idx).pointee {
             name = String(cString: ptr)

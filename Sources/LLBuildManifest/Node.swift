@@ -38,7 +38,7 @@ public struct Node: Hashable, Codable {
         self.kind = kind
         self.attributes = attributes
     }
-    
+
     /// Extracts `name` property if this node was constructed as `Node//virtual`.
     public var extractedVirtualNodeName: String {
         precondition(kind == .virtual)

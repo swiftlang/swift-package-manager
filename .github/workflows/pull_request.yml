@@ -81,7 +81,8 @@ jobs:
       license_header_check_enabled: true
       unacceptable_language_check_enabled: true
       api_breakage_check_enabled: false
-      format_check_enabled: false
+      format_check_enabled: true
+      format_check_container_image: "swiftlang/swift:nightly-main"
       shell_check_enabled: false
       docs_check_enabled: true
       broken_symlink_check_enabled: true

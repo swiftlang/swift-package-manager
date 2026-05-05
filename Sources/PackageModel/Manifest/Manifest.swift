@@ -157,32 +157,32 @@ public final class Manifest: Sendable {
     /// Returns the targets required for a particular product filter.
     public func targetsRequired(for productFilter: ProductFilter) -> [TargetDescription] {
         #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
-        // If we have already calculated it, returned the cached value.
-        if let targets = _requiredTargets[productFilter] {
-            return targets
-        } else {
-            let targets: [TargetDescription]
-            switch productFilter {
-            case .everything:
-                return self.targets
-            case .specific(let productFilter):
-                let products = self.products.filter { productFilter.contains($0.name) }
-                targets = self.targetsRequired(for: products)
-            }
+            // If we have already calculated it, returned the cached value.
+            if let targets = _requiredTargets[productFilter] {
+                return targets
+            } else {
+                let targets: [TargetDescription]
+                switch productFilter {
+                case .everything:
+                    return self.targets
+                case .specific(let productFilter):
+                    let products = self.products.filter { productFilter.contains($0.name) }
+                    targets = self.targetsRequired(for: products)
+                }
 
-            self._requiredTargets[productFilter] = targets
-            return targets
-        }
+                self._requiredTargets[productFilter] = targets
+                return targets
+            }
         #else
-        // using .nothing as cache key while ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION is false
-        if let targets = self._requiredTargets[.nothing] {
-            return targets
-        } else {
-            let targets = self.packageKind.isRoot ? self.targets : self.targetsRequired(for: self.products)
             // using .nothing as cache key while ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION is false
-            self._requiredTargets[.nothing] = targets
-            return targets
-        }
+            if let targets = self._requiredTargets[.nothing] {
+                return targets
+            } else {
+                let targets = self.packageKind.isRoot ? self.targets : self.targetsRequired(for: self.products)
+                // using .nothing as cache key while ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION is false
+                self._requiredTargets[.nothing] = targets
+                return targets
+            }
         #endif
     }
 
@@ -212,7 +212,7 @@ public final class Manifest: Sendable {
                 var result = false
                 for guardedTargetDeps in traitGuardedDeps[$0.identity.description] ?? [] {
                     if let guardTraits = guardedTargetDeps.condition?.traits, !guardTraits.isEmpty,
-                       let explicitlyEnabledTraits
+                        let explicitlyEnabledTraits
                     {
                         result = result || !guardTraits.allSatisfy { explicitlyEnabledTraits.contains($0) }
                     }
@@ -228,7 +228,7 @@ public final class Manifest: Sendable {
                 var result = false
                 for guardedTargetDeps in traitGuardedDeps[$0.identity.description] ?? [] {
                     if let guardTraits = guardedTargetDeps.condition?.traits, !guardTraits.isEmpty,
-                       let explicitlyEnabledTraits
+                        let explicitlyEnabledTraits
                     {
                         result = result || !guardTraits.allSatisfy { explicitlyEnabledTraits.contains($0) }
                     }
@@ -244,13 +244,12 @@ public final class Manifest: Sendable {
 
                 for targetDependency in target.dependencies {
                     guard let dependency = self.packageDependency(referencedBy: targetDependency),
-                          let guardingTraits = traitGuardedTargetDeps[targetDependency]
+                        let guardingTraits = traitGuardedTargetDeps[targetDependency]
                     else {
                         continue
                     }
 
-                    if guardingTraits.intersection(enabledTraits.names) != guardingTraits
-                    {
+                    if guardingTraits.intersection(enabledTraits.names) != guardingTraits {
                         guardedDependencies.insert(dependency.identity)
                     }
                 }
@@ -269,62 +268,64 @@ public final class Manifest: Sendable {
         _ enabledTraits: EnabledTraits = ["default"]
     ) throws -> [PackageDependency] {
         #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
-        // If we have already calculated it, returned the cached value.
-        if let dependencies = self._requiredDependencies[productFilter] {
-            return dependencies
-        } else {
-            let targets = self.targetsRequired(for: productFilter)
-            let dependencies = self.dependenciesRequired(
-                for: targets,
-                keepUnused: productFilter == .everything,
-                traitConfiguration
-            )
-            self._requiredDependencies[productFilter] = dependencies
-            return dependencies
-        }
+            // If we have already calculated it, returned the cached value.
+            if let dependencies = self._requiredDependencies[productFilter] {
+                return dependencies
+            } else {
+                let targets = self.targetsRequired(for: productFilter)
+                let dependencies = self.dependenciesRequired(
+                    for: targets,
+                    keepUnused: productFilter == .everything,
+                    traitConfiguration
+                )
+                self._requiredDependencies[productFilter] = dependencies
+                return dependencies
+            }
         #else
 
-        guard self.toolsVersion >= .v5_2 && !self.packageKind.isRoot else {
-            var dependencies = self.dependencies
+            guard self.toolsVersion >= .v5_2 && !self.packageKind.isRoot else {
+                var dependencies = self.dependencies
                 dependencies = try dependencies.filter({
                     let isUsed = try self.isPackageDependencyUsed($0, enabledTraits: enabledTraits)
                     return isUsed
                 })
-            return dependencies
-        }
+                return dependencies
+            }
 
-        // using .nothing as cache key while ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION is false
-        if var dependencies = self._requiredDependencies[.nothing] {
+            // using .nothing as cache key while ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION is false
+            if var dependencies = self._requiredDependencies[.nothing] {
                 dependencies = try dependencies.filter({
                     return try self.isPackageDependencyUsed($0, enabledTraits: enabledTraits)
                 })
-            return dependencies
-        } else {
-            var requiredDependencies: Set<PackageIdentity> = []
-            for target in self.targetsRequired(for: self.products) {
-                for targetDependency in target.dependencies {
-                    guard try self.isTargetDependencyEnabled(
-                        target: target.name,
-                        targetDependency,
-                        enabledTraits: enabledTraits
-                    ) else { continue }
-                    if let dependency = self.packageDependency(referencedBy: targetDependency) {
-                        requiredDependencies.insert(dependency.identity)
+                return dependencies
+            } else {
+                var requiredDependencies: Set<PackageIdentity> = []
+                for target in self.targetsRequired(for: self.products) {
+                    for targetDependency in target.dependencies {
+                        guard
+                            try self.isTargetDependencyEnabled(
+                                target: target.name,
+                                targetDependency,
+                                enabledTraits: enabledTraits
+                            )
+                        else { continue }
+                        if let dependency = self.packageDependency(referencedBy: targetDependency) {
+                            requiredDependencies.insert(dependency.identity)
+                        }
+                    }
+
+                    target.pluginUsages?.forEach {
+                        if let dependency = self.packageDependency(referencedBy: $0) {
+                            requiredDependencies.insert(dependency.identity)
+                        }
                     }
                 }
 
-                target.pluginUsages?.forEach {
-                    if let dependency = self.packageDependency(referencedBy: $0) {
-                        requiredDependencies.insert(dependency.identity)
-                    }
-                }
+                let dependencies = self.dependencies.filter { requiredDependencies.contains($0.identity) }
+                // using .nothing as cache key while ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION is false
+                self._requiredDependencies[.nothing] = dependencies
+                return dependencies
             }
-
-            let dependencies = self.dependencies.filter { requiredDependencies.contains($0.identity) }
-            // using .nothing as cache key while ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION is false
-            self._requiredDependencies[.nothing] = dependencies
-            return dependencies
-        }
         #endif
     }
 
@@ -334,40 +335,44 @@ public final class Manifest: Sendable {
         let targetsByName = Dictionary(targets.map { ($0.name, $0) }, uniquingKeysWith: { $1 })
         let productTargetNames = products.flatMap(\.targets)
 
-        let dependentTargetNames = transitiveClosure(productTargetNames, successors: { targetName in
+        let dependentTargetNames = transitiveClosure(
+            productTargetNames,
+            successors: { targetName in
 
-            if let target = targetsByName[targetName] {
-                let dependencies: [String] = target.dependencies.compactMap { dependency in
-                    switch dependency {
-                    case .target(let name, _),
-                         .byName(let name, _):
-                        targetsByName.keys.contains(name) ? name : nil
-                    default:
-                        nil
-                    }
-                }
-
-                let plugins: [String] = target.pluginUsages?.compactMap { pluginUsage in
-                    switch pluginUsage {
-                    case .plugin(name: let name, package: nil):
-                        if targetsByName.keys.contains(name) {
-                            name
-                        } else if let targetName = productsByName[name]?.targets.first {
-                            targetName
-                        } else {
+                if let target = targetsByName[targetName] {
+                    let dependencies: [String] = target.dependencies.compactMap { dependency in
+                        switch dependency {
+                        case .target(let name, _),
+                            .byName(let name, _):
+                            targetsByName.keys.contains(name) ? name : nil
+                        default:
                             nil
                         }
-                    default:
-                        nil
                     }
-                } ?? []
 
-                return dependencies + plugins
+                    let plugins: [String] =
+                        target.pluginUsages?.compactMap { pluginUsage in
+                            switch pluginUsage {
+                            case .plugin(name: let name, package: nil):
+                                if targetsByName.keys.contains(name) {
+                                    name
+                                } else if let targetName = productsByName[name]?.targets.first {
+                                    targetName
+                                } else {
+                                    nil
+                                }
+                            default:
+                                nil
+                            }
+                        } ?? []
+
+                    return dependencies + plugins
+                }
+
+                return []
+
             }
-
-            return []
-
-        })
+        )
 
         let requiredTargetNames = Set(productTargetNames).union(dependentTargetNames)
         let requiredTargets = requiredTargetNames.compactMap { targetsByName[$0] }
@@ -431,7 +436,7 @@ public final class Manifest: Sendable {
 
         switch targetDependency {
         case .product(_, package: let name?, _, _),
-             .byName(name: let name, _):
+            .byName(name: let name, _):
             packageName = name
         default:
             return nil
@@ -488,7 +493,7 @@ public final class Manifest: Sendable {
         case .target:
             break
         case .product(let product, let package, _, _):
-            if let package { // ≥ 5.2
+            if let package {  // ≥ 5.2
                 if !self.register(
                     product: product,
                     inPackage: self.packageIdentity(referencedBy: package),
@@ -499,7 +504,7 @@ public final class Manifest: Sendable {
                     // Treating it as unknown gracefully allows resolution to continue for now.
                     registry.unknown.insert(product)
                 }
-            } else { // < 5.2
+            } else {  // < 5.2
                 registry.unknown.insert(product)
             }
         case .byName(let product, _):
@@ -511,7 +516,7 @@ public final class Manifest: Sendable {
                 } else {
                     registry.unknown.insert(product)
                 }
-            } else { // ≥ 5.2
+            } else {  // ≥ 5.2
                 // If a by‐name entry is a product, it must be in a package of the same name.
                 if !self.register(
                     product: product,
@@ -631,9 +636,9 @@ extension Manifest: CustomStringConvertible {
 extension Manifest: Encodable {
     private enum CodingKeys: CodingKey {
         case name, path, url, version, targetMap, toolsVersion,
-             pkgConfig, providers, cLanguageStandard, cxxLanguageStandard, swiftLanguageVersions,
-             dependencies, products, targets, traits, platforms, packageKind, revision,
-             defaultLocalization
+            pkgConfig, providers, cLanguageStandard, cxxLanguageStandard, swiftLanguageVersions,
+            dependencies, products, targets, traits, platforms, packageKind, revision,
+            defaultLocalization
     }
 
     /// Coding user info key for dump-package command.

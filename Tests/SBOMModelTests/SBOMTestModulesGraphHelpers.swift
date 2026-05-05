@@ -23,7 +23,7 @@ struct SBOMTestCase {
     let graph: ModulesGraph
     let store: ResolvedPackagesStore
     let expectations: TestExpectations
-    
+
     struct TestExpectations {
         let totalComponentCount: Int
         let expectedPackageIds: Set<String>
@@ -32,7 +32,7 @@ struct SBOMTestCase {
         let expectedRootProductCount: Int
         let expectedRootProductNames: Set<String>
     }
-    
+
     /// Creates a test case for the simple test graph
     static func createSimpleTestCase() throws -> SBOMTestCase {
         let graph = try SBOMTestModulesGraph.createSimpleModulesGraph()
@@ -52,7 +52,7 @@ struct SBOMTestCase {
             expectations: expectations
         )
     }
-    
+
     /// Creates a test case for the SPM test graph
     static func createSPMTestCase(rootPath: String = "/swift-package-manager") throws -> SBOMTestCase {
         let graph = try SBOMTestModulesGraph.createSPMModulesGraph(rootPath: rootPath)
@@ -88,21 +88,23 @@ struct SBOMTestCase {
             expectations: expectations
         )
     }
-    
+
     /// Creates a test case for the Swiftly test graph
     static func createSwiftlyTestCase(rootPath: String = "/tmp/swiftly-mock") throws -> SBOMTestCase {
         let graph = try SBOMTestModulesGraph.createSwiftlyModulesGraph(rootPath: rootPath)
         let store = try SBOMTestStore.createSwiftlyResolvedPackagesStore()
         let expectations = TestExpectations(
             totalComponentCount: 64,
-            expectedPackageIds: Set(["swift-nio-http2", "swift-tools-support-core",
-                                     "swift-nio-transport-services", "swiftly",
-                                     "swift-distributed-tracing", "swift-service-context", "swift-nio-ssl",
-                                     "swift-nio", "swift-collections", "swift-system", "swift-algorithms",
-                                     "swift-openapi-generator", "swift-openapi-async-http-client",
-                                     "swift-argument-parser", "openapikit", "yams", "swift-subprocess",
-                                     "async-http-client", "swift-log", "swift-atomics", "swift-numerics",
-                                     "swift-openapi-runtime", "swift-http-types", "swift-nio-extras"]),
+            expectedPackageIds: Set([
+                "swift-nio-http2", "swift-tools-support-core",
+                "swift-nio-transport-services", "swiftly",
+                "swift-distributed-tracing", "swift-service-context", "swift-nio-ssl",
+                "swift-nio", "swift-collections", "swift-system", "swift-algorithms",
+                "swift-openapi-generator", "swift-openapi-async-http-client",
+                "swift-argument-parser", "openapikit", "yams", "swift-subprocess",
+                "async-http-client", "swift-log", "swift-atomics", "swift-numerics",
+                "swift-openapi-runtime", "swift-http-types", "swift-nio-extras",
+            ]),
             rootPackage: "swiftly",
             rootPackagePrefix: "swiftly:",
             expectedRootProductCount: 6,

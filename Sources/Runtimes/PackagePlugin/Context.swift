@@ -53,7 +53,7 @@ public struct PluginContext {
     public let pluginWorkDirectoryURL: URL
 
     /// Looks up and returns the path of a named command line executable.
-    /// 
+    ///
     /// The executable must be provided by an executable target or binary
     /// target on which the package plugin target depends. This function throws
     /// an error if the tool cannot be found. The lookup is case sensitive.
@@ -72,9 +72,9 @@ public struct PluginContext {
         } else {
             for dir in self.toolSearchDirectoryURLs {
                 #if os(Windows)
-                let hostExecutableSuffix = ".exe"
+                    let hostExecutableSuffix = ".exe"
                 #else
-                let hostExecutableSuffix = ""
+                    let hostExecutableSuffix = ""
                 #endif
                 let pathURL = dir.appendingPathComponent(name + hostExecutableSuffix)
                 let path = try Path(url: pathURL)

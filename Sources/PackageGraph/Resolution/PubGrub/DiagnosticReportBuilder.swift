@@ -158,8 +158,11 @@ struct DiagnosticReportBuilder {
                     return
                 }
 
-                let collapsedDerived = derivedCause.conflict.cause.isConflict ? derivedCause.conflict : derivedCause
-                    .other
+                let collapsedDerived =
+                    derivedCause.conflict.cause.isConflict
+                    ? derivedCause.conflict
+                    : derivedCause
+                        .other
                 let collapsedExt = derivedCause.conflict.cause.isConflict ? derivedCause.other : derivedCause.conflict
 
                 try await self.visit(collapsedDerived)
@@ -228,10 +231,13 @@ struct DiagnosticReportBuilder {
         let terms = incompatibility.terms
         if terms.count == 1 {
             let term = terms.first!
-            let prefix = try await hasEffectivelyAnyRequirement(term) ? term.node.nameForDiagnostics : self.description(
-                for: term,
-                normalizeRange: true
-            )
+            let prefix =
+                try await hasEffectivelyAnyRequirement(term)
+                ? term.node.nameForDiagnostics
+                : self.description(
+                    for: term,
+                    normalizeRange: true
+                )
             return "\(prefix) " + (term.isPositive ? "cannot be used" : "is required")
         } else if terms.count == 2 {
             let term1 = terms.first!
@@ -338,12 +344,14 @@ struct DiagnosticReportBuilder {
                 return "\(name) < \(range.upperBound)"
             }
         case .ranges(let ranges):
-            let ranges = "{" + ranges.map {
-                if $0.lowerBound == $0.upperBound {
-                    return $0.lowerBound.description
-                }
-                return $0.lowerBound.description + "..<" + $0.upperBound.description
-            }.joined(separator: ", ") + "}"
+            let ranges =
+                "{"
+                + ranges.map {
+                    if $0.lowerBound == $0.upperBound {
+                        return $0.lowerBound.description
+                    }
+                    return $0.lowerBound.description + "..<" + $0.upperBound.description
+                }.joined(separator: ", ") + "}"
             return "\(name) \(ranges)"
         }
     }

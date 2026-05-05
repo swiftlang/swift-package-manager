@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-
 @testable import PackageGraph
 import XCTest
 
@@ -53,7 +52,7 @@ final class TopologicalSortTests: XCTestCase {
         let diamond: [Int: [Int]] = [
             1: [3, 2],
             2: [4],
-            3: [4]
+            3: [4],
         ]
         XCTAssertEqual([1, 2, 3, 4], try topologicalSort(1, diamond))
         XCTAssertEqual([2, 3, 4], try topologicalSort([3, 2], diamond))

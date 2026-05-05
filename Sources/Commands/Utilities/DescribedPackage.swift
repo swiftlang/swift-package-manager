@@ -20,7 +20,7 @@ import func TSCBasic.transitiveClosure
 
 /// Represents a package for the sole purpose of generating a description.
 struct DescribedPackage: Encodable {
-    let name: String // for backwards compatibility
+    let name: String  // for backwards compatibility
     let manifestDisplayName: String
     let path: String
     let toolsVersion: String
@@ -35,15 +35,16 @@ struct DescribedPackage: Encodable {
 
     init(from package: Package) {
         self.manifestDisplayName = package.manifest.displayName
-        self.name = self.manifestDisplayName // TODO: deprecate, backwards compatibility 11/2021
+        self.name = self.manifestDisplayName  // TODO: deprecate, backwards compatibility 11/2021
         self.path = package.path.pathString
-        self.toolsVersion = "\(package.manifest.toolsVersion.major).\(package.manifest.toolsVersion.minor)"
-        + (package.manifest.toolsVersion.patch == 0 ? "" : ".\(package.manifest.toolsVersion.patch)")
+        self.toolsVersion =
+            "\(package.manifest.toolsVersion.major).\(package.manifest.toolsVersion.minor)"
+            + (package.manifest.toolsVersion.patch == 0 ? "" : ".\(package.manifest.toolsVersion.patch)")
         self.dependencies = package.manifest.dependencies.map { DescribedPackageDependency(from: $0) }
         self.defaultLocalization = package.manifest.defaultLocalization
         self.platforms = package.manifest.platforms.map { DescribedPlatformRestriction(from: $0) }
         // SwiftPM considers tests to be products, which is not how things are presented in the manifest.
-        let nonTestProducts = package.products.filter{ $0.type != .test }
+        let nonTestProducts = package.products.filter { $0.type != .test }
         self.products = nonTestProducts.map {
             DescribedProduct(from: $0, in: package)
         }
@@ -51,33 +52,36 @@ struct DescribedPackage: Encodable {
         // contributions that occur through `.product()` dependencies, but since those targets are still part of a
         // product of the package, the set of targets that contribute to products still accurately represents the
         // set of targets reachable from external clients.
-        let targetProductPairs = nonTestProducts.flatMap{ p in
-            transitiveClosure(p.modules, successors: {
-                $0.dependencies.compactMap{ $0.module }
-            }).union(p.modules).map{ t in (t, p) }
+        let targetProductPairs = nonTestProducts.flatMap { p in
+            transitiveClosure(
+                p.modules,
+                successors: {
+                    $0.dependencies.compactMap { $0.module }
+                }
+            ).union(p.modules).map { t in (t, p) }
         }
-        let targetsToProducts = Dictionary(targetProductPairs.map{ ($0.0, [$0.1]) }, uniquingKeysWith: { $0 + $1 })
+        let targetsToProducts = Dictionary(targetProductPairs.map { ($0.0, [$0.1]) }, uniquingKeysWith: { $0 + $1 })
         self.targets = package.modules.map {
-            return DescribedTarget(from: $0, in: package, productMemberships: targetsToProducts[$0]?.map{ $0.name })
+            return DescribedTarget(from: $0, in: package, productMemberships: targetsToProducts[$0]?.map { $0.name })
         }
         self.cLanguageStandard = package.manifest.cLanguageStandard
         self.cxxLanguageStandard = package.manifest.cxxLanguageStandard
-        self.swiftLanguagesVersions = package.manifest.swiftLanguageVersions?.map{ $0.description }
+        self.swiftLanguagesVersions = package.manifest.swiftLanguageVersions?.map { $0.description }
     }
-    
+
     /// Represents a platform restriction for the sole purpose of generating a description.
     struct DescribedPlatformRestriction: Encodable {
         let name: String
         let version: String
         let options: [String]?
-        
+
         init(from platform: PlatformDescription) {
             self.name = platform.platformName
             self.version = platform.version
             self.options = platform.options.isEmpty ? nil : platform.options
         }
     }
-    
+
     /// Represents a package dependency for the sole purpose of generating a description.
     enum DescribedPackageDependency: Encodable {
         case fileSystem(identity: PackageIdentity, path: AbsolutePath)
@@ -162,15 +166,15 @@ struct DescribedPackage: Encodable {
             case .command(let intent, let permissions):
                 self.type = "command"
                 self.intent = .init(from: intent)
-                self.permissions = permissions.map{ .init(from: $0) }
+                self.permissions = permissions.map { .init(from: $0) }
             }
         }
-        
+
         struct CommandIntent: Encodable {
             let type: String
             let verb: String?
             let description: String?
-            
+
             init(from intent: PackageModel.PluginCommandIntent) {
                 switch intent {
                 case .documentationGeneration:
@@ -211,7 +215,7 @@ struct DescribedPackage: Encodable {
             let type: String
             let reason: String
             let networkScope: NetworkScope
-            
+
             init(from permission: PackageModel.PluginPermission) {
                 switch permission {
                 case .writeToPackageDirectory(let reason):
@@ -240,20 +244,20 @@ struct DescribedPackage: Encodable {
         let targetDependencies: [String]?
         let productDependencies: [String]?
         let productMemberships: [String]?
-        
+
         init(from target: Module, in package: Package, productMemberships: [String]?) {
             self.name = target.name
             self.type = target.type.rawValue
             self.c99name = target.c99name
             self.moduleType = Swift.type(of: target).typeDescription
-            self.pluginCapability = (target as? PluginModule).map{ DescribedPluginCapability(from: $0.capability, in: package) }
+            self.pluginCapability = (target as? PluginModule).map { DescribedPluginCapability(from: $0.capability, in: package) }
             self.path = target.sources.root.relative(to: package.path).pathString
-            self.sources = target.sources.relativePaths.map{ $0.pathString }
+            self.sources = target.sources.relativePaths.map { $0.pathString }
             self.resources = target.resources.isEmpty ? nil : target.resources
-            let targetDependencies = target.dependencies.compactMap{ $0.module }
-            self.targetDependencies = targetDependencies.isEmpty ? nil : targetDependencies.map{ $0.name }
-            let productDependencies = target.dependencies.compactMap{ $0.product }
-            self.productDependencies = productDependencies.isEmpty ? nil : productDependencies.map{ $0.name }
+            let targetDependencies = target.dependencies.compactMap { $0.module }
+            self.targetDependencies = targetDependencies.isEmpty ? nil : targetDependencies.map { $0.name }
+            let productDependencies = target.dependencies.compactMap { $0.product }
+            self.productDependencies = productDependencies.isEmpty ? nil : productDependencies.map { $0.name }
             self.productMemberships = productMemberships
         }
     }

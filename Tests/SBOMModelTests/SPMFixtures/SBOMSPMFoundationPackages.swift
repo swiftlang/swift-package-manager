@@ -62,7 +62,7 @@ extension SBOMTestModulesGraph {
             packageIdentity: identity,
             module: systemPackageModule,
             dependencies: [
-                .module(resolvedCSystemModule, conditions: []),
+                .module(resolvedCSystemModule, conditions: [])
             ]
         )
 
@@ -196,7 +196,7 @@ extension SBOMTestModulesGraph {
             packageIdentity: identity,
             module: bitCollectionsModule,
             dependencies: [
-                .module(resolvedInternalCollectionsUtilitiesModule, conditions: []),
+                .module(resolvedInternalCollectionsUtilitiesModule, conditions: [])
             ]
         )
 
@@ -204,7 +204,7 @@ extension SBOMTestModulesGraph {
             packageIdentity: identity,
             module: dequeModuleModule,
             dependencies: [
-                .module(resolvedInternalCollectionsUtilitiesModule, conditions: []),
+                .module(resolvedInternalCollectionsUtilitiesModule, conditions: [])
             ]
         )
 
@@ -212,7 +212,7 @@ extension SBOMTestModulesGraph {
             packageIdentity: identity,
             module: hashTreeCollectionsModule,
             dependencies: [
-                .module(resolvedInternalCollectionsUtilitiesModule, conditions: []),
+                .module(resolvedInternalCollectionsUtilitiesModule, conditions: [])
             ]
         )
 
@@ -220,7 +220,7 @@ extension SBOMTestModulesGraph {
             packageIdentity: identity,
             module: heapModuleModule,
             dependencies: [
-                .module(resolvedInternalCollectionsUtilitiesModule, conditions: []),
+                .module(resolvedInternalCollectionsUtilitiesModule, conditions: [])
             ]
         )
 
@@ -228,7 +228,7 @@ extension SBOMTestModulesGraph {
             packageIdentity: identity,
             module: orderedCollectionsModule,
             dependencies: [
-                .module(resolvedInternalCollectionsUtilitiesModule, conditions: []),
+                .module(resolvedInternalCollectionsUtilitiesModule, conditions: [])
             ]
         )
 
@@ -236,7 +236,7 @@ extension SBOMTestModulesGraph {
             packageIdentity: identity,
             module: ropeModuleModule,
             dependencies: [
-                .module(resolvedInternalCollectionsUtilitiesModule, conditions: []),
+                .module(resolvedInternalCollectionsUtilitiesModule, conditions: [])
             ]
         )
 
@@ -425,7 +425,7 @@ extension SBOMTestModulesGraph {
             packageIdentity: identity,
             module: argumentParserModule,
             dependencies: [
-                .module(resolvedArgumentParserToolInfoModule, conditions: []),
+                .module(resolvedArgumentParserToolInfoModule, conditions: [])
             ]
         )
 
@@ -451,7 +451,7 @@ extension SBOMTestModulesGraph {
             packageIdentity: identity,
             module: generateDoccReferenceModule,
             dependencies: [
-                .module(resolvedGenerateDoccReferenceExecModule, conditions: []),
+                .module(resolvedGenerateDoccReferenceExecModule, conditions: [])
             ]
         )
 
@@ -459,7 +459,7 @@ extension SBOMTestModulesGraph {
             packageIdentity: identity,
             module: generateManualModule,
             dependencies: [
-                .module(resolvedGenerateManualExecModule, conditions: []),
+                .module(resolvedGenerateManualExecModule, conditions: [])
             ]
         )
 
@@ -591,7 +591,7 @@ extension SBOMTestModulesGraph {
             packageIdentity: identity,
             module: sqliteModule,
             dependencies: [
-                .module(resolvedSwiftToolchainCSQLiteModule, conditions: []),
+                .module(resolvedSwiftToolchainCSQLiteModule, conditions: [])
             ]
         )
 

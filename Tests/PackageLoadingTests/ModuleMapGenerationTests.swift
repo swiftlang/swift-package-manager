@@ -20,36 +20,42 @@ final class ModuleMapGeneration: XCTestCase {
     func testModuleNameHeaderInInclude() throws {
         let root: AbsolutePath = .root
 
-        let fs = InMemoryFileSystem(emptyFiles:
-            root.appending(components: "include", "Foo.h").pathString,
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                root.appending(components: "include", "Foo.h").pathString,
             root.appending(components: "Foo.c").pathString
         )
         ModuleMapTester("Foo", in: fs) { result in
-            result.check(contents: """
-            module Foo {
-                umbrella header "\(root.appending(components: "include", "Foo.h"))"
-                export *
-            }
+            result.check(
+                contents: """
+                    module Foo {
+                        umbrella header "\(root.appending(components: "include", "Foo.h"))"
+                        export *
+                    }
 
-            """)
+                    """
+            )
         }
     }
 
     func testModuleNameDirAndHeaderInInclude() throws {
         let root: AbsolutePath = .root
 
-        let fs = InMemoryFileSystem(emptyFiles:
-            root.appending(components: "include", "Foo", "Foo.h").pathString,
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                root.appending(components: "include", "Foo", "Foo.h").pathString,
             root.appending(components: "Foo.c").pathString
         )
         ModuleMapTester("Foo", in: fs) { result in
-            result.check(contents: """
-            module Foo {
-                umbrella header "\(root.appending(components: "include", "Foo", "Foo.h").pathString)"
-                export *
-            }
+            result.check(
+                contents: """
+                    module Foo {
+                        umbrella header "\(root.appending(components: "include", "Foo", "Foo.h").pathString)"
+                        export *
+                    }
 
-            """)
+                    """
+            )
         }
     }
 
@@ -57,56 +63,66 @@ final class ModuleMapGeneration: XCTestCase {
         let root: AbsolutePath = .root
         var fs: InMemoryFileSystem
 
-        fs = InMemoryFileSystem(emptyFiles:
+        fs = InMemoryFileSystem(
+            emptyFiles:
+                root.appending(components: "include", "Bar.h").pathString,
+            root.appending(components: "Foo.c").pathString
+        )
+        ModuleMapTester("Foo", in: fs) { result in
+            result.check(
+                contents: """
+                    module Foo {
+                        umbrella "\(root.appending(components: "include"))"
+                        export *
+                    }
+
+                    """
+            )
+        }
+
+        fs = InMemoryFileSystem(
+            emptyFiles:
+                root.appending(components: "include", "Baz.h").pathString,
             root.appending(components: "include", "Bar.h").pathString,
             root.appending(components: "Foo.c").pathString
         )
         ModuleMapTester("Foo", in: fs) { result in
-            result.check(contents: """
-            module Foo {
-                umbrella "\(root.appending(components: "include"))"
-                export *
-            }
+            result.check(
+                contents: """
+                    module Foo {
+                        umbrella "\(root.appending(components: "include"))"
+                        export *
+                    }
 
-            """)
+                    """
+            )
         }
 
-        fs = InMemoryFileSystem(emptyFiles:
-            root.appending(components: "include", "Baz.h").pathString,
-            root.appending(components: "include", "Bar.h").pathString,
-            root.appending(components: "Foo.c").pathString
-        )
-        ModuleMapTester("Foo", in: fs) { result in
-            result.check(contents: """
-            module Foo {
-                umbrella "\(root.appending(components: "include"))"
-                export *
-            }
-
-            """)
-        }
-
-        fs = InMemoryFileSystem(emptyFiles:
-            root.appending(components: "include", "Baz", "Foo.h").pathString,
+        fs = InMemoryFileSystem(
+            emptyFiles:
+                root.appending(components: "include", "Baz", "Foo.h").pathString,
             root.appending(components: "include", "Bar", "Bar.h").pathString,
             root.appending(components: "Foo.c").pathString
         )
         ModuleMapTester("Foo", in: fs) { result in
-            result.check(contents: """
-            module Foo {
-                umbrella "\(root.appending(components: "include"))"
-                export *
-            }
+            result.check(
+                contents: """
+                    module Foo {
+                        umbrella "\(root.appending(components: "include"))"
+                        export *
+                    }
 
-            """)
+                    """
+            )
         }
     }
 
     func testWarnings() throws {
         let root: AbsolutePath = .root
 
-        var fs = InMemoryFileSystem(emptyFiles:
-            root.appending(components: "Foo.c").pathString
+        var fs = InMemoryFileSystem(
+            emptyFiles:
+                root.appending(components: "Foo.c").pathString
         )
         ModuleMapTester("Foo", in: fs) { result in
             result.checkNotCreated()
@@ -119,18 +135,21 @@ final class ModuleMapGeneration: XCTestCase {
             }
         }
 
-        fs = InMemoryFileSystem(emptyFiles:
-            root.appending(components: "include", "F-o-o.h").pathString,
+        fs = InMemoryFileSystem(
+            emptyFiles:
+                root.appending(components: "include", "F-o-o.h").pathString,
             root.appending(components: "Foo.c").pathString
         )
         ModuleMapTester("F-o-o", in: fs) { result in
-            result.check(contents: """
-                module F_o_o {
-                    umbrella "\(root.appending(components: "include"))"
-                    export *
-                }
+            result.check(
+                contents: """
+                    module F_o_o {
+                        umbrella "\(root.appending(components: "include"))"
+                        export *
+                    }
 
-                """)
+                    """
+            )
             result.checkDiagnostics { result in
                 let diagnostic = result.check(
                     diagnostic: "\(root.appending(components: "include", "F-o-o.h")) should be renamed to \(root.appending(components: "include", "F_o_o.h")) to be used as an umbrella header",
@@ -144,8 +163,9 @@ final class ModuleMapGeneration: XCTestCase {
     func testUnsupportedLayouts() throws {
         let include: AbsolutePath = "/include"
 
-        var fs = InMemoryFileSystem(emptyFiles:
-            include.appending(components: "Foo", "Foo.h").pathString,
+        var fs = InMemoryFileSystem(
+            emptyFiles:
+                include.appending(components: "Foo", "Foo.h").pathString,
             include.appending(components: "Bar", "Foo.h").pathString
         )
         ModuleMapTester("Foo", in: fs) { result in
@@ -159,8 +179,9 @@ final class ModuleMapGeneration: XCTestCase {
             }
         }
 
-        fs = InMemoryFileSystem(emptyFiles:
-            include.appending(components: "Foo.h").pathString,
+        fs = InMemoryFileSystem(
+            emptyFiles:
+                include.appending(components: "Foo.h").pathString,
             include.appending(components: "Bar", "Foo.h").pathString
         )
         ModuleMapTester("Foo", in: fs) { result in
@@ -182,7 +203,7 @@ func ModuleMapTester(_ targetName: String, includeDir: String = "include", in fi
     // Create a module map generator, and determine the type of module map to use for the header directory.  This may emit diagnostics.
     let moduleMapGenerator = ModuleMapGenerator(targetName: targetName, moduleName: targetName.spm_mangledToC99ExtendedIdentifier(), publicHeadersDir: AbsolutePath.root.appending(component: includeDir), fileSystem: fileSystem)
     let moduleMapType = moduleMapGenerator.determineModuleMapType(observabilityScope: observability.topScope)
-    
+
     // Generate a module map and capture any emitted diagnostics.
     let generatedModuleMapPath = AbsolutePath.root.appending(components: "module.modulemap")
     observability.topScope.trap {
@@ -190,11 +211,11 @@ func ModuleMapTester(_ targetName: String, includeDir: String = "include", in fi
             try moduleMapGenerator.generateModuleMap(type: generatedModuleMapType, at: generatedModuleMapPath)
         }
     }
-    
+
     // Invoke the closure to check the results.
     let result = ModuleMapResult(diagnostics: observability.diagnostics, path: generatedModuleMapPath, fs: fileSystem)
     body(result)
-    
+
     // Check for any unexpected diagnostics (the ones the closure didn't check for).
     result.validateDiagnostics()
 }

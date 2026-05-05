@@ -130,7 +130,7 @@ public enum DependencyResolutionNode {
 }
 
 extension DependencyResolutionNode: Equatable {
-    public static func ==(lhs: DependencyResolutionNode, rhs: DependencyResolutionNode) -> Bool {
+    public static func == (lhs: DependencyResolutionNode, rhs: DependencyResolutionNode) -> Bool {
         return (lhs.package, lhs.specificProduct) == (rhs.package, rhs.specificProduct)
     }
 }

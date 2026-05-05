@@ -22,7 +22,7 @@ internal struct CycloneDXExternalReference: Codable, Equatable {
 
     internal init(
         url: URL,
-        refType: RefType 
+        refType: RefType
     ) {
         self.url = url
         self.refType = refType

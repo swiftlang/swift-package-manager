@@ -38,7 +38,7 @@ public struct Package {
     public let origin: PackageOrigin
 
     /// The tools version specified by the resolved version of the package.
-    /// 
+    ///
     /// Behavior is often gated on the tools version to make sure older
     /// packages continue to work as intended.
     public let toolsVersion: ToolsVersion
@@ -97,7 +97,7 @@ public struct ToolsVersion {
 
     /// The patch version.
     public let patch: Int
-    
+
     @_spi(PackagePluginInternal) public init(major: Int, minor: Int, patch: Int) {
         self.major = major
         self.minor = minor
@@ -294,7 +294,7 @@ public enum ModuleKind {
     case test
     /// A module that contains code for a macro.
     @available(_PackageDescription, introduced: 5.9)
-    case macro // FIXME: This should really come from `CompilerPluginSupport` somehow, but we lack the infrastructure to allow that currently.
+    case macro  // FIXME: This should really come from `CompilerPluginSupport` somehow, but we lack the infrastructure to allow that currently.
 }
 
 /// A target consisting of a source code module compiled using Swift.
@@ -641,4 +641,3 @@ extension PathList: Sequence {
         return Iterator(paths: ArraySlice(self.paths.map { try! Path(url: $0) }))
     }
 }
-

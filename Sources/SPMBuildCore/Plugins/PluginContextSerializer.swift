@@ -41,32 +41,32 @@ internal struct PluginContextSerializer {
     var xcodeTargetsToIds: [XcodeProjectRepresentation.Target: WireInput.XcodeTarget.Id] = [:]
     var xcodeProjects: [WireInput.XcodeProject] = []
     var xcodeProjectsToIds: [XcodeProjectRepresentation: WireInput.XcodeProject.Id] = [:]
-    
+
     /// Adds a path to the serialized structure, if it isn't already there.
     /// Either way, this function returns the path's wire ID.
     mutating func serialize(path: Basics.AbsolutePath) throws -> WireInput.URL.Id {
         // If we've already seen the path, just return the wire ID we already assigned to it.
         if let id = pathsToIds[path] { return id }
-        
+
         // Split up the path into a base path and a subpath (currently always with the last path component as the
         // subpath, but this can be optimized where there are sequences of path components with a valence of one).
         let basePathId: Int?
         if path.parentDirectory.isRoot {
             // Windows does not have a single root path like UNIX, so capture the root path itself such that we can rejoin it later
             #if os(Windows)
-            let id = paths.count
-            paths.append(.init(baseURLId: nil, subpath: path.parentDirectory.pathString))
-            pathsToIds[path] = id
-            basePathId = id
+                let id = paths.count
+                paths.append(.init(baseURLId: nil, subpath: path.parentDirectory.pathString))
+                pathsToIds[path] = id
+                basePathId = id
             #else
-            basePathId = nil
+                basePathId = nil
             #endif
         } else {
             basePathId = try serialize(path: path.parentDirectory)
         }
 
         let subpathString = path.basename
-        
+
         // Finally assign the next wire ID to the path, and append a serialized Path record.
         let id = paths.count
         paths.append(.init(baseURLId: basePathId, subpath: subpathString))
@@ -83,22 +83,30 @@ internal struct PluginContextSerializer {
 
         // Construct the FileList
         var targetFiles: [WireInput.File] = []
-        targetFiles.append(contentsOf: try target.underlying.sources.paths.map {
-            .init(basePathId: try serialize(path: $0.parentDirectory), name: $0.basename, type: .source)
-        })
-        targetFiles.append(contentsOf: try target.underlying.resources.map {
-            .init(basePathId: try serialize(path: $0.path.parentDirectory), name: $0.path.basename, type: .resource)
-        })
-        targetFiles.append(contentsOf: try target.underlying.ignored.map {
-            .init(basePathId: try serialize(path: $0.parentDirectory), name: $0.basename, type: .unknown)
-        })
-        targetFiles.append(contentsOf: try target.underlying.others.map {
-            .init(basePathId: try serialize(path: $0.parentDirectory), name: $0.basename, type: .unknown)
-        })
-        
+        targetFiles.append(
+            contentsOf: try target.underlying.sources.paths.map {
+                .init(basePathId: try serialize(path: $0.parentDirectory), name: $0.basename, type: .source)
+            }
+        )
+        targetFiles.append(
+            contentsOf: try target.underlying.resources.map {
+                .init(basePathId: try serialize(path: $0.path.parentDirectory), name: $0.path.basename, type: .resource)
+            }
+        )
+        targetFiles.append(
+            contentsOf: try target.underlying.ignored.map {
+                .init(basePathId: try serialize(path: $0.parentDirectory), name: $0.basename, type: .unknown)
+            }
+        )
+        targetFiles.append(
+            contentsOf: try target.underlying.others.map {
+                .init(basePathId: try serialize(path: $0.parentDirectory), name: $0.basename, type: .unknown)
+            }
+        )
+
         // Create a scope for evaluating build settings.
         let scope = BuildSettings.Scope(target.underlying.buildSettings, environment: buildEnvironment)
-        
+
         // Look at the target and decide what to serialize. At this point we may decide to not serialize it at all.
         let targetInfo: WireInput.Target.TargetInfo
         switch target.underlying {
@@ -109,7 +117,8 @@ internal struct PluginContextSerializer {
                 sourceFiles: targetFiles,
                 compilationConditions: scope.evaluate(.SWIFT_ACTIVE_COMPILATION_CONDITIONS),
                 linkedLibraries: scope.evaluate(.LINK_LIBRARIES),
-                linkedFrameworks: scope.evaluate(.LINK_FRAMEWORKS))
+                linkedFrameworks: scope.evaluate(.LINK_FRAMEWORKS)
+            )
 
         case let target as ClangModule:
             targetInfo = .clangSourceModuleInfo(
@@ -120,7 +129,8 @@ internal struct PluginContextSerializer {
                 headerSearchPaths: scope.evaluate(.HEADER_SEARCH_PATHS),
                 publicHeadersDirId: try serialize(path: target.includeDir),
                 linkedLibraries: scope.evaluate(.LINK_LIBRARIES),
-                linkedFrameworks: scope.evaluate(.LINK_FRAMEWORKS))
+                linkedFrameworks: scope.evaluate(.LINK_FRAMEWORKS)
+            )
 
         case let target as SystemLibraryModule:
             var cFlags: [String] = []
@@ -139,8 +149,7 @@ internal struct PluginContextSerializer {
                         warning: "\(error.interpolationDescription)",
                         metadata: .pkgConfig(pcFile: result.pkgConfigName, targetName: target.name)
                     )
-                }
-                else {
+                } else {
                     cFlags += result.cFlags
                     ldFlags += result.libs
                 }
@@ -149,8 +158,9 @@ internal struct PluginContextSerializer {
             targetInfo = .systemLibraryInfo(
                 pkgConfig: target.pkgConfig,
                 compilerFlags: cFlags,
-                linkerFlags: ldFlags)
-            
+                linkerFlags: ldFlags
+            )
+
         case let target as BinaryModule:
             let artifactKind: WireInput.Target.TargetInfo.BinaryArtifactKind
             switch target.kind {
@@ -172,13 +182,14 @@ internal struct PluginContextSerializer {
             targetInfo = .binaryArtifactInfo(
                 kind: artifactKind,
                 origin: artifactOrigin,
-                artifactId: try serialize(path: target.artifactPath))
-            
+                artifactId: try serialize(path: target.artifactPath)
+            )
+
         default:
             // It's not a type of target that we pass through to the plugin.
             return nil
         }
-        
+
         // We only get this far if we are serializing the target. If so we also serialize its dependencies. This needs to be done before assigning the next wire ID for the target we're serializing, to make sure we end up with the correct one.
         let dependencies: [WireInput.Target.Dependency] = try target.dependencies(satisfying: buildEnvironment).compactMap {
             switch $0 {
@@ -191,11 +202,14 @@ internal struct PluginContextSerializer {
 
         // Finally assign the next wire ID to the target, and append a serialized Target record.
         let id = targets.count
-        targets.append(.init(
-            name: target.name,
-            directoryId: try serialize(path: target.sources.root),
-            dependencies: dependencies,
-            info: targetInfo))
+        targets.append(
+            .init(
+                name: target.name,
+                directoryId: try serialize(path: target.sources.root),
+                dependencies: dependencies,
+                info: targetInfo
+            )
+        )
         targetsToWireIDs[target.id] = id
         return id
     }
@@ -210,7 +224,7 @@ internal struct PluginContextSerializer {
         // Look at the product and decide what to serialize. At this point we may decide to not serialize it at all.
         let productInfo: WireInput.Product.ProductInfo
         switch product.type {
-            
+
         case .executable:
             let mainExecTarget = try product.executableModule
             guard let mainExecTargetId = try serialize(target: mainExecTarget) else {
@@ -232,13 +246,16 @@ internal struct PluginContextSerializer {
             // It's not a type of product that we pass through to the plugin.
             return nil
         }
-        
+
         // Finally assign the next wire ID to the product, and append a serialized Product record.
         let id = products.count
-        products.append(.init(
-            name: product.name,
-            targetIds: try product.modules.compactMap{ try serialize(target: $0) },
-            info: productInfo))
+        products.append(
+            .init(
+                name: product.name,
+                targetIds: try product.modules.compactMap { try serialize(target: $0) },
+                info: productInfo
+            )
+        )
         productsToWireIDs[product.id] = id
         return id
     }
@@ -272,18 +289,22 @@ internal struct PluginContextSerializer {
 
         // Assign the next wire ID to the package, and append a serialized Package record.
         let id = packages.count
-        packages.append(.init(
-            identity: package.identity.description,
-            displayName: package.manifest.displayName,
-            directoryId: try serialize(path: package.path),
-            origin: try origin(for: package),
-            toolsVersion: .init(
-                major: package.manifest.toolsVersion.major,
-                minor: package.manifest.toolsVersion.minor,
-                patch: package.manifest.toolsVersion.patch),
-            dependencies: dependencies,
-            productIds: try package.products.compactMap{ try serialize(product: $0) },
-            targetIds: try package.modules.compactMap{ try serialize(target: $0) }))
+        packages.append(
+            .init(
+                identity: package.identity.description,
+                displayName: package.manifest.displayName,
+                directoryId: try serialize(path: package.path),
+                origin: try origin(for: package),
+                toolsVersion: .init(
+                    major: package.manifest.toolsVersion.major,
+                    minor: package.manifest.toolsVersion.minor,
+                    patch: package.manifest.toolsVersion.patch
+                ),
+                dependencies: dependencies,
+                productIds: try package.products.compactMap { try serialize(product: $0) },
+                targetIds: try package.modules.compactMap { try serialize(target: $0) }
+            )
+        )
         packagesToWireIDs[package.id] = id
         return id
     }
@@ -295,21 +316,25 @@ internal struct PluginContextSerializer {
 
         // Create the list of source files.
         var inputFiles: [WireInput.File] = []
-        inputFiles.append(contentsOf: try xcodeTarget.inputFiles.map {
-            .init(basePathId: try serialize(path: $0.path.parentDirectory), name: $0.path.basename, type: .init($0.role))
-        })
+        inputFiles.append(
+            contentsOf: try xcodeTarget.inputFiles.map {
+                .init(basePathId: try serialize(path: $0.path.parentDirectory), name: $0.path.basename, type: .init($0.role))
+            }
+        )
 
         // Assign the next wire ID to the target, and append a serialized XcodeProject record.
         let id = xcodeTargets.count
-        xcodeTargets.append(.init(
-            displayName: xcodeTarget.displayName,
-            product: xcodeTarget.product.map{ .init(name: $0.name, kind: .init($0.kind)) },
-            dependencies: [],
-            inputFiles: inputFiles))
+        xcodeTargets.append(
+            .init(
+                displayName: xcodeTarget.displayName,
+                product: xcodeTarget.product.map { .init(name: $0.name, kind: .init($0.kind)) },
+                dependencies: [],
+                inputFiles: inputFiles
+            )
+        )
         xcodeTargetsToIds[xcodeTarget] = id
         return id
     }
-
 
     // Adds an Xcode project to the serialized structure, if it isn't already there.
     // Either way, this function returns the project's wire ID.
@@ -319,12 +344,15 @@ internal struct PluginContextSerializer {
 
         // Assign the next wire ID to the project, and append a serialized XcodeProject record.
         let id = xcodeProjects.count
-        xcodeProjects.append(.init(
-            displayName: xcodeProject.displayName,
-            directoryPathId: try serialize(path: xcodeProject.directoryPath),
-            dependencies: [],
-            urlIds: try xcodeProject.filePaths.map { try serialize(path: $0) },
-            targetIds: try xcodeProject.targets.compactMap{ try serialize(xcodeTarget: $0) }))
+        xcodeProjects.append(
+            .init(
+                displayName: xcodeProject.displayName,
+                directoryPathId: try serialize(path: xcodeProject.directoryPath),
+                dependencies: [],
+                urlIds: try xcodeProject.filePaths.map { try serialize(path: $0) },
+                targetIds: try xcodeProject.targets.compactMap { try serialize(xcodeTarget: $0) }
+            )
+        )
         xcodeProjectsToIds[xcodeProject] = id
         return id
     }

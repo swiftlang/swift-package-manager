@@ -14,23 +14,23 @@ import ArgumentParser
 
 /// SBOM specification types supported by SwiftPM.
 /// All version numbers are managed centrally in `SBOMVersionRegistry`.
-/// 
+///
 /// This file only needs to be changed with new major versions like CycloneDX 2 or SPDX 4.
 
 /// Spec is the enum used for the user's CLI arguments
 package enum Spec: String, Codable, Equatable, CaseIterable, ExpressibleByArgument {
     /// Latest major version of CycloneDX (currently maps to `cyclonedx1`)
     case cyclonedx
-    
+
     /// Latest major version of SPDX (currently maps to `spdx3`)
     case spdx
-    
+
     /// CycloneDX v1.x - Latest minor version
     case cyclonedx1
-    
+
     /// SPDX v3.x - Latest minor version
     case spdx3
-    
+
     // Future major versions (uncomment when released):
     //
     // /// CycloneDX v2.x - Latest minor version
@@ -77,7 +77,7 @@ internal struct SBOMSpec: Codable, Equatable, Hashable, Comparable {
     }
 
     internal let concreteSpec: ConcreteSpec
-    
+
     internal var versionString: String {
         SBOMVersionRegistry.getLatestVersion(for: self)
     }
@@ -89,19 +89,19 @@ internal struct SBOMSpec: Codable, Equatable, Hashable, Comparable {
             CycloneDXConstants.cyclonedx1SchemaFile
         case .spdx3:
             SPDXConstants.spdx3SchemaFile
-            // case .cyclonedx2:
-            //     CycloneDXConstants.cyclonedx2SchemaFile
-            // case .spdx4:
-            //     SPDXConstants.spdx4SchemaFile
+        // case .cyclonedx2:
+        //     CycloneDXConstants.cyclonedx2SchemaFile
+        // case .spdx4:
+        //     SPDXConstants.spdx4SchemaFile
         }
     }
 
     /// Returns `true` if this spec type supports CycloneDX format.
     internal var supportsCycloneDX: Bool {
         switch self.concreteSpec {
-        case .cyclonedx1: // .cyclonedx2
+        case .cyclonedx1:  // .cyclonedx2
             true
-        case .spdx3: // .spdx4
+        case .spdx3:  // .spdx4
             false
         }
     }
@@ -109,19 +109,19 @@ internal struct SBOMSpec: Codable, Equatable, Hashable, Comparable {
     /// Returns `true` if this spec type supports SPDX format.
     internal var supportsSPDX: Bool {
         switch self.concreteSpec {
-        case .spdx3: // .spdx4
+        case .spdx3:  // .spdx4
             true
-        case .cyclonedx1: // .cyclonedx2
+        case .cyclonedx1:  // .cyclonedx2
             false
         }
     }
 
     internal init(spec: Spec) {
         switch spec {
-            case .cyclonedx, .cyclonedx1:
-                self.concreteSpec = .cyclonedx1
-            case .spdx, .spdx3:
-                self.concreteSpec = .spdx3
+        case .cyclonedx, .cyclonedx1:
+            self.concreteSpec = .cyclonedx1
+        case .spdx, .spdx3:
+            self.concreteSpec = .spdx3
         }
     }
 

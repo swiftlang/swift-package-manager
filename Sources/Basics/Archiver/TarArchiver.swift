@@ -16,16 +16,16 @@ import struct Dispatch.DispatchTime
 import struct TSCBasic.FileSystemError
 
 #if os(Windows)
-import WinSDK
+    import WinSDK
 #endif
 
 /// An `Archiver` that handles Tar archives using the command-line `tar` tool.
 public struct TarArchiver: Archiver {
-#if os(Windows)
-    public let supportedExtensions: Set<String> = ["tar", "tar.gz", "zip"]
-#else
-    public let supportedExtensions: Set<String> = ["tar", "tar.gz"]
-#endif
+    #if os(Windows)
+        public let supportedExtensions: Set<String> = ["tar", "tar.gz", "zip"]
+    #else
+        public let supportedExtensions: Set<String> = ["tar", "tar.gz"]
+    #endif
 
     /// The file-system implementation used for various file-system operations and checks.
     private let fileSystem: FileSystem
@@ -45,17 +45,17 @@ public struct TarArchiver: Archiver {
         self.fileSystem = fileSystem
         self.cancellator = cancellator ?? Cancellator(observabilityScope: .none)
 
-#if os(Windows)
-        let command = "tar.exe"
-        if let system32 = URL.system32 {
-            // Use the Windows tar which is based on libarchive
-            self.tarCommand = system32.appending(component: command).path
-        } else {
-            self.tarCommand = command
-        }
-#else
-        self.tarCommand = "tar"
-#endif
+        #if os(Windows)
+            let command = "tar.exe"
+            if let system32 = URL.system32 {
+                // Use the Windows tar which is based on libarchive
+                self.tarCommand = system32.appending(component: command).path
+            } else {
+                self.tarCommand = command
+            }
+        #else
+            self.tarCommand = "tar"
+        #endif
     }
 
     public func extract(
@@ -82,13 +82,15 @@ public struct TarArchiver: Archiver {
 
             DispatchQueue.sharedConcurrent.async {
                 defer { self.cancellator.deregister(registrationKey) }
-                completion(.init(catching: {
-                    try process.launch()
-                    let processResult = try process.waitUntilExit()
-                    guard processResult.exitStatus == .terminated(code: 0) else {
-                        throw try StringError(processResult.utf8stderrOutput())
-                    }
-                }))
+                completion(
+                    .init(catching: {
+                        try process.launch()
+                        let processResult = try process.waitUntilExit()
+                        guard processResult.exitStatus == .terminated(code: 0) else {
+                            throw try StringError(processResult.utf8stderrOutput())
+                        }
+                    })
+                )
             }
         } catch {
             return completion(.failure(error))
@@ -136,11 +138,13 @@ public struct TarArchiver: Archiver {
 
             DispatchQueue.sharedConcurrent.async {
                 defer { self.cancellator.deregister(registrationKey) }
-                completion(.init(catching: {
-                    try process.launch()
-                    let processResult = try process.waitUntilExit()
-                    return processResult.exitStatus == .terminated(code: 0)
-                }))
+                completion(
+                    .init(catching: {
+                        try process.launch()
+                        let processResult = try process.waitUntilExit()
+                        return processResult.exitStatus == .terminated(code: 0)
+                    })
+                )
             }
         } catch {
             return completion(.failure(error))

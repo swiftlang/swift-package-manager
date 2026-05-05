@@ -116,7 +116,7 @@ extension Package: CustomStringConvertible {
 }
 
 extension Package.Error: CustomStringConvertible {
-   public var description: String {
+    public var description: String {
         switch self {
         case .noManifest(let path, let version):
             var string = "\(path) has no Package.swift manifest"

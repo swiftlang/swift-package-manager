@@ -28,7 +28,7 @@ internal struct SBOMResult {
 package struct SBOMCreator {
 
     package let input: SBOMInput
-    
+
     package init(input: SBOMInput) {
         self.input = input
     }
@@ -45,15 +45,15 @@ package struct SBOMCreator {
     /// - Throws: SBOMGenerationError if SBOM creation fails
     package func createSBOMsWithLogging() async throws {
         defer { input.outputStream.flush() }
-        
+
         input.outputStream.write("Creating SBOMs...\n")
         let sbomStartTime = ContinuousClock.Instant.now
-        
+
         let results = try await createSBOMs()
-        
+
         let duration = ContinuousClock.Instant.now - sbomStartTime
         let formattedDuration = duration.formatted(.units(allowed: [.seconds], fractionalPart: .show(length: 2, rounded: .up)))
-        
+
         for result in results {
             input.outputStream.write("- created \(result.spec.concreteSpec) v\(SBOMVersionRegistry.getLatestVersion(for: result.spec)) SBOM at \(result.path.pathString)\n")
         }
@@ -64,18 +64,18 @@ package struct SBOMCreator {
         guard !input.specs.isEmpty else {
             throw SBOMGenerationError.noSpecsProvided
         }
-        
+
         let extractor = SBOMExtractor(
             modulesGraph: input.modulesGraph,
             dependencyGraph: input.dependencyGraph,
             store: input.store
         )
-        
+
         let sbom = try await extractor.extractSBOM(
             product: input.product,
             filter: input.filter
         )
-        
+
         let encoder = SBOMEncoder(sbom: sbom, observabilityScope: input.observabilityScope)
         let results = try await encoder.writeSBOMs(
             specs: input.specs,
@@ -90,4 +90,3 @@ package struct SBOMCreator {
         return results
     }
 }
-

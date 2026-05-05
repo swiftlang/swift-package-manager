@@ -36,7 +36,7 @@ final class LLBuildManifestTests: XCTestCase {
 
         let commandName = outputPath.pathString
         XCTAssertEqual(manifest.commands.count, 1)
-        
+
         let command = try XCTUnwrap(manifest.commands[commandName]?.tool as? WriteAuxiliaryFile)
 
         XCTAssertEqual(command, .init(inputs: inputs, outputFilePath: outputPath))
@@ -67,7 +67,9 @@ final class LLBuildManifestTests: XCTestCase {
 
         // FIXME(#5475) - use the platform's preferred separator for directory
         // indicators
-        XCTAssertEqual(contents.replacingOccurrences(of: "\\\\", with: "\\"), """
+        XCTAssertEqual(
+            contents.replacingOccurrences(of: "\\\\", with: "\\"),
+            """
             client:
               name: basic
               file-system: device-agnostic
@@ -86,7 +88,8 @@ final class LLBuildManifestTests: XCTestCase {
                 outputs: ["<Foo>"]
 
 
-            """)
+            """
+        )
     }
 
     func testShellCommands() throws {
@@ -105,7 +108,7 @@ final class LLBuildManifestTests: XCTestCase {
                 .file(root.appending(components: "file.out"))
             ],
             arguments: [
-                "foo", "bar", "baz"
+                "foo", "bar", "baz",
             ],
             environment: [
                 "ABC": "DEF",
@@ -122,7 +125,9 @@ final class LLBuildManifestTests: XCTestCase {
 
         let contents: String = try fs.readFileContents("/manifest.yaml")
 
-        XCTAssertEqual(contents.replacingOccurrences(of: "\\\\", with: "\\"), """
+        XCTAssertEqual(
+            contents.replacingOccurrences(of: "\\\\", with: "\\"),
+            """
             client:
               name: basic
               file-system: device-agnostic
@@ -144,7 +149,8 @@ final class LLBuildManifestTests: XCTestCase {
                 allow-missing-inputs: true
 
 
-            """)
+            """
+        )
     }
 
     func testMutatedNodes() throws {
@@ -164,7 +170,7 @@ final class LLBuildManifestTests: XCTestCase {
             ],
             outputs: [mutatedNode, createTimestampNode],
             arguments: [
-                "cp", "file.in", "file.out"
+                "cp", "file.in", "file.out",
             ]
         )
 
@@ -178,7 +184,7 @@ final class LLBuildManifestTests: XCTestCase {
                 .virtual("C.mutate")
             ],
             arguments: [
-                "touch", "file.out"
+                "touch", "file.out",
             ]
         )
 
@@ -187,7 +193,9 @@ final class LLBuildManifestTests: XCTestCase {
 
         let contents: String = try fs.readFileContents("/manifest.yaml")
 
-        XCTAssertEqual(contents.replacingOccurrences(of: "\\\\", with: "\\"), """
+        XCTAssertEqual(
+            contents.replacingOccurrences(of: "\\\\", with: "\\"),
+            """
             client:
               name: basic
               file-system: device-agnostic
@@ -215,7 +223,8 @@ final class LLBuildManifestTests: XCTestCase {
                 description: "C.mutate"
                 args: ["touch","file.out"]
 
-            
-            """)
+
+            """
+        )
     }
 }

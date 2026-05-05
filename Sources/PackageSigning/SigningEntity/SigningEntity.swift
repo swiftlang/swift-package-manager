@@ -11,11 +11,11 @@
 //===----------------------------------------------------------------------===//
 
 #if USE_IMPL_ONLY_IMPORTS
-@_implementationOnly import SwiftASN1
-@_implementationOnly import X509
+    @_implementationOnly import SwiftASN1
+    @_implementationOnly import X509
 #else
-import SwiftASN1
-import X509
+    import SwiftASN1
+    import X509
 #endif
 
 // MARK: - SigningEntity is the entity that generated the signature
@@ -30,9 +30,10 @@ public enum SigningEntity: Hashable, Codable, CustomStringConvertible, Sendable 
         let organization = certificate.subject.organizationName
 
         if let type = certificate.signingEntityType,
-           let name = name,
-           let organizationalUnit = organizationalUnit,
-           let organization = organization {
+            let name = name,
+            let organizationalUnit = organizationalUnit,
+            let organization = organization
+        {
             return .recognized(
                 type: type,
                 name: name,
@@ -82,7 +83,7 @@ public enum SigningEntity: Hashable, Codable, CustomStringConvertible, Sendable 
 // MARK: - SigningEntity types that SwiftPM recognizes
 
 public enum SigningEntityType: String, Hashable, Codable, Sendable {
-    case adp // Apple Developer Program
+    case adp  // Apple Developer Program
 }
 
 extension ASN1ObjectIdentifier.NameAttributes {
@@ -92,9 +93,8 @@ extension ASN1ObjectIdentifier.NameAttributes {
 extension Certificate {
     var signingEntityType: SigningEntityType? {
         if self.hasExtension(oid: ASN1ObjectIdentifier.NameAttributes.adpSwiftPackageMarker),
-           Certificates.wwdrIntermediates
-           .first(where: { $0.subject == self.issuer && $0.publicKey.isValidSignature(self.signature, for: self) }) !=
-           nil
+            Certificates.wwdrIntermediates
+                .first(where: { $0.subject == self.issuer && $0.publicKey.isValidSignature(self.signature, for: self) }) != nil
         {
             return .adp
         }

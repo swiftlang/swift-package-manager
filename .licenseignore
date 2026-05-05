@@ -7,6 +7,9 @@
 .editorconfig
 .swift-version
 .swiftformat
+.swift-format
+.swift-format-ignore
+.git-blame-ignore-revs
 .pep8
 .mailmap
 .mailfilter

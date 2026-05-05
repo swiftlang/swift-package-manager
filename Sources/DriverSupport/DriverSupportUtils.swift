@@ -10,8 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-@_spi(SwiftPMInternal)
-import Basics
+@_spi(SwiftPMInternal) import Basics
 import Foundation
 import PackageModel
 import SwiftDriver

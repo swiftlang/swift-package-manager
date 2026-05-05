@@ -121,7 +121,8 @@ public protocol RepositoryProvider: Cancellable, Sendable {
         repository: RepositorySpecifier,
         sourcePath: AbsolutePath,
         at destinationPath: AbsolutePath,
-        editable: Bool) async throws -> WorkingCheckout
+        editable: Bool
+    ) async throws -> WorkingCheckout
 
     /// Returns true if a working repository exists at `path`
     func workingCopyExists(at path: AbsolutePath) throws -> Bool

@@ -151,7 +151,7 @@ struct SBOMExtractCategoryTests {
             )
             products.append(product)
         }
-        
+
         let resolvedPackage = try SBOMTestModulesGraph.createPackage(
             name: "TestPackage",
             products: products

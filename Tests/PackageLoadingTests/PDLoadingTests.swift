@@ -155,7 +155,6 @@ final class ManifestTestDelegate: ManifestLoaderDelegate {
         self.parsed.append(manifestPath)
     }
 
-
     func clear() {
         self.loaded.clear()
         self.parsed.clear()

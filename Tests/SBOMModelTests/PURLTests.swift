@@ -530,7 +530,7 @@ struct PURLTests {
             modules: IdentifiableSet([resolvedModule]),
             products: []
         )
-        
+
         let purl = await PURL.from(package: resolvedPackage, version: SBOMComponent.Version(revision: "1.0.0", commit: nil))
 
         #expect(purl.scheme == "pkg")
@@ -561,7 +561,7 @@ struct PURLTests {
             product: product,
             modules: IdentifiableSet([resolvedModule])
         )
-        
+
         let purl = await PURL.from(
             product: resolvedProduct,
             version: SBOMComponent.Version(
@@ -598,7 +598,7 @@ struct PURLTests {
             product: product,
             modules: IdentifiableSet([resolvedModule])
         )
-        
+
         let localPath = "/Users/someuser/myCode/SwiftPM/"
         let purl = await PURL.from(
             product: resolvedProduct,
@@ -608,7 +608,7 @@ struct PURLTests {
         #expect(purl.scheme == "pkg")
         #expect(purl.type == "swift")
         #expect(purl.name == "swift-package-manager:SwiftPMDataModel")
-        #expect(purl.namespace == nil) // No namespace for local paths
+        #expect(purl.namespace == nil)  // No namespace for local paths
         #expect(purl.version == "1.0.0")
         #expect(purl.qualifiers == ["path": localPath])
         let actualDescription = purl.description
@@ -635,7 +635,7 @@ struct PURLTests {
             product: product,
             modules: IdentifiableSet([resolvedModule])
         )
-        
+
         let purl = await PURL.from(
             product: resolvedProduct,
             version: SBOMComponent.Version(
@@ -672,14 +672,14 @@ struct PURLTests {
             modules: IdentifiableSet([resolvedModule]),
             products: []
         )
-        
+
         let registryEntry = SBOMRegistryEntry(
             url: URL(string: "https://swift.org"),
             scope: "org.example",
             name: "mypackage",
             version: "1.2.3"
         )
-        
+
         let purl = await PURL.from(
             package: resolvedPackage,
             version: SBOMComponent.Version(
@@ -718,14 +718,14 @@ struct PURLTests {
             product: product,
             modules: IdentifiableSet([resolvedModule])
         )
-        
+
         let registryEntry = SBOMRegistryEntry(
             url: URL(string: "https://swift.org"),
             scope: "com.company",
             name: "networking",
             version: "2.0.0"
         )
-        
+
         let purl = await PURL.from(
             product: resolvedProduct,
             version: SBOMComponent.Version(
@@ -764,14 +764,14 @@ struct PURLTests {
             modules: IdentifiableSet([resolvedModule]),
             products: []
         )
-        
+
         let registryEntry = SBOMRegistryEntry(
             url: URL(string: "https://swift.org"),
             scope: "mona",
             name: "LinkedList",
             version: "3.1.4"
         )
-        
+
         let purl = await PURL.from(
             package: resolvedPackage,
             version: SBOMComponent.Version(
@@ -810,14 +810,14 @@ struct PURLTests {
             modules: IdentifiableSet([resolvedModule]),
             products: []
         )
-        
+
         let registryEntry = SBOMRegistryEntry(
             url: URL(string: "https://swift.org"),
             scope: "org.swift",
             name: "swift-package-manager",
             version: "5.9.0"
         )
-        
+
         let purl = await PURL.from(
             package: resolvedPackage,
             version: SBOMComponent.Version(

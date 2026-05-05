@@ -45,17 +45,17 @@ package struct SBOMInput {
     package let store: ResolvedPackagesStore
     package let filter: Filter
     package let product: String?
-    
+
     // Fields for SBOMEncoder
     package let specs: [Spec]
     package let dir: AbsolutePath
-    
+
     // ObservabilityScope for emitting diagnostics
     package let observabilityScope: ObservabilityScope
-    
+
     // Output stream for writing output
     package let outputStream: OutputByteStream
-    
+
     package init(
         modulesGraph: ModulesGraph,
         dependencyGraph: [String: [String]]?,

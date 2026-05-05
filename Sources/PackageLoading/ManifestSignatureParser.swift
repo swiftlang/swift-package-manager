@@ -67,9 +67,11 @@ public enum ManifestSignatureParser {
     private static func split(_ manifest: String) -> ManifestComponents {
         // The signature, if any, is the last line in the manifest.
         let endIndexOfSignatureLine = manifest.lastIndex(where: { !$0.isWhitespace }) ?? manifest.endIndex
-        let endIndexOfManifestContents = manifest[..<endIndexOfSignatureLine]
+        let endIndexOfManifestContents =
+            manifest[..<endIndexOfSignatureLine]
             .lastIndex(where: { $0.isNewline }) ?? manifest.endIndex
-        let startIndexOfCommentMarker = manifest[endIndexOfManifestContents...]
+        let startIndexOfCommentMarker =
+            manifest[endIndexOfManifestContents...]
             .firstIndex(where: { $0 == "/" }) ?? manifest.endIndex
 
         // There doesn't seem to be a signature, return manifest as-is.
@@ -77,23 +79,28 @@ public enum ManifestSignatureParser {
             return ManifestComponents(contentsBeforeSignatureComponents: manifest[...], signatureComponents: .none)
         }
 
-        let endIndexOfCommentMarker = manifest[startIndexOfCommentMarker...]
+        let endIndexOfCommentMarker =
+            manifest[startIndexOfCommentMarker...]
             .firstIndex(where: { $0 != "/" }) ?? manifest.endIndex
 
-        let startIndexOfLabel = manifest[endIndexOfCommentMarker...].firstIndex(where: { !$0.isWhitespace }) ?? manifest
+        let startIndexOfLabel =
+            manifest[endIndexOfCommentMarker...].firstIndex(where: { !$0.isWhitespace })
+            ?? manifest
             .endIndex
         let endIndexOfLabel = manifest[startIndexOfLabel...].firstIndex(where: { $0 == ":" }) ?? manifest.endIndex
 
         // Missing "signature:" label, assume there is no signature.
         guard startIndexOfLabel < endIndexOfLabel,
-              String(manifest[startIndexOfLabel ..< endIndexOfLabel]).lowercased() == "signature"
+            String(manifest[startIndexOfLabel..<endIndexOfLabel]).lowercased() == "signature"
         else {
             return ManifestComponents(contentsBeforeSignatureComponents: manifest[...], signatureComponents: .none)
         }
 
-        let startIndexOfSignatureFormat = manifest[endIndexOfLabel...]
+        let startIndexOfSignatureFormat =
+            manifest[endIndexOfLabel...]
             .firstIndex(where: { $0 != ":" && !$0.isWhitespace }) ?? manifest.endIndex
-        let endIndexOfSignatureFormat = manifest[startIndexOfSignatureFormat...]
+        let endIndexOfSignatureFormat =
+            manifest[startIndexOfSignatureFormat...]
             .firstIndex(where: { $0 == ";" }) ?? manifest.endIndex
 
         // Missing signature format, assume there is no signature.
@@ -101,7 +108,8 @@ public enum ManifestSignatureParser {
             return ManifestComponents(contentsBeforeSignatureComponents: manifest[...], signatureComponents: .none)
         }
 
-        let startIndexOfSignatureBase64Encoded = manifest[endIndexOfSignatureFormat...]
+        let startIndexOfSignatureBase64Encoded =
+            manifest[endIndexOfSignatureFormat...]
             .firstIndex(where: { $0 != ";" }) ?? manifest.endIndex
 
         // Missing base64-encoded signature, assume there is no signature.
@@ -112,8 +120,8 @@ public enum ManifestSignatureParser {
         return ManifestComponents(
             contentsBeforeSignatureComponents: manifest[..<endIndexOfManifestContents],
             signatureComponents: SignatureComponents(
-                signatureFormat: manifest[startIndexOfSignatureFormat ..< endIndexOfSignatureFormat],
-                signatureBase64Encoded: manifest[startIndexOfSignatureBase64Encoded ... endIndexOfSignatureLine]
+                signatureFormat: manifest[startIndexOfSignatureFormat..<endIndexOfSignatureFormat],
+                signatureBase64Encoded: manifest[startIndexOfSignatureBase64Encoded...endIndexOfSignatureLine]
             )
         )
     }

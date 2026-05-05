@@ -31,7 +31,7 @@ struct SnippetGroupCard: Card {
             """
     }
 
-    func acceptLineInput<S>(_ line: S) -> CardEvent? where S : StringProtocol {
+    func acceptLineInput<S>(_ line: S) -> CardEvent? where S: StringProtocol {
         if line.isEmpty || line.allSatisfy({ $0.isWhitespace }) {
             return .pop()
         }
@@ -39,7 +39,8 @@ struct SnippetGroupCard: Card {
             return .quit()
         }
         if let index = Int(line),
-           snippetGroup.snippets.indices.contains(index) {
+            snippetGroup.snippets.indices.contains(index)
+        {
             return .push(SnippetCard(snippet: snippetGroup.snippets[index], number: index, swiftCommandState: swiftCommandState))
         } else if let foundSnippetIndex = snippetGroup.snippets.firstIndex(where: { $0.name == line }) {
             return .push(SnippetCard(snippet: snippetGroup.snippets[foundSnippetIndex], number: foundSnippetIndex, swiftCommandState: swiftCommandState))
@@ -53,14 +54,16 @@ struct SnippetGroupCard: Card {
         let isColorized = swiftCommandState.options.logging.colorDiagnostics
         precondition(!snippetGroup.snippets.isEmpty)
 
-        var rendered = isColorized ? brightYellow {
-            """
-            # \(snippetGroup.name)
+        var rendered =
+            isColorized
+            ? brightYellow {
+                """
+                # \(snippetGroup.name)
 
 
-            """
-        }.terminalString() :
-            plain {
+                """
+            }.terminalString()
+            : plain {
                 """
                 # \(snippetGroup.name)
 
@@ -77,13 +80,14 @@ struct SnippetGroupCard: Card {
             .enumerated()
             .map { pair -> String in
                 let (number, snippet) = pair
-                return isColorized ? brightCyan {
-                    "\(number). \(snippet.name)\n"
-                    plain {
-                        snippet.explanation.spm_multilineIndent(count: 3)
-                    }
-                }.terminalString() :
-                    plain {
+                return isColorized
+                    ? brightCyan {
+                        "\(number). \(snippet.name)\n"
+                        plain {
+                            snippet.explanation.spm_multilineIndent(count: 3)
+                        }
+                    }.terminalString()
+                    : plain {
                         "\(number). \(snippet.name)\n"
                         plain {
                             snippet.explanation.spm_multilineIndent(count: 3)

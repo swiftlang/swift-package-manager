@@ -69,8 +69,8 @@ public struct PlatformVersionProvider: Hashable {
             var version = declaredPlatform.version
 
             if usingXCTest,
-               let xcTestMinimumDeploymentTarget = self.derivedXCTestPlatformProvider(platform),
-               version < xcTestMinimumDeploymentTarget
+                let xcTestMinimumDeploymentTarget = self.derivedXCTestPlatformProvider(platform),
+                version < xcTestMinimumDeploymentTarget
             {
                 version = xcTestMinimumDeploymentTarget
             }
@@ -88,8 +88,8 @@ public struct PlatformVersionProvider: Hashable {
         } else {
             let minimumSupportedVersion: PlatformVersion
             if usingXCTest,
-               let xcTestMinimumDeploymentTarget = self.derivedXCTestPlatformProvider(platform),
-               xcTestMinimumDeploymentTarget > platform.oldestSupportedVersion
+                let xcTestMinimumDeploymentTarget = self.derivedXCTestPlatformProvider(platform),
+                xcTestMinimumDeploymentTarget > platform.oldestSupportedVersion
             {
                 minimumSupportedVersion = xcTestMinimumDeploymentTarget
             } else {

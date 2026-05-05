@@ -22,7 +22,7 @@ import Testing
 import struct SPMBuildCore.BuildSystemProvider
 
 @Suite(
-    .serialized, // crash occurs when executed in parallel. needs investigation
+    .serialized,  // crash occurs when executed in parallel. needs investigation
     .tags(
         .FunctionalArea.ModuleMaps,
     ),
@@ -45,9 +45,9 @@ struct ModuleMapsTestCase {
             try await AsyncProcess.checkNonZeroExit(args: executableName("clang"), "-shared", input.pathString, "-o", output.pathString)
 
             var Xld = ["-L", outdir.pathString]
-        #if os(Linux) || os(Android)
-            Xld += ["-rpath", outdir.pathString]
-        #endif
+            #if os(Linux) || os(Android)
+                Xld += ["-rpath", outdir.pathString]
+            #endif
 
             try await body(fixturePath, Xld)
         }
@@ -83,12 +83,12 @@ struct ModuleMapsTestCase {
             }
         } when: {
             ProcessInfo.hostOperatingSystem == .windows
-            || (buildSystem == .swiftbuild && configuration == .release)
+                || (buildSystem == .swiftbuild && configuration == .release)
         }
     }
 
     @Test(
-        .serialized, // crash occurs when executed in parallel. needs investigation
+        .serialized,  // crash occurs when executed in parallel. needs investigation
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func transitiveDependency(
@@ -114,17 +114,19 @@ struct ModuleMapsTestCase {
                 let out = try await AsyncProcess.checkNonZeroExit(
                     args: executable.pathString
                 )
-                #expect(out == """
-                    calling Y.bar()
-                    Y.bar() called
-                    X.foo() called
-                    123
+                #expect(
+                    out == """
+                        calling Y.bar()
+                        Y.bar() called
+                        X.foo() called
+                        123
 
-                    """)
+                        """
+                )
             }
         } when: {
             ProcessInfo.hostOperatingSystem == .windows
-            || (buildSystem == .swiftbuild && configuration == .release)
+                || (buildSystem == .swiftbuild && configuration == .release)
         }
     }
 }

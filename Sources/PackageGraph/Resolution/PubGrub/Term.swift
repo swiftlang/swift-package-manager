@@ -129,11 +129,12 @@ public struct Term: Equatable, Hashable {
             // range that doesn't support pre-release versions. Since the solver is
             // allowed to derive a pre-release range we consider the original range to
             // be pre-release range implicitly.
-            let term = if self.supportsPrereleases && !assignment.term.supportsPrereleases {
-                Term(self.node, self.requirement.withoutPrereleases)
-            } else {
-                self
-            }
+            let term =
+                if self.supportsPrereleases && !assignment.term.supportsPrereleases {
+                    Term(self.node, self.requirement.withoutPrereleases)
+                } else {
+                    self
+                }
 
             guard term.satisfies(assignment.term) else { return false }
         }

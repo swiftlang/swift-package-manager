@@ -65,142 +65,141 @@ final class AuthorizationProviderTests: XCTestCase {
 
     func testProtocolHostPort() throws {
         #if !canImport(Security)
-        try XCTSkipIf(true)
+            try XCTSkipIf(true)
         #else
-        do {
-            let url = URL("http://localhost")
-            let parsed = KeychainAuthorizationProvider.ProtocolHostPort(from: url)
-            XCTAssertNotNil(parsed)
-            XCTAssertEqual(parsed?.protocol, "http")
-            XCTAssertEqual(parsed?.host, "localhost")
-            XCTAssertNil(parsed?.port)
-            XCTAssertEqual(parsed?.protocolCFString, kSecAttrProtocolHTTP)
-            XCTAssertEqual(parsed?.description, "http://localhost")
-        }
+            do {
+                let url = URL("http://localhost")
+                let parsed = KeychainAuthorizationProvider.ProtocolHostPort(from: url)
+                XCTAssertNotNil(parsed)
+                XCTAssertEqual(parsed?.protocol, "http")
+                XCTAssertEqual(parsed?.host, "localhost")
+                XCTAssertNil(parsed?.port)
+                XCTAssertEqual(parsed?.protocolCFString, kSecAttrProtocolHTTP)
+                XCTAssertEqual(parsed?.description, "http://localhost")
+            }
 
-        do {
-            let url = URL("http://localhost:8080")
-            let parsed = KeychainAuthorizationProvider.ProtocolHostPort(from: url)
-            XCTAssertNotNil(parsed)
-            XCTAssertEqual(parsed?.protocol, "http")
-            XCTAssertEqual(parsed?.host, "localhost")
-            XCTAssertEqual(parsed?.port, 8080)
-            XCTAssertEqual(parsed?.protocolCFString, kSecAttrProtocolHTTP)
-            XCTAssertEqual(parsed?.description, "http://localhost:8080")
-        }
+            do {
+                let url = URL("http://localhost:8080")
+                let parsed = KeychainAuthorizationProvider.ProtocolHostPort(from: url)
+                XCTAssertNotNil(parsed)
+                XCTAssertEqual(parsed?.protocol, "http")
+                XCTAssertEqual(parsed?.host, "localhost")
+                XCTAssertEqual(parsed?.port, 8080)
+                XCTAssertEqual(parsed?.protocolCFString, kSecAttrProtocolHTTP)
+                XCTAssertEqual(parsed?.description, "http://localhost:8080")
+            }
 
-        do {
-            let url = URL("https://localhost")
-            let parsed = KeychainAuthorizationProvider.ProtocolHostPort(from: url)
-            XCTAssertNotNil(parsed)
-            XCTAssertEqual(parsed?.protocol, "https")
-            XCTAssertEqual(parsed?.host, "localhost")
-            XCTAssertNil(parsed?.port)
-            XCTAssertEqual(parsed?.protocolCFString, kSecAttrProtocolHTTPS)
-            XCTAssertEqual(parsed?.description, "https://localhost")
-        }
+            do {
+                let url = URL("https://localhost")
+                let parsed = KeychainAuthorizationProvider.ProtocolHostPort(from: url)
+                XCTAssertNotNil(parsed)
+                XCTAssertEqual(parsed?.protocol, "https")
+                XCTAssertEqual(parsed?.host, "localhost")
+                XCTAssertNil(parsed?.port)
+                XCTAssertEqual(parsed?.protocolCFString, kSecAttrProtocolHTTPS)
+                XCTAssertEqual(parsed?.description, "https://localhost")
+            }
 
-        do {
-            let url = URL("https://localhost:8080")
-            let parsed = KeychainAuthorizationProvider.ProtocolHostPort(from: url)
-            XCTAssertNotNil(parsed)
-            XCTAssertEqual(parsed?.protocol, "https")
-            XCTAssertEqual(parsed?.host, "localhost")
-            XCTAssertEqual(parsed?.port, 8080)
-            XCTAssertEqual(parsed?.protocolCFString, kSecAttrProtocolHTTPS)
-            XCTAssertEqual(parsed?.description, "https://localhost:8080")
-        }
+            do {
+                let url = URL("https://localhost:8080")
+                let parsed = KeychainAuthorizationProvider.ProtocolHostPort(from: url)
+                XCTAssertNotNil(parsed)
+                XCTAssertEqual(parsed?.protocol, "https")
+                XCTAssertEqual(parsed?.host, "localhost")
+                XCTAssertEqual(parsed?.port, 8080)
+                XCTAssertEqual(parsed?.protocolCFString, kSecAttrProtocolHTTPS)
+                XCTAssertEqual(parsed?.description, "https://localhost:8080")
+            }
 
-        do {
-            let url = URL("https://:8080")
-            let parsed = KeychainAuthorizationProvider.ProtocolHostPort(from: url)
-            XCTAssertNil(parsed)
-        }
+            do {
+                let url = URL("https://:8080")
+                let parsed = KeychainAuthorizationProvider.ProtocolHostPort(from: url)
+                XCTAssertNil(parsed)
+            }
         #endif
     }
 
     func testKeychain_protocol() throws {
         #if !canImport(Security) || !ENABLE_KEYCHAIN_TEST
-        try XCTSkipIf(true)
+            try XCTSkipIf(true)
         #else
-        let provider = KeychainAuthorizationProvider(observabilityScope: ObservabilitySystem.NOOP)
+            let provider = KeychainAuthorizationProvider(observabilityScope: ObservabilitySystem.NOOP)
 
-        let user = UUID().uuidString
+            let user = UUID().uuidString
 
-        let httpURL = URL("http://\(UUID().uuidString)")
-        let httpPassword = UUID().uuidString
+            let httpURL = URL("http://\(UUID().uuidString)")
+            let httpPassword = UUID().uuidString
 
-        let httpsURL = URL("https://\(UUID().uuidString)")
-        let httpsPassword = UUID().uuidString
+            let httpsURL = URL("https://\(UUID().uuidString)")
+            let httpsPassword = UUID().uuidString
 
-        // Add
-        try await provider.addOrUpdate(for: httpURL, user: user, password: httpPassword)
-        try await provider.addOrUpdate(for: httpsURL, user: user, password: httpsPassword)
+            // Add
+            try await provider.addOrUpdate(for: httpURL, user: user, password: httpPassword)
+            try await provider.addOrUpdate(for: httpsURL, user: user, password: httpsPassword)
 
-        self.assertAuthentication(provider, for: httpURL, expected: (user, httpPassword))
-        self.assertAuthentication(provider, for: httpsURL, expected: (user, httpsPassword))
+            self.assertAuthentication(provider, for: httpURL, expected: (user, httpPassword))
+            self.assertAuthentication(provider, for: httpsURL, expected: (user, httpsPassword))
 
-        // Update
-        let newHTTPPassword = UUID().uuidString
-        try await provider.addOrUpdate(for: httpURL, user: user, password: newHTTPPassword)
+            // Update
+            let newHTTPPassword = UUID().uuidString
+            try await provider.addOrUpdate(for: httpURL, user: user, password: newHTTPPassword)
 
-        let newHTTPSPassword = UUID().uuidString
-        try await provider.addOrUpdate(for: httpsURL, user: user, password: newHTTPSPassword)
+            let newHTTPSPassword = UUID().uuidString
+            try await provider.addOrUpdate(for: httpsURL, user: user, password: newHTTPSPassword)
 
+            // Existing password is updated
+            self.assertAuthentication(provider, for: httpURL, expected: (user, newHTTPPassword))
+            self.assertAuthentication(provider, for: httpsURL, expected: (user, newHTTPSPassword))
 
-        // Existing password is updated
-        self.assertAuthentication(provider, for: httpURL, expected: (user, newHTTPPassword))
-        self.assertAuthentication(provider, for: httpsURL, expected: (user, newHTTPSPassword))
+            // Delete
+            try await provider.remove(for: httpURL)
+            XCTAssertNil(provider.authentication(for: httpURL))
+            self.assertAuthentication(provider, for: httpsURL, expected: (user, newHTTPSPassword))
 
-        // Delete
-        try await provider.remove(for: httpURL)
-        XCTAssertNil(provider.authentication(for: httpURL))
-        self.assertAuthentication(provider, for: httpsURL, expected: (user, newHTTPSPassword))
-
-        try await provider.remove(for: httpsURL)
-        XCTAssertNil(provider.authentication(for: httpsURL))
+            try await provider.remove(for: httpsURL)
+            XCTAssertNil(provider.authentication(for: httpsURL))
         #endif
     }
 
     func testKeychain_port() throws {
         #if !canImport(Security) || !ENABLE_KEYCHAIN_TEST
-        try XCTSkipIf(true)
+            try XCTSkipIf(true)
         #else
-        let provider = KeychainAuthorizationProvider(observabilityScope: ObservabilitySystem.NOOP)
+            let provider = KeychainAuthorizationProvider(observabilityScope: ObservabilitySystem.NOOP)
 
-        let user = UUID().uuidString
+            let user = UUID().uuidString
 
-        let noPortURL = URL("http://\(UUID().uuidString)")
-        let noPortPassword = UUID().uuidString
+            let noPortURL = URL("http://\(UUID().uuidString)")
+            let noPortPassword = UUID().uuidString
 
-        let portURL = URL("http://\(UUID().uuidString):8971")
-        let portPassword = UUID().uuidString
+            let portURL = URL("http://\(UUID().uuidString):8971")
+            let portPassword = UUID().uuidString
 
-        // Add
-        try await provider.addOrUpdate(for: noPortURL, user: user, password: noPortPassword)
-        try await provider.addOrUpdate(for: portURL, user: user, password: portPassword)
+            // Add
+            try await provider.addOrUpdate(for: noPortURL, user: user, password: noPortPassword)
+            try await provider.addOrUpdate(for: portURL, user: user, password: portPassword)
 
-        self.assertAuthentication(provider, for: noPortURL, expected: (user, noPortPassword))
-        self.assertAuthentication(provider, for: portURL, expected: (user, portPassword))
+            self.assertAuthentication(provider, for: noPortURL, expected: (user, noPortPassword))
+            self.assertAuthentication(provider, for: portURL, expected: (user, portPassword))
 
-        // Update
-        let newPortPassword = UUID().uuidString
-        try await provider.addOrUpdate(for: portURL, user: user, password: newPortPassword)
+            // Update
+            let newPortPassword = UUID().uuidString
+            try await provider.addOrUpdate(for: portURL, user: user, password: newPortPassword)
 
-        let newNoPortPassword = UUID().uuidString
-        try await provider.addOrUpdate(for: noPortURL, user: user, password: newNoPortPassword)
+            let newNoPortPassword = UUID().uuidString
+            try await provider.addOrUpdate(for: noPortURL, user: user, password: newNoPortPassword)
 
-        // Existing password is updated
-        self.assertAuthentication(provider, for: portURL, expected: (user, newPortPassword))
-        self.assertAuthentication(provider, for: noPortURL, expected: (user, newNoPortPassword))
+            // Existing password is updated
+            self.assertAuthentication(provider, for: portURL, expected: (user, newPortPassword))
+            self.assertAuthentication(provider, for: noPortURL, expected: (user, newNoPortPassword))
 
-        // Delete
-        try await provider.remove(for: noPortURL)
-        XCTAssertNil(provider.authentication(for: noPortURL))
-        self.assertAuthentication(provider, for: portURL, expected: (user, newPortPassword))
+            // Delete
+            try await provider.remove(for: noPortURL)
+            XCTAssertNil(provider.authentication(for: noPortURL))
+            self.assertAuthentication(provider, for: portURL, expected: (user, newPortPassword))
 
-        try await provider.remove(for: portURL)
-        XCTAssertNil(provider.authentication(for: portURL))
+            try await provider.remove(for: portURL)
+            XCTAssertNil(provider.authentication(for: portURL))
         #endif
     }
 

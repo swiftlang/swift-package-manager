@@ -25,16 +25,18 @@ public extension Target {
         linkerSettings: [LinkerSetting]? = nil,
         plugins: [PluginUsage]? = nil
     ) -> Target {
-        return Target(name: name,
-                      dependencies: dependencies,
-                      path: path,
-                      exclude: exclude,
-                      sources: sources,
-                      publicHeadersPath: nil,
-                      type: .macro,
-                      packageAccess: packageAccess,
-                      swiftSettings: swiftSettings,
-                      linkerSettings: linkerSettings,
-                      plugins: plugins)
+        return Target(
+            name: name,
+            dependencies: dependencies,
+            path: path,
+            exclude: exclude,
+            sources: sources,
+            publicHeadersPath: nil,
+            type: .macro,
+            packageAccess: packageAccess,
+            swiftSettings: swiftSettings,
+            linkerSettings: linkerSettings,
+            plugins: plugins
+        )
     }
 }

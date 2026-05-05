@@ -16,22 +16,22 @@ import PackageModel
 @testable import PackageRegistry
 import PackageSigning
 import _InternalTestSupport
-import X509 // FIXME: need this import or else SwiftSigningIdentity init crashes
+import X509  // FIXME: need this import or else SwiftSigningIdentity init crashes
 import XCTest
 
 import struct TSCUtility.Version
 
 final class SignatureValidationTests: XCTestCase {
     private static let unsignedManifest = """
-    // swift-tools-version: 5.7
+        // swift-tools-version: 5.7
 
-    import PackageDescription
-    let package = Package(
-        name: "library",
-        products: [ .library(name: "library", targets: ["library"]) ],
-        targets: [ .target(name: "library") ]
-    )
-    """
+        import PackageDescription
+        let package = Package(
+            name: "library",
+            products: [ .library(name: "library", targets: ["library"]) ],
+            targets: [ .target(name: "library") ]
+        )
+        """
 
     let registryURL = URL("https://packages.example.com")
     let identity: PackageIdentity = .plain("mona.LinkedList")
@@ -61,13 +61,12 @@ final class SignatureValidationTests: XCTestCase {
         configuration.defaultRegistry = registry
 
         var signingConfiguration = RegistryConfiguration.Security.Signing()
-        signingConfiguration.onUnsigned = .error // intended for this test; don't change
+        signingConfiguration.onUnsigned = .error  // intended for this test; don't change
         configuration.security = RegistryConfiguration.Security(
             default: RegistryConfiguration.Security.Global(
                 signing: signingConfiguration
             )
         )
-
 
         let registryClient = makeRegistryClient(
             configuration: configuration,
@@ -112,7 +111,7 @@ final class SignatureValidationTests: XCTestCase {
         configuration.defaultRegistry = registry
 
         var signingConfiguration = RegistryConfiguration.Security.Signing()
-        signingConfiguration.onUnsigned = .warn // intended for this test; don't change
+        signingConfiguration.onUnsigned = .warn  // intended for this test; don't change
         configuration.security = RegistryConfiguration.Security(
             default: RegistryConfiguration.Security.Global(
                 signing: signingConfiguration
@@ -164,13 +163,12 @@ final class SignatureValidationTests: XCTestCase {
         configuration.defaultRegistry = registry
 
         var signingConfiguration = RegistryConfiguration.Security.Signing()
-        signingConfiguration.onUnsigned = .prompt // intended for this test; don't change
+        signingConfiguration.onUnsigned = .prompt  // intended for this test; don't change
         configuration.security = RegistryConfiguration.Security(
             default: RegistryConfiguration.Security.Global(
                 signing: signingConfiguration
             )
         )
-
 
         let registryClient = makeRegistryClient(
             configuration: configuration,
@@ -241,13 +239,12 @@ final class SignatureValidationTests: XCTestCase {
         configuration.defaultRegistry = registry
 
         var signingConfiguration = RegistryConfiguration.Security.Signing()
-        signingConfiguration.onUnsigned = .error // intended for this test; don't change
+        signingConfiguration.onUnsigned = .error  // intended for this test; don't change
         configuration.security = RegistryConfiguration.Security(
             default: RegistryConfiguration.Security.Global(
                 signing: signingConfiguration
             )
         )
-
 
         let registryClient = makeRegistryClient(
             configuration: configuration,
@@ -291,13 +288,12 @@ final class SignatureValidationTests: XCTestCase {
         configuration.defaultRegistry = registry
 
         var signingConfiguration = RegistryConfiguration.Security.Signing()
-        signingConfiguration.onUnsigned = .prompt // intended for this test; don't change
+        signingConfiguration.onUnsigned = .prompt  // intended for this test; don't change
         configuration.security = RegistryConfiguration.Security(
             default: RegistryConfiguration.Security.Global(
                 signing: signingConfiguration
             )
         )
-
 
         let registryClient = makeRegistryClient(
             configuration: configuration,
@@ -367,13 +363,12 @@ final class SignatureValidationTests: XCTestCase {
         configuration.defaultRegistry = registry
 
         var signingConfiguration = RegistryConfiguration.Security.Signing()
-        signingConfiguration.onUnsigned = .error // intended for this test; don't change
+        signingConfiguration.onUnsigned = .error  // intended for this test; don't change
         configuration.security = RegistryConfiguration.Security(
             default: RegistryConfiguration.Security.Global(
                 signing: signingConfiguration
             )
         )
-
 
         let registryClient = makeRegistryClient(
             configuration: configuration,
@@ -421,7 +416,6 @@ final class SignatureValidationTests: XCTestCase {
         let httpClient = HTTPClient(implementation: serverErrorHandler.handle)
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = registry
-
 
         let registryClient = makeRegistryClient(
             configuration: configuration,
@@ -488,13 +482,12 @@ final class SignatureValidationTests: XCTestCase {
         configuration.defaultRegistry = registry
 
         var signingConfiguration = RegistryConfiguration.Security.Signing()
-        signingConfiguration.onUnsigned = .error // intended for this test; don't change
+        signingConfiguration.onUnsigned = .error  // intended for this test; don't change
         configuration.security = RegistryConfiguration.Security(
             default: RegistryConfiguration.Security.Global(
                 signing: signingConfiguration
             )
         )
-
 
         let registryClient = makeRegistryClient(
             configuration: configuration,
@@ -549,9 +542,9 @@ final class SignatureValidationTests: XCTestCase {
             format: signatureFormat
         )
         let manifestContent = """
-        \(Self.unsignedManifest)
-        // signature: abc-1.0.0;\(Data(manifestSignatureBytes).base64EncodedString())
-        """
+            \(Self.unsignedManifest)
+            // signature: abc-1.0.0;\(Data(manifestSignatureBytes).base64EncodedString())
+            """
 
         // Get metadata endpoint will be called to see if package version is signed
         let handler = HTTPClient.packageReleaseMetadataAPIHandler(
@@ -565,13 +558,12 @@ final class SignatureValidationTests: XCTestCase {
         configuration.defaultRegistry = registry
 
         var signingConfiguration = RegistryConfiguration.Security.Signing()
-        signingConfiguration.onUnsigned = .error // intended for this test; don't change
+        signingConfiguration.onUnsigned = .error  // intended for this test; don't change
         configuration.security = RegistryConfiguration.Security(
             default: RegistryConfiguration.Security.Global(
                 signing: signingConfiguration
             )
         )
-
 
         let registryClient = makeRegistryClient(
             configuration: configuration,
@@ -620,9 +612,9 @@ final class SignatureValidationTests: XCTestCase {
         )
 
         let manifestContent = """
-        \(Self.unsignedManifest)
-        // signature: cms-1.0.0;manifest-signature
-        """
+            \(Self.unsignedManifest)
+            // signature: cms-1.0.0;manifest-signature
+            """
 
         // Get metadata endpoint will be called to see if package version is signed
         let handler = HTTPClient.packageReleaseMetadataAPIHandler(
@@ -636,13 +628,12 @@ final class SignatureValidationTests: XCTestCase {
         configuration.defaultRegistry = registry
 
         var signingConfiguration = RegistryConfiguration.Security.Signing()
-        signingConfiguration.onUnsigned = .error // intended for this test; don't change
+        signingConfiguration.onUnsigned = .error  // intended for this test; don't change
         configuration.security = RegistryConfiguration.Security(
             default: RegistryConfiguration.Security.Global(
                 signing: signingConfiguration
             )
         )
-
 
         let registryClient = makeRegistryClient(
             configuration: configuration,
@@ -678,227 +669,100 @@ final class SignatureValidationTests: XCTestCase {
     }
 
     #if swift(>=5.5.2)
-    func testSignedPackage_validSignature() async throws {
-        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
-        let signingIdentity = try SwiftSigningIdentity(
-            derEncodedCertificate: keyAndCertChain.leafCertificate,
-            derEncodedPrivateKey: keyAndCertChain.privateKey,
-            privateKeyType: .p256
-        )
-        let signatureFormat = SignatureFormat.cms_1_0_0
-        let signatureBytes = try self.sign(
-            content: emptyZipFile.contents,
-            signingIdentity: signingIdentity,
-            format: signatureFormat
-        )
-
-        // Get metadata endpoint will be called to see if package version is signed
-        let handler = HTTPClient.packageReleaseMetadataAPIHandler(
-            metadataURL: metadataURL,
-            checksum: checksum,
-            signatureBytes: signatureBytes,
-            signatureFormat: signatureFormat
-        )
-        let httpClient = HTTPClient(implementation: handler)
-        var configuration = RegistryConfiguration()
-        configuration.defaultRegistry = registry
-
-        try await withTemporaryDirectory { temporaryDirectory in
-            // Write test root to trust roots directory
-            let trustRootsDirectoryPath = temporaryDirectory.appending(component: "trust-roots")
-            try localFileSystem.createDirectory(trustRootsDirectoryPath)
-            try localFileSystem.writeFileContents(
-                trustRootsDirectoryPath.appending(component: "test-root.cer"),
-                bytes: .init(keyAndCertChain.rootCertificate)
+        func testSignedPackage_validSignature() async throws {
+            let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
+            let signingIdentity = try SwiftSigningIdentity(
+                derEncodedCertificate: keyAndCertChain.leafCertificate,
+                derEncodedPrivateKey: keyAndCertChain.privateKey,
+                privateKeyType: .p256
+            )
+            let signatureFormat = SignatureFormat.cms_1_0_0
+            let signatureBytes = try self.sign(
+                content: emptyZipFile.contents,
+                signingIdentity: signingIdentity,
+                format: signatureFormat
             )
 
-            var signingConfiguration = RegistryConfiguration.Security.Signing()
-            signingConfiguration.trustedRootCertificatesPath = trustRootsDirectoryPath.pathString
-            signingConfiguration.includeDefaultTrustedRootCertificates = false
-            var validationChecks = RegistryConfiguration.Security.Signing.ValidationChecks()
-            validationChecks.certificateExpiration = .disabled
-            validationChecks.certificateRevocation = .disabled
-            signingConfiguration.validationChecks = validationChecks
+            // Get metadata endpoint will be called to see if package version is signed
+            let handler = HTTPClient.packageReleaseMetadataAPIHandler(
+                metadataURL: metadataURL,
+                checksum: checksum,
+                signatureBytes: signatureBytes,
+                signatureFormat: signatureFormat
+            )
+            let httpClient = HTTPClient(implementation: handler)
+            var configuration = RegistryConfiguration()
+            configuration.defaultRegistry = registry
 
-            configuration.security = RegistryConfiguration.Security(
-                default: RegistryConfiguration.Security.Global(
-                    signing: signingConfiguration
+            try await withTemporaryDirectory { temporaryDirectory in
+                // Write test root to trust roots directory
+                let trustRootsDirectoryPath = temporaryDirectory.appending(component: "trust-roots")
+                try localFileSystem.createDirectory(trustRootsDirectoryPath)
+                try localFileSystem.writeFileContents(
+                    trustRootsDirectoryPath.appending(component: "test-root.cer"),
+                    bytes: .init(keyAndCertChain.rootCertificate)
                 )
-            )
 
+                var signingConfiguration = RegistryConfiguration.Security.Signing()
+                signingConfiguration.trustedRootCertificatesPath = trustRootsDirectoryPath.pathString
+                signingConfiguration.includeDefaultTrustedRootCertificates = false
+                var validationChecks = RegistryConfiguration.Security.Signing.ValidationChecks()
+                validationChecks.certificateExpiration = .disabled
+                validationChecks.certificateRevocation = .disabled
+                signingConfiguration.validationChecks = validationChecks
 
+                configuration.security = RegistryConfiguration.Security(
+                    default: RegistryConfiguration.Security.Global(
+                        signing: signingConfiguration
+                    )
+                )
 
-            let registryClient = makeRegistryClient(
-                configuration: configuration,
-                httpClient: httpClient,
-                signingEntityStorage: signingEntityStorage,
-                signingEntityCheckingMode: signingEntityCheckingMode
-            )
+                let registryClient = makeRegistryClient(
+                    configuration: configuration,
+                    httpClient: httpClient,
+                    signingEntityStorage: signingEntityStorage,
+                    signingEntityCheckingMode: signingEntityCheckingMode
+                )
 
-            let signatureValidation = SignatureValidation(
-                skipSignatureValidation: false,
-                signingEntityStorage: signingEntityStorage,
-                signingEntityCheckingMode: signingEntityCheckingMode,
-                versionMetadataProvider: registryClient.getPackageVersionMetadata,
-                delegate: RejectingSignatureValidationDelegate()
-            )
+                let signatureValidation = SignatureValidation(
+                    skipSignatureValidation: false,
+                    signingEntityStorage: signingEntityStorage,
+                    signingEntityCheckingMode: signingEntityCheckingMode,
+                    versionMetadataProvider: registryClient.getPackageVersionMetadata,
+                    delegate: RejectingSignatureValidationDelegate()
+                )
 
-            // Package signature is valid
-            _ = try await signatureValidation.validate(
-                registry: registry,
-                package: package,
-                version: version,
-                content: Data(emptyZipFile.contents),
-                configuration: configuration.signing(for: package, registry: registry)
-            )
-        }
-    }
-
-    func testSignedPackage_badSignature() async throws {
-        let signatureBytes = Array("bad signature".utf8)
-        let signatureFormat = SignatureFormat.cms_1_0_0
-
-        // Get metadata endpoint will be called to see if package version is signed
-        let handler = HTTPClient.packageReleaseMetadataAPIHandler(
-            metadataURL: metadataURL,
-            checksum: checksum,
-            signatureBytes: signatureBytes,
-            signatureFormat: signatureFormat
-        )
-        let httpClient = HTTPClient(implementation: handler)
-        var configuration = RegistryConfiguration()
-        configuration.defaultRegistry = registry
-
-        configuration.security = RegistryConfiguration.Security(
-            default: RegistryConfiguration.Security.Global(
-                signing: .init()
-            )
-        )
-
-
-        let registryClient = makeRegistryClient(
-            configuration: configuration,
-            httpClient: httpClient,
-            signingEntityStorage: signingEntityStorage,
-            signingEntityCheckingMode: signingEntityCheckingMode
-        )
-
-        let signatureValidation = SignatureValidation(
-            skipSignatureValidation: false,
-            signingEntityStorage: signingEntityStorage,
-            signingEntityCheckingMode: signingEntityCheckingMode,
-            versionMetadataProvider: registryClient.getPackageVersionMetadata,
-            delegate: RejectingSignatureValidationDelegate()
-        )
-
-        // Package signature can't be parsed so it is invalid
-        await XCTAssertAsyncThrowsError(
-            try await signatureValidation.validate(
-                registry: registry,
-                package: package,
-                version: version,
-                content: Data(emptyZipFile.contents),
-                configuration: configuration.signing(for: package, registry: registry)
-            )
-        ) { error in
-            guard case RegistryError.invalidSignature = error else {
-                return XCTFail("Expected RegistryError.invalidSignature, got '\(error)'")
+                // Package signature is valid
+                _ = try await signatureValidation.validate(
+                    registry: registry,
+                    package: package,
+                    version: version,
+                    content: Data(emptyZipFile.contents),
+                    configuration: configuration.signing(for: package, registry: registry)
+                )
             }
         }
-    }
 
-    func testSignedPackage_badSignature_skipSignatureValidation() async throws {
-        // Get metadata endpoint will be called to see if package version is signed
-        let handler: HTTPClient.Implementation = { _, _ in
-            throw StringError("unexpected request")
-        }
+        func testSignedPackage_badSignature() async throws {
+            let signatureBytes = Array("bad signature".utf8)
+            let signatureFormat = SignatureFormat.cms_1_0_0
 
-        let httpClient = HTTPClient(implementation: handler)
-        var configuration = RegistryConfiguration()
-        configuration.defaultRegistry = registry
-
-        configuration.security = RegistryConfiguration.Security(
-            default: RegistryConfiguration.Security.Global(
-                signing: .init()
+            // Get metadata endpoint will be called to see if package version is signed
+            let handler = HTTPClient.packageReleaseMetadataAPIHandler(
+                metadataURL: metadataURL,
+                checksum: checksum,
+                signatureBytes: signatureBytes,
+                signatureFormat: signatureFormat
             )
-        )
-
-
-        let registryClient = makeRegistryClient(
-            configuration: configuration,
-            httpClient: httpClient,
-            signingEntityStorage: signingEntityStorage,
-            signingEntityCheckingMode: signingEntityCheckingMode
-        )
-
-        let signatureValidation = SignatureValidation(
-            skipSignatureValidation: true, // intended for this test, don't change
-            signingEntityStorage: signingEntityStorage,
-            signingEntityCheckingMode: signingEntityCheckingMode,
-            versionMetadataProvider: registryClient.getPackageVersionMetadata,
-            delegate: RejectingSignatureValidationDelegate()
-        )
-
-        // Signature is bad, but we are skipping signature
-        // validation, so no error is thrown.
-        _ = try await signatureValidation.validate(
-            registry: registry,
-            package: package,
-            version: version,
-            content: Data(emptyZipFile.contents),
-            configuration: configuration.signing(for: package, registry: registry)
-        )
-    }
-
-    func testSignedPackage_invalidSignature() async throws {
-        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
-        let signingIdentity = try SwiftSigningIdentity(
-            derEncodedCertificate: keyAndCertChain.leafCertificate,
-            derEncodedPrivateKey: keyAndCertChain.privateKey,
-            privateKeyType: .p256
-        )
-        let signatureFormat = SignatureFormat.cms_1_0_0
-        let signatureBytes = try self.sign(
-            content: Array("other zip archive".utf8), // signature is not for emptyZipFile but for something else
-            signingIdentity: signingIdentity,
-            format: signatureFormat
-        )
-
-        // Get metadata endpoint will be called to see if package version is signed
-        let handler = HTTPClient.packageReleaseMetadataAPIHandler(
-            metadataURL: metadataURL,
-            checksum: checksum,
-            signatureBytes: signatureBytes,
-            signatureFormat: signatureFormat
-        )
-        let httpClient = HTTPClient(implementation: handler)
-        var configuration = RegistryConfiguration()
-        configuration.defaultRegistry = registry
-
-        try await withTemporaryDirectory { temporaryDirectory in
-            // Write test root to trust roots directory
-            let trustRootsDirectoryPath = temporaryDirectory.appending(component: "trust-roots")
-            try localFileSystem.createDirectory(trustRootsDirectoryPath)
-            try localFileSystem.writeFileContents(
-                trustRootsDirectoryPath.appending(component: "test-root.cer"),
-                bytes: .init(keyAndCertChain.rootCertificate)
-            )
-
-            var signingConfiguration = RegistryConfiguration.Security.Signing()
-            signingConfiguration.trustedRootCertificatesPath = trustRootsDirectoryPath.pathString
-            signingConfiguration.includeDefaultTrustedRootCertificates = false
-            var validationChecks = RegistryConfiguration.Security.Signing.ValidationChecks()
-            validationChecks.certificateExpiration = .disabled
-            validationChecks.certificateRevocation = .disabled
-            signingConfiguration.validationChecks = validationChecks
+            let httpClient = HTTPClient(implementation: handler)
+            var configuration = RegistryConfiguration()
+            configuration.defaultRegistry = registry
 
             configuration.security = RegistryConfiguration.Security(
                 default: RegistryConfiguration.Security.Global(
-                    signing: signingConfiguration
+                    signing: .init()
                 )
             )
-
-
 
             let registryClient = makeRegistryClient(
                 configuration: configuration,
@@ -915,7 +779,7 @@ final class SignatureValidationTests: XCTestCase {
                 delegate: RejectingSignatureValidationDelegate()
             )
 
-            // Package signature doesn't match content so it's invalid
+            // Package signature can't be parsed so it is invalid
             await XCTAssertAsyncThrowsError(
                 try await signatureValidation.validate(
                     registry: registry,
@@ -930,131 +794,177 @@ final class SignatureValidationTests: XCTestCase {
                 }
             }
         }
-    }
 
-    func testSignedPackage_certificateNotTrusted_shouldError() async throws {
-        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
-        let signingIdentity = try SwiftSigningIdentity(
-            derEncodedCertificate: keyAndCertChain.leafCertificate,
-            derEncodedPrivateKey: keyAndCertChain.privateKey,
-            privateKeyType: .p256
-        )
-        let signatureFormat = SignatureFormat.cms_1_0_0
-        let signatureBytes = try self.sign(
-            content: emptyZipFile.contents,
-            signingIdentity: signingIdentity,
-            format: signatureFormat
-        )
+        func testSignedPackage_badSignature_skipSignatureValidation() async throws {
+            // Get metadata endpoint will be called to see if package version is signed
+            let handler: HTTPClient.Implementation = { _, _ in
+                throw StringError("unexpected request")
+            }
 
-        // Get metadata endpoint will be called to see if package version is signed
-        let handler = HTTPClient.packageReleaseMetadataAPIHandler(
-            metadataURL: metadataURL,
-            checksum: checksum,
-            signatureBytes: signatureBytes,
-            signatureFormat: signatureFormat
-        )
-        let httpClient = HTTPClient(implementation: handler)
+            let httpClient = HTTPClient(implementation: handler)
+            var configuration = RegistryConfiguration()
+            configuration.defaultRegistry = registry
 
-        var configuration = RegistryConfiguration()
-        configuration.defaultRegistry = registry
-
-        var signingConfiguration = RegistryConfiguration.Security.Signing()
-        signingConfiguration.onUntrustedCertificate = .error // intended for this test; don't change
-        // Test root not written to trust roots directory
-        signingConfiguration.includeDefaultTrustedRootCertificates = false
-        var validationChecks = RegistryConfiguration.Security.Signing.ValidationChecks()
-        validationChecks.certificateExpiration = .disabled
-        validationChecks.certificateRevocation = .disabled
-        signingConfiguration.validationChecks = validationChecks
-
-        configuration.security = RegistryConfiguration.Security(
-            default: RegistryConfiguration.Security.Global(
-                signing: signingConfiguration
+            configuration.security = RegistryConfiguration.Security(
+                default: RegistryConfiguration.Security.Global(
+                    signing: .init()
+                )
             )
-        )
 
+            let registryClient = makeRegistryClient(
+                configuration: configuration,
+                httpClient: httpClient,
+                signingEntityStorage: signingEntityStorage,
+                signingEntityCheckingMode: signingEntityCheckingMode
+            )
 
-        let registryClient = makeRegistryClient(
-            configuration: configuration,
-            httpClient: httpClient,
-            signingEntityStorage: signingEntityStorage,
-            signingEntityCheckingMode: signingEntityCheckingMode
-        )
+            let signatureValidation = SignatureValidation(
+                skipSignatureValidation: true,  // intended for this test, don't change
+                signingEntityStorage: signingEntityStorage,
+                signingEntityCheckingMode: signingEntityCheckingMode,
+                versionMetadataProvider: registryClient.getPackageVersionMetadata,
+                delegate: RejectingSignatureValidationDelegate()
+            )
 
-        let signatureValidation = SignatureValidation(
-            skipSignatureValidation: false,
-            signingEntityStorage: signingEntityStorage,
-            signingEntityCheckingMode: signingEntityCheckingMode,
-            versionMetadataProvider: registryClient.getPackageVersionMetadata,
-            delegate: RejectingSignatureValidationDelegate()
-        )
-
-        // Test root not trusted; onUntrustedCertificate is set to .error
-        await XCTAssertAsyncThrowsError(
-            try await signatureValidation.validate(
+            // Signature is bad, but we are skipping signature
+            // validation, so no error is thrown.
+            _ = try await signatureValidation.validate(
                 registry: registry,
                 package: package,
                 version: version,
                 content: Data(emptyZipFile.contents),
                 configuration: configuration.signing(for: package, registry: registry)
             )
-        ) { error in
-            guard case RegistryError.signerNotTrusted = error else {
-                return XCTFail("Expected RegistryError.signerNotTrusted, got '\(error)'")
+        }
+
+        func testSignedPackage_invalidSignature() async throws {
+            let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
+            let signingIdentity = try SwiftSigningIdentity(
+                derEncodedCertificate: keyAndCertChain.leafCertificate,
+                derEncodedPrivateKey: keyAndCertChain.privateKey,
+                privateKeyType: .p256
+            )
+            let signatureFormat = SignatureFormat.cms_1_0_0
+            let signatureBytes = try self.sign(
+                content: Array("other zip archive".utf8),  // signature is not for emptyZipFile but for something else
+                signingIdentity: signingIdentity,
+                format: signatureFormat
+            )
+
+            // Get metadata endpoint will be called to see if package version is signed
+            let handler = HTTPClient.packageReleaseMetadataAPIHandler(
+                metadataURL: metadataURL,
+                checksum: checksum,
+                signatureBytes: signatureBytes,
+                signatureFormat: signatureFormat
+            )
+            let httpClient = HTTPClient(implementation: handler)
+            var configuration = RegistryConfiguration()
+            configuration.defaultRegistry = registry
+
+            try await withTemporaryDirectory { temporaryDirectory in
+                // Write test root to trust roots directory
+                let trustRootsDirectoryPath = temporaryDirectory.appending(component: "trust-roots")
+                try localFileSystem.createDirectory(trustRootsDirectoryPath)
+                try localFileSystem.writeFileContents(
+                    trustRootsDirectoryPath.appending(component: "test-root.cer"),
+                    bytes: .init(keyAndCertChain.rootCertificate)
+                )
+
+                var signingConfiguration = RegistryConfiguration.Security.Signing()
+                signingConfiguration.trustedRootCertificatesPath = trustRootsDirectoryPath.pathString
+                signingConfiguration.includeDefaultTrustedRootCertificates = false
+                var validationChecks = RegistryConfiguration.Security.Signing.ValidationChecks()
+                validationChecks.certificateExpiration = .disabled
+                validationChecks.certificateRevocation = .disabled
+                signingConfiguration.validationChecks = validationChecks
+
+                configuration.security = RegistryConfiguration.Security(
+                    default: RegistryConfiguration.Security.Global(
+                        signing: signingConfiguration
+                    )
+                )
+
+                let registryClient = makeRegistryClient(
+                    configuration: configuration,
+                    httpClient: httpClient,
+                    signingEntityStorage: signingEntityStorage,
+                    signingEntityCheckingMode: signingEntityCheckingMode
+                )
+
+                let signatureValidation = SignatureValidation(
+                    skipSignatureValidation: false,
+                    signingEntityStorage: signingEntityStorage,
+                    signingEntityCheckingMode: signingEntityCheckingMode,
+                    versionMetadataProvider: registryClient.getPackageVersionMetadata,
+                    delegate: RejectingSignatureValidationDelegate()
+                )
+
+                // Package signature doesn't match content so it's invalid
+                await XCTAssertAsyncThrowsError(
+                    try await signatureValidation.validate(
+                        registry: registry,
+                        package: package,
+                        version: version,
+                        content: Data(emptyZipFile.contents),
+                        configuration: configuration.signing(for: package, registry: registry)
+                    )
+                ) { error in
+                    guard case RegistryError.invalidSignature = error else {
+                        return XCTFail("Expected RegistryError.invalidSignature, got '\(error)'")
+                    }
+                }
             }
         }
-    }
 
-    func testSignedPackage_certificateNotTrusted_shouldPrompt() async throws {
-        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
-        let signingIdentity = try SwiftSigningIdentity(
-            derEncodedCertificate: keyAndCertChain.leafCertificate,
-            derEncodedPrivateKey: keyAndCertChain.privateKey,
-            privateKeyType: .p256
-        )
-        let signatureFormat = SignatureFormat.cms_1_0_0
-        let signatureBytes = try self.sign(
-            content: emptyZipFile.contents,
-            signingIdentity: signingIdentity,
-            format: signatureFormat
-        )
-
-        // Get metadata endpoint will be called to see if package version is signed
-        let handler = HTTPClient.packageReleaseMetadataAPIHandler(
-            metadataURL: metadataURL,
-            checksum: checksum,
-            signatureBytes: signatureBytes,
-            signatureFormat: signatureFormat
-        )
-        let httpClient = HTTPClient(implementation: handler)
-        var configuration = RegistryConfiguration()
-        configuration.defaultRegistry = registry
-
-        var signingConfiguration = RegistryConfiguration.Security.Signing()
-        signingConfiguration.onUntrustedCertificate = .prompt // intended for this test; don't change
-        // Test root not written to trust roots directory
-        signingConfiguration.includeDefaultTrustedRootCertificates = false
-        var validationChecks = RegistryConfiguration.Security.Signing.ValidationChecks()
-        validationChecks.certificateExpiration = .disabled
-        validationChecks.certificateRevocation = .disabled
-        signingConfiguration.validationChecks = validationChecks
-
-        configuration.security = RegistryConfiguration.Security(
-            default: RegistryConfiguration.Security.Global(
-                signing: signingConfiguration
+        func testSignedPackage_certificateNotTrusted_shouldError() async throws {
+            let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
+            let signingIdentity = try SwiftSigningIdentity(
+                derEncodedCertificate: keyAndCertChain.leafCertificate,
+                derEncodedPrivateKey: keyAndCertChain.privateKey,
+                privateKeyType: .p256
             )
-        )
+            let signatureFormat = SignatureFormat.cms_1_0_0
+            let signatureBytes = try self.sign(
+                content: emptyZipFile.contents,
+                signingIdentity: signingIdentity,
+                format: signatureFormat
+            )
 
+            // Get metadata endpoint will be called to see if package version is signed
+            let handler = HTTPClient.packageReleaseMetadataAPIHandler(
+                metadataURL: metadataURL,
+                checksum: checksum,
+                signatureBytes: signatureBytes,
+                signatureFormat: signatureFormat
+            )
+            let httpClient = HTTPClient(implementation: handler)
 
-        let registryClient = makeRegistryClient(
-            configuration: configuration,
-            httpClient: httpClient,
-            signingEntityStorage: signingEntityStorage,
-            signingEntityCheckingMode: signingEntityCheckingMode
-        )
+            var configuration = RegistryConfiguration()
+            configuration.defaultRegistry = registry
 
-        // prompt returning false
-        do {
+            var signingConfiguration = RegistryConfiguration.Security.Signing()
+            signingConfiguration.onUntrustedCertificate = .error  // intended for this test; don't change
+            // Test root not written to trust roots directory
+            signingConfiguration.includeDefaultTrustedRootCertificates = false
+            var validationChecks = RegistryConfiguration.Security.Signing.ValidationChecks()
+            validationChecks.certificateExpiration = .disabled
+            validationChecks.certificateRevocation = .disabled
+            signingConfiguration.validationChecks = validationChecks
+
+            configuration.security = RegistryConfiguration.Security(
+                default: RegistryConfiguration.Security.Global(
+                    signing: signingConfiguration
+                )
+            )
+
+            let registryClient = makeRegistryClient(
+                configuration: configuration,
+                httpClient: httpClient,
+                signingEntityStorage: signingEntityStorage,
+                signingEntityCheckingMode: signingEntityCheckingMode
+            )
+
             let signatureValidation = SignatureValidation(
                 skipSignatureValidation: false,
                 signingEntityStorage: signingEntityStorage,
@@ -1063,7 +973,7 @@ final class SignatureValidationTests: XCTestCase {
                 delegate: RejectingSignatureValidationDelegate()
             )
 
-            // Test root not trusted; onUntrustedCertificate is set to .prompt
+            // Test root not trusted; onUntrustedCertificate is set to .error
             await XCTAssertAsyncThrowsError(
                 try await signatureValidation.validate(
                     registry: registry,
@@ -1079,148 +989,34 @@ final class SignatureValidationTests: XCTestCase {
             }
         }
 
-        // prompt returning continue
-        do {
-            let signatureValidation = SignatureValidation(
-                skipSignatureValidation: false,
-                signingEntityStorage: signingEntityStorage,
-                signingEntityCheckingMode: signingEntityCheckingMode,
-                versionMetadataProvider: registryClient.getPackageVersionMetadata,
-                delegate: AcceptingSignatureValidationDelegate()
+        func testSignedPackage_certificateNotTrusted_shouldPrompt() async throws {
+            let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
+            let signingIdentity = try SwiftSigningIdentity(
+                derEncodedCertificate: keyAndCertChain.leafCertificate,
+                derEncodedPrivateKey: keyAndCertChain.privateKey,
+                privateKeyType: .p256
+            )
+            let signatureFormat = SignatureFormat.cms_1_0_0
+            let signatureBytes = try self.sign(
+                content: emptyZipFile.contents,
+                signingIdentity: signingIdentity,
+                format: signatureFormat
             )
 
-            // Package signer is untrusted, signingEntity should be nil
-            let signingEntity = try await signatureValidation.validate(
-                registry: registry,
-                package: package,
-                version: version,
-                content: Data(emptyZipFile.contents),
-                configuration: configuration.signing(for: package, registry: registry)
+            // Get metadata endpoint will be called to see if package version is signed
+            let handler = HTTPClient.packageReleaseMetadataAPIHandler(
+                metadataURL: metadataURL,
+                checksum: checksum,
+                signatureBytes: signatureBytes,
+                signatureFormat: signatureFormat
             )
-            XCTAssertNil(signingEntity)
-        }
-    }
-
-    func testSignedPackage_certificateNotTrusted_shouldWarn() async throws {
-        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
-        let signingIdentity = try SwiftSigningIdentity(
-            derEncodedCertificate: keyAndCertChain.leafCertificate,
-            derEncodedPrivateKey: keyAndCertChain.privateKey,
-            privateKeyType: .p256
-        )
-        let signatureFormat = SignatureFormat.cms_1_0_0
-        let signatureBytes = try self.sign(
-            content: emptyZipFile.contents,
-            signingIdentity: signingIdentity,
-            format: signatureFormat
-        )
-
-        // Get metadata endpoint will be called to see if package version is signed
-        let handler = HTTPClient.packageReleaseMetadataAPIHandler(
-            metadataURL: metadataURL,
-            checksum: checksum,
-            signatureBytes: signatureBytes,
-            signatureFormat: signatureFormat
-        )
-        let httpClient = HTTPClient(implementation: handler)
-        var configuration = RegistryConfiguration()
-        configuration.defaultRegistry = registry
-
-        var signingConfiguration = RegistryConfiguration.Security.Signing()
-        signingConfiguration.onUntrustedCertificate = .warn // intended for this test; don't change
-        // Test root not written to trust roots directory
-        signingConfiguration.includeDefaultTrustedRootCertificates = false
-        var validationChecks = RegistryConfiguration.Security.Signing.ValidationChecks()
-        validationChecks.certificateExpiration = .disabled
-        validationChecks.certificateRevocation = .disabled
-        signingConfiguration.validationChecks = validationChecks
-
-        configuration.security = RegistryConfiguration.Security(
-            default: RegistryConfiguration.Security.Global(
-                signing: signingConfiguration
-            )
-        )
-
-
-        let registryClient = makeRegistryClient(
-            configuration: configuration,
-            httpClient: httpClient,
-            signingEntityStorage: signingEntityStorage,
-            signingEntityCheckingMode: signingEntityCheckingMode
-        )
-
-        let signatureValidation = SignatureValidation(
-            skipSignatureValidation: false,
-            signingEntityStorage: signingEntityStorage,
-            signingEntityCheckingMode: signingEntityCheckingMode,
-            versionMetadataProvider: registryClient.getPackageVersionMetadata,
-            delegate: RejectingSignatureValidationDelegate()
-        )
-
-        let observability = ObservabilitySystem.makeForTesting()
-
-        // Test root not trusted but onUntrustedCertificate is set to .warn
-        _ = try await signatureValidation.validate(
-            registry: registry,
-            package: package,
-            version: version,
-            content: Data(emptyZipFile.contents),
-            configuration: configuration.signing(for: package, registry: registry),
-            observabilityScope: observability.topScope
-        )
-
-        testDiagnostics(observability.diagnostics) { result in
-            let diagnostics = result.check(diagnostic: .contains("not trusted"), severity: .warning)
-            XCTAssertEqual(diagnostics?.metadata?.packageIdentity, package.underlying)
-        }
-    }
-
-    func testSignedManifest_validSignature() async throws {
-        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
-        let signingIdentity = try SwiftSigningIdentity(
-            derEncodedCertificate: keyAndCertChain.leafCertificate,
-            derEncodedPrivateKey: keyAndCertChain.privateKey,
-            privateKeyType: .p256
-        )
-        let signatureFormat = SignatureFormat.cms_1_0_0
-        let signatureBytes = try self.sign(
-            content: emptyZipFile.contents,
-            signingIdentity: signingIdentity,
-            format: signatureFormat
-        )
-
-        let manifestSignatureBytes = try self.sign(
-            content: Array(Self.unsignedManifest.utf8),
-            signingIdentity: signingIdentity,
-            format: signatureFormat
-        )
-        let manifestContent = """
-        \(Self.unsignedManifest)
-        // signature: cms-1.0.0;\(Data(manifestSignatureBytes).base64EncodedString())
-        """
-
-        // Get metadata endpoint will be called to see if package version is signed
-        let handler = HTTPClient.packageReleaseMetadataAPIHandler(
-            metadataURL: metadataURL,
-            checksum: checksum,
-            signatureBytes: signatureBytes,
-            signatureFormat: signatureFormat
-        )
-        let httpClient = HTTPClient(implementation: handler)
-        var configuration = RegistryConfiguration()
-        configuration.defaultRegistry = registry
-
-        try await withTemporaryDirectory { temporaryDirectory in
-            // Write test root to trust roots directory
-            let trustRootsDirectoryPath = temporaryDirectory.appending(component: "trust-roots")
-            try localFileSystem.createDirectory(trustRootsDirectoryPath)
-            try localFileSystem.writeFileContents(
-                trustRootsDirectoryPath.appending(component: "test-root.cer"),
-                bytes: .init(keyAndCertChain.rootCertificate)
-            )
+            let httpClient = HTTPClient(implementation: handler)
+            var configuration = RegistryConfiguration()
+            configuration.defaultRegistry = registry
 
             var signingConfiguration = RegistryConfiguration.Security.Signing()
-            signingConfiguration.trustedRootCertificatesPath = trustRootsDirectoryPath.pathString
+            signingConfiguration.onUntrustedCertificate = .prompt  // intended for this test; don't change
+            // Test root not written to trust roots directory
             signingConfiguration.includeDefaultTrustedRootCertificates = false
             var validationChecks = RegistryConfiguration.Security.Signing.ValidationChecks()
             validationChecks.certificateExpiration = .disabled
@@ -1233,7 +1029,100 @@ final class SignatureValidationTests: XCTestCase {
                 )
             )
 
+            let registryClient = makeRegistryClient(
+                configuration: configuration,
+                httpClient: httpClient,
+                signingEntityStorage: signingEntityStorage,
+                signingEntityCheckingMode: signingEntityCheckingMode
+            )
 
+            // prompt returning false
+            do {
+                let signatureValidation = SignatureValidation(
+                    skipSignatureValidation: false,
+                    signingEntityStorage: signingEntityStorage,
+                    signingEntityCheckingMode: signingEntityCheckingMode,
+                    versionMetadataProvider: registryClient.getPackageVersionMetadata,
+                    delegate: RejectingSignatureValidationDelegate()
+                )
+
+                // Test root not trusted; onUntrustedCertificate is set to .prompt
+                await XCTAssertAsyncThrowsError(
+                    try await signatureValidation.validate(
+                        registry: registry,
+                        package: package,
+                        version: version,
+                        content: Data(emptyZipFile.contents),
+                        configuration: configuration.signing(for: package, registry: registry)
+                    )
+                ) { error in
+                    guard case RegistryError.signerNotTrusted = error else {
+                        return XCTFail("Expected RegistryError.signerNotTrusted, got '\(error)'")
+                    }
+                }
+            }
+
+            // prompt returning continue
+            do {
+                let signatureValidation = SignatureValidation(
+                    skipSignatureValidation: false,
+                    signingEntityStorage: signingEntityStorage,
+                    signingEntityCheckingMode: signingEntityCheckingMode,
+                    versionMetadataProvider: registryClient.getPackageVersionMetadata,
+                    delegate: AcceptingSignatureValidationDelegate()
+                )
+
+                // Package signer is untrusted, signingEntity should be nil
+                let signingEntity = try await signatureValidation.validate(
+                    registry: registry,
+                    package: package,
+                    version: version,
+                    content: Data(emptyZipFile.contents),
+                    configuration: configuration.signing(for: package, registry: registry)
+                )
+                XCTAssertNil(signingEntity)
+            }
+        }
+
+        func testSignedPackage_certificateNotTrusted_shouldWarn() async throws {
+            let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
+            let signingIdentity = try SwiftSigningIdentity(
+                derEncodedCertificate: keyAndCertChain.leafCertificate,
+                derEncodedPrivateKey: keyAndCertChain.privateKey,
+                privateKeyType: .p256
+            )
+            let signatureFormat = SignatureFormat.cms_1_0_0
+            let signatureBytes = try self.sign(
+                content: emptyZipFile.contents,
+                signingIdentity: signingIdentity,
+                format: signatureFormat
+            )
+
+            // Get metadata endpoint will be called to see if package version is signed
+            let handler = HTTPClient.packageReleaseMetadataAPIHandler(
+                metadataURL: metadataURL,
+                checksum: checksum,
+                signatureBytes: signatureBytes,
+                signatureFormat: signatureFormat
+            )
+            let httpClient = HTTPClient(implementation: handler)
+            var configuration = RegistryConfiguration()
+            configuration.defaultRegistry = registry
+
+            var signingConfiguration = RegistryConfiguration.Security.Signing()
+            signingConfiguration.onUntrustedCertificate = .warn  // intended for this test; don't change
+            // Test root not written to trust roots directory
+            signingConfiguration.includeDefaultTrustedRootCertificates = false
+            var validationChecks = RegistryConfiguration.Security.Signing.ValidationChecks()
+            validationChecks.certificateExpiration = .disabled
+            validationChecks.certificateRevocation = .disabled
+            signingConfiguration.validationChecks = validationChecks
+
+            configuration.security = RegistryConfiguration.Security(
+                default: RegistryConfiguration.Security.Global(
+                    signing: signingConfiguration
+                )
+            )
 
             let registryClient = makeRegistryClient(
                 configuration: configuration,
@@ -1250,209 +1139,144 @@ final class SignatureValidationTests: XCTestCase {
                 delegate: RejectingSignatureValidationDelegate()
             )
 
-            // Manifest signature is valid
+            let observability = ObservabilitySystem.makeForTesting()
+
+            // Test root not trusted but onUntrustedCertificate is set to .warn
             _ = try await signatureValidation.validate(
                 registry: registry,
                 package: package,
                 version: version,
-                toolsVersion: .none,
-                manifestContent: manifestContent,
-                configuration: configuration.signing(for: package, registry: registry)
+                content: Data(emptyZipFile.contents),
+                configuration: configuration.signing(for: package, registry: registry),
+                observabilityScope: observability.topScope
             )
-        }
-    }
 
-    func testSignedManifest_badSignature() async throws {
-        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
-        let signingIdentity = try SwiftSigningIdentity(
-            derEncodedCertificate: keyAndCertChain.leafCertificate,
-            derEncodedPrivateKey: keyAndCertChain.privateKey,
-            privateKeyType: .p256
-        )
-        let signatureFormat = SignatureFormat.cms_1_0_0
-        let signatureBytes = try self.sign(
-            content: emptyZipFile.contents,
-            signingIdentity: signingIdentity,
-            format: signatureFormat
-        )
-
-        let manifestContent = """
-        \(Self.unsignedManifest)
-        // signature: cms-1.0.0;\(Data(Array("bad signature".utf8)).base64EncodedString())
-        """
-
-        // Get metadata endpoint will be called to see if package version is signed
-        let handler = HTTPClient.packageReleaseMetadataAPIHandler(
-            metadataURL: metadataURL,
-            checksum: checksum,
-            signatureBytes: signatureBytes,
-            signatureFormat: signatureFormat
-        )
-        let httpClient = HTTPClient(implementation: handler)
-        var configuration = RegistryConfiguration()
-        configuration.defaultRegistry = registry
-
-        configuration.security = RegistryConfiguration.Security(
-            default: RegistryConfiguration.Security.Global(
-                signing: .init()
-            )
-        )
-
-        let registryClient = makeRegistryClient(
-            configuration: configuration,
-            httpClient: httpClient,
-            signingEntityStorage: signingEntityStorage,
-            signingEntityCheckingMode: signingEntityCheckingMode
-        )
-
-        let signatureValidation = SignatureValidation(
-            skipSignatureValidation: false,
-            signingEntityStorage: signingEntityStorage,
-            signingEntityCheckingMode: signingEntityCheckingMode,
-            versionMetadataProvider: registryClient.getPackageVersionMetadata,
-            delegate: RejectingSignatureValidationDelegate()
-        )
-
-        // Manifest signature can't be parsed so it is invalid
-        await XCTAssertAsyncThrowsError(
-            try await signatureValidation.validate(
-                registry: registry,
-                package: package,
-                version: version,
-                toolsVersion: .none,
-                manifestContent: manifestContent,
-                configuration: configuration.signing(for: package, registry: registry)
-            )
-        ) { error in
-            guard case RegistryError.invalidSignature = error else {
-                return XCTFail("Expected RegistryError.invalidSignature, got '\(error)'")
+            testDiagnostics(observability.diagnostics) { result in
+                let diagnostics = result.check(diagnostic: .contains("not trusted"), severity: .warning)
+                XCTAssertEqual(diagnostics?.metadata?.packageIdentity, package.underlying)
             }
         }
-    }
 
-    func testSignedManifest_badSignature_skipSignatureValidation() async throws {
-        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
-        let signingIdentity = try SwiftSigningIdentity(
-            derEncodedCertificate: keyAndCertChain.leafCertificate,
-            derEncodedPrivateKey: keyAndCertChain.privateKey,
-            privateKeyType: .p256
-        )
-        let signatureFormat = SignatureFormat.cms_1_0_0
-        let signatureBytes = try self.sign(
-            content: emptyZipFile.contents,
-            signingIdentity: signingIdentity,
-            format: signatureFormat
-        )
-
-        let manifestContent = """
-        \(Self.unsignedManifest)
-        // signature: cms-1.0.0;\(Data(Array("bad signature".utf8)).base64EncodedString())
-        """
-
-        // Get metadata endpoint will be called to see if package version is signed
-        let handler = HTTPClient.packageReleaseMetadataAPIHandler(
-            metadataURL: metadataURL,
-            checksum: checksum,
-            signatureBytes: signatureBytes,
-            signatureFormat: signatureFormat
-        )
-        let httpClient = HTTPClient(implementation: handler)
-        var configuration = RegistryConfiguration()
-        configuration.defaultRegistry = registry
-
-        configuration.security = RegistryConfiguration.Security(
-            default: RegistryConfiguration.Security.Global(
-                signing: .init()
+        func testSignedManifest_validSignature() async throws {
+            let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
+            let signingIdentity = try SwiftSigningIdentity(
+                derEncodedCertificate: keyAndCertChain.leafCertificate,
+                derEncodedPrivateKey: keyAndCertChain.privateKey,
+                privateKeyType: .p256
             )
-        )
-
-
-        let registryClient = makeRegistryClient(
-            configuration: configuration,
-            httpClient: httpClient,
-            signingEntityStorage: signingEntityStorage,
-            signingEntityCheckingMode: signingEntityCheckingMode
-        )
-
-        let signatureValidation = SignatureValidation(
-            skipSignatureValidation: true, // intended for this test, don't change
-            signingEntityStorage: signingEntityStorage,
-            signingEntityCheckingMode: signingEntityCheckingMode,
-            versionMetadataProvider: registryClient.getPackageVersionMetadata,
-            delegate: RejectingSignatureValidationDelegate()
-        )
-
-        // Manifest signature is bad, but we are skipping signature
-        // validation, so no error is thrown.
-        _ = try await signatureValidation.validate(
-            registry: registry,
-            package: package,
-            version: version,
-            toolsVersion: .none,
-            manifestContent: manifestContent,
-            configuration: configuration.signing(for: package, registry: registry)
-        )
-    }
-
-    func testSignedManifest_invalidSignature() async throws {
-        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
-        let signingIdentity = try SwiftSigningIdentity(
-            derEncodedCertificate: keyAndCertChain.leafCertificate,
-            derEncodedPrivateKey: keyAndCertChain.privateKey,
-            privateKeyType: .p256
-        )
-        let signatureFormat = SignatureFormat.cms_1_0_0
-        let signatureBytes = try self.sign(
-            content: emptyZipFile.contents,
-            signingIdentity: signingIdentity,
-            format: signatureFormat
-        )
-
-        let manifestSignatureBytes = try self.sign(
-            content: Array("not manifest".utf8), // signature is not for manifest but for something else
-            signingIdentity: signingIdentity,
-            format: signatureFormat
-        )
-        let manifestContent = """
-        \(Self.unsignedManifest)
-        // signature: cms-1.0.0;\(Data(manifestSignatureBytes).base64EncodedString())
-        """
-
-        // Get metadata endpoint will be called to see if package version is signed
-        let handler = HTTPClient.packageReleaseMetadataAPIHandler(
-            metadataURL: metadataURL,
-            checksum: checksum,
-            signatureBytes: signatureBytes,
-            signatureFormat: signatureFormat
-        )
-        let httpClient = HTTPClient(implementation: handler)
-        var configuration = RegistryConfiguration()
-        configuration.defaultRegistry = registry
-
-        try await withTemporaryDirectory { temporaryDirectory in
-            // Write test root to trust roots directory
-            let trustRootsDirectoryPath = temporaryDirectory.appending(component: "trust-roots")
-            try localFileSystem.createDirectory(trustRootsDirectoryPath)
-            try localFileSystem.writeFileContents(
-                trustRootsDirectoryPath.appending(component: "test-root.cer"),
-                bytes: .init(keyAndCertChain.rootCertificate)
+            let signatureFormat = SignatureFormat.cms_1_0_0
+            let signatureBytes = try self.sign(
+                content: emptyZipFile.contents,
+                signingIdentity: signingIdentity,
+                format: signatureFormat
             )
 
-            var signingConfiguration = RegistryConfiguration.Security.Signing()
-            signingConfiguration.trustedRootCertificatesPath = trustRootsDirectoryPath.pathString
-            signingConfiguration.includeDefaultTrustedRootCertificates = false
-            var validationChecks = RegistryConfiguration.Security.Signing.ValidationChecks()
-            validationChecks.certificateExpiration = .disabled
-            validationChecks.certificateRevocation = .disabled
-            signingConfiguration.validationChecks = validationChecks
+            let manifestSignatureBytes = try self.sign(
+                content: Array(Self.unsignedManifest.utf8),
+                signingIdentity: signingIdentity,
+                format: signatureFormat
+            )
+            let manifestContent = """
+                \(Self.unsignedManifest)
+                // signature: cms-1.0.0;\(Data(manifestSignatureBytes).base64EncodedString())
+                """
+
+            // Get metadata endpoint will be called to see if package version is signed
+            let handler = HTTPClient.packageReleaseMetadataAPIHandler(
+                metadataURL: metadataURL,
+                checksum: checksum,
+                signatureBytes: signatureBytes,
+                signatureFormat: signatureFormat
+            )
+            let httpClient = HTTPClient(implementation: handler)
+            var configuration = RegistryConfiguration()
+            configuration.defaultRegistry = registry
+
+            try await withTemporaryDirectory { temporaryDirectory in
+                // Write test root to trust roots directory
+                let trustRootsDirectoryPath = temporaryDirectory.appending(component: "trust-roots")
+                try localFileSystem.createDirectory(trustRootsDirectoryPath)
+                try localFileSystem.writeFileContents(
+                    trustRootsDirectoryPath.appending(component: "test-root.cer"),
+                    bytes: .init(keyAndCertChain.rootCertificate)
+                )
+
+                var signingConfiguration = RegistryConfiguration.Security.Signing()
+                signingConfiguration.trustedRootCertificatesPath = trustRootsDirectoryPath.pathString
+                signingConfiguration.includeDefaultTrustedRootCertificates = false
+                var validationChecks = RegistryConfiguration.Security.Signing.ValidationChecks()
+                validationChecks.certificateExpiration = .disabled
+                validationChecks.certificateRevocation = .disabled
+                signingConfiguration.validationChecks = validationChecks
+
+                configuration.security = RegistryConfiguration.Security(
+                    default: RegistryConfiguration.Security.Global(
+                        signing: signingConfiguration
+                    )
+                )
+
+                let registryClient = makeRegistryClient(
+                    configuration: configuration,
+                    httpClient: httpClient,
+                    signingEntityStorage: signingEntityStorage,
+                    signingEntityCheckingMode: signingEntityCheckingMode
+                )
+
+                let signatureValidation = SignatureValidation(
+                    skipSignatureValidation: false,
+                    signingEntityStorage: signingEntityStorage,
+                    signingEntityCheckingMode: signingEntityCheckingMode,
+                    versionMetadataProvider: registryClient.getPackageVersionMetadata,
+                    delegate: RejectingSignatureValidationDelegate()
+                )
+
+                // Manifest signature is valid
+                _ = try await signatureValidation.validate(
+                    registry: registry,
+                    package: package,
+                    version: version,
+                    toolsVersion: .none,
+                    manifestContent: manifestContent,
+                    configuration: configuration.signing(for: package, registry: registry)
+                )
+            }
+        }
+
+        func testSignedManifest_badSignature() async throws {
+            let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
+            let signingIdentity = try SwiftSigningIdentity(
+                derEncodedCertificate: keyAndCertChain.leafCertificate,
+                derEncodedPrivateKey: keyAndCertChain.privateKey,
+                privateKeyType: .p256
+            )
+            let signatureFormat = SignatureFormat.cms_1_0_0
+            let signatureBytes = try self.sign(
+                content: emptyZipFile.contents,
+                signingIdentity: signingIdentity,
+                format: signatureFormat
+            )
+
+            let manifestContent = """
+                \(Self.unsignedManifest)
+                // signature: cms-1.0.0;\(Data(Array("bad signature".utf8)).base64EncodedString())
+                """
+
+            // Get metadata endpoint will be called to see if package version is signed
+            let handler = HTTPClient.packageReleaseMetadataAPIHandler(
+                metadataURL: metadataURL,
+                checksum: checksum,
+                signatureBytes: signatureBytes,
+                signatureFormat: signatureFormat
+            )
+            let httpClient = HTTPClient(implementation: handler)
+            var configuration = RegistryConfiguration()
+            configuration.defaultRegistry = registry
 
             configuration.security = RegistryConfiguration.Security(
                 default: RegistryConfiguration.Security.Global(
-                    signing: signingConfiguration
+                    signing: .init()
                 )
             )
-
-
 
             let registryClient = makeRegistryClient(
                 configuration: configuration,
@@ -1469,7 +1293,7 @@ final class SignatureValidationTests: XCTestCase {
                 delegate: RejectingSignatureValidationDelegate()
             )
 
-            // Manifest signature doesn't match content so it's invalid
+            // Manifest signature can't be parsed so it is invalid
             await XCTAssertAsyncThrowsError(
                 try await signatureValidation.validate(
                     registry: registry,
@@ -1485,68 +1309,325 @@ final class SignatureValidationTests: XCTestCase {
                 }
             }
         }
-    }
 
-    func testSignedManifest_certificateNotTrusted_shouldPrompt() async throws {
-        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
-        let signingIdentity = try SwiftSigningIdentity(
-            derEncodedCertificate: keyAndCertChain.leafCertificate,
-            derEncodedPrivateKey: keyAndCertChain.privateKey,
-            privateKeyType: .p256
-        )
-        let signatureFormat = SignatureFormat.cms_1_0_0
-        let signatureBytes = try self.sign(
-            content: emptyZipFile.contents,
-            signingIdentity: signingIdentity,
-            format: signatureFormat
-        )
-
-        let manifestSignatureBytes = try self.sign(
-            content: Array(Self.unsignedManifest.utf8),
-            signingIdentity: signingIdentity,
-            format: signatureFormat
-        )
-        let manifestContent = """
-        \(Self.unsignedManifest)
-        // signature: cms-1.0.0;\(Data(manifestSignatureBytes).base64EncodedString())
-        """
-
-        // Get metadata endpoint will be called to see if package version is signed
-        let handler = HTTPClient.packageReleaseMetadataAPIHandler(
-            metadataURL: metadataURL,
-            checksum: checksum,
-            signatureBytes: signatureBytes,
-            signatureFormat: signatureFormat
-        )
-        let httpClient = HTTPClient(implementation: handler)
-        var configuration = RegistryConfiguration()
-        configuration.defaultRegistry = registry
-
-        var signingConfiguration = RegistryConfiguration.Security.Signing()
-        signingConfiguration.onUntrustedCertificate = .prompt // intended for this test; don't change
-        // Test root not written to trust roots directory
-        signingConfiguration.includeDefaultTrustedRootCertificates = false
-        var validationChecks = RegistryConfiguration.Security.Signing.ValidationChecks()
-        validationChecks.certificateExpiration = .disabled
-        validationChecks.certificateRevocation = .disabled
-        signingConfiguration.validationChecks = validationChecks
-
-        configuration.security = RegistryConfiguration.Security(
-            default: RegistryConfiguration.Security.Global(
-                signing: signingConfiguration
+        func testSignedManifest_badSignature_skipSignatureValidation() async throws {
+            let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
+            let signingIdentity = try SwiftSigningIdentity(
+                derEncodedCertificate: keyAndCertChain.leafCertificate,
+                derEncodedPrivateKey: keyAndCertChain.privateKey,
+                privateKeyType: .p256
             )
-        )
+            let signatureFormat = SignatureFormat.cms_1_0_0
+            let signatureBytes = try self.sign(
+                content: emptyZipFile.contents,
+                signingIdentity: signingIdentity,
+                format: signatureFormat
+            )
 
+            let manifestContent = """
+                \(Self.unsignedManifest)
+                // signature: cms-1.0.0;\(Data(Array("bad signature".utf8)).base64EncodedString())
+                """
 
-        let registryClient = makeRegistryClient(
-            configuration: configuration,
-            httpClient: httpClient,
-            signingEntityStorage: signingEntityStorage,
-            signingEntityCheckingMode: signingEntityCheckingMode
-        )
+            // Get metadata endpoint will be called to see if package version is signed
+            let handler = HTTPClient.packageReleaseMetadataAPIHandler(
+                metadataURL: metadataURL,
+                checksum: checksum,
+                signatureBytes: signatureBytes,
+                signatureFormat: signatureFormat
+            )
+            let httpClient = HTTPClient(implementation: handler)
+            var configuration = RegistryConfiguration()
+            configuration.defaultRegistry = registry
 
-        // prompt returning false
-        do {
+            configuration.security = RegistryConfiguration.Security(
+                default: RegistryConfiguration.Security.Global(
+                    signing: .init()
+                )
+            )
+
+            let registryClient = makeRegistryClient(
+                configuration: configuration,
+                httpClient: httpClient,
+                signingEntityStorage: signingEntityStorage,
+                signingEntityCheckingMode: signingEntityCheckingMode
+            )
+
+            let signatureValidation = SignatureValidation(
+                skipSignatureValidation: true,  // intended for this test, don't change
+                signingEntityStorage: signingEntityStorage,
+                signingEntityCheckingMode: signingEntityCheckingMode,
+                versionMetadataProvider: registryClient.getPackageVersionMetadata,
+                delegate: RejectingSignatureValidationDelegate()
+            )
+
+            // Manifest signature is bad, but we are skipping signature
+            // validation, so no error is thrown.
+            _ = try await signatureValidation.validate(
+                registry: registry,
+                package: package,
+                version: version,
+                toolsVersion: .none,
+                manifestContent: manifestContent,
+                configuration: configuration.signing(for: package, registry: registry)
+            )
+        }
+
+        func testSignedManifest_invalidSignature() async throws {
+            let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
+            let signingIdentity = try SwiftSigningIdentity(
+                derEncodedCertificate: keyAndCertChain.leafCertificate,
+                derEncodedPrivateKey: keyAndCertChain.privateKey,
+                privateKeyType: .p256
+            )
+            let signatureFormat = SignatureFormat.cms_1_0_0
+            let signatureBytes = try self.sign(
+                content: emptyZipFile.contents,
+                signingIdentity: signingIdentity,
+                format: signatureFormat
+            )
+
+            let manifestSignatureBytes = try self.sign(
+                content: Array("not manifest".utf8),  // signature is not for manifest but for something else
+                signingIdentity: signingIdentity,
+                format: signatureFormat
+            )
+            let manifestContent = """
+                \(Self.unsignedManifest)
+                // signature: cms-1.0.0;\(Data(manifestSignatureBytes).base64EncodedString())
+                """
+
+            // Get metadata endpoint will be called to see if package version is signed
+            let handler = HTTPClient.packageReleaseMetadataAPIHandler(
+                metadataURL: metadataURL,
+                checksum: checksum,
+                signatureBytes: signatureBytes,
+                signatureFormat: signatureFormat
+            )
+            let httpClient = HTTPClient(implementation: handler)
+            var configuration = RegistryConfiguration()
+            configuration.defaultRegistry = registry
+
+            try await withTemporaryDirectory { temporaryDirectory in
+                // Write test root to trust roots directory
+                let trustRootsDirectoryPath = temporaryDirectory.appending(component: "trust-roots")
+                try localFileSystem.createDirectory(trustRootsDirectoryPath)
+                try localFileSystem.writeFileContents(
+                    trustRootsDirectoryPath.appending(component: "test-root.cer"),
+                    bytes: .init(keyAndCertChain.rootCertificate)
+                )
+
+                var signingConfiguration = RegistryConfiguration.Security.Signing()
+                signingConfiguration.trustedRootCertificatesPath = trustRootsDirectoryPath.pathString
+                signingConfiguration.includeDefaultTrustedRootCertificates = false
+                var validationChecks = RegistryConfiguration.Security.Signing.ValidationChecks()
+                validationChecks.certificateExpiration = .disabled
+                validationChecks.certificateRevocation = .disabled
+                signingConfiguration.validationChecks = validationChecks
+
+                configuration.security = RegistryConfiguration.Security(
+                    default: RegistryConfiguration.Security.Global(
+                        signing: signingConfiguration
+                    )
+                )
+
+                let registryClient = makeRegistryClient(
+                    configuration: configuration,
+                    httpClient: httpClient,
+                    signingEntityStorage: signingEntityStorage,
+                    signingEntityCheckingMode: signingEntityCheckingMode
+                )
+
+                let signatureValidation = SignatureValidation(
+                    skipSignatureValidation: false,
+                    signingEntityStorage: signingEntityStorage,
+                    signingEntityCheckingMode: signingEntityCheckingMode,
+                    versionMetadataProvider: registryClient.getPackageVersionMetadata,
+                    delegate: RejectingSignatureValidationDelegate()
+                )
+
+                // Manifest signature doesn't match content so it's invalid
+                await XCTAssertAsyncThrowsError(
+                    try await signatureValidation.validate(
+                        registry: registry,
+                        package: package,
+                        version: version,
+                        toolsVersion: .none,
+                        manifestContent: manifestContent,
+                        configuration: configuration.signing(for: package, registry: registry)
+                    )
+                ) { error in
+                    guard case RegistryError.invalidSignature = error else {
+                        return XCTFail("Expected RegistryError.invalidSignature, got '\(error)'")
+                    }
+                }
+            }
+        }
+
+        func testSignedManifest_certificateNotTrusted_shouldPrompt() async throws {
+            let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
+            let signingIdentity = try SwiftSigningIdentity(
+                derEncodedCertificate: keyAndCertChain.leafCertificate,
+                derEncodedPrivateKey: keyAndCertChain.privateKey,
+                privateKeyType: .p256
+            )
+            let signatureFormat = SignatureFormat.cms_1_0_0
+            let signatureBytes = try self.sign(
+                content: emptyZipFile.contents,
+                signingIdentity: signingIdentity,
+                format: signatureFormat
+            )
+
+            let manifestSignatureBytes = try self.sign(
+                content: Array(Self.unsignedManifest.utf8),
+                signingIdentity: signingIdentity,
+                format: signatureFormat
+            )
+            let manifestContent = """
+                \(Self.unsignedManifest)
+                // signature: cms-1.0.0;\(Data(manifestSignatureBytes).base64EncodedString())
+                """
+
+            // Get metadata endpoint will be called to see if package version is signed
+            let handler = HTTPClient.packageReleaseMetadataAPIHandler(
+                metadataURL: metadataURL,
+                checksum: checksum,
+                signatureBytes: signatureBytes,
+                signatureFormat: signatureFormat
+            )
+            let httpClient = HTTPClient(implementation: handler)
+            var configuration = RegistryConfiguration()
+            configuration.defaultRegistry = registry
+
+            var signingConfiguration = RegistryConfiguration.Security.Signing()
+            signingConfiguration.onUntrustedCertificate = .prompt  // intended for this test; don't change
+            // Test root not written to trust roots directory
+            signingConfiguration.includeDefaultTrustedRootCertificates = false
+            var validationChecks = RegistryConfiguration.Security.Signing.ValidationChecks()
+            validationChecks.certificateExpiration = .disabled
+            validationChecks.certificateRevocation = .disabled
+            signingConfiguration.validationChecks = validationChecks
+
+            configuration.security = RegistryConfiguration.Security(
+                default: RegistryConfiguration.Security.Global(
+                    signing: signingConfiguration
+                )
+            )
+
+            let registryClient = makeRegistryClient(
+                configuration: configuration,
+                httpClient: httpClient,
+                signingEntityStorage: signingEntityStorage,
+                signingEntityCheckingMode: signingEntityCheckingMode
+            )
+
+            // prompt returning false
+            do {
+                let signatureValidation = SignatureValidation(
+                    skipSignatureValidation: false,
+                    signingEntityStorage: signingEntityStorage,
+                    signingEntityCheckingMode: signingEntityCheckingMode,
+                    versionMetadataProvider: registryClient.getPackageVersionMetadata,
+                    delegate: RejectingSignatureValidationDelegate()
+                )
+
+                // Test root not trusted; onUntrustedCertificate is set to .prompt
+                await XCTAssertAsyncThrowsError(
+                    try await signatureValidation.validate(
+                        registry: registry,
+                        package: package,
+                        version: version,
+                        toolsVersion: .none,
+                        manifestContent: manifestContent,
+                        configuration: configuration.signing(for: package, registry: registry)
+                    )
+                ) { error in
+                    guard case RegistryError.signerNotTrusted = error else {
+                        return XCTFail("Expected RegistryError.signerNotTrusted, got '\(error)'")
+                    }
+                }
+            }
+
+            // prompt returning continue
+            do {
+                let signatureValidation = SignatureValidation(
+                    skipSignatureValidation: false,
+                    signingEntityStorage: signingEntityStorage,
+                    signingEntityCheckingMode: signingEntityCheckingMode,
+                    versionMetadataProvider: registryClient.getPackageVersionMetadata,
+                    delegate: AcceptingSignatureValidationDelegate()
+                )
+
+                // Package signer is not trusted, signingEntity should be nil
+                let signingEntity = try await signatureValidation.validate(
+                    registry: registry,
+                    package: package,
+                    version: version,
+                    toolsVersion: .none,
+                    manifestContent: manifestContent,
+                    configuration: configuration.signing(for: package, registry: registry)
+                )
+                XCTAssertNil(signingEntity)
+            }
+        }
+
+        func testSignedManifest_certificateNotTrusted_nonPrompt() async throws {
+            let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
+            let signingIdentity = try SwiftSigningIdentity(
+                derEncodedCertificate: keyAndCertChain.leafCertificate,
+                derEncodedPrivateKey: keyAndCertChain.privateKey,
+                privateKeyType: .p256
+            )
+            let signatureFormat = SignatureFormat.cms_1_0_0
+            let signatureBytes = try self.sign(
+                content: emptyZipFile.contents,
+                signingIdentity: signingIdentity,
+                format: signatureFormat
+            )
+
+            let manifestSignatureBytes = try self.sign(
+                content: Array(Self.unsignedManifest.utf8),
+                signingIdentity: signingIdentity,
+                format: signatureFormat
+            )
+            let manifestContent = """
+                \(Self.unsignedManifest)
+                // signature: cms-1.0.0;\(Data(manifestSignatureBytes).base64EncodedString())
+                """
+
+            // Get metadata endpoint will be called to see if package version is signed
+            let handler = HTTPClient.packageReleaseMetadataAPIHandler(
+                metadataURL: metadataURL,
+                checksum: checksum,
+                signatureBytes: signatureBytes,
+                signatureFormat: signatureFormat
+            )
+            let httpClient = HTTPClient(implementation: handler)
+            var configuration = RegistryConfiguration()
+            configuration.defaultRegistry = registry
+
+            var signingConfiguration = RegistryConfiguration.Security.Signing()
+            signingConfiguration.onUntrustedCertificate = .error  // intended for this test; don't change
+            // Test root not written to trust roots directory
+            signingConfiguration.includeDefaultTrustedRootCertificates = false
+            var validationChecks = RegistryConfiguration.Security.Signing.ValidationChecks()
+            validationChecks.certificateExpiration = .disabled
+            validationChecks.certificateRevocation = .disabled
+            signingConfiguration.validationChecks = validationChecks
+
+            configuration.security = RegistryConfiguration.Security(
+                default: RegistryConfiguration.Security.Global(
+                    signing: signingConfiguration
+                )
+            )
+
+            let registryClient = makeRegistryClient(
+                configuration: configuration,
+                httpClient: httpClient,
+                signingEntityStorage: signingEntityStorage,
+                signingEntityCheckingMode: signingEntityCheckingMode
+            )
+
             let signatureValidation = SignatureValidation(
                 skipSignatureValidation: false,
                 signingEntityStorage: signingEntityStorage,
@@ -1555,206 +1636,99 @@ final class SignatureValidationTests: XCTestCase {
                 delegate: RejectingSignatureValidationDelegate()
             )
 
-            // Test root not trusted; onUntrustedCertificate is set to .prompt
-            await XCTAssertAsyncThrowsError(
-                try await signatureValidation.validate(
-                    registry: registry,
-                    package: package,
-                    version: version,
-                    toolsVersion: .none,
-                    manifestContent: manifestContent,
-                    configuration: configuration.signing(for: package, registry: registry)
-                )
-            ) { error in
-                guard case RegistryError.signerNotTrusted = error else {
-                    return XCTFail("Expected RegistryError.signerNotTrusted, got '\(error)'")
-                }
-            }
-        }
+            let observability = ObservabilitySystem.makeForTesting()
 
-        // prompt returning continue
-        do {
-            let signatureValidation = SignatureValidation(
-                skipSignatureValidation: false,
-                signingEntityStorage: signingEntityStorage,
-                signingEntityCheckingMode: signingEntityCheckingMode,
-                versionMetadataProvider: registryClient.getPackageVersionMetadata,
-                delegate: AcceptingSignatureValidationDelegate()
-            )
-
-            // Package signer is not trusted, signingEntity should be nil
-            let signingEntity = try await signatureValidation.validate(
+            // Test root not trusted.
+            // With the exception of .prompt, we log then continue.
+            _ = try await signatureValidation.validate(
                 registry: registry,
                 package: package,
                 version: version,
                 toolsVersion: .none,
                 manifestContent: manifestContent,
-                configuration: configuration.signing(for: package, registry: registry)
+                configuration: configuration.signing(for: package, registry: registry),
+                observabilityScope: observability.topScope
             )
-            XCTAssertNil(signingEntity)
+
+            testDiagnostics(observability.diagnostics, problemsOnly: false) { result in
+                let diagnostics = result.check(diagnostic: .contains("not trusted"), severity: .debug)
+                XCTAssertEqual(diagnostics?.metadata?.packageIdentity, package.underlying)
+            }
         }
-    }
 
-    func testSignedManifest_certificateNotTrusted_nonPrompt() async throws {
-        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
-        let signingIdentity = try SwiftSigningIdentity(
-            derEncodedCertificate: keyAndCertChain.leafCertificate,
-            derEncodedPrivateKey: keyAndCertChain.privateKey,
-            privateKeyType: .p256
-        )
-        let signatureFormat = SignatureFormat.cms_1_0_0
-        let signatureBytes = try self.sign(
-            content: emptyZipFile.contents,
-            signingIdentity: signingIdentity,
-            format: signatureFormat
-        )
-
-        let manifestSignatureBytes = try self.sign(
-            content: Array(Self.unsignedManifest.utf8),
-            signingIdentity: signingIdentity,
-            format: signatureFormat
-        )
-        let manifestContent = """
-        \(Self.unsignedManifest)
-        // signature: cms-1.0.0;\(Data(manifestSignatureBytes).base64EncodedString())
-        """
-
-        // Get metadata endpoint will be called to see if package version is signed
-        let handler = HTTPClient.packageReleaseMetadataAPIHandler(
-            metadataURL: metadataURL,
-            checksum: checksum,
-            signatureBytes: signatureBytes,
-            signatureFormat: signatureFormat
-        )
-        let httpClient = HTTPClient(implementation: handler)
-        var configuration = RegistryConfiguration()
-        configuration.defaultRegistry = registry
-
-        var signingConfiguration = RegistryConfiguration.Security.Signing()
-        signingConfiguration.onUntrustedCertificate = .error // intended for this test; don't change
-        // Test root not written to trust roots directory
-        signingConfiguration.includeDefaultTrustedRootCertificates = false
-        var validationChecks = RegistryConfiguration.Security.Signing.ValidationChecks()
-        validationChecks.certificateExpiration = .disabled
-        validationChecks.certificateRevocation = .disabled
-        signingConfiguration.validationChecks = validationChecks
-
-        configuration.security = RegistryConfiguration.Security(
-            default: RegistryConfiguration.Security.Global(
-                signing: signingConfiguration
+        func testSignedManifest_emptyResources() async throws {
+            let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
+            let signingIdentity = try SwiftSigningIdentity(
+                derEncodedCertificate: keyAndCertChain.leafCertificate,
+                derEncodedPrivateKey: keyAndCertChain.privateKey,
+                privateKeyType: .p256
             )
-        )
+            let signatureFormat = SignatureFormat.cms_1_0_0
+            let signatureBytes = try self.sign(
+                content: emptyZipFile.contents,
+                signingIdentity: signingIdentity,
+                format: signatureFormat
+            )
 
+            // Get metadata endpoint will be called to see if package version is signed
+            let handler = HTTPClient.packageReleaseMetadataAPIHandler(
+                metadataURL: metadataURL,
+                checksum: checksum,
+                signatureBytes: signatureBytes,
+                signatureFormat: signatureFormat,
+                includeResouces: false
+            )
+            let httpClient = HTTPClient(implementation: handler)
+            var configuration = RegistryConfiguration()
+            configuration.defaultRegistry = registry
 
-        let registryClient = makeRegistryClient(
-            configuration: configuration,
-            httpClient: httpClient,
-            signingEntityStorage: signingEntityStorage,
-            signingEntityCheckingMode: signingEntityCheckingMode
-        )
+            var signingConfiguration = RegistryConfiguration.Security.Signing()
+            signingConfiguration.onUnsigned = .error  // intended for this test; don't change
+            configuration.security = RegistryConfiguration.Security(
+                default: RegistryConfiguration.Security.Global(
+                    signing: signingConfiguration
+                )
+            )
 
-        let signatureValidation = SignatureValidation(
-            skipSignatureValidation: false,
-            signingEntityStorage: signingEntityStorage,
-            signingEntityCheckingMode: signingEntityCheckingMode,
-            versionMetadataProvider: registryClient.getPackageVersionMetadata,
-            delegate: RejectingSignatureValidationDelegate()
-        )
+            let registryClient = makeRegistryClient(
+                configuration: configuration,
+                httpClient: httpClient,
+                signingEntityStorage: signingEntityStorage,
+                signingEntityCheckingMode: signingEntityCheckingMode
+            )
 
-        let observability = ObservabilitySystem.makeForTesting()
+            let signatureValidation = SignatureValidation(
+                skipSignatureValidation: false,
+                signingEntityStorage: signingEntityStorage,
+                signingEntityCheckingMode: signingEntityCheckingMode,
+                versionMetadataProvider: registryClient.getPackageVersionMetadata,
+                delegate: RejectingSignatureValidationDelegate()
+            )
 
-        // Test root not trusted.
-        // With the exception of .prompt, we log then continue.
-        _ = try await signatureValidation.validate(
-            registry: registry,
-            package: package,
-            version: version,
-            toolsVersion: .none,
-            manifestContent: manifestContent,
-            configuration: configuration.signing(for: package, registry: registry),
-            observabilityScope: observability.topScope
-        )
+            let observability = ObservabilitySystem.makeForTesting()
 
-        testDiagnostics(observability.diagnostics, problemsOnly: false) { result in
-            let diagnostics = result.check(diagnostic: .contains("not trusted"), severity: .debug)
-            XCTAssertEqual(diagnostics?.metadata?.packageIdentity, package.underlying)
+            // Archive is signed, but manifest is not signed
+            let entity = try await signatureValidation.validate(
+                registry: registry,
+                package: package,
+                version: version,
+                toolsVersion: ToolsVersion.v5_7,
+                manifestContent: Self.unsignedManifest,
+                configuration: configuration.signing(for: package, registry: registry),
+                observabilityScope: observability.topScope
+            )
+            XCTAssertNil(entity, "Expected no signing entity")
+
+            let manifestName = "Package@swift-\(ToolsVersion.v5_7).swift"
+            testDiagnostics(observability.diagnostics, problemsOnly: false) { result in
+                result.check(
+                    diagnostic: .contains(
+                        "cannot determine if \(manifestName) should be signed because source archive for \(package!) \(version) is not found in \(registry!)"
+                    ),
+                    severity: .debug
+                )
+            }
         }
-    }
-
-    func testSignedManifest_emptyResources() async throws {
-        let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
-        let signingIdentity = try SwiftSigningIdentity(
-            derEncodedCertificate: keyAndCertChain.leafCertificate,
-            derEncodedPrivateKey: keyAndCertChain.privateKey,
-            privateKeyType: .p256
-        )
-        let signatureFormat = SignatureFormat.cms_1_0_0
-        let signatureBytes = try self.sign(
-            content: emptyZipFile.contents,
-            signingIdentity: signingIdentity,
-            format: signatureFormat
-        )
-
-        // Get metadata endpoint will be called to see if package version is signed
-        let handler = HTTPClient.packageReleaseMetadataAPIHandler(
-            metadataURL: metadataURL,
-            checksum: checksum,
-            signatureBytes: signatureBytes,
-            signatureFormat: signatureFormat,
-            includeResouces: false
-        )
-        let httpClient = HTTPClient(implementation: handler)
-        var configuration = RegistryConfiguration()
-        configuration.defaultRegistry = registry
-
-        var signingConfiguration = RegistryConfiguration.Security.Signing()
-        signingConfiguration.onUnsigned = .error // intended for this test; don't change
-        configuration.security = RegistryConfiguration.Security(
-            default: RegistryConfiguration.Security.Global(
-                signing: signingConfiguration
-            )
-        )
-
-
-        let registryClient = makeRegistryClient(
-            configuration: configuration,
-            httpClient: httpClient,
-            signingEntityStorage: signingEntityStorage,
-            signingEntityCheckingMode: signingEntityCheckingMode
-        )
-
-        let signatureValidation = SignatureValidation(
-            skipSignatureValidation: false,
-            signingEntityStorage: signingEntityStorage,
-            signingEntityCheckingMode: signingEntityCheckingMode,
-            versionMetadataProvider: registryClient.getPackageVersionMetadata,
-            delegate: RejectingSignatureValidationDelegate()
-        )
-
-        let observability = ObservabilitySystem.makeForTesting()
-
-        // Archive is signed, but manifest is not signed
-        let entity = try await signatureValidation.validate(
-            registry: registry,
-            package: package,
-            version: version,
-            toolsVersion: ToolsVersion.v5_7,
-            manifestContent: Self.unsignedManifest,
-            configuration: configuration.signing(for: package, registry: registry),
-            observabilityScope: observability.topScope
-        )
-        XCTAssertNil(entity, "Expected no signing entity")
-
-        let manifestName = "Package@swift-\(ToolsVersion.v5_7).swift"
-        testDiagnostics(observability.diagnostics, problemsOnly: false) { result in
-            result.check(
-                diagnostic: .contains(
-                    "cannot determine if \(manifestName) should be signed because source archive for \(package!) \(version) is not found in \(registry!)"
-                ),
-                severity: .debug
-            )
-        }
-    }
     #endif
 
     private func sign(
@@ -1914,21 +1888,21 @@ extension HTTPClient {
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+json")
 
                 let data = """
-                {
-                    "id": "mona.LinkedList",
-                    "version": "1.1.1",
-                    "resources": [
-                        {
-                            "name": "source-archive",
-                            "type": "application/zip",
-                            "checksum": "\(checksum)"
+                    {
+                        "id": "mona.LinkedList",
+                        "version": "1.1.1",
+                        "resources": [
+                            {
+                                "name": "source-archive",
+                                "type": "application/zip",
+                                "checksum": "\(checksum)"
+                            }
+                        ],
+                        "metadata": {
+                            "description": "One thing links to another."
                         }
-                    ],
-                    "metadata": {
-                        "description": "One thing links to another."
                     }
-                }
-                """.data(using: .utf8)!
+                    """.data(using: .utf8)!
 
                 return .init(
                     statusCode: 200,
@@ -1958,11 +1932,11 @@ extension HTTPClient {
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+json")
 
                 let data = """
-                {
-                    "id": "mona.LinkedList",
-                    "version": "1.1.1",
-                    "resources": [
-                        \(includeResouces ? """
+                    {
+                        "id": "mona.LinkedList",
+                        "version": "1.1.1",
+                        "resources": [
+                            \(includeResouces ? """
                         {
                             "name": "source-archive",
                             "type": "application/zip",
@@ -1973,12 +1947,12 @@ extension HTTPClient {
                             }
                         }
                         """ : "")
-                    ],
-                    "metadata": {
-                        "description": "One thing links to another."
+                        ],
+                        "metadata": {
+                            "description": "One thing links to another."
+                        }
                     }
-                }
-                """.data(using: .utf8)!
+                    """.data(using: .utf8)!
 
                 return .init(
                     statusCode: 200,

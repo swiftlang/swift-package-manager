@@ -11,9 +11,7 @@
 //===----------------------------------------------------------------------===//
 import Foundation
 
-@_spi(SwiftPMInternal)
-@testable
-import Basics
+@_spi(SwiftPMInternal) @testable import Basics
 
 import Testing
 import _InternalTestSupport
@@ -121,9 +119,9 @@ struct EnvironmentTests {
     @Test
     func current() throws {
         #if os(Windows)
-        let pathEnvVarName = "Path"
+            let pathEnvVarName = "Path"
         #else
-        let pathEnvVarName = "PATH"
+            let pathEnvVarName = "PATH"
         #endif
 
         #expect(Environment.current["PATH"] == ProcessInfo.processInfo.environment[pathEnvVarName])
@@ -172,13 +170,13 @@ struct EnvironmentTests {
         #expect(environment[key] == nil)
 
         try Environment.set(key: key, value: value)
-        environment = Environment.current // reload
+        environment = Environment.current  // reload
         #expect(environment[key] == value)
 
         try Environment.set(key: key, value: nil)
         #expect(environment[key] == value)  // this is a copy!
 
-        environment = Environment.current // reload
+        environment = Environment.current  // reload
         #expect(environment[key] == nil)
     }
 
@@ -224,11 +222,11 @@ struct EnvironmentTests {
         let environment1: Environment = ["TestKey": "TestValue"]
         #expect(environment0 == environment1)
 
-#if os(Windows)
-        // Test case insensitivity on windows
-        let environment2: Environment = ["testKey": "TestValue"]
+        #if os(Windows)
+            // Test case insensitivity on windows
+            let environment2: Environment = ["testKey": "TestValue"]
             #expect(environment0 == environment2)
-#endif
+        #endif
     }
 
     @Test
@@ -236,7 +234,6 @@ struct EnvironmentTests {
         let environment: Environment = ["TestKey": "TestValue"]
         #expect(environment["TestKey"] == "TestValue")
     }
-
 
     @Test
     func decodable() throws {

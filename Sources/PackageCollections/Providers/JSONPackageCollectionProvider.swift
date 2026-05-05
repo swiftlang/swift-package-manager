@@ -34,9 +34,9 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
     // TODO: This can be removed when the `Security` framework APIs that the `PackageCollectionsSigning`
     // module depends on are available on all Apple platforms.
     #if os(macOS) || os(Linux) || os(Windows) || os(Android) || os(FreeBSD)
-    static let isSignatureCheckSupported = true
+        static let isSignatureCheckSupported = true
     #else
-    static let isSignatureCheckSupported = false
+        static let isSignatureCheckSupported = false
     #endif
 
     static let defaultCertPolicyKeys: [CertificatePolicyKey] = [.default]
@@ -63,12 +63,13 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope
         self.httpClient = customHTTPClient ?? Self.makeDefaultHTTPClient()
-        self.signatureValidator = customSignatureValidator ?? PackageCollectionSigning(
-            trustedRootCertsDir: configuration.trustedRootCertsDir ??
-                (try? fileSystem.swiftPMConfigurationDirectory.appending("trust-root-certs").asURL) ?? Basics.AbsolutePath.root.asURL,
-            additionalTrustedRootCerts: sourceCertPolicy.allRootCerts.map { Array($0) },
-            observabilityScope: observabilityScope
-        )
+        self.signatureValidator =
+            customSignatureValidator
+            ?? PackageCollectionSigning(
+                trustedRootCertsDir: configuration.trustedRootCertsDir ?? (try? fileSystem.swiftPMConfigurationDirectory.appending("trust-root-certs").asURL) ?? Basics.AbsolutePath.root.asURL,
+                additionalTrustedRootCerts: sourceCertPolicy.allRootCerts.map { Array($0) },
+                observabilityScope: observabilityScope
+            )
         self.sourceCertPolicy = sourceCertPolicy
         self.decoder = JSONDecoder.makeWithDefaults()
     }
@@ -102,18 +103,22 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
             response = try await self.httpClient.head(source.url, headers: headers, options: headOptions)
         } catch HTTPClientError.badResponseStatusCode(let statusCode) {
             if statusCode == 404 {
-                throw JSONPackageCollectionProviderError
+                throw
+                    JSONPackageCollectionProviderError
                     .collectionNotFound(source.url)
             }
-            throw JSONPackageCollectionProviderError
+            throw
+                JSONPackageCollectionProviderError
                 .collectionUnavailable(source.url, statusCode)
         }
         guard let contentLength = response.headers.get("Content-Length").first.flatMap(Int64.init) else {
-            throw JSONPackageCollectionProviderError
+            throw
+                JSONPackageCollectionProviderError
                 .invalidResponse(source.url, "Missing Content-Length header")
         }
         guard contentLength <= self.configuration.maximumSizeInBytes else {
-            throw JSONPackageCollectionProviderError
+            throw
+                JSONPackageCollectionProviderError
                 .responseTooLarge(source.url, contentLength)
         }
         // next do a get request to get the actual content
@@ -125,10 +130,12 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
             getResponse = try await self.httpClient.get(source.url, headers: headers, options: getOptions)
         } catch HTTPClientError.badResponseStatusCode(let statusCode) {
             if statusCode == 404 {
-                throw JSONPackageCollectionProviderError
+                throw
+                    JSONPackageCollectionProviderError
                     .collectionNotFound(source.url)
             }
-            throw JSONPackageCollectionProviderError
+            throw
+                JSONPackageCollectionProviderError
                 .collectionUnavailable(source.url, statusCode)
         }
 
@@ -137,19 +144,24 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
         // TODO: store bad actors to prevent server DoS
         guard let contentLength = getResponse.headers.get("Content-Length").first.flatMap(Int64.init)
         else {
-            throw JSONPackageCollectionProviderError
+            throw
+                JSONPackageCollectionProviderError
                 .invalidResponse(source.url, "Missing Content-Length header")
         }
         guard contentLength < self.configuration.maximumSizeInBytes else {
-            throw JSONPackageCollectionProviderError
+            throw
+                JSONPackageCollectionProviderError
                 .responseTooLarge(source.url, contentLength)
         }
         guard let body = getResponse.body else {
-            throw JSONPackageCollectionProviderError
+            throw
+                JSONPackageCollectionProviderError
                 .invalidResponse(source.url, "Body is empty")
         }
 
-        let certPolicyKeys = self.sourceCertPolicy.certificatePolicyKeys(for: source) ?? Self
+        let certPolicyKeys =
+            self.sourceCertPolicy.certificatePolicyKeys(for: source)
+            ?? Self
             .defaultCertPolicyKeys
         return try await self.decodeAndRunSignatureCheck(
             source: source,
@@ -241,7 +253,8 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
         signature: Model.SignatureData?
     ) throws -> Model.Collection {
         if let errors = self.validator.validate(collection: collection)?.errors() {
-            throw JSONPackageCollectionProviderError
+            throw
+                JSONPackageCollectionProviderError
                 .invalidCollection("\(errors.map(\.message).joined(separator: " "))")
         }
 
@@ -255,38 +268,40 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                 }
 
                 let manifests: [ToolsVersion: Model.Package.Version.Manifest] =
-                try Dictionary(throwingUniqueKeysWithValues: version.manifests.compactMap { key, value in
-                    guard let keyToolsVersion = ToolsVersion(string: key),
-                          let manifestToolsVersion = ToolsVersion(string: value.toolsVersion)
-                    else {
-                        return nil
-                    }
+                    try Dictionary(
+                        throwingUniqueKeysWithValues: version.manifests.compactMap { key, value in
+                            guard let keyToolsVersion = ToolsVersion(string: key),
+                                let manifestToolsVersion = ToolsVersion(string: value.toolsVersion)
+                            else {
+                                return nil
+                            }
 
-                    let targets = value.targets.map { Model.Target(name: $0.name, moduleName: $0.moduleName) }
-                    if targets.count != value.targets.count {
-                        serializationOkay = false
-                    }
-                    let products = value.products
-                        .compactMap { Model.Product(from: $0, packageTargets: targets) }
-                    if products.count != value.products.count {
-                        serializationOkay = false
-                    }
-                    let minimumPlatformVersions: [PackageModel.SupportedPlatform]? = value
-                        .minimumPlatformVersions?
-                        .compactMap { PackageModel.SupportedPlatform(from: $0) }
-                    if minimumPlatformVersions?.count != value.minimumPlatformVersions?.count {
-                        serializationOkay = false
-                    }
+                            let targets = value.targets.map { Model.Target(name: $0.name, moduleName: $0.moduleName) }
+                            if targets.count != value.targets.count {
+                                serializationOkay = false
+                            }
+                            let products = value.products
+                                .compactMap { Model.Product(from: $0, packageTargets: targets) }
+                            if products.count != value.products.count {
+                                serializationOkay = false
+                            }
+                            let minimumPlatformVersions: [PackageModel.SupportedPlatform]? = value
+                                .minimumPlatformVersions?
+                                .compactMap { PackageModel.SupportedPlatform(from: $0) }
+                            if minimumPlatformVersions?.count != value.minimumPlatformVersions?.count {
+                                serializationOkay = false
+                            }
 
-                    let manifest = Model.Package.Version.Manifest(
-                        toolsVersion: manifestToolsVersion,
-                        packageName: value.packageName,
-                        targets: targets,
-                        products: products,
-                        minimumPlatformVersions: minimumPlatformVersions
+                            let manifest = Model.Package.Version.Manifest(
+                                toolsVersion: manifestToolsVersion,
+                                packageName: value.packageName,
+                                targets: targets,
+                                products: products,
+                                minimumPlatformVersions: minimumPlatformVersions
+                            )
+                            return (keyToolsVersion, manifest)
+                        }
                     )
-                    return (keyToolsVersion, manifest)
-                })
                 if manifests.count != version.manifests.count {
                     serializationOkay = false
                 }
@@ -304,7 +319,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
 
                 let signer: Model.Signer?
                 if let versionSigner = version.signer,
-                   let signerType = Model.SignerType(rawValue: versionSigner.type.lowercased())
+                    let signerType = Model.SignerType(rawValue: versionSigner.type.lowercased())
                 {
                     signer = .init(
                         type: signerType,
@@ -432,7 +447,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
             maximumMinorVersionCount: Int? = nil
         ) {
             // TODO: where should we read defaults from?
-            self.maximumSizeInBytes = maximumSizeInBytes ?? 5_000_000 // 5MB
+            self.maximumSizeInBytes = maximumSizeInBytes ?? 5_000_000  // 5MB
             self.trustedRootCertsDir = trustedRootCertsDir
             self.validator = JSONModel.Validator.Configuration(
                 maximumPackageCount: maximumPackageCount,
@@ -563,7 +578,7 @@ extension PackageModel.Platform {
 extension Model.Compatibility {
     fileprivate init?(from: JSONModel.Compatibility) {
         guard let platform = PackageModel.Platform(from: from.platform),
-              let swiftVersion = SwiftLanguageVersion(string: from.swiftVersion)
+            let swiftVersion = SwiftLanguageVersion(string: from.swiftVersion)
         else {
             return nil
         }

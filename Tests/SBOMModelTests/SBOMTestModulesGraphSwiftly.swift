@@ -68,37 +68,37 @@ extension SBOMTestModulesGraph {
 
         let nioPackage = try createSwiftNIOPackage(
             atomicsProduct: atomicsPackage.resolvedProducts[0],
-            dequeProduct: collectionsPackage.resolvedProducts[0], // DequeModule
+            dequeProduct: collectionsPackage.resolvedProducts[0],  // DequeModule
             systemPackageProduct: systemPackage.resolvedProducts[0]
         )
 
         let nioSSLPackage = try createSwiftNIOSSLPackage(
-            nioProduct: nioPackage.resolvedProducts[2], // NIO
-            nioCoreProduct: nioPackage.resolvedProducts[1], // NIOCore
-            nioConcurrencyHelpersProduct: nioPackage.resolvedProducts[0], // NIOConcurrencyHelpers
-            nioTLSProduct: nioPackage.resolvedProducts[4] // NIOTLS
+            nioProduct: nioPackage.resolvedProducts[2],  // NIO
+            nioCoreProduct: nioPackage.resolvedProducts[1],  // NIOCore
+            nioConcurrencyHelpersProduct: nioPackage.resolvedProducts[0],  // NIOConcurrencyHelpers
+            nioTLSProduct: nioPackage.resolvedProducts[4]  // NIOTLS
         )
 
         let nioHTTP2Package = try createSwiftNIOHTTP2Package(
-            nioProduct: nioPackage.resolvedProducts[2], // NIO
-            nioCoreProduct: nioPackage.resolvedProducts[1], // NIOCore
-            nioConcurrencyHelpersProduct: nioPackage.resolvedProducts[0], // NIOConcurrencyHelpers
-            nioHTTP1Product: nioPackage.resolvedProducts[5], // NIOHTTP1
-            nioTLSProduct: nioPackage.resolvedProducts[4], // NIOTLS
+            nioProduct: nioPackage.resolvedProducts[2],  // NIO
+            nioCoreProduct: nioPackage.resolvedProducts[1],  // NIOCore
+            nioConcurrencyHelpersProduct: nioPackage.resolvedProducts[0],  // NIOConcurrencyHelpers
+            nioHTTP1Product: nioPackage.resolvedProducts[5],  // NIOHTTP1
+            nioTLSProduct: nioPackage.resolvedProducts[4],  // NIOTLS
             atomicsProduct: atomicsPackage.resolvedProducts[0]
         )
 
         let nioExtrasPackage = try createSwiftNIOExtrasPackage(
-            nioProduct: nioPackage.resolvedProducts[2], // NIO
-            nioCoreProduct: nioPackage.resolvedProducts[1], // NIOCore
-            nioHTTP1Product: nioPackage.resolvedProducts[5] // NIOHTTP1
+            nioProduct: nioPackage.resolvedProducts[2],  // NIO
+            nioCoreProduct: nioPackage.resolvedProducts[1],  // NIOCore
+            nioHTTP1Product: nioPackage.resolvedProducts[5]  // NIOHTTP1
         )
 
         let nioTransportServicesPackage = try createSwiftNIOTransportServicesPackage(
-            nioProduct: nioPackage.resolvedProducts[2], // NIO
-            nioCoreProduct: nioPackage.resolvedProducts[1], // NIOCore
-            nioFoundationCompatProduct: nioPackage.resolvedProducts[6], // NIOFoundationCompat
-            nioTLSProduct: nioPackage.resolvedProducts[4], // NIOTLS
+            nioProduct: nioPackage.resolvedProducts[2],  // NIO
+            nioCoreProduct: nioPackage.resolvedProducts[1],  // NIOCore
+            nioFoundationCompatProduct: nioPackage.resolvedProducts[6],  // NIOFoundationCompat
+            nioTLSProduct: nioPackage.resolvedProducts[4],  // NIOTLS
             atomicsProduct: atomicsPackage.resolvedProducts[0]
         )
 
@@ -109,26 +109,26 @@ extension SBOMTestModulesGraph {
         )
 
         let openAPIGeneratorPackage = try createSwiftOpenAPIGeneratorPackage(
-            openAPIKitProduct: openAPIKitPackage.resolvedProducts[0], // OpenAPIKit
-            openAPIKit30Product: openAPIKitPackage.resolvedProducts[1], // OpenAPIKit30
-            openAPIKitCompatProduct: openAPIKitPackage.resolvedProducts[2], // OpenAPIKitCompat
+            openAPIKitProduct: openAPIKitPackage.resolvedProducts[0],  // OpenAPIKit
+            openAPIKit30Product: openAPIKitPackage.resolvedProducts[1],  // OpenAPIKit30
+            openAPIKitCompatProduct: openAPIKitPackage.resolvedProducts[2],  // OpenAPIKitCompat
             algorithmsProduct: algorithmsPackage.resolvedProducts[0],
-            orderedCollectionsProduct: collectionsPackage.resolvedProducts[1], // OrderedCollections
+            orderedCollectionsProduct: collectionsPackage.resolvedProducts[1],  // OrderedCollections
             yamsProduct: yamsPackage.resolvedProducts[0],
             argumentParserProduct: argumentParserPackage.resolvedProducts[0]
         )
 
         let asyncHTTPClientPackage = try createAsyncHTTPClientPackage(
-            nioProduct: nioPackage.resolvedProducts[2], // NIO
-            nioTLSProduct: nioPackage.resolvedProducts[4], // NIOTLS
-            nioCoreProduct: nioPackage.resolvedProducts[1], // NIOCore
-            nioPosixProduct: nioPackage.resolvedProducts[3], // NIOPosix
-            nioHTTP1Product: nioPackage.resolvedProducts[5], // NIOHTTP1
-            nioConcurrencyHelpersProduct: nioPackage.resolvedProducts[0], // NIOConcurrencyHelpers
-            nioHTTP2Product: nioHTTP2Package.resolvedProducts[0], // NIOHTTP2
-            nioSSLProduct: nioSSLPackage.resolvedProducts[0], // NIOSSL
-            nioHTTPCompressionProduct: nioExtrasPackage.resolvedProducts[0], // NIOHTTPCompression
-            nioSOCKSProduct: nioExtrasPackage.resolvedProducts[1], // NIOSOCKS
+            nioProduct: nioPackage.resolvedProducts[2],  // NIO
+            nioTLSProduct: nioPackage.resolvedProducts[4],  // NIOTLS
+            nioCoreProduct: nioPackage.resolvedProducts[1],  // NIOCore
+            nioPosixProduct: nioPackage.resolvedProducts[3],  // NIOPosix
+            nioHTTP1Product: nioPackage.resolvedProducts[5],  // NIOHTTP1
+            nioConcurrencyHelpersProduct: nioPackage.resolvedProducts[0],  // NIOConcurrencyHelpers
+            nioHTTP2Product: nioHTTP2Package.resolvedProducts[0],  // NIOHTTP2
+            nioSSLProduct: nioSSLPackage.resolvedProducts[0],  // NIOSSL
+            nioHTTPCompressionProduct: nioExtrasPackage.resolvedProducts[0],  // NIOHTTPCompression
+            nioSOCKSProduct: nioExtrasPackage.resolvedProducts[1],  // NIOSOCKS
             nioTransportServicesProduct: nioTransportServicesPackage.resolvedProducts[0],
             atomicsProduct: atomicsPackage.resolvedProducts[0],
             algorithmsProduct: algorithmsPackage.resolvedProducts[0],
@@ -140,23 +140,23 @@ extension SBOMTestModulesGraph {
             openAPIRuntimeProduct: openAPIRuntimePackage.resolvedProducts[0],
             httpTypesProduct: httpTypesPackage.resolvedProducts[0],
             asyncHTTPClientProduct: asyncHTTPClientPackage.resolvedProducts[0],
-            nioFoundationCompatProduct: nioPackage.resolvedProducts[6] // NIOFoundationCompat
+            nioFoundationCompatProduct: nioPackage.resolvedProducts[6]  // NIOFoundationCompat
         )
 
         // MARK: - Create Swiftly Root Package
 
         let swiftlyPackage = try createSwiftlyRootPackage(
             rootPath: rootPath,
-            openAPIGeneratorProduct: openAPIGeneratorPackage.resolvedProducts[0], // OpenAPIGenerator
+            openAPIGeneratorProduct: openAPIGeneratorPackage.resolvedProducts[0],  // OpenAPIGenerator
             openAPIRuntimeProduct: openAPIRuntimePackage.resolvedProducts[0],
             argumentParserProduct: argumentParserPackage.resolvedProducts[0],
             systemPackageProduct: systemPackage.resolvedProducts[0],
             asyncHTTPClientProduct: asyncHTTPClientPackage.resolvedProducts[0],
-            nioFoundationCompatProduct: nioPackage.resolvedProducts[6], // NIOFoundationCompat
+            nioFoundationCompatProduct: nioPackage.resolvedProducts[6],  // NIOFoundationCompat
             openAPIAsyncHTTPClientProduct: openAPIAsyncHTTPClientPackage.resolvedProducts[0],
             subprocessProduct: subprocessPackage.resolvedProducts[0],
             swiftToolsSupportProduct: toolsSupportPackage.resolvedProducts[0],
-            nioFileSystemProduct: nioPackage.resolvedProducts[7] // _NIOFileSystem
+            nioFileSystemProduct: nioPackage.resolvedProducts[7]  // _NIOFileSystem
         )
 
         // MARK: - Assemble All Packages

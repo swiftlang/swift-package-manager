@@ -86,4 +86,3 @@ extension SwiftPackageCommand {
         }
     }
 }
-

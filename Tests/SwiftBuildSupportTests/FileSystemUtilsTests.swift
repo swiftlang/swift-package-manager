@@ -35,15 +35,14 @@ typealias AbsolutePath = Basics.AbsolutePath
     ),
 )
 struct CreateBuildSymbolicLinkFunction {
-    @Test(
-    )
+    @Test()
     func createBuildSymbolicLinkCreation() async throws {
         let fs = localFileSystem
         try withTemporaryDirectory(removeTreeOnDeinit: false) { tmpDir in
             // Arrange
             let observability = ObservabilitySystem.makeForTesting()
             let source = tmpDir.appending("source")
-            let target = tmpDir.appending(components: "my","target","directory")
+            let target = tmpDir.appending(components: "my", "target", "directory")
             try localFileSystem.createDirectory(target, recursive: true)
 
             // Act
@@ -79,7 +78,7 @@ struct CreateBuildSymbolicLinkFunction {
             func removeFileTree(_ path: AbsolutePath) throws {
                 throw StringError("Purposely failing in \(#function)")
             }
-            func createSymbolicLink( source: AbsolutePath, pointingAt target: AbsolutePath ) throws {
+            func createSymbolicLink(source: AbsolutePath, pointingAt target: AbsolutePath) throws {
                 throw StringError("Purposely failing in \(#function)")
             }
 
@@ -112,7 +111,7 @@ struct CreateBuildSymbolicLinkFunction {
         let fs = FileSystemDouble(
             tempDirectory: TSCBasic.AbsolutePath.root.appending(components: "tmp", "\(#function)", "tmp"),
             cachesDirectory: nil,
-            homeDirectory:  TSCBasic.AbsolutePath.root.appending(components: "tmp", "\(#function)", "home"),
+            homeDirectory: TSCBasic.AbsolutePath.root.appending(components: "tmp", "\(#function)", "home"),
             currentWorkingDirectory: nil,
         )
         let observability = ObservabilitySystem.makeForTesting()

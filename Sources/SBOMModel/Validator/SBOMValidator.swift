@@ -16,29 +16,29 @@ import Foundation
 
 private actor BundleCache {
     static let shared = BundleCache()
-    
+
     private var cache: [String: Bundle] = [:]
-    
+
     private init() {}
-    
+
     func findBundle(named bundleName: String) -> Bundle? {
         if let cachedBundle = cache[bundleName] {
             return cachedBundle
         }
-        
+
         let foundBundle = searchForBundle(named: bundleName)
-        
+
         if let foundBundle = foundBundle {
             cache[bundleName] = foundBundle
         }
-        
+
         return foundBundle
     }
-    
+
     private func searchForBundle(named bundleName: String) -> Bundle? {
         // Avoid using Bundle.module because it causes a fatal error if not found (e.g., when using custom toolchains)
         // Avoid using Bundle.allBundles because it's not thread-safe on Linux and only includes bundles that have already been loaded from disk
-        
+
         // On macOS, these are .bundle directories; on other platforms, they're .resources directories
         let bundleExtensions = ["bundle", "resources"]
         let searchLocations = [Bundle.main.resourceURL, Bundle.main.bundleURL, Bundle.main.executableURL]
@@ -64,11 +64,11 @@ private actor BundleCache {
 /// with symbols like __imp_$sSS17_StringProcessing14RegexComponent0C7BuilderMc
 internal actor SBOMRegexCache {
     private var cache: [String: NSRegularExpression] = [:]
-    
+
     internal func get(_ pattern: String) -> NSRegularExpression? {
         self.cache[pattern]
     }
-    
+
     internal func set(_ pattern: String, regex: NSRegularExpression) {
         self.cache[pattern] = regex
     }
@@ -77,59 +77,59 @@ internal actor SBOMRegexCache {
 /// Cache for storing resolved schema references (to avoid redundant traversals)
 internal actor SBOMSchemaReferenceCache {
     private var cache: [String: [String: Any]] = [:]
-    
+
     internal func get(_ reference: String) -> [String: Any]? {
         self.cache[reference]
     }
-    
+
     internal func set(_ reference: String, schema: [String: Any]) {
         self.cache[reference] = schema
     }
 }
-
 
 // TODO: https://github.com/swiftlang/swift-package-manager/issues/9768
 // MARK: - Base Validator
 
 struct SBOMValidator: SBOMValidatorProtocol {
     // MARK: - Constants
-    
+
     private static let iso8601Formatter = ISO8601DateFormatter()
     private static let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
         return formatter
     }()
-    
+
     // Note: Using NSRegularExpression for Windows compatibility (see SBOMRegexCache comment)
     private static let emailRegex = try! NSRegularExpression(pattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$", options: [])
     private static let regexCache = SBOMRegexCache()
     private static let referenceCache = SBOMSchemaReferenceCache()
 
     // MARK: - Factory Method
-    
+
     /// Create a validator for the given spec by loading its schema from the bundle
     static func create(for spec: SBOMSpec, bundleName: String = "SwiftPM_SBOMModel") async throws -> any SBOMValidatorProtocol {
         let schemaFilename = spec.schemaFilename
         guard let foundBundle = await BundleCache.shared.findBundle(named: bundleName),
-              let schemaURL = foundBundle.url(forResource: schemaFilename, withExtension: "json") else {
+            let schemaURL = foundBundle.url(forResource: schemaFilename, withExtension: "json")
+        else {
             throw SBOMSchemaError.bundleNotFound(bundleName: bundleName)
         }
-        
+
         let schemaData = try Data(contentsOf: schemaURL)
         guard let jsonObject = try JSONSerialization.jsonObject(with: schemaData) as? [String: Any] else {
             throw SBOMSchemaError.invalidSchemaFormat(message: "Could not parse schema as JSON dictionary")
         }
-        
+
         return try createValidator(for: spec, schema: jsonObject)
     }
-    
+
     /// Create the appropriate validator instance for the given spec
     private static func createValidator(for spec: SBOMSpec, schema: [String: Any]) throws -> any SBOMValidatorProtocol {
         switch spec.concreteSpec {
-        case .cyclonedx1: // add other cyclonedx versions here
+        case .cyclonedx1:  // add other cyclonedx versions here
             return CycloneDXValidator(schema: schema)
-        case .spdx3: // add other spdx versions here
+        case .spdx3:  // add other spdx versions here
             return SPDXValidator(schema: schema)
         }
     }
@@ -219,7 +219,6 @@ struct SBOMValidator: SBOMValidatorProtocol {
         }
         try self.validateNumberIfNeeded(value, schema: schema, path: path)
 
-
         if let ref = schema[SchemaKeys.ref] as? String {
             try await self.validateReference(value, ref: ref, path: path, schema: schema)
         }
@@ -282,21 +281,21 @@ struct SBOMValidator: SBOMValidatorProtocol {
 
     private func isBoolean(_ number: NSNumber) -> Bool {
         #if canImport(Darwin)
-        return number === kCFBooleanTrue as NSNumber || number === kCFBooleanFalse as NSNumber
+            return number === kCFBooleanTrue as NSNumber || number === kCFBooleanFalse as NSNumber
         #else
-        // On Linux, check the objCType to determine if it's a boolean
-        let objCType = String(cString: number.objCType)
-        return objCType == "c" || objCType == "B"
+            // On Linux, check the objCType to determine if it's a boolean
+            let objCType = String(cString: number.objCType)
+            return objCType == "c" || objCType == "B"
         #endif
     }
-    
+
     private func isFloatType(_ number: NSNumber) -> Bool {
         #if canImport(Darwin)
-        return CFNumberIsFloatType(number)
+            return CFNumberIsFloatType(number)
         #else
-        // On Linux, check the objCType to determine if it's a floating point type
-        let objCType = String(cString: number.objCType)
-        return objCType == "f" || objCType == "d"
+            // On Linux, check the objCType to determine if it's a floating point type
+            let objCType = String(cString: number.objCType)
+            return objCType == "f" || objCType == "d"
         #endif
     }
 
@@ -356,7 +355,7 @@ struct SBOMValidator: SBOMValidatorProtocol {
         for (index, schema) in schemas.enumerated() {
             do {
                 try await self.validateValue(value, path: path, schema: schema)
-                return // Successfully validated against one schema, we're done
+                return  // Successfully validated against one schema, we're done
             } catch {
                 // Extract just the schema name/type for concise error reporting
                 let schemaName = self.extractSchemaName(from: schema, index: index)
@@ -408,12 +407,12 @@ struct SBOMValidator: SBOMValidatorProtocol {
             try await self.validateValue(value, path: path, schema: schema)
             let valueDesc = self.describeValue(value, maxLength: 200)
             throw SBOMValidatorError.notSchemaViolation(path: path, valueDescription: valueDesc)
-        } catch let error as SBOMValidatorError { // rethrow notSchemaViolation errors (from nested "not" schemas)
+        } catch let error as SBOMValidatorError {  // rethrow notSchemaViolation errors (from nested "not" schemas)
             if case .notSchemaViolation = error {
                 throw error
             }
             return
-        } catch { // rethrow unexpected errors (parsing errors, system errors, programming bugs)
+        } catch {  // rethrow unexpected errors (parsing errors, system errors, programming bugs)
             throw error
         }
     }
@@ -453,7 +452,7 @@ struct SBOMValidator: SBOMValidatorProtocol {
 
         // Collect all schema metadata in a single traversal pass
         let metadata = await self.collectSchemaMetadata(from: schema)
-        
+
         // Validate required properties
         if !metadata.required.isEmpty {
             try self.validateRequiredProperties(objectValue, required: metadata.required, path: path)
@@ -516,7 +515,7 @@ struct SBOMValidator: SBOMValidatorProtocol {
 
     private func validateUnevaluatedProperties(_ object: [String: Any], schema: [String: Any], path: String, evaluatedProperties: Set<String>) async throws {
         guard let unevaluatedProps = schema[SchemaKeys.unevaluatedProperties] as? Bool,
-              !unevaluatedProps
+            !unevaluatedProps
         else {
             return
         }
@@ -649,18 +648,19 @@ struct SBOMValidator: SBOMValidatorProtocol {
 
     private func validatePattern(_ value: String, pattern: String, path: String) async throws {
         let regex = try await Self.getCachedRegex(for: pattern, path: path)
-        
+
         let range = NSRange(location: 0, length: value.utf16.count)
         guard let match = regex.firstMatch(in: value, options: [], range: range),
-              match.range.location == 0,
-              match.range.length == value.utf16.count else {
+            match.range.location == 0,
+            match.range.length == value.utf16.count
+        else {
             throw SBOMValidatorError.constraintViolation(
                 path: path,
                 message: "String does not match pattern: \(pattern). Value: \"\(value)\""
             )
         }
     }
-    
+
     /// Get a cached compiled regex pattern, or compile and cache it if not present
     /// Note: Using NSRegularExpression for Windows compatibility (see SBOMRegexCache comment)
     private static func getCachedRegex(for pattern: String, path: String) async throws -> NSRegularExpression {
@@ -668,7 +668,7 @@ struct SBOMValidator: SBOMValidatorProtocol {
         if let cached = await regexCache.get(pattern) {
             return cached
         }
-        
+
         guard let regex = try? NSRegularExpression(pattern: pattern, options: []) else {
             throw SBOMValidatorError.invalidValue(path: path, message: "Invalid regex pattern: \(pattern)")
         }
@@ -714,7 +714,7 @@ struct SBOMValidator: SBOMValidatorProtocol {
     }
 
     // MARK: - Schema Resolution and Collection Helpers
-    
+
     /// Struct to hold all collected schema metadata in a single pass
     private struct SchemaMetadata {
         var required: [String] = []
@@ -722,45 +722,45 @@ struct SBOMValidator: SBOMValidatorProtocol {
         var allowedProperties: Set<String> = []
         var evaluatedProperties: Set<String> = []
     }
-    
+
     /// Collect all schema metadata in a single iterative pass for better performance
     /// Uses an iterative approach with cycle detection to avoid stack overflow and improve performance
     private func collectSchemaMetadata(from schema: [String: Any]) async -> SchemaMetadata {
         var metadata = SchemaMetadata()
         var queue: [[String: Any]] = [schema]
-        var visited = Set<String>() // Track by schema identity to avoid reprocessing
-        
+        var visited = Set<String>()  // Track by schema identity to avoid reprocessing
+
         while let current = queue.popLast() {
             // Create unique identifier for this schema to detect cycles
             let schemaId = self.createSchemaIdentifier(current)
             guard !visited.contains(schemaId) else { continue }
             visited.insert(schemaId)
-            
+
             // 1. Collect required properties
             if let required = current[SchemaKeys.required] as? [String] {
                 metadata.required.append(contentsOf: required)
                 metadata.evaluatedProperties.formUnion(required)
             }
-            
+
             // 2. Collect properties
             if let properties = current[SchemaKeys.properties] as? [String: [String: Any]] {
                 metadata.properties.merge(properties) { _, new in new }
                 metadata.allowedProperties.formUnion(properties.keys)
                 metadata.evaluatedProperties.formUnion(properties.keys)
             }
-            
+
             // 3. Handle $ref - resolve once and add to queue
             if let ref = current[SchemaKeys.ref] as? String, ref.hasPrefix("#/") {
                 if let resolved = await self.resolveAndCacheReference(ref) {
                     queue.append(resolved)
                 }
             }
-            
+
             // 4. Handle allOf - all schemas must be satisfied
             if let allOf = current[SchemaKeys.allOf] as? [[String: Any]] {
                 queue.append(contentsOf: allOf)
             }
-            
+
             // 5. Handle anyOf/oneOf - collect allowed properties only
             for compositionKey in [SchemaKeys.anyOf, SchemaKeys.oneOf] {
                 if let schemas = current[compositionKey] as? [[String: Any]] {
@@ -770,11 +770,12 @@ struct SBOMValidator: SBOMValidatorProtocol {
                             metadata.allowedProperties.formUnion(properties.keys)
                             metadata.evaluatedProperties.formUnion(properties.keys)
                         }
-                        
+
                         // Handle $ref in composition schemas
                         if let ref = subSchema[SchemaKeys.ref] as? String, ref.hasPrefix("#/") {
                             if let resolved = await self.resolveAndCacheReference(ref),
-                               let properties = resolved[SchemaKeys.properties] as? [String: [String: Any]] {
+                                let properties = resolved[SchemaKeys.properties] as? [String: [String: Any]]
+                            {
                                 metadata.allowedProperties.formUnion(properties.keys)
                                 metadata.evaluatedProperties.formUnion(properties.keys)
                             }
@@ -783,31 +784,31 @@ struct SBOMValidator: SBOMValidatorProtocol {
                 }
             }
         }
-        
+
         return metadata
     }
-    
+
     /// Create a unique identifier for a schema to detect cycles
     private func createSchemaIdentifier(_ schema: [String: Any]) -> String {
         // Use memory address for identity-based comparison
         return String(describing: ObjectIdentifier(schema as AnyObject))
     }
-    
+
     /// Resolve reference with caching helper
     private func resolveAndCacheReference(_ ref: String) async -> [String: Any]? {
         let pointer = String(ref.dropFirst(2))
         let components = pointer.components(separatedBy: "/")
         return await self.resolveReference(components: components, in: self.schema)
     }
-    
+
     /// Resolve a schema reference with caching
     private func resolveReference(components: [String], in schema: [String: Any]) async -> [String: Any]? {
         let referenceKey = components.joined(separator: "/")
-        
+
         if let cached = await Self.referenceCache.get(referenceKey) {
             return cached
         }
-        
+
         var current: Any = schema
         for component in components {
             guard let dict = current as? [String: Any] else {
@@ -818,11 +819,11 @@ struct SBOMValidator: SBOMValidatorProtocol {
             }
             current = next
         }
-        
+
         guard let resolvedSchema = current as? [String: Any] else {
             return nil
         }
-        
+
         await Self.referenceCache.set(referenceKey, schema: resolvedSchema)
         return resolvedSchema
     }
@@ -831,7 +832,8 @@ struct SBOMValidator: SBOMValidatorProtocol {
 
     private func areEqual(_ lhs: Any, _ rhs: Any) -> Bool {
         guard let lhsCanonical = try? canonicalRepresentation(of: lhs),
-              let rhsCanonical = try? canonicalRepresentation(of: rhs) else {
+            let rhsCanonical = try? canonicalRepresentation(of: rhs)
+        else {
             return false
         }
         return lhsCanonical == rhsCanonical
@@ -854,9 +856,9 @@ struct SBOMValidator: SBOMValidatorProtocol {
 
         // Check for type in properties
         if let properties = schema["properties"] as? [String: Any],
-           let typeSchema = properties["type"] as? [String: Any],
-           let oneOf = typeSchema["oneOf"] as? [[String: Any]],
-           let firstConst = oneOf.first?["const"] as? String
+            let typeSchema = properties["type"] as? [String: Any],
+            let oneOf = typeSchema["oneOf"] as? [[String: Any]],
+            let firstConst = oneOf.first?["const"] as? String
         {
             return firstConst
         }

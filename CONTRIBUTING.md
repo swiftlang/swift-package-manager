@@ -43,6 +43,12 @@ If you are preparing to make a contribution you should fork the repository first
 
 SwiftPM is typically built with a pre-existing version of SwiftPM present on the system, but there are multiple ways to setup your development environment:
 
+Once the repository is clone, configure your local repository so blame ignores some commits:
+
+```
+git config blame.ignoreRevsFile .git-blame-ignore-revs
+```
+
 ### Using Xcode (Easiest)
 
 1. Install Xcode from [https://developer.apple.com/xcode](https://developer.apple.com/xcode) (including betas!).
@@ -359,27 +365,28 @@ Note there are several Linux and Swift versions options to choose from, e.g.:
 ## Creating Pull Requests
 
 1. Fork: https://github.com/swiftlang/swift-package-manager
-2. Clone a working copy of your fork
-3. Create a new branch
-4. Make your code changes
-5. If a particular version of the Swift toolchain is needed then update the `.swift-version` file to that version (or use `swiftly use` to update it).
-6. Try to keep your changes (when possible) below 200 lines of code.
-7. We use [SwiftFormat](https://www.github.com/nicklockwood/SwiftFormat) to enforce code style. Please install and run SwiftFormat before submitting your PR, ideally isolating formatting changes only to code changed for the original goal of the PR. This will keep the PR diff smaller.
-8. Commit (include the Radar link or GitHub issue id in the commit message if possible and a description your changes). Try to have only 1 commit in your PR (but, of course, if you add changes that can be helpful to be kept aside from the previous commit, make a new commit for them).
-9. Push the commit / branch to your fork
-10. Make a PR from your fork / branch to `apple: main`
-11. While creating your PR, make sure to follow the PR Template providing information about the motivation and highlighting the changes.
-12. Reviewers are going to be automatically added to your PR
-13. Pull requests will be merged by the maintainers after it passes CI testing and receives approval from one or more reviewers. Merge timing may be impacted by release schedule considerations.
+1. Clone a working copy of your fork
+1. Create a new branch
+1. Make your code changes
+1. If a particular version of the Swift toolchain is needed then update the `.swift-version` file to that version (or use `swiftly use` to update it).
+1. Try to keep your changes (when possible) below 200 lines of code.
+1. We use [swift-format](https://www.github.com/swiftlang/swift-format) to enforce code style. CI enforces formatting.  Simply run `swift format --in-place --parallel --recursive .` from the root of the repository.
+1. Commit (include the Radar link or GitHub issue id in the commit message if possible and a description your changes). Try to have only 1 commit in your PR (but, of course, if you add changes that can be helpful to be kept aside from the previous commit, make a new commit for them).
+1. Push the commit / branch to your fork
+1. Make a PR from your fork / branch to `swiftlang:main`
+1. While creating your PR, make sure to follow the PR Template providing information about the motivation and highlighting the changes.
+1. Reviewers are going to be automatically added to your PR
+1. Pull requests will be merged by the maintainers after it passes CI testing and receives approval from one or more reviewers. Merge timing may be impacted by release schedule considerations.
 
 By submitting a pull request, you represent that you have the right to license
 your contribution to Apple and the community, and agree by submitting the patch
-that your contributions are licensed under the [Swift
-license](https://swift.org/LICENSE.txt).
+that your contributions are licensed under the [Swift license](https://swift.org/LICENSE.txt).
 
 After a change is known not to cause regressions in the `main` branch, it may be considered for cherry-picking to the latest release branch depending on the release schedule. Cherry-picks require [a specific template to be followed](https://github.com/swiftlang/.github/blob/main/PULL_REQUEST_TEMPLATE/release.md) in PR description that consolidates information about the change necessary for inclusion in the release branch and provides risk evaluation for nominating the change.
 
 ## Continuous Integration
+
+> Note: We are in the process of migrate to GitHub actions.  During the transition, continuous integration builds occur on two systems
 
 SwiftPM uses [swift-ci](https://ci.swift.org) infrastructure for its continuous integration testing. The bots can be triggered on pull-requests if you have commit access. Otherwise, ask one of the code owners to trigger them for you.
 
@@ -422,21 +429,7 @@ To run package compatibility test suite (validates we do not break 3rd party pac
 
 ## Generating Documentation
 
-SwiftPM uses [DocC](https://github.com/apple/swift-docc) to generate some of its documentation (currently only the `PackageDescription` module). Documentation can be built using Xcode's GUI (Product → Build Documentation or `⌃⇧⌘D`) or manually:
-
-1. Build and dump the symbol graph metadata used to generate the documentation:
-
-```
-swift package dump-symbol-graph
-```
-
-2. Generate the documentation and start a local preview server to review your changes:
-
-```
-xcrun docc preview Sources/PackageDescription/PackageDescription.docc --additional-symbol-graph-dir .build/*/symbolgraph/
-```
-
-Note that this may generate documentation for multiple modules — the preview link for PackageDescription will typically be: http://localhost:8000/documentation/packagedescription
+SwiftPM uses [DocC](https://github.com/apple/swift-docc) to generate some of its documentation. You can [generate the documentaiton from source](Sources/PackageManagerDocs/README.md).
 
 ## Advanced
 

@@ -11,20 +11,20 @@
 //===----------------------------------------------------------------------===//
 
 #if canImport(Glibc)
-import Glibc
+    import Glibc
 #elseif canImport(Musl)
-import Musl
+    import Musl
 #elseif canImport(Android)
-import Android
+    import Android
 #endif
 
 #if canImport(Glibc) || canImport(Musl) || canImport(Android)
-// This is a lazily initialised global variable that when read for the first time, will ignore SIGPIPE.
-private let globallyIgnoredSIGPIPE: Bool = {
-  /* no F_SETNOSIGPIPE on Linux :( */
-  _ = signal(SIGPIPE, SIG_IGN)
-  return true
-}()
+    // This is a lazily initialised global variable that when read for the first time, will ignore SIGPIPE.
+    private let globallyIgnoredSIGPIPE: Bool = {
+        /* no F_SETNOSIGPIPE on Linux :( */
+        _ = signal(SIGPIPE, SIG_IGN)
+        return true
+    }()
 #endif
 
 /// We receive a `SIGPIPE` if we write to a pipe that points to a crashed process. This in particular happens if the
@@ -38,10 +38,10 @@ private let globallyIgnoredSIGPIPE: Bool = {
 ///
 /// On Darwin platforms and on Windows this is a no-op.
 package func globallyDisableSigpipeIfNeeded() {
-  #if !canImport(Darwin) && !os(Windows)
-  let haveWeIgnoredSIGPIEThisIsHereToTriggerIgnoringIt = globallyIgnoredSIGPIPE
-  guard haveWeIgnoredSIGPIEThisIsHereToTriggerIgnoringIt else {
-    fatalError("globallyIgnoredSIGPIPE should always be true")
-  }
-  #endif
+    #if !canImport(Darwin) && !os(Windows)
+        let haveWeIgnoredSIGPIEThisIsHereToTriggerIgnoringIt = globallyIgnoredSIGPIPE
+        guard haveWeIgnoredSIGPIEThisIsHereToTriggerIgnoringIt else {
+            fatalError("globallyIgnoredSIGPIPE should always be true")
+        }
+    #endif
 }

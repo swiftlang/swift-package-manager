@@ -81,13 +81,14 @@ extension SwiftPackageCommand {
             }
 
             // Map the product type.
-            let type: ProductDescription.ProductType = switch self.type {
-            case .executable: .executable
-            case .library: .library(.automatic)
-            case .dynamicLibrary: .library(.dynamic)
-            case .staticLibrary: .library(.static)
-            case .plugin: .plugin
-            }
+            let type: ProductDescription.ProductType =
+                switch self.type {
+                case .executable: .executable
+                case .library: .library(.automatic)
+                case .dynamicLibrary: .library(.dynamic)
+                case .staticLibrary: .library(.static)
+                case .plugin: .plugin
+                }
 
             let product = ProductDescription(
                 name: name,
@@ -109,4 +110,3 @@ extension SwiftPackageCommand {
         }
     }
 }
-

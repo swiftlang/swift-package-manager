@@ -97,7 +97,7 @@ final class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
             let (manifest, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
             XCTAssertNoDiagnostics(validationDiagnostics)
-            XCTAssertEqual(manifest.swiftLanguageVersions?.map({$0.rawValue}), ["3", "4"])
+            XCTAssertEqual(manifest.swiftLanguageVersions?.map({ $0.rawValue }), ["3", "4"])
         }
 
         do {
@@ -150,7 +150,7 @@ final class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
         XCTAssertNoDiagnostics(observability.diagnostics)
         XCTAssertNoDiagnostics(validationDiagnostics)
 
-        let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map{ ($0.identity.description, $0) })
+        let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map { ($0.identity.description, $0) })
         XCTAssertEqual(deps["foo1"], .localSourceControl(path: "/foo1", requirement: .upToNextMajor(from: "1.0.0")))
         XCTAssertEqual(deps["foo2"], .localSourceControl(path: "/foo2", requirement: .upToNextMajor(from: "1.0.0")))
         XCTAssertEqual(deps["foo3"], .localSourceControl(path: "/foo3", requirement: .upToNextMinor(from: "1.0.0")))
@@ -181,7 +181,7 @@ final class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
         XCTAssertNoDiagnostics(observability.diagnostics)
         XCTAssertNoDiagnostics(validationDiagnostics)
 
-        let products = Dictionary(uniqueKeysWithValues: manifest.products.map{ ($0.name, $0) })
+        let products = Dictionary(uniqueKeysWithValues: manifest.products.map { ($0.name, $0) })
         // Check tool.
         let tool = products["tool"]!
         XCTAssertEqual(tool.name, "tool")
@@ -219,10 +219,13 @@ final class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
 
         XCTAssertEqual(manifest.displayName, "Copenssl")
         XCTAssertEqual(manifest.pkgConfig, "openssl")
-        XCTAssertEqual(manifest.providers, [
-            .brew(["openssl"]),
-            .apt(["openssl", "libssl-dev"]),
-        ])
+        XCTAssertEqual(
+            manifest.providers,
+            [
+                .brew(["openssl"]),
+                .apt(["openssl", "libssl-dev"]),
+            ]
+        )
     }
 
     func testCTarget() async throws {
@@ -315,16 +318,16 @@ final class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
 
     func testLanguageStandards() async throws {
         let content = """
-            import PackageDescription
-            let package = Package(
-                name: "testPackage",
-                targets: [
-                    .target(name: "Foo"),
-                ],
-                cLanguageStandard: .iso9899_199409,
-                cxxLanguageStandard: .gnucxx14
-            )
-        """
+                import PackageDescription
+                let package = Package(
+                    name: "testPackage",
+                    targets: [
+                        .target(name: "Foo"),
+                    ],
+                    cLanguageStandard: .iso9899_199409,
+                    cxxLanguageStandard: .gnucxx14
+                )
+            """
 
         let observability = ObservabilitySystem.makeForTesting()
         let (manifest, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)

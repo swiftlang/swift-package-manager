@@ -29,7 +29,7 @@ fileprivate struct ToolsVersionSpecificationRewriterTests {
         let expected: String
     }
     @Test(
-        arguments:[
+        arguments: [
             NonVersionSpecificManifestTestData(
                 id: "Empty file.",
                 content: "",
@@ -51,45 +51,45 @@ fileprivate struct ToolsVersionSpecificationRewriterTests {
             NonVersionSpecificManifestTestData(
                 id: "File already having a valid version specifier.",
                 content: """
-                // swift-tools-version:3.1.2
-                ...
-                """,
+                    // swift-tools-version:3.1.2
+                    ...
+                    """,
                 version: ToolsVersion(version: "4.1.2"),
                 expected: "// swift-tools-version:4.1.2\n..."
             ),
             NonVersionSpecificManifestTestData(
                 id: "File already having a valid version specifier.",
                 content: """
-                // swift-tools-version:3.1.2
-                ...
-                """,
+                    // swift-tools-version:3.1.2
+                    ...
+                    """,
                 version: ToolsVersion(version: "2.1.0"),
                 expected: "// swift-tools-version:2.1\n..."
             ),
             NonVersionSpecificManifestTestData(
                 id: "Contents with invalid tools version specification (ignoring the validity of the version specifier).",
                 content: """
-                // swift-tool-version:3.1.2
-                ...
-                """,
+                    // swift-tool-version:3.1.2
+                    ...
+                    """,
                 version: ToolsVersion(version: "4.1.2"),
-                expected:  "// swift-tools-version:4.1.2\n// swift-tool-version:3.1.2\n..."
+                expected: "// swift-tools-version:4.1.2\n// swift-tool-version:3.1.2\n..."
             ),
             NonVersionSpecificManifestTestData(
                 id: "Contents with invalid version specifier.",
                 content: """
-                // swift-tools-version:3.1.2
-                ...
-                """,
+                    // swift-tools-version:3.1.2
+                    ...
+                    """,
                 version: ToolsVersion(version: "4.1.2"),
                 expected: "// swift-tools-version:4.1.2\n..."
             ),
             NonVersionSpecificManifestTestData(
                 id: "Contents with invalid version specifier and some meta data.",
                 content: """
-                // swift-tools-version:3.1.2
-                ...
-                """,
+                    // swift-tools-version:3.1.2
+                    ...
+                    """,
                 version: ToolsVersion(version: "4.1.2"),
                 expected: "// swift-tools-version:4.1.2\n..."
             ),
@@ -98,13 +98,13 @@ fileprivate struct ToolsVersionSpecificationRewriterTests {
                 content: "let package = ... \n",
                 version: ToolsVersion(version: "4.1.2-alpha.beta+sha.1234"),
                 expected: "// swift-tools-version:4.1.2\nlet package = ... \n"
-            )
+            ),
         ]
     )
     func nonVersionSpecificManifests(_ data: NonVersionSpecificManifestTestData) throws {
         let content = data.content
         let version = data.version
-        let expected =  data.expected
+        let expected = data.expected
 
         let inMemoryFileSystem = InMemoryFileSystem()
 
@@ -130,13 +130,13 @@ fileprivate struct ToolsVersionSpecificationRewriterTests {
 
         let inMemoryFileSystem = InMemoryFileSystem()
         let manifestFilePath = AbsolutePath("/pkg/Package.swift/Package.swift")
-        try inMemoryFileSystem.createDirectory(manifestFilePath.parentDirectory, recursive: true) // /pkg/Package.swift/
+        try inMemoryFileSystem.createDirectory(manifestFilePath.parentDirectory, recursive: true)  // /pkg/Package.swift/
 
         // Test `ManifestAccessError.Kind.isADirectory`
 
-        #expect{
+        #expect {
             try ToolsVersionSpecificationWriter.rewriteSpecification(
-                manifestDirectory: manifestFilePath.parentDirectory.parentDirectory, // /pkg/
+                manifestDirectory: manifestFilePath.parentDirectory.parentDirectory,  // /pkg/
                 toolsVersion: toolsVersion,
                 fileSystem: inMemoryFileSystem
             )
@@ -154,7 +154,7 @@ fileprivate struct ToolsVersionSpecificationRewriterTests {
         // Test `ManifestAccessError.Kind.noSuchFileOrDirectory`
         #expect {
             try ToolsVersionSpecificationWriter.rewriteSpecification(
-                manifestDirectory: manifestFilePath.parentDirectory, // /pkg/Package.swift/
+                manifestDirectory: manifestFilePath.parentDirectory,  // /pkg/Package.swift/
                 toolsVersion: toolsVersion,
                 fileSystem: inMemoryFileSystem
             )

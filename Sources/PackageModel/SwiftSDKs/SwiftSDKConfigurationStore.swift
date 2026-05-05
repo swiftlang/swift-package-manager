@@ -154,10 +154,11 @@ public final class SwiftSDKConfigurationStore {
         if let targetTripleString = targetTriple {
             let target = try Triple(targetTripleString)
             tripleForError = target
-            if let sdk = bundles.selectSwiftSDK(id: sdkID,
-                                                hostTriple: hostTriple,
-                                                targetTriple: target)
-            {
+            if let sdk = bundles.selectSwiftSDK(
+                id: sdkID,
+                hostTriple: hostTriple,
+                targetTriple: target
+            ) {
                 sdks = [sdk]
             }
         } else {
@@ -190,9 +191,9 @@ public final class SwiftSDKConfigurationStore {
                 } else {
                     swiftSDKBundleStore.observabilityScope.emit(
                         info: """
-                        All configuration properties of Swift SDK `\(sdkID)` for target triple \
-                        `\(targetTriple)` were successfully reset.
-                        """
+                            All configuration properties of Swift SDK `\(sdkID)` for target triple \
+                            `\(targetTriple)` were successfully reset.
+                            """
                     )
                 }
             } else {
@@ -202,9 +203,9 @@ public final class SwiftSDKConfigurationStore {
                 guard !updatedProperties.isEmpty else {
                     swiftSDKBundleStore.observabilityScope.emit(
                         error: """
-                        No properties of Swift SDK `\(sdkID)` for target triple `\(targetTriple)` were updated \
-                        since none were specified. Pass `--help` flag to see the list of all available properties.
-                        """
+                            No properties of Swift SDK `\(sdkID)` for target triple `\(targetTriple)` were updated \
+                            since none were specified. Pass `--help` flag to see the list of all available properties.
+                            """
                     )
                     return false
                 }
@@ -216,9 +217,9 @@ public final class SwiftSDKConfigurationStore {
 
                 swiftSDKBundleStore.observabilityScope.emit(
                     info: """
-                    These properties of Swift SDK `\(sdkID)` for target triple \
-                    `\(targetTriple)` were successfully updated: \(updatedProperties.joined(separator: ", ")).
-                    """
+                        These properties of Swift SDK `\(sdkID)` for target triple \
+                        `\(targetTriple)` were successfully updated: \(updatedProperties.joined(separator: ", ")).
+                        """
                 )
             }
 

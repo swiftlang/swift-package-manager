@@ -10,8 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-@_spi(SwiftPMInternal)
-import Basics
+@_spi(SwiftPMInternal) import Basics
 import _Concurrency
 
 import Foundation
@@ -155,8 +154,7 @@ extension PluginModule {
         // Create the plugin's output directory if needed (but don't do anything with it if it already exists).
         do {
             try fileSystem.createDirectory(outputDirectory, recursive: true)
-        }
-        catch {
+        } catch {
             return callbackQueue.async { completion(.failure(PluginEvaluationError.couldNotCreateOuputDirectory(path: outputDirectory, underlyingError: error))) }
         }
 
@@ -171,7 +169,7 @@ extension PluginModule {
                 sdkRootPath: sdkRootPath
             )
             let pluginWorkDirId = try serializer.serialize(path: outputDirectory)
-            let toolSearchDirIds = try toolSearchDirectories.map{ try serializer.serialize(path: $0) }
+            let toolSearchDirIds = try toolSearchDirectories.map { try serializer.serialize(path: $0) }
             let accessibleTools = try accessibleTools.mapValues { (tool) -> HostToPluginMessage.InputContext.Tool in
                 let path = try serializer.serialize(path: tool.path)
                 return .init(path: path, triples: tool.triples)
@@ -195,7 +193,8 @@ extension PluginModule {
                     xcodeProjects: serializer.xcodeProjects,
                     pluginWorkDirId: pluginWorkDirId,
                     toolSearchDirIds: toolSearchDirIds,
-                    accessibleTools: accessibleTools)
+                    accessibleTools: accessibleTools
+                )
                 actionMessage = .createBuildToolCommands(
                     context: wireInput,
                     rootPackageId: rootPackageId,
@@ -220,7 +219,8 @@ extension PluginModule {
                     xcodeProjects: serializer.xcodeProjects,
                     pluginWorkDirId: pluginWorkDirId,
                     toolSearchDirIds: toolSearchDirIds,
-                    accessibleTools: accessibleTools)
+                    accessibleTools: accessibleTools
+                )
                 actionMessage = .createXcodeProjectBuildToolCommands(
                     context: wireInput,
                     rootProjectId: rootProjectId,
@@ -240,12 +240,14 @@ extension PluginModule {
                     xcodeProjects: serializer.xcodeProjects,
                     pluginWorkDirId: pluginWorkDirId,
                     toolSearchDirIds: toolSearchDirIds,
-                    accessibleTools: accessibleTools)
+                    accessibleTools: accessibleTools
+                )
                 actionMessage = .performCommand(
                     context: wireInput,
                     rootPackageId: rootPackageId,
-                    arguments: arguments)
-                
+                    arguments: arguments
+                )
+
             case .performXcodeProjectCommand(let xcodeProject, let arguments):
                 let rootProjectId = try serializer.serialize(xcodeProject: xcodeProject)
                 let wireInput = WireInput(
@@ -257,15 +259,16 @@ extension PluginModule {
                     xcodeProjects: serializer.xcodeProjects,
                     pluginWorkDirId: pluginWorkDirId,
                     toolSearchDirIds: toolSearchDirIds,
-                    accessibleTools: accessibleTools)
+                    accessibleTools: accessibleTools
+                )
                 actionMessage = .performXcodeProjectCommand(
                     context: wireInput,
                     rootProjectId: rootProjectId,
-                    arguments: arguments)
+                    arguments: arguments
+                )
             }
             initialMessage = try actionMessage.toData()
-        }
-        catch {
+        } catch {
             return callbackQueue.async { completion(.failure(PluginEvaluationError.couldNotSerializePluginInput(underlyingError: error))) }
         }
 
@@ -341,9 +344,10 @@ extension PluginModule {
                         executable: try config.executable.filePath,
                         arguments: config.arguments,
                         environment: config.environment,
-                        workingDirectory: try config.workingDirectory.map{ try $0.filePath },
-                        inputFiles: try inputFiles.map{ try $0.filePath },
-                        outputFiles: try outputFiles.map{ try $0.filePath })
+                        workingDirectory: try config.workingDirectory.map { try $0.filePath },
+                        inputFiles: try inputFiles.map { try $0.filePath },
+                        outputFiles: try outputFiles.map { try $0.filePath }
+                    )
 
                 case .definePrebuildCommand(let config, let outputFilesDir):
                     if config.version != 2 {
@@ -354,8 +358,9 @@ extension PluginModule {
                         executable: try config.executable.filePath,
                         arguments: config.arguments,
                         environment: config.environment,
-                        workingDirectory: try config.workingDirectory.map{ try $0.filePath },
-                        outputFilesDirectory: try outputFilesDir.filePath)
+                        workingDirectory: try config.workingDirectory.map { try $0.filePath },
+                        outputFilesDirectory: try outputFilesDir.filePath
+                    )
 
                     if !success {
                         exitEarly = true
@@ -371,8 +376,7 @@ extension PluginModule {
                             case .failure(let error):
                                 responder(try HostToPluginMessage.errorResponse(error: String(describing: error)).toData())
                             }
-                        }
-                        catch {
+                        } catch {
                             self.observabilityScope.emit(debug: "couldn't send reply to plugin", underlyingError: error)
                         }
                     }
@@ -386,8 +390,7 @@ extension PluginModule {
                             case .failure(let error):
                                 responder(try HostToPluginMessage.errorResponse(error: String(describing: error)).toData())
                             }
-                        }
-                        catch {
+                        } catch {
                             self.observabilityScope.emit(debug: "couldn't send reply to plugin", underlyingError: error)
                         }
                     }
@@ -402,8 +405,7 @@ extension PluginModule {
                             case .failure(let error):
                                 responder(try HostToPluginMessage.errorResponse(error: String(describing: error)).toData())
                             }
-                        }
-                        catch {
+                        } catch {
                             self.observabilityScope.emit(debug: "couldn't send reply to plugin", underlyingError: error)
                         }
                     }
@@ -426,9 +428,11 @@ extension PluginModule {
             fileSystem: fileSystem,
             observabilityScope: observabilityScope,
             callbackQueue: callbackQueue,
-            delegate: runnerDelegate) { result in
-                dispatchPrecondition(condition: .onQueue(callbackQueue))
-                completion(result.map { exitCode in
+            delegate: runnerDelegate
+        ) { result in
+            dispatchPrecondition(condition: .onQueue(callbackQueue))
+            completion(
+                result.map { exitCode in
                     // Return a result based on the exit code or the `exitEarly` parameter. If the plugin
                     // exits with an error but hasn't already emitted an error, we do so for it.
                     let exitedCleanly = (exitCode == 0) && !runnerDelegate.exitEarly
@@ -438,7 +442,8 @@ extension PluginModule {
                         )
                     }
                     return exitedCleanly
-                })
+                }
+            )
         }
     }
 
@@ -523,7 +528,7 @@ extension PluginModule {
         // Determine additional input dependencies for any plugin commands,
         // based on any executables the plugin target depends on.
         let toolPaths = accessibleTools.values.map(\.path).sorted()
-        
+
         let builtToolPaths = accessibleTools.values.filter({ $0.source == .built }).map((\.path)).sorted()
 
         let delegate = DefaultPluginInvocationDelegate(
@@ -557,12 +562,13 @@ extension PluginModule {
             completion: {
                 let duration = startTime.distance(to: .now())
 
-                let success: Bool = switch $0 {
-                case .success(let result):
-                    result
-                case .failure:
-                    false
-                }
+                let success: Bool =
+                    switch $0 {
+                    case .success(let result):
+                        result
+                    case .failure:
+                        false
+                    }
 
                 let invocationResult = BuildToolPluginInvocationResult(
                     plugin: self,
@@ -686,43 +692,44 @@ fileprivate func collectAccessibleTools(
     for hostTriple: Triple
 ) throws -> Set<PluginAccessibleTool> {
     precondition(plugin.underlying is PluginModule)
-    return try Set(plugin.dependencies(satisfying: environment).flatMap { dependency -> [PluginAccessibleTool] in
-        let builtToolName: String
-        let executableOrBinaryModule: Module
-        switch dependency {
-        case .module(let module, _):
-            builtToolName = module.name
-            executableOrBinaryModule = module.underlying
-        case .product(let product, _):
-            guard let executableModule = product.modules.map({ $0.underlying }).executables.spm_only
-            else {
-                throw StringError("no product named \(product.name)")
+    return try Set(
+        plugin.dependencies(satisfying: environment).flatMap { dependency -> [PluginAccessibleTool] in
+            let builtToolName: String
+            let executableOrBinaryModule: Module
+            switch dependency {
+            case .module(let module, _):
+                builtToolName = module.name
+                executableOrBinaryModule = module.underlying
+            case .product(let product, _):
+                guard let executableModule = product.modules.map({ $0.underlying }).executables.spm_only
+                else {
+                    throw StringError("no product named \(product.name)")
+                }
+                builtToolName = product.name
+                executableOrBinaryModule = executableModule
             }
-            builtToolName = product.name
-            executableOrBinaryModule = executableModule
-        }
 
-        // For a binary target we create a `vendedTool`.
-        if let module = executableOrBinaryModule as? BinaryModule {
-            // TODO: Memoize this result for the host triple
-            let execInfos = try module.parseExecutableArtifactArchives(for: hostTriple, fileSystem: fileSystem)
-            return try execInfos.map {
-                .vendedTool(
-                    name: $0.name,
-                    path: $0.executablePath,
-                    supportedTriples: try $0.supportedTriples.map { try $0.withoutVersion().tripleString }
-                )
+            // For a binary target we create a `vendedTool`.
+            if let module = executableOrBinaryModule as? BinaryModule {
+                // TODO: Memoize this result for the host triple
+                let execInfos = try module.parseExecutableArtifactArchives(for: hostTriple, fileSystem: fileSystem)
+                return try execInfos.map {
+                    .vendedTool(
+                        name: $0.name,
+                        path: $0.executablePath,
+                        supportedTriples: try $0.supportedTriples.map { try $0.withoutVersion().tripleString }
+                    )
+                }
+            }
+            // For an executable target we create a `builtTool`.
+            else if executableOrBinaryModule.type == .executable {
+                let exeName = executableOrBinaryModule.name + hostTriple.executableExtension
+                return try [.builtTool(name: builtToolName, path: RelativePath(validating: exeName))]
+            } else {
+                return []
             }
         }
-        // For an executable target we create a `builtTool`.
-        else if executableOrBinaryModule.type == .executable {
-            let exeName = executableOrBinaryModule.name + hostTriple.executableExtension
-            return try [.builtTool(name: builtToolName, path: RelativePath(validating: exeName))]
-        }
-        else {
-            return []
-        }
-    })
+    )
 }
 
 public extension ResolvedModule {
@@ -827,7 +834,6 @@ public struct BuildToolPluginInvocationResult {
     }
 }
 
-
 /// An error in plugin evaluation.
 public enum PluginEvaluationError: Swift.Error {
     case couldNotFindPackage(for: PluginModule)
@@ -923,17 +929,19 @@ final class DefaultPluginInvocationDelegate: PluginInvocationDelegate {
         outputFiles: [AbsolutePath]
     ) {
         dispatchPrecondition(condition: .onQueue(self.delegateQueue))
-        self.buildCommands.append(.init(
-            configuration: .init(
-                displayName: displayName,
-                executable: executable,
-                arguments: arguments,
-                environment: .init(environment),
-                workingDirectory: workingDirectory
-            ),
-            inputFiles: self.toolPaths + inputFiles,
-            outputFiles: outputFiles
-        ))
+        self.buildCommands.append(
+            .init(
+                configuration: .init(
+                    displayName: displayName,
+                    executable: executable,
+                    arguments: arguments,
+                    environment: .init(environment),
+                    workingDirectory: workingDirectory
+                ),
+                inputFiles: self.toolPaths + inputFiles,
+                outputFiles: outputFiles
+            )
+        )
     }
 
     func pluginDefinedPrebuildCommand(
@@ -955,16 +963,18 @@ final class DefaultPluginInvocationDelegate: PluginInvocationDelegate {
                 )
             return false
         }
-        self.prebuildCommands.append(.init(
-            configuration: .init(
-                displayName: displayName,
-                executable: executable,
-                arguments: arguments,
-                environment: .init(environment),
-                workingDirectory: workingDirectory
-            ),
-            outputFilesDirectory: outputFilesDirectory
-        ))
+        self.prebuildCommands.append(
+            .init(
+                configuration: .init(
+                    displayName: displayName,
+                    executable: executable,
+                    arguments: arguments,
+                    environment: .init(environment),
+                    workingDirectory: workingDirectory
+                ),
+                outputFilesDirectory: outputFilesDirectory
+            )
+        )
         return true
     }
 }
@@ -1197,22 +1207,22 @@ fileprivate extension PluginInvocationTestParameters {
 fileprivate extension HostToPluginMessage.TestResult {
     init(_ result: PluginInvocationTestResult) {
         self.succeeded = result.succeeded
-        self.testTargets = result.testTargets.map{ .init($0) }
-        self.codeCoverageDataFile = result.codeCoverageDataFile.map{ .init($0) }
+        self.testTargets = result.testTargets.map { .init($0) }
+        self.codeCoverageDataFile = result.codeCoverageDataFile.map { .init($0) }
     }
 }
 
 fileprivate extension HostToPluginMessage.TestResult.TestTarget {
     init(_ testTarget: PluginInvocationTestResult.TestTarget) {
         self.name = testTarget.name
-        self.testCases = testTarget.testCases.map{ .init($0) }
+        self.testCases = testTarget.testCases.map { .init($0) }
     }
 }
 
 fileprivate extension HostToPluginMessage.TestResult.TestTarget.TestCase {
     init(_ testCase: PluginInvocationTestResult.TestTarget.TestCase) {
         self.name = testCase.name
-        self.tests = testCase.tests.map{ .init($0) }
+        self.tests = testCase.tests.map { .init($0) }
     }
 }
 

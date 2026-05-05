@@ -58,7 +58,7 @@ extension SBOMTestModulesGraph {
             packageIdentity: identity,
             module: openAPIRuntimeModule,
             dependencies: [
-                .product(httpTypesProduct, conditions: []),
+                .product(httpTypesProduct, conditions: [])
             ]
         )
 
@@ -171,7 +171,7 @@ extension SBOMTestModulesGraph {
             packageIdentity: identity,
             module: openAPIGeneratorModule,
             dependencies: [
-                .module(resolvedSwiftOpenAPIGeneratorModule, conditions: []),
+                .module(resolvedSwiftOpenAPIGeneratorModule, conditions: [])
             ]
         )
 

@@ -62,10 +62,12 @@ extension SwiftPackageCommand {
             let topLevelSnippets = try files(fileSystem: fileSystem, in: snippetsDirectory, fileExtension: "swift")
                 .map { try Snippet(parsing: $0) }
 
-            let topLevelSnippetGroup = SnippetGroup(name: "Getting Started",
-                                                    baseDirectory: snippetsDirectory,
-                                                    snippets: topLevelSnippets,
-                                                    explanation: "")
+            let topLevelSnippetGroup = SnippetGroup(
+                name: "Getting Started",
+                baseDirectory: snippetsDirectory,
+                snippets: topLevelSnippets,
+                explanation: ""
+            )
 
             let subdirectoryGroups = try subdirectories(fileSystem: fileSystem, in: snippetsDirectory)
                 .map { subdirectory -> SnippetGroup in
@@ -81,15 +83,19 @@ extension SwiftPackageCommand {
                         snippetGroupExplanation = ""
                     }
 
-                    return SnippetGroup(name: subdirectory.basename,
-                                        baseDirectory: subdirectory,
-                                        snippets: snippets,
-                                        explanation: snippetGroupExplanation)
+                    return SnippetGroup(
+                        name: subdirectory.basename,
+                        baseDirectory: subdirectory,
+                        snippets: snippets,
+                        explanation: snippetGroupExplanation
+                    )
                 }
 
-            let snippetGroups = [topLevelSnippetGroup] + subdirectoryGroups.sorted {
-                $0.baseDirectory.basename < $1.baseDirectory.basename
-            }
+            let snippetGroups =
+                [topLevelSnippetGroup]
+                + subdirectoryGroups.sorted {
+                    $0.baseDirectory.basename < $1.baseDirectory.basename
+                }
 
             return snippetGroups.filter { !$0.snippets.isEmpty }
         }

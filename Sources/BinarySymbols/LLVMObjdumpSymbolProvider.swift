@@ -25,7 +25,8 @@ package struct LLVMObjdumpSymbolProvider: SymbolProvider {
         try objdumpProcess.launch()
         let result = try await objdumpProcess.waitUntilExit()
         guard case .terminated(let status) = result.exitStatus,
-            status == 0 else {
+            status == 0
+        else {
             throw InternalError("Unable to run llvm-objdump")
         }
 
@@ -39,7 +40,7 @@ package struct LLVMObjdumpSymbolProvider: SymbolProvider {
         let name = Reference<Substring>()
         let symbolLineRegex = Regex {
             Anchor.startOfLine
-            Repeat(CharacterClass.hexDigit, count: 16) // The address of the symbol
+            Repeat(CharacterClass.hexDigit, count: 16)  // The address of the symbol
             CharacterClass.whitespace
             Capture(as: visibility) {
                 ChoiceOf {
@@ -50,7 +51,7 @@ package struct LLVMObjdumpSymbolProvider: SymbolProvider {
                     " "
                 }
             }
-            Capture(as: weakLinkage) { // Whether the symbol is weak or strong
+            Capture(as: weakLinkage) {  // Whether the symbol is weak or strong
                 ChoiceOf {
                     "w"
                     " "
@@ -80,10 +81,10 @@ package struct LLVMObjdumpSymbolProvider: SymbolProvider {
                 "O"
                 " "
             }
-            OneOrMore{
+            OneOrMore {
                 .whitespace
             }
-            Capture(as: section) { // The section the symbol appears in
+            Capture(as: section) {  // The section the symbol appears in
                 ZeroOrMore {
                     .whitespace.inverted
                 }
@@ -92,7 +93,7 @@ package struct LLVMObjdumpSymbolProvider: SymbolProvider {
                 .anyNonNewline
             }
             CharacterClass.whitespace
-            Capture(as: name) { // The name of symbol
+            Capture(as: name) {  // The name of symbol
                 OneOrMore {
                     .whitespace.inverted
                 }
@@ -136,4 +137,3 @@ package struct LLVMObjdumpSymbolProvider: SymbolProvider {
         return line[sectionStart..<sectionEnd]
     }
 }
-

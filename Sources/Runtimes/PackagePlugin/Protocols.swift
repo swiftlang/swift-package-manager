@@ -20,7 +20,6 @@
 /// For example, the way to instantiate and run a plugin.
 public protocol Plugin {
 
-
     /// Instantiates the plugin.
     ///
     /// This happens once per invocation of the plugin.
@@ -54,7 +53,7 @@ public protocol CommandPlugin: Plugin {
         /// This is the same for all kinds of plugins, and provides access to the package graph,
         /// to cache directories, and so on.
         context: PluginContext,
-        
+
         /// Any literal arguments passed after the verb in the command invocation.
         arguments: [String]
     ) async throws
@@ -64,7 +63,7 @@ public protocol CommandPlugin: Plugin {
     var packageManager: PackageManager { get }
 }
 
-extension CommandPlugin {    
+extension CommandPlugin {
     /// A proxy to the Swift Package Manager or IDE hosting the command plugin,
     /// through which the plugin can ask for specialized information or actions.
     public var packageManager: PackageManager {

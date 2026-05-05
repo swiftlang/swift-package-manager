@@ -23,10 +23,10 @@ enum SBOMTestRepo {
         let path = AbsolutePath("/tmp/SwiftPM-mock-\(uniqueID)")
 
         try localFileSystem.createDirectory(path, recursive: true)
-        
+
         let repo = GitRepository(path: path)
         try repo.create()
-        
+
         try Process.checkNonZeroExit(
             args: Git.tool,
             "-C",
@@ -36,7 +36,7 @@ enum SBOMTestRepo {
             "test_origin",
             SBOMTestStore.swiftPMURL
         )
-        
+
         let file = path.appending("Package.swift")
         try localFileSystem.writeFileContents(file, string: "// swift-tools-version: 5.9\nimport PackageDescription\n")
         try repo.stageEverything()
@@ -44,7 +44,7 @@ enum SBOMTestRepo {
         guard let branch = try repo.getCurrentBranch() else {
             throw SBOMTestError.failedToGetCurrentBranch
         }
-        
+
         try Process.checkNonZeroExit(
             args: Git.tool,
             "-C",
@@ -62,10 +62,10 @@ enum SBOMTestRepo {
         let path = AbsolutePath("/tmp/swiftly-mock-\(uniqueID)")
 
         try localFileSystem.createDirectory(path, recursive: true)
-        
+
         let repo = GitRepository(path: path)
         try repo.create()
-        
+
         try Process.checkNonZeroExit(
             args: Git.tool,
             "-C",
@@ -75,7 +75,7 @@ enum SBOMTestRepo {
             "test_origin",
             SBOMTestStore.swiftlyURL
         )
-        
+
         let file = path.appending("Package.swift")
         try localFileSystem.writeFileContents(file, string: "// swift-tools-version: 5.9\nimport PackageDescription\n")
         try repo.stageEverything()
@@ -83,9 +83,9 @@ enum SBOMTestRepo {
         guard let branch = try repo.getCurrentBranch() else {
             throw SBOMTestError.failedToGetCurrentBranch
         }
-        
+
         try repo.tag(name: "v1.0.0")
-        
+
         try Process.checkNonZeroExit(
             args: Git.tool,
             "-C",

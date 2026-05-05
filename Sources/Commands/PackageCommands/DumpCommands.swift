@@ -66,16 +66,21 @@ struct DumpSymbolGraph: AsyncSwiftCommand {
             enableAllTraits: true,
             cacheBuildManifest: false
         )
-        let buildResult = try await buildSystem.build(subset: .allExcludingTests, buildOutputs: [.symbolGraph(
-            BuildOutput.SymbolGraphOptions(
-                prettyPrint: prettyPrint,
-                minimumAccessLevel: .accessLevel(minimumAccessLevel),
-                includeInheritedDocs: !skipInheritedDocs,
-                includeSynthesized: !skipSynthesizedMembers,
-                includeSPI: includeSPISymbols,
-                emitExtensionBlocks: extensionBlockSymbolBehavior != .omitExtensionBlockSymbols,
-            )
-        ), .buildPlan])
+        let buildResult = try await buildSystem.build(
+            subset: .allExcludingTests,
+            buildOutputs: [
+                .symbolGraph(
+                    BuildOutput.SymbolGraphOptions(
+                        prettyPrint: prettyPrint,
+                        minimumAccessLevel: .accessLevel(minimumAccessLevel),
+                        includeInheritedDocs: !skipInheritedDocs,
+                        includeSynthesized: !skipSynthesizedMembers,
+                        includeSPI: includeSPISymbols,
+                        emitExtensionBlocks: extensionBlockSymbolBehavior != .omitExtensionBlockSymbols,
+                    )
+                ), .buildPlan,
+            ]
+        )
 
         let symbolGraphDirectory = try self.outputDir ?? swiftCommandState.productsBuildParameters.dataPath.appending("symbolgraph")
 

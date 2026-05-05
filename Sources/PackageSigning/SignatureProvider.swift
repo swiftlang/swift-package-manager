@@ -14,19 +14,19 @@ import struct Foundation.Data
 import struct Foundation.Date
 
 #if USE_IMPL_ONLY_IMPORTS
-#if canImport(Security)
-@_implementationOnly import Security
-#endif
+    #if canImport(Security)
+        @_implementationOnly import Security
+    #endif
 
-@_implementationOnly import SwiftASN1
-@_implementationOnly @_spi(CMS) import X509
+    @_implementationOnly import SwiftASN1
+    @_implementationOnly @_spi(CMS) import X509
 #else
-#if canImport(Security)
-import Security
-#endif
+    #if canImport(Security)
+        import Security
+    #endif
 
-import SwiftASN1
-@_spi(CMS) import X509
+    import SwiftASN1
+    @_spi(CMS) import X509
 #endif
 
 import Basics
@@ -217,30 +217,30 @@ struct CMSSignatureProvider: SignatureProviderProtocol {
         observabilityScope: ObservabilityScope
     ) throws -> [UInt8] {
         #if canImport(Security)
-        if CFGetTypeID(identity as CFTypeRef) == SecIdentityGetTypeID() {
-            let secIdentity = identity as! SecIdentity // !-safe because we ensure type above
+            if CFGetTypeID(identity as CFTypeRef) == SecIdentityGetTypeID() {
+                let secIdentity = identity as! SecIdentity  // !-safe because we ensure type above
 
-            var privateKey: SecKey?
-            let keyStatus = SecIdentityCopyPrivateKey(secIdentity, &privateKey)
-            guard keyStatus == errSecSuccess, let privateKey else {
-                throw SigningError.signingFailed("unable to get private key from SecIdentity: status \(keyStatus)")
+                var privateKey: SecKey?
+                let keyStatus = SecIdentityCopyPrivateKey(secIdentity, &privateKey)
+                guard keyStatus == errSecSuccess, let privateKey else {
+                    throw SigningError.signingFailed("unable to get private key from SecIdentity: status \(keyStatus)")
+                }
+
+                let signature = try privateKey.sign(content: content, algorithm: self.signatureAlgorithm)
+
+                do {
+                    let intermediateCertificates = try intermediateCertificates.map { try Certificate($0) }
+
+                    return try CMS.sign(
+                        signatureBytes: ASN1OctetString(contentBytes: ArraySlice(signature)),
+                        signatureAlgorithm: self.signatureAlgorithm.certificateSignatureAlgorithm,
+                        additionalIntermediateCertificates: intermediateCertificates,
+                        certificate: try Certificate(secIdentity: secIdentity)
+                    )
+                } catch {
+                    throw SigningError.signingFailed("\(error.interpolationDescription)")
+                }
             }
-
-            let signature = try privateKey.sign(content: content, algorithm: self.signatureAlgorithm)
-
-            do {
-                let intermediateCertificates = try intermediateCertificates.map { try Certificate($0) }
-
-                return try CMS.sign(
-                    signatureBytes: ASN1OctetString(contentBytes: ArraySlice(signature)),
-                    signatureAlgorithm: self.signatureAlgorithm.certificateSignatureAlgorithm,
-                    additionalIntermediateCertificates: intermediateCertificates,
-                    certificate: try Certificate(secIdentity: secIdentity)
-                )
-            } catch {
-                throw SigningError.signingFailed("\(error.interpolationDescription)")
-            }
-        }
         #endif
 
         guard let swiftSigningIdentity = identity as? SwiftSigningIdentity else {
@@ -294,7 +294,6 @@ struct CMSSignatureProvider: SignatureProviderProtocol {
             ) {
                 self.buildPolicySet(configuration: verifierConfiguration, httpClient: self.httpClient)
             }
-            
 
             switch result {
             case .success(let valid):
@@ -369,7 +368,8 @@ struct CMSSignatureProvider: SignatureProviderProtocol {
                         let signingEntity = SigningEntity.from(certificate: signingCertificate)
                         throw SigningError.certificateNotTrusted(signingEntity)
                     } else {
-                        throw SigningError
+                        throw
+                            SigningError
                             .certificateInvalid("failures: \(validationFailures.map(\.policyFailureReason))")
                     }
                 }
@@ -383,33 +383,35 @@ struct CMSSignatureProvider: SignatureProviderProtocol {
 }
 
 #if canImport(Security)
-extension SecKey {
-    func sign(content: [UInt8], algorithm: SignatureAlgorithm) throws -> [UInt8] {
-        let secKeyAlgorithm: SecKeyAlgorithm
-        switch algorithm {
-        case .ecdsaP256:
-            secKeyAlgorithm = .ecdsaSignatureMessageX962SHA256
-        case .rsa:
-            secKeyAlgorithm = .rsaSignatureMessagePKCS1v15SHA256
-        }
-
-        guard SecKeyIsAlgorithmSupported(self, .sign, secKeyAlgorithm) else {
-            throw SigningError.keyDoesNotSupportSignatureAlgorithm
-        }
-
-        var error: Unmanaged<CFError>?
-        guard let signatureData = SecKeyCreateSignature(
-            self,
-            secKeyAlgorithm,
-            Data(content) as CFData,
-            &error
-        ) as Data? else {
-            if let error = error?.takeRetainedValue() as Error? {
-                throw SigningError.signingFailed("\(error.interpolationDescription)")
+    extension SecKey {
+        func sign(content: [UInt8], algorithm: SignatureAlgorithm) throws -> [UInt8] {
+            let secKeyAlgorithm: SecKeyAlgorithm
+            switch algorithm {
+            case .ecdsaP256:
+                secKeyAlgorithm = .ecdsaSignatureMessageX962SHA256
+            case .rsa:
+                secKeyAlgorithm = .rsaSignatureMessagePKCS1v15SHA256
             }
-            throw SigningError.signingFailed("Failed to sign with SecKey")
+
+            guard SecKeyIsAlgorithmSupported(self, .sign, secKeyAlgorithm) else {
+                throw SigningError.keyDoesNotSupportSignatureAlgorithm
+            }
+
+            var error: Unmanaged<CFError>?
+            guard
+                let signatureData = SecKeyCreateSignature(
+                    self,
+                    secKeyAlgorithm,
+                    Data(content) as CFData,
+                    &error
+                ) as Data?
+            else {
+                if let error = error?.takeRetainedValue() as Error? {
+                    throw SigningError.signingFailed("\(error.interpolationDescription)")
+                }
+                throw SigningError.signingFailed("Failed to sign with SecKey")
+            }
+            return Array(signatureData)
         }
-        return Array(signatureData)
     }
-}
 #endif

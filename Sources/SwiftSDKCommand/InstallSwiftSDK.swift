@@ -11,8 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import ArgumentParser
-@_spi(SwiftPMInternal)
-import Basics
+@_spi(SwiftPMInternal) import Basics
 import CoreCommands
 import Foundation
 import PackageModel
@@ -24,9 +23,9 @@ struct InstallSwiftSDK: SwiftSDKSubcommand {
     static let configuration = CommandConfiguration(
         commandName: "install",
         abstract: """
-        Installs a given Swift SDK bundle to a location discoverable by SwiftPM. If the artifact bundle \
-        is at a remote location, it's downloaded to local filesystem first.
-        """
+            Installs a given Swift SDK bundle to a location discoverable by SwiftPM. If the artifact bundle \
+            is at a remote location, it's downloaded to local filesystem first.
+            """
     )
 
     @OptionGroup(visibility: .hidden)
@@ -63,7 +62,8 @@ struct InstallSwiftSDK: SwiftSDKSubcommand {
             fileSystem: self.fileSystem,
             observabilityScope: observabilityScope,
             outputHandler: { print($0.description) },
-            downloadProgressAnimation: ProgressAnimation
+            downloadProgressAnimation:
+                ProgressAnimation
                 .percent(
                     stream: stdoutStream,
                     verbose: false,

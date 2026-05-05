@@ -22,9 +22,9 @@ import SPMBuildCore
 import TSCBasic
 
 #if USE_IMPL_ONLY_IMPORTS
-@_implementationOnly import SwiftDriver
+    @_implementationOnly import SwiftDriver
 #else
-import SwiftDriver
+    import SwiftDriver
 #endif
 
 import enum TSCUtility.Diagnostics
@@ -149,9 +149,9 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
             switch self {
             case .noBuildableTarget:
                 return """
-                The package does not contain a buildable target.
-                Add at least one `.target` or `.executableTarget` to your `Package.swift`.
-                """
+                    The package does not contain a buildable target.
+                    Add at least one `.target` or `.executableTarget` to your `Package.swift`.
+                    """
             }
         }
     }
@@ -283,14 +283,16 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                     throw InternalError("Package not found for product: \(product.name)")
                 }
 
-                try productMap.insert(ProductBuildDescription(
-                    package: package,
-                    product: product,
-                    toolsVersion: package.manifest.toolsVersion,
-                    buildParameters: destination == .host ? toolsBuildParameters : destinationBuildParameters,
-                    fileSystem: fileSystem,
-                    observabilityScope: planningObservabilityScope
-                ))
+                try productMap.insert(
+                    ProductBuildDescription(
+                        package: package,
+                        product: product,
+                        toolsVersion: package.manifest.toolsVersion,
+                        buildParameters: destination == .host ? toolsBuildParameters : destinationBuildParameters,
+                        fileSystem: fileSystem,
+                        observabilityScope: planningObservabilityScope
+                    )
+                )
             },
             onModule: { module, destination in
                 guard let package = graph.package(for: module) else {
@@ -313,8 +315,9 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                                 product: product,
                                 forTarget: module,
                                 buildEnvironment: buildParameters.buildEnvironment,
-                                observabilityScope: planningObservabilityScope
-                                                        .makeChildScope(description: "Validate Deployment of Dependency")
+                                observabilityScope:
+                                    planningObservabilityScope
+                                    .makeChildScope(description: "Validate Deployment of Dependency")
                             )
                         }
                     }
@@ -353,39 +356,43 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                     var generateTestObservation = false
                     if module.type == .test && shouldGenerateTestObservation {
                         generateTestObservation = true
-                        shouldGenerateTestObservation = false // Only generate the code once.
+                        shouldGenerateTestObservation = false  // Only generate the code once.
                     }
 
-                    try targetMap.insert(.swift(
-                        SwiftModuleBuildDescription(
-                            package: package,
-                            target: module,
-                            toolsVersion: package.manifest.toolsVersion,
-                            additionalFileRules: additionalFileRules,
-                            buildParameters: buildParameters,
-                            macroBuildParameters: toolsBuildParameters,
-                            buildToolPluginInvocationResults: buildToolPluginInvocationResults[module.id] ?? [],
-                            prebuildCommandResults: prebuildCommandResults[module.id] ?? [],
-                            shouldGenerateTestObservation: generateTestObservation,
-                            shouldDisableSandbox: disableSandbox,
-                            fileSystem: fileSystem,
-                            observabilityScope: planningObservabilityScope
+                    try targetMap.insert(
+                        .swift(
+                            SwiftModuleBuildDescription(
+                                package: package,
+                                target: module,
+                                toolsVersion: package.manifest.toolsVersion,
+                                additionalFileRules: additionalFileRules,
+                                buildParameters: buildParameters,
+                                macroBuildParameters: toolsBuildParameters,
+                                buildToolPluginInvocationResults: buildToolPluginInvocationResults[module.id] ?? [],
+                                prebuildCommandResults: prebuildCommandResults[module.id] ?? [],
+                                shouldGenerateTestObservation: generateTestObservation,
+                                shouldDisableSandbox: disableSandbox,
+                                fileSystem: fileSystem,
+                                observabilityScope: planningObservabilityScope
+                            )
                         )
-                    ))
+                    )
                 case is ClangModule:
-                    try targetMap.insert(.clang(
-                        ClangModuleBuildDescription(
-                            package: package,
-                            target: module,
-                            toolsVersion: package.manifest.toolsVersion,
-                            additionalFileRules: additionalFileRules,
-                            buildParameters: buildParameters,
-                            buildToolPluginInvocationResults: buildToolPluginInvocationResults[module.id] ?? [],
-                            prebuildCommandResults: prebuildCommandResults[module.id] ?? [],
-                            fileSystem: fileSystem,
-                            observabilityScope: planningObservabilityScope
+                    try targetMap.insert(
+                        .clang(
+                            ClangModuleBuildDescription(
+                                package: package,
+                                target: module,
+                                toolsVersion: package.manifest.toolsVersion,
+                                additionalFileRules: additionalFileRules,
+                                buildParameters: buildParameters,
+                                buildToolPluginInvocationResults: buildToolPluginInvocationResults[module.id] ?? [],
+                                prebuildCommandResults: prebuildCommandResults[module.id] ?? [],
+                                fileSystem: fileSystem,
+                                observabilityScope: planningObservabilityScope
+                            )
                         )
-                    ))
+                    )
                 case is PluginModule:
                     try module.dependencies.compactMap {
                         switch $0 {
@@ -398,23 +405,27 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                             return nil
                         }
                     }.forEach {
-                        try productMap.insert(ProductBuildDescription(
-                            package: package,
-                            product: $0,
-                            toolsVersion: package.manifest.toolsVersion,
-                            buildParameters: toolsBuildParameters,
-                            fileSystem: fileSystem,
-                            observabilityScope: planningObservabilityScope
-                        ))
+                        try productMap.insert(
+                            ProductBuildDescription(
+                                package: package,
+                                product: $0,
+                                toolsVersion: package.manifest.toolsVersion,
+                                buildParameters: toolsBuildParameters,
+                                fileSystem: fileSystem,
+                                observabilityScope: planningObservabilityScope
+                            )
+                        )
                     }
 
-                    try pluginDescriptions.append(PluginBuildDescription(
-                        module: module,
-                        products: package.products.filter { $0.modules.contains(id: module.id) },
-                        package: package,
-                        toolsVersion: package.manifest.toolsVersion,
-                        fileSystem: fileSystem
-                    ))
+                    try pluginDescriptions.append(
+                        PluginBuildDescription(
+                            module: module,
+                            products: package.products.filter { $0.modules.contains(id: module.id) },
+                            package: package,
+                            toolsVersion: package.manifest.toolsVersion,
+                            fileSystem: fileSystem
+                        )
+                    )
                 case is SystemLibraryModule, is BinaryModule:
                     break
                 default:
@@ -449,9 +460,11 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         for item in derivedTestTargets {
             var derivedTestTargets = [item.entryPointTargetBuildDescription.target]
 
-            targetMap.insert(.swift(
-                item.entryPointTargetBuildDescription
-            ))
+            targetMap.insert(
+                .swift(
+                    item.entryPointTargetBuildDescription
+                )
+            )
 
             if let discoveryTargetBuildDescription = item.discoveryTargetBuildDescription {
                 targetMap.insert(.swift(discoveryTargetBuildDescription))
@@ -493,12 +506,14 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         //
         // If the product's platform version is greater than ours, then it is incompatible.
         if productPlatform.version > targetPlatform.version {
-            observabilityScope.emit(.productRequiresHigherPlatformVersion(
-                target: target,
-                targetPlatform: targetPlatform,
-                product: product.name,
-                productPlatform: productPlatform
-            ))
+            observabilityScope.emit(
+                .productRequiresHigherPlatformVersion(
+                    target: target,
+                    targetPlatform: targetPlatform,
+                    product: product.name,
+                    productPlatform: productPlatform
+                )
+            )
         }
     }
 
@@ -697,12 +712,13 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         for product: ResolvedProduct,
         context: BuildParameters.Destination
     ) -> ProductBuildDescription? {
-        let destination: BuildParameters.Destination = switch product.type {
-        case .macro, .plugin:
-            .host
-        default:
-            context
-        }
+        let destination: BuildParameters.Destination =
+            switch product.type {
+            case .macro, .plugin:
+                .host
+            default:
+                context
+            }
 
         return self.productMap[.init(productID: product.id, destination: destination)]
     }
@@ -711,12 +727,13 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         for module: ResolvedModule,
         context: BuildParameters.Destination
     ) -> ModuleBuildDescription? {
-        let destination: BuildParameters.Destination = switch module.type {
-        case .macro, .plugin:
-            .host
-        default:
-            context
-        }
+        let destination: BuildParameters.Destination =
+            switch module.type {
+            case .macro, .plugin:
+                .host
+            default:
+                context
+            }
 
         return self.targetMap[.init(moduleID: module.id, destination: destination)]
     }
@@ -841,7 +858,6 @@ extension BuildPlan {
                 observabilityScope: observabilityScope
             )
 
-
             if surfaceDiagnostics {
                 let diagnosticsEmitter = observabilityScope.makeDiagnosticsEmitter {
                     var metadata = ObservabilityMetadata()
@@ -883,8 +899,7 @@ extension BuildPlan {
             for command in pluginResult.prebuildCommands {
                 observabilityScope
                     .emit(
-                        info: "Running " +
-                            (command.configuration.displayName ?? command.configuration.executable.basename)
+                        info: "Running " + (command.configuration.displayName ?? command.configuration.executable.basename)
                     )
 
                 // Run the command configuration as a subshell. This doesn't return until it is done.
@@ -988,7 +1003,7 @@ extension BuildPlan {
             var successors: [TraversalNode] = []
             for product in package.products {
                 if case .test = product.underlying.type,
-                   !graph.rootPackages.contains(id: package.id)
+                    !graph.rootPackages.contains(id: package.id)
                 {
                     continue
                 }
@@ -1083,7 +1098,7 @@ extension BuildPlan {
             var successors: [TraversalNode] = []
             for product in package.products {
                 if case .test = product.underlying.type,
-                   !graph.rootPackages.contains(id: package.id)
+                    !graph.rootPackages.contains(id: package.id)
                 {
                     continue
                 }
@@ -1146,12 +1161,13 @@ extension BuildPlan {
                 successors(for: product, destination: destination)
             }
         } onNext: { current, parent in
-            let parentModule: (ResolvedModule, BuildParameters.Destination)? = switch parent {
-            case .package, .product, nil:
-                nil
-            case .module(let module, let destination):
-                (module, destination)
-            }
+            let parentModule: (ResolvedModule, BuildParameters.Destination)? =
+                switch parent {
+                case .package, .product, nil:
+                    nil
+                case .module(let module, let destination):
+                    (module, destination)
+                }
 
             switch current {
             case .package, .product:
@@ -1252,7 +1268,7 @@ extension BuildPlan {
                         guard product.type != .plugin else {
                             return
                         }
-                        
+
                         guard product.type != .macro || parentModule.type == .test else {
                             return
                         }
@@ -1262,7 +1278,7 @@ extension BuildPlan {
                         guard childModule.type != .plugin else {
                             return
                         }
-                        
+
                         guard childModule.type != .macro || parentModule.type == .test else {
                             return
                         }
@@ -1316,16 +1332,18 @@ extension Basics.Diagnostic {
         product: String,
         productPlatform: SupportedPlatform
     ) -> Self {
-        .error("""
-        the \(target.type.rawValue) '\(target.name)' requires \
-        \(targetPlatform.platform.name) \(targetPlatform.version.versionString), \
-        but depends on the product '\(product)' which requires \
-        \(productPlatform.platform.name) \(productPlatform.version.versionString); \
-        consider changing the \(target.type.rawValue) '\(target.name)' to require \
-        \(productPlatform.platform.name) \(productPlatform.version.versionString) or later, \
-        or the product '\(product)' to require \
-        \(targetPlatform.platform.name) \(targetPlatform.version.versionString) or earlier.
-        """)
+        .error(
+            """
+            the \(target.type.rawValue) '\(target.name)' requires \
+            \(targetPlatform.platform.name) \(targetPlatform.version.versionString), \
+            but depends on the product '\(product)' which requires \
+            \(productPlatform.platform.name) \(productPlatform.version.versionString); \
+            consider changing the \(target.type.rawValue) '\(target.name)' to require \
+            \(productPlatform.platform.name) \(productPlatform.version.versionString) or later, \
+            or the product '\(product)' to require \
+            \(targetPlatform.platform.name) \(targetPlatform.version.versionString) or earlier.
+            """
+        )
     }
 
     static func binaryTargetsNotSupported() -> Self {
@@ -1353,15 +1371,15 @@ func generateResourceInfoPlist(
     try fileSystem.writeIfChanged(
         path: path,
         string: """
-        <?xml version="1.0" encoding="UTF-8"?>
-        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-        <plist version="1.0">
-        <dict>
-            <key>CFBundleDevelopmentRegion</key>
-            <string>\(defaultLocalization)</string>
-        </dict>
-        </plist>
-        """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+            <plist version="1.0">
+            <dict>
+                <key>CFBundleDevelopmentRegion</key>
+                <string>\(defaultLocalization)</string>
+            </dict>
+            </plist>
+            """
     )
     return true
 }

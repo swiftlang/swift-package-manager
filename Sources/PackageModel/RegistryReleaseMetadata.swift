@@ -14,7 +14,6 @@ import struct Basics.SourceControlURL
 import struct Foundation.URL
 import struct TSCUtility.Version
 
-
 public struct RegistryReleaseMetadata: Hashable {
     public let source: Source
     public let metadata: Metadata
@@ -110,7 +109,7 @@ public struct RegistryReleaseMetadata: Hashable {
         case recognized(type: String, commonName: String?, organization: String?, identity: String?)
         case unrecognized(commonName: String?, organization: String?)
     }
-    
+
     /// Information about the source of the release.
     public enum Source: Hashable {
         case registry(URL)

@@ -14,11 +14,10 @@ import Foundation
 import Testing
 
 #if os(Windows)
-private var windows: Bool { true }
+    private var windows: Bool { true }
 #else
-private var windows: Bool { false }
+    private var windows: Bool { false }
 #endif
-
 
 @Suite(
     .tags(
@@ -58,7 +57,7 @@ struct PathTests {
                 (path: "/ab//cd//ef", expected: (windows ? #"\ab\cd\ef"# : "/ab/cd/ef"), label: "repeated path seperators"),
                 (path: "/ab///cd//ef", expected: (windows ? #"\ab\cd\ef"# : "/ab/cd/ef"), label: "repeated path seperators"),
                 (path: "/ab/././cd//ef", expected: "/ab/cd/ef", label: "dot path component"),
-                (path: "/ab/./cd//ef/.", expected:  "/ab/cd/ef", label: "dot path component"),
+                (path: "/ab/./cd//ef/.", expected: "/ab/cd/ef", label: "dot path component"),
                 (path: "/..", expected: (windows ? #"\"# : "/"), label: "dot dot path component"),
                 (path: "/../../../../..", expected: (windows ? #"\"# : "/"), label: "dot dot path component"),
                 (path: "/abc/..", expected: (windows ? #"\"# : "/"), label: "dot dot path component"),
@@ -77,7 +76,7 @@ struct PathTests {
                     expected: expected,
                     label: label
                 )
-            } when :{
+            } when: {
                 ProcessInfo.hostOperatingSystem == .windows
             }
         }
@@ -154,7 +153,7 @@ struct PathTests {
             @Test(
                 .IssueWindowsPathTestsFailures,
                 arguments: [
-                    (path: "/../..", expected: "/"),
+                    (path: "/../..", expected: "/")
                 ]
             )
             func absolutePathBaseNameExtractionFailsOnWindows(path: String, expected: String) throws {
@@ -176,11 +175,11 @@ struct PathTests {
 
             @Test(
                 arguments: [
-                    (path: "/", expected:  (windows ? #"\"# : "/")),
-                    (path: "/a", expected:  "a"),
-                    (path: "/./a", expected:  "a"),
-                    (path: "/a.txt", expected:  "a"),
-                    (path: "/./a.txt", expected:  "a"),
+                    (path: "/", expected: (windows ? #"\"# : "/")),
+                    (path: "/a", expected: "a"),
+                    (path: "/./a", expected: "a"),
+                    (path: "/a.txt", expected: "a"),
+                    (path: "/./a.txt", expected: "a"),
                 ]
             )
             func absolutePathBaseNameWithoutExt(path: String, expected: String) throws {
@@ -190,7 +189,7 @@ struct PathTests {
             @Test(
                 .IssueWindowsPathTestsFailures,
                 arguments: [
-                    (path: "/../..", expected:  "/"),
+                    (path: "/../..", expected: "/")
                 ]
             )
             func absolutePathBaseNameWithoutExtFailedOnWindows(path: String, expected: String) throws {
@@ -209,7 +208,7 @@ struct PathTests {
                 try #require(numParentDirectoryCalls >= 1, "Test configuration Error.")
 
                 var actual = pathUnderTest
-                for _ in 0 ..< numParentDirectoryCalls {
+                for _ in 0..<numParentDirectoryCalls {
                     actual = actual.parentDirectory
                 }
                 #expect(actual == expectedPath)
@@ -230,7 +229,7 @@ struct PathTests {
                 .IssueWindowsPathTestsFailures,
                 arguments: [
                     (path: "/bar/../foo/..//", numParentDirectoryCalls: 2, expected: "/"),
-                    (path: "/bar/../foo/..//yabba/a/b", numParentDirectoryCalls: 2, expected: "/yabba")
+                    (path: "/bar/../foo/..//yabba/a/b", numParentDirectoryCalls: 2, expected: "/yabba"),
                 ]
             )
             func absolutePathParentDirectoryAttributeReturnsAsExpectedFailsOnWindows(path: String, numParentDirectoryCalls: Int, expected: String) throws {
@@ -274,7 +273,7 @@ struct PathTests {
                     (path: "/", descendentOfOrEqualTo: "/", expected: true),
                     (path: "/foo/bar", descendentOfOrEqualTo: "/", expected: true),
                     (path: "/foo/bar", descendentOfOrEqualTo: "/foo/bar/baz", expected: false),
-                    (path: "/foo/bar", descendentOfOrEqualTo: "/bar", expected: false)
+                    (path: "/foo/bar", descendentOfOrEqualTo: "/bar", expected: false),
                 ]
             )
             func isDescendantOfOrEqual(path: String, descendentOfOrEqualTo: String, expected: Bool) {
@@ -286,7 +285,7 @@ struct PathTests {
             @Test(
                 arguments: [
                     (path: "/foo/bar", descendentOf: "/foo/bar", expected: false),
-                    (path: "/foo/bar", descendentOf: "/foo", expected: true)
+                    (path: "/foo/bar", descendentOf: "/foo", expected: true),
                 ]
             )
             func isDescendant(path: String, ancesterOf: String, expected: Bool) {
@@ -331,14 +330,14 @@ struct PathTests {
             }
 
             withKnownIssue {
-                #expect {try AbsolutePath(validating: "~/a/b/d")} throws: { error in
+                #expect { try AbsolutePath(validating: "~/a/b/d") } throws: { error in
                     ("\(error)" == "invalid absolute path '~/a/b/d'; absolute path must begin with '/'")
                 }
             } when: {
                 ProcessInfo.hostOperatingSystem == .windows
             }
 
-            #expect {try AbsolutePath(validating: "a/b/d") } throws: { error in
+            #expect { try AbsolutePath(validating: "a/b/d") } throws: { error in
                 ("\(error)" == "invalid absolute path 'a/b/d'")
             }
         }
@@ -368,9 +367,9 @@ struct PathTests {
                 (path: "a/b/c", expected: (windows ? #"a\b\c"# : "a/b/c"), label: "Basics"),
                 (path: "~", expected: "~", label: "Basics"),
                 (path: "..", expected: "..", label: "dot dot path component"),
-                (path: "", expected:  ".", label: "combinations and edge cases"),
-                (path: ".", expected:  ".", label: "combinations and edge cases"),
-                (path: "../a", expected:  (windows ? #"..\a"# : "../a"), label: "combinations and edge cases"),
+                (path: "", expected: ".", label: "combinations and edge cases"),
+                (path: ".", expected: ".", label: "combinations and edge cases"),
+                (path: "../a", expected: (windows ? #"..\a"# : "../a"), label: "combinations and edge cases"),
             ]
         )
         func pathStringIsSetCorrectly(path: String, expected: String, label: String) {
@@ -400,33 +399,33 @@ struct PathTests {
                 (path: "../abc/.././", expected: "..", label: "dot dot path component"),
                 (path: "abc/..", expected: ".", label: "dot dot path component"),
 
-                (path: "../", expected:  "..", label: "combinations and edge cases"),
-                (path: "./abc", expected:  "abc", label: "combinations and edge cases"),
-                (path: "./abc/", expected:  "abc", label: "combinations and edge cases"),
-                (path: "./abc/../bar", expected:  "bar", label: "combinations and edge cases"),
-                (path: "foo/../bar", expected:  "bar", label: "combinations and edge cases"),
-                (path: "foo///..///bar///baz", expected:  "bar/baz", label: "combinations and edge cases"),
-                (path: "foo/../bar/./", expected:  "bar", label: "combinations and edge cases"),
-                (path: "../abc/def/", expected:  "../abc/def", label: "combinations and edge cases"),
-                (path: "././././.", expected:  ".", label: "combinations and edge cases"),
-                (path: "./././../.", expected:  "..", label: "combinations and edge cases"),
-                (path: "./", expected:  ".", label: "combinations and edge cases"),
-                (path: ".//", expected:  ".", label: "combinations and edge cases"),
-                (path: "./.", expected:  ".", label: "combinations and edge cases"),
-                (path: "././", expected:  ".", label: "combinations and edge cases"),
-                (path: "../.", expected:  "..", label: "combinations and edge cases"),
-                (path: "./..", expected:  "..", label: "combinations and edge cases"),
-                (path: "./../.", expected:  "..", label: "combinations and edge cases"),
-                (path: "./////../////./////", expected:  "..", label: "combinations and edge cases"),
-                (path: "../a/..", expected:  "..", label: "combinations and edge cases"),
-                (path: "a/..", expected:  ".", label: "combinations and edge cases"),
-                (path: "a/../////../////./////", expected:  "..", label: "combinations and edge cases"),
+                (path: "../", expected: "..", label: "combinations and edge cases"),
+                (path: "./abc", expected: "abc", label: "combinations and edge cases"),
+                (path: "./abc/", expected: "abc", label: "combinations and edge cases"),
+                (path: "./abc/../bar", expected: "bar", label: "combinations and edge cases"),
+                (path: "foo/../bar", expected: "bar", label: "combinations and edge cases"),
+                (path: "foo///..///bar///baz", expected: "bar/baz", label: "combinations and edge cases"),
+                (path: "foo/../bar/./", expected: "bar", label: "combinations and edge cases"),
+                (path: "../abc/def/", expected: "../abc/def", label: "combinations and edge cases"),
+                (path: "././././.", expected: ".", label: "combinations and edge cases"),
+                (path: "./././../.", expected: "..", label: "combinations and edge cases"),
+                (path: "./", expected: ".", label: "combinations and edge cases"),
+                (path: ".//", expected: ".", label: "combinations and edge cases"),
+                (path: "./.", expected: ".", label: "combinations and edge cases"),
+                (path: "././", expected: ".", label: "combinations and edge cases"),
+                (path: "../.", expected: "..", label: "combinations and edge cases"),
+                (path: "./..", expected: "..", label: "combinations and edge cases"),
+                (path: "./../.", expected: "..", label: "combinations and edge cases"),
+                (path: "./////../////./////", expected: "..", label: "combinations and edge cases"),
+                (path: "../a/..", expected: "..", label: "combinations and edge cases"),
+                (path: "a/..", expected: ".", label: "combinations and edge cases"),
+                (path: "a/../////../////./////", expected: "..", label: "combinations and edge cases"),
 
             ]
         )
         func pathStringIsSetCorrectlyFailsOnWindows(path: String, expected: String, label: String) {
             withKnownIssue("https://github.com/swiftlang/swift-package-manager/issues/8511: Path \(path) does not resolve properly", isIntermittent: true) {
-                    pathStringIsSetCorrectlyTestImplementation(
+                pathStringIsSetCorrectlyTestImplementation(
                     path: path,
                     expected: expected,
                     label: label
@@ -455,8 +454,8 @@ struct PathTests {
             }
 
             @Test(
-             .IssueWindowsPathTestsFailures,
-               arguments: [
+                .IssueWindowsPathTestsFailures,
+                arguments: [
                     (path: "../a/..", expected: "."),
                     (path: "a/..", expected: "."),
                     (path: "a/../////../////./////", expected: "."),
@@ -483,13 +482,13 @@ struct PathTests {
             }
             @Test(
                 arguments: [
-                    (path: "../..", expected:  ".."),
-                    (path: "../a", expected:  "a"),
-                    (path: "../a/..", expected:  ".."),
-                    (path: "./..", expected:  ".."),
-                    (path: "abc", expected:  "abc"),
-                    (path: "", expected:  "."),
-                    (path: ".", expected:  "."),
+                    (path: "../..", expected: ".."),
+                    (path: "../a", expected: "a"),
+                    (path: "../a/..", expected: ".."),
+                    (path: "./..", expected: ".."),
+                    (path: "abc", expected: "abc"),
+                    (path: "", expected: "."),
+                    (path: ".", expected: "."),
                 ]
             )
             func relativePathBaseNameExtraction(path: String, expected: String) throws {
@@ -499,8 +498,8 @@ struct PathTests {
             @Test(
                 .IssueWindowsPathTestsFailures,
                 arguments: [
-                    (path: "a/..", expected:  "."),
-                    (path: "a/../////../////./////", expected:  ".."),
+                    (path: "a/..", expected: "."),
+                    (path: "a/../////../////./////", expected: ".."),
                 ]
             )
             func relativePathBaseNameExtractionFailsOnWindows(path: String, expected: String) throws {
@@ -522,13 +521,13 @@ struct PathTests {
 
             @Test(
                 arguments: [
-                    (path: "../a", expected:  "a"),
-                    (path: "a/..", expected:  "."),
-                    (path: "abc", expected:  "abc"),
-                    (path: "../a.bc", expected:  "a"),
-                    (path: "abc.swift", expected:  "abc"),
-                    (path: "../a.b.c", expected:  "a.b"),
-                    (path: "abc.xyz.123", expected:  "abc.xyz"),
+                    (path: "../a", expected: "a"),
+                    (path: "a/..", expected: "."),
+                    (path: "abc", expected: "abc"),
+                    (path: "../a.bc", expected: "a"),
+                    (path: "abc.swift", expected: "abc"),
+                    (path: "../a.b.c", expected: "a.b"),
+                    (path: "abc.xyz.123", expected: "abc.xyz"),
                 ]
             )
             func relativePathBaseNameWithoutExt(path: String, expected: String) throws {
@@ -536,14 +535,14 @@ struct PathTests {
             }
 
             @Test(
-            .IssueWindowsPathTestsFailures,
+                .IssueWindowsPathTestsFailures,
                 arguments: [
-                    (path: "../..", expected:  ".."),
-                    (path: "../a/..", expected:  ".."),
-                    (path: "./..", expected:  ".."),
-                    (path: "a/../////../////./////", expected:  ".."),
-                    (path: "", expected:  "."),
-                    (path: ".", expected:  "."),
+                    (path: "../..", expected: ".."),
+                    (path: "../a/..", expected: ".."),
+                    (path: "./..", expected: ".."),
+                    (path: "a/../////../////./////", expected: ".."),
+                    (path: "", expected: "."),
+                    (path: ".", expected: "."),
                 ]
             )
             func relativePathBaseNameWithoutExtFailsOnWindows(path: String, expected: String) throws {
@@ -578,8 +577,8 @@ struct PathTests {
             }
 
             @Test(
-             .IssueWindowsPathTestsFailures,
-               arguments:[
+                .IssueWindowsPathTestsFailures,
+                arguments: [
                     "a.",
                     ".a",
                     "",
@@ -620,7 +619,7 @@ struct PathTests {
             }
 
             @Test(
-            .IssueWindowsPathTestsFailures,
+                .IssueWindowsPathTestsFailures,
                 arguments: [
                     (path: "foo/bar/..", expected: ["foo"]),
                     (path: "bar/../foo", expected: ["foo"]),
@@ -651,7 +650,7 @@ struct PathTests {
             }
 
             withKnownIssue("https://github.com/swiftlang/swift-package-manager/issues/8511: \\") {
-                #expect {try RelativePath(validating: "/a/b/d")} throws: { error in
+                #expect { try RelativePath(validating: "/a/b/d") } throws: { error in
                     ("\(error)" == "invalid relative path '/a/b/d'; relative path should not begin with '/'")
                 }
             } when: {
@@ -716,7 +715,7 @@ struct PathTests {
         #expect(AbsolutePath("/a/b/c/d").relative(to: AbsolutePath("/a/b/c")) == RelativePath("d"));
         #expect(AbsolutePath("/a/b/c/d").relative(to: AbsolutePath("/a/c/d")) == RelativePath("../../b/c/d"));
         #if !os(Windows)
-        #expect(AbsolutePath("/a/b/c/d").relative(to: AbsolutePath("/b/c/d")) == RelativePath("../../../a/b/c/d"));
+            #expect(AbsolutePath("/a/b/c/d").relative(to: AbsolutePath("/b/c/d")) == RelativePath("../../../a/b/c/d"));
         #endif
     }
 
@@ -781,7 +780,7 @@ struct PathTests {
             }
             #expect(throws: Never.self) {
                 try JSONDecoder().decode(Bar.self, from: data)
-            } // empty string is a valid relative path
+            }  // empty string is a valid relative path
         }
 
         do {

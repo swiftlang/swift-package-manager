@@ -110,12 +110,13 @@ extension SwiftPackageCommand {
             )
 
             // Map the target type.
-            let type: PackageTarget.TargetKind = switch self.type {
-            case .library: .library
-            case .executable: .executable
-            case .test: .test
-            case .macro: .macro
-            }
+            let type: PackageTarget.TargetKind =
+                switch self.type {
+                case .library: .library
+                case .executable: .executable
+                case .test: .test
+                case .macro: .macro
+                }
 
             // Map dependencies
             let dependencies: [PackageTarget.Dependency] = self.dependencies.map {
@@ -258,11 +259,12 @@ extension SwiftPackageCommand {
             fileSystem: any FileSystem,
             rootPath: AbsolutePath
         ) throws {
-            let outerDirectory: String? = switch target.type {
-            case .binary, .plugin, .system: nil
-            case .executable, .library, .macro: "Sources"
-            case .test: "Tests"
-            }
+            let outerDirectory: String? =
+                switch target.type {
+                case .binary, .plugin, .system: nil
+                case .executable, .library, .macro: "Sources"
+                case .test: "Tests"
+                }
 
             guard let outerDirectory else {
                 return
@@ -275,8 +277,8 @@ extension SwiftPackageCommand {
             var importModuleNames = target.dependencies.map {
                 switch $0 {
                 case .byName(let name),
-                     .target(let name),
-                     .product(let name, package: _):
+                    .target(let name),
+                    .product(let name, package: _):
                     name
                 }
             }
@@ -314,16 +316,16 @@ extension SwiftPackageCommand {
                 files.addSourceFile(
                     path: sourceFilePath,
                     sourceCode: """
-                    \(imports)
-                    struct \(raw: target.sanitizedName): Macro {
-                        /// TODO: Implement one or more of the protocols that inherit
-                        /// from Macro. The appropriate macro protocol is determined
-                        /// by the "macro" declaration that \(raw: target.sanitizedName) implements.
-                        /// Examples include:
-                        ///     @freestanding(expression) macro --> ExpressionMacro
-                        ///     @attached(member) macro         --> MemberMacro
-                    }
-                    """
+                        \(imports)
+                        struct \(raw: target.sanitizedName): Macro {
+                            /// TODO: Implement one or more of the protocols that inherit
+                            /// from Macro. The appropriate macro protocol is determined
+                            /// by the "macro" declaration that \(raw: target.sanitizedName) implements.
+                            /// Examples include:
+                            ///     @freestanding(expression) macro --> ExpressionMacro
+                            ///     @attached(member) macro         --> MemberMacro
+                        }
+                        """
                 )
 
                 // Add a file that introduces the main entrypoint and provided macros
@@ -331,47 +333,48 @@ extension SwiftPackageCommand {
                 files.addSourceFile(
                     path: targetDir.appending(component: "ProvidedMacros.swift"),
                     sourceCode: """
-                    import SwiftCompilerPlugin
+                        import SwiftCompilerPlugin
 
-                    @main
-                    struct \(raw: target.sanitizedName)Macros: CompilerPlugin {
-                        let providingMacros: [Macro.Type] = [
-                            \(raw: target.sanitizedName).self,
-                        ]
-                    }
-                    """
+                        @main
+                        struct \(raw: target.sanitizedName)Macros: CompilerPlugin {
+                            let providingMacros: [Macro.Type] = [
+                                \(raw: target.sanitizedName).self,
+                            ]
+                        }
+                        """
                 )
 
             case .test:
-                let sourceCode: SourceFileSyntax = switch testHarness {
-                case .none:
-                    """
-                    \(imports)
-                    // Test code here
-                    """
+                let sourceCode: SourceFileSyntax =
+                    switch testHarness {
+                    case .none:
+                        """
+                        \(imports)
+                        // Test code here
+                        """
 
-                case .xctest:
-                    """
-                    \(imports)
-                    class \(raw: target.sanitizedName)Tests: XCTestCase {
-                        func test\(raw: target.sanitizedName)() {
-                            XCTAssertEqual(42, 17 + 25)
+                    case .xctest:
+                        """
+                        \(imports)
+                        class \(raw: target.sanitizedName)Tests: XCTestCase {
+                            func test\(raw: target.sanitizedName)() {
+                                XCTAssertEqual(42, 17 + 25)
+                            }
                         }
-                    }
-                    """
+                        """
 
-                case .swiftTesting:
-                    """
-                    \(imports)
-                    @Suite
-                    struct \(raw: target.sanitizedName)Tests {
-                        @Test("\(raw: target.sanitizedName) tests")
-                        func example() {
-                            #expect(42 == 17 + 25)
+                    case .swiftTesting:
+                        """
+                        \(imports)
+                        @Suite
+                        struct \(raw: target.sanitizedName)Tests {
+                            @Test("\(raw: target.sanitizedName) tests")
+                            func example() {
+                                #expect(42 == 17 + 25)
+                            }
                         }
+                        """
                     }
-                    """
-                }
 
                 files.addSourceFile(path: sourceFilePath, sourceCode: sourceCode)
 
@@ -379,22 +382,22 @@ extension SwiftPackageCommand {
                 files.addSourceFile(
                     path: sourceFilePath,
                     sourceCode: """
-                    \(imports)
-                    """
+                        \(imports)
+                        """
                 )
 
             case .executable:
                 files.addSourceFile(
                     path: sourceFilePath,
                     sourceCode: """
-                    \(imports)
-                    @main
-                    struct \(raw: target.sanitizedName)Main {
-                        static func main() {
-                            print("Hello, world")
+                        \(imports)
+                        @main
+                        struct \(raw: target.sanitizedName)Main {
+                            static func main() {
+                                print("Hello, world")
+                            }
                         }
-                    }
-                    """
+                        """
                 )
             }
 

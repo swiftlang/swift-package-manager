@@ -39,13 +39,13 @@ class PackageDescription5_5LoadingTests: PackageDescriptionLoadingTests {
         XCTAssertNoDiagnostics(observability.diagnostics)
         XCTAssertNoDiagnostics(validationDiagnostics)
 
-        let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map{ ($0.identity.description, $0) })
+        let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map { ($0.identity.description, $0) })
         XCTAssertEqual(deps["foo5"], .localSourceControl(path: "/foo5", requirement: .branch("main")))
         XCTAssertEqual(deps["foo7"], .localSourceControl(path: "/foo7", requirement: .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")))
     }
 
     func testPlatforms() async throws {
-        let content =  """
+        let content = """
             import PackageDescription
             let package = Package(
                name: "Foo",
@@ -62,13 +62,16 @@ class PackageDescription5_5LoadingTests: PackageDescriptionLoadingTests {
         XCTAssertNoDiagnostics(observability.diagnostics)
         XCTAssertNoDiagnostics(validationDiagnostics)
 
-        XCTAssertEqual(manifest.platforms, [
-            PlatformDescription(name: "macos", version: "12.0"),
-            PlatformDescription(name: "ios", version: "15.0"),
-            PlatformDescription(name: "tvos", version: "15.0"),
-            PlatformDescription(name: "watchos", version: "8.0"),
-            PlatformDescription(name: "maccatalyst", version: "15.0"),
-            PlatformDescription(name: "driverkit", version: "21.0"),
-        ])
+        XCTAssertEqual(
+            manifest.platforms,
+            [
+                PlatformDescription(name: "macos", version: "12.0"),
+                PlatformDescription(name: "ios", version: "15.0"),
+                PlatformDescription(name: "tvos", version: "15.0"),
+                PlatformDescription(name: "watchos", version: "8.0"),
+                PlatformDescription(name: "maccatalyst", version: "15.0"),
+                PlatformDescription(name: "driverkit", version: "21.0"),
+            ]
+        )
     }
 }

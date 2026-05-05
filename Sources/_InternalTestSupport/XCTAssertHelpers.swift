@@ -13,7 +13,7 @@
 import class Foundation.ProcessInfo
 import Basics
 #if os(macOS)
-import class Foundation.Bundle
+    import class Foundation.Bundle
 #endif
 import SPMBuildCore
 import enum PackageModel.BuildConfiguration
@@ -51,8 +51,7 @@ public func XCTAssertNoSuchPath(_ path: AbsolutePath, file: StaticString = #file
     swiftTestingTestCalledAnXCTestAPI()
 }
 
-
-public func XCTAssertEqual<T:Equatable, U:Equatable> (_ lhs:(T,U), _ rhs:(T,U), file: StaticString = #file, line: UInt = #line) {
+public func XCTAssertEqual<T: Equatable, U: Equatable>(_ lhs: (T, U), _ rhs: (T, U), file: StaticString = #file, line: UInt = #line) {
     TSCTestSupport.XCTAssertEqual(lhs, rhs, file: file, line: line)
     swiftTestingTestCalledAnXCTestAPI()
 }
@@ -74,26 +73,26 @@ public func XCTSkipIfselfHostedCI(because reason: String, file: StaticString = #
     swiftTestingTestCalledAnXCTestAPI()
 }
 
-public func XCTSkipOnWindows(because reason: String? = nil, skipPlatformCi: Bool = false, skipSelfHostedCI: Bool = false , file: StaticString = #filePath, line: UInt = #line) throws {
+public func XCTSkipOnWindows(because reason: String? = nil, skipPlatformCi: Bool = false, skipSelfHostedCI: Bool = false, file: StaticString = #filePath, line: UInt = #line) throws {
     swiftTestingTestCalledAnXCTestAPI()
     #if os(Windows)
-    let failureCause: String
-    if let reason {
-        failureCause = " because \(reason.description)"
-    } else {
-        failureCause = ""
-    }
-    if (skipPlatformCi) {
-        try XCTSkipIfPlatformCI(because: "Test is run in Platform CI.  Skipping\(failureCause)", file: file, line: line)
-    }
+        let failureCause: String
+        if let reason {
+            failureCause = " because \(reason.description)"
+        } else {
+            failureCause = ""
+        }
+        if (skipPlatformCi) {
+            try XCTSkipIfPlatformCI(because: "Test is run in Platform CI.  Skipping\(failureCause)", file: file, line: line)
+        }
 
-    if (skipSelfHostedCI) {
-        try XCTSkipIfselfHostedCI(because: "Test is run in Self hosted CI.  Skipping\(failureCause)", file: file, line: line)
-    }
+        if (skipSelfHostedCI) {
+            try XCTSkipIfselfHostedCI(because: "Test is run in Self hosted CI.  Skipping\(failureCause)", file: file, line: line)
+        }
 
-    if (!skipPlatformCi && !skipSelfHostedCI) {
-        throw XCTSkip("Skipping test\(failureCause)", file: file, line: line)
-    }
+        if (!skipPlatformCi && !skipSelfHostedCI) {
+            throw XCTSkip("Skipping test\(failureCause)", file: file, line: line)
+        }
     #endif
 }
 
@@ -119,7 +118,8 @@ public func XCTRequires(
         try _requiresTools(executable)
     } catch (let AsyncProcessResult.Error.nonZeroExit(result)) {
         throw XCTSkip(
-            "Skipping as tool \(executable) is not found in the path. (\(result.description))")
+            "Skipping as tool \(executable) is not found in the path. (\(result.description))"
+        )
     }
 }
 
@@ -316,8 +316,9 @@ public func XCTAssertThrowsCommandExecutionError<T>(
     swiftTestingTestCalledAnXCTestAPI()
     await XCTAssertAsyncThrowsError(try await expression(), message(), file: file, line: line) { error in
         guard case SwiftPMError.executionFailure(let processError, let stdout, let stderr) = error,
-              case AsyncProcessResult.Error.nonZeroExit(let processResult) = processError,
-              processResult.exitStatus != .terminated(code: 0) else {
+            case AsyncProcessResult.Error.nonZeroExit(let processResult) = processError,
+            processResult.exitStatus != .terminated(code: 0)
+        else {
             return XCTFail("Unexpected error type: \(error.interpolationDescription)", file: file, line: line)
         }
         errorHandler(CommandExecutionError(result: processResult, stdout: stdout, stderr: stderr))
@@ -353,7 +354,6 @@ public func XCTAsyncUnwrap<T>(
 
     return result
 }
-
 
 public struct CommandExecutionError: Error {
     package let result: AsyncProcessResult

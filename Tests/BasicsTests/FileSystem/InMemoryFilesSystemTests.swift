@@ -91,7 +91,8 @@ struct InMemoryFileSystemTests {
                     let expectedPath = AbsolutePath(p)
                     #expect(
                         fs.exists(expectedPath) == shouldExist,
-                        "\(errorMessage(expectedPath, shouldExist))")
+                        "\(errorMessage(expectedPath, shouldExist))"
+                    )
                 }
             }
         }
@@ -132,7 +133,8 @@ struct InMemoryFileSystemTests {
 
             #expect(
                 fs.exists(pathUnderTest),
-                "Path \(pathUnderTest.pathString) does not exists when it should")
+                "Path \(pathUnderTest.pathString) does not exists when it should"
+            )
         }
 
         @Test
@@ -146,7 +148,8 @@ struct InMemoryFileSystemTests {
 
             #expect(
                 !fs.exists(pathUnderTest),
-                "Path \(pathUnderTest.pathString) does exists when it should not")
+                "Path \(pathUnderTest.pathString) does exists when it should not"
+            )
         }
 
         @Test

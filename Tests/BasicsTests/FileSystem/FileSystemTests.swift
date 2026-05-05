@@ -60,8 +60,7 @@ struct FileSystemTests {
         let functionUnderTest = "stripFirstLevel"
         do {
             let fileSystem = InMemoryFileSystem()
-            #expect(throws: StringError("\(functionUnderTest) requires single top level directory"))
-            {
+            #expect(throws: StringError("\(functionUnderTest) requires single top level directory")) {
                 try fileSystem.stripFirstLevel(of: .root)
             }
         }
@@ -72,8 +71,7 @@ struct FileSystemTests {
                 let path = AbsolutePath.root.appending("dir\(index)")
                 try fileSystem.createDirectory(path, recursive: false)
             }
-            #expect(throws: StringError("\(functionUnderTest) requires single top level directory"))
-            {
+            #expect(throws: StringError("\(functionUnderTest) requires single top level directory")) {
                 try fileSystem.stripFirstLevel(of: .root)
             }
         }
@@ -84,8 +82,7 @@ struct FileSystemTests {
                 let path = AbsolutePath.root.appending("file\(index)")
                 try fileSystem.writeFileContents(path, string: "\(index)")
             }
-            #expect(throws: StringError("\(functionUnderTest) requires single top level directory"))
-            {
+            #expect(throws: StringError("\(functionUnderTest) requires single top level directory")) {
                 try fileSystem.stripFirstLevel(of: .root)
             }
         }
@@ -94,8 +91,7 @@ struct FileSystemTests {
             let fileSystem = InMemoryFileSystem()
             let path = AbsolutePath.root.appending("file")
             try fileSystem.writeFileContents(path, string: "")
-            #expect(throws: StringError("\(functionUnderTest) requires single top level directory"))
-            {
+            #expect(throws: StringError("\(functionUnderTest) requires single top level directory")) {
                 try fileSystem.stripFirstLevel(of: .root)
             }
         }

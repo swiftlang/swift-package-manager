@@ -37,7 +37,7 @@ public struct Resource: Codable, Equatable {
     public init(rule: Rule, path: AbsolutePath) {
         var rule = rule
         if case .process(.some(let localization)) = rule, localization != "Base" {
-            rule  = .process(localization: localization.lowercased())
+            rule = .process(localization: localization.lowercased())
         }
         self.rule = rule
         self.path = path

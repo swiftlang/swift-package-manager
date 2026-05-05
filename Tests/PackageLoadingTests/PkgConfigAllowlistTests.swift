@@ -36,7 +36,7 @@ final class PkgConfigAllowlistTests: XCTestCase {
     }
 
     func testRemoveDefaultFlags() throws {
-        let cFlags = ["-I/usr/include", "-I", "/usr/include" , "-I", "/usr/include/Cellar/gtk+3/3.18.9/include/gtk-3.0", "-L/hello", "-I", "/usr/include"]
+        let cFlags = ["-I/usr/include", "-I", "/usr/include", "-I", "/usr/include/Cellar/gtk+3/3.18.9/include/gtk-3.0", "-L/hello", "-I", "/usr/include"]
         let libs = ["-L", "/usr/lib", "-L/usr/lib/Cellar/gtk+3/3.18.9/lib", "-L/usr/lib", "-L/usr/lib", "-lgtk-3", "-module-name", "-lcool", "ok", "name", "-L", "/usr/lib"]
         let result = try removeDefaultFlags(cFlags: cFlags, libs: libs)
 

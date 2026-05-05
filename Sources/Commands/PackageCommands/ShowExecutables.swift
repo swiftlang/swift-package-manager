@@ -42,7 +42,7 @@ struct ShowExecutables: AsyncSwiftCommand {
             } else {
                 return Executable(package: Optional<String>.none, name: product.name)
             }
-        }.sorted(by: {$0.name < $1.name})
+        }.sorted(by: { $0.name < $1.name })
 
         switch self.format {
         case .flatlist:

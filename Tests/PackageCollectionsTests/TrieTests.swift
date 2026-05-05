@@ -42,7 +42,7 @@ import Testing
 
         #expect(try trie.find(word: "brown") == [1, 2])
         #expect(try trie.find(word: "blocked") == [2])
-        #expect(throws:NotFoundError.self) {
+        #expect(throws: NotFoundError.self) {
             try trie.find(word: "fo")
         }
     }
@@ -201,7 +201,7 @@ import Testing
 
         let docCount = 100
         await withTaskGroup { group in
-            for i in 0 ..< docCount {
+            for i in 0..<docCount {
                 group.addTask {
                     try? await Task.sleep(for: .milliseconds(Double.random(in: 100...300)))
 
@@ -212,7 +212,7 @@ import Testing
             }
             await group.waitForAll()
         }
-        for doc in 0 ..< docCount {
+        for doc in 0..<docCount {
             #expect(try trie.find(word: "word-\(doc)") == [doc])
             #expect(try trie.find(word: "test").count == docCount)
         }

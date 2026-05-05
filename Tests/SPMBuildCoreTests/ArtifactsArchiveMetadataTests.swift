@@ -21,26 +21,26 @@ struct ArtifactsArchiveMetadataTests {
         try fileSystem.writeFileContents(
             "/info.json",
             string: """
-            {
-                "schemaVersion": "1.0",
-                "artifacts": {
-                    "protocol-buffer-compiler": {
-                        "type": "executable",
-                        "version": "3.5.1",
-                        "variants": [
-                            {
-                                "path": "x86_64-apple-macosx/protoc",
-                                "supportedTriples": ["x86_64-apple-macosx"]
-                            },
-                            {
-                                "path": "x86_64-unknown-linux-gnu/protoc",
-                                "supportedTriples": ["x86_64-unknown-linux-gnu"]
-                            }
-                        ]
+                {
+                    "schemaVersion": "1.0",
+                    "artifacts": {
+                        "protocol-buffer-compiler": {
+                            "type": "executable",
+                            "version": "3.5.1",
+                            "variants": [
+                                {
+                                    "path": "x86_64-apple-macosx/protoc",
+                                    "supportedTriples": ["x86_64-apple-macosx"]
+                                },
+                                {
+                                    "path": "x86_64-unknown-linux-gnu/protoc",
+                                    "supportedTriples": ["x86_64-unknown-linux-gnu"]
+                                }
+                            ]
+                        }
                     }
                 }
-            }
-            """
+                """
         )
 
         let metadata = try ArtifactsArchiveMetadata.parse(fileSystem: fileSystem, rootPath: .root)
@@ -60,7 +60,7 @@ struct ArtifactsArchiveMetadataTests {
                             supportedTriples: [Triple("x86_64-unknown-linux-gnu")]
                         ),
                     ]
-                ),
+                )
             ]
         )
         #expect(metadata == expected, "Actual is not as expected")
@@ -72,25 +72,25 @@ struct ArtifactsArchiveMetadataTests {
         try fileSystem.writeFileContents(
             "/info.json",
             string: """
-            {
-                "schemaVersion": "1.0",
-                "artifacts": {
-                    "protocol-buffer-compiler": {
-                        "type": "executable",
-                        "version": "3.5.1",
-                        "variants": [
-                            {
-                                "path": "x86_64-apple-macosx/protoc"
-                            },
-                            {
-                                "path": "x86_64-unknown-linux-gnu/protoc",
-                                "supportedTriples": null
-                            }
-                        ]
+                {
+                    "schemaVersion": "1.0",
+                    "artifacts": {
+                        "protocol-buffer-compiler": {
+                            "type": "executable",
+                            "version": "3.5.1",
+                            "variants": [
+                                {
+                                    "path": "x86_64-apple-macosx/protoc"
+                                },
+                                {
+                                    "path": "x86_64-unknown-linux-gnu/protoc",
+                                    "supportedTriples": null
+                                }
+                            ]
+                        }
                     }
                 }
-            }
-            """
+                """
         )
 
         let metadata = try ArtifactsArchiveMetadata.parse(fileSystem: fileSystem, rootPath: .root)
@@ -110,18 +110,22 @@ struct ArtifactsArchiveMetadataTests {
                             supportedTriples: nil
                         ),
                     ]
-                ),
+                )
             ]
         )
         #expect(metadata == expected, "Actual is not as expected")
 
         let binaryTarget = BinaryModule(
-            name: "protoc", kind: .artifactsArchive(types: [.executable]), path: .root, origin: .local
+            name: "protoc",
+            kind: .artifactsArchive(types: [.executable]),
+            path: .root,
+            origin: .local
         )
         // No supportedTriples with binaryTarget should be rejected
         #expect(throws: (any Error).self) {
             try binaryTarget.parseExecutableArtifactArchives(
-                for: Triple("x86_64-apple-macosx"), fileSystem: fileSystem
+                for: Triple("x86_64-apple-macosx"),
+                fileSystem: fileSystem
             )
         }
     }
