@@ -63,6 +63,8 @@ public final class BinaryModule: Module {
         /// Artifact bundles containing static libraries.
         case artifactsArchive(types: [ArtifactsArchiveMetadata.ArtifactType])
 
+        case prebuilt(PrebuiltLibrary)
+
         case unknown // for non-downloaded artifacts
 
         public var fileExtension: String {
@@ -71,6 +73,8 @@ public final class BinaryModule: Module {
                 return "xcframework"
             case .artifactsArchive:
                 return "artifactbundle"
+            case .prebuilt:
+                return ""
             case .unknown:
                 return "unknown"
             }
@@ -78,7 +82,7 @@ public final class BinaryModule: Module {
 
         public var isUnknown: Bool {
             switch self {
-            case .xcframework, .artifactsArchive:
+            case .xcframework, .artifactsArchive, .prebuilt:
                 return false
             case .unknown:
                 return true
@@ -92,6 +96,8 @@ public final class BinaryModule: Module {
             return false
         case .artifactsArchive(let types):
             return types.contains(.executable)
+        case .prebuilt:
+            return false
         case .unknown:
             return false
         }

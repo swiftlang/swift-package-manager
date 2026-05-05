@@ -323,13 +323,14 @@ extension BuildPlan {
                         for library in libraries {
                             libraryBinaryPaths.insert(library.libraryPath)
                         }
+                    case .prebuilt(let prebuilt):
+                        libraryBinaryPaths.insert(prebuilt.libraryPath)
                     case .unknown:
                         throw InternalError("unknown binary target '\(module.name)' type")
                     }
                 case .plugin:
                     continue
                 }
-
             case .product(let product, let description):
                 // Add the dynamic products to array of libraries to link.
                 if product.type == .library(.dynamic) {

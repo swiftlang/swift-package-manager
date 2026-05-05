@@ -24,7 +24,9 @@ import class Basics.ObservabilityScope
 import class Basics.ObservabilitySystem
 import class Basics.ThreadSafeArrayStore
 
+import class PackageModel.BinaryModule
 import enum PackageModel.BuildConfiguration
+import struct PackageModel.BuildEnvironment
 import enum PackageModel.BuildSettings
 import class PackageModel.ClangModule
 import struct PackageModel.ConfigurationCondition
@@ -300,22 +302,34 @@ extension PackageModel.Platform {
 }
 
 extension Sequence<PackageModel.PackageCondition> {
-    func toPlatformFilter(toolsVersion: ToolsVersion) -> Set<ProjectModel.PlatformFilter> {
-        let pifPlatforms = self.flatMap { packageCondition -> [ProjectModel.BuildSettings.Platform] in
-            guard let platforms = packageCondition.platformsCondition?.platforms else {
+    func toPlatformFilter(toolsVersion: ToolsVersion, hostBuildEnvironment: PackageModel.BuildEnvironment) -> Set<ProjectModel.PlatformFilter> {
+        let platformFilters = self.flatMap { packageCondition -> [ProjectModel.PlatformFilter] in
+            guard let platformsCondition = packageCondition.platformsCondition else {
                 return []
             }
 
-            var pifPlatformsForCondition: [ProjectModel.BuildSettings.Platform] = platforms
-                .compactMap { try? ProjectModel.BuildSettings.Platform(from: $0) }
+            if hostBuildEnvironment.supportsPrebuilts == true,
+                let include = platformsCondition.includeIfPrebuiltsSupported,
+                let hostPlatform = try? ProjectModel.BuildSettings.Platform(from: hostBuildEnvironment.platform)
+            {
+                return hostPlatform.toPlatformFilter().map({
+                    var filter = $0
+                    // host platforms supports prebuilts so exclude this dependency
+                    filter.exclude = !include
+                    return filter
+                })
+            } else {
+                var pifPlatformsForCondition: [ProjectModel.BuildSettings.Platform] = platformsCondition.platforms
+                    .compactMap { try? ProjectModel.BuildSettings.Platform(from: $0) }
 
-            // Treat catalyst like macOS for backwards compatibility with older tools versions.
-            if pifPlatformsForCondition.contains(.macOS), toolsVersion < ToolsVersion.v5_5 {
-                pifPlatformsForCondition.append(.macCatalyst)
+                // Treat catalyst like macOS for backwards compatibility with older tools versions.
+                if pifPlatformsForCondition.contains(.macOS), toolsVersion < ToolsVersion.v5_5 {
+                    pifPlatformsForCondition.append(.macCatalyst)
+                }
+                return pifPlatformsForCondition.flatMap({ $0.toPlatformFilter() })
             }
-            return pifPlatformsForCondition
         }
-        return Set(pifPlatforms.flatMap { $0.toPlatformFilter() })
+        return Set(platformFilters)
     }
 
     var splitIntoConcreteConditions: (
@@ -337,6 +351,7 @@ extension Sequence<PackageModel.PackageCondition> {
 
         // Determine the *platform* conditions, if any.
         // An empty set means that there are no platform restrictions.
+        // TODO: platform exclusions
         let platforms: [PackageModel.Platform?] = if platformConditions.isEmpty {
             [nil]
         } else {
@@ -371,10 +386,6 @@ extension PackageModel.BuildSettings.Declaration {
 
         // Linker.
         case .OTHER_LDFLAGS, .LINK_LIBRARIES, .LINK_FRAMEWORKS:
-            true
-
-        // Prebuilts
-        case .PREBUILT_INCLUDE_PATHS, .PREBUILT_LIBRARY_PATHS, .PREBUILT_LIBRARIES:
             true
 
         default:
@@ -710,18 +721,6 @@ extension PackageGraph.ResolvedModule {
                     singleValueSetting = nil
                     multipleValueSetting = .HEADER_SEARCH_PATHS
                     values = settingAssignment.values.map { self.sourceDirAbsolutePath.pathString + "/" + $0 }
-                case .PREBUILT_INCLUDE_PATHS:
-                    singleValueSetting = nil
-                    multipleValueSetting = .OTHER_SWIFT_FLAGS
-                    values = settingAssignment.values.flatMap { ["-I", $0] }
-                case .PREBUILT_LIBRARY_PATHS:
-                    singleValueSetting = nil
-                    multipleValueSetting = .LIBRARY_SEARCH_PATHS
-                    values = settingAssignment.values
-                case .PREBUILT_LIBRARIES:
-                    singleValueSetting = nil
-                    multipleValueSetting = .OTHER_LDFLAGS
-                    values = settingAssignment.values.map { "-l\($0)" }
                 case .OTHER_SWIFT_FLAGS:
                     singleValueSetting = nil
                     multipleValueSetting = .OTHER_SWIFT_FLAGS
@@ -767,9 +766,7 @@ extension PackageGraph.ResolvedModule {
                     // Handle imparted settings for OTHER_LDFLAGS and prebuilts include paths (always multiple values)
                     // TODO: Do we realy need to impart OTHER_LDFLAGS?
                     // TODO: Doing that for the PREBUILT_LIBRARIES was causing duplicate library warnings.
-                    if let multipleValueSetting = multipleValueSetting,
-                        declaration != .PREBUILT_LIBRARIES,
-                        (multipleValueSetting == .OTHER_LDFLAGS || declaration == .PREBUILT_INCLUDE_PATHS) {
+                    if let multipleValueSetting = multipleValueSetting, multipleValueSetting == .OTHER_LDFLAGS {
                         allSettings.impartedMultipleValueSettings[pifPlatform, default: [:]][multipleValueSetting, default: []].append(contentsOf: values)
                     }
 
@@ -891,6 +888,18 @@ extension PackageGraph.ResolvedProduct {
         }
     }
 
+    /// Is this a prebuilt product?
+    var isPrebuiltProduct: Bool {
+        guard let module = modules.only,
+              let binaryModule = module.underlying as? BinaryModule,
+              case .prebuilt = binaryModule.kind
+        else {
+            return false
+        }
+
+        return true
+    }
+
     var isExecutable: Bool {
         switch self.type {
         case .executable, .snippet:
@@ -911,7 +920,12 @@ extension PackageGraph.ResolvedProduct {
     /// Returns the corresponding *system library* module, if this is a system library product.
     var systemModule: SystemLibraryModule? {
         guard self.isSystemLibraryProduct else { return nil }
-        return (self.modules.only?.underlying as! SystemLibraryModule)
+        return (self.modules.only?.underlying as? SystemLibraryModule)
+    }
+
+    var prebuiltModule: BinaryModule? {
+        guard self.isPrebuiltProduct else { return nil }
+        return (self.modules.only?.underlying as? BinaryModule)
     }
 
     /// Returns the corresponding *plugin* module, if this is a plugin product.

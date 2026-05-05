@@ -459,7 +459,7 @@ public func loadModulesGraph(
     fileSystem: FileSystem,
     manifests: [Manifest],
     binaryArtifacts: [PackageIdentity: [String: BinaryArtifact]] = [:],
-    prebuilts: [PackageIdentity: [String: PrebuiltLibrary]] = [:],
+    prebuilts: [PackageIdentity: [PrebuiltLibrary]] = [:],
     explicitProduct: String? = .none,
     shouldCreateMultipleTestProducts: Bool = false,
     createREPLProduct: Bool = false,

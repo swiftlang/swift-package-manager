@@ -96,7 +96,19 @@ public struct BuildParameters: Encodable {
 
     /// The current build environment.
     public var buildEnvironment: BuildEnvironment {
-        BuildEnvironment(platform: currentPlatform, configuration: configuration)
+        let supportsPrebuilts: Bool
+        let currentPlatform = self.currentPlatform
+        if currentPlatform == .host {
+            if toolchain.swiftSDK.targetTriple != nil {
+                // We don't support prebuilts for Swift SDKs
+                supportsPrebuilts = false
+            } else {
+                supportsPrebuilts = true
+            }
+        } else {
+            supportsPrebuilts = false
+        }
+        return BuildEnvironment(platform: currentPlatform, supportsPrebuilts: supportsPrebuilts, configuration: configuration)
     }
 
     /// The current platform we're building for.

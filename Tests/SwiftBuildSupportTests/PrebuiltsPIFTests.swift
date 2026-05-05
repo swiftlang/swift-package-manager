@@ -160,11 +160,7 @@ struct PrebuiltsPIFTests {
                     ]
                 ),
             ],
-            prebuilts: [
-                prebuiltLibrary.identity: prebuiltLibrary.products.reduce(into: [:]) {
-                    $0[$1] = prebuiltLibrary
-                }
-            ],
+            prebuilts: [prebuiltLibrary.identity: [prebuiltLibrary]],
             observabilityScope: observability.topScope
         )
 
@@ -362,9 +358,7 @@ struct PrebuiltsPIFTests {
                     ]
                 )
             ],
-            prebuilts: [prebuiltLibrary.identity: prebuiltLibrary.products.reduce(into: [:]) {
-                $0[$1] = prebuiltLibrary
-            }],
+            prebuilts: [prebuiltLibrary.identity: [prebuiltLibrary]],
             observabilityScope: observability.topScope
         )
 

@@ -25,6 +25,7 @@ import class PackageModel.BinaryModule
 import enum PackageModel.PrebuiltsPlatform
 import class PackageModel.Product
 import class PackageModel.SystemLibraryModule
+import struct PackageModel.PrebuiltLibrary
 
 import struct PackageGraph.ResolvedModule
 import struct PackageGraph.ResolvedPackage
@@ -68,8 +69,10 @@ extension PackagePIFProjectBuilder {
                 // _other_ packages, but this should be resolved; see rdar://95467710.
                 /* assert(moduleDependency.packageName == self.package.name) */
 
-                let dependencyPlatformFilters = packageConditions
-                    .toPlatformFilter(toolsVersion: self.package.manifest.toolsVersion)
+                let dependencyPlatformFilters = packageConditions.toPlatformFilter(
+                    toolsVersion: package.manifest.toolsVersion,
+                    hostBuildEnvironment: pifBuilder.hostBuildEnvironment
+                )
 
                 switch moduleDependency.type {
                 case .executable, .snippet:
@@ -113,8 +116,10 @@ extension PackagePIFProjectBuilder {
                     buildSettings: &buildSettings
                 ) {
                     let dependencyGUID = productDependency.pifTargetGUID
-                    let dependencyPlatformFilters = packageConditions
-                        .toPlatformFilter(toolsVersion: self.package.manifest.toolsVersion)
+                    let dependencyPlatformFilters = packageConditions.toPlatformFilter(
+                        toolsVersion: package.manifest.toolsVersion,
+                        hostBuildEnvironment: pifBuilder.hostBuildEnvironment
+                    )
 
                     self.project[keyPath: pluginTargetKeyPath].common.addDependency(
                         on: dependencyGUID,
@@ -239,7 +244,7 @@ extension PackagePIFProjectBuilder {
             fileTypeIdentifier = "wrapper.artifactbundle"
         case .xcframework:
             fileTypeIdentifier = "wrapper.xcframework"
-        case .unknown:
+        case .unknown, .prebuilt:
             fileTypeIdentifier = nil
         }
         return FileReference(id: id, path: binaryModule.artifactPath.pathString, fileType: fileTypeIdentifier)
@@ -376,9 +381,6 @@ extension PackagePIFProjectBuilder {
         // Ensure the intermediates for this target don't clash with the intermediates of a target representing a package product with the same name
         settings[.TARGET_TEMP_DIR_SUFFIX] = "-t"
 
-        if sourceModule.platformConstraint == .host {
-            settings[.SUPPORTED_PLATFORMS] = ["$(HOST_PLATFORM)"]
-        }
         if shouldGenerateBundleAccessor {
             settings[.GENERATE_RESOURCE_ACCESSORS] = "YES"
         }
@@ -692,8 +694,10 @@ extension PackagePIFProjectBuilder {
                 // _other_ packages, but this should be resolved; see rdar://95467710.
                 /* assert(moduleDependency.packageName == self.package.name) */
 
-                let dependencyPlatformFilters = packageConditions
-                    .toPlatformFilter(toolsVersion: self.package.manifest.toolsVersion)
+                let dependencyPlatformFilters = packageConditions.toPlatformFilter(
+                    toolsVersion: package.manifest.toolsVersion,
+                    hostBuildEnvironment: pifBuilder.hostBuildEnvironment
+                )
 
                 switch moduleDependency.type {
                 case .executable, .snippet:
@@ -780,8 +784,10 @@ extension PackagePIFProjectBuilder {
                     product: productDependency.underlying,
                     buildSettings: &settings
                 ) {
-                    let dependencyPlatformFilters = packageConditions
-                        .toPlatformFilter(toolsVersion: self.package.manifest.toolsVersion)
+                    let dependencyPlatformFilters = packageConditions.toPlatformFilter(
+                        toolsVersion: package.manifest.toolsVersion,
+                        hostBuildEnvironment: pifBuilder.hostBuildEnvironment
+                    )
                     let shouldLinkProduct = shouldLinkProduct && productDependency.isLinkable
 
                     self.project[keyPath: sourceModuleTargetKeyPath].common.addDependency(
@@ -973,5 +979,54 @@ extension PackagePIFProjectBuilder {
             toolsVersion: pifBuilder.packageManifest.toolsVersion
         )
         self.builtModulesAndProducts.append(systemModule)
+    }
+
+    mutating func makePrebuiltModule(_ module: PackageGraph.ResolvedModule, prebuilt: PrebuiltLibrary) throws {
+        // Create an aggregate PIF target (which doesn't have an actual product).
+        let prebuiltTargetKeyPath = try self.project.addAggregateTarget { _ in
+            ProjectModel.AggregateTarget(
+                id: module.pifTargetGUID,
+                name: module.name
+            )
+        }
+        do {
+            let prebuiltTarget = self.project[keyPath: prebuiltTargetKeyPath]
+            log(
+                .debug,
+                "Created aggregate target '\(prebuiltTarget.id)' with name '\(prebuiltTarget.name)'"
+            )
+        }
+
+        let settings: ProjectModel.BuildSettings = self.package.underlying.packageBaseBuildSettings
+        var impartedSettings = ProjectModel.BuildSettings()
+        impartedSettings[.OTHER_CFLAGS] = prebuilt.headerPaths.flatMap { ["-I", $0.pathString] }.prepending("$(inherited)")
+        impartedSettings[.OTHER_SWIFT_FLAGS] = impartedSettings[.OTHER_CFLAGS]
+        impartedSettings[.OTHER_LDFLAGS] = [ "$(inherited)",  prebuilt.libraryPath.pathString ]
+
+        for config in ["Debug", "Release"] {
+            self.project[keyPath: prebuiltTargetKeyPath].common.addBuildConfig { id in
+                BuildConfig(
+                    id: id,
+                    name: config,
+                    settings: settings,
+                    impartedBuildSettings: impartedSettings
+                )
+            }
+        }
+
+        let prebuiltModule = PackagePIFBuilder.ModuleOrProduct(
+            type: .module,
+            name: module.name,
+            moduleName: module.c99name,
+            pifTarget: .aggregate(self.project[keyPath: prebuiltTargetKeyPath]),
+            indexableFileURLs: [],
+            headerFiles: [],
+            linkedPackageBinaries: [],
+            swiftLanguageVersion: nil,
+            declaredPlatforms: self.declaredPlatforms,
+            deploymentTargets: self.deploymentTargets,
+            toolsVersion: pifBuilder.packageManifest.toolsVersion
+        )
+        self.builtModulesAndProducts.append(prebuiltModule)
     }
 }

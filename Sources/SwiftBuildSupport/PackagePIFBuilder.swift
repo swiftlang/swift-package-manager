@@ -20,6 +20,8 @@ import struct Basics.Diagnostic
 import struct Basics.ObservabilityMetadata
 import class Basics.ObservabilityScope
 
+import class PackageModel.BinaryModule
+import struct PackageModel.BuildEnvironment
 import class PackageModel.Manifest
 import class PackageModel.Package
 import class PackageModel.Product
@@ -197,6 +199,8 @@ public final class PackagePIFBuilder {
 
     let pkgConfigDirectories: [AbsolutePath]
 
+    let hostBuildEnvironment: PackageModel.BuildEnvironment
+
     /// The file system to read from.
     let fileSystem: FileSystem
 
@@ -226,6 +230,7 @@ public final class PackagePIFBuilder {
         addLocalRpaths: Bool = true,
         packageDisplayVersion: String?,
         pkgConfigDirectories: [AbsolutePath],
+        hostBuildEnvironment: PackageModel.BuildEnvironment,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
     ) {
@@ -239,6 +244,7 @@ public final class PackagePIFBuilder {
         self.createDynamicVariantsForLibraryProducts = createDynamicVariantsForLibraryProducts
         self.packageDisplayVersion = packageDisplayVersion
         self.pkgConfigDirectories = pkgConfigDirectories
+        self.hostBuildEnvironment = hostBuildEnvironment
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope
         self.addLocalRpaths = addLocalRpaths
@@ -256,6 +262,7 @@ public final class PackagePIFBuilder {
         addLocalRpaths: Bool = true,
         packageDisplayVersion: String?,
         pkgConfigDirectories: [AbsolutePath],
+        hostBuildEnvironment: PackageModel.BuildEnvironment,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
     ) {
@@ -270,6 +277,7 @@ public final class PackagePIFBuilder {
         self.addLocalRpaths = addLocalRpaths
         self.packageDisplayVersion = packageDisplayVersion
         self.pkgConfigDirectories = pkgConfigDirectories
+        self.hostBuildEnvironment = hostBuildEnvironment
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope
     }
@@ -502,6 +510,8 @@ public final class PackagePIFBuilder {
                 // Check if this is a system library product.
                 if product.isSystemLibraryProduct {
                     try projectBuilder.makeSystemLibraryProduct(product)
+                } else if product.isPrebuiltProduct {
+                    try projectBuilder.makePrebuiltProduct(product)
                 } else {
                     // Otherwise, it is a regular library product.
                     let libraryType = self.delegate.customLibraryType(product: product.underlying) ?? .automatic
@@ -544,7 +554,9 @@ public final class PackagePIFBuilder {
                 break
 
             case .binary:
-                // Skip binary module targets.
+                if let binaryModule = module.underlying as? BinaryModule, case let .prebuilt(prebuilt) = binaryModule.kind {
+                    try projectBuilder.makePrebuiltModule(module, prebuilt: prebuilt)
+                }
                 break
 
             case .plugin:

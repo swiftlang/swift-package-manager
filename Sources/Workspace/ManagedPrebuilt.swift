@@ -38,10 +38,7 @@ extension Workspace {
         public let products: [String]
 
         /// The include path for the C modules
-        public let includePath: [RelativePath]?
-
-        /// The C modules that need their includes directory added to the include path
-        public let cModules: [String]
+        public let includePath: [RelativePath]
     }
 }
 

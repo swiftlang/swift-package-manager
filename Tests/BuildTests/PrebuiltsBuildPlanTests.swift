@@ -23,36 +23,39 @@ import Build
 @testable import PackageModel
 
 class PrebuiltsBuildPlanTests: XCTestCase {
+    // The prebuilts used for the rest of these tests
+    let prebuiltLibrary = PrebuiltLibrary(
+        identity: .plain("swift-syntax"),
+        libraryName: "MacroSupport",
+        path: "/MyPackage/.build/prebuilts/swift-syntax/600.0.1/6.1-MacroSupport-macos_aarch64",
+        checkoutPath: "/MyPackage/.build/checkouts/swift-syntax",
+        products: [
+            "SwiftBasicFormat",
+            "SwiftCompilerPlugin",
+            "SwiftDiagnostics",
+            "SwiftIDEUtils",
+            "SwiftOperators",
+            "SwiftParser",
+            "SwiftParserDiagnostics",
+            "SwiftRefactor",
+            "SwiftSyntax",
+            "SwiftSyntaxBuilder",
+            "SwiftSyntaxMacros",
+            "SwiftSyntaxMacroExpansion",
+            "SwiftSyntaxMacrosTestSupport",
+            "SwiftSyntaxMacrosGenericTestSupport",
+            "_SwiftCompilerPluginMessageHandling",
+            "_SwiftLibraryPluginProvider"
+        ],
+        includePath: [
+            "Sources/_SwiftSyntaxCShims/include"
+        ]
+    )
+
     func testPrebuiltsFlags() async throws {
         // Make sure the include path for the prebuilts get passed to the
         // generated test entry point and discover targets on Linux/Windows
         let observability = ObservabilitySystem.makeForTesting()
-
-        let prebuiltLibrary = PrebuiltLibrary(
-            identity: .plain("swift-syntax"),
-            libraryName: "MacroSupport",
-            path: "/MyPackage/.build/prebuilts/swift-syntax/600.0.1/6.1-MacroSupport-macos_aarch64",
-            checkoutPath: "/MyPackage/.build/checkouts/swift-syntax",
-            products: [
-                "SwiftBasicFormat",
-                "SwiftCompilerPlugin",
-                "SwiftDiagnostics",
-                "SwiftIDEUtils",
-                "SwiftOperators",
-                "SwiftParser",
-                "SwiftParserDiagnostics",
-                "SwiftRefactor",
-                "SwiftSyntax",
-                "SwiftSyntaxBuilder",
-                "SwiftSyntaxMacros",
-                "SwiftSyntaxMacroExpansion",
-                "SwiftSyntaxMacrosTestSupport",
-                "SwiftSyntaxMacrosGenericTestSupport",
-                "_SwiftCompilerPluginMessageHandling",
-                "_SwiftLibraryPluginProvider"
-            ],
-            cModules: ["_SwiftSyntaxCShims"]
-        )
 
         let fs = InMemoryFileSystem(
             emptyFiles: [
@@ -133,9 +136,7 @@ class PrebuiltsBuildPlanTests: XCTestCase {
                     ]
                 )
             ],
-            prebuilts: [prebuiltLibrary.identity: prebuiltLibrary.products.reduce(into: [:]) {
-                $0[$1] = prebuiltLibrary
-            }],
+            prebuilts: [prebuiltLibrary.identity: [prebuiltLibrary]],
             observabilityScope: observability.topScope
         )
 
@@ -165,35 +166,6 @@ class PrebuiltsBuildPlanTests: XCTestCase {
         try await checkTriple(triple: .x86_64Linux)
         try await checkTriple(triple: .x86_64Windows)
     }
-
-    // The prebuilts used for the rest of these tests
-    let prebuiltLibrary = PrebuiltLibrary(
-        identity: .plain("swift-syntax"),
-        libraryName: "MacroSupport",
-        path: "/MyPackage/.build/prebuilts/swift-syntax/600.0.1/6.1-MacroSupport-macos_aarch64",
-        checkoutPath: "/MyPackage/.build/checkouts/swift-syntax",
-        products: [
-            "SwiftBasicFormat",
-            "SwiftCompilerPlugin",
-            "SwiftDiagnostics",
-            "SwiftIDEUtils",
-            "SwiftOperators",
-            "SwiftParser",
-            "SwiftParserDiagnostics",
-            "SwiftRefactor",
-            "SwiftSyntax",
-            "SwiftSyntaxBuilder",
-            "SwiftSyntaxMacros",
-            "SwiftSyntaxMacroExpansion",
-            "SwiftSyntaxMacrosTestSupport",
-            "SwiftSyntaxMacrosGenericTestSupport",
-            "_SwiftCompilerPluginMessageHandling",
-            "_SwiftLibraryPluginProvider"
-        ],
-        includePath: [
-            "Sources/_SwiftSyntaxCShims/include"
-        ]
-    )
 
     // Make sure the include path for the prebuilts get passed to the
     // generated test entry point and discover targets on Linux/Windows
@@ -288,9 +260,7 @@ class PrebuiltsBuildPlanTests: XCTestCase {
                     ]
                 )
             ],
-            prebuilts: [prebuiltLibrary.identity: prebuiltLibrary.products.reduce(into: [:]) {
-                $0[$1] = prebuiltLibrary
-            }],
+            prebuilts: [prebuiltLibrary.identity: [prebuiltLibrary]],
             observabilityScope: observability.topScope
         )
 
@@ -430,9 +400,7 @@ class PrebuiltsBuildPlanTests: XCTestCase {
                     ]
                 )
             ],
-            prebuilts: [prebuiltLibrary.identity: prebuiltLibrary.products.reduce(into: [:]) {
-                $0[$1] = prebuiltLibrary
-            }],
+            prebuilts: [prebuiltLibrary.identity: [prebuiltLibrary]],
             observabilityScope: observability.topScope
         )
 
@@ -615,9 +583,7 @@ class PrebuiltsBuildPlanTests: XCTestCase {
                     ]
                 )
             ],
-            prebuilts: [prebuiltLibrary.identity: prebuiltLibrary.products.reduce(into: [:]) {
-                $0[$1] = prebuiltLibrary
-            }],
+            prebuilts: [prebuiltLibrary.identity: [prebuiltLibrary]],
             observabilityScope: observability.topScope
         )
 
