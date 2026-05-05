@@ -21,6 +21,12 @@ import Testing
 import Testing
 
 import class Basics.AsyncProcess
+import Subprocess
+#if canImport(System)
+import System
+#else
+import SystemPackage
+#endif
 import struct SPMBuildCore.BuildSystemProvider
 import enum TSCUtility.Git
 
@@ -138,7 +144,7 @@ struct MiscellaneousTestCase {
             )
         ) { error in
             // if our code crashes we'll get an exit code of 256
-            guard error.result.exitStatus == .terminated(code: 1) else {
+            guard error.terminationStatus == .exited(1) else {
                 Issue.record("failed in an unexpected manner: \(error)")
                 return
             }
@@ -147,7 +153,6 @@ struct MiscellaneousTestCase {
 
     @Test(
         .tags(
-            .Feature.Command.Build,
         ),
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
@@ -164,7 +169,7 @@ struct MiscellaneousTestCase {
                 )
             ) { error in
                 // if our code crashes we'll get an exit code of 256
-                guard error.result.exitStatus == .terminated(code: 1) else {
+                guard error.terminationStatus == .exited(1) else {
                     Issue.record("failed in an unexpected manner: \(error)")
                     return
                 }
@@ -488,7 +493,7 @@ struct MiscellaneousTestCase {
             )
 
             let moduleUser = fixturePath.appending("SystemModuleUserClang")
-            let env: Environment = ["PKG_CONFIG_PATH": fixturePath.pathString]
+            let env: Basics.Environment = ["PKG_CONFIG_PATH": fixturePath.pathString]
             let binPath = try moduleUser.appending(components: buildSystem.binPath(for: configuration))
             await withKnownIssue(isIntermittent: true) {
                 await #expect(throws: Never.self) {
@@ -819,7 +824,6 @@ struct MiscellaneousTestCase {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let configuration = BuildConfiguration.debug
-        try await withKnownIssue {
         try await fixture(name: "Miscellaneous/TestableAsyncExe") { fixturePath in
             let (stdout, stderr) = try await executeSwiftTest(
                 fixturePath,
@@ -845,10 +849,6 @@ struct MiscellaneousTestCase {
             #expect(stdout.contains("Hello, async planet"), "stderr: \(stderr)")
             #expect(stdout.contains("Hello, async galaxy"), "stderr: \(stderr)")
             #expect(stdout.contains("Hello, async universe"), "stderr: \(stderr)")
-        }
-        } when: {
-            // error: FileSystemError(kind: TSCBasic.FileSystemError.Kind.noEntry, path: Optional(<AbsolutePath:"C:\Users\ContainerAdministrator\AppData\Local\Temp\Miscellaneous_TestableAsyncExe.74Koc7\Miscellaneous_TestableAsyncExe\.build\out\Intermediates.noindex\TestableAsyncExe.build\Debug-windows\TestableAsyncExe4.build\Objects-normal\x86_64\TestableAsyncExe4.LinkFileList">))
-            ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild
         }
     }
 
@@ -900,7 +900,7 @@ struct MiscellaneousTestCase {
                 )
             ) { error in
                 // if our code crashes we'll get an exit code of 256
-                guard error.result.exitStatus == .terminated(code: 1) else {
+                guard error.terminationStatus == .exited(1) else {
                     Issue.record("failed in an unexpected manner: \(error)")
                     return
                 }
@@ -1356,7 +1356,7 @@ struct MiscellaneousSwiftTestingTests {
             )
 
             let moduleUser = fixturePath.appending("SystemModuleUserClang")
-            let env: Environment = ["PKG_CONFIG_PATH": fixturePath.pathString]
+            let env: Basics.Environment = ["PKG_CONFIG_PATH": fixturePath.pathString]
             _ = try await executeSwiftBuild(
                 moduleUser,
                 env: env,
