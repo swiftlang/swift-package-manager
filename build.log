@@ -1,0 +1,21 @@
+[1/1] Compiling plugin Swift-DocC Preview
+[2/2] Compiling plugin Swift-DocC
+[3/3] Compiling plugin GenerateManual
+[4/4] Compiling plugin GenerateDoccReference
+Building for debugging...
+[4/40] Write swift-version--58304C5D6DBC2206.txt
+error: link command failed with exit code 1 (use -v to see invocation)
+ld: warning: Could not parse or use implicit file '/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/SwiftUICore.framework/Versions/A/SwiftUICore.tbd': cannot link directly with 'SwiftUICore' because product being built is not an allowed client of it
+Undefined symbols for architecture arm64:
+  "PackageModel.ToolsVersion.init(string: Swift.String, experimentalFeatures: Swift.Set<PackageModel.ToolsVersion.ExperimentalFeature>) -> PackageModel.ToolsVersion?", referenced from:
+      implicit closure #34 () throws -> PackageModel.ToolsVersion in closure #1 (Basics.AbsolutePath) async throws -> () in PackageCollectionsTests.JSONPackageCollectionProviderTests.testGood() async throws -> () in JSONPackageCollectionProviderTests.swift.o
+      implicit closure #32 () throws -> PackageModel.ToolsVersion in closure #1 (Basics.AbsolutePath) async throws -> () in PackageCollectionsTests.JSONPackageCollectionProviderTests.testLocalFile() async throws -> () in JSONPackageCollectionProviderTests.swift.o
+      implicit closure #34 () throws -> PackageModel.ToolsVersion in closure #1 (Basics.AbsolutePath) async throws -> () in PackageCollectionsTests.JSONPackageCollectionProviderTests.testSignedGood() async throws -> () in JSONPackageCollectionProviderTests.swift.o
+      implicit closure #34 () throws -> PackageModel.ToolsVersion in closure #1 (Basics.AbsolutePath) async throws -> () in PackageCollectionsTests.JSONPackageCollectionProviderTests.testSigned_skipSignatureCheck() async throws -> () in JSONPackageCollectionProviderTests.swift.o
+      implicit closure #32 () throws -> PackageModel.ToolsVersion in closure #1 (Basics.AbsolutePath) async throws -> () in PackageCollectionsTests.JSONPackageCollectionProviderTests.testSignedLocalFile() async throws -> () in JSONPackageCollectionProviderTests.swift.o
+      implicit closure #34 () throws -> PackageModel.ToolsVersion in closure #1 (Basics.AbsolutePath) async throws -> () in PackageCollectionsTests.JSONPackageCollectionProviderTests.testRequiredSigningGood() async throws -> () in JSONPackageCollectionProviderTests.swift.o
+      implicit closure #34 () throws -> PackageModel.ToolsVersion in closure #1 (Basics.AbsolutePath) async throws -> () in PackageCollectionsTests.JSONPackageCollectionProviderTests.testRequiredSigningMultiplePoliciesGood() async throws -> () in JSONPackageCollectionProviderTests.swift.o
+      ...
+ld: symbol(s) not found for architecture arm64
+clang: error: linker command failed with exit code 1 (use -v to see invocation)
+[5/6] Linking SwiftPMPackageTests
