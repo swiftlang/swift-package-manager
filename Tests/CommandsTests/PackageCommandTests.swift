@@ -1151,6 +1151,33 @@ struct PackageCommandTests {
 
     @Test(
         .tags(
+            .Feature.Command.Package.Describe,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func testDescribeJSONWithUnhandledResource_EnsureValidJSONOutput(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        let config = BuildConfiguration.debug
+        try await fixture(name: "Miscellaneous/UnhandledResource") { fixturePath in
+            let (jsonOutput, stderr) = try await execute(
+                ["describe", "--type=json"],
+                packagePath: fixturePath,
+                configuration: config,
+                buildSystem: buildSystem,
+            )
+
+            // Verify stdout contains valid JSON, not corrupted by diagnostic output.
+            let json = try JSON(bytes: ByteString(encodingAsUTF8: jsonOutput))
+            #expect(json["name"]?.string == "UnhandledResource")
+
+            // Verify the warning appears on stderr.
+            #expect(stderr.contains("Found unhandled resource"))
+        }
+    }
+
+    @Test(
+        .tags(
             .Feature.Command.Package.DumpPackage,
         ),
         arguments: SupportedBuildSystemOnAllPlatforms,
