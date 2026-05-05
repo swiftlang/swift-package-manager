@@ -1,4 +1,4 @@
-name: Create PR to merge main into release branch
+name: Automerger
 # In the first period after branching the release branch,
 # we typically want to include many changes from `main` in the release branch.
 # This workflow automatically creates a PR to merge the main into the release branch.
@@ -7,14 +7,21 @@ name: Create PR to merge main into release branch
 permissions:
   contents: read
 on:
+  schedule:
+    - cron: '0 9 * * MON'
   workflow_dispatch:
 jobs:
   create_merge_pr:
-    name: Create PR to merge main into release branch
+    strategy:
+      matrix:
+        include:
+          - source_branch: release/6.4.x
+            destination_branch: main
+    name: Create PR to merge `${{ matrix.source_branch }}` into `${{ matrix.destination_branch }}`
     uses: swiftlang/github-workflows/.github/workflows/create_automerge_pr.yml@0.0.11
     with:
-      head_branch: main
-      base_branch: release/6.3
+      head_branch: ${{ matrix.source_branch }}
+      base_branch: ${{ matrix.destination_branch }}
     permissions:
       contents: write
       pull-requests: write
