@@ -20,9 +20,9 @@ package struct ListSwiftSDKs: SwiftSDKSubcommand {
     package static let configuration = CommandConfiguration(
         commandName: "list",
         abstract:
-        """
-        Print a list of IDs of available Swift SDKs available on the filesystem.
-        """
+            """
+            Print a list of IDs of available Swift SDKs available on the filesystem.
+            """
     )
 
     @OptionGroup()

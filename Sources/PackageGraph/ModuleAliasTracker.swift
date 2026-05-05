@@ -31,17 +31,20 @@ struct ModuleAliasTracker {
         let moduleDependencies = modules.flatMap(\.dependencies)
         for dep in moduleDependencies {
             if case let .product(productRef, _) = dep,
-               let productPkg = productRef.package {
+                let productPkg = productRef.package
+            {
                 let productPkgID = PackageIdentity.plain(productPkg)
                 // Track dependency package ID chain
                 addPackageIDChain(parent: package, child: productPkgID)
                 if let aliasList = productRef.moduleAliases {
                     // Track aliases for this product
-                    try addAliases(aliasList,
-                                   productID: productRef.identity,
-                                   productName: productRef.name,
-                                   originPackage: productPkgID,
-                                   consumingPackage: package)
+                    try addAliases(
+                        aliasList,
+                        productID: productRef.identity,
+                        productName: productRef.name,
+                        originPackage: productPkgID,
+                        consumingPackage: package
+                    )
                 }
             }
         }
@@ -55,12 +58,12 @@ struct ModuleAliasTracker {
         consumingPackage: PackageIdentity
     ) throws {
         if let aliasDict = idToAliasMap[originPackage] {
-            let existingAliases = aliasDict.values.flatMap{$0}.filter {  aliases.keys.contains($0.name) }
+            let existingAliases = aliasDict.values.flatMap { $0 }.filter { aliases.keys.contains($0.name) }
             for existingAlias in existingAliases {
                 if let newAlias = aliases[existingAlias.name], newAlias != existingAlias.alias {
                     // Error if there are multiple different aliases specified for
                     // modules in this product
-                    throw PackageGraphError.multipleModuleAliases(module: existingAlias.name, product: productName, package: originPackage.description, aliases: existingAliases.map{$0.alias} + [newAlias])
+                    throw PackageGraphError.multipleModuleAliases(module: existingAlias.name, product: productName, package: originPackage.description, aliases: existingAliases.map { $0.alias } + [newAlias])
                 }
             }
         }
@@ -85,7 +88,7 @@ struct ModuleAliasTracker {
     // This func should be called once per product
     mutating func trackModulesPerProduct(product: Product, package: PackageIdentity) {
         let moduleDeps = product.modules.flatMap(\.dependencies)
-        var allModuleDeps = product.modules.flatMap{$0.recursiveDependentModules.map{$0.dependencies}}.flatMap{$0}
+        var allModuleDeps = product.modules.flatMap { $0.recursiveDependentModules.map { $0.dependencies } }.flatMap { $0 }
         allModuleDeps.append(contentsOf: moduleDeps)
         for dep in allModuleDeps {
             if case let .product(depRef, _) = dep {
@@ -100,14 +103,16 @@ struct ModuleAliasTracker {
         productToAllModules[product.identity] = allModulesInProduct
     }
 
-    func validateAndApplyAliases(product: Product,
-                                 package: PackageIdentity,
-                                 observabilityScope: ObservabilityScope) throws {
+    func validateAndApplyAliases(
+        product: Product,
+        package: PackageIdentity,
+        observabilityScope: ObservabilityScope
+    ) throws {
         guard let modules = idToProductToAllModules[package]?[product.identity] else { return }
-        let modulesWithAliases = modules.filter{ $0.moduleAliases != nil }
+        let modulesWithAliases = modules.filter { $0.moduleAliases != nil }
         for moduleWithAlias in modulesWithAliases {
             if moduleWithAlias.sources.containsNonSwiftFiles {
-                let aliasesMsg = moduleWithAlias.moduleAliases?.map{"'\($0.key)' as '\($0.value)'"}.joined(separator: ", ") ?? ""
+                let aliasesMsg = moduleWithAlias.moduleAliases?.map { "'\($0.key)' as '\($0.value)'" }.joined(separator: ", ") ?? ""
                 observabilityScope.emit(warning: "target '\(moduleWithAlias.name)' for product '\(product.name)' from package '\(package.description)' has module aliases: [\(aliasesMsg)] but may contain non-Swift sources; there might be a conflict among non-Swift symbols")
             }
             moduleWithAlias.applyAlias()
@@ -153,7 +158,8 @@ struct ModuleAliasTracker {
         for aliasModel in productAliases {
             // Alias buffer is used to carry down aliases defined upstream
             if let existing = aliasBuffer[aliasModel.name],
-               existing.alias != aliasModel.alias {
+                existing.alias != aliasModel.alias
+            {
                 // check to allow only the most downstream alias is added
             } else {
                 aliasBuffer[aliasModel.name] = aliasModel
@@ -161,7 +167,7 @@ struct ModuleAliasTracker {
         }
 
         if let curDirectModules = productToDirectModules[productID] {
-            var relevantModules = curDirectModules.map{$0.recursiveDependentModules}.flatMap{$0}
+            var relevantModules = curDirectModules.map { $0.recursiveDependentModules }.flatMap { $0 }
             relevantModules.append(contentsOf: curDirectModules)
 
             for relevantModule in relevantModules {
@@ -169,7 +175,8 @@ struct ModuleAliasTracker {
                     appliedAliases.insert(relevantModule.name)
                     relevantModule.addModuleAlias(for: relevantModule.name, as: val)
                     if let prechainVal = aliasBuffer[relevantModule.name],
-                       prechainVal.alias != val {
+                        prechainVal.alias != val
+                    {
                         relevantModule.addPrechainModuleAlias(for: relevantModule.name, as: prechainVal.alias)
                         appliedAliases.insert(prechainVal.alias)
                         relevantModule.addPrechainModuleAlias(for: prechainVal.alias, as: val)
@@ -192,9 +199,11 @@ struct ModuleAliasTracker {
             return
         }
         for childID in children {
-            propagate(productID: childID,
-                      observabilityScope: observabilityScope,
-                      aliasBuffer: &aliasBuffer)
+            propagate(
+                productID: childID,
+                observabilityScope: observabilityScope,
+                aliasBuffer: &aliasBuffer
+            )
         }
     }
 
@@ -204,29 +213,33 @@ struct ModuleAliasTracker {
             return
         }
         for childID in children {
-            merge(productID: childID,
-                  observabilityScope: observabilityScope)
+            merge(
+                productID: childID,
+                observabilityScope: observabilityScope
+            )
         }
 
         if let curDirectModules = productToDirectModules[productID] {
-            let depModules = curDirectModules.map{$0.recursiveDependentModules}.flatMap{$0}
-            let depModuleAliases = toDictionary(depModules.compactMap{$0.moduleAliases})
+            let depModules = curDirectModules.map { $0.recursiveDependentModules }.flatMap { $0 }
+            let depModuleAliases = toDictionary(depModules.compactMap { $0.moduleAliases })
             let depChildModules = dependencyProductModules(of: depModules)
-            let depChildAliases = toDictionary(depChildModules.compactMap{$0.moduleAliases})
-            let depChildPrechainAliases = toDictionary(depChildModules.compactMap{$0.prechainModuleAliases})
-            chainModuleAliases(modules: depModules,
-                               checkedModules: depModules,
-                               moduleAliases: depModuleAliases,
-                               childModules: depChildModules,
-                               childAliases: depChildAliases,
-                               childPrechainAliases: depChildPrechainAliases,
-                               observabilityScope: observabilityScope)
+            let depChildAliases = toDictionary(depChildModules.compactMap { $0.moduleAliases })
+            let depChildPrechainAliases = toDictionary(depChildModules.compactMap { $0.prechainModuleAliases })
+            chainModuleAliases(
+                modules: depModules,
+                checkedModules: depModules,
+                moduleAliases: depModuleAliases,
+                childModules: depChildModules,
+                childAliases: depChildAliases,
+                childPrechainAliases: depChildPrechainAliases,
+                observabilityScope: observabilityScope
+            )
 
             let relevantModules = depModules + curDirectModules
-            let moduleAliases = toDictionary(relevantModules.compactMap{$0.moduleAliases})
+            let moduleAliases = toDictionary(relevantModules.compactMap { $0.moduleAliases })
             let depProductModules = dependencyProductModules(of: relevantModules)
             var depProductAliases = [String: [String]]()
-            let depProductPrechainAliases = toDictionary(depProductModules.compactMap{$0.prechainModuleAliases})
+            let depProductPrechainAliases = toDictionary(depProductModules.compactMap { $0.prechainModuleAliases })
 
             for depProdModule in depProductModules {
                 let depProdModuleAliases = depProdModule.moduleAliases ?? [:]
@@ -234,7 +247,7 @@ struct ModuleAliasTracker {
                     var shouldAddAliases = false
                     if depProdModule.name == key {
                         shouldAddAliases = true
-                    } else if !depProductModules.map({$0.name}).contains(key) {
+                    } else if !depProductModules.map({ $0.name }).contains(key) {
                         shouldAddAliases = true
                     }
                     if shouldAddAliases {
@@ -246,13 +259,15 @@ struct ModuleAliasTracker {
                     }
                 }
             }
-            chainModuleAliases(modules: curDirectModules,
-                               checkedModules: relevantModules,
-                               moduleAliases: moduleAliases,
-                               childModules: depProductModules,
-                               childAliases: depProductAliases,
-                               childPrechainAliases: depProductPrechainAliases,
-                               observabilityScope: observabilityScope)
+            chainModuleAliases(
+                modules: curDirectModules,
+                checkedModules: relevantModules,
+                moduleAliases: moduleAliases,
+                childModules: depProductModules,
+                childAliases: depProductAliases,
+                childPrechainAliases: depProductPrechainAliases,
+                observabilityScope: observabilityScope
+            )
         }
     }
 
@@ -266,7 +281,7 @@ struct ModuleAliasTracker {
                 let unAliased = productModules.contains { $0.moduleAliases == nil }
                 if unAliased {
                     for module in productModules {
-                        let depAliases = module.recursiveDependentModules.compactMap{$0.moduleAliases}.flatMap{$0}
+                        let depAliases = module.recursiveDependentModules.compactMap { $0.moduleAliases }.flatMap { $0 }
                         for (key, alias) in depAliases {
                             appliedAliases.insert(key)
                             module.addModuleAlias(for: key, as: alias)
@@ -304,7 +319,7 @@ struct ModuleAliasTracker {
         var aliasDict = [String: String]()
         var prechainAliasDict = [String: [String]]()
         var directRefAliasDict = [String: [String]]()
-        let childDirectRefAliases = toDictionary(childModules.compactMap{$0.directRefAliases})
+        let childDirectRefAliases = toDictionary(childModules.compactMap { $0.directRefAliases })
         for (childModuleName, childModuleAliases) in childAliases {
             // Tracks whether to add prechain aliases to modules
             var addPrechainAliases = false
@@ -323,7 +338,7 @@ struct ModuleAliasTracker {
                 // name exist so they should not be applied; their aliases / new
                 // names should be used directly
                 addPrechainAliases = true
-            } else if childModules.filter({$0.name == childModuleName}).count > 1 {
+            } else if childModules.filter({ $0.name == childModuleName }).count > 1 {
                 // Modules from different products have the same name as this child
                 // module name, so their aliases should not be applied
                 addPrechainAliases = true
@@ -331,16 +346,16 @@ struct ModuleAliasTracker {
 
             if addPrechainAliases {
                 if let prechainAliases = childPrechainAliases[childModuleName] {
-                   for prechainAliasKey in prechainAliases {
-                       if let prechainAliasVals = childPrechainAliases[prechainAliasKey] {
-                           // If aliases are chained, keep track of prechain
-                           // aliases
-                           prechainAliasDict[prechainAliasKey, default: []].append(contentsOf: prechainAliasVals)
-                           // Add prechained aliases to the list of aliases
-                           // that should be directly referenced in source code
-                           directRefAliasDict[childModuleName, default: []].append(prechainAliasKey)
-                           directRefAliasDict[prechainAliasKey, default: []].append(contentsOf: prechainAliasVals)
-                       }
+                    for prechainAliasKey in prechainAliases {
+                        if let prechainAliasVals = childPrechainAliases[prechainAliasKey] {
+                            // If aliases are chained, keep track of prechain
+                            // aliases
+                            prechainAliasDict[prechainAliasKey, default: []].append(contentsOf: prechainAliasVals)
+                            // Add prechained aliases to the list of aliases
+                            // that should be directly referenced in source code
+                            directRefAliasDict[childModuleName, default: []].append(prechainAliasKey)
+                            directRefAliasDict[prechainAliasKey, default: []].append(contentsOf: prechainAliasVals)
+                        }
                     }
                 } else if aliasDict[childModuleName] == nil {
                     // If not added to aliasDict, use the renamed module directly
@@ -352,7 +367,8 @@ struct ModuleAliasTracker {
                 }
                 // Check if not in child modules' direct ref aliases list, then add
                 if lookupAlias(value: childModuleName, in: childDirectRefAliases).isEmpty,
-                   childDirectRefAliases[childModuleName] == nil {
+                    childDirectRefAliases[childModuleName] == nil
+                {
                     aliasDict[childModuleName] = productModuleAlias
                 }
             }
@@ -365,7 +381,8 @@ struct ModuleAliasTracker {
             }
             for (key, valList) in prechainAliasDict {
                 if let val = valList.first,
-                    valList.count <= 1 {
+                    valList.count <= 1
+                {
                     appliedAliases.insert(key)
                     module.addModuleAlias(for: key, as: val)
                     module.addPrechainModuleAlias(for: key, as: val)
@@ -387,7 +404,7 @@ struct ModuleAliasTracker {
     }
 
     private func lookupAlias(value: String, in dict: [String: [String]]) -> [String] {
-        let keys = dict.filter{$0.value.contains(value)}.map{$0.key}
+        let keys = dict.filter { $0.value.contains(value) }.map { $0.key }
         return keys
     }
 
@@ -416,7 +433,7 @@ struct ModuleAliasTracker {
     }
 
     private func dependencyProductModules(of modules: [Module]) -> [Module] {
-        let result = modules.map{$0.dependencies.compactMap{$0.product?.identity}}.flatMap{$0}.compactMap{productToAllModules[$0]}.flatMap{$0}
+        let result = modules.map { $0.dependencies.compactMap { $0.product?.identity } }.flatMap { $0 }.compactMap { productToAllModules[$0] }.flatMap { $0 }
         return result
     }
 }
@@ -452,9 +469,9 @@ extension Module {
         var list = [Module]()
         var nextDeps = self.dependencies
         while !nextDeps.isEmpty {
-            let nextModules = nextDeps.compactMap{$0.module}
+            let nextModules = nextDeps.compactMap { $0.module }
             list.append(contentsOf: nextModules)
-            nextDeps = nextModules.map{$0.dependencies}.flatMap{$0}
+            nextDeps = nextModules.map { $0.dependencies }.flatMap { $0 }
         }
         return list
     }

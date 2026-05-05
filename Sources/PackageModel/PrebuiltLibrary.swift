@@ -153,122 +153,122 @@ public enum PrebuiltsPlatform: String, Codable {
     /// Determine host platform based on compilation target
     public static var hostPlatform: Self? {
         let arch: Arch?
-#if arch(arm64)
-        arch = .aarch64
-#elseif arch(x86_64)
-        arch = .x86_64
-#else
-        arch = nil
-#endif
+        #if arch(arm64)
+            arch = .aarch64
+        #elseif arch(x86_64)
+            arch = .x86_64
+        #else
+            arch = nil
+        #endif
         guard let arch else {
             return nil
         }
 
-#if os(macOS)
-        return .macos_universal
-#elseif os(Windows)
-        switch arch {
-        case .aarch64:
-            return .windows_aarch64
-        case .x86_64:
-            return .windows_x86_64
-        }
-#elseif os(Linux)
-        // Load up the os-release file into a dictionary
-        guard let osData = try? String(contentsOfFile: "/etc/os-release", encoding: .utf8)
-        else {
-            return nil
-        }
-        let osLines = osData.split(separator: "\n")
-        let osDict = osLines.reduce(into: [Substring: String]()) {
-            (dict, line) in
-            let parts = line.split(separator: "=", maxSplits: 2)
-            dict[parts[0]] = parts[1...].joined(separator: "=").trimmingCharacters(in: ["\""])
-        }
+        #if os(macOS)
+            return .macos_universal
+        #elseif os(Windows)
+            switch arch {
+            case .aarch64:
+                return .windows_aarch64
+            case .x86_64:
+                return .windows_x86_64
+            }
+        #elseif os(Linux)
+            // Load up the os-release file into a dictionary
+            guard let osData = try? String(contentsOfFile: "/etc/os-release", encoding: .utf8)
+            else {
+                return nil
+            }
+            let osLines = osData.split(separator: "\n")
+            let osDict = osLines.reduce(into: [Substring: String]()) {
+                (dict, line) in
+                let parts = line.split(separator: "=", maxSplits: 2)
+                dict[parts[0]] = parts[1...].joined(separator: "=").trimmingCharacters(in: ["\""])
+            }
 
-        switch osDict["ID"] {
-        case "ubuntu":
-            switch osDict["VERSION_CODENAME"] {
-            case "noble":
-                switch arch {
-                case .aarch64:
-                    return .ubuntu_noble_aarch64
-                case .x86_64:
-                    return .ubuntu_noble_x86_64
+            switch osDict["ID"] {
+            case "ubuntu":
+                switch osDict["VERSION_CODENAME"] {
+                case "noble":
+                    switch arch {
+                    case .aarch64:
+                        return .ubuntu_noble_aarch64
+                    case .x86_64:
+                        return .ubuntu_noble_x86_64
+                    }
+                case "jammy":
+                    switch arch {
+                    case .aarch64:
+                        return .ubuntu_jammy_aarch64
+                    case .x86_64:
+                        return .ubuntu_jammy_x86_64
+                    }
+                case "focal":
+                    switch arch {
+                    case .aarch64:
+                        return .ubuntu_focal_aarch64
+                    case .x86_64:
+                        return .ubuntu_focal_x86_64
+                    }
+                default:
+                    return nil
                 }
-            case "jammy":
-                switch arch {
-                case .aarch64:
-                    return .ubuntu_jammy_aarch64
-                case .x86_64:
-                    return .ubuntu_jammy_x86_64
+            case "fedora":
+                switch osDict["VERSION_ID"] {
+                case "39", "41":
+                    switch arch {
+                    case .aarch64:
+                        return .fedora_39_aarch64
+                    case .x86_64:
+                        return .fedora_39_x86_64
+                    }
+                default:
+                    return nil
                 }
-            case "focal":
-                switch arch {
-                case .aarch64:
-                    return .ubuntu_focal_aarch64
-                case .x86_64:
-                    return .ubuntu_focal_x86_64
+            case "amzn":
+                switch osDict["VERSION_ID"] {
+                case "2":
+                    switch arch {
+                    case .aarch64:
+                        return .amazonlinux2_aarch64
+                    case .x86_64:
+                        return .amazonlinux2_x86_64
+                    }
+                default:
+                    return nil
+                }
+            case "rhel":
+                guard let version = osDict["VERSION_ID"] else {
+                    return nil
+                }
+                switch version.split(separator: ".")[0] {
+                case "9":
+                    switch arch {
+                    case .aarch64:
+                        return .rhel_ubi9_aarch64
+                    case .x86_64:
+                        return .rhel_ubi9_x86_64
+                    }
+                default:
+                    return nil
+                }
+            case "debian":
+                switch osDict["VERSION_ID"] {
+                case "12":
+                    switch arch {
+                    case .aarch64:
+                        return .debian_12_aarch64
+                    case .x86_64:
+                        return .debian_12_x86_64
+                    }
+                default:
+                    return nil
                 }
             default:
                 return nil
             }
-        case "fedora":
-            switch osDict["VERSION_ID"] {
-            case "39", "41":
-                switch arch {
-                case .aarch64:
-                    return .fedora_39_aarch64
-                case .x86_64:
-                    return .fedora_39_x86_64
-                }
-            default:
-                return nil
-            }
-        case "amzn":
-            switch osDict["VERSION_ID"] {
-            case "2":
-                switch arch {
-                case .aarch64:
-                    return .amazonlinux2_aarch64
-                case .x86_64:
-                    return .amazonlinux2_x86_64
-                }
-            default:
-                return nil
-            }
-        case "rhel":
-            guard let version = osDict["VERSION_ID"] else {
-                return nil
-            }
-            switch version.split(separator: ".")[0] {
-            case "9":
-                switch arch {
-                case .aarch64:
-                    return .rhel_ubi9_aarch64
-                case .x86_64:
-                    return .rhel_ubi9_x86_64
-                }
-            default:
-                return nil
-            }
-        case "debian":
-            switch osDict["VERSION_ID"] {
-            case "12":
-                switch arch {
-                case .aarch64:
-                    return .debian_12_aarch64
-                case .x86_64:
-                    return .debian_12_x86_64
-                }
-            default:
-                return nil
-            }
-        default:
+        #else
             return nil
-        }
-#else
-        return nil
-#endif
+        #endif
     }
 }

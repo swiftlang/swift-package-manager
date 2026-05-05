@@ -51,7 +51,7 @@ public final class PackagePIFBuilder {
     private let package: ResolvedPackage
 
     /// Contains the package declarative specification.
-    let packageManifest: PackageModel.Manifest // FIXME: Can't we just use `package.manifest` instead? —— Paulo
+    let packageManifest: PackageModel.Manifest  // FIXME: Can't we just use `package.manifest` instead? —— Paulo
 
     /// The built PIF project object.
     public var pifProject: ProjectModel.Project {
@@ -434,23 +434,24 @@ public final class PackagePIFBuilder {
         public var description: String { rawValue }
 
         init(from pifProductType: ProjectModel.Target.ProductType) {
-            self = switch pifProductType {
-            case .application: .application
-            case .commonStaticArchive: .staticArchive
-            case .staticArchive: .staticArchive
-            case .commonObject: .commonObject
-            case .objectFile: .commonObject
-            case .dynamicLibrary: .dynamicLibrary
-            case .framework: .framework
-            case .executable: .executable
-            case .unitTest: .unitTest
-            case .swiftpmTestRunner: .unitTestRunner
-            case .bundle: .bundle
-            case .packageProduct: .packageProduct
-            case .hostBuildTool: fatalError("Unexpected hostBuildTool type")
-            @unknown default:
-                fatalError("Unknown product type: \(pifProductType)")
-            }
+            self =
+                switch pifProductType {
+                case .application: .application
+                case .commonStaticArchive: .staticArchive
+                case .staticArchive: .staticArchive
+                case .commonObject: .commonObject
+                case .objectFile: .commonObject
+                case .dynamicLibrary: .dynamicLibrary
+                case .framework: .framework
+                case .executable: .executable
+                case .unitTest: .unitTest
+                case .swiftpmTestRunner: .unitTestRunner
+                case .bundle: .bundle
+                case .packageProduct: .packageProduct
+                case .hostBuildTool: fatalError("Unexpected hostBuildTool type")
+                @unknown default:
+                    fatalError("Unknown product type: \(pifProductType)")
+                }
         }
     }
 
@@ -459,8 +460,7 @@ public final class PackagePIFBuilder {
     public func build() throws -> [ModuleOrProduct] {
         self.log(
             .info,
-            "Building PIF project for package '\(self.package.identity)' " +
-            "(\(package.products.count) products, \(package.modules.count) modules)"
+            "Building PIF project for package '\(self.package.identity)' " + "(\(package.products.count) products, \(package.modules.count) modules)"
         )
 
         var projectBuilder = PackagePIFProjectBuilder(createForPackage: package, builder: self)
@@ -515,7 +515,7 @@ public final class PackagePIFBuilder {
                 try projectBuilder.makePluginProduct(product)
 
             case .macro:
-                break // TODO: Double-check what's going on here as we skip snippet modules too (rdar://147705448)
+                break  // TODO: Double-check what's going on here as we skip snippet modules too (rdar://147705448)
             }
         }
 

@@ -429,13 +429,13 @@ extension PackageCollectionModel.V1 {
 
         /// A plugin product.
         case plugin
-        
+
         /// An executable code snippet.
         case snippet
 
         /// A test product.
         case test
-        
+
         /// A macro product.
         case `macro`
     }
@@ -557,10 +557,12 @@ extension PackageCollectionModel.V1 {
                 public let organization: String?
 
                 /// Creates a `Name`.
-                public init(userID: String?,
-                            commonName: String?,
-                            organizationalUnit: String?,
-                            organization: String?) {
+                public init(
+                    userID: String?,
+                    commonName: String?,
+                    organizationalUnit: String?,
+                    organization: String?
+                ) {
                     self.userID = userID
                     self.commonName = commonName
                     self.organizationalUnit = organizationalUnit

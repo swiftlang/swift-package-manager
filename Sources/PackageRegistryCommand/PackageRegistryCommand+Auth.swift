@@ -24,78 +24,78 @@ import Workspace
 import struct TSCBasic.SHA256
 
 #if os(Windows)
-import WinSDK
+    import WinSDK
 
-private func readpassword(_ prompt: String) throws -> String {
-    enum StaticStorage {
-        static var buffer: UnsafeMutableBufferPointer<CChar> =
-            .allocate(capacity: PackageRegistryCommand.Login.passwordBufferSize)
-    }
-
-    let hStdIn: HANDLE = GetStdHandle(STD_INPUT_HANDLE)
-    if hStdIn == INVALID_HANDLE_VALUE {
-        throw StringError("unable to read input: GetStdHandle returns INVALID_HANDLE_VALUE")
-    }
-
-    var dwMode: DWORD = 0
-    guard GetConsoleMode(hStdIn, &dwMode) else {
-        throw StringError("unable to read input: GetConsoleMode failed")
-    }
-
-    print(prompt, terminator: "")
-
-    guard SetConsoleMode(hStdIn, DWORD(ENABLE_LINE_INPUT)) else {
-        throw StringError("unable to read input: SetConsoleMode failed")
-    }
-    defer { SetConsoleMode(hStdIn, dwMode) }
-
-    var dwNumberOfCharsRead: DWORD = 0
-    _ = ReadConsoleA(
-        hStdIn,
-        StaticStorage.buffer.baseAddress,
-        DWORD(StaticStorage.buffer.count),
-        &dwNumberOfCharsRead,
-        nil
-    )
-
-    let password = String(cString: UnsafePointer<CChar>(StaticStorage.buffer.baseAddress!))
-    guard password.count <= PackageRegistryCommand.Login.maxPasswordLength else {
-        throw PackageRegistryCommand.ValidationError
-            .credentialLengthLimitExceeded(PackageRegistryCommand.Login.maxPasswordLength)
-    }
-    return password
-}
-#else
-#if canImport(Android)
-import Android
-#endif
-
-private func readpassword(_ prompt: String) throws -> String {
-    let password: String
-
-    #if canImport(Darwin)
-    var buffer = [CChar](repeating: 0, count: PackageRegistryCommand.Login.passwordBufferSize)
-    password = try withExtendedLifetime(buffer) {
-        guard let passwordPtr = readpassphrase(prompt, &buffer, buffer.count, 0) else {
-            throw StringError("unable to read input")
+    private func readpassword(_ prompt: String) throws -> String {
+        enum StaticStorage {
+            static var buffer: UnsafeMutableBufferPointer<CChar> =
+                .allocate(capacity: PackageRegistryCommand.Login.passwordBufferSize)
         }
 
-        return String(cString: passwordPtr)
+        let hStdIn: HANDLE = GetStdHandle(STD_INPUT_HANDLE)
+        if hStdIn == INVALID_HANDLE_VALUE {
+            throw StringError("unable to read input: GetStdHandle returns INVALID_HANDLE_VALUE")
+        }
+
+        var dwMode: DWORD = 0
+        guard GetConsoleMode(hStdIn, &dwMode) else {
+            throw StringError("unable to read input: GetConsoleMode failed")
+        }
+
+        print(prompt, terminator: "")
+
+        guard SetConsoleMode(hStdIn, DWORD(ENABLE_LINE_INPUT)) else {
+            throw StringError("unable to read input: SetConsoleMode failed")
+        }
+        defer { SetConsoleMode(hStdIn, dwMode) }
+
+        var dwNumberOfCharsRead: DWORD = 0
+        _ = ReadConsoleA(
+            hStdIn,
+            StaticStorage.buffer.baseAddress,
+            DWORD(StaticStorage.buffer.count),
+            &dwNumberOfCharsRead,
+            nil
+        )
+
+        let password = String(cString: UnsafePointer<CChar>(StaticStorage.buffer.baseAddress!))
+        guard password.count <= PackageRegistryCommand.Login.maxPasswordLength else {
+            throw PackageRegistryCommand.ValidationError
+                .credentialLengthLimitExceeded(PackageRegistryCommand.Login.maxPasswordLength)
+        }
+        return password
     }
-    #elseif canImport(Android)
-    throw StringError("unable to read input - not implemented on this platform")
-    #else
-    // GNU C implementation of getpass has no limit on the password length
-    // (https://man7.org/linux/man-pages/man3/getpass.3.html)
-    password = String(cString: getpass(prompt))
+#else
+    #if canImport(Android)
+        import Android
     #endif
 
-    guard password.count <= PackageRegistryCommand.Login.maxPasswordLength else {
-        throw PackageRegistryCommand.ValidationError
-            .credentialLengthLimitExceeded(PackageRegistryCommand.Login.maxPasswordLength)
+    private func readpassword(_ prompt: String) throws -> String {
+        let password: String
+
+        #if canImport(Darwin)
+            var buffer = [CChar](repeating: 0, count: PackageRegistryCommand.Login.passwordBufferSize)
+            password = try withExtendedLifetime(buffer) {
+                guard let passwordPtr = readpassphrase(prompt, &buffer, buffer.count, 0) else {
+                    throw StringError("unable to read input")
+                }
+
+                return String(cString: passwordPtr)
+            }
+        #elseif canImport(Android)
+            throw StringError("unable to read input - not implemented on this platform")
+        #else
+            // GNU C implementation of getpass has no limit on the password length
+            // (https://man7.org/linux/man-pages/man3/getpass.3.html)
+            password = String(cString: getpass(prompt))
+        #endif
+
+        guard password.count <= PackageRegistryCommand.Login.maxPasswordLength else {
+            throw PackageRegistryCommand.ValidationError
+                .credentialLengthLimitExceeded(PackageRegistryCommand.Login.maxPasswordLength)
+        }
+        return password
     }
-    return password
-}
 #endif
 
 extension PackageRegistryCommand {
@@ -191,7 +191,7 @@ extension PackageRegistryCommand {
                     // User provided password
                     storePassword = password
                 } else if let stored = authorizationProvider.authentication(for: registryURL),
-                          stored.user == storeUsername
+                    stored.user == storeUsername
                 {
                     // Password found in credential store
                     storePassword = stored.password
@@ -213,7 +213,7 @@ extension PackageRegistryCommand {
                     storePassword = try localFileSystem.readFileContents(tokenFilePath)
                         .trimmingCharacters(in: .whitespacesAndNewlines)
                 } else if let stored = authorizationProvider.authentication(for: registryURL),
-                          stored.user == storeUsername
+                    stored.user == storeUsername
                 {
                     // Token found in credential store
                     storePassword = stored.password
@@ -245,7 +245,6 @@ extension PackageRegistryCommand {
             }
 
             let loginURL = try Self.loginURL(from: registryURL, loginAPIPath: loginAPIPath)
-
 
             // Build a RegistryConfiguration with the given authentication settings
             var registryConfiguration = configuration.configuration
@@ -280,17 +279,21 @@ extension PackageRegistryCommand {
             // Prompt if writing to netrc file and --no-confirm is not set
             if saveChanges, !osStore, !self.noConfirm {
                 if self.globalOptions.security.forceNetrc {
-                    print("""
+                    print(
+                        """
 
-                    WARNING: You choose to use netrc file instead of the operating system's secure credential store.
-                    Your credentials will be written out to netrc file.
-                    """)
+                        WARNING: You choose to use netrc file instead of the operating system's secure credential store.
+                        Your credentials will be written out to netrc file.
+                        """
+                    )
                 } else {
-                    print("""
+                    print(
+                        """
 
-                    WARNING: Secure credential store is not supported on this platform.
-                    Your credentials will be written out to netrc file.
-                    """)
+                        WARNING: Secure credential store is not supported on this platform.
+                        Your credentials will be written out to netrc file.
+                        """
+                    )
                 }
                 print("Continue? (Yes/No): ")
                 guard readLine(strippingNewline: true)?.lowercased() == "yes" else {

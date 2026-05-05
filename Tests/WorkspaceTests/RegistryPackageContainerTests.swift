@@ -46,17 +46,17 @@ final class RegistryPackageContainerTests: XCTestCase {
                 releasesRequestHandler: { request, _ in
                     let metadata = RegistryClient.Serialization.PackageMetadata(
                         releases: [
-                            "1.0.0":  .init(url: .none, problem: .none),
-                            "1.0.1":  .init(url: .none, problem: .none),
-                            "1.0.2":  .init(url: .none, problem: .none),
-                            "1.0.3":  .init(url: .none, problem: .none)
+                            "1.0.0": .init(url: .none, problem: .none),
+                            "1.0.1": .init(url: .none, problem: .none),
+                            "1.0.2": .init(url: .none, problem: .none),
+                            "1.0.3": .init(url: .none, problem: .none),
                         ]
                     )
                     return HTTPClientResponse(
                         statusCode: 200,
                         headers: [
                             "Content-Version": "1",
-                            "Content-Type": "application/json"
+                            "Content-Type": "application/json",
                         ],
                         body: try! JSONEncoder.makeWithDefaults().encode(metadata)
                     )
@@ -79,7 +79,7 @@ final class RegistryPackageContainerTests: XCTestCase {
                         statusCode: 200,
                         headers: [
                             "Content-Version": "1",
-                            "Content-Type": "text/x-swift"
+                            "Content-Type": "text/x-swift",
                         ],
                         body: Data("// swift-tools-version:\(toolsVersion)".utf8)
                     )
@@ -145,7 +145,7 @@ final class RegistryPackageContainerTests: XCTestCase {
                             "Link": """
                             \(self.manifestLink(packageIdentity, .v5_4)),
                             \(self.manifestLink(packageIdentity, .v5_5)),
-                            """
+                            """,
                         ],
                         body: Data("// swift-tools-version:\(ToolsVersion.v5_3)".utf8)
                     )
@@ -164,7 +164,7 @@ final class RegistryPackageContainerTests: XCTestCase {
         }
 
         do {
-            let provider = try createProvider(.v5_2) // the version of the alternate
+            let provider = try createProvider(.v5_2)  // the version of the alternate
             let ref = PackageReference.registry(identity: packageIdentity)
             let container = try await provider.getContainer(for: ref)
             let version = try await container.toolsVersion(for: packageVersion)
@@ -174,7 +174,7 @@ final class RegistryPackageContainerTests: XCTestCase {
         }
 
         do {
-            let provider = try createProvider(.v5_3) // the version of the alternate
+            let provider = try createProvider(.v5_3)  // the version of the alternate
             let ref = PackageReference.registry(identity: packageIdentity)
             let container = try await provider.getContainer(for: ref)
             let version = try await container.toolsVersion(for: packageVersion)
@@ -184,7 +184,7 @@ final class RegistryPackageContainerTests: XCTestCase {
         }
 
         do {
-            let provider = try createProvider(.v5_4) // the version of the alternate
+            let provider = try createProvider(.v5_4)  // the version of the alternate
             let ref = PackageReference.registry(identity: packageIdentity)
             let container = try await provider.getContainer(for: ref)
             let version = try await container.toolsVersion(for: packageVersion)
@@ -194,7 +194,7 @@ final class RegistryPackageContainerTests: XCTestCase {
         }
 
         do {
-            let provider = try createProvider(.v5_5) // the version of the alternate
+            let provider = try createProvider(.v5_5)  // the version of the alternate
             let ref = PackageReference.registry(identity: packageIdentity)
             let container = try await provider.getContainer(for: ref)
             let version = try await container.toolsVersion(for: packageVersion)
@@ -204,7 +204,7 @@ final class RegistryPackageContainerTests: XCTestCase {
         }
 
         do {
-            let provider = try createProvider(.v5_6) // the version of the alternate
+            let provider = try createProvider(.v5_6)  // the version of the alternate
             let ref = PackageReference.registry(identity: packageIdentity)
             let container = try await provider.getContainer(for: ref)
             let version = try await container.toolsVersion(for: packageVersion)
@@ -233,7 +233,7 @@ final class RegistryPackageContainerTests: XCTestCase {
                 fileSystem: fs,
                 manifestRequestHandler: { request, _ in
                     let requestedVersionString = request.url.query?.spm_dropPrefix("swift-version=")
-                    let requestedVersion = (requestedVersionString.flatMap{ ToolsVersion(string: $0) }) ?? .v5_3
+                    let requestedVersion = (requestedVersionString.flatMap { ToolsVersion(string: $0) }) ?? .v5_3
                     guard supportedVersions.contains(requestedVersion) else {
                         throw StringError("invalid version \(requestedVersion)")
                     }
@@ -244,7 +244,7 @@ final class RegistryPackageContainerTests: XCTestCase {
                             "Content-Type": "text/x-swift",
                             "Link": (supportedVersions.subtracting([requestedVersion])).map {
                                 self.manifestLink(packageIdentity, $0)
-                            }.joined(separator: ",\n")
+                            }.joined(separator: ",\n"),
                         ],
                         body: Data("// swift-tools-version:\(requestedVersion)".utf8)
                     )
@@ -292,7 +292,7 @@ final class RegistryPackageContainerTests: XCTestCase {
         }
 
         do {
-            let provider = try createProvider(.v5_3) // the version of the alternate
+            let provider = try createProvider(.v5_3)  // the version of the alternate
             let ref = PackageReference.registry(identity: packageIdentity)
             let container = try await provider.getContainer(for: ref) as! RegistryPackageContainer
             let manifest = try await container.loadManifest(version: packageVersion)
@@ -300,7 +300,7 @@ final class RegistryPackageContainerTests: XCTestCase {
         }
 
         do {
-            let provider = try createProvider(v5_3_3) // the version of the alternate
+            let provider = try createProvider(v5_3_3)  // the version of the alternate
             let ref = PackageReference.registry(identity: packageIdentity)
             let container = try await provider.getContainer(for: ref) as! RegistryPackageContainer
             let manifest = try await container.loadManifest(version: packageVersion)
@@ -308,7 +308,7 @@ final class RegistryPackageContainerTests: XCTestCase {
         }
 
         do {
-            let provider = try createProvider(.v5_4) // the version of the alternate
+            let provider = try createProvider(.v5_4)  // the version of the alternate
             let ref = PackageReference.registry(identity: packageIdentity)
             let container = try await provider.getContainer(for: ref) as! RegistryPackageContainer
             let manifest = try await container.loadManifest(version: packageVersion)
@@ -316,7 +316,7 @@ final class RegistryPackageContainerTests: XCTestCase {
         }
 
         do {
-            let provider = try createProvider(.v5_5) // the version of the alternate
+            let provider = try createProvider(.v5_5)  // the version of the alternate
             let ref = PackageReference.registry(identity: packageIdentity)
             let container = try await provider.getContainer(for: ref) as! RegistryPackageContainer
             let manifest = try await container.loadManifest(version: packageVersion)
@@ -324,7 +324,7 @@ final class RegistryPackageContainerTests: XCTestCase {
         }
 
         do {
-            let provider = try createProvider(.v5_6) // the version of the alternate
+            let provider = try createProvider(.v5_6)  // the version of the alternate
             let ref = PackageReference.registry(identity: packageIdentity)
             let container = try await provider.getContainer(for: ref) as! RegistryPackageContainer
             let manifest = try await container.loadManifest(version: packageVersion)
@@ -332,7 +332,7 @@ final class RegistryPackageContainerTests: XCTestCase {
         }
 
         do {
-            let provider = try createProvider(.v5) // the version of the alternate
+            let provider = try createProvider(.v5)  // the version of the alternate
             let ref = PackageReference.registry(identity: packageIdentity)
             let container = try await provider.getContainer(for: ref) as! RegistryPackageContainer
             let manifest = try await container.loadManifest(version: packageVersion)
@@ -365,82 +365,89 @@ final class RegistryPackageContainerTests: XCTestCase {
             configuration!.defaultRegistry = .init(url: "http://localhost", supportsAvailability: false)
         }
 
-        let releasesRequestHandler = releasesRequestHandler ?? { request, _ in
-            let metadata = RegistryClient.Serialization.PackageMetadata(
-                releases: [packageVersion.description:  .init(url: .none, problem: .none)]
-            )
-            return HTTPClientResponse(
-                statusCode: 200,
-                headers: [
-                    "Content-Version": "1",
-                    "Content-Type": "application/json"
-                ],
-                body: try! jsonEncoder.encode(metadata)
-            )
-        }
-
-        let versionMetadataRequestHandler = versionMetadataRequestHandler ?? { request, _ in
-            let metadata = RegistryClient.Serialization.VersionMetadata(
-                id: packageIdentity.description,
-                version: packageVersion.description,
-                resources: [
-                    .init(
-                        name: "source-archive",
-                        type: "application/zip",
-                        checksum: "",
-                        signing: nil
-                    )
-                ],
-                metadata: .init(description: ""),
-                publishedAt: nil
-            )
-            return HTTPClientResponse(
-                statusCode: 200,
-                headers: [
-                    "Content-Version": "1",
-                    "Content-Type": "application/json"
-                ],
-                body: try! jsonEncoder.encode(metadata)
-            )
-        }
-
-        let manifestRequestHandler = manifestRequestHandler ?? { request, _ in
-            return HTTPClientResponse(
-                statusCode: 200,
-                headers: [
-                    "Content-Version": "1",
-                    "Content-Type": "text/x-swift"
-                ],
-                body: Data("// swift-tools-version:\(ToolsVersion.current)".utf8)
-            )
-        }
-
-        let downloadArchiveRequestHandler = downloadArchiveRequestHandler ?? { request, _ in
-            // meh
-            let path = packagePath
-                .appending(components: ".build", "registry", "downloads", registryIdentity.scope.description, registryIdentity.name.description)
-                .appending("\(packageVersion).zip")
-            try! fileSystem.createDirectory(path.parentDirectory, recursive: true)
-            try! fileSystem.writeFileContents(path, string: "")
-
-            return HTTPClientResponse(
-                statusCode: 200,
-                headers: [
-                    "Content-Version": "1",
-                    "Content-Type": "application/zip"
-                ],
-                body: Data("".utf8)
-            )
-        }
-
-        let archiver = archiver ?? MockArchiver(handler: { archiver, from, to, completion in
-            do {
-                try fileSystem.createDirectory(to.appending("top"), recursive: true)
-                completion(.success(()))
-            } catch {
-                completion(.failure(error))
+        let releasesRequestHandler =
+            releasesRequestHandler ?? { request, _ in
+                let metadata = RegistryClient.Serialization.PackageMetadata(
+                    releases: [packageVersion.description: .init(url: .none, problem: .none)]
+                )
+                return HTTPClientResponse(
+                    statusCode: 200,
+                    headers: [
+                        "Content-Version": "1",
+                        "Content-Type": "application/json",
+                    ],
+                    body: try! jsonEncoder.encode(metadata)
+                )
             }
-        })
+
+        let versionMetadataRequestHandler =
+            versionMetadataRequestHandler ?? { request, _ in
+                let metadata = RegistryClient.Serialization.VersionMetadata(
+                    id: packageIdentity.description,
+                    version: packageVersion.description,
+                    resources: [
+                        .init(
+                            name: "source-archive",
+                            type: "application/zip",
+                            checksum: "",
+                            signing: nil
+                        )
+                    ],
+                    metadata: .init(description: ""),
+                    publishedAt: nil
+                )
+                return HTTPClientResponse(
+                    statusCode: 200,
+                    headers: [
+                        "Content-Version": "1",
+                        "Content-Type": "application/json",
+                    ],
+                    body: try! jsonEncoder.encode(metadata)
+                )
+            }
+
+        let manifestRequestHandler =
+            manifestRequestHandler ?? { request, _ in
+                return HTTPClientResponse(
+                    statusCode: 200,
+                    headers: [
+                        "Content-Version": "1",
+                        "Content-Type": "text/x-swift",
+                    ],
+                    body: Data("// swift-tools-version:\(ToolsVersion.current)".utf8)
+                )
+            }
+
+        let downloadArchiveRequestHandler =
+            downloadArchiveRequestHandler ?? { request, _ in
+                // meh
+                let path =
+                    packagePath
+                    .appending(components: ".build", "registry", "downloads", registryIdentity.scope.description, registryIdentity.name.description)
+                    .appending("\(packageVersion).zip")
+                try! fileSystem.createDirectory(path.parentDirectory, recursive: true)
+                try! fileSystem.writeFileContents(path, string: "")
+
+                return HTTPClientResponse(
+                    statusCode: 200,
+                    headers: [
+                        "Content-Version": "1",
+                        "Content-Type": "application/zip",
+                    ],
+                    body: Data("".utf8)
+                )
+            }
+
+        let archiver =
+            archiver
+            ?? MockArchiver(handler: { archiver, from, to, completion in
+                do {
+                    try fileSystem.createDirectory(to.appending("top"), recursive: true)
+                    completion(.success(()))
+                } catch {
+                    completion(.failure(error))
+                }
+            })
 
         return RegistryClient(
             configuration: configuration!,
@@ -450,34 +457,37 @@ final class RegistryPackageContainerTests: XCTestCase {
             signingEntityStorage: .none,
             signingEntityCheckingMode: .strict,
             authorizationProvider: .none,
-            customHTTPClient: HTTPClient(configuration: .init(), implementation: { request, progress in
-                var pathComponents = request.url.pathComponents
-                if pathComponents.first == "/" {
-                    pathComponents = Array(pathComponents.dropFirst())
-                }
-                guard pathComponents.count >= 2 else {
-                    throw StringError("invalid url \(request.url)")
-                }
-                guard pathComponents[0] == registryIdentity.scope.description else {
-                    throw StringError("invalid url \(request.url)")
-                }
-                guard pathComponents[1] == registryIdentity.name.description else {
-                    throw StringError("invalid url \(request.url)")
-                }
+            customHTTPClient: HTTPClient(
+                configuration: .init(),
+                implementation: { request, progress in
+                    var pathComponents = request.url.pathComponents
+                    if pathComponents.first == "/" {
+                        pathComponents = Array(pathComponents.dropFirst())
+                    }
+                    guard pathComponents.count >= 2 else {
+                        throw StringError("invalid url \(request.url)")
+                    }
+                    guard pathComponents[0] == registryIdentity.scope.description else {
+                        throw StringError("invalid url \(request.url)")
+                    }
+                    guard pathComponents[1] == registryIdentity.name.description else {
+                        throw StringError("invalid url \(request.url)")
+                    }
 
-                switch pathComponents.count {
-                case 2:
-                    return try await releasesRequestHandler(request, progress)
-                case 3 where pathComponents[2].hasSuffix(".zip"):
-                    return try await downloadArchiveRequestHandler(request, progress)
-                case 3:
-                    return try await versionMetadataRequestHandler(request, progress)
-                case 4 where pathComponents[3].hasSuffix(".swift"):
-                    return try await manifestRequestHandler(request, progress)
-                default:
-                    throw StringError("unexpected url \(request.url)")
+                    switch pathComponents.count {
+                    case 2:
+                        return try await releasesRequestHandler(request, progress)
+                    case 3 where pathComponents[2].hasSuffix(".zip"):
+                        return try await downloadArchiveRequestHandler(request, progress)
+                    case 3:
+                        return try await versionMetadataRequestHandler(request, progress)
+                    case 4 where pathComponents[3].hasSuffix(".swift"):
+                        return try await manifestRequestHandler(request, progress)
+                    default:
+                        throw StringError("unexpected url \(request.url)")
+                    }
                 }
-            }),
+            ),
             customArchiverProvider: { _ in archiver },
             delegate: .none,
             checksumAlgorithm: MockHashAlgorithm()
@@ -488,13 +498,14 @@ final class RegistryPackageContainerTests: XCTestCase {
         guard let registryIdentity = identity.registry else {
             preconditionFailure("invalid registry identity: '\(identity)'")
         }
-        let versionString = if version.patch == 0 && version.minor == 0 {
-            "\(version.major)"
-        } else if version.patch == 0 {
-            "\(version.major).\(version.minor)"
-        } else {
-            version.description
-        }
+        let versionString =
+            if version.patch == 0 && version.minor == 0 {
+                "\(version.major)"
+            } else if version.patch == 0 {
+                "\(version.major).\(version.minor)"
+            } else {
+                version.description
+            }
         return "<http://localhost/\(registryIdentity.scope)/\(registryIdentity.name)/\(version)/\(Manifest.filename)?swift-version=\(version)>; rel=\"alternate\"; filename=\"\(Manifest.basename)@swift-\(versionString).swift\"; swift-tools-version=\"\(version)\""
     }
 }

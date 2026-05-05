@@ -31,17 +31,18 @@ func withInstantiatedSwiftBuildSystem(
     fromFixture fixtureName: String,
     buildParameters: BuildParameters? = nil,
     logLevel: Basics.Diagnostic.Severity = .warning,
-    do doIt: @escaping (SwiftBuildSupport.SwiftBuildSystem, SWBBuildService, SWBBuildServiceSession, TestingObservability, BuildParameters,) async throws -> (),
+    do doIt: @escaping (SwiftBuildSupport.SwiftBuildSystem, SWBBuildService, SWBBuildServiceSession, TestingObservability, BuildParameters, ) async throws -> (),
 ) async throws {
     let fileSystem = Basics.localFileSystem
 
-    try await fixture(name: fixtureName) { fixturePath  in
-        try await withTemporaryDirectory  { tmpDir in
-            let buildParameters = if let buildParameters {
-                buildParameters
-            } else {
-                mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
-            }
+    try await fixture(name: fixtureName) { fixturePath in
+        try await withTemporaryDirectory { tmpDir in
+            let buildParameters =
+                if let buildParameters {
+                    buildParameters
+                } else {
+                    mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+                }
             let observabilitySystem: TestingObservability = ObservabilitySystem.makeForTesting()
             let toolchain = try UserToolchain.default
             let workspace = try Workspace(
@@ -99,7 +100,7 @@ func withInstantiatedSwiftBuildSystem(
                     buildSession = session
                 case (.failure(let error), _):
                     throw StringError("\(error)")
-                    // throw SessionFailedError(error: error, diagnostics: diagnostics)
+                // throw SessionFailedError(error: error, diagnostics: diagnostics)
                 }
 
                 do {
@@ -117,17 +118,17 @@ func withInstantiatedSwiftBuildSystem(
 extension PackageModel.Sanitizer {
     var hasSwiftBuildSupport: Bool {
         switch self {
-            case .address, .thread, .undefined, .scudo, .fuzzer: true
+        case .address, .thread, .undefined, .scudo, .fuzzer: true
         }
     }
 
     var swiftBuildSettingName: String? {
         switch self {
-            case .address: "ENABLE_ADDRESS_SANITIZER"
-            case .thread: "ENABLE_THREAD_SANITIZER"
-            case .undefined: "ENABLE_UNDEFINED_BEHAVIOR_SANITIZER"
-            case .scudo: "ENABLE_SCUDO_SANITIZER"
-            case .fuzzer: "ENABLE_LIBFUZZER"
+        case .address: "ENABLE_ADDRESS_SANITIZER"
+        case .thread: "ENABLE_THREAD_SANITIZER"
+        case .undefined: "ENABLE_UNDEFINED_BEHAVIOR_SANITIZER"
+        case .scudo: "ENABLE_SCUDO_SANITIZER"
+        case .fuzzer: "ENABLE_LIBFUZZER"
         }
 
     }
@@ -166,7 +167,7 @@ struct SwiftBuildSystemTests {
                     service: service,
                     session: session,
                     symbolGraphOptions: nil,
-                    setToolchainSetting: false, // Set this to false as SwiftBuild checks the toolchain path
+                    setToolchainSetting: false,  // Set this to false as SwiftBuild checks the toolchain path
                 )
 
                 let synthesizedArgs = try #require(buildSettings.overrides.synthesized)
@@ -196,7 +197,7 @@ struct SwiftBuildSystemTests {
                         service: service,
                         session: session,
                         symbolGraphOptions: nil,
-                        setToolchainSetting: false, // Set this to false as SwiftBuild checks the toolchain path
+                        setToolchainSetting: false,  // Set this to false as SwiftBuild checks the toolchain path
                     )
                 }
             }
@@ -229,7 +230,7 @@ struct SwiftBuildSystemTests {
                     service: service,
                     session: session,
                     symbolGraphOptions: nil,
-                    setToolchainSetting: false, // Set this to false as SwiftBuild checks the toolchain path
+                    setToolchainSetting: false,  // Set this to false as SwiftBuild checks the toolchain path
                 )
 
                 // THEN we expect a warning to be emitted
@@ -272,7 +273,7 @@ struct SwiftBuildSystemTests {
                     service: service,
                     session: session,
                     symbolGraphOptions: nil,
-                    setToolchainSetting: false, // Set this to false as SwiftBuild checks the toolchain path
+                    setToolchainSetting: false,  // Set this to false as SwiftBuild checks the toolchain path
                 )
 
                 // THEN we don't expect any warnings to be emitted
@@ -307,20 +308,22 @@ struct SwiftBuildSystemTests {
                 service: service,
                 session: session,
                 symbolGraphOptions: nil,
-                setToolchainSetting: false, // Set this to false as SwiftBuild checks the toolchain path
+                setToolchainSetting: false,  // Set this to false as SwiftBuild checks the toolchain path
             )
 
             let synthesizedArgs = try #require(buildSettings.overrides.synthesized)
-            let expectedSettingValue: String? = switch indexStoreSettingUT {
+            let expectedSettingValue: String? =
+                switch indexStoreSettingUT {
                 case .on: "YES"
                 case .off: "NO"
                 case .auto: nil
-            }
-            let expectedPathValue: String? = switch indexStoreSettingUT {
+                }
+            let expectedPathValue: String? =
+                switch indexStoreSettingUT {
                 case .on: buildParameters.indexStore.pathString
                 case .off: nil
                 case .auto: nil
-            }
+                }
 
             #expect(synthesizedArgs.table["SWIFT_INDEX_STORE_ENABLE"] == expectedSettingValue)
             #expect(synthesizedArgs.table["CLANG_INDEX_STORE_ENABLE"] == expectedSettingValue)
@@ -353,7 +356,7 @@ struct SwiftBuildSystemTests {
                 service: service,
                 session: session,
                 symbolGraphOptions: nil,
-                setToolchainSetting: false, // Set this to false as SwiftBuild checks the toolchain path
+                setToolchainSetting: false,  // Set this to false as SwiftBuild checks the toolchain path
             )
 
             let synthesizedArgs = try #require(buildSettings.overrides.synthesized)
@@ -362,7 +365,7 @@ struct SwiftBuildSystemTests {
                 actual == expectedValue,
                 "dead strip: \(linkerDeadStripUT) >>> Actual: '\(actual)' expected: '\(String(describing: expectedValue))'",
             )
-       }
+        }
     }
 
     @Test(
@@ -431,9 +434,9 @@ struct SwiftBuildSystemTests {
 
         private static let isMacOS: Bool = {
             #if os(macOS)
-            return true
+                return true
             #else
-            return false
+                return false
             #endif
         }()
 
@@ -504,29 +507,29 @@ struct SwiftBuildSystemTests {
         }
 
         #if os(Windows)
-        @Test
-        func debugInfoFormatCodeViewOnWindows() async throws {
-            // Test CodeView format separately as it's only supported on Windows
-            try await withInstantiatedSwiftBuildSystem(
-                fromFixture: "PIFBuilder/Simple",
-                buildParameters: mockBuildParameters(
-                    destination: .host,
-                    buildSystemKind: .swiftbuild,
-                    triple: .windows,
-                    debugInfoFormat: .codeview
-                ),
-            ) { swiftBuild, service, session, observabilityScope, buildParameters in
-                let buildSettings = try await swiftBuild.makeBuildParameters(
-                    service: service,
-                    session: session,
-                    symbolGraphOptions: nil,
-                    setToolchainSetting: false
-                )
+            @Test
+            func debugInfoFormatCodeViewOnWindows() async throws {
+                // Test CodeView format separately as it's only supported on Windows
+                try await withInstantiatedSwiftBuildSystem(
+                    fromFixture: "PIFBuilder/Simple",
+                    buildParameters: mockBuildParameters(
+                        destination: .host,
+                        buildSystemKind: .swiftbuild,
+                        triple: .windows,
+                        debugInfoFormat: .codeview
+                    ),
+                ) { swiftBuild, service, session, observabilityScope, buildParameters in
+                    let buildSettings = try await swiftBuild.makeBuildParameters(
+                        service: service,
+                        session: session,
+                        symbolGraphOptions: nil,
+                        setToolchainSetting: false
+                    )
 
-                let synthesizedArgs = try #require(buildSettings.overrides.synthesized)
-                #expect(synthesizedArgs.table["DEBUG_INFORMATION_FORMAT"] == "codeview")
+                    let synthesizedArgs = try #require(buildSettings.overrides.synthesized)
+                    #expect(synthesizedArgs.table["DEBUG_INFORMATION_FORMAT"] == "codeview")
+                }
             }
-        }
         #endif
 
         @Test(
@@ -582,11 +585,11 @@ struct SwiftBuildSystemTests {
                 // Note: On Linux, omitFramePointers=nil is converted to false by BuildParameters.Debugging.init
                 // to preserve frame pointers for better backtraces (see BuildParameters+Debugging.swift:34-36)
                 #if os(Linux)
-                #expect(synthesizedArgs.table["CLANG_OMIT_FRAME_POINTERS"] == "NO")
-                #expect(synthesizedArgs.table["SWIFT_OMIT_FRAME_POINTERS"] == "NO")
+                    #expect(synthesizedArgs.table["CLANG_OMIT_FRAME_POINTERS"] == "NO")
+                    #expect(synthesizedArgs.table["SWIFT_OMIT_FRAME_POINTERS"] == "NO")
                 #else
-                #expect(synthesizedArgs.table["CLANG_OMIT_FRAME_POINTERS"] == nil)
-                #expect(synthesizedArgs.table["SWIFT_OMIT_FRAME_POINTERS"] == nil)
+                    #expect(synthesizedArgs.table["CLANG_OMIT_FRAME_POINTERS"] == nil)
+                    #expect(synthesizedArgs.table["SWIFT_OMIT_FRAME_POINTERS"] == nil)
                 #endif
             }
         }
@@ -615,7 +618,7 @@ struct SwiftBuildSystemTests {
 
                 // Check all settings are present
                 #if os(macOS)
-                #expect(synthesizedArgs.table["DEPLOYMENT_POSTPROCESSING"] == "NO")
+                    #expect(synthesizedArgs.table["DEPLOYMENT_POSTPROCESSING"] == "NO")
                 #endif
                 #expect(synthesizedArgs.table["DEBUG_INFORMATION_FORMAT"] == "dwarf")
                 #expect(synthesizedArgs.table["CLANG_OMIT_FRAME_POINTERS"] == "NO")
@@ -630,12 +633,12 @@ struct SwiftBuildSystemTests {
 
             let debuggingCFlags = [
                 BuildFlag(value: "-g", source: .debugging),
-                BuildFlag(value: "-fomit-frame-pointer", source: .debugging)
+                BuildFlag(value: "-fomit-frame-pointer", source: .debugging),
             ]
             let debuggingSwiftFlags = [
                 BuildFlag(value: "-g", source: .debugging),
                 BuildFlag(value: "-Xcc", source: .debugging),
-                BuildFlag(value: "-fno-omit-frame-pointer", source: .debugging)
+                BuildFlag(value: "-fno-omit-frame-pointer", source: .debugging),
             ]
             let userCFlags = [
                 BuildFlag(value: "-DUSER_DEFINE", source: .commandLineOptions)

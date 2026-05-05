@@ -23,9 +23,9 @@ final class PackageDescription6_0LoadingTests: PackageDescriptionLoadingTests {
 
     func testPackageContextGitStatus() async throws {
         let content = """
-                import PackageDescription
-                let package = Package(name: "\\(Context.gitInformation?.hasUncommittedChanges == true)")
-                """
+            import PackageDescription
+            let package = Package(name: "\\(Context.gitInformation?.hasUncommittedChanges == true)")
+            """
 
         try await loadRootManifestWithBasicGitRepository(manifestContent: content) { manifest, observability in
             XCTAssertNoDiagnostics(observability.diagnostics)
@@ -35,9 +35,9 @@ final class PackageDescription6_0LoadingTests: PackageDescriptionLoadingTests {
 
     func testPackageContextGitTag() async throws {
         let content = """
-                import PackageDescription
-                let package = Package(name: "\\(Context.gitInformation?.currentTag ?? "")")
-                """
+            import PackageDescription
+            let package = Package(name: "\\(Context.gitInformation?.currentTag ?? "")")
+            """
 
         try await loadRootManifestWithBasicGitRepository(manifestContent: content) { manifest, observability in
             XCTAssertNoDiagnostics(observability.diagnostics)
@@ -47,9 +47,9 @@ final class PackageDescription6_0LoadingTests: PackageDescriptionLoadingTests {
 
     func testPackageContextGitCommit() async throws {
         let content = """
-                import PackageDescription
-                let package = Package(name: "\\(Context.gitInformation?.currentCommit ?? "")")
-                """
+            import PackageDescription
+            let package = Package(name: "\\(Context.gitInformation?.currentCommit ?? "")")
+            """
 
         try await loadRootManifestWithBasicGitRepository(manifestContent: content) { manifest, observability in
             XCTAssertNoDiagnostics(observability.diagnostics)
@@ -62,27 +62,27 @@ final class PackageDescription6_0LoadingTests: PackageDescriptionLoadingTests {
 
     func testSwiftLanguageModesPerTarget() async throws {
         let content = """
-                import PackageDescription
-                let package = Package(
-                    name: "Foo",
-                    defaultLocalization: "fr",
-                    products: [],
-                    targets: [
-                        .target(
-                            name: "Foo",
-                            swiftSettings: [
-                                .swiftLanguageMode(.v5)
-                            ]
-                        ),
-                        .target(
-                            name: "Bar",
-                            swiftSettings: [
-                                .swiftLanguageVersion(.v6)
-                            ]
-                        )
-                    ]
-                )
-                """
+            import PackageDescription
+            let package = Package(
+                name: "Foo",
+                defaultLocalization: "fr",
+                products: [],
+                targets: [
+                    .target(
+                        name: "Foo",
+                        swiftSettings: [
+                            .swiftLanguageMode(.v5)
+                        ]
+                    ),
+                    .target(
+                        name: "Bar",
+                        swiftSettings: [
+                            .swiftLanguageVersion(.v6)
+                        ]
+                    )
+                ]
+            )
+            """
 
         let observability = ObservabilitySystem.makeForTesting()
         let (_, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
@@ -93,7 +93,7 @@ final class PackageDescription6_0LoadingTests: PackageDescriptionLoadingTests {
     }
 
     private func loadRootManifestWithBasicGitRepository(
-        manifestContent: String, 
+        manifestContent: String,
         validator: (Manifest, TestingObservability) throws -> ()
     ) async throws {
         let observability = ObservabilitySystem.makeForTesting()

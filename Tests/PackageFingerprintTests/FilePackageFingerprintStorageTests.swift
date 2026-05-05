@@ -116,12 +116,14 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
         )
 
         // No fingerprints found for the content type
-        await XCTAssertAsyncThrowsError(try storage.get(
-            package: package,
-            version: Version("1.0.0"),
-            kind: .registry,
-            contentType: .manifest(.none)
-        )) { error in
+        await XCTAssertAsyncThrowsError(
+            try storage.get(
+                package: package,
+                version: Version("1.0.0"),
+                kind: .registry,
+                contentType: .manifest(.none)
+            )
+        ) { error in
             guard case PackageFingerprintStorageError.notFound = error else {
                 return XCTFail("Expected PackageFingerprintStorageError.notFound, got \(error)")
             }
@@ -158,15 +160,17 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
         )
 
         // Writing for the same version and kind and content type but different checksum should fail
-        await XCTAssertAsyncThrowsError(try storage.put(
-            package: package,
-            version: Version("1.0.0"),
-            fingerprint: .init(
-                origin: .registry(registryURL),
-                value: "checksum-1.0.0-1",
-                contentType: .sourceCode
+        await XCTAssertAsyncThrowsError(
+            try storage.put(
+                package: package,
+                version: Version("1.0.0"),
+                fingerprint: .init(
+                    origin: .registry(registryURL),
+                    value: "checksum-1.0.0-1",
+                    contentType: .sourceCode
+                )
             )
-        )) { error in
+        ) { error in
             guard case PackageFingerprintStorageError.conflict = error else {
                 return XCTFail("Expected PackageFingerprintStorageError.conflict, got \(error)")
             }
@@ -260,15 +264,17 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
         )
 
         // This should fail because fingerprint for 1.0.0 already exists and it's different
-        await XCTAssertAsyncThrowsError(try storage.put(
-            package: fooRef,
-            version: Version("1.0.0"),
-            fingerprint: .init(
-                origin: .sourceControl(fooURL),
-                value: "abcde-foo-foo",
-                contentType: .sourceCode
+        await XCTAssertAsyncThrowsError(
+            try storage.put(
+                package: fooRef,
+                version: Version("1.0.0"),
+                fingerprint: .init(
+                    origin: .sourceControl(fooURL),
+                    value: "abcde-foo-foo",
+                    contentType: .sourceCode
+                )
             )
-        )) { error in
+        ) { error in
             guard case PackageFingerprintStorageError.conflict = error else {
                 return XCTFail("Expected PackageFingerprintStorageError.conflict, got \(error)")
             }
@@ -292,23 +298,23 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
         let package = PackageIdentity.plain("mona.LinkedList")
         let fingerprintsPath = directoryPath.appending(package.fingerprintsFilename)
         let v1Fingerprints = """
-        {
-          "versionFingerprints" : {
-            "1.0.3" : {
-              "sourceControl" : {
-                "fingerprint" : "e394bf350e38cb100b6bc4172834770ede1b7232",
-                "origin" : "\(sourceControlURL)"
-              }
-            },
-            "1.2.2" : {
-              "sourceControl" : {
-                "fingerprint" : "fee6933f37fde9a5e12a1e4aeaa93fe60116ff2a",
-                "origin" : "\(sourceControlURL)"
+            {
+              "versionFingerprints" : {
+                "1.0.3" : {
+                  "sourceControl" : {
+                    "fingerprint" : "e394bf350e38cb100b6bc4172834770ede1b7232",
+                    "origin" : "\(sourceControlURL)"
+                  }
+                },
+                "1.2.2" : {
+                  "sourceControl" : {
+                    "fingerprint" : "fee6933f37fde9a5e12a1e4aeaa93fe60116ff2a",
+                    "origin" : "\(sourceControlURL)"
+                  }
+                }
               }
             }
-          }
-        }
-        """
+            """
         // Write v1 fingerprints file
         try mockFileSystem.writeFileContents(fingerprintsPath, string: v1Fingerprints)
 

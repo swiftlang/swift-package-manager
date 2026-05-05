@@ -119,9 +119,11 @@ extension BuildParameters {
 
     /// The style of test product to produce.
     public var testProductStyle: TestProductStyle {
-        return triple.isDarwin() ? .loadableBundle : .entryPointExecutable(
-            explicitlyEnabledDiscovery: testingParameters.explicitlyEnabledDiscovery,
-            explicitlySpecifiedPath: testingParameters.explicitlySpecifiedPath
-        )
+        return triple.isDarwin()
+            ? .loadableBundle
+            : .entryPointExecutable(
+                explicitlyEnabledDiscovery: testingParameters.explicitlyEnabledDiscovery,
+                explicitlySpecifiedPath: testingParameters.explicitlySpecifiedPath
+            )
     }
 }

@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-
 import func Basics.nextItem
 @testable import func Basics.containsNonContiguousSubset
 @testable import func Basics.containsContiguousSubset

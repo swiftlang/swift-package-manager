@@ -45,7 +45,7 @@ package enum SBOMCommandError: Error, LocalizedError {
     case targetFlagNotSupported
     case invalidFilterValue(value: String)
     case invalidSpecValue(value: String)
-    
+
     public var errorDescription: String? {
         switch self {
         case .noSpecArg:
@@ -71,7 +71,7 @@ internal enum SBOMSchemaError: Error, LocalizedError, CustomStringConvertible {
     case invalidSchemaFormat(message: String)
     /// Bundle not found (validation will be skipped)
     case bundleNotFound(bundleName: String)
-    
+
     internal var errorDescription: String? {
         switch self {
         case .schemaFileNotFound(let filename, let bundlePath):

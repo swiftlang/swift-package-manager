@@ -23,8 +23,7 @@ import protocol SwiftDiagnostics.FixItMessage
 import struct SwiftDiagnostics.GroupedDiagnostics
 import struct SwiftDiagnostics.MessageID
 
-@_spi(FixItApplier)
-import enum SwiftIDEUtils.FixItApplier
+@_spi(FixItApplier) import enum SwiftIDEUtils.FixItApplier
 
 import struct SwiftParser.Parser
 
@@ -159,7 +158,7 @@ private struct PrimaryDiagnosticFilter<Diagnostic: AnyDiagnostic>: ~Copyable {
         // diagnostic appears in is in any of them.
         if !self.excludedSourceDirectories.isEmpty {
             if let sourceFilePath = try? AbsolutePath(validating: location.filename),
-               self.excludedSourceDirectories.contains(where: sourceFilePath.isDescendant(of:))
+                self.excludedSourceDirectories.contains(where: sourceFilePath.isDescendant(of:))
             {
                 return true
             }
@@ -203,7 +202,7 @@ private struct PrimaryDiagnosticFilter<Diagnostic: AnyDiagnostic>: ~Copyable {
 }
 
 /// The backing API for `SwiftFixitCommand`.
-package struct SwiftFixIt /*: ~Copyable */ { // TODO: Crashes with ~Copyable
+package struct SwiftFixIt /*: ~Copyable */ {  // TODO: Crashes with ~Copyable
     private typealias DiagnosticsPerFile = [SourceFile: [SwiftDiagnostics.Diagnostic]]
 
     private let fileSystem: any FileSystem
@@ -255,7 +254,7 @@ package struct SwiftFixIt /*: ~Copyable */ { // TODO: Crashes with ~Copyable
                 diagnostics.formIndex(after: &nextPrimaryIndex)
             } while nextPrimaryIndex != diagnostics.endIndex && diagnostics[nextPrimaryIndex].isNote
 
-            let primaryDiagnosticWithNotes = diagnostics[currentPrimaryIndex ..< nextPrimaryIndex]
+            let primaryDiagnosticWithNotes = diagnostics[currentPrimaryIndex..<nextPrimaryIndex]
 
             if filter.shouldSkip(primaryDiagnosticWithNotes: primaryDiagnosticWithNotes) {
                 continue
@@ -478,7 +477,7 @@ extension DiagnosticConverter {
             let endPosition = try sourceFile.position(of: fixIt.end)
 
             return SwiftDiagnostics.FixIt.Change.replaceText(
-                range: startPosition ..< endPosition,
+                range: startPosition..<endPosition,
                 with: fixIt.text,
                 in: Syntax(sourceFile.syntax)
             )
@@ -563,7 +562,7 @@ extension DiagnosticConverter {
                 message: message,
                 highlights: Self.highlights(from: diagnostic, in: sourceFile),
                 fixIts: [
-                    Self.fixIt(from: diagnostic, in: sourceFile),
+                    Self.fixIt(from: diagnostic, in: sourceFile)
                 ]
             )
         )

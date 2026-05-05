@@ -227,9 +227,9 @@ public struct BuildSystemProvider {
 
         public var defaultValueDescription: String {
             switch self {
-                case .native: "Native Build System (deprecated)"
-                case .swiftbuild: "Swift Build build engine (default)"
-                case .xcode: "Xcode build system integration (deprecated)"
+            case .native: "Native Build System (deprecated)"
+            case .swiftbuild: "Swift Build build engine (default)"
+            case .xcode: "Xcode build system integration (deprecated)"
             }
         }
     }

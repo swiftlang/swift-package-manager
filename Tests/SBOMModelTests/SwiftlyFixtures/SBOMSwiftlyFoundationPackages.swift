@@ -62,7 +62,7 @@ extension SBOMTestModulesGraph {
             packageIdentity: identity,
             module: systemPackageModule,
             dependencies: [
-                .module(resolvedCSystemModule, conditions: []),
+                .module(resolvedCSystemModule, conditions: [])
             ]
         )
 
@@ -224,7 +224,7 @@ extension SBOMTestModulesGraph {
             packageIdentity: identity,
             module: argumentParserModule,
             dependencies: [
-                .module(resolvedArgumentParserToolInfoModule, conditions: []),
+                .module(resolvedArgumentParserToolInfoModule, conditions: [])
             ]
         )
 

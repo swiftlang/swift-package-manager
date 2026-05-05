@@ -61,11 +61,13 @@ struct TopCard: Card {
             return ""
         }
 
-        var rendered = isColorized ? brightCyan {
-            "\n## Products"
-            "\n\n"
-        }.terminalString() :
-            plain {
+        var rendered =
+            isColorized
+            ? brightCyan {
+                "\n## Products"
+                "\n\n"
+            }.terminalString()
+            : plain {
                 "\n## Products"
                 "\n\n"
             }.terminalString()
@@ -84,18 +86,19 @@ struct TopCard: Card {
             let (number, snippetGroup) = pair
             let snippetNoun = snippetGroup.snippets.count > 1 ? "snippets" : "snippet"
             let heading = "\(number). \(snippetGroup.name) (\(snippetGroup.snippets.count) \(snippetNoun))"
-            return isColorized ? colorized {
-                cyan {
-                    heading
-                    "\n"
-                }
-                if !snippetGroup.explanation.isEmpty {
-                    """
-                    \(snippetGroup.explanation.spm_multilineIndent(count: 3))
-                    """
-                }
-            }.terminalString() :
-                plain {
+            return isColorized
+                ? colorized {
+                    cyan {
+                        heading
+                        "\n"
+                    }
+                    if !snippetGroup.explanation.isEmpty {
+                        """
+                        \(snippetGroup.explanation.spm_multilineIndent(count: 3))
+                        """
+                    }
+                }.terminalString()
+                : plain {
                     plain {
                         heading
                         "\n"
@@ -108,15 +111,16 @@ struct TopCard: Card {
                 }.terminalString()
         }
 
-        return isColorized ? colorized {
-            brightCyan {
-                "\n## Snippets"
-            }
-            "\n\n"
-            snippetPreviews.joined(separator: "\n\n")
-            "\n"
-        }.terminalString() :
-            plain {
+        return isColorized
+            ? colorized {
+                brightCyan {
+                    "\n## Snippets"
+                }
+                "\n\n"
+                snippetPreviews.joined(separator: "\n\n")
+                "\n"
+            }.terminalString()
+            : plain {
                 plain {
                     "\n## Snippets"
                 }
@@ -128,22 +132,25 @@ struct TopCard: Card {
 
     func render() -> String {
         let isColorized: Bool = self.swiftCommandState.options.logging.colorDiagnostics
-        let heading = isColorized ? brightYellow {
-            "# "
-            package.identity.description
-        } : plain {
-            "# "
-            package.identity.description
-        }
+        let heading =
+            isColorized
+            ? brightYellow {
+                "# "
+                package.identity.description
+            }
+            : plain {
+                "# "
+                package.identity.description
+            }
 
         return """
-        \(heading)
-        \(renderProducts())
-        \(renderSnippets())
-        """
+            \(heading)
+            \(renderProducts())
+            \(renderSnippets())
+            """
     }
 
-    func acceptLineInput<S>(_ line: S) -> CardEvent? where S : StringProtocol {
+    func acceptLineInput<S>(_ line: S) -> CardEvent? where S: StringProtocol {
         guard !line.isEmpty else {
             print("\u{0007}")
             return nil
@@ -152,7 +159,8 @@ struct TopCard: Card {
             return .quit()
         }
         if let index = Int(line),
-           snippetGroups.indices.contains(index) {
+            snippetGroups.indices.contains(index)
+        {
             return .push(SnippetGroupCard(snippetGroup: snippetGroups[index], swiftCommandState: swiftCommandState))
         } else if let groupByName = snippetGroups.first(where: { $0.name == line }) {
             return .push(SnippetGroupCard(snippetGroup: groupByName, swiftCommandState: swiftCommandState))

@@ -38,11 +38,13 @@ struct CycloneDXConverterTests {
 
     @Test("convertToPedigree with single commit without authors")
     func convertToPedigreeWithSingleCommitNoAuthors() async throws {
-        let originator = SBOMOriginator(commits: [SBOMCommit(
-            sha: "abc123",
-            repository: "https://github.com/swiftlang/swift-package-manager",
-            authors: nil,
-        )])
+        let originator = SBOMOriginator(commits: [
+            SBOMCommit(
+                sha: "abc123",
+                repository: "https://github.com/swiftlang/swift-package-manager",
+                authors: nil,
+            )
+        ])
         let result = try await CycloneDXConverter.convertToPedigree(from: originator)
 
         let cdxCommits = try #require(result.commits)
@@ -60,12 +62,14 @@ struct CycloneDXConverterTests {
             SBOMCommit(
                 sha: "def456",
                 repository: "https://github.com/swiftlang/swift-package-manager",
-                authors: [SBOMPerson(
-                    id: SBOMIdentifier(value: "author1"),
-                    name: "John Doe",
-                    email: "john@example.com"
-                )],
-            ),
+                authors: [
+                    SBOMPerson(
+                        id: SBOMIdentifier(value: "author1"),
+                        name: "John Doe",
+                        email: "john@example.com"
+                    )
+                ],
+            )
         ])
 
         let result = try await CycloneDXConverter.convertToPedigree(from: originator)
@@ -270,9 +274,9 @@ struct CycloneDXConverterTests {
                         id: SBOMIdentifier(value: "author1"),
                         name: "John Doe",
                         email: "john@example.com"
-                    ),
+                    )
                 ],
-            ),
+            )
         ])
 
         let component = SBOMComponent(
@@ -310,12 +314,13 @@ struct CycloneDXConverterTests {
 
     @Test("convertToDependency basic conversion")
     func convertToDependencyBasicConversion() async throws {
-        let result = try await CycloneDXConverter.convertToDependency(from:
-            SBOMRelationship(
-                id: SBOMIdentifier(value: "dep-1"),
-                parentID: SBOMIdentifier(value: "parent-component"),
-                childrenID: ["child1", "child2", "child3"].map { SBOMIdentifier(value: $0) }
-            )
+        let result = try await CycloneDXConverter.convertToDependency(
+            from:
+                SBOMRelationship(
+                    id: SBOMIdentifier(value: "dep-1"),
+                    parentID: SBOMIdentifier(value: "parent-component"),
+                    childrenID: ["child1", "child2", "child3"].map { SBOMIdentifier(value: $0) }
+                )
         )
 
         #expect(result.ref == "parent-component")
@@ -324,12 +329,13 @@ struct CycloneDXConverterTests {
 
     @Test("convertToDependency with empty children")
     func convertToDependencyWithEmptyChildren() async throws {
-        let result = try await CycloneDXConverter.convertToDependency(from:
-            SBOMRelationship(
-                id: SBOMIdentifier(value: "dep-1"),
-                parentID: SBOMIdentifier(value: "parent-component"),
-                childrenID: []
-            )
+        let result = try await CycloneDXConverter.convertToDependency(
+            from:
+                SBOMRelationship(
+                    id: SBOMIdentifier(value: "dep-1"),
+                    parentID: SBOMIdentifier(value: "parent-component"),
+                    childrenID: []
+                )
         )
         #expect(result.ref == "parent-component")
         #expect(result.dependsOn.isEmpty)
@@ -632,7 +638,7 @@ struct CycloneDXConverterTests {
         #expect(cdxTool1.type == .application)
         #expect(cdxTool1.scope == .excluded)
         #expect(cdxTool1.purl == "pkg:swift/github.com/swiftlang/SwiftPM@6.0.0")
-        
+
         let cdxTool1Licenses = try #require(cdxTool1.licenses)
         #expect(cdxTool1Licenses.count == 1)
         #expect(cdxTool1Licenses[0].license.id == "Apache-2.0")
@@ -645,7 +651,7 @@ struct CycloneDXConverterTests {
         #expect(cdxTool2.type == .application)
         #expect(cdxTool2.scope == .excluded)
         #expect(cdxTool2.purl == "pkg:swift/github.com/swiftlang/Swift@5.9.0")
-        
+
         let cdxTool2Licenses = try #require(cdxTool2.licenses)
         #expect(cdxTool2Licenses.count == 1)
         #expect(cdxTool2Licenses[0].license.id == "MIT")
@@ -707,9 +713,9 @@ struct CycloneDXConverterTests {
             version: "1.0.0"
         )
         let originator = SBOMOriginator(commits: nil, entries: [entry])
-        
+
         let result = try await CycloneDXConverter.convertToExternalReferences(from: originator)
-        
+
         #expect(result.count == 1)
         let externalRef = result[0]
         #expect(externalRef.url == url)
@@ -725,9 +731,9 @@ struct CycloneDXConverterTests {
             version: "1.0.0"
         )
         let originator = SBOMOriginator(commits: nil, entries: [entry])
-        
+
         let result = try await CycloneDXConverter.convertToExternalReferences(from: originator)
-        
+
         #expect(result.isEmpty)
     }
 
@@ -736,15 +742,15 @@ struct CycloneDXConverterTests {
         let url1 = try #require(URL(string: "https://registry.example.com/packages/package1/1.0.0"))
         let url2 = try #require(URL(string: "https://registry.example.com/packages/package2/2.0.0"))
         let url3 = try #require(URL(string: "https://registry.example.com/packages/package3/3.0.0"))
-        
+
         let entry1 = SBOMRegistryEntry(url: url1, scope: "scope1", name: "package1", version: "1.0.0")
         let entry2 = SBOMRegistryEntry(url: url2, scope: "scope2", name: "package2", version: "2.0.0")
         let entry3 = SBOMRegistryEntry(url: url3, scope: "scope3", name: "package3", version: "3.0.0")
-        
+
         let originator = SBOMOriginator(commits: nil, entries: [entry1, entry2, entry3])
-        
+
         let result = try await CycloneDXConverter.convertToExternalReferences(from: originator)
-        
+
         #expect(result.count == 3)
         #expect(result[0].url == url1)
         #expect(result[0].refType == .distribution)
@@ -758,16 +764,16 @@ struct CycloneDXConverterTests {
     func convertToExternalReferencesWithMixedEntries() async throws {
         let url1 = try #require(URL(string: "https://registry.example.com/packages/package1/1.0.0"))
         let url3 = try #require(URL(string: "https://registry.example.com/packages/package3/3.0.0"))
-        
+
         let entry1 = SBOMRegistryEntry(url: url1, scope: "scope1", name: "package1", version: "1.0.0")
         let entry2 = SBOMRegistryEntry(url: nil, scope: "scope2", name: "package2", version: "2.0.0")
         let entry3 = SBOMRegistryEntry(url: url3, scope: "scope3", name: "package3", version: "3.0.0")
         let entry4 = SBOMRegistryEntry(url: nil, scope: "scope4", name: "package4", version: "4.0.0")
-        
+
         let originator = SBOMOriginator(commits: nil, entries: [entry1, entry2, entry3, entry4])
-        
+
         let result = try await CycloneDXConverter.convertToExternalReferences(from: originator)
-        
+
         #expect(result.count == 2)
         #expect(result[0].url == url1)
         #expect(result[0].refType == .distribution)
@@ -780,11 +786,11 @@ struct CycloneDXConverterTests {
         let entry1 = SBOMRegistryEntry(url: nil, scope: "scope1", name: "package1", version: "1.0.0")
         let entry2 = SBOMRegistryEntry(url: nil, scope: "scope2", name: "package2", version: "2.0.0")
         let entry3 = SBOMRegistryEntry(url: nil, scope: "scope3", name: "package3", version: "3.0.0")
-        
+
         let originator = SBOMOriginator(commits: nil, entries: [entry1, entry2, entry3])
-        
+
         let result = try await CycloneDXConverter.convertToExternalReferences(from: originator)
-        
+
         #expect(result.isEmpty)
     }
 }

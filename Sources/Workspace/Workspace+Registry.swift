@@ -202,8 +202,10 @@ extension Workspace {
                                 .emit(
                                     info: "swizzling '\(dependency.locationString)' with registry dependency '\(registryIdentity)'."
                                 )
-                            targetDependencyPackageNameTransformations[dependency
-                                .nameForModuleDependencyResolutionOnly.lowercased()] = registryIdentity.description
+                            targetDependencyPackageNameTransformations[
+                                dependency
+                                    .nameForModuleDependencyResolutionOnly.lowercased()
+                            ] = registryIdentity.description
                             modifiedDependency = .registry(
                                 identity: registryIdentity,
                                 requirement: requirement,
@@ -248,9 +250,9 @@ extension Workspace {
                             condition: let condition
                         ):
                             if let packageName,
-                               // makes sure we use the updated package name for target based dependencies
-                               let modifiedPackageName =
-                               targetDependencyPackageNameTransformations[packageName.lowercased()]
+                                // makes sure we use the updated package name for target based dependencies
+                                let modifiedPackageName =
+                                    targetDependencyPackageNameTransformations[packageName.lowercased()]
                             {
                                 modifiedDependency = .product(
                                     name: name,
@@ -456,7 +458,6 @@ extension Workspace {
         public typealias Value = CacheResult
         public typealias CacheResult = (result: IdentityMapResult<PackageIdentity?, Error>, expirationTime: DispatchTime)
 
-
         public enum IdentityMapResult<Success, Failure> {
             /// Represents a successful mapping of a source control URL to its registry identity
             case success(Success)
@@ -468,7 +469,7 @@ extension Workspace {
 
         /// Tracks the mapping of scm packages to their registry identities
         private let cache = ThreadSafeKeyValueStore<SourceControlURL, CacheResult>()
-        private let cacheTTL = DispatchTimeInterval.seconds(300) // 5m
+        private let cacheTTL = DispatchTimeInterval.seconds(300)  // 5m
 
         public var isEmpty: Bool {
             return self.cache.isEmpty
@@ -508,7 +509,7 @@ extension Workspace {
             // First run, create a mapping between registry packages and their scm location, if applicable.
             for resolvedPackage in resolvedPackages.values {
                 if case let .registry(id) = resolvedPackage.packageRef.kind,
-                   let url = resolvedPackage.originalScmUrl
+                    let url = resolvedPackage.originalScmUrl
                 {
                     self[storing: url] = .success(id)
                 }
@@ -521,7 +522,8 @@ extension Workspace {
             if transformationMode == .swizzle {
                 for resolvedPackage in resolvedPackages.values {
                     if case .remoteSourceControl(let url) = resolvedPackage.packageRef.kind,
-                        self.cache[url] == nil {
+                        self.cache[url] == nil
+                    {
                         self[storing: url] = .notApplicable
                     }
                 }

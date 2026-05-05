@@ -121,17 +121,17 @@ extension SwiftPM {
         env: Environment? = nil
     ) async throws -> AsyncProcessResult {
         var environment = Environment.current
-#if !os(Windows)
-        environment["SDKROOT"] = nil
-#endif
+        #if !os(Windows)
+            environment["SDKROOT"] = nil
+        #endif
 
-#if Xcode
-        // Unset these variables which causes issues when running tests via Xcode.
-        environment["XCTestConfigurationFilePath"] = nil
-        environment["XCTestSessionIdentifier"] = nil
-        environment["XCTestBundlePath"] = nil
-        environment["NSUnbufferedIO"] = nil
-#endif
+        #if Xcode
+            // Unset these variables which causes issues when running tests via Xcode.
+            environment["XCTestConfigurationFilePath"] = nil
+            environment["XCTestSessionIdentifier"] = nil
+            environment["XCTestBundlePath"] = nil
+            environment["NSUnbufferedIO"] = nil
+        #endif
         // FIXME: We use this private environment variable hack to be able to
         // create special conditions in swift-build for swiftpm tests.
         environment["SWIFTPM_TESTS_MODULECACHE"] = self.xctestBinaryPath.parentDirectory.pathString

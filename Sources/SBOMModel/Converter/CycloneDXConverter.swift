@@ -26,7 +26,8 @@ internal struct CycloneDXConverter {
         }
     }
 
-    private static func convertToCategory(from category: SBOMComponent.Category) async -> CycloneDXComponent
+    private static func convertToCategory(from category: SBOMComponent.Category) async
+        -> CycloneDXComponent
         .Category
     {
         switch category {
@@ -116,7 +117,7 @@ internal struct CycloneDXConverter {
         let licenses = tool.licenses?.map { license in
             convertToLicense(from: license)
         }
-        
+
         return CycloneDXComponent(
             type: .application,
             bomRef: tool.id.value,

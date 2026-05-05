@@ -20,154 +20,154 @@ public protocol CacheKey: Encodable {}
 
 /// Types that cannot be decomposed more to be hashed
 protocol LeafCacheKey: CacheKey {
-  func hash(with hashFunction: inout some HashFunction)
+    func hash(with hashFunction: inout some HashFunction)
 }
 
 extension Bool: LeafCacheKey {
-  func hash(with hashFunction: inout some HashFunction) {
-    String(reflecting: Self.self).hash(with: &hashFunction)
-    hashFunction.update(data: self ? [1] : [0])
-  }
+    func hash(with hashFunction: inout some HashFunction) {
+        String(reflecting: Self.self).hash(with: &hashFunction)
+        hashFunction.update(data: self ? [1] : [0])
+    }
 }
 
 extension Int: LeafCacheKey {
-  func hash(with hashFunction: inout some HashFunction) {
-    String(reflecting: Self.self).hash(with: &hashFunction)
-    withUnsafeBytes(of: self) {
-      hashFunction.update(data: $0)
+    func hash(with hashFunction: inout some HashFunction) {
+        String(reflecting: Self.self).hash(with: &hashFunction)
+        withUnsafeBytes(of: self) {
+            hashFunction.update(data: $0)
+        }
     }
-  }
 }
 
 extension Int8: LeafCacheKey {
-  func hash(with hashFunction: inout some HashFunction) {
-    String(reflecting: Self.self).hash(with: &hashFunction)
-    withUnsafeBytes(of: self) {
-      hashFunction.update(data: $0)
+    func hash(with hashFunction: inout some HashFunction) {
+        String(reflecting: Self.self).hash(with: &hashFunction)
+        withUnsafeBytes(of: self) {
+            hashFunction.update(data: $0)
+        }
     }
-  }
 }
 
 extension Int16: LeafCacheKey {
-  func hash(with hashFunction: inout some HashFunction) {
-    String(reflecting: Self.self).hash(with: &hashFunction)
-    withUnsafeBytes(of: self) {
-      hashFunction.update(data: $0)
+    func hash(with hashFunction: inout some HashFunction) {
+        String(reflecting: Self.self).hash(with: &hashFunction)
+        withUnsafeBytes(of: self) {
+            hashFunction.update(data: $0)
+        }
     }
-  }
 }
 
 extension Int32: LeafCacheKey {
-  func hash(with hashFunction: inout some HashFunction) {
-    String(reflecting: Self.self).hash(with: &hashFunction)
-    withUnsafeBytes(of: self) {
-      hashFunction.update(data: $0)
+    func hash(with hashFunction: inout some HashFunction) {
+        String(reflecting: Self.self).hash(with: &hashFunction)
+        withUnsafeBytes(of: self) {
+            hashFunction.update(data: $0)
+        }
     }
-  }
 }
 
 extension Int64: LeafCacheKey {
-  func hash(with hashFunction: inout some HashFunction) {
-    String(reflecting: Self.self).hash(with: &hashFunction)
-    withUnsafeBytes(of: self) {
-      hashFunction.update(data: $0)
+    func hash(with hashFunction: inout some HashFunction) {
+        String(reflecting: Self.self).hash(with: &hashFunction)
+        withUnsafeBytes(of: self) {
+            hashFunction.update(data: $0)
+        }
     }
-  }
 }
 
 extension UInt: LeafCacheKey {
-  func hash(with hashFunction: inout some HashFunction) {
-    String(reflecting: Self.self).hash(with: &hashFunction)
-    withUnsafeBytes(of: self) {
-      hashFunction.update(data: $0)
+    func hash(with hashFunction: inout some HashFunction) {
+        String(reflecting: Self.self).hash(with: &hashFunction)
+        withUnsafeBytes(of: self) {
+            hashFunction.update(data: $0)
+        }
     }
-  }
 }
 
 extension UInt8: LeafCacheKey {
-  func hash(with hashFunction: inout some HashFunction) {
-    String(reflecting: Self.self).hash(with: &hashFunction)
-    withUnsafeBytes(of: self) {
-      hashFunction.update(data: $0)
+    func hash(with hashFunction: inout some HashFunction) {
+        String(reflecting: Self.self).hash(with: &hashFunction)
+        withUnsafeBytes(of: self) {
+            hashFunction.update(data: $0)
+        }
     }
-  }
 }
 
 extension UInt16: LeafCacheKey {
-  func hash(with hashFunction: inout some HashFunction) {
-    String(reflecting: Self.self).hash(with: &hashFunction)
-    withUnsafeBytes(of: self) {
-      hashFunction.update(data: $0)
+    func hash(with hashFunction: inout some HashFunction) {
+        String(reflecting: Self.self).hash(with: &hashFunction)
+        withUnsafeBytes(of: self) {
+            hashFunction.update(data: $0)
+        }
     }
-  }
 }
 
 extension UInt32: LeafCacheKey {
-  func hash(with hashFunction: inout some HashFunction) {
-    String(reflecting: Self.self).hash(with: &hashFunction)
-    withUnsafeBytes(of: self) {
-      hashFunction.update(data: $0)
+    func hash(with hashFunction: inout some HashFunction) {
+        String(reflecting: Self.self).hash(with: &hashFunction)
+        withUnsafeBytes(of: self) {
+            hashFunction.update(data: $0)
+        }
     }
-  }
 }
 
 extension UInt64: LeafCacheKey {
-  func hash(with hashFunction: inout some HashFunction) {
-    String(reflecting: Self.self).hash(with: &hashFunction)
-    withUnsafeBytes(of: self) {
-      hashFunction.update(data: $0)
+    func hash(with hashFunction: inout some HashFunction) {
+        String(reflecting: Self.self).hash(with: &hashFunction)
+        withUnsafeBytes(of: self) {
+            hashFunction.update(data: $0)
+        }
     }
-  }
 }
 
 extension Float: LeafCacheKey {
-  func hash(with hashFunction: inout some HashFunction) {
-    String(reflecting: Self.self).hash(with: &hashFunction)
-    withUnsafeBytes(of: self) {
-      hashFunction.update(data: $0)
+    func hash(with hashFunction: inout some HashFunction) {
+        String(reflecting: Self.self).hash(with: &hashFunction)
+        withUnsafeBytes(of: self) {
+            hashFunction.update(data: $0)
+        }
     }
-  }
 }
 
 extension Double: LeafCacheKey {
-  func hash(with hashFunction: inout some HashFunction) {
-    String(reflecting: Self.self).hash(with: &hashFunction)
-    withUnsafeBytes(of: self) {
-      hashFunction.update(data: $0)
+    func hash(with hashFunction: inout some HashFunction) {
+        String(reflecting: Self.self).hash(with: &hashFunction)
+        withUnsafeBytes(of: self) {
+            hashFunction.update(data: $0)
+        }
     }
-  }
 }
 
 extension String: LeafCacheKey {
-  func hash(with hashFunction: inout some HashFunction) {
-    var t = String(reflecting: Self.self)
-    t.withUTF8 {
-      hashFunction.update(data: $0)
+    func hash(with hashFunction: inout some HashFunction) {
+        var t = String(reflecting: Self.self)
+        t.withUTF8 {
+            hashFunction.update(data: $0)
+        }
+        var x = self
+        x.withUTF8 {
+            hashFunction.update(data: $0)
+        }
     }
-    var x = self
-    x.withUTF8 {
-      hashFunction.update(data: $0)
-    }
-  }
 }
 
 extension FilePath: LeafCacheKey {
-  func hash(with hashFunction: inout some HashFunction) {
-    String(reflecting: Self.self).hash(with: &hashFunction)
-    self.string.hash(with: &hashFunction)
-  }
+    func hash(with hashFunction: inout some HashFunction) {
+        String(reflecting: Self.self).hash(with: &hashFunction)
+        self.string.hash(with: &hashFunction)
+    }
 }
 
 extension FilePath.Component: LeafCacheKey {
-  func hash(with hashFunction: inout some HashFunction) {
-    String(reflecting: Self.self).hash(with: &hashFunction)
-    self.string.hash(with: &hashFunction)
-  }
+    func hash(with hashFunction: inout some HashFunction) {
+        String(reflecting: Self.self).hash(with: &hashFunction)
+        self.string.hash(with: &hashFunction)
+    }
 }
 
 extension URL: LeafCacheKey {
-  func hash(with hashFunction: inout some HashFunction) {
-    String(reflecting: Self.self).hash(with: &hashFunction)
-    self.description.hash(with: &hashFunction)
-  }
+    func hash(with hashFunction: inout some HashFunction) {
+        String(reflecting: Self.self).hash(with: &hashFunction)
+        self.description.hash(with: &hashFunction)
+    }
 }

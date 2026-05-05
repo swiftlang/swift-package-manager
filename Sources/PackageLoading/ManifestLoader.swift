@@ -26,7 +26,7 @@ import enum TSCUtility.Diagnostics
 import struct TSCUtility.Version
 
 #if os(Windows)
-import WinSDK
+    import WinSDK
 #endif
 
 extension AbsolutePath {
@@ -35,17 +35,17 @@ extension AbsolutePath {
     /// path normalization rules.  In the case that the path is a long path, the
     /// path will use the extended path syntax (UNC style, NT Path).
     internal var _normalized: String {
-#if os(Windows)
-        return self.pathString.withCString(encodedAs: UTF16.self) { pwszPath in
-            let dwLength = GetFullPathNameW(pwszPath, 0, nil, nil)
-            return withUnsafeTemporaryAllocation(of: WCHAR.self, capacity: Int(dwLength)) {
-                _ = GetFullPathNameW(pwszPath, dwLength, $0.baseAddress, nil)
-                return String(decodingCString: $0.baseAddress!, as: UTF16.self)
+        #if os(Windows)
+            return self.pathString.withCString(encodedAs: UTF16.self) { pwszPath in
+                let dwLength = GetFullPathNameW(pwszPath, 0, nil, nil)
+                return withUnsafeTemporaryAllocation(of: WCHAR.self, capacity: Int(dwLength)) {
+                    _ = GetFullPathNameW(pwszPath, dwLength, $0.baseAddress, nil)
+                    return String(decodingCString: $0.baseAddress!, as: UTF16.self)
+                }
             }
-        }
-#else
-        return self.pathString
-#endif
+        #else
+            return self.pathString
+        #endif
     }
 }
 
@@ -345,20 +345,25 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         var products = parsedManifest.products
         var targets = parsedManifest.targets
         if products.isEmpty, targets.isEmpty,
-            fileSystem.isFile(manifestPath.parentDirectory.appending(component: moduleMapFilename)) {
-            try products.append(ProductDescription(
-                name: parsedManifest.name,
-                type: .library(.automatic),
-                targets: [parsedManifest.name])
+            fileSystem.isFile(manifestPath.parentDirectory.appending(component: moduleMapFilename))
+        {
+            try products.append(
+                ProductDescription(
+                    name: parsedManifest.name,
+                    type: .library(.automatic),
+                    targets: [parsedManifest.name]
+                )
             )
-            targets.append(try TargetDescription(
-                name: parsedManifest.name,
-                path: "",
-                type: .system,
-                packageAccess: false,
-                pkgConfig: parsedManifest.pkgConfig,
-                providers: parsedManifest.providers
-            ))
+            targets.append(
+                try TargetDescription(
+                    name: parsedManifest.name,
+                    path: "",
+                    type: .system,
+                    packageAccess: false,
+                    pkgConfig: parsedManifest.pkgConfig,
+                    providers: parsedManifest.providers
+                )
+            )
         }
 
         let manifest = Manifest(
@@ -518,7 +523,6 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             }
         }
 
-
         do {
             // try to get it from the cache
             if let evaluationResult = try dbCache?.get(key: key.sha256Checksum), let manifestJSON = evaluationResult.manifestJSON, !manifestJSON.isEmpty {
@@ -536,7 +540,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                     emitCompilerOutput: false,
                     observabilityScope: observabilityScope,
                     delegate: delegate,
-                    delegateQueue: delegateQueue // Pass the delegate queue
+                    delegateQueue: delegateQueue  // Pass the delegate queue
                 )
                 // Store in memory cache if enabled
                 if self.useInMemoryCache {
@@ -562,7 +566,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             toolsVersion: key.toolsVersion,
             observabilityScope: observabilityScope,
             delegate: delegate,
-            delegateQueue: delegateQueue // Pass the delegate queue
+            delegateQueue: delegateQueue  // Pass the delegate queue
         )
 
         // only cache successfully parsed manifests
@@ -607,12 +611,13 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         }
 
         // Allowed are the expected defaults, plus anything allowed by the configured restrictions.
-        let allowedImports = [
-            "PackageDescription",
-            "Swift",
-            "SwiftOnoneSupport",
-            "_SwiftConcurrencyShims"
-        ] + importRestrictions.allowedImports
+        let allowedImports =
+            [
+                "PackageDescription",
+                "Swift",
+                "SwiftOnoneSupport",
+                "_SwiftConcurrencyShims",
+            ] + importRestrictions.allowedImports
 
         let importScanner = SwiftcImportScanner(
             swiftCompilerEnvironment: self.toolchain.swiftCompilerEnvironment,
@@ -707,9 +712,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
         // FIXME: Workaround for the module cache bug that's been haunting Swift CI
         // <rdar://problem/48443680>
-        let moduleCachePath = try (
-            Environment.current["SWIFTPM_MODULECACHE_OVERRIDE"] ??
-            Environment.current["SWIFTPM_TESTS_MODULECACHE"]).flatMap { try AbsolutePath(validating: $0) }
+        let moduleCachePath = try (Environment.current["SWIFTPM_MODULECACHE_OVERRIDE"] ?? Environment.current["SWIFTPM_TESTS_MODULECACHE"]).flatMap { try AbsolutePath(validating: $0) }
 
         var cmd: [String] = []
         cmd += [self.toolchain.swiftCompilerPathForManifests.pathString]
@@ -727,31 +730,31 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             ]
 
             // Explicitly link `AppleProductTypes` since auto-linking won't work here.
-#if ENABLE_APPLE_PRODUCT_TYPES
-            cmd += ["-framework", "AppleProductTypes"]
-#else
-            cmd += ["-framework", "PackageDescription"]
-#endif
+            #if ENABLE_APPLE_PRODUCT_TYPES
+                cmd += ["-framework", "AppleProductTypes"]
+            #else
+                cmd += ["-framework", "PackageDescription"]
+            #endif
         } else {
             cmd += [
                 "-L", runtimePath.pathString,
                 "-lPackageDescription",
             ]
-#if !os(Windows)
-            // -rpath argument is not supported on Windows,
-            // so we add runtimePath to PATH when executing the manifest instead
-            cmd += ["-Xlinker", "-rpath", "-Xlinker", runtimePath.pathString]
-#endif
+            #if !os(Windows)
+                // -rpath argument is not supported on Windows,
+                // so we add runtimePath to PATH when executing the manifest instead
+                cmd += ["-Xlinker", "-rpath", "-Xlinker", runtimePath.pathString]
+            #endif
         }
 
         // Use the same minimum deployment target as the PackageDescription library (with a fallback to the default host triple).
-#if os(macOS)
-        if let version = self.toolchain.swiftPMLibrariesLocation.manifestLibraryMinimumDeploymentTarget?.versionString {
-            cmd += ["-target", "\(self.toolchain.targetTriple.tripleString(forPlatformVersion: version))"]
-        } else {
-            cmd += ["-target", self.toolchain.targetTriple.tripleString]
-        }
-#endif
+        #if os(macOS)
+            if let version = self.toolchain.swiftPMLibrariesLocation.manifestLibraryMinimumDeploymentTarget?.versionString {
+                cmd += ["-target", "\(self.toolchain.targetTriple.tripleString(forPlatformVersion: version))"]
+            } else {
+                cmd += ["-target", self.toolchain.targetTriple.tripleString]
+            }
+        #endif
 
         // Add any extra flags required as indicated by the ManifestLoader.
         cmd += self.toolchain.swiftCompilerFlags
@@ -778,9 +781,9 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         return try await Basics.withTemporaryDirectory(removeTreeOnDeinit: true) { tmpDir in
             // Set path to compiled manifest executable.
             #if os(Windows)
-            let executableSuffix = ".exe"
+                let executableSuffix = ".exe"
             #else
-            let executableSuffix = ""
+                let executableSuffix = ""
             #endif
             let compiledManifestFile = tmpDir.appending("\(packageIdentity)-manifest\(executableSuffix)")
             cmd += ["-o", compiledManifestFile.pathString]
@@ -798,8 +801,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             let compileStart = DispatchTime.now()
             let compilerResult: AsyncProcessResult
             do {
-                 compilerResult = try await AsyncProcess.popen(arguments: cmd, environment: self.toolchain.swiftCompilerEnvironment)
-                 evaluationResult.compilerOutput = try (compilerResult.utf8Output() + compilerResult.utf8stderrOutput()).spm_chuzzle()
+                compilerResult = try await AsyncProcess.popen(arguments: cmd, environment: self.toolchain.swiftCompilerEnvironment)
+                evaluationResult.compilerOutput = try (compilerResult.utf8Output() + compilerResult.utf8stderrOutput()).spm_chuzzle()
             } catch {
                 delegateQueue?.async { [delegate = self.delegate] in
                     delegate?.didCompile(
@@ -809,7 +812,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                         duration: compileStart.distance(to: .now())
                     )
                 }
-                throw error // Re-throw process errors
+                throw error  // Re-throw process errors
             }
 
             delegateQueue?.async { [delegate = self.delegate] in
@@ -824,27 +827,26 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             // Return now if there was a compilation error.
             if compilerResult.exitStatus != .terminated(code: 0) {
                 // If there's compiler output, it's a format error. Otherwise, maybe something else went wrong.
-                 evaluationResult.errorOutput = evaluationResult.compilerOutput ?? "Manifest compilation failed with exit status \(compilerResult.exitStatus)"
-                 return evaluationResult // Return the result containing the error output
+                evaluationResult.errorOutput = evaluationResult.compilerOutput ?? "Manifest compilation failed with exit status \(compilerResult.exitStatus)"
+                return evaluationResult  // Return the result containing the error output
             }
 
             // Pass an open file descriptor of a file to which the JSON representation of the manifest will be written.
             let jsonOutputFile = tmpDir.appending("\(packageIdentity)-output.json")
             guard let jsonOutputFileDesc = fopen(jsonOutputFile.pathString, "w") else {
-                 throw StringError("couldn't create the manifest's JSON output file")
+                throw StringError("couldn't create the manifest's JSON output file")
             }
             // Ensure the file is closed
             defer { fclose(jsonOutputFileDesc) }
 
-
             var runCmd = [compiledManifestFile.pathString]
             #if os(Windows)
-            // NOTE: `_get_osfhandle` returns a non-owning, unsafe,
-            // unretained HANDLE.  DO NOT invoke `CloseHandle` on `hFile`.
-            let hFile: Int = _get_osfhandle(_fileno(jsonOutputFileDesc))
-            runCmd += ["-handle", "\(String(hFile, radix: 16))"]
+                // NOTE: `_get_osfhandle` returns a non-owning, unsafe,
+                // unretained HANDLE.  DO NOT invoke `CloseHandle` on `hFile`.
+                let hFile: Int = _get_osfhandle(_fileno(jsonOutputFileDesc))
+                runCmd += ["-handle", "\(String(hFile, radix: 16))"]
             #else
-            runCmd += ["-fileno", "\(fileno(jsonOutputFileDesc))"]
+                runCmd += ["-fileno", "\(fileno(jsonOutputFileDesc))"]
             #endif
 
             do {
@@ -870,19 +872,19 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 )
                 runCmd += ["-context", try contextModel.encode()]
             } catch {
-                throw error // Re-throw encoding errors
+                throw error  // Re-throw encoding errors
             }
 
             // If enabled, run command in a sandbox.
             // This provides some safety against arbitrary code execution when parsing manifest files.
             // We only allow the permissions which are absolutely necessary.
             if self.isManifestSandboxEnabled {
-                let cacheDirectories = [self.databaseCacheDir?.appending("ManifestLoading"), moduleCachePath].compactMap{ $0 }
+                let cacheDirectories = [self.databaseCacheDir?.appending("ManifestLoading"), moduleCachePath].compactMap { $0 }
                 let strictness: Sandbox.Strictness = toolsVersion < .v5_3 ? .manifest_pre_53 : .default
                 do {
                     runCmd = try Sandbox.apply(command: runCmd, fileSystem: localFileSystem, strictness: strictness, writableDirectories: cacheDirectories)
                 } catch {
-                    throw error // Re-throw sandbox errors
+                    throw error  // Re-throw sandbox errors
                 }
             }
 
@@ -899,8 +901,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
             var environment = Environment.current
             #if os(Windows)
-            let windowsPathComponent = runtimePath.pathString.replacing("/", with: "\\")
-            environment.prependPath(key: .path, value: windowsPathComponent)
+                let windowsPathComponent = runtimePath.pathString.replacing("/", with: "\\")
+                environment.prependPath(key: .path, value: windowsPathComponent)
             #endif
 
             let runResult: AsyncProcessResult
@@ -919,7 +921,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                         duration: evaluationStart.distance(to: .now())
                     )
                 }
-                throw error // Re-throw process errors
+                throw error  // Re-throw process errors
             }
 
             delegateQueue?.async { [delegate = self.delegate] in
@@ -933,9 +935,9 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
             // Return now if there was a runtime error.
             if runResult.exitStatus != .terminated(code: 0) {
-                 // The runtime output is the error
-                 evaluationResult.errorOutput = evaluationResult.compilerOutput
-                 return evaluationResult // Return the result containing the error output
+                // The runtime output is the error
+                evaluationResult.errorOutput = evaluationResult.compilerOutput
+                return evaluationResult  // Return the result containing the error output
             }
 
             // Read the JSON output that was emitted by libPackageDescription.
@@ -961,11 +963,11 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         } else {
             cmd += ["-I", modulesPath.pathString]
         }
-      #if os(macOS)
-        if let sdkRoot = toolchain.sdkRootPath {
-            cmd += ["-sdk", sdkRoot.pathString]
-        }
-      #endif
+        #if os(macOS)
+            if let sdkRoot = toolchain.sdkRootPath {
+                cmd += ["-sdk", sdkRoot.pathString]
+            }
+        #endif
         cmd += ["-package-description-version", toolsVersion.description]
         return cmd
     }
@@ -1022,14 +1024,15 @@ extension ManifestLoader {
         let swiftpmVersion: String
         let sha256Checksum: String
 
-        init (packageIdentity: PackageIdentity,
-              packageLocation: String,
-              manifestPath: AbsolutePath,
-              toolsVersion: ToolsVersion,
-              env: Environment,
-              swiftpmVersion: String,
-              extraManifestFlags: [String],
-              fileSystem: FileSystem
+        init(
+            packageIdentity: PackageIdentity,
+            packageLocation: String,
+            manifestPath: AbsolutePath,
+            toolsVersion: ToolsVersion,
+            env: Environment,
+            swiftpmVersion: String,
+            extraManifestFlags: [String],
+            fileSystem: FileSystem
         ) throws {
             let manifestContents = try fileSystem.readFileContents(manifestPath).contents
             let sha256Checksum = try Self.computeSHA256Checksum(

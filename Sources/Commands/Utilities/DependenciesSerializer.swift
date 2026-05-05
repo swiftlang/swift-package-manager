@@ -44,7 +44,7 @@ final class PlainTextDumper: DependenciesDumper {
                 stream.send("\(hanger)\(package.identity.description)<\(package.manifest.packageLocation)@\(pkgVersion)>\(traitsEnabled)\n")
 
                 if !package.dependencies.isEmpty {
-                    let replacement = (index == packages.count - 1) ?  "    " : "│   "
+                    let replacement = (index == packages.count - 1) ? "    " : "│   "
                     var childPrefix = hanger
                     let startIndex = childPrefix.index(childPrefix.endIndex, offsetBy: -4)
                     childPrefix.replaceSubrange(startIndex..<childPrefix.endIndex, with: replacement)
@@ -133,7 +133,7 @@ final class JSONDumper: DependenciesDumper {
         func convert(_ package: ResolvedPackage) -> JSON {
             return .orderedDictionary([
                 "identity": .string(package.identity.description),
-                "name": .string(package.manifest.displayName), // TODO: remove?
+                "name": .string(package.manifest.displayName),  // TODO: remove?
                 "url": .string(package.manifest.packageLocation),
                 "version": .string(package.manifest.version?.description ?? "unspecified"),
                 "path": .string(package.path.pathString),

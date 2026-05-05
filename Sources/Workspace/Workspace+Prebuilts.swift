@@ -176,7 +176,7 @@ extension Workspace {
                             kind: .remoteSourceControl("git@github.com:swiftlang/swift-syntax.git")
                         ),
                     ]
-                ),
+                )
             ]
         }
 
@@ -198,7 +198,8 @@ extension Workspace {
                 if let prebuilt = prebuiltPackages.first(where: {
                     $0.packageRefs.contains(where: {
                         guard case let .remoteSourceControl(prebuiltURL) = $0.kind,
-                              $0.identity == packageRef.identity else {
+                            $0.identity == packageRef.identity
+                        else {
                             return false
                         }
 
@@ -307,7 +308,9 @@ extension Workspace {
             try fileSystem.createDirectory(destination.parentDirectory, recursive: true)
 
             let manifestURL = self.prebuiltsDownloadURL.appending(
-                components: package.identity.description, version.description, manifestFile
+                components: package.identity.description,
+                version.description,
+                manifestFile
             )
 
             if manifestURL.scheme == "file" {
@@ -328,7 +331,7 @@ extension Workspace {
                     destination: destination
                 )
                 request.options.authorizationProvider =
-                self.authorizationProvider?.httpAuthorizationHeader(for:)
+                    self.authorizationProvider?.httpAuthorizationHeader(for:)
                 request.options.retryStrategy = .exponentialBackoff(
                     maxAttempts: 3,
                     baseDelay: .milliseconds(50)
@@ -410,7 +413,9 @@ extension Workspace {
 
                     // Download
                     let artifactURL = self.prebuiltsDownloadURL.appending(
-                        components: package.identity.description, version.description, artifactFile
+                        components: package.identity.description,
+                        version.description,
+                        artifactFile
                     )
 
                     let fetchStart = DispatchTime.now()
@@ -442,7 +447,7 @@ extension Workspace {
                             destination: destination
                         )
                         request.options.authorizationProvider =
-                        self.authorizationProvider?.httpAuthorizationHeader(for:)
+                            self.authorizationProvider?.httpAuthorizationHeader(for:)
                         request.options.retryStrategy = .exponentialBackoff(
                             maxAttempts: 3,
                             baseDelay: .milliseconds(50)
@@ -552,7 +557,8 @@ extension Workspace {
             guard
                 let manifest = manifests.allDependencyManifests[prebuilt.identity],
                 let packageVersion = manifest.manifest.version,
-                let prebuiltManifest = try await prebuiltsManager
+                let prebuiltManifest =
+                    try await prebuiltsManager
                     .downloadManifest(
                         workspace: self,
                         package: prebuilt,
@@ -566,7 +572,8 @@ extension Workspace {
             let hostPlatform = prebuiltsManager.hostPlatform
 
             for library in prebuiltManifest.libraries {
-                if let path = try await prebuiltsManager
+                if let path =
+                    try await prebuiltsManager
                     .downloadPrebuilt(
                         workspace: self,
                         package: prebuilt,

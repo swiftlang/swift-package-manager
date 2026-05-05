@@ -36,7 +36,7 @@ struct SBOMEncoderTests {
     func writeSBOMsCreatesOutputDirectory() async throws {
         try await withTemporaryDirectory { tmpDir in
             let outputDir = tmpDir.appending("output")
-            
+
             // Directory should not exist initially
             #expect(!localFileSystem.exists(outputDir), "Directory should not exist before test")
 
@@ -63,7 +63,7 @@ struct SBOMEncoderTests {
             let encoder = SBOMEncoder(sbom: sbom, observabilityScope: ObservabilitySystem.makeForTesting().topScope)
 
             let outputs = try await encoder.writeSBOMs(specs: [.cyclonedx, .spdx], outputDir: tmpDir)
-            
+
             try #require(!outputs.isEmpty, "Output paths should not be empty")
             let files = try localFileSystem.getDirectoryContents(tmpDir)
             #expect(files.count == 2, "Should generate two files for two specs")
@@ -153,7 +153,7 @@ struct SBOMEncoderTests {
         try await withTemporaryDirectory { tmpDir in
             let graph: ModulesGraph
             let store: ResolvedPackagesStore
-            
+
             switch graphName {
             case "SPM":
                 graph = try SBOMTestModulesGraph.createSPMModulesGraph()
@@ -164,7 +164,7 @@ struct SBOMEncoderTests {
             default:
                 fatalError("Unknown graph name: \(graphName)")
             }
-            
+
             let extractor = SBOMExtractor(modulesGraph: graph, dependencyGraph: nil, store: store)
             let sbom = try await extractor.extractSBOM()
             let encoder = SBOMEncoder(sbom: sbom, observabilityScope: ObservabilitySystem.makeForTesting().topScope)
@@ -189,7 +189,7 @@ extension SBOMEncoderTests {
     func writeSBOMsWithInMemoryFileSystemCreatesDirectory() async throws {
         let fs = InMemoryFileSystem()
         let outputDir = try AbsolutePath(validating: "/output")
-        
+
         let graph = try SBOMTestModulesGraph.createSimpleModulesGraph()
         let store = try SBOMTestStore.createSimpleResolvedPackagesStore()
         let extractor = SBOMExtractor(modulesGraph: graph, dependencyGraph: nil, store: store)
@@ -200,7 +200,7 @@ extension SBOMEncoderTests {
 
         #expect(fs.exists(outputDir), "Output directory should be created in InMemoryFileSystem")
         #expect(!outputs.isEmpty, "Output paths should not be empty")
-        
+
         // Verify file was written to in-memory filesystem
         let files = try fs.getDirectoryContents(outputDir)
         #expect(files.count == 1, "Should write exactly one file")
@@ -210,7 +210,7 @@ extension SBOMEncoderTests {
     func writeSBOMsWithInMemoryFileSystemWritesValidJSON() async throws {
         let fs = InMemoryFileSystem()
         let outputDir = try AbsolutePath(validating: "/output")
-        
+
         let graph = try SBOMTestModulesGraph.createSimpleModulesGraph()
         let store = try SBOMTestStore.createSimpleResolvedPackagesStore()
         let extractor = SBOMExtractor(modulesGraph: graph, dependencyGraph: nil, store: store)
@@ -220,7 +220,7 @@ extension SBOMEncoderTests {
         let outputs = try await encoder.writeSBOMs(specs: [.cyclonedx], outputDir: outputDir, fileSystem: fs)
 
         #expect(!outputs.isEmpty, "Output paths should not be empty")
-        
+
         // Verify the file content is valid JSON
         let outputPath = outputs[0].path
         try self.verifyJsonContentIsValid(at: outputPath, fileSystem: fs)
@@ -230,7 +230,7 @@ extension SBOMEncoderTests {
     func writeSBOMsWithInMemoryFileSystemHandlesMultipleSpecs() async throws {
         let fs = InMemoryFileSystem()
         let outputDir = try AbsolutePath(validating: "/output")
-        
+
         let graph = try SBOMTestModulesGraph.createSimpleModulesGraph()
         let store = try SBOMTestStore.createSimpleResolvedPackagesStore()
         let extractor = SBOMExtractor(modulesGraph: graph, dependencyGraph: nil, store: store)
@@ -240,10 +240,10 @@ extension SBOMEncoderTests {
         let outputs = try await encoder.writeSBOMs(specs: [.cyclonedx, .spdx], outputDir: outputDir, fileSystem: fs)
 
         #expect(outputs.count == 2, "Should generate two output paths")
-        
+
         let files = try fs.getDirectoryContents(outputDir)
         #expect(files.count == 2, "Should write two files to InMemoryFileSystem")
-        
+
         // Verify both files are valid JSON
         for output in outputs {
             try self.verifyJsonContentIsValid(at: output.path, fileSystem: fs)
@@ -254,7 +254,7 @@ extension SBOMEncoderTests {
     func encodeSBOMWithInMemoryFileSystemWritesFile() async throws {
         let fs = InMemoryFileSystem()
         let outputDir = try AbsolutePath(validating: "/output")
-        
+
         let graph = try SBOMTestModulesGraph.createSimpleModulesGraph()
         let store = try SBOMTestStore.createSimpleResolvedPackagesStore()
         let extractor = SBOMExtractor(modulesGraph: graph, dependencyGraph: nil, store: store)
@@ -272,7 +272,7 @@ extension SBOMEncoderTests {
     func writeSBOMsWithInMemoryFileSystemIsolatesTestFromFilesystem() async throws {
         let fs = InMemoryFileSystem()
         let outputDir = try AbsolutePath(validating: "/isolated-test-output")
-        
+
         let graph = try SBOMTestModulesGraph.createSimpleModulesGraph()
         let store = try SBOMTestStore.createSimpleResolvedPackagesStore()
         let extractor = SBOMExtractor(modulesGraph: graph, dependencyGraph: nil, store: store)
@@ -284,10 +284,10 @@ extension SBOMEncoderTests {
         // Verify files exist in InMemoryFileSystem
         #expect(fs.exists(outputDir), "Directory should exist in InMemoryFileSystem")
         #expect(outputs.count == 2, "Should generate two files")
-        
+
         // Verify files do NOT exist on actual filesystem
         #expect(!localFileSystem.exists(outputDir), "Directory should NOT exist on actual filesystem")
-        
+
         // Verify we can read from InMemoryFileSystem
         let files = try fs.getDirectoryContents(outputDir)
         #expect(files.count == 2, "Should have two files in InMemoryFileSystem")

@@ -160,7 +160,6 @@ public protocol PackageCollectionsProtocol {
     ) async throws -> PackageCollectionsModel.TargetSearchResult
 }
 
-
 public enum PackageCollectionError: Equatable, Error {
     /// Package collection is not signed and there is no record of user's trust selection
     case trustConfirmationRequired
@@ -184,7 +183,7 @@ public enum PackageCollectionError: Equatable, Error {
 public protocol PackageIndexProtocol {
     /// Returns true if the package index is configured.
     var isEnabled: Bool { get }
-    
+
     /// Returns metadata for the package identified by the given `PackageIdentity`.
     ///
     /// A failure is returned if the package is not found.
@@ -221,7 +220,7 @@ public enum PackageIndexError: Equatable, Error {
     case featureDisabled
     /// No package index configured
     case notConfigured
-    
+
     case invalidURL(URL)
     case invalidResponse(URL, String)
 }

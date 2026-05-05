@@ -65,7 +65,7 @@ public enum ProductSetting: Equatable, Codable, Sendable, Hashable {
             case phone
             case mac
         }
-        
+
         public struct DeviceFamilyCondition: Equatable, Codable, Sendable, Hashable {
             public let deviceFamilies: [DeviceFamily]
             public init(deviceFamilies: [DeviceFamily]) {
@@ -79,7 +79,7 @@ public enum ProductSetting: Equatable, Codable, Sendable, Hashable {
             case landscapeRight(condition: DeviceFamilyCondition?)
             case landscapeLeft(condition: DeviceFamilyCondition?)
         }
-        
+
         public enum AppIcon: Equatable, Codable, Sendable, Hashable {
             public struct PlaceholderIcon: Equatable, Codable, Sendable, Hashable {
                 public var rawValue: String
@@ -114,7 +114,7 @@ public enum ProductSetting: Equatable, Codable, Sendable, Hashable {
             public var fileAccessLocation: String?
             public var fileAccessMode: String?
             public var condition: DeviceFamilyCondition?
-            
+
             public init(
                 purpose: String,
                 purposeString: String? = nil,
@@ -133,7 +133,7 @@ public enum ProductSetting: Equatable, Codable, Sendable, Hashable {
                 self.condition = condition
             }
         }
-        
+
         public struct AppTransportSecurityConfiguration: Equatable, Codable, Sendable, Hashable {
             public var allowsArbitraryLoadsInWebContent: Bool? = nil
             public var allowsArbitraryLoadsForMedia: Bool? = nil
@@ -148,7 +148,7 @@ public enum ProductSetting: Equatable, Codable, Sendable, Hashable {
                 public var exceptionMinimumTLSVersion: String? = nil
                 public var exceptionRequiresForwardSecrecy: Bool? = nil
                 public var requiresCertificateTransparency: Bool? = nil
-                
+
                 public init(
                     domainName: String,
                     includesSubdomains: Bool?,
@@ -165,18 +165,18 @@ public enum ProductSetting: Equatable, Codable, Sendable, Hashable {
                     self.requiresCertificateTransparency = requiresCertificateTransparency
                 }
             }
-            
+
             public struct PinnedDomain: Equatable, Codable, Sendable, Hashable {
                 public var domainName: String
-                public var includesSubdomains : Bool? = nil
-                public var pinnedCAIdentities : [[String: String]]? = nil
-                public var pinnedLeafIdentities : [[String: String]]? = nil
-                
+                public var includesSubdomains: Bool? = nil
+                public var pinnedCAIdentities: [[String: String]]? = nil
+                public var pinnedLeafIdentities: [[String: String]]? = nil
+
                 public init(
                     domainName: String,
                     includesSubdomains: Bool?,
-                    pinnedCAIdentities : [[String: String]]? ,
-                    pinnedLeafIdentities : [[String: String]]?
+                    pinnedCAIdentities: [[String: String]]?,
+                    pinnedLeafIdentities: [[String: String]]?
                 ) {
                     self.domainName = domainName
                     self.includesSubdomains = includesSubdomains
@@ -199,7 +199,7 @@ public enum ProductSetting: Equatable, Codable, Sendable, Hashable {
                 self.pinnedDomains = pinnedDomains
             }
         }
-        
+
         public struct AppCategory: Equatable, Codable, Sendable, Hashable {
             public var rawValue: String
 
@@ -227,7 +227,6 @@ public enum ProductSetting: Equatable, Codable, Sendable, Hashable {
         }
     }
 }
-
 
 extension ProductSetting {
     private enum CodingKeys: String, CodingKey {

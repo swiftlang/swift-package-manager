@@ -23,7 +23,7 @@ import struct SPMBuildCore.BuildSystemProvider
         .FunctionalArea.Resources,
     ),
 )
-struct ResourcesTests{
+struct ResourcesTests {
     @Test(
         .IssueWindowsRelativePathAssert,
         .IssueWindowsPathTestsFailures,
@@ -42,8 +42,8 @@ struct ResourcesTests{
 
                 // Objective-C module requires macOS
                 #if os(macOS)
-                executables.append("SeaResource")
-                executables.append("CPPResource")
+                    executables.append("SeaResource")
+                    executables.append("CPPResource")
                 #endif
 
                 for execName in executables {
@@ -100,12 +100,14 @@ struct ResourcesTests{
             let exec = try fixturePath.appending(components: buildSystem.binPath(for: configuration) + [executableName("exe")])
             // Note: <rdar://problem/59738569> Source from LANG and -AppleLanguages on command line for Linux resources
             let output = try await AsyncProcess.checkNonZeroExit(args: exec.pathString, "-AppleLanguages", "(en_US)").withSwiftLineEnding
-            #expect(output == """
-                ¡Hola Mundo!
-                Hallo Welt!
-                Bonjour le monde !
+            #expect(
+                output == """
+                    ¡Hola Mundo!
+                    Hallo Welt!
+                    Bonjour le monde !
 
-                """)
+                    """
+            )
         }
     }
 
@@ -129,7 +131,7 @@ struct ResourcesTests{
                     buildSystem: buildSystem,
                 )
             } when: {
-                [.windows, .linux].contains(ProcessInfo.hostOperatingSystem) // Test was originally enabled on macOS only
+                [.windows, .linux].contains(ProcessInfo.hostOperatingSystem)  // Test was originally enabled on macOS only
             }
         }
     }
@@ -150,16 +152,17 @@ struct ResourcesTests{
 
                 // Objective-C module requires macOS
                 #if os(macOS)
-                executables.append("SeaResource")
+                    executables.append("SeaResource")
                 #endif
 
-                let binPath = try AbsolutePath(validating:
-                    await executeSwiftBuild(
-                        fixturePath,
-                        configuration: configuration,
-                        extraArgs: ["--show-bin-path"],
-                        buildSystem: buildSystem,
-                    ).stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+                let binPath = try AbsolutePath(
+                    validating:
+                        await executeSwiftBuild(
+                            fixturePath,
+                            configuration: configuration,
+                            extraArgs: ["--show-bin-path"],
+                            buildSystem: buildSystem,
+                        ).stdout.trimmingCharacters(in: .whitespacesAndNewlines)
                 )
 
                 for execName in executables {
@@ -246,7 +249,7 @@ struct ResourcesTests{
     }
 
     @Test(
-        .serialized, // crash occurs when executed in parallel. needs investigation
+        .serialized,  // crash occurs when executed in parallel. needs investigation
         .issue("https://github.com/swiftlang/swift-package-manager/issues/9528", relationship: .defect),
         .tags(
             .Feature.Command.Build,
@@ -268,7 +271,10 @@ struct ResourcesTests{
                 let result = try await AsyncProcess.checkNonZeroExit(args: execPath.pathString)
                 #expect(result.contains("hello world"))
                 let resourcePath = fixturePath.appending(
-                    components: "Sources", "EmbedInCodeSimple", "best.txt")
+                    components: "Sources",
+                    "EmbedInCodeSimple",
+                    "best.txt"
+                )
 
                 // Check incremental builds
                 for i in 0..<2 {
@@ -291,7 +297,7 @@ struct ResourcesTests{
     }
 
     @Test(
-        .serialized, // crash occurs when executed in parallel. needs investigation
+        .serialized,  // crash occurs when executed in parallel. needs investigation
         .tags(
             .Feature.Command.Test,
         ),
@@ -301,14 +307,14 @@ struct ResourcesTests{
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let configuration = BuildConfiguration.debug
-            try await testWithTemporaryDirectory { tmpPath in
-                let packageDir = tmpPath.appending(components: "MyPackage")
+        try await testWithTemporaryDirectory { tmpPath in
+            let packageDir = tmpPath.appending(components: "MyPackage")
 
-                let manifestFile = packageDir.appending("Package.swift")
-                try localFileSystem.createDirectory(manifestFile.parentDirectory, recursive: true)
-                try localFileSystem.writeFileContents(
-                    manifestFile,
-                    string: """
+            let manifestFile = packageDir.appending("Package.swift")
+            try localFileSystem.createDirectory(manifestFile.parentDirectory, recursive: true)
+            try localFileSystem.writeFileContents(
+                manifestFile,
+                string: """
                     // swift-tools-version: 6.0
                     import PackageDescription
                     let package = Package(name: "MyPackage",
@@ -318,56 +324,61 @@ struct ResourcesTests{
                                 resources: [.copy("../resources")]
                             )
                         ])
-                    """)
+                    """
+            )
 
-                let targetSourceFile = packageDir.appending(components: "Sources", "exec", "main.swift")
-                try localFileSystem.createDirectory(targetSourceFile.parentDirectory, recursive: true)
-                try localFileSystem.writeFileContents(targetSourceFile, string: """
-                import Foundation
-                print(Bundle.module.resourcePath ?? "<empty>")
-                """)
+            let targetSourceFile = packageDir.appending(components: "Sources", "exec", "main.swift")
+            try localFileSystem.createDirectory(targetSourceFile.parentDirectory, recursive: true)
+            try localFileSystem.writeFileContents(
+                targetSourceFile,
+                string: """
+                    import Foundation
+                    print(Bundle.module.resourcePath ?? "<empty>")
+                    """
+            )
 
-                let resource = packageDir.appending(components: "Sources", "resources", "best.txt")
-                try localFileSystem.createDirectory(resource.parentDirectory, recursive: true)
-                try localFileSystem.writeFileContents(resource, string: "best")
-                try requireFileExists(at: resource)
+            let resource = packageDir.appending(components: "Sources", "resources", "best.txt")
+            try localFileSystem.createDirectory(resource.parentDirectory, recursive: true)
+            try localFileSystem.writeFileContents(resource, string: "best")
+            try requireFileExists(at: resource)
 
-                let (_, stderr) = try await executeSwiftBuild(
-                    packageDir,
-                    configuration: configuration,
-                    env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"],
-                    buildSystem: buildSystem,
-                )
-                // Filter some unrelated output that could show up on stderr.
-                let buidlSystemDeprecationDiag = Basics.Diagnostic.deprecatedBuildSystem(buildSystem: buildSystem)
-                let filteredStderr = stderr.components(separatedBy: "\n").filter { !$0.contains("[logging]") }
-                    .filter { !$0.contains("Unable to locate libSwiftScan") }
-                    .filter {
-                        !$0.contains(Basics.Diagnostic.deprecatedBuildSystem(buildSystem: buildSystem).message)
+            let (_, stderr) = try await executeSwiftBuild(
+                packageDir,
+                configuration: configuration,
+                env: ["SWIFT_DRIVER_SWIFTSCAN_LIB": "/this/is/a/bad/path"],
+                buildSystem: buildSystem,
+            )
+            // Filter some unrelated output that could show up on stderr.
+            let buidlSystemDeprecationDiag = Basics.Diagnostic.deprecatedBuildSystem(buildSystem: buildSystem)
+            let filteredStderr = stderr.components(separatedBy: "\n").filter { !$0.contains("[logging]") }
+                .filter { !$0.contains("Unable to locate libSwiftScan") }
+                .filter {
+                    !$0.contains(Basics.Diagnostic.deprecatedBuildSystem(buildSystem: buildSystem).message)
+                }
+                .filter { !$0.contains("Found unhandled resource") }
+                .joined(separator: "\n")
+            #expect(filteredStderr == "", "unexpectedly received error output: \(stderr)")
+
+            let builtProductsDir = try packageDir.appending(components: buildSystem.binPath(for: configuration))
+            // On Apple platforms, it's going to be `.bundle` and elsewhere `.resources`.
+            try requireDirectoryExists(at: builtProductsDir)
+            let potentialResourceBundleName = try #require(localFileSystem.getDirectoryContents(builtProductsDir).filter { $0.hasPrefix("MyPackage_exec.") }.first)
+
+            let additionalComponents: [String]
+            #if os(macOS)
+                additionalComponents =
+                    switch buildSystem {
+                    case .native: []
+                    case .swiftbuild: ["Contents", "Resources"]
+                    case .xcode: []  // This test expectation was not validated
                     }
-                    .filter { !$0.contains("Found unhandled resource") }
-                    .joined(separator: "\n")
-                #expect(filteredStderr == "", "unexpectedly received error output: \(stderr)")
-
-                let builtProductsDir = try packageDir.appending(components: buildSystem.binPath(for: configuration))
-                // On Apple platforms, it's going to be `.bundle` and elsewhere `.resources`.
-                try requireDirectoryExists(at: builtProductsDir)
-                let potentialResourceBundleName = try #require(localFileSystem.getDirectoryContents(builtProductsDir).filter { $0.hasPrefix("MyPackage_exec.") }.first)
-
-                let additionalComponents: [String]
-                #if os(macOS)
-                    additionalComponents = switch buildSystem {
-                        case .native: []
-                        case .swiftbuild: ["Contents", "Resources"]
-                        case .xcode: [] // This test expectation was not validated
-                    }
-                #else
-                    additionalComponents = []
-                #endif
-                let resourcePath = builtProductsDir.appending(components: [potentialResourceBundleName] + additionalComponents +  ["resources", "best.txt"])
-                try requireFileExists(at: resourcePath, "resource file wasn't copied by the build")
-                let contents = try String(contentsOfFile: resourcePath.pathString)
-                #expect(contents == "best", "unexpected resource contents: \(contents)")
-            }
+            #else
+                additionalComponents = []
+            #endif
+            let resourcePath = builtProductsDir.appending(components: [potentialResourceBundleName] + additionalComponents + ["resources", "best.txt"])
+            try requireFileExists(at: resourcePath, "resource file wasn't copied by the build")
+            let contents = try String(contentsOfFile: resourcePath.pathString)
+            #expect(contents == "best", "unexpected resource contents: \(contents)")
+        }
     }
 }

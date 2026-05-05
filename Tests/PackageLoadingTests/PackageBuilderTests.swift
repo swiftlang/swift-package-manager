@@ -25,15 +25,17 @@ import Testing
 struct PackageBuilderTests {
     @Test
     func testDotFilesAreIgnored() throws {
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/Sources/foo/.Bar.swift",
-            "/Sources/foo/Foo.swift")
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                "/Sources/foo/.Bar.swift",
+            "/Sources/foo/Foo.swift"
+        )
 
         let manifest = Manifest.createRootManifest(
             displayName: "pkg",
             path: .root,
             targets: [
-                try TargetDescription(name: "foo"),
+                try TargetDescription(name: "foo")
             ]
         )
         try PackageBuilderTester(manifest, in: fs) { package, _ in
@@ -46,15 +48,17 @@ struct PackageBuilderTests {
 
     @Test
     func testXCPrivacyIgnored() throws {
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/Sources/foo/PrivacyInfo.xcprivacy",
-            "/Sources/foo/Foo.swift")
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                "/Sources/foo/PrivacyInfo.xcprivacy",
+            "/Sources/foo/Foo.swift"
+        )
 
         let manifest = Manifest.createRootManifest(
             displayName: "pkg",
             path: .root,
             targets: [
-                try TargetDescription(name: "foo"),
+                try TargetDescription(name: "foo")
             ]
         )
         try PackageBuilderTester(manifest, in: fs) { package, _ in
@@ -70,8 +74,9 @@ struct PackageBuilderTests {
     func testMixedSources() throws {
         let foo: AbsolutePath = "/Sources/foo"
 
-        let fs = InMemoryFileSystem(emptyFiles:
-            foo.appending(components: "Foo.swift").pathString,
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                foo.appending(components: "Foo.swift").pathString,
             foo.appending(components: "CFoo.c").pathString
         )
 
@@ -80,7 +85,7 @@ struct PackageBuilderTests {
             path: .root,
             toolsVersion: try #require(ToolsVersion(string: "6.4.0", experimentalFeatures: [.experimentalMultiLang])),
             targets: [
-                try TargetDescription(name: "foo"),
+                try TargetDescription(name: "foo")
             ]
         )
         try PackageBuilderTester(manifest, in: fs) { package, diagnostics in
@@ -89,8 +94,9 @@ struct PackageBuilderTests {
             diagnostics.checkIsEmpty()
             try package.checkModule("foo") { module in
                 module.check(c99name: "foo")
-                module.checkSources(paths:
-                    "Foo.swift",
+                module.checkSources(
+                    paths:
+                        "Foo.swift",
                     "CFoo.c"
                 )
                 module.checkResources(resources: [])
@@ -102,8 +108,9 @@ struct PackageBuilderTests {
     func testMixedSourcesDisabled() throws {
         let foo: AbsolutePath = "/Sources/foo"
 
-        let fs = InMemoryFileSystem(emptyFiles:
-            foo.appending(components: "Foo.swift").pathString,
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                foo.appending(components: "Foo.swift").pathString,
             foo.appending(components: "CFoo.c").pathString
         )
 
@@ -111,7 +118,7 @@ struct PackageBuilderTests {
             displayName: "pkg",
             path: .root,
             targets: [
-                try TargetDescription(name: "foo"),
+                try TargetDescription(name: "foo")
             ]
         )
         try PackageBuilderTester(manifest, in: fs) { package, diagnostics in
@@ -139,7 +146,7 @@ struct PackageBuilderTests {
                 displayName: "pkg",
                 path: path,
                 targets: [
-                    try TargetDescription(name: "foo"),
+                    try TargetDescription(name: "foo")
                 ]
             )
 
@@ -170,7 +177,7 @@ struct PackageBuilderTests {
             let manifest = Manifest.createRootManifest(
                 displayName: "pkg",
                 targets: [
-                    try TargetDescription(name: "bar"),
+                    try TargetDescription(name: "bar")
                 ]
             )
 
@@ -182,9 +189,11 @@ struct PackageBuilderTests {
 
     @Test
     func testCInTests() throws {
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/Sources/MyPackage/main.swift",
-            "/Tests/MyPackageTests/abc.c")
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                "/Sources/MyPackage/main.swift",
+            "/Tests/MyPackageTests/abc.c"
+        )
 
         let manifest = Manifest.createRootManifest(
             displayName: "MyPackage",
@@ -207,32 +216,34 @@ struct PackageBuilderTests {
             package.checkProduct("MyPackage") { _ in }
 
             #if os(Linux)
-            diagnostics.check(
-                diagnostic: "ignoring target 'MyPackageTests' in package '\(package.packageIdentity)'; C language in tests is not yet supported",
-                severity: .warning
-            )
+                diagnostics.check(
+                    diagnostic: "ignoring target 'MyPackageTests' in package '\(package.packageIdentity)'; C language in tests is not yet supported",
+                    severity: .warning
+                )
             #elseif os(macOS) || os(Android) || os(Windows)
-            package.checkProduct("MyPackagePackageTests") { _ in }
+                package.checkProduct("MyPackagePackageTests") { _ in }
             #endif
         }
     }
 
     @Test
     func testValidSources() throws {
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/Sources/pkg/main.swift",
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                "/Sources/pkg/main.swift",
             "/Sources/pkg/noExtension",
             "/Sources/pkg/Package.swift",
             "/.git/anchor",
             "/.xcodeproj/anchor",
             "/.playground/anchor",
             "/Package.swift",
-            "/Packages/MyPackage/main.c")
+            "/Packages/MyPackage/main.c"
+        )
 
         let manifest = Manifest.createRootManifest(
             displayName: "pkg",
             targets: [
-                try TargetDescription(name: "pkg"),
+                try TargetDescription(name: "pkg")
             ]
         )
         try PackageBuilderTester(manifest, in: fs) { package, _ in
@@ -246,17 +257,19 @@ struct PackageBuilderTests {
 
     @Test
     func testVersionSpecificManifests() throws {
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/Package.swift",
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                "/Package.swift",
             "/Package@swift-999.swift",
             "/Sources/Foo/Package.swift",
-            "/Sources/Foo/Package@swift-1.swift")
+            "/Sources/Foo/Package@swift-1.swift"
+        )
 
         let name = "Foo"
         let manifest = Manifest.createRootManifest(
             displayName: name,
             targets: [
-                try TargetDescription(name: name),
+                try TargetDescription(name: name)
             ]
         )
         try PackageBuilderTester(manifest, in: fs) { package, _ in
@@ -269,8 +282,9 @@ struct PackageBuilderTests {
 
     @Test
     func testModuleMapLayout() throws {
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/Sources/clib/include/module.modulemap",
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                "/Sources/clib/include/module.modulemap",
             "/Sources/clib/include/clib.h",
             "/Sources/clib/clib.c"
         )
@@ -278,7 +292,7 @@ struct PackageBuilderTests {
         let manifest = Manifest.createRootManifest(
             displayName: "MyPackage",
             targets: [
-                try TargetDescription(name: "clib"),
+                try TargetDescription(name: "clib")
             ]
         )
         try PackageBuilderTester(manifest, in: fs) { package, _ in
@@ -294,8 +308,9 @@ struct PackageBuilderTests {
     func testPublicIncludeDirMixedWithSources() throws {
         let Sources: AbsolutePath = "/Sources"
 
-        let fs = InMemoryFileSystem(emptyFiles:
-            Sources.appending(components: "clib", "nested", "nested.h").pathString,
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                Sources.appending(components: "clib", "nested", "nested.h").pathString,
             Sources.appending(components: "clib", "nested", "nested.c").pathString,
             Sources.appending(components: "clib", "clib.h").pathString,
             Sources.appending(components: "clib", "clib.c").pathString,
@@ -312,7 +327,7 @@ struct PackageBuilderTests {
                     path: "Sources",
                     sources: ["clib", "clib"],
                     publicHeadersPath: "."
-                ),
+                )
             ]
         )
         try PackageBuilderTester(manifest, in: fs) { package, diags in
@@ -332,8 +347,9 @@ struct PackageBuilderTests {
     func testDeclaredSourcesWithDot() throws {
         let swiftLib: RelativePath = RelativePath("swift.lib")
 
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/Sources/swift.lib/foo.swift",
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                "/Sources/swift.lib/foo.swift",
             "/Sources/swiftlib1/swift.lib/foo.swift",
             "/Sources/swiftlib2/swift.lib/foo.swift",
             "/Sources/swiftlib3/swift.lib/foo.swift",
@@ -380,8 +396,9 @@ struct PackageBuilderTests {
 
     @Test
     func testOverlappingDeclaredSources() throws {
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/Sources/clib/subfolder/foo.h",
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                "/Sources/clib/subfolder/foo.h",
             "/Sources/clib/subfolder/foo.c",
             "/Sources/clib/bar.h",
             "/Sources/clib/bar.c",
@@ -395,7 +412,7 @@ struct PackageBuilderTests {
                     name: "clib",
                     path: "Sources",
                     sources: ["clib", "clib/subfolder"]
-                ),
+                )
             ]
         )
         try PackageBuilderTester(manifest, in: fs) { result, _ in
@@ -409,15 +426,16 @@ struct PackageBuilderTests {
     func testDeclaredExecutableProducts() throws {
         // Check that declaring executable product doesn't collide with the
         // inferred products.
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/Sources/exec/main.swift",
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                "/Sources/exec/main.swift",
             "/Sources/foo/foo.swift"
         )
 
         var manifest = Manifest.createRootManifest(
             displayName: "pkg",
             products: [
-                try ProductDescription(name: "exec", type: .executable, targets: ["exec", "foo"]),
+                try ProductDescription(name: "exec", type: .executable, targets: ["exec", "foo"])
             ],
             targets: [
                 try TargetDescription(name: "foo"),
@@ -453,7 +471,7 @@ struct PackageBuilderTests {
         manifest = Manifest.createRootManifest(
             displayName: "pkg",
             products: [
-                try ProductDescription(name: "exec1", type: .executable, targets: ["exec"]),
+                try ProductDescription(name: "exec1", type: .executable, targets: ["exec"])
             ],
             targets: [
                 try TargetDescription(name: "foo"),
@@ -471,8 +489,9 @@ struct PackageBuilderTests {
 
     @Test
     func testExecutableTargets() throws {
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/Sources/exec1/exec.swift",
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                "/Sources/exec1/exec.swift",
             "/Sources/exec2/main.swift",
             "/Sources/lib/lib.swift"
         )
@@ -482,7 +501,7 @@ struct PackageBuilderTests {
             displayName: "pkg",
             toolsVersion: .v5_5,
             products: [
-                try ProductDescription(name: "exec1", type: .executable, targets: ["exec1", "lib"]),
+                try ProductDescription(name: "exec1", type: .executable, targets: ["exec1", "lib"])
             ],
             targets: [
                 try TargetDescription(name: "exec1", type: .executable),
@@ -520,7 +539,7 @@ struct PackageBuilderTests {
             displayName: "pkg",
             toolsVersion: .v5_5,
             products: [
-                try ProductDescription(name: "exec1", type: .executable, targets: ["exec1"]),
+                try ProductDescription(name: "exec1", type: .executable, targets: ["exec1"])
             ],
             targets: [
                 try TargetDescription(name: "lib"),
@@ -540,7 +559,7 @@ struct PackageBuilderTests {
             displayName: "pkg",
             toolsVersion: .v5_5,
             products: [
-                try ProductDescription(name: "exec1", type: .executable, targets: ["exec1"]),
+                try ProductDescription(name: "exec1", type: .executable, targets: ["exec1"])
             ],
             targets: [
                 try TargetDescription(name: "lib"),
@@ -560,7 +579,7 @@ struct PackageBuilderTests {
             displayName: "pkg",
             toolsVersion: .v5_5,
             products: [
-                try ProductDescription(name: "exec2", type: .executable, targets: ["exec2"]),
+                try ProductDescription(name: "exec2", type: .executable, targets: ["exec2"])
             ],
             targets: [
                 try TargetDescription(name: "lib"),
@@ -583,8 +602,9 @@ struct PackageBuilderTests {
     @Test
     func testTestEntryPointFound() throws {
         try SwiftModule.testEntryPointNames.forEach { name in
-            let fs = InMemoryFileSystem(emptyFiles:
-                "/swift/exe/foo.swift",
+            let fs = InMemoryFileSystem(
+                emptyFiles:
+                    "/swift/exe/foo.swift",
                 "/\(name)",
                 "/swift/tests/footests.swift"
             )
@@ -623,8 +643,9 @@ struct PackageBuilderTests {
     )
     func testTestManifestSearch() throws {
         try withKnownIssue(isIntermittent: true) {
-            let fs = InMemoryFileSystem(emptyFiles:
-                "/pkg/foo.swift",
+            let fs = InMemoryFileSystem(
+                emptyFiles:
+                    "/pkg/foo.swift",
                 "/pkg/footests.swift"
             )
 
@@ -665,10 +686,10 @@ struct PackageBuilderTests {
         let manifest = Manifest.createRootManifest(
             displayName: "pkg",
             products: [
-                try ProductDescription(name: "", type: .library(.automatic), targets: ["best"]),
+                try ProductDescription(name: "", type: .library(.automatic), targets: ["best"])
             ],
             targets: [
-                try TargetDescription(name: "best"),
+                try TargetDescription(name: "best")
             ]
         )
 
@@ -682,8 +703,9 @@ struct PackageBuilderTests {
         let name = SwiftModule.defaultTestEntryPointName
         let swift: AbsolutePath = "/swift"
 
-        let fs = InMemoryFileSystem(emptyFiles:
-            AbsolutePath.root.appending(components: name).pathString,
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                AbsolutePath.root.appending(components: name).pathString,
             swift.appending(components: name).pathString,
             swift.appending(components: "tests", "footests.swift").pathString
         )
@@ -695,7 +717,7 @@ struct PackageBuilderTests {
                     name: "tests",
                     path: "swift/tests",
                     type: .test
-                ),
+                )
             ]
         )
         try PackageBuilderTester(manifest, in: fs) { package, diagnostics in
@@ -709,8 +731,9 @@ struct PackageBuilderTests {
         let swift: RelativePath = "swift"
         let bar: AbsolutePath = "/bar"
 
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/mah/target/exe/swift/exe/main.swift",
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                "/mah/target/exe/swift/exe/main.swift",
             "/mah/target/exe/swift/exe/foo.swift",
             "/mah/target/exe/swift/bar.swift",
             "/mah/target/exe/shouldBeIgnored.swift",
@@ -728,18 +751,22 @@ struct PackageBuilderTests {
                 try TargetDescription(
                     name: "exe",
                     path: "mah/target/exe",
-                    sources: [swift.pathString]),
+                    sources: [swift.pathString]
+                ),
                 try TargetDescription(
                     name: "clib",
                     path: "mah/target/exe",
-                    sources: ["foo.c"]),
+                    sources: ["foo.c"]
+                ),
                 try TargetDescription(
-                    name: "foo"),
+                    name: "foo"
+                ),
                 try TargetDescription(
                     name: "bar",
                     path: "bar",
                     exclude: ["bar/excluded.swift", "bar/fixture"],
-                    sources: ["bar"]),
+                    sources: ["bar"]
+                ),
             ]
         )
         try PackageBuilderTester(manifest, in: fs) { package, _ in
@@ -747,8 +774,12 @@ struct PackageBuilderTests {
 
             try package.checkModule("exe") { module in
                 module.check(c99name: "exe", type: .executable)
-                module.checkSources(root: "/mah/target/exe",
-                    paths: swift.appending(components: "exe", "main.swift").pathString, swift.appending(components: "exe", "foo.swift").pathString, swift.appending(components: "bar.swift").pathString)
+                module.checkSources(
+                    root: "/mah/target/exe",
+                    paths: swift.appending(components: "exe", "main.swift").pathString,
+                    swift.appending(components: "exe", "foo.swift").pathString,
+                    swift.appending(components: "bar.swift").pathString
+                )
             }
 
             try package.checkModule("clib") { module in
@@ -774,8 +805,9 @@ struct PackageBuilderTests {
     func testCustomTargetPathsOverlap() throws {
         let bar: AbsolutePath = "/target/bar"
 
-        let fs = InMemoryFileSystem(emptyFiles:
-            bar.appending(components: "bar.swift").pathString,
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                bar.appending(components: "bar.swift").pathString,
             bar.appending(components: "Tests", "barTests.swift").pathString
         )
 
@@ -784,11 +816,13 @@ struct PackageBuilderTests {
             targets: [
                 try TargetDescription(
                     name: "bar",
-                    path: "target/bar"),
+                    path: "target/bar"
+                ),
                 try TargetDescription(
                     name: "barTests",
                     path: "target/bar/Tests",
-                    type: .test),
+                    type: .test
+                ),
             ]
         )
         try PackageBuilderTester(manifest, in: fs) { package, diagnostics in
@@ -801,11 +835,13 @@ struct PackageBuilderTests {
                 try TargetDescription(
                     name: "bar",
                     path: "target/bar",
-                    exclude: ["Tests"]),
+                    exclude: ["Tests"]
+                ),
                 try TargetDescription(
                     name: "barTests",
                     path: "target/bar/Tests",
-                    type: .test),
+                    type: .test
+                ),
             ]
         )
         try PackageBuilderTester(manifest, in: fs) { package, _ in
@@ -830,8 +866,9 @@ struct PackageBuilderTests {
         let Sources: AbsolutePath = "/Sources"
         let Tests: AbsolutePath = "/Tests"
 
-        let fs = InMemoryFileSystem(emptyFiles:
-            Sources.appending(components: "Foo", "inc", "module.modulemap").pathString,
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                Sources.appending(components: "Foo", "inc", "module.modulemap").pathString,
             Sources.appending(components: "Foo", "inc", "Foo.h").pathString,
             Sources.appending(components: "Foo", "Foo_private.h").pathString,
             Sources.appending(components: "Foo", "Foo.c").pathString,
@@ -845,9 +882,11 @@ struct PackageBuilderTests {
             targets: [
                 try TargetDescription(
                     name: "Foo",
-                    publicHeadersPath: "inc"),
+                    publicHeadersPath: "inc"
+                ),
                 try TargetDescription(
-                    name: "Bar"),
+                    name: "Bar"
+                ),
             ]
         )
 
@@ -856,7 +895,7 @@ struct PackageBuilderTests {
 
             try package.checkModule("Foo") { module in
                 let clangTarget = try #require(module.target as? ClangModule)
-                #expect(clangTarget.headers.map{ $0.pathString } == [Sources.appending(components: "Foo", "Foo_private.h").pathString, Sources.appending(components: "Foo", "inc", "Foo.h").pathString])
+                #expect(clangTarget.headers.map { $0.pathString } == [Sources.appending(components: "Foo", "Foo_private.h").pathString, Sources.appending(components: "Foo", "inc", "Foo.h").pathString])
                 module.check(c99name: "Foo", type: .library)
                 module.checkSources(root: Sources.appending(components: "Foo").pathString, paths: "Foo.c")
                 module.check(includeDir: Sources.appending(components: "Foo", "inc").pathString)
@@ -874,8 +913,9 @@ struct PackageBuilderTests {
 
     @Test
     func testInvalidPublicHeadersPath() throws {
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/Sources/Foo/inc/module.modulemap",
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                "/Sources/Foo/inc/module.modulemap",
             "/Sources/Foo/inc/Foo.h",
             "/Sources/Foo/Foo.c",
             "/Sources/Bar/include/module.modulemap",
@@ -888,9 +928,11 @@ struct PackageBuilderTests {
             targets: [
                 try TargetDescription(
                     name: "Foo",
-                    publicHeadersPath: "/inc"),
+                    publicHeadersPath: "/inc"
+                ),
                 try TargetDescription(
-                    name: "Bar"),
+                    name: "Bar"
+                ),
             ]
         )
 
@@ -903,8 +945,9 @@ struct PackageBuilderTests {
     func testTestsLayoutsv4() throws {
         let Sources: AbsolutePath = "/Sources"
 
-        let fs = InMemoryFileSystem(emptyFiles:
-            Sources.appending(components: "A", "main.swift").pathString,
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                Sources.appending(components: "A", "main.swift").pathString,
             "/Tests/B/Foo.swift",
             "/Tests/ATests/Foo.swift",
             "/Tests/TheTestOfA/Foo.swift"
@@ -952,8 +995,9 @@ struct PackageBuilderTests {
 
     @Test
     func testMultipleTestProducts() throws {
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/Sources/foo/foo.swift",
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                "/Sources/foo/foo.swift",
             "/Tests/fooTests/foo.swift",
             "/Tests/barTests/bar.swift"
         )
@@ -991,10 +1035,12 @@ struct PackageBuilderTests {
 
     @Test
     func testCustomTargetDependencies() throws {
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/Sources/Foo/Foo.swift",
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                "/Sources/Foo/Foo.swift",
             "/Sources/Bar/Bar.swift",
-            "/Sources/Baz/Baz.swift")
+            "/Sources/Baz/Baz.swift"
+        )
 
         // Direct.
         var manifest = Manifest.createRootManifest(
@@ -1053,8 +1099,9 @@ struct PackageBuilderTests {
     func testTargetDependencies() throws {
         let Sources: AbsolutePath = "/Sources"
 
-        let fs = InMemoryFileSystem(emptyFiles:
-            Sources.appending(components: "Foo", "Foo.swift").pathString,
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                Sources.appending(components: "Foo", "Foo.swift").pathString,
             Sources.appending(components: "Bar", "Bar.swift").pathString,
             Sources.appending(components: "Baz", "Baz.swift").pathString
         )
@@ -1066,7 +1113,8 @@ struct PackageBuilderTests {
                 try TargetDescription(name: "Baz"),
                 try TargetDescription(
                     name: "Foo",
-                    dependencies: ["Bar", "Baz", "Bam"]),
+                    dependencies: ["Bar", "Baz", "Bam"]
+                ),
             ]
         )
         try PackageBuilderTester(manifest, in: fs) { package, _ in
@@ -1096,14 +1144,15 @@ struct PackageBuilderTests {
         let predefinedSourceDir = PackageBuilder.suggestedPredefinedSourceDirectory(type: .regular)
         do {
             // Single target: Sources are expected in ./Sources.
-            let fs = InMemoryFileSystem(emptyFiles:
-                "/\(predefinedSourceDir)/Foo.swift"
+            let fs = InMemoryFileSystem(
+                emptyFiles:
+                    "/\(predefinedSourceDir)/Foo.swift"
             )
             let manifest = Manifest.createRootManifest(
                 displayName: "pkg",
                 toolsVersion: .v5_9,
                 targets: [
-                    try TargetDescription(name: "Random"),
+                    try TargetDescription(name: "Random")
                 ]
             )
 
@@ -1118,14 +1167,15 @@ struct PackageBuilderTests {
             // In this case, there is a stray source file at the top-level, and no sources
             // under ./Sources, so the target Random has no sources.
             // This results in a *warning* that there are no sources for the target.
-            let fs = InMemoryFileSystem(emptyFiles:
-                "/Stray.swift"
+            let fs = InMemoryFileSystem(
+                emptyFiles:
+                    "/Stray.swift"
             )
             let manifest = Manifest.createRootManifest(
                 displayName: "pkg",
                 toolsVersion: .v5_9,
                 targets: [
-                    try TargetDescription(name: "Random"),
+                    try TargetDescription(name: "Random")
                 ]
             )
             try PackageBuilderTester(manifest, in: fs) { _, diagnostics in
@@ -1135,15 +1185,16 @@ struct PackageBuilderTests {
         do {
             // Single target: Sources are expected in ./Sources. In this case,
             // there is a stray source file at the top-level which is ignored.
-            let fs = InMemoryFileSystem(emptyFiles:
-                "/Stray.swift",
+            let fs = InMemoryFileSystem(
+                emptyFiles:
+                    "/Stray.swift",
                 "/\(predefinedSourceDir)/Random.swift"
             )
             let manifest = Manifest.createRootManifest(
                 displayName: "pkg",
                 toolsVersion: .v5_9,
                 targets: [
-                    try TargetDescription(name: "Random"),
+                    try TargetDescription(name: "Random")
                 ]
             )
             try PackageBuilderTester(manifest, in: fs) { package, diagnostics in
@@ -1154,15 +1205,16 @@ struct PackageBuilderTests {
             // Single target: Sources can be expected in ./Sources/<target>.
             // If that directory exists, stray sources inside ./Sources will
             // not be included in the target.
-            let fs = InMemoryFileSystem(emptyFiles:
-                "/\(predefinedSourceDir)/Stray.swift",
+            let fs = InMemoryFileSystem(
+                emptyFiles:
+                    "/\(predefinedSourceDir)/Stray.swift",
                 "/\(predefinedSourceDir)/Random/Random.swift"
             )
             let manifest = Manifest.createRootManifest(
                 displayName: "pkg",
                 toolsVersion: .v5_9,
                 targets: [
-                    try TargetDescription(name: "Random"),
+                    try TargetDescription(name: "Random")
                 ]
             )
             try PackageBuilderTester(manifest, in: fs) { package, diagnostics in
@@ -1174,8 +1226,9 @@ struct PackageBuilderTests {
         do {
             // Multiple targets: Sources are expected in their respective subdirectories
             // under Sources
-            let fs = InMemoryFileSystem(emptyFiles:
-                "/Foo.swift"
+            let fs = InMemoryFileSystem(
+                emptyFiles:
+                    "/Foo.swift"
             )
             let manifest = Manifest.createRootManifest(
                 displayName: "pkg",
@@ -1196,14 +1249,15 @@ struct PackageBuilderTests {
         let predefinedSourceDir = PackageBuilder.suggestedPredefinedSourceDirectory(type: .test)
         do {
             // Single target: Sources are expected in ./Sources.
-            let fs = InMemoryFileSystem(emptyFiles:
-                "/\(predefinedSourceDir)/Foo.swift"
+            let fs = InMemoryFileSystem(
+                emptyFiles:
+                    "/\(predefinedSourceDir)/Foo.swift"
             )
             let manifest = Manifest.createRootManifest(
                 displayName: "pkg",
                 toolsVersion: .v5_9,
                 targets: [
-                    try TargetDescription(name: "MyTests", type: .test),
+                    try TargetDescription(name: "MyTests", type: .test)
                 ]
             )
 
@@ -1219,14 +1273,15 @@ struct PackageBuilderTests {
             // In this case, there is a stray source file at the top-level, and no sources
             // under ./Tests, so the target RandomTests has no sources.
             // This results in a *warning* that there are no sources for the target.
-            let fs = InMemoryFileSystem(emptyFiles:
-                "/Stray.swift"
+            let fs = InMemoryFileSystem(
+                emptyFiles:
+                    "/Stray.swift"
             )
             let manifest = Manifest.createRootManifest(
                 displayName: "pkg",
                 toolsVersion: .v5_9,
                 targets: [
-                    try TargetDescription(name: "RandomTests", type: .test),
+                    try TargetDescription(name: "RandomTests", type: .test)
                 ]
             )
             try PackageBuilderTester(manifest, in: fs) { _, diagnostics in
@@ -1236,15 +1291,16 @@ struct PackageBuilderTests {
         do {
             // Single target: Sources are expected in ./Tests. In this case,
             // there is a stray source file at the top-level which is ignored.
-            let fs = InMemoryFileSystem(emptyFiles:
-                "/Stray.swift",
+            let fs = InMemoryFileSystem(
+                emptyFiles:
+                    "/Stray.swift",
                 "/\(predefinedSourceDir)/RandomTests.swift"
             )
             let manifest = Manifest.createRootManifest(
                 displayName: "pkg",
                 toolsVersion: .v5_9,
                 targets: [
-                    try TargetDescription(name: "RandomTests", type: .test),
+                    try TargetDescription(name: "RandomTests", type: .test)
                 ]
             )
             try PackageBuilderTester(manifest, in: fs) { package, diagnostics in
@@ -1256,15 +1312,16 @@ struct PackageBuilderTests {
             // Single target: Sources can be expected in ./Tests/<target>.
             // If that directory exists, stray sources inside ./Tests will
             // not be included in the target.
-            let fs = InMemoryFileSystem(emptyFiles:
-                "/\(predefinedSourceDir)/Stray.swift",
+            let fs = InMemoryFileSystem(
+                emptyFiles:
+                    "/\(predefinedSourceDir)/Stray.swift",
                 "/\(predefinedSourceDir)/RandomTests/Random.swift"
             )
             let manifest = Manifest.createRootManifest(
                 displayName: "pkg",
                 toolsVersion: .v5_9,
                 targets: [
-                    try TargetDescription(name: "RandomTests", type: .test),
+                    try TargetDescription(name: "RandomTests", type: .test)
                 ]
             )
             try PackageBuilderTester(manifest, in: fs) { package, diagnostics in
@@ -1277,8 +1334,9 @@ struct PackageBuilderTests {
         do {
             // Multiple targets: Sources are expected in their respective subdirectories
             // under Sources
-            let fs = InMemoryFileSystem(emptyFiles:
-                "/Foo.swift"
+            let fs = InMemoryFileSystem(
+                emptyFiles:
+                    "/Foo.swift"
             )
             let manifest = Manifest.createRootManifest(
                 displayName: "pkg",
@@ -1299,14 +1357,15 @@ struct PackageBuilderTests {
         let predefinedSourceDir = PackageBuilder.suggestedPredefinedSourceDirectory(type: .plugin)
         do {
             // Single target: Sources are expected in ./Sources.
-            let fs = InMemoryFileSystem(emptyFiles:
-                "/\(predefinedSourceDir)/Foo.swift"
+            let fs = InMemoryFileSystem(
+                emptyFiles:
+                    "/\(predefinedSourceDir)/Foo.swift"
             )
             let manifest = Manifest.createRootManifest(
                 displayName: "pkg",
                 toolsVersion: .v5_9,
                 targets: [
-                    try TargetDescription(name: "MyPlugin", type: .plugin, pluginCapability: .buildTool),
+                    try TargetDescription(name: "MyPlugin", type: .plugin, pluginCapability: .buildTool)
                 ]
             )
 
@@ -1321,14 +1380,15 @@ struct PackageBuilderTests {
             // In this case, there is a stray source file at the top-level, and no sources
             // under ./Plugins, so the target Random has no sources.
             // This results in a *warning* that there are no sources for the target.
-            let fs = InMemoryFileSystem(emptyFiles:
-                "/Stray.swift"
+            let fs = InMemoryFileSystem(
+                emptyFiles:
+                    "/Stray.swift"
             )
             let manifest = Manifest.createRootManifest(
                 displayName: "pkg",
                 toolsVersion: .v5_9,
                 targets: [
-                    try TargetDescription(name: "Random", type: .plugin, pluginCapability: .buildTool),
+                    try TargetDescription(name: "Random", type: .plugin, pluginCapability: .buildTool)
                 ]
             )
             try PackageBuilderTester(manifest, in: fs) { _, diagnostics in
@@ -1339,15 +1399,16 @@ struct PackageBuilderTests {
         do {
             // Single target: Sources are expected in ./Plugins. In this case,
             // there is a stray source file at the top-level which is ignored.
-            let fs = InMemoryFileSystem(emptyFiles:
-                "/Stray.swift",
+            let fs = InMemoryFileSystem(
+                emptyFiles:
+                    "/Stray.swift",
                 "/\(predefinedSourceDir)/Random.swift"
             )
             let manifest = Manifest.createRootManifest(
                 displayName: "pkg",
                 toolsVersion: .v5_9,
                 targets: [
-                    try TargetDescription(name: "Random", type: .plugin, pluginCapability: .buildTool),
+                    try TargetDescription(name: "Random", type: .plugin, pluginCapability: .buildTool)
                 ]
             )
             try PackageBuilderTester(manifest, in: fs) { package, diagnostics in
@@ -1358,15 +1419,16 @@ struct PackageBuilderTests {
             // Single target: Sources can be expected in ./Plugins/<target>.
             // If that directory exists, stray sources inside ./Plugins will
             // not be included in the target.
-            let fs = InMemoryFileSystem(emptyFiles:
-                "/\(predefinedSourceDir)/Stray.swift",
+            let fs = InMemoryFileSystem(
+                emptyFiles:
+                    "/\(predefinedSourceDir)/Stray.swift",
                 "/\(predefinedSourceDir)/Random/Random.swift"
             )
             let manifest = Manifest.createRootManifest(
                 displayName: "pkg",
                 toolsVersion: .v5_9,
                 targets: [
-                    try TargetDescription(name: "Random", type: .plugin, pluginCapability: .buildTool),
+                    try TargetDescription(name: "Random", type: .plugin, pluginCapability: .buildTool)
                 ]
             )
             try PackageBuilderTester(manifest, in: fs) { package, diagnostics in
@@ -1378,8 +1440,9 @@ struct PackageBuilderTests {
         do {
             // Multiple targets: Sources are expected in their respective subdirectories
             // under Sources
-            let fs = InMemoryFileSystem(emptyFiles:
-                "/Foo.swift"
+            let fs = InMemoryFileSystem(
+                emptyFiles:
+                    "/Foo.swift"
             )
             let manifest = Manifest.createRootManifest(
                 displayName: "pkg",
@@ -1400,14 +1463,15 @@ struct PackageBuilderTests {
         let predefinedSourceDir = PackageBuilder.suggestedPredefinedSourceDirectory(type: .executable)
         do {
             // Single target: Sources are expected in ./Sources.
-            let fs = InMemoryFileSystem(emptyFiles:
-                "/\(predefinedSourceDir)/Foo.swift"
+            let fs = InMemoryFileSystem(
+                emptyFiles:
+                    "/\(predefinedSourceDir)/Foo.swift"
             )
             let manifest = Manifest.createRootManifest(
                 displayName: "pkg",
                 toolsVersion: .v5_9,
                 targets: [
-                    try TargetDescription(name: "MyExe", type: .executable),
+                    try TargetDescription(name: "MyExe", type: .executable)
                 ]
             )
 
@@ -1423,14 +1487,15 @@ struct PackageBuilderTests {
             // In this case, there is a stray source file at the top-level, and no sources
             // under ./Sources, so the target Random has no sources.
             // This results in a *warning* that there are no sources for the target.
-            let fs = InMemoryFileSystem(emptyFiles:
-                "/Stray.swift"
+            let fs = InMemoryFileSystem(
+                emptyFiles:
+                    "/Stray.swift"
             )
             let manifest = Manifest.createRootManifest(
                 displayName: "pkg",
                 toolsVersion: .v5_9,
                 targets: [
-                    try TargetDescription(name: "Random", type: .executable),
+                    try TargetDescription(name: "Random", type: .executable)
                 ]
             )
             try PackageBuilderTester(manifest, in: fs) { _, diagnostics in
@@ -1440,8 +1505,9 @@ struct PackageBuilderTests {
         do {
             // Single target: Sources are expected in ./Sources. In this case,
             // there is a stray source file at the top-level which is ignored.
-            let fs = InMemoryFileSystem(emptyFiles:
-                "/Stray.swift",
+            let fs = InMemoryFileSystem(
+                emptyFiles:
+                    "/Stray.swift",
                 "/\(predefinedSourceDir)/Random.swift"
             )
             let manifest = Manifest.createRootManifest(
@@ -1460,8 +1526,9 @@ struct PackageBuilderTests {
             // Single target: Sources can be expected in ./Sources/<target>.
             // If that directory exists, stray sources inside ./Sources will
             // not be included in the target.
-            let fs = InMemoryFileSystem(emptyFiles:
-                "/\(predefinedSourceDir)/Stray.swift",
+            let fs = InMemoryFileSystem(
+                emptyFiles:
+                    "/\(predefinedSourceDir)/Stray.swift",
                 "/\(predefinedSourceDir)/Random/Random.swift"
             )
             let manifest = Manifest.createRootManifest(
@@ -1481,15 +1548,16 @@ struct PackageBuilderTests {
         do {
             // Multiple targets: Sources are expected in their respective subdirectories
             // under Sources
-            let fs = InMemoryFileSystem(emptyFiles:
-                "/Foo.swift"
+            let fs = InMemoryFileSystem(
+                emptyFiles:
+                    "/Foo.swift"
             )
             let manifest = Manifest.createRootManifest(
                 displayName: "pkg",
                 toolsVersion: .v5_9,
                 targets: [
                     try TargetDescription(name: "TargetA", type: .executable),
-                    try TargetDescription(name: "TargetB", type: .executable)
+                    try TargetDescription(name: "TargetB", type: .executable),
                 ]
             )
             try PackageBuilderTester(manifest, in: fs) { _, diagnostics in
@@ -1503,14 +1571,15 @@ struct PackageBuilderTests {
         let predefinedSourceDir = PackageBuilder.suggestedPredefinedSourceDirectory(type: .system)
         do {
             // Single target: Sources are expected in ./Sources.
-            let fs = InMemoryFileSystem(emptyFiles:
-                "/\(predefinedSourceDir)/module.modulemap"
+            let fs = InMemoryFileSystem(
+                emptyFiles:
+                    "/\(predefinedSourceDir)/module.modulemap"
             )
             let manifest = Manifest.createRootManifest(
                 displayName: "pkg",
                 toolsVersion: .v5_9,
                 targets: [
-                    try TargetDescription(name: "Foo", type: .system),
+                    try TargetDescription(name: "Foo", type: .system)
                 ]
             )
 
@@ -1525,31 +1594,33 @@ struct PackageBuilderTests {
             // In this case, there is a stray source file at the top-level, and no sources
             // under ./Sources, so the target Random has no sources.
             // This results in a *warning* that there are no sources for the target.
-            let fs = InMemoryFileSystem(emptyFiles:
-                "/Stray.swift"
+            let fs = InMemoryFileSystem(
+                emptyFiles:
+                    "/Stray.swift"
             )
             let manifest = Manifest.createRootManifest(
                 displayName: "pkg",
                 toolsVersion: .v5_9,
                 targets: [
-                    try TargetDescription(name: "Random", type: .system),
+                    try TargetDescription(name: "Random", type: .system)
                 ]
             )
             let map = "/\(predefinedSourceDir)/module.modulemap"
             try PackageBuilderTester(manifest, in: fs) { _, diagnostics in
-#if _runtime(_ObjC)
-                diagnostics.check(diagnostic: "package has unsupported layout; missing system target module map at '\(map)'", severity: .error)
-#else
-                // FIXME: there is a memory leak here
-                diagnostics.check(diagnostic: "package has unsupported layout; missing system target module map at '\(String(cString: map.fileSystemRepresentation))'", severity: .error)
-#endif
+                #if _runtime(_ObjC)
+                    diagnostics.check(diagnostic: "package has unsupported layout; missing system target module map at '\(map)'", severity: .error)
+                #else
+                    // FIXME: there is a memory leak here
+                    diagnostics.check(diagnostic: "package has unsupported layout; missing system target module map at '\(String(cString: map.fileSystemRepresentation))'", severity: .error)
+                #endif
             }
         }
         do {
             // Single target: Sources are expected in ./Sources. In this case,
             // there is a stray source file at the top-level which is ignored.
-            let fs = InMemoryFileSystem(emptyFiles:
-                "/Stray.swift",
+            let fs = InMemoryFileSystem(
+                emptyFiles:
+                    "/Stray.swift",
                 "/\(predefinedSourceDir)/module.modulemap"
             )
             let manifest = Manifest.createRootManifest(
@@ -1567,8 +1638,9 @@ struct PackageBuilderTests {
             // Single target: Sources can be expected in ./Sources/<target>.
             // If that directory exists, stray sources inside ./Sources will
             // not be included in the target.
-            let fs = InMemoryFileSystem(emptyFiles:
-                "/\(predefinedSourceDir)/Stray.swift",
+            let fs = InMemoryFileSystem(
+                emptyFiles:
+                    "/\(predefinedSourceDir)/Stray.swift",
                 "/\(predefinedSourceDir)/module.modulemap"
             )
             let manifest = Manifest.createRootManifest(
@@ -1587,15 +1659,17 @@ struct PackageBuilderTests {
         do {
             // Multiple targets: Sources are expected in their respective subdirectories
             // under Sources
-            let fs = InMemoryFileSystem(emptyFiles:
-                "/Foo.swift")
+            let fs = InMemoryFileSystem(
+                emptyFiles:
+                    "/Foo.swift"
+            )
 
             let manifest = Manifest.createRootManifest(
                 displayName: "pkg",
                 toolsVersion: .v5_9,
                 targets: [
                     try TargetDescription(name: "TargetA", type: .system),
-                    try TargetDescription(name: "TargetB", type: .system)
+                    try TargetDescription(name: "TargetB", type: .system),
                 ]
             )
             try PackageBuilderTester(manifest, in: fs) { _, diagnostics in
@@ -1609,15 +1683,16 @@ struct PackageBuilderTests {
         let predefinedSourceDir = PackageBuilder.suggestedPredefinedSourceDirectory(type: .macro)
         do {
             // Single target: Sources are expected in ./Sources.
-            let fs = InMemoryFileSystem(emptyFiles:
-                "/\(predefinedSourceDir)/Foo.swift"
+            let fs = InMemoryFileSystem(
+                emptyFiles:
+                    "/\(predefinedSourceDir)/Foo.swift"
             )
 
             let manifest = Manifest.createRootManifest(
                 displayName: "pkg",
                 toolsVersion: .v5_9,
                 targets: [
-                    try TargetDescription(name: "Foo", type: .macro),
+                    try TargetDescription(name: "Foo", type: .macro)
                 ]
             )
 
@@ -1633,14 +1708,16 @@ struct PackageBuilderTests {
             // In this case, there is a stray source file at the top-level, and no sources
             // under ./Sources, so the target Random has no sources.
             // This results in a *warning* that there are no sources for the target.
-            let fs = InMemoryFileSystem(emptyFiles:
-                "/Stray.swift")
+            let fs = InMemoryFileSystem(
+                emptyFiles:
+                    "/Stray.swift"
+            )
 
             let manifest = Manifest.createRootManifest(
                 displayName: "pkg",
                 toolsVersion: .v5_9,
                 targets: [
-                    try TargetDescription(name: "Random", type: .macro),
+                    try TargetDescription(name: "Random", type: .macro)
                 ]
             )
             try PackageBuilderTester(manifest, in: fs) { _, diagnostics in
@@ -1650,9 +1727,11 @@ struct PackageBuilderTests {
         do {
             // Single target: Sources are expected in ./Sources. In this case,
             // there is a stray source file at the top-level which is ignored.
-            let fs = InMemoryFileSystem(emptyFiles:
-                "/Stray.swift",
-                "/\(predefinedSourceDir)/Random.swift")
+            let fs = InMemoryFileSystem(
+                emptyFiles:
+                    "/Stray.swift",
+                "/\(predefinedSourceDir)/Random.swift"
+            )
 
             let manifest = Manifest.createRootManifest(
                 displayName: "pkg",
@@ -1672,8 +1751,9 @@ struct PackageBuilderTests {
             // Single target: Sources can be expected in ./Sources/<target>.
             // If that directory exists, stray sources inside ./Sources will
             // not be included in the target.
-            let fs = InMemoryFileSystem(emptyFiles:
-                "/\(predefinedSourceDir)/Stray.swift",
+            let fs = InMemoryFileSystem(
+                emptyFiles:
+                    "/\(predefinedSourceDir)/Stray.swift",
                 "/\(predefinedSourceDir)/Random/Random.swift"
             )
             let manifest = Manifest.createRootManifest(
@@ -1693,15 +1773,17 @@ struct PackageBuilderTests {
         do {
             // Multiple targets: Sources are expected in their respective subdirectories
             // under Sources
-            let fs = InMemoryFileSystem(emptyFiles:
-                "/Foo.swift")
+            let fs = InMemoryFileSystem(
+                emptyFiles:
+                    "/Foo.swift"
+            )
 
             let manifest = Manifest.createRootManifest(
                 displayName: "pkg",
                 toolsVersion: .v5_9,
                 targets: [
                     try TargetDescription(name: "TargetA", type: .macro),
-                    try TargetDescription(name: "TargetB", type: .macro)
+                    try TargetDescription(name: "TargetB", type: .macro),
                 ]
             )
             try PackageBuilderTester(manifest, in: fs) { _, diagnostics in
@@ -1714,18 +1796,24 @@ struct PackageBuilderTests {
     func testStrictSourceLocationPre5_9() throws {
         do {
             for fs in [
-                InMemoryFileSystem(emptyFiles:
-                                    "/Sources/Foo.swift"),
-                InMemoryFileSystem(emptyFiles:
-                                    "/Stray.swift"),
-                InMemoryFileSystem(emptyFiles:
-                                    "/Stray.swift",
-                                   "/Sources/Random.swift"),
+                InMemoryFileSystem(
+                    emptyFiles:
+                        "/Sources/Foo.swift"
+                ),
+                InMemoryFileSystem(
+                    emptyFiles:
+                        "/Stray.swift"
+                ),
+                InMemoryFileSystem(
+                    emptyFiles:
+                        "/Stray.swift",
+                    "/Sources/Random.swift"
+                ),
             ] {
                 let manifest = Manifest.createRootManifest(
                     displayName: "pkg",
                     targets: [
-                        try TargetDescription(name: "Random"),
+                        try TargetDescription(name: "Random")
                     ]
                 )
                 try PackageBuilderTester(manifest, in: fs) { _, diagnostics in
@@ -1738,13 +1826,15 @@ struct PackageBuilderTests {
     @Test
     func testManifestTargetDeclErrors() throws {
         do {
-            let fs = InMemoryFileSystem(emptyFiles:
-                "/src/pkg/Foo.swift")
+            let fs = InMemoryFileSystem(
+                emptyFiles:
+                    "/src/pkg/Foo.swift"
+            )
             // Reference an invalid dependency.
             let manifest = Manifest.createRootManifest(
                 displayName: "pkg",
                 targets: [
-                    try TargetDescription(name: "pkg", dependencies: [.target(name: "Foo")]),
+                    try TargetDescription(name: "pkg", dependencies: [.target(name: "Foo")])
                 ]
             )
             try PackageBuilderTester(manifest, in: fs) { _, diagnostics in
@@ -1753,8 +1843,10 @@ struct PackageBuilderTests {
         }
 
         do {
-            let fs = InMemoryFileSystem(emptyFiles:
-                "/Sources/pkg/Foo.swift")
+            let fs = InMemoryFileSystem(
+                emptyFiles:
+                    "/Sources/pkg/Foo.swift"
+            )
             let manifest = Manifest.createRootManifest(
                 displayName: "pkg",
                 targets: [
@@ -1768,13 +1860,15 @@ struct PackageBuilderTests {
         }
 
         do {
-            let fs = InMemoryFileSystem(emptyFiles:
-                "/Source/pkg/Foo.swift")
+            let fs = InMemoryFileSystem(
+                emptyFiles:
+                    "/Source/pkg/Foo.swift"
+            )
             // Reference self in dependencies.
             let manifest = Manifest.createRootManifest(
                 displayName: "pkg",
                 targets: [
-                    try TargetDescription(name: "pkg", dependencies: [.target(name: "pkg")]),
+                    try TargetDescription(name: "pkg", dependencies: [.target(name: "pkg")])
                 ],
                 traits: []
             )
@@ -1790,7 +1884,7 @@ struct PackageBuilderTests {
                 displayName: "pkg",
                 targets: [
                     try TargetDescription(name: "foo", url: "https://foo.com/foo.zip", type: .binary, checksum: "checksum"),
-                    try TargetDescription(name: "foo2", path: "./foo2.zip", type: .binary)
+                    try TargetDescription(name: "foo2", path: "./foo2.zip", type: .binary),
                 ]
             )
 
@@ -1798,7 +1892,7 @@ struct PackageBuilderTests {
 
             let binaryArtifacts = [
                 "foo": BinaryArtifact(kind: .xcframework, originURL: "https://foo.com/foo.zip", path: "/foo.xcframework"),
-                "foo2": BinaryArtifact(kind: .xcframework, originURL: nil, path: "/foo2.xcframework")
+                "foo2": BinaryArtifact(kind: .xcframework, originURL: nil, path: "/foo2.xcframework"),
             ]
             try PackageBuilderTester(manifest, binaryArtifacts: binaryArtifacts, in: fs) { package, _ in
                 try package.checkModule("foo")
@@ -1807,8 +1901,9 @@ struct PackageBuilderTests {
         }
 
         do {
-            let fs = InMemoryFileSystem(emptyFiles:
-                "/Sources/pkg1/Foo.swift",
+            let fs = InMemoryFileSystem(
+                emptyFiles:
+                    "/Sources/pkg1/Foo.swift",
                 "/Sources/pkg2/Foo.swift",
                 "/Sources/pkg3/Foo.swift"
             )
@@ -1842,8 +1937,9 @@ struct PackageBuilderTests {
             let pkg2: AbsolutePath = "/Sources/pkg2"
 
             // Reference a target which doesn't have sources.
-            let fs = InMemoryFileSystem(emptyFiles:
-                "/Sources/pkg1/Foo.swift",
+            let fs = InMemoryFileSystem(
+                emptyFiles:
+                    "/Sources/pkg1/Foo.swift",
                 pkg2.appending(components: "readme.txt").pathString
             )
 
@@ -1867,14 +1963,16 @@ struct PackageBuilderTests {
         }
 
         do {
-            let fs = InMemoryFileSystem(emptyFiles:
-                "/Sources/Foo/Foo.c",
-                "/Sources/Bar/Bar.c")
+            let fs = InMemoryFileSystem(
+                emptyFiles:
+                    "/Sources/Foo/Foo.c",
+                "/Sources/Bar/Bar.c"
+            )
 
             var manifest = Manifest.createRootManifest(
                 displayName: "Foo",
                 targets: [
-                    try TargetDescription(name: "Foo", publicHeadersPath: "../inc"),
+                    try TargetDescription(name: "Foo", publicHeadersPath: "../inc")
                 ]
             )
 
@@ -1885,7 +1983,7 @@ struct PackageBuilderTests {
             manifest = Manifest.createRootManifest(
                 displayName: "Foo",
                 targets: [
-                    try TargetDescription(name: "Bar", publicHeadersPath: "inc/../../../foo"),
+                    try TargetDescription(name: "Bar", publicHeadersPath: "inc/../../../foo")
                 ]
             )
             try PackageBuilderTester(manifest, in: fs) { _, diagnostics in
@@ -1894,14 +1992,16 @@ struct PackageBuilderTests {
         }
 
         do {
-            let fs = InMemoryFileSystem(emptyFiles:
-                "/pkg/Sources/Foo/Foo.c",
-                "/foo/Bar.c")
+            let fs = InMemoryFileSystem(
+                emptyFiles:
+                    "/pkg/Sources/Foo/Foo.c",
+                "/foo/Bar.c"
+            )
 
             let manifest = Manifest.createRootManifest(
                 displayName: "Foo",
                 targets: [
-                    try TargetDescription(name: "Foo", path: "../foo"),
+                    try TargetDescription(name: "Foo", path: "../foo")
                 ]
             )
             try PackageBuilderTester(manifest, path: "/pkg", in: fs) { package, diagnostics in
@@ -1909,14 +2009,16 @@ struct PackageBuilderTests {
             }
         }
         do {
-            let fs = InMemoryFileSystem(emptyFiles:
-                "/pkg/Sources/Foo/Foo.c",
-                "/foo/Bar.c")
+            let fs = InMemoryFileSystem(
+                emptyFiles:
+                    "/pkg/Sources/Foo/Foo.c",
+                "/foo/Bar.c"
+            )
 
             let manifest = Manifest.createRootManifest(
                 displayName: "Foo",
                 targets: [
-                    try TargetDescription(name: "Foo", path: "/foo"),
+                    try TargetDescription(name: "Foo", path: "/foo")
                 ]
             )
             try PackageBuilderTester(manifest, path: "/pkg", in: fs) { _, diagnostics in
@@ -1945,9 +2047,11 @@ struct PackageBuilderTests {
     @Test
     func testExecutableAsADep() throws {
         // Executable as dependency.
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/Sources/exec/main.swift",
-            "/Sources/lib/lib.swift")
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                "/Sources/exec/main.swift",
+            "/Sources/lib/lib.swift"
+        )
 
         let manifest = Manifest.createRootManifest(
             displayName: "pkg",
@@ -1973,8 +2077,9 @@ struct PackageBuilderTests {
 
     @Test
     func testInvalidManifestConfigForNonSystemModules() throws {
-        var fs = InMemoryFileSystem(emptyFiles:
-            "/Sources/main.swift"
+        var fs = InMemoryFileSystem(
+            emptyFiles:
+                "/Sources/main.swift"
         )
 
         var manifest = Manifest.createRootManifest(
@@ -1985,11 +2090,13 @@ struct PackageBuilderTests {
         try PackageBuilderTester(manifest, in: fs) { package, diagnostics in
             diagnostics.check(
                 diagnostic: "configuration of package '\(package.packageIdentity)' is invalid; the 'pkgConfig' property can only be used with a System Module Package",
-                severity: .error)
+                severity: .error
+            )
         }
 
-        fs = InMemoryFileSystem(emptyFiles:
-            "/Sources/Foo/main.c"
+        fs = InMemoryFileSystem(
+            emptyFiles:
+                "/Sources/Foo/main.c"
         )
         manifest = Manifest.createRootManifest(
             displayName: "pkg",
@@ -1999,14 +2106,17 @@ struct PackageBuilderTests {
         try PackageBuilderTester(manifest, in: fs) { package, diagnostics in
             diagnostics.check(
                 diagnostic: "configuration of package '\(package.packageIdentity)' is invalid; the 'providers' property can only be used with a System Module Package",
-                severity: .error)
+                severity: .error
+            )
         }
     }
 
     @Test
     func testResolvesSystemModulePackage() throws {
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/module.modulemap")
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                "/module.modulemap"
+        )
 
         let manifest = Manifest.createRootManifest(displayName: "SystemModulePackage")
         try PackageBuilderTester(manifest, in: fs) { package, _ in
@@ -2020,8 +2130,9 @@ struct PackageBuilderTests {
     @Test
     func testCompatibleSwiftVersions() throws {
         // Single swift executable target.
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/foo/main.swift"
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                "/foo/main.swift"
         )
 
         func createManifest(swiftVersions: [SwiftLanguageVersion]?) throws -> Manifest {
@@ -2029,7 +2140,7 @@ struct PackageBuilderTests {
                 displayName: "pkg",
                 swiftLanguageVersions: swiftVersions,
                 targets: [
-                    try TargetDescription(name: "foo", path: "foo"),
+                    try TargetDescription(name: "foo", path: "foo")
                 ]
             )
         }
@@ -2105,9 +2216,11 @@ struct PackageBuilderTests {
 
         do {
             // We should look only in one of the predefined search paths.
-            let fs = InMemoryFileSystem(emptyFiles:
-                "/Source/Foo/Foo.swift",
-                "/src/Bar/Bar.swift")
+            let fs = InMemoryFileSystem(
+                emptyFiles:
+                    "/Source/Foo/Foo.swift",
+                "/src/Bar/Bar.swift"
+            )
 
             let manifest = Manifest.createRootManifest(
                 displayName: "pkg",
@@ -2124,10 +2237,12 @@ struct PackageBuilderTests {
 
         do {
             // We should look only in one of the predefined search paths.
-            let fs = InMemoryFileSystem(emptyFiles:
-                "/Source/Foo/Foo.swift",
+            let fs = InMemoryFileSystem(
+                emptyFiles:
+                    "/Source/Foo/Foo.swift",
                 "/Tests/FooTests/Foo.swift",
-                "/Source/BarTests/Foo.swift")
+                "/Source/BarTests/Foo.swift"
+            )
 
             var manifest = Manifest.createRootManifest(
                 displayName: "pkg",
@@ -2180,8 +2295,9 @@ struct PackageBuilderTests {
     func testSpecialTargetDir() throws {
         let src: AbsolutePath = "/src"
         // Special directory should be src because both target and test target are under it.
-        let fs = InMemoryFileSystem(emptyFiles:
-            src.appending(components: "A", "Foo.swift").pathString,
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                src.appending(components: "A", "Foo.swift").pathString,
             src.appending(components: "ATests", "Foo.swift").pathString
         )
 
@@ -2210,8 +2326,9 @@ struct PackageBuilderTests {
     @Test
     func testExcludes() throws {
         // The exclude should win if a file is in exclude as well as sources.
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/Sources/bar/barExcluded.swift",
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                "/Sources/bar/barExcluded.swift",
             "/Sources/bar/bar.swift"
         )
 
@@ -2220,9 +2337,9 @@ struct PackageBuilderTests {
             targets: [
                 try TargetDescription(
                     name: "bar",
-                    exclude: ["barExcluded.swift",],
+                    exclude: ["barExcluded.swift"],
                     sources: ["bar.swift", "barExcluded.swift"]
-                ),
+                )
             ]
         )
         try PackageBuilderTester(manifest, in: fs) { package, _ in
@@ -2237,8 +2354,9 @@ struct PackageBuilderTests {
     func testDuplicateProducts() throws {
         // Check that declaring executable product doesn't collide with the
         // inferred products.
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/Sources/foo/foo.swift"
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                "/Sources/foo/foo.swift"
         )
 
         let manifest = Manifest.createRootManifest(
@@ -2250,7 +2368,7 @@ struct PackageBuilderTests {
                 try ProductDescription(name: "foo-dy", type: .library(.dynamic), targets: ["foo"]),
             ],
             targets: [
-                try TargetDescription(name: "foo"),
+                try TargetDescription(name: "foo")
             ]
         )
         try PackageBuilderTester(manifest, in: fs) { package, diagnostics in
@@ -2274,8 +2392,9 @@ struct PackageBuilderTests {
 
     @Test
     func testSystemPackageDeclaresTargetsDiagnostic() throws {
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/module.modulemap",
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                "/module.modulemap",
             "/Sources/foo/main.swift",
             "/Sources/bar/main.swift"
         )
@@ -2301,15 +2420,16 @@ struct PackageBuilderTests {
 
     @Test
     func testSystemLibraryTarget() throws {
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/Sources/foo/module.modulemap",
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                "/Sources/foo/module.modulemap",
             "/Sources/bar/bar.swift"
         )
 
         let manifest = Manifest.createRootManifest(
             displayName: "pkg",
             products: [
-                try ProductDescription(name: "foo", type: .library(.automatic), targets: ["foo"]),
+                try ProductDescription(name: "foo", type: .library(.automatic), targets: ["foo"])
             ],
             targets: [
                 try TargetDescription(name: "foo", type: .system),
@@ -2336,15 +2456,16 @@ struct PackageBuilderTests {
     func testSystemLibraryTargetDiagnostics() throws {
         let Sources: AbsolutePath = "/Sources"
 
-        let fs = InMemoryFileSystem(emptyFiles:
-            Sources.appending(components: "foo", "module.modulemap").pathString,
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                Sources.appending(components: "foo", "module.modulemap").pathString,
             Sources.appending(components: "bar", "bar.swift").pathString
         )
 
         var manifest = Manifest.createRootManifest(
             displayName: "SystemModulePackage",
             products: [
-                try ProductDescription(name: "foo", type: .library(.automatic), targets: ["foo", "bar"]),
+                try ProductDescription(name: "foo", type: .library(.automatic), targets: ["foo", "bar"])
             ],
             targets: [
                 try TargetDescription(name: "foo", type: .system),
@@ -2363,7 +2484,7 @@ struct PackageBuilderTests {
         manifest = Manifest.createRootManifest(
             displayName: "SystemModulePackage",
             products: [
-                try ProductDescription(name: "foo", type: .library(.static), targets: ["foo"]),
+                try ProductDescription(name: "foo", type: .library(.static), targets: ["foo"])
             ],
             targets: [
                 try TargetDescription(name: "foo", type: .system),
@@ -2398,8 +2519,9 @@ struct PackageBuilderTests {
 
     @Test
     func testBadExecutableProductDecl() throws {
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/Sources/foo1/main.swift",
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                "/Sources/foo1/main.swift",
             "/Sources/foo2/main.swift",
             "/Sources/FooLib1/lib.swift",
             "/Sources/FooLib2/lib.swift",
@@ -2412,7 +2534,7 @@ struct PackageBuilderTests {
                 try ProductDescription(name: "foo1", type: .executable, targets: ["FooLib1"]),
                 try ProductDescription(name: "foo2", type: .executable, targets: ["FooLib1", "FooLib2"]),
                 try ProductDescription(name: "foo3", type: .executable, targets: ["foo1", "foo2"]),
-                try ProductDescription(name: "foo3", type: .executable, targets: ["foo1", "Plugin1"])
+                try ProductDescription(name: "foo3", type: .executable, targets: ["foo1", "Plugin1"]),
             ],
             targets: [
                 try TargetDescription(name: "foo1"),
@@ -2455,8 +2577,9 @@ struct PackageBuilderTests {
 
     @Test
     func testLibraryProductDiagnostics() throws {
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/Sources/MyLibrary/library.swift",
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                "/Sources/MyLibrary/library.swift",
             "/Plugins/MyPlugin/plugin.swift"
         )
 
@@ -2467,7 +2590,7 @@ struct PackageBuilderTests {
             ],
             targets: [
                 try TargetDescription(name: "MyLibrary", type: .regular),
-                try TargetDescription(name: "MyPlugin", type: .plugin, pluginCapability: .buildTool)
+                try TargetDescription(name: "MyPlugin", type: .plugin, pluginCapability: .buildTool),
             ]
         )
         try PackageBuilderTester(manifest, in: fs) { package, diagnostics in
@@ -2482,17 +2605,17 @@ struct PackageBuilderTests {
         }
     }
 
-
     @Test
     func testBadREPLPackage() throws {
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/Sources/exe/main.swift"
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                "/Sources/exe/main.swift"
         )
 
         let manifest = Manifest.createRootManifest(
             displayName: "Pkg",
             targets: [
-                try TargetDescription(name: "exe"),
+                try TargetDescription(name: "exe")
             ]
         )
 
@@ -2509,8 +2632,9 @@ struct PackageBuilderTests {
     @Test
     func testAsmIsIgnoredInV4_2Manifest() throws {
         // .s is not considered a valid source in 4.2 manifest.
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/Sources/lib/lib.s",
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                "/Sources/lib/lib.s",
             "/Sources/lib/lib2.S",
             "/Sources/lib/lib.c",
             "/Sources/lib/include/lib.h"
@@ -2520,7 +2644,7 @@ struct PackageBuilderTests {
             displayName: "pkg",
             toolsVersion: .v4_2,
             targets: [
-                try TargetDescription(name: "lib", dependencies: []),
+                try TargetDescription(name: "lib", dependencies: [])
             ]
         )
 
@@ -2533,8 +2657,9 @@ struct PackageBuilderTests {
 
     @Test
     func testAsmInV5Manifest() throws {
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/Sources/lib/lib.s",
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                "/Sources/lib/lib.s",
             "/Sources/lib/lib2.S",
             "/Sources/lib/lib.c",
             "/Sources/lib/include/lib.h"
@@ -2544,7 +2669,7 @@ struct PackageBuilderTests {
             displayName: "Pkg",
             toolsVersion: .v5,
             targets: [
-                try TargetDescription(name: "lib", dependencies: []),
+                try TargetDescription(name: "lib", dependencies: [])
             ]
         )
 
@@ -2560,8 +2685,9 @@ struct PackageBuilderTests {
         let lib: AbsolutePath = "/Sources/lib"
 
         // Files with unknown suffixes under declared sources are not considered valid sources in 5.2 manifest.
-        let fs = InMemoryFileSystem(emptyFiles:
-            lib.appending(components: "movie.mkv").pathString,
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                lib.appending(components: "movie.mkv").pathString,
             lib.appending(components: "lib.c").pathString,
             lib.appending(components: "include", "lib.h").pathString
         )
@@ -2570,7 +2696,7 @@ struct PackageBuilderTests {
             displayName: "pkg",
             toolsVersion: .v5_2,
             targets: [
-                try TargetDescription(name: "lib", dependencies: [], path: "./Sources/lib", sources: ["."]),
+                try TargetDescription(name: "lib", dependencies: [], path: "./Sources/lib", sources: ["."])
             ]
         )
 
@@ -2588,8 +2714,9 @@ struct PackageBuilderTests {
         let lib: AbsolutePath = "/Sources/lib"
 
         // Files with unknown suffixes under declared sources are treated as compilable in 5.3 manifest.
-        let fs = InMemoryFileSystem(emptyFiles:
-            lib.appending(components: "movie.mkv").pathString,
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                lib.appending(components: "movie.mkv").pathString,
             lib.appending(components: "lib.c").pathString,
             lib.appending(components: "include", "lib.h").pathString
         )
@@ -2598,7 +2725,7 @@ struct PackageBuilderTests {
             displayName: "pkg",
             toolsVersion: .v5_3,
             targets: [
-                try TargetDescription(name: "lib", dependencies: [], path: "./Sources/lib", sources: ["."]),
+                try TargetDescription(name: "lib", dependencies: [], path: "./Sources/lib", sources: ["."])
             ]
         )
 
@@ -2613,8 +2740,9 @@ struct PackageBuilderTests {
 
     @Test
     func testBuildSettings() throws {
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/Sources/exe/main.swift",
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                "/Sources/exe/main.swift",
             "/Sources/bar/bar.swift",
             "/Sources/cbar/barcpp.cpp",
             "/Sources/cbar/bar.c",
@@ -2640,7 +2768,8 @@ struct PackageBuilderTests {
                     ]
                 ),
                 try TargetDescription(
-                    name: "bar", dependencies: ["foo"],
+                    name: "bar",
+                    dependencies: ["foo"],
                     settings: [
                         .init(tool: .swift, kind: .define("SOMETHING")),
                         .init(tool: .swift, kind: .define("LINUX"), condition: .init(platformNames: ["linux"])),
@@ -2650,7 +2779,8 @@ struct PackageBuilderTests {
                     ]
                 ),
                 try TargetDescription(
-                    name: "exe", dependencies: ["bar"],
+                    name: "exe",
+                    dependencies: ["bar"],
                     settings: [
                         .init(tool: .linker, kind: .linkedLibrary("sqlite3")),
                         .init(tool: .linker, kind: .linkedFramework("CoreData"), condition: .init(platformNames: ["ios"])),
@@ -2726,8 +2856,9 @@ struct PackageBuilderTests {
 
     @Test
     func testEmptyUnsafeFlagsAreAllowed() throws {
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/Sources/foo/foo.swift",
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                "/Sources/foo/foo.swift",
             "/Sources/bar/bar.cpp",
             "/Sources/bar/bar.c",
             "/Sources/bar/include/bar.h"
@@ -2803,8 +2934,9 @@ struct PackageBuilderTests {
 
     @Test
     func testInvalidHeaderSearchPath() throws {
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/pkg/Sources/exe/main.swift"
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                "/pkg/Sources/exe/main.swift"
         )
 
         let manifest1 = Manifest.createRootManifest(
@@ -2814,9 +2946,9 @@ struct PackageBuilderTests {
                 try TargetDescription(
                     name: "exe",
                     settings: [
-                        .init(tool: .c, kind: .headerSearchPath("/Sources/headers")),
+                        .init(tool: .c, kind: .headerSearchPath("/Sources/headers"))
                     ]
-                ),
+                )
             ]
         )
 
@@ -2831,9 +2963,9 @@ struct PackageBuilderTests {
                 try TargetDescription(
                     name: "exe",
                     settings: [
-                        .init(tool: .c, kind: .headerSearchPath("../../..")),
+                        .init(tool: .c, kind: .headerSearchPath("../../.."))
                     ]
-                ),
+                )
             ]
         )
 
@@ -2844,8 +2976,9 @@ struct PackageBuilderTests {
 
     @Test
     func testDuplicateTargetDependencies() throws {
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/Foo/Sources/Foo/foo.swift",
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                "/Foo/Sources/Foo/foo.swift",
             "/Foo/Sources/Foo2/foo.swift",
             "/Foo/Sources/Foo3/foo.swift",
             "/Foo/Sources/Qux/foo.swift",
@@ -2858,7 +2991,7 @@ struct PackageBuilderTests {
             displayName: "Foo",
             toolsVersion: .v5,
             dependencies: [
-                .localSourceControl(path: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                .localSourceControl(path: "/Bar", requirement: .upToNextMajor(from: "1.0.0"))
             ],
             targets: [
                 try TargetDescription(
@@ -2882,11 +3015,12 @@ struct PackageBuilderTests {
 
                         // valid - different packages
                         "Qux",
-                        .product(name: "Qux", package: "Bar")
-                    ]),
+                        .product(name: "Qux", package: "Bar"),
+                    ]
+                ),
                 try TargetDescription(name: "Foo2"),
                 try TargetDescription(name: "Foo3"),
-                try TargetDescription(name: "Qux")
+                try TargetDescription(name: "Qux"),
             ],
             traits: []
         )
@@ -2917,8 +3051,9 @@ struct PackageBuilderTests {
 
     @Test
     func testConditionalDependencies() throws {
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/Sources/Foo/main.swift",
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                "/Sources/Foo/main.swift",
             "/Sources/Bar/bar.swift",
             "/Sources/Baz/baz.swift"
         )
@@ -2927,24 +3062,34 @@ struct PackageBuilderTests {
             displayName: "Foo",
             toolsVersion: .v5,
             dependencies: [
-                .fileSystem(path: "/Biz"),
+                .fileSystem(path: "/Biz")
             ],
             targets: [
                 try TargetDescription(
                     name: "Foo",
                     dependencies: [
-                        .target(name: "Bar", condition: PackageConditionDescription(
-                            platformNames: ["macos"],
-                            config: nil
-                        )),
-                        .byName(name: "Baz", condition: PackageConditionDescription(
-                            platformNames: [],
-                            config: "debug"
-                        )),
-                        .product(name: "Biz", package: "Biz", condition: PackageConditionDescription(
-                            platformNames: ["watchos", "ios"],
-                            config: "release"
-                        )),
+                        .target(
+                            name: "Bar",
+                            condition: PackageConditionDescription(
+                                platformNames: ["macos"],
+                                config: nil
+                            )
+                        ),
+                        .byName(
+                            name: "Baz",
+                            condition: PackageConditionDescription(
+                                platformNames: [],
+                                config: "debug"
+                            )
+                        ),
+                        .product(
+                            name: "Biz",
+                            package: "Biz",
+                            condition: PackageConditionDescription(
+                                platformNames: ["watchos", "ios"],
+                                config: "release"
+                            )
+                        ),
                     ]
                 ),
                 try TargetDescription(name: "Bar"),
@@ -2984,8 +3129,9 @@ struct PackageBuilderTests {
 
     @Test
     func testMissingDefaultLocalization() throws {
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/Foo/Sources/Foo/foo.swift",
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                "/Foo/Sources/Foo/foo.swift",
             "/Foo/Sources/Foo/Resources/en.lproj/Localizable.strings"
         )
 
@@ -2993,9 +3139,12 @@ struct PackageBuilderTests {
             displayName: "Foo",
             toolsVersion: .v5_3,
             targets: [
-                try TargetDescription(name: "Foo", resources: [
-                    .init(rule: .process(localization: .none), path: "Resources")
-                ]),
+                try TargetDescription(
+                    name: "Foo",
+                    resources: [
+                        .init(rule: .process(localization: .none), path: "Resources")
+                    ]
+                )
             ]
         )
 
@@ -3012,8 +3161,9 @@ struct PackageBuilderTests {
         let root: AbsolutePath = "/Foo"
         let foo = root.appending(components: "Sources", "Foo")
 
-        let fs = InMemoryFileSystem(emptyFiles:
-            foo.appending(components: "foo.swift").pathString,
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                foo.appending(components: "foo.swift").pathString,
             foo.appending(components: "Foo.xcassets").pathString,
             foo.appending(components: "Foo.xib").pathString,
             foo.appending(components: "Foo.xcdatamodel").pathString,
@@ -3024,7 +3174,7 @@ struct PackageBuilderTests {
             displayName: "Foo",
             toolsVersion: .v5_3,
             targets: [
-                try TargetDescription(name: "Foo"),
+                try TargetDescription(name: "Foo")
             ]
         )
 
@@ -3035,7 +3185,7 @@ struct PackageBuilderTests {
                     foo.appending(components: "Foo.xib").pathString,
                     foo.appending(components: "Foo.xcdatamodel").pathString,
                     foo.appending(components: "Foo.xcassets").pathString,
-                    foo.appending(components: "Foo.metal").pathString
+                    foo.appending(components: "Foo.metal").pathString,
                 ])
             }
         }
@@ -3048,8 +3198,9 @@ struct PackageBuilderTests {
         let root: AbsolutePath = "/Foo"
         let foo = root.appending(components: "Sources", "Foo")
 
-        let fs = InMemoryFileSystem(emptyFiles:
-            foo.appending(components: "foo.swift").pathString,
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                foo.appending(components: "foo.swift").pathString,
             foo.appending(components: "Foo.xcassets").pathString,
             foo.appending(components: "Foo.xcstrings").pathString,
             foo.appending(components: "Foo.xib").pathString,
@@ -3061,7 +3212,7 @@ struct PackageBuilderTests {
             displayName: "Foo",
             toolsVersion: .v5_9,
             targets: [
-                try TargetDescription(name: "Foo"),
+                try TargetDescription(name: "Foo")
             ]
         )
 
@@ -3073,7 +3224,7 @@ struct PackageBuilderTests {
                     foo.appending(components: "Foo.xcdatamodel").pathString,
                     foo.appending(components: "Foo.xcassets").pathString,
                     foo.appending(components: "Foo.xcstrings").pathString,
-                    foo.appending(components: "Foo.metal").pathString
+                    foo.appending(components: "Foo.metal").pathString,
                 ])
             }
         }
@@ -3086,8 +3237,9 @@ struct PackageBuilderTests {
         let root: AbsolutePath = "/Foo"
         let foo = root.appending(components: "Sources", "Foo")
 
-        let fs = InMemoryFileSystem(emptyFiles:
-            foo.appending(components: "foo.swift").pathString,
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                foo.appending(components: "foo.swift").pathString,
             foo.appending(components: "Foo.xcassets").pathString,
             foo.appending(components: "Foo.xcstrings").pathString,
             foo.appending(components: "Foo.xib").pathString,
@@ -3100,7 +3252,7 @@ struct PackageBuilderTests {
             displayName: "Foo",
             toolsVersion: .v6_0,
             targets: [
-                try TargetDescription(name: "Foo"),
+                try TargetDescription(name: "Foo")
             ]
         )
 
@@ -3127,8 +3279,9 @@ struct PackageBuilderTests {
         let root: AbsolutePath = "/Foo"
         let foo = root.appending(components: "Sources", "Foo")
 
-        let fs = InMemoryFileSystem(emptyFiles:
-            foo.appending(components: "foo.swift").pathString,
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                foo.appending(components: "foo.swift").pathString,
             foo.appending(components: "PrivacyInfo.xcprivacy").pathString
         )
 
@@ -3139,7 +3292,7 @@ struct PackageBuilderTests {
                 try TargetDescription(
                     name: "Foo",
                     resources: [.init(rule: .copy, path: "PrivacyInfo.xcprivacy")]
-                ),
+                )
             ]
         )
 
@@ -3147,7 +3300,7 @@ struct PackageBuilderTests {
             try result.checkModule("Foo") { result in
                 result.checkSources(sources: ["foo.swift"])
                 result.checkResources(resources: [
-                    foo.appending(components: "PrivacyInfo.xcprivacy").pathString,
+                    foo.appending(components: "PrivacyInfo.xcprivacy").pathString
                 ])
             }
 
@@ -3165,20 +3318,24 @@ struct PackageBuilderTests {
         let internalSourcesDir = root.appending(components: "Sources", "Internal")
         let productSourcesDir = root.appending(components: "Sources", "Product")
         let snippetsDir = root.appending(components: "Snippets")
-        let fs = InMemoryFileSystem(emptyFiles:
-                                        internalSourcesDir.appending("Internal.swift").pathString,
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                internalSourcesDir.appending("Internal.swift").pathString,
             productSourcesDir.appending("Product.swift").pathString,
-            snippetsDir.appending("ASnippet.swift").pathString)
+            snippetsDir.appending("ASnippet.swift").pathString
+        )
 
         let manifest = Manifest.createRootManifest(
-            displayName: "Foo", toolsVersion: .v5_7,
+            displayName: "Foo",
+            toolsVersion: .v5_7,
             products: [
                 try ProductDescription(name: "Product", type: .library(.automatic), targets: ["Product"])
             ],
             targets: [
                 try TargetDescription(name: "Internal"),
                 try TargetDescription(name: "Product"),
-            ])
+            ]
+        )
 
         try PackageBuilderTester(manifest, path: root, in: fs) { result, diagnostics in
             result.checkProduct("Product") { product in
@@ -3211,7 +3368,7 @@ struct PackageBuilderTests {
                 try TargetDescription(
                     name: "Foo",
                     settings: [
-                        .init(tool: .swift, kind: .define("YOLO"), condition: .init(platformNames: ["bestOS"])),
+                        .init(tool: .swift, kind: .define("YOLO"), condition: .init(platformNames: ["bestOS"]))
                     ]
                 )
             ]
@@ -3238,8 +3395,9 @@ struct PackageBuilderTests {
 
     @Test
     func testSwiftLanguageVersionPerTarget() throws {
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/Sources/foo/foo.swift",
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                "/Sources/foo/foo.swift",
             "/Sources/bar/bar.swift"
         )
 
@@ -3257,7 +3415,7 @@ struct PackageBuilderTests {
                     name: "bar",
                     settings: [
                         .init(tool: .swift, kind: .swiftLanguageMode(.v3), condition: .init(platformNames: ["linux"])),
-                        .init(tool: .swift, kind: .swiftLanguageMode(.v4), condition: .init(platformNames: ["macos"], config: "debug"))
+                        .init(tool: .swift, kind: .swiftLanguageMode(.v4), condition: .init(platformNames: ["macos"], config: "debug")),
                     ]
                 ),
             ]
@@ -3302,8 +3460,9 @@ struct PackageBuilderTests {
 
     @Test
     func testSwiftWarningControlFlags() throws {
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/Sources/foo/foo.swift"
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                "/Sources/foo/foo.swift"
         )
 
         let manifest = Manifest.createRootManifest(
@@ -3318,7 +3477,7 @@ struct PackageBuilderTests {
                         .init(tool: .swift, kind: .treatWarning("DeprecatedDeclaration", .error), condition: .init(config: "release")),
                         .init(tool: .swift, kind: .treatWarning("DeprecatedDeclaration", .warning), condition: .init(config: "debug")),
                     ]
-                ),
+                )
             ]
         )
 
@@ -3329,8 +3488,7 @@ struct PackageBuilderTests {
                     environment: BuildEnvironment(platform: .macOS, configuration: .debug)
                 )
                 #expect(
-                    macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS) ==
-                    ["-no-warnings-as-errors", "-Wwarning", "DeprecatedDeclaration"]
+                    macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS) == ["-no-warnings-as-errors", "-Wwarning", "DeprecatedDeclaration"]
                 )
 
                 let macosReleaseScope = BuildSettings.Scope(
@@ -3338,8 +3496,7 @@ struct PackageBuilderTests {
                     environment: BuildEnvironment(platform: .macOS, configuration: .release)
                 )
                 #expect(
-                    macosReleaseScope.evaluate(.OTHER_SWIFT_FLAGS) ==
-                    ["-warnings-as-errors", "-Werror", "DeprecatedDeclaration"]
+                    macosReleaseScope.evaluate(.OTHER_SWIFT_FLAGS) == ["-warnings-as-errors", "-Werror", "DeprecatedDeclaration"]
                 )
             }
         }
@@ -3347,8 +3504,9 @@ struct PackageBuilderTests {
 
     @Test
     func testCWarningControlFlags() throws {
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/Sources/cfoo/foo.c",
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                "/Sources/cfoo/foo.c",
             "/Sources/cfoo/include/cfoo.h"
         )
 
@@ -3375,8 +3533,7 @@ struct PackageBuilderTests {
                     environment: BuildEnvironment(platform: .macOS, configuration: .debug)
                 )
                 #expect(
-                    macosDebugScope.evaluate(.OTHER_CFLAGS) ==
-                    ["-Wno-error", "-Wno-error=deprecated-declarations"]
+                    macosDebugScope.evaluate(.OTHER_CFLAGS) == ["-Wno-error", "-Wno-error=deprecated-declarations"]
                 )
 
                 let macosReleaseScope = BuildSettings.Scope(
@@ -3384,8 +3541,7 @@ struct PackageBuilderTests {
                     environment: BuildEnvironment(platform: .macOS, configuration: .release)
                 )
                 #expect(
-                    macosReleaseScope.evaluate(.OTHER_CFLAGS) ==
-                    ["-Werror", "-Werror=deprecated-declarations"]
+                    macosReleaseScope.evaluate(.OTHER_CFLAGS) == ["-Werror", "-Werror=deprecated-declarations"]
                 )
             }
         }
@@ -3393,8 +3549,9 @@ struct PackageBuilderTests {
 
     @Test
     func testCXXWarningControlFlags() throws {
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/Sources/cxxfoo/foo.cpp",
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                "/Sources/cxxfoo/foo.cpp",
             "/Sources/cxxfoo/include/cxxfoo.h"
         )
 
@@ -3410,7 +3567,7 @@ struct PackageBuilderTests {
                         .init(tool: .cxx, kind: .treatWarning("deprecated-declarations", .error), condition: .init(config: "release")),
                         .init(tool: .cxx, kind: .treatWarning("deprecated-declarations", .warning), condition: .init(config: "debug")),
                     ]
-                ),
+                )
             ]
         )
 
@@ -3421,8 +3578,7 @@ struct PackageBuilderTests {
                     environment: BuildEnvironment(platform: .macOS, configuration: .debug)
                 )
                 #expect(
-                    macosDebugScope.evaluate(.OTHER_CPLUSPLUSFLAGS) ==
-                    ["-Wno-error", "-Wno-error=deprecated-declarations"]
+                    macosDebugScope.evaluate(.OTHER_CPLUSPLUSFLAGS) == ["-Wno-error", "-Wno-error=deprecated-declarations"]
                 )
 
                 let macosReleaseScope = BuildSettings.Scope(
@@ -3430,8 +3586,7 @@ struct PackageBuilderTests {
                     environment: BuildEnvironment(platform: .macOS, configuration: .release)
                 )
                 #expect(
-                    macosReleaseScope.evaluate(.OTHER_CPLUSPLUSFLAGS) ==
-                    ["-Werror", "-Werror=deprecated-declarations"]
+                    macosReleaseScope.evaluate(.OTHER_CPLUSPLUSFLAGS) == ["-Werror", "-Werror=deprecated-declarations"]
                 )
             }
         }
@@ -3439,8 +3594,9 @@ struct PackageBuilderTests {
 
     @Test
     func testCWarningEnableDisable() throws {
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/Sources/cfoo/foo.c",
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                "/Sources/cfoo/foo.c",
             "/Sources/cfoo/include/cfoo.h"
         )
 
@@ -3465,8 +3621,7 @@ struct PackageBuilderTests {
                     environment: BuildEnvironment(platform: .macOS, configuration: .debug)
                 )
                 #expect(
-                    macosDebugScope.evaluate(.OTHER_CFLAGS) ==
-                    ["-Wimplicit-fallthrough"]
+                    macosDebugScope.evaluate(.OTHER_CFLAGS) == ["-Wimplicit-fallthrough"]
                 )
 
                 let macosReleaseScope = BuildSettings.Scope(
@@ -3474,8 +3629,7 @@ struct PackageBuilderTests {
                     environment: BuildEnvironment(platform: .macOS, configuration: .release)
                 )
                 #expect(
-                    macosReleaseScope.evaluate(.OTHER_CFLAGS) ==
-                    ["-Wno-unused-parameter"]
+                    macosReleaseScope.evaluate(.OTHER_CFLAGS) == ["-Wno-unused-parameter"]
                 )
             }
         }
@@ -3483,8 +3637,9 @@ struct PackageBuilderTests {
 
     @Test
     func testCXXWarningEnableDisable() throws {
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/Sources/cxxfoo/foo.cpp",
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                "/Sources/cxxfoo/foo.cpp",
             "/Sources/cxxfoo/include/cxxfoo.h"
         )
 
@@ -3509,8 +3664,7 @@ struct PackageBuilderTests {
                     environment: BuildEnvironment(platform: .macOS, configuration: .debug)
                 )
                 #expect(
-                    macosDebugScope.evaluate(.OTHER_CPLUSPLUSFLAGS) ==
-                    ["-Wimplicit-fallthrough"]
+                    macosDebugScope.evaluate(.OTHER_CPLUSPLUSFLAGS) == ["-Wimplicit-fallthrough"]
                 )
 
                 let macosReleaseScope = BuildSettings.Scope(
@@ -3518,8 +3672,7 @@ struct PackageBuilderTests {
                     environment: BuildEnvironment(platform: .macOS, configuration: .release)
                 )
                 #expect(
-                    macosReleaseScope.evaluate(.OTHER_CPLUSPLUSFLAGS) ==
-                    ["-Wno-unused-parameter"]
+                    macosReleaseScope.evaluate(.OTHER_CPLUSPLUSFLAGS) == ["-Wno-unused-parameter"]
                 )
             }
         }
@@ -3527,8 +3680,9 @@ struct PackageBuilderTests {
 
     @Test
     func testDefaultIsolationPerTarget() throws {
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/Sources/A/a.swift",
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                "/Sources/A/a.swift",
             "/Sources/B/b.swift"
         )
 
@@ -3546,7 +3700,7 @@ struct PackageBuilderTests {
                     name: "B",
                     settings: [
                         .init(tool: .swift, kind: .defaultIsolation(.nonisolated), condition: .init(platformNames: ["linux"])),
-                        .init(tool: .swift, kind: .defaultIsolation(.MainActor), condition: .init(platformNames: ["macos"], config: "debug"))
+                        .init(tool: .swift, kind: .defaultIsolation(.MainActor), condition: .init(platformNames: ["macos"], config: "debug")),
                     ]
                 ),
             ]
@@ -3589,8 +3743,7 @@ struct PackageBuilderTests {
                     package.target.buildSettings,
                     environment: BuildEnvironment(platform: .macOS, configuration: .release)
                 )
-                #expect(!macosReleaseScope.evaluate(.OTHER_SWIFT_FLAGS).contains("-default-isolation") ||
-                        !macosReleaseScope.evaluate(.OTHER_SWIFT_FLAGS).contains("MainActor"))
+                #expect(!macosReleaseScope.evaluate(.OTHER_SWIFT_FLAGS).contains("-default-isolation") || !macosReleaseScope.evaluate(.OTHER_SWIFT_FLAGS).contains("MainActor"))
 
             }
         }
@@ -3686,7 +3839,7 @@ final class PackageBuilderTester {
             Issue.record("Expected package did not load \(self)", sourceLocation: sourceLocation)
             return
         }
-        guard let target = package.modules.first(where: {$0.name == name}) else {
+        guard let target = package.modules.first(where: { $0.name == name }) else {
             Issue.record("Module: \(name) not found", sourceLocation: sourceLocation)
             return
         }
@@ -3699,7 +3852,7 @@ final class PackageBuilderTester {
             Issue.record("Expected package did not load \(self)", sourceLocation: sourceLocation)
             return
         }
-        let foundProducts = package.products.filter{$0.name == name}
+        let foundProducts = package.products.filter { $0.name == name }
         guard foundProducts.count == 1 else {
             Issue.record("Couldn't get the product: \(name). Found products \(foundProducts)", sourceLocation: sourceLocation)
             return
@@ -3717,7 +3870,7 @@ final class PackageBuilderTester {
 
         func check(type: PackageModel.ProductType, targets: [String], sourceLocation: SourceLocation = #_sourceLocation) {
             #expect(product.type == type, sourceLocation: sourceLocation)
-            #expect(product.modules.map{$0.name}.sorted() == targets.sorted(), sourceLocation: sourceLocation)
+            #expect(product.modules.map { $0.name }.sorted() == targets.sorted(), sourceLocation: sourceLocation)
         }
 
         func check(testEntryPointPath: String?, sourceLocation: SourceLocation = #_sourceLocation) {
@@ -3772,7 +3925,7 @@ final class PackageBuilderTester {
         }
 
         func checkResources(resources: [String], sourceLocation: SourceLocation = #_sourceLocation) {
-            #expect(Set(resources) == Set(self.target.resources.map{ $0.path.pathString }), "unexpected resource files in \(target.name)", sourceLocation: sourceLocation)
+            #expect(Set(resources) == Set(self.target.resources.map { $0.path.pathString }), "unexpected resource files in \(target.name)", sourceLocation: sourceLocation)
         }
 
         func check(targetDependencies depsToCheck: [String], sourceLocation: SourceLocation = #_sourceLocation) {
@@ -3822,11 +3975,13 @@ final class PackageBuilderTester {
                 Issue.record("\(target) is not a swift target", sourceLocation: sourceLocation)
                 return
             }
-            guard let versionAssignments = swiftTarget.buildSettings.assignments[.SWIFT_VERSION]?
-                .filter { $0.conditions.isEmpty }.flatMap(\.values) else {
-                    Issue.record("\(target) has no version assignments", sourceLocation: sourceLocation)
-                    return
-                }
+            guard
+                let versionAssignments = swiftTarget.buildSettings.assignments[.SWIFT_VERSION]?
+                    .filter { $0.conditions.isEmpty }.flatMap(\.values)
+            else {
+                Issue.record("\(target) has no version assignments", sourceLocation: sourceLocation)
+                return
+            }
             #expect(versionAssignments.contains(swiftVersion) != nil, sourceLocation: sourceLocation)
         }
 

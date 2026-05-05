@@ -13,8 +13,7 @@
 import Basics
 @testable import Build
 
-@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
-@testable import PackageGraph
+@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly) @testable import PackageGraph
 
 import PackageLoading
 @testable import PackageModel
@@ -30,7 +29,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
     func testModuleAliasingEmptyAlias() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/thisPkg/Sources/exe/main.swift",
+                "/thisPkg/Sources/exe/main.swift",
             "/thisPkg/Sources/Logging/file.swift",
             "/fooPkg/Sources/Logging/fileLogging.swift"
         )
@@ -43,27 +42,29 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     displayName: "fooPkg",
                     path: "/fooPkg",
                     products: [
-                        ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Logging"]),
+                        ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Logging"])
                     ],
                     targets: [
-                        TargetDescription(name: "Logging", dependencies: []),
+                        TargetDescription(name: "Logging", dependencies: [])
                     ]
                 ),
                 Manifest.createRootManifest(
                     displayName: "thisPkg",
                     path: "/thisPkg",
                     dependencies: [
-                        .localSourceControl(path: "/fooPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/fooPkg", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     targets: [
                         TargetDescription(
                             name: "exe",
-                            dependencies: ["Logging",
-                                           .product(
-                                               name: "Foo",
-                                               package: "fooPkg",
-                                               moduleAliases: ["Logging": ""]
-                                           )]
+                            dependencies: [
+                                "Logging",
+                                .product(
+                                    name: "Foo",
+                                    package: "fooPkg",
+                                    moduleAliases: ["Logging": ""]
+                                ),
+                            ]
                         ),
                         TargetDescription(name: "Logging", dependencies: []),
                     ]
@@ -80,7 +81,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
     func testModuleAliasingInvalidIdentifierAlias() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/thisPkg/Sources/exe/main.swift",
+                "/thisPkg/Sources/exe/main.swift",
             "/thisPkg/Sources/Logging/file.swift",
             "/fooPkg/Sources/Logging/fileLogging.swift"
         )
@@ -93,27 +94,29 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     displayName: "fooPkg",
                     path: "/fooPkg",
                     products: [
-                        ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Logging"]),
+                        ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Logging"])
                     ],
                     targets: [
-                        TargetDescription(name: "Logging", dependencies: []),
+                        TargetDescription(name: "Logging", dependencies: [])
                     ]
                 ),
                 Manifest.createRootManifest(
                     displayName: "thisPkg",
                     path: "/thisPkg",
                     dependencies: [
-                        .localSourceControl(path: "/fooPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/fooPkg", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     targets: [
                         TargetDescription(
                             name: "exe",
-                            dependencies: ["Logging",
-                                           .product(
-                                               name: "Foo",
-                                               package: "fooPkg",
-                                               moduleAliases: ["Logging": "P$0%^#@"]
-                                           )]
+                            dependencies: [
+                                "Logging",
+                                .product(
+                                    name: "Foo",
+                                    package: "fooPkg",
+                                    moduleAliases: ["Logging": "P$0%^#@"]
+                                ),
+                            ]
                         ),
                         TargetDescription(name: "Logging", dependencies: []),
                     ]
@@ -133,7 +136,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
     func testModuleAliasingDuplicateProductNames() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/thisPkg/Sources/exe/main.swift",
+                "/thisPkg/Sources/exe/main.swift",
             "/fooPkg/Sources/Logging/fileLogging.swift",
             "/barPkg/Sources/Logging/fileLogging.swift"
         )
@@ -145,20 +148,20 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     displayName: "fooPkg",
                     path: "/fooPkg",
                     products: [
-                        ProductDescription(name: "Logging", type: .library(.automatic), targets: ["Logging"]),
+                        ProductDescription(name: "Logging", type: .library(.automatic), targets: ["Logging"])
                     ],
                     targets: [
-                        TargetDescription(name: "Logging", dependencies: []),
+                        TargetDescription(name: "Logging", dependencies: [])
                     ]
                 ),
                 Manifest.createFileSystemManifest(
                     displayName: "barPkg",
                     path: "/barPkg",
                     products: [
-                        ProductDescription(name: "Logging", type: .library(.automatic), targets: ["Logging"]),
+                        ProductDescription(name: "Logging", type: .library(.automatic), targets: ["Logging"])
                     ],
                     targets: [
-                        TargetDescription(name: "Logging", dependencies: []),
+                        TargetDescription(name: "Logging", dependencies: [])
                     ]
                 ),
                 Manifest.createRootManifest(
@@ -172,31 +175,35 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     targets: [
                         TargetDescription(
                             name: "exe",
-                            dependencies: [.product(
-                                name: "Logging",
-                                package: "fooPkg"
-                            ),
-                            .product(
-                                name: "Logging",
-                                package: "barPkg",
-                                moduleAliases: ["Logging": "BarLogging"]
-                            )],
+                            dependencies: [
+                                .product(
+                                    name: "Logging",
+                                    package: "fooPkg"
+                                ),
+                                .product(
+                                    name: "Logging",
+                                    package: "barPkg",
+                                    moduleAliases: ["Logging": "BarLogging"]
+                                ),
+                            ],
                             type: .executable
-                        ),
+                        )
                     ]
                 ),
             ],
             observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
-        let result = try await BuildPlanResult(plan: try mockBuildPlan(
-            graph: graph,
-            linkingParameters: .init(
-                shouldLinkStaticSwiftStdlib: true
-            ),
-            fileSystem: fs,
-            observabilityScope: observability.topScope
-        ))
+        let result = try await BuildPlanResult(
+            plan: try mockBuildPlan(
+                graph: graph,
+                linkingParameters: .init(
+                    shouldLinkStaticSwiftStdlib: true
+                ),
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            )
+        )
         result.checkProductsCount(1)
         result.checkTargetsCount(3)
         XCTAssertTrue(
@@ -214,59 +221,63 @@ final class ModuleAliasingBuildTests: XCTestCase {
         let barPkg: AbsolutePath = "/barPkg"
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/thisPkg/Sources/exe/main.swift",
+                "/thisPkg/Sources/exe/main.swift",
             "/fooPkg/Sources/Logging/fileLogging.swift",
             "/barPkg/Sources/Logging/fileLogging.swift"
         )
         let observability = ObservabilitySystem.makeForTesting()
-        XCTAssertThrowsError(try loadModulesGraph(
-            fileSystem: fs,
-            manifests: [
-                Manifest.createFileSystemManifest(
-                    displayName: "fooPkg",
-                    path: fooPkg,
-                    products: [
-                        ProductDescription(name: "Logging", type: .library(.dynamic), targets: ["Logging"]),
-                    ],
-                    targets: [
-                        TargetDescription(name: "Logging", dependencies: []),
-                    ]
-                ),
-                Manifest.createFileSystemManifest(
-                    displayName: "barPkg",
-                    path: barPkg,
-                    products: [
-                        ProductDescription(name: "Logging", type: .library(.dynamic), targets: ["Logging"]),
-                    ],
-                    targets: [
-                        TargetDescription(name: "Logging", dependencies: []),
-                    ]
-                ),
-                Manifest.createRootManifest(
-                    displayName: "thisPkg",
-                    path: "/thisPkg",
-                    dependencies: [
-                        .localSourceControl(path: "/fooPkg", requirement: .upToNextMajor(from: "1.0.0")),
-                        .localSourceControl(path: "/barPkg", requirement: .upToNextMajor(from: "2.0.0")),
-                    ],
-                    targets: [
-                        TargetDescription(
-                            name: "exe",
-                            dependencies: [.product(
-                                name: "Logging",
-                                package: "fooPkg"
-                            ),
-                            .product(
-                                name: "Logging",
-                                package: "barPkg",
-                                moduleAliases: ["Logging": "BarLogging"]
-                            )]
-                        ),
-                    ]
-                ),
-            ],
-            observabilityScope: observability.topScope
-        )) { error in
+        XCTAssertThrowsError(
+            try loadModulesGraph(
+                fileSystem: fs,
+                manifests: [
+                    Manifest.createFileSystemManifest(
+                        displayName: "fooPkg",
+                        path: fooPkg,
+                        products: [
+                            ProductDescription(name: "Logging", type: .library(.dynamic), targets: ["Logging"])
+                        ],
+                        targets: [
+                            TargetDescription(name: "Logging", dependencies: [])
+                        ]
+                    ),
+                    Manifest.createFileSystemManifest(
+                        displayName: "barPkg",
+                        path: barPkg,
+                        products: [
+                            ProductDescription(name: "Logging", type: .library(.dynamic), targets: ["Logging"])
+                        ],
+                        targets: [
+                            TargetDescription(name: "Logging", dependencies: [])
+                        ]
+                    ),
+                    Manifest.createRootManifest(
+                        displayName: "thisPkg",
+                        path: "/thisPkg",
+                        dependencies: [
+                            .localSourceControl(path: "/fooPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                            .localSourceControl(path: "/barPkg", requirement: .upToNextMajor(from: "2.0.0")),
+                        ],
+                        targets: [
+                            TargetDescription(
+                                name: "exe",
+                                dependencies: [
+                                    .product(
+                                        name: "Logging",
+                                        package: "fooPkg"
+                                    ),
+                                    .product(
+                                        name: "Logging",
+                                        package: "barPkg",
+                                        moduleAliases: ["Logging": "BarLogging"]
+                                    ),
+                                ]
+                            )
+                        ]
+                    ),
+                ],
+                observabilityScope: observability.topScope
+            )
+        ) { error in
             XCTAssertEqual((error as? PackageGraphError)?.description, "multiple packages (\'barpkg\' (at '\(barPkg)'), \'foopkg\' (at '\(fooPkg)')) declare products with a conflicting name: \'Logging’; product names need to be unique across the package graph")
         }
     }
@@ -276,59 +287,63 @@ final class ModuleAliasingBuildTests: XCTestCase {
         let barPkg: AbsolutePath = "/barPkg"
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/thisPkg/Sources/exe/main.swift",
+                "/thisPkg/Sources/exe/main.swift",
             "/fooPkg/Sources/Logging/fileLogging.swift",
             "/barPkg/Sources/Logging/fileLogging.swift"
         )
         let observability = ObservabilitySystem.makeForTesting()
-        XCTAssertThrowsError(try loadModulesGraph(
-            fileSystem: fs,
-            manifests: [
-                Manifest.createFileSystemManifest(
-                    displayName: "fooPkg",
-                    path: fooPkg,
-                    products: [
-                        ProductDescription(name: "Logging", type: .library(.dynamic), targets: ["Logging"]),
-                    ],
-                    targets: [
-                        TargetDescription(name: "Logging", dependencies: []),
-                    ]
-                ),
-                Manifest.createFileSystemManifest(
-                    displayName: "barPkg",
-                    path: barPkg,
-                    products: [
-                        ProductDescription(name: "Logging", type: .library(.static), targets: ["Logging"]),
-                    ],
-                    targets: [
-                        TargetDescription(name: "Logging", dependencies: []),
-                    ]
-                ),
-                Manifest.createRootManifest(
-                    displayName: "thisPkg",
-                    path: "/thisPkg",
-                    dependencies: [
-                        .localSourceControl(path: "/fooPkg", requirement: .upToNextMajor(from: "1.0.0")),
-                        .localSourceControl(path: "/barPkg", requirement: .upToNextMajor(from: "2.0.0")),
-                    ],
-                    targets: [
-                        TargetDescription(
-                            name: "exe",
-                            dependencies: [.product(
-                                name: "Logging",
-                                package: "fooPkg"
-                            ),
-                            .product(
-                                name: "Logging",
-                                package: "barPkg",
-                                moduleAliases: ["Logging": "BarLogging"]
-                            )]
-                        ),
-                    ]
-                ),
-            ],
-            observabilityScope: observability.topScope
-        )) { error in
+        XCTAssertThrowsError(
+            try loadModulesGraph(
+                fileSystem: fs,
+                manifests: [
+                    Manifest.createFileSystemManifest(
+                        displayName: "fooPkg",
+                        path: fooPkg,
+                        products: [
+                            ProductDescription(name: "Logging", type: .library(.dynamic), targets: ["Logging"])
+                        ],
+                        targets: [
+                            TargetDescription(name: "Logging", dependencies: [])
+                        ]
+                    ),
+                    Manifest.createFileSystemManifest(
+                        displayName: "barPkg",
+                        path: barPkg,
+                        products: [
+                            ProductDescription(name: "Logging", type: .library(.static), targets: ["Logging"])
+                        ],
+                        targets: [
+                            TargetDescription(name: "Logging", dependencies: [])
+                        ]
+                    ),
+                    Manifest.createRootManifest(
+                        displayName: "thisPkg",
+                        path: "/thisPkg",
+                        dependencies: [
+                            .localSourceControl(path: "/fooPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                            .localSourceControl(path: "/barPkg", requirement: .upToNextMajor(from: "2.0.0")),
+                        ],
+                        targets: [
+                            TargetDescription(
+                                name: "exe",
+                                dependencies: [
+                                    .product(
+                                        name: "Logging",
+                                        package: "fooPkg"
+                                    ),
+                                    .product(
+                                        name: "Logging",
+                                        package: "barPkg",
+                                        moduleAliases: ["Logging": "BarLogging"]
+                                    ),
+                                ]
+                            )
+                        ]
+                    ),
+                ],
+                observabilityScope: observability.topScope
+            )
+        ) { error in
             XCTAssertEqual((error as? PackageGraphError)?.description, "multiple packages (\'barpkg\' (at '\(barPkg)'), \'foopkg\' (at '\(fooPkg)')) declare products with a conflicting name: \'Logging’; product names need to be unique across the package graph")
         }
     }
@@ -336,7 +351,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
     func testModuleAliasingDuplicateDylibAutomaticProductNames() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/thisPkg/Sources/exe/main.swift",
+                "/thisPkg/Sources/exe/main.swift",
             "/fooPkg/Sources/Logging/fileLogging.swift",
             "/barPkg/Sources/Logging/fileLogging.swift",
             "/bazPkg/Sources/Logging/fileLogging.swift"
@@ -349,20 +364,20 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     displayName: "fooPkg",
                     path: "/fooPkg",
                     products: [
-                        ProductDescription(name: "Logging", type: .library(.automatic), targets: ["Logging"]),
+                        ProductDescription(name: "Logging", type: .library(.automatic), targets: ["Logging"])
                     ],
                     targets: [
-                        TargetDescription(name: "Logging", dependencies: []),
+                        TargetDescription(name: "Logging", dependencies: [])
                     ]
                 ),
                 Manifest.createFileSystemManifest(
                     displayName: "barPkg",
                     path: "/barPkg",
                     products: [
-                        ProductDescription(name: "Logging", type: .library(.dynamic), targets: ["Logging"]),
+                        ProductDescription(name: "Logging", type: .library(.dynamic), targets: ["Logging"])
                     ],
                     targets: [
-                        TargetDescription(name: "Logging", dependencies: []),
+                        TargetDescription(name: "Logging", dependencies: [])
                     ]
                 ),
                 Manifest.createRootManifest(
@@ -376,31 +391,35 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     targets: [
                         TargetDescription(
                             name: "exe",
-                            dependencies: [.product(
-                                name: "Logging",
-                                package: "fooPkg"
-                            ),
-                            .product(
-                                name: "Logging",
-                                package: "barPkg",
-                                moduleAliases: ["Logging": "BarLogging"]
-                            )],
+                            dependencies: [
+                                .product(
+                                    name: "Logging",
+                                    package: "fooPkg"
+                                ),
+                                .product(
+                                    name: "Logging",
+                                    package: "barPkg",
+                                    moduleAliases: ["Logging": "BarLogging"]
+                                ),
+                            ],
                             type: .executable
-                        ),
+                        )
                     ]
                 ),
             ],
             observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
-        let result = try await BuildPlanResult(plan: try mockBuildPlan(
-            graph: graph,
-            linkingParameters: .init(
-                shouldLinkStaticSwiftStdlib: true
-            ),
-            fileSystem: fs,
-            observabilityScope: observability.topScope
-        ))
+        let result = try await BuildPlanResult(
+            plan: try mockBuildPlan(
+                graph: graph,
+                linkingParameters: .init(
+                    shouldLinkStaticSwiftStdlib: true
+                ),
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            )
+        )
         result.checkProductsCount(2)
         result.checkTargetsCount(3)
         XCTAssertTrue(
@@ -412,18 +431,19 @@ final class ModuleAliasingBuildTests: XCTestCase {
                 .contains { $0.module.name == "BarLogging" && $0.module.moduleAliases?["Logging"] == "BarLogging" }
         )
         #if os(macOS)
-        let dylib = try result.buildProduct(for: "Logging")
-        XCTAssertTrue(
-            try dylib.binaryPath.basename == "libLogging.dylib" && dylib.package.identity
-                .description == "barpkg"
-        )
+            let dylib = try result.buildProduct(for: "Logging")
+            XCTAssertTrue(
+                try dylib.binaryPath.basename == "libLogging.dylib"
+                    && dylib.package.identity
+                        .description == "barpkg"
+            )
         #endif
     }
 
     func testModuleAliasingDuplicateStaticLibAutomaticProductNames() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/thisPkg/Sources/exe/main.swift",
+                "/thisPkg/Sources/exe/main.swift",
             "/fooPkg/Sources/Logging/fileLogging.swift",
             "/bazPkg/Sources/Logging/fileLogging.swift"
         )
@@ -435,20 +455,20 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     displayName: "fooPkg",
                     path: "/fooPkg",
                     products: [
-                        ProductDescription(name: "Logging", type: .library(.automatic), targets: ["Logging"]),
+                        ProductDescription(name: "Logging", type: .library(.automatic), targets: ["Logging"])
                     ],
                     targets: [
-                        TargetDescription(name: "Logging", dependencies: []),
+                        TargetDescription(name: "Logging", dependencies: [])
                     ]
                 ),
                 Manifest.createFileSystemManifest(
                     displayName: "bazPkg",
                     path: "/bazPkg",
                     products: [
-                        ProductDescription(name: "Logging", type: .library(.static), targets: ["Logging"]),
+                        ProductDescription(name: "Logging", type: .library(.static), targets: ["Logging"])
                     ],
                     targets: [
-                        TargetDescription(name: "Logging", dependencies: []),
+                        TargetDescription(name: "Logging", dependencies: [])
                     ]
                 ),
                 Manifest.createRootManifest(
@@ -462,31 +482,35 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     targets: [
                         TargetDescription(
                             name: "exe",
-                            dependencies: [.product(
-                                name: "Logging",
-                                package: "fooPkg"
-                            ),
-                            .product(
-                                name: "Logging",
-                                package: "bazPkg",
-                                moduleAliases: ["Logging": "BazLogging"]
-                            )],
+                            dependencies: [
+                                .product(
+                                    name: "Logging",
+                                    package: "fooPkg"
+                                ),
+                                .product(
+                                    name: "Logging",
+                                    package: "bazPkg",
+                                    moduleAliases: ["Logging": "BazLogging"]
+                                ),
+                            ],
                             type: .executable
-                        ),
+                        )
                     ]
                 ),
             ],
             observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
-        let result = try await BuildPlanResult(plan: try mockBuildPlan(
-            graph: graph,
-            linkingParameters: .init(
-                shouldLinkStaticSwiftStdlib: true
-            ),
-            fileSystem: fs,
-            observabilityScope: observability.topScope
-        ))
+        let result = try await BuildPlanResult(
+            plan: try mockBuildPlan(
+                graph: graph,
+                linkingParameters: .init(
+                    shouldLinkStaticSwiftStdlib: true
+                ),
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            )
+        )
         result.checkProductsCount(2)
         result.checkTargetsCount(3)
         XCTAssertTrue(
@@ -498,18 +522,19 @@ final class ModuleAliasingBuildTests: XCTestCase {
                 .contains { $0.module.name == "BazLogging" && $0.module.moduleAliases?["Logging"] == "BazLogging" }
         )
         #if os(macOS)
-        let staticlib = try result.buildProduct(for: "Logging")
-        XCTAssertTrue(
-            try staticlib.binaryPath.basename == "libLogging.a" && staticlib.package.identity
-                .description == "bazpkg"
-        )
+            let staticlib = try result.buildProduct(for: "Logging")
+            XCTAssertTrue(
+                try staticlib.binaryPath.basename == "libLogging.a"
+                    && staticlib.package.identity
+                        .description == "bazpkg"
+            )
         #endif
     }
 
     func testModuleAliasingDuplicateProductNamesUpstream() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/thisPkg/Sources/exe/main.swift",
+                "/thisPkg/Sources/exe/main.swift",
             "/aPkg/Sources/A/file.swift",
             "/xPkg/Sources/Logging/fileLogging.swift",
             "/bPkg/Sources/B/file.swift",
@@ -523,62 +548,62 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     displayName: "xPkg",
                     path: "/xPkg",
                     products: [
-                        ProductDescription(name: "Logging", type: .library(.dynamic), targets: ["Logging"]),
+                        ProductDescription(name: "Logging", type: .library(.dynamic), targets: ["Logging"])
                     ],
                     targets: [
                         TargetDescription(
                             name: "Logging",
                             dependencies: []
-                        ),
+                        )
                     ]
                 ),
                 Manifest.createFileSystemManifest(
                     displayName: "yPkg",
                     path: "/yPkg",
                     products: [
-                        ProductDescription(name: "Logging", type: .library(.automatic), targets: ["Logging"]),
+                        ProductDescription(name: "Logging", type: .library(.automatic), targets: ["Logging"])
                     ],
                     targets: [
                         TargetDescription(
                             name: "Logging",
                             dependencies: []
-                        ),
+                        )
                     ]
                 ),
                 Manifest.createFileSystemManifest(
                     displayName: "aPkg",
                     path: "/aPkg",
                     dependencies: [
-                        .localSourceControl(path: "/xPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/xPkg", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
-                        ProductDescription(name: "A", type: .library(.dynamic), targets: ["A"]),
+                        ProductDescription(name: "A", type: .library(.dynamic), targets: ["A"])
                     ],
                     targets: [
                         TargetDescription(
                             name: "A",
                             dependencies: [
-                                .product(name: "Logging", package: "xPkg"),
+                                .product(name: "Logging", package: "xPkg")
                             ]
-                        ),
+                        )
                     ]
                 ),
                 Manifest.createFileSystemManifest(
                     displayName: "bPkg",
                     path: "/bPkg",
                     dependencies: [
-                        .localSourceControl(path: "/yPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/yPkg", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
-                        ProductDescription(name: "B", type: .library(.dynamic), targets: ["B"]),
+                        ProductDescription(name: "B", type: .library(.dynamic), targets: ["B"])
                     ],
                     targets: [
                         TargetDescription(
                             name: "B",
                             dependencies: [
-                                .product(name: "Logging", package: "yPkg"),
+                                .product(name: "Logging", package: "yPkg")
                             ]
-                        ),
+                        )
                     ]
                 ),
                 Manifest.createRootManifest(
@@ -591,30 +616,34 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     targets: [
                         TargetDescription(
                             name: "exe",
-                            dependencies: [.product(
-                                name: "A",
-                                package: "aPkg",
-                                moduleAliases: ["Logging": "ALogging"]
-                            ),
-                            .product(
-                                name: "B",
-                                package: "bPkg"
-                            )]
-                        ),
+                            dependencies: [
+                                .product(
+                                    name: "A",
+                                    package: "aPkg",
+                                    moduleAliases: ["Logging": "ALogging"]
+                                ),
+                                .product(
+                                    name: "B",
+                                    package: "bPkg"
+                                ),
+                            ]
+                        )
                     ]
                 ),
             ],
             observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
-        let result = try await BuildPlanResult(plan: try mockBuildPlan(
-            graph: graph,
-            linkingParameters: .init(
-                shouldLinkStaticSwiftStdlib: true
-            ),
-            fileSystem: fs,
-            observabilityScope: observability.topScope
-        ))
+        let result = try await BuildPlanResult(
+            plan: try mockBuildPlan(
+                graph: graph,
+                linkingParameters: .init(
+                    shouldLinkStaticSwiftStdlib: true
+                ),
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            )
+        )
         result.checkProductsCount(4)
         result.checkTargetsCount(5)
         XCTAssertTrue(
@@ -631,18 +660,19 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
         XCTAssertTrue(result.targetMap.values.contains { $0.module.name == "B" && $0.module.moduleAliases == nil })
         #if os(macOS)
-        let dylib = try result.buildProduct(for: "Logging")
-        XCTAssertTrue(
-            try dylib.binaryPath.basename == "libLogging.dylib" && dylib.package.identity
-                .description == "xpkg"
-        )
+            let dylib = try result.buildProduct(for: "Logging")
+            XCTAssertTrue(
+                try dylib.binaryPath.basename == "libLogging.dylib"
+                    && dylib.package.identity
+                        .description == "xpkg"
+            )
         #endif
     }
 
     func testModuleAliasingDirectDeps() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/thisPkg/Sources/exe/main.swift",
+                "/thisPkg/Sources/exe/main.swift",
             "/thisPkg/Sources/Logging/file.swift",
             "/fooPkg/Sources/Logging/fileLogging.swift",
             "/barPkg/Sources/Logging/fileLogging.swift"
@@ -656,20 +686,20 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     displayName: "fooPkg",
                     path: "/fooPkg",
                     products: [
-                        ProductDescription(name: "Logging", type: .library(.automatic), targets: ["Logging"]),
+                        ProductDescription(name: "Logging", type: .library(.automatic), targets: ["Logging"])
                     ],
                     targets: [
-                        TargetDescription(name: "Logging", dependencies: []),
+                        TargetDescription(name: "Logging", dependencies: [])
                     ]
                 ),
                 Manifest.createFileSystemManifest(
                     displayName: "barPkg",
                     path: "/barPkg",
                     products: [
-                        ProductDescription(name: "Logging", type: .library(.automatic), targets: ["Logging"]),
+                        ProductDescription(name: "Logging", type: .library(.automatic), targets: ["Logging"])
                     ],
                     targets: [
-                        TargetDescription(name: "Logging", dependencies: []),
+                        TargetDescription(name: "Logging", dependencies: [])
                     ]
                 ),
                 Manifest.createRootManifest(
@@ -683,17 +713,19 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     targets: [
                         TargetDescription(
                             name: "exe",
-                            dependencies: ["Logging",
-                                           .product(
-                                               name: "Logging",
-                                               package: "fooPkg",
-                                               moduleAliases: ["Logging": "FooLogging"]
-                                           ),
-                                           .product(
-                                               name: "Logging",
-                                               package: "barPkg",
-                                               moduleAliases: ["Logging": "BarLogging"]
-                                           )],
+                            dependencies: [
+                                "Logging",
+                                .product(
+                                    name: "Logging",
+                                    package: "fooPkg",
+                                    moduleAliases: ["Logging": "FooLogging"]
+                                ),
+                                .product(
+                                    name: "Logging",
+                                    package: "barPkg",
+                                    moduleAliases: ["Logging": "BarLogging"]
+                                ),
+                            ],
                             type: .executable
                         ),
                         TargetDescription(name: "Logging", dependencies: []),
@@ -705,14 +737,16 @@ final class ModuleAliasingBuildTests: XCTestCase {
 
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try await BuildPlanResult(plan: try mockBuildPlan(
-            graph: graph,
-            linkingParameters: .init(
-                shouldLinkStaticSwiftStdlib: true
-            ),
-            fileSystem: fs,
-            observabilityScope: observability.topScope
-        ))
+        let result = try await BuildPlanResult(
+            plan: try mockBuildPlan(
+                graph: graph,
+                linkingParameters: .init(
+                    shouldLinkStaticSwiftStdlib: true
+                ),
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            )
+        )
 
         result.checkProductsCount(1)
         result.checkTargetsCount(4)
@@ -737,28 +771,34 @@ final class ModuleAliasingBuildTests: XCTestCase {
 
         XCTAssertMatch(
             fooLoggingArgs,
-            [.anySequence, "-emit-objc-header", "-emit-objc-header-path",
-             "\(buildPath.appending(components: "FooLogging.build", "include", "FooLogging-Swift.h"))",
-             .anySequence]
+            [
+                .anySequence, "-emit-objc-header", "-emit-objc-header-path",
+                "\(buildPath.appending(components: "FooLogging.build", "include", "FooLogging-Swift.h"))",
+                .anySequence,
+            ]
         )
         XCTAssertMatch(
             barLoggingArgs,
-            [.anySequence, "-emit-objc-header", "-emit-objc-header-path",
-             "\(buildPath.appending(components: "BarLogging.build", "include", "BarLogging-Swift.h"))",
-             .anySequence]
+            [
+                .anySequence, "-emit-objc-header", "-emit-objc-header-path",
+                "\(buildPath.appending(components: "BarLogging.build", "include", "BarLogging-Swift.h"))",
+                .anySequence,
+            ]
         )
         XCTAssertMatch(
             loggingArgs,
-            [.anySequence, "-emit-objc-header", "-emit-objc-header-path",
-             "\(buildPath.appending(components: "Logging.build", "include", "Logging-Swift.h"))",
-             .anySequence]
+            [
+                .anySequence, "-emit-objc-header", "-emit-objc-header-path",
+                "\(buildPath.appending(components: "Logging.build", "include", "Logging-Swift.h"))",
+                .anySequence,
+            ]
         )
     }
 
     func testModuleAliasingDuplicateTargetNameInUpstream() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/thisPkg/Sources/exe/main.swift",
+                "/thisPkg/Sources/exe/main.swift",
             "/thisPkg/Sources/Logging/file.swift",
             "/otherPkg/Sources/Utils/fileUtils.swift",
             "/otherPkg/Sources/Logging/fileLogging.swift",
@@ -788,21 +828,23 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     displayName: "thisPkg",
                     path: "/thisPkg",
                     dependencies: [
-                        .localSourceControl(path: "/otherPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/otherPkg", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     targets: [
                         TargetDescription(
                             name: "exe",
-                            dependencies: ["Logging",
-                                           .product(
-                                               name: "Math",
-                                               package: "otherPkg"
-                                           ),
-                                           .product(
-                                               name: "Utils",
-                                               package: "otherPkg",
-                                               moduleAliases: ["Logging": "OtherLogging"]
-                                           )]
+                            dependencies: [
+                                "Logging",
+                                .product(
+                                    name: "Math",
+                                    package: "otherPkg"
+                                ),
+                                .product(
+                                    name: "Utils",
+                                    package: "otherPkg",
+                                    moduleAliases: ["Logging": "OtherLogging"]
+                                ),
+                            ]
                         ),
                         TargetDescription(name: "Logging", dependencies: []),
                     ]
@@ -812,14 +854,16 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try await BuildPlanResult(plan: try mockBuildPlan(
-            graph: graph,
-            linkingParameters: .init(
-                shouldLinkStaticSwiftStdlib: true
-            ),
-            fileSystem: fs,
-            observabilityScope: observability.topScope
-        ))
+        let result = try await BuildPlanResult(
+            plan: try mockBuildPlan(
+                graph: graph,
+                linkingParameters: .init(
+                    shouldLinkStaticSwiftStdlib: true
+                ),
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            )
+        )
 
         result.checkProductsCount(1)
         result.checkTargetsCount(6)
@@ -843,75 +887,82 @@ final class ModuleAliasingBuildTests: XCTestCase {
 
         XCTAssertMatch(
             otherLoggingArgs,
-            [.anySequence, "-emit-objc-header", "-emit-objc-header-path",
-             "\(buildPath.appending(components: "OtherLogging.build", "include", "OtherLogging-Swift.h"))",
-             .anySequence]
+            [
+                .anySequence, "-emit-objc-header", "-emit-objc-header-path",
+                "\(buildPath.appending(components: "OtherLogging.build", "include", "OtherLogging-Swift.h"))",
+                .anySequence,
+            ]
         )
         XCTAssertMatch(
             loggingArgs,
-            [.anySequence, "-emit-objc-header", "-emit-objc-header-path",
-             "\(buildPath.appending(components: "Logging.build", "include", "Logging-Swift.h"))",
-             .anySequence]
+            [
+                .anySequence, "-emit-objc-header", "-emit-objc-header-path",
+                "\(buildPath.appending(components: "Logging.build", "include", "Logging-Swift.h"))",
+                .anySequence,
+            ]
         )
     }
 
     func testModuleAliasingMultipleAliasesInProduct() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/thisPkg/Sources/exe/main.swift",
+                "/thisPkg/Sources/exe/main.swift",
             "/thisPkg/Sources/Logging/file.swift",
             "/otherPkg/Sources/Utils/fileUtils.swift",
             "/otherPkg/Sources/Logging/fileLogging.swift"
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        XCTAssertThrowsError(try loadModulesGraph(
-            fileSystem: fs,
-            manifests: [
-                Manifest.createRootManifest(
-                    displayName: "otherPkg",
-                    path: "/otherPkg",
-                    products: [
-                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
-                        ProductDescription(name: "LoggingProd", type: .library(.automatic), targets: ["Logging"]),
-                    ],
-                    targets: [
-                        TargetDescription(name: "Utils", dependencies: ["Logging"]),
-                        TargetDescription(name: "Logging", dependencies: []),
-                    ]
-                ),
-                Manifest.createRootManifest(
-                    displayName: "thisPkg",
-                    path: "/thisPkg",
-                    dependencies: [
-                        .localSourceControl(path: "/otherPkg", requirement: .upToNextMajor(from: "1.0.0")),
-                    ],
-                    targets: [
-                        TargetDescription(
-                            name: "exe",
-                            dependencies: ["Logging",
-                                           .product(
-                                               name: "Utils",
-                                               package: "otherPkg",
-                                               moduleAliases: ["Logging": "UtilsLogging"]
-                                           ),
-                                           .product(
-                                               name: "LoggingProd",
-                                               package: "otherPkg",
-                                               moduleAliases: ["Logging": "OtherLogging"]
-                                           )]
-                        ),
-                        TargetDescription(name: "Logging", dependencies: []),
-                    ]
-                ),
-            ],
-            observabilityScope: observability.topScope
-        )) { error in
+        XCTAssertThrowsError(
+            try loadModulesGraph(
+                fileSystem: fs,
+                manifests: [
+                    Manifest.createRootManifest(
+                        displayName: "otherPkg",
+                        path: "/otherPkg",
+                        products: [
+                            ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
+                            ProductDescription(name: "LoggingProd", type: .library(.automatic), targets: ["Logging"]),
+                        ],
+                        targets: [
+                            TargetDescription(name: "Utils", dependencies: ["Logging"]),
+                            TargetDescription(name: "Logging", dependencies: []),
+                        ]
+                    ),
+                    Manifest.createRootManifest(
+                        displayName: "thisPkg",
+                        path: "/thisPkg",
+                        dependencies: [
+                            .localSourceControl(path: "/otherPkg", requirement: .upToNextMajor(from: "1.0.0"))
+                        ],
+                        targets: [
+                            TargetDescription(
+                                name: "exe",
+                                dependencies: [
+                                    "Logging",
+                                    .product(
+                                        name: "Utils",
+                                        package: "otherPkg",
+                                        moduleAliases: ["Logging": "UtilsLogging"]
+                                    ),
+                                    .product(
+                                        name: "LoggingProd",
+                                        package: "otherPkg",
+                                        moduleAliases: ["Logging": "OtherLogging"]
+                                    ),
+                                ]
+                            ),
+                            TargetDescription(name: "Logging", dependencies: []),
+                        ]
+                    ),
+                ],
+                observabilityScope: observability.topScope
+            )
+        ) { error in
             var diagnosed = false
             if let realError = error as? PackageGraphError,
-               realError
-               .description ==
-               "multiple aliases: ['UtilsLogging', 'OtherLogging'] found for target 'Logging' in product 'LoggingProd' from package 'otherPkg'"
+                realError
+                    .description == "multiple aliases: ['UtilsLogging', 'OtherLogging'] found for target 'Logging' in product 'LoggingProd' from package 'otherPkg'"
             {
                 diagnosed = true
             }
@@ -922,7 +973,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
     func testModuleAliasingSameNameTargetsWithAliasesInMultiProducts() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/appPkg/Sources/App/main.swift",
+                "/appPkg/Sources/App/main.swift",
             "/swift-log/Sources/Logging/fileLogging.swift",
             "/swift-metrics/Sources/Metrics/file.swift",
             "/swift-metrics/Sources/Logging/fileLogging.swift"
@@ -935,17 +986,17 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     displayName: "swift-log",
                     path: "/swift-log",
                     products: [
-                        ProductDescription(name: "Logging", type: .library(.automatic), targets: ["Logging"]),
+                        ProductDescription(name: "Logging", type: .library(.automatic), targets: ["Logging"])
                     ],
                     targets: [
-                        TargetDescription(name: "Logging", dependencies: []),
+                        TargetDescription(name: "Logging", dependencies: [])
                     ]
                 ),
                 Manifest.createFileSystemManifest(
                     displayName: "swift-metrics",
                     path: "/swift-metrics",
                     products: [
-                        ProductDescription(name: "Metrics", type: .library(.automatic), targets: ["Metrics"]),
+                        ProductDescription(name: "Metrics", type: .library(.automatic), targets: ["Metrics"])
                     ],
                     targets: [
                         TargetDescription(name: "Metrics", dependencies: ["Logging"]),
@@ -962,30 +1013,34 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     targets: [
                         TargetDescription(
                             name: "App",
-                            dependencies: [.product(
-                                name: "Logging",
-                                package: "swift-log"
-                            ),
-                            .product(
-                                name: "Metrics",
-                                package: "swift-metrics",
-                                moduleAliases: ["Logging": "MetricsLogging"]
-                            )]
-                        ),
+                            dependencies: [
+                                .product(
+                                    name: "Logging",
+                                    package: "swift-log"
+                                ),
+                                .product(
+                                    name: "Metrics",
+                                    package: "swift-metrics",
+                                    moduleAliases: ["Logging": "MetricsLogging"]
+                                ),
+                            ]
+                        )
                     ]
                 ),
             ],
             observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
-        let result = try await BuildPlanResult(plan: try mockBuildPlan(
-            graph: graph,
-            linkingParameters: .init(
-                shouldLinkStaticSwiftStdlib: true
-            ),
-            fileSystem: fs,
-            observabilityScope: observability.topScope
-        ))
+        let result = try await BuildPlanResult(
+            plan: try mockBuildPlan(
+                graph: graph,
+                linkingParameters: .init(
+                    shouldLinkStaticSwiftStdlib: true
+                ),
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            )
+        )
         result.checkProductsCount(1)
         result.checkTargetsCount(4)
         XCTAssertTrue(
@@ -1004,7 +1059,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
     func testModuleAliasingInvalidSourcesUpstream() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/thisPkg/Sources/exe/main.swift",
+                "/thisPkg/Sources/exe/main.swift",
             "/thisPkg/Sources/Logging/file.swift",
             "/fooPkg/Sources/Utils/fileUtils.swift",
             "/fooPkg/Sources/Logging/fileLogging.m",
@@ -1018,7 +1073,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     displayName: "fooPkg",
                     path: "/fooPkg",
                     products: [
-                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
+                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"])
                     ],
                     targets: [
                         TargetDescription(name: "Utils", dependencies: ["Logging"]),
@@ -1029,17 +1084,19 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     displayName: "thisPkg",
                     path: "/thisPkg",
                     dependencies: [
-                        .localSourceControl(path: "/fooPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/fooPkg", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     targets: [
                         TargetDescription(
                             name: "exe",
-                            dependencies: ["Logging",
-                                           .product(
-                                               name: "Utils",
-                                               package: "fooPkg",
-                                               moduleAliases: ["Logging": "FooLogging"]
-                                           )]
+                            dependencies: [
+                                "Logging",
+                                .product(
+                                    name: "Utils",
+                                    package: "fooPkg",
+                                    moduleAliases: ["Logging": "FooLogging"]
+                                ),
+                            ]
                         ),
                         TargetDescription(name: "Logging", dependencies: []),
                     ]
@@ -1059,7 +1116,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
     func testModuleAliasingInvalidSourcesNestedUpstream() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/thisPkg/Sources/exe/main.swift",
+                "/thisPkg/Sources/exe/main.swift",
             "/thisPkg/Sources/Logging/file.swift",
             "/fooPkg/Sources/Utils/fileUtils.swift",
             "/barPkg/Sources/Logging/fileLogging.m",
@@ -1074,43 +1131,45 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     displayName: "barPkg",
                     path: "/barPkg",
                     products: [
-                        ProductDescription(name: "Logging", type: .library(.automatic), targets: ["Logging"]),
+                        ProductDescription(name: "Logging", type: .library(.automatic), targets: ["Logging"])
                     ],
                     targets: [
-                        TargetDescription(name: "Logging", dependencies: []),
+                        TargetDescription(name: "Logging", dependencies: [])
                     ]
                 ),
                 Manifest.createRootManifest(
                     displayName: "fooPkg",
                     path: "/fooPkg",
                     dependencies: [
-                        .localSourceControl(path: "/barPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/barPkg", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
-                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
+                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"])
                     ],
                     targets: [
                         TargetDescription(
                             name: "Utils",
                             dependencies: [.product(name: "Logging", package: "barPkg")]
-                        ),
+                        )
                     ]
                 ),
                 Manifest.createRootManifest(
                     displayName: "thisPkg",
                     path: "/thisPkg",
                     dependencies: [
-                        .localSourceControl(path: "/fooPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/fooPkg", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     targets: [
                         TargetDescription(
                             name: "exe",
-                            dependencies: ["Logging",
-                                           .product(
-                                               name: "Utils",
-                                               package: "fooPkg",
-                                               moduleAliases: ["Logging": "FooLogging"]
-                                           )]
+                            dependencies: [
+                                "Logging",
+                                .product(
+                                    name: "Utils",
+                                    package: "fooPkg",
+                                    moduleAliases: ["Logging": "FooLogging"]
+                                ),
+                            ]
                         ),
                         TargetDescription(name: "Logging", dependencies: []),
                     ]
@@ -1130,7 +1189,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
     func testModuleAliasingInvalidSourcesInNonAliasedModulesUpstream() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/thisPkg/Sources/exe/main.swift",
+                "/thisPkg/Sources/exe/main.swift",
             "/thisPkg/Sources/Logging/file.swift",
             "/fooPkg/Sources/Utils/fileUtils.swift",
             "/fooPkg/Sources/Logging/fileLogging.swift",
@@ -1139,50 +1198,54 @@ final class ModuleAliasingBuildTests: XCTestCase {
             "/fooPkg/Sources/Perf/include/filePerf.h"
         )
         let observability = ObservabilitySystem.makeForTesting()
-        XCTAssertNoThrow(try loadModulesGraph(
-            fileSystem: fs,
-            manifests: [
-                Manifest.createRootManifest(
-                    displayName: "fooPkg",
-                    path: "/fooPkg",
-                    products: [
-                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
-                        ProductDescription(name: "Perf", type: .library(.automatic), targets: ["Perf"]),
-                    ],
-                    targets: [
-                        TargetDescription(name: "Utils", dependencies: ["Logging"]),
-                        TargetDescription(name: "Logging", dependencies: []),
-                        TargetDescription(name: "Perf", dependencies: []),
-                    ]
-                ),
-                Manifest.createRootManifest(
-                    displayName: "thisPkg",
-                    path: "/thisPkg",
-                    dependencies: [
-                        .localSourceControl(path: "/fooPkg", requirement: .upToNextMajor(from: "1.0.0")),
-                    ],
-                    targets: [
-                        TargetDescription(
-                            name: "exe",
-                            dependencies: ["Logging",
-                                           .product(
-                                               name: "Utils",
-                                               package: "fooPkg",
-                                               moduleAliases: ["Logging": "FooLogging"]
-                                           )]
-                        ),
-                        TargetDescription(name: "Logging", dependencies: []),
-                    ]
-                ),
-            ],
-            observabilityScope: observability.topScope
-        ))
+        XCTAssertNoThrow(
+            try loadModulesGraph(
+                fileSystem: fs,
+                manifests: [
+                    Manifest.createRootManifest(
+                        displayName: "fooPkg",
+                        path: "/fooPkg",
+                        products: [
+                            ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
+                            ProductDescription(name: "Perf", type: .library(.automatic), targets: ["Perf"]),
+                        ],
+                        targets: [
+                            TargetDescription(name: "Utils", dependencies: ["Logging"]),
+                            TargetDescription(name: "Logging", dependencies: []),
+                            TargetDescription(name: "Perf", dependencies: []),
+                        ]
+                    ),
+                    Manifest.createRootManifest(
+                        displayName: "thisPkg",
+                        path: "/thisPkg",
+                        dependencies: [
+                            .localSourceControl(path: "/fooPkg", requirement: .upToNextMajor(from: "1.0.0"))
+                        ],
+                        targets: [
+                            TargetDescription(
+                                name: "exe",
+                                dependencies: [
+                                    "Logging",
+                                    .product(
+                                        name: "Utils",
+                                        package: "fooPkg",
+                                        moduleAliases: ["Logging": "FooLogging"]
+                                    ),
+                                ]
+                            ),
+                            TargetDescription(name: "Logging", dependencies: []),
+                        ]
+                    ),
+                ],
+                observabilityScope: observability.topScope
+            )
+        )
     }
 
     func testModuleAliasingInvalidSourcesInNonAliasedModulesNestedUpstream() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/thisPkg/Sources/exe/main.swift",
+                "/thisPkg/Sources/exe/main.swift",
             "/thisPkg/Sources/Logging/file.swift",
             "/fooPkg/Sources/Utils/fileUtils.swift",
             "/barPkg/Sources/Logging/fileLogging.swift",
@@ -1192,65 +1255,69 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        XCTAssertNoThrow(try loadModulesGraph(
-            fileSystem: fs,
-            manifests: [
-                Manifest.createRootManifest(
-                    displayName: "barPkg",
-                    path: "/barPkg",
-                    products: [
-                        ProductDescription(name: "Logging", type: .library(.automatic), targets: ["Logging"]),
-                        ProductDescription(name: "Perf", type: .library(.automatic), targets: ["Perf"]),
-                    ],
-                    targets: [
-                        TargetDescription(name: "Logging", dependencies: []),
-                        TargetDescription(name: "Perf", dependencies: []),
-                    ]
-                ),
-                Manifest.createRootManifest(
-                    displayName: "fooPkg",
-                    path: "/fooPkg",
-                    dependencies: [
-                        .localSourceControl(path: "/barPkg", requirement: .upToNextMajor(from: "1.0.0")),
-                    ],
-                    products: [
-                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
-                    ],
-                    targets: [
-                        TargetDescription(
-                            name: "Utils",
-                            dependencies: [.product(name: "Logging", package: "barPkg")]
-                        ),
-                    ]
-                ),
-                Manifest.createRootManifest(
-                    displayName: "thisPkg",
-                    path: "/thisPkg",
-                    dependencies: [
-                        .localSourceControl(path: "/fooPkg", requirement: .upToNextMajor(from: "1.0.0")),
-                    ],
-                    targets: [
-                        TargetDescription(
-                            name: "exe",
-                            dependencies: ["Logging",
-                                           .product(
-                                               name: "Utils",
-                                               package: "fooPkg",
-                                               moduleAliases: ["Logging": "FooLogging"]
-                                           )]
-                        ),
-                        TargetDescription(name: "Logging", dependencies: []),
-                    ]
-                ),
-            ],
-            observabilityScope: observability.topScope
-        ))
+        XCTAssertNoThrow(
+            try loadModulesGraph(
+                fileSystem: fs,
+                manifests: [
+                    Manifest.createRootManifest(
+                        displayName: "barPkg",
+                        path: "/barPkg",
+                        products: [
+                            ProductDescription(name: "Logging", type: .library(.automatic), targets: ["Logging"]),
+                            ProductDescription(name: "Perf", type: .library(.automatic), targets: ["Perf"]),
+                        ],
+                        targets: [
+                            TargetDescription(name: "Logging", dependencies: []),
+                            TargetDescription(name: "Perf", dependencies: []),
+                        ]
+                    ),
+                    Manifest.createRootManifest(
+                        displayName: "fooPkg",
+                        path: "/fooPkg",
+                        dependencies: [
+                            .localSourceControl(path: "/barPkg", requirement: .upToNextMajor(from: "1.0.0"))
+                        ],
+                        products: [
+                            ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"])
+                        ],
+                        targets: [
+                            TargetDescription(
+                                name: "Utils",
+                                dependencies: [.product(name: "Logging", package: "barPkg")]
+                            )
+                        ]
+                    ),
+                    Manifest.createRootManifest(
+                        displayName: "thisPkg",
+                        path: "/thisPkg",
+                        dependencies: [
+                            .localSourceControl(path: "/fooPkg", requirement: .upToNextMajor(from: "1.0.0"))
+                        ],
+                        targets: [
+                            TargetDescription(
+                                name: "exe",
+                                dependencies: [
+                                    "Logging",
+                                    .product(
+                                        name: "Utils",
+                                        package: "fooPkg",
+                                        moduleAliases: ["Logging": "FooLogging"]
+                                    ),
+                                ]
+                            ),
+                            TargetDescription(name: "Logging", dependencies: []),
+                        ]
+                    ),
+                ],
+                observabilityScope: observability.topScope
+            )
+        )
     }
 
     func testModuleAliasingDuplicateTargetNameInNestedUpstream() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/thisPkg/Sources/exe/main.swift",
+                "/thisPkg/Sources/exe/main.swift",
             "/thisPkg/Sources/Logging/file.swift",
             "/fooPkg/Sources/Utils/fileUtils.swift",
             "/barPkg/Sources/Logging/fileLogging.swift"
@@ -1263,43 +1330,45 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     displayName: "barPkg",
                     path: "/barPkg",
                     products: [
-                        ProductDescription(name: "Logging", type: .library(.automatic), targets: ["Logging"]),
+                        ProductDescription(name: "Logging", type: .library(.automatic), targets: ["Logging"])
                     ],
                     targets: [
-                        TargetDescription(name: "Logging", dependencies: []),
+                        TargetDescription(name: "Logging", dependencies: [])
                     ]
                 ),
                 Manifest.createRootManifest(
                     displayName: "fooPkg",
                     path: "/fooPkg",
                     dependencies: [
-                        .localSourceControl(path: "/barPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/barPkg", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
-                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
+                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"])
                     ],
                     targets: [
                         TargetDescription(
                             name: "Utils",
                             dependencies: [.product(name: "Logging", package: "barPkg")]
-                        ),
+                        )
                     ]
                 ),
                 Manifest.createRootManifest(
                     displayName: "thisPkg",
                     path: "/thisPkg",
                     dependencies: [
-                        .localSourceControl(path: "/fooPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/fooPkg", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     targets: [
                         TargetDescription(
                             name: "exe",
-                            dependencies: ["Logging",
-                                           .product(
-                                               name: "Utils",
-                                               package: "fooPkg",
-                                               moduleAliases: ["Logging": "FooLogging"]
-                                           )]
+                            dependencies: [
+                                "Logging",
+                                .product(
+                                    name: "Utils",
+                                    package: "fooPkg",
+                                    moduleAliases: ["Logging": "FooLogging"]
+                                ),
+                            ]
                         ),
                         TargetDescription(name: "Logging", dependencies: []),
                     ]
@@ -1309,14 +1378,16 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try await BuildPlanResult(plan: try mockBuildPlan(
-            graph: graph,
-            linkingParameters: .init(
-                shouldLinkStaticSwiftStdlib: true
-            ),
-            fileSystem: fs,
-            observabilityScope: observability.topScope
-        ))
+        let result = try await BuildPlanResult(
+            plan: try mockBuildPlan(
+                graph: graph,
+                linkingParameters: .init(
+                    shouldLinkStaticSwiftStdlib: true
+                ),
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            )
+        )
 
         result.checkProductsCount(1)
         result.checkTargetsCount(4)
@@ -1338,7 +1409,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
     func testModuleAliasingOverrideMultipleAliases() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/thisPkg/Sources/exe/main.swift",
+                "/thisPkg/Sources/exe/main.swift",
             "/thisPkg/Sources/Logging/file1.swift",
             "/thisPkg/Sources/Math/file2.swift",
             "/fooPkg/Sources/Utils/fileUtils.swift",
@@ -1366,46 +1437,50 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     displayName: "fooPkg",
                     path: "/fooPkg",
                     dependencies: [
-                        .localSourceControl(path: "/barPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/barPkg", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
-                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
+                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"])
                     ],
                     targets: [
                         TargetDescription(
                             name: "Utils",
-                            dependencies: [.product(
-                                name: "LoggingProd",
-                                package: "barPkg",
-                                moduleAliases: ["Logging": "BarLogging"]
-                            ),
-                            .product(
-                                name: "MathProd",
-                                package: "barPkg",
-                                moduleAliases: ["Math": "BarMath"]
-                            )]
-                        ),
+                            dependencies: [
+                                .product(
+                                    name: "LoggingProd",
+                                    package: "barPkg",
+                                    moduleAliases: ["Logging": "BarLogging"]
+                                ),
+                                .product(
+                                    name: "MathProd",
+                                    package: "barPkg",
+                                    moduleAliases: ["Math": "BarMath"]
+                                ),
+                            ]
+                        )
                     ]
                 ),
                 Manifest.createRootManifest(
                     displayName: "thisPkg",
                     path: "/thisPkg",
                     dependencies: [
-                        .localSourceControl(path: "/fooPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/fooPkg", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     targets: [
                         TargetDescription(
                             name: "exe",
-                            dependencies: ["Logging",
-                                           "Math",
-                                           .product(
-                                               name: "Utils",
-                                               package: "fooPkg",
-                                               moduleAliases: [
-                                                   "BarLogging": "FooLogging",
-                                                   "BarMath": "FooMath",
-                                               ]
-                                           )]
+                            dependencies: [
+                                "Logging",
+                                "Math",
+                                .product(
+                                    name: "Utils",
+                                    package: "fooPkg",
+                                    moduleAliases: [
+                                        "BarLogging": "FooLogging",
+                                        "BarMath": "FooMath",
+                                    ]
+                                ),
+                            ]
                         ),
                         TargetDescription(name: "Logging", dependencies: []),
                         TargetDescription(name: "Math", dependencies: []),
@@ -1416,14 +1491,16 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try await BuildPlanResult(plan: try mockBuildPlan(
-            graph: graph,
-            linkingParameters: .init(
-                shouldLinkStaticSwiftStdlib: true
-            ),
-            fileSystem: fs,
-            observabilityScope: observability.topScope
-        ))
+        let result = try await BuildPlanResult(
+            plan: try mockBuildPlan(
+                graph: graph,
+                linkingParameters: .init(
+                    shouldLinkStaticSwiftStdlib: true
+                ),
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            )
+        )
 
         result.checkProductsCount(1)
         result.checkTargetsCount(6)
@@ -1439,8 +1516,9 @@ final class ModuleAliasingBuildTests: XCTestCase {
         XCTAssertTrue(
             result.targetMap.values
                 .contains {
-                    $0.module.name == "Utils" && $0.module.moduleAliases?["Logging"] == "FooLogging" && $0.module
-                        .moduleAliases?["Math"] == "FooMath"
+                    $0.module.name == "Utils" && $0.module.moduleAliases?["Logging"] == "FooLogging"
+                        && $0.module
+                            .moduleAliases?["Math"] == "FooMath"
                 }
         )
         XCTAssertTrue(
@@ -1455,7 +1533,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
     func testModuleAliasingAliasSkipUpstreamTargets() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/appPkg/Sources/App/main.swift",
+                "/appPkg/Sources/App/main.swift",
             "/appPkg/Sources/Foo/file.swift",
             "/xPkg/Sources/X/file.swift",
             "/yPkg/Sources/Y/file.swift",
@@ -1476,7 +1554,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     displayName: "cPkg",
                     path: "/cPkg",
                     products: [
-                        ProductDescription(name: "C", type: .library(.automatic), targets: ["C"]),
+                        ProductDescription(name: "C", type: .library(.automatic), targets: ["C"])
                     ],
                     targets: [
                         TargetDescription(name: "C", dependencies: ["Foo"]),
@@ -1487,10 +1565,10 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     displayName: "dPkg",
                     path: "/dPkg",
                     products: [
-                        ProductDescription(name: "D", type: .library(.automatic), targets: ["D"]),
+                        ProductDescription(name: "D", type: .library(.automatic), targets: ["D"])
                     ],
                     targets: [
-                        TargetDescription(name: "D", dependencies: []),
+                        TargetDescription(name: "D", dependencies: [])
                     ]
                 ),
                 Manifest.createFileSystemManifest(
@@ -1501,7 +1579,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                         .localSourceControl(path: "/dPkg", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
-                        ProductDescription(name: "B", type: .library(.automatic), targets: ["B"]),
+                        ProductDescription(name: "B", type: .library(.automatic), targets: ["B"])
                     ],
                     targets: [
                         TargetDescription(
@@ -1516,33 +1594,35 @@ final class ModuleAliasingBuildTests: XCTestCase {
                                     package: "dPkg"
                                 ),
                             ]
-                        ),
+                        )
                     ]
                 ),
                 Manifest.createFileSystemManifest(
                     displayName: "aPkg",
                     path: "/aPkg",
                     dependencies: [
-                        .localSourceControl(path: "/bPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/bPkg", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
-                        ProductDescription(name: "A", type: .library(.automatic), targets: ["A"]),
+                        ProductDescription(name: "A", type: .library(.automatic), targets: ["A"])
                     ],
                     targets: [
                         TargetDescription(
                             name: "A",
-                            dependencies: [.product(
-                                name: "B",
-                                package: "bPkg"
-                            )]
-                        ),
+                            dependencies: [
+                                .product(
+                                    name: "B",
+                                    package: "bPkg"
+                                )
+                            ]
+                        )
                     ]
                 ),
                 Manifest.createFileSystemManifest(
                     displayName: "zPkg",
                     path: "/zPkg",
                     products: [
-                        ProductDescription(name: "Z", type: .library(.automatic), targets: ["Z"]),
+                        ProductDescription(name: "Z", type: .library(.automatic), targets: ["Z"])
                     ],
                     targets: [
                         TargetDescription(name: "Z", dependencies: ["Foo"]),
@@ -1553,10 +1633,10 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     displayName: "yPkg",
                     path: "/yPkg",
                     dependencies: [
-                        .localSourceControl(path: "/zPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/zPkg", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
-                        ProductDescription(name: "Y", type: .library(.automatic), targets: ["Y"]),
+                        ProductDescription(name: "Y", type: .library(.automatic), targets: ["Y"])
                     ],
                     targets: [
                         TargetDescription(
@@ -1565,28 +1645,30 @@ final class ModuleAliasingBuildTests: XCTestCase {
                                 .product(
                                     name: "Z",
                                     package: "zPkg"
-                                ),
+                                )
                             ]
-                        ),
+                        )
                     ]
                 ),
                 Manifest.createFileSystemManifest(
                     displayName: "xPkg",
                     path: "/xPkg",
                     dependencies: [
-                        .localSourceControl(path: "/yPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/yPkg", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
-                        ProductDescription(name: "X", type: .library(.automatic), targets: ["X"]),
+                        ProductDescription(name: "X", type: .library(.automatic), targets: ["X"])
                     ],
                     targets: [
                         TargetDescription(
                             name: "X",
-                            dependencies: [.product(
-                                name: "Y",
-                                package: "yPkg"
-                            )]
-                        ),
+                            dependencies: [
+                                .product(
+                                    name: "Y",
+                                    package: "yPkg"
+                                )
+                            ]
+                        )
                     ]
                 ),
                 Manifest.createRootManifest(
@@ -1599,17 +1681,19 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     targets: [
                         TargetDescription(
                             name: "App",
-                            dependencies: ["Foo",
-                                           .product(
-                                               name: "A",
-                                               package: "aPkg",
-                                               moduleAliases: ["Foo": "FooA"]
-                                           ),
-                                           .product(
-                                               name: "X",
-                                               package: "xPkg",
-                                               moduleAliases: ["Foo": "FooX"]
-                                           )]
+                            dependencies: [
+                                "Foo",
+                                .product(
+                                    name: "A",
+                                    package: "aPkg",
+                                    moduleAliases: ["Foo": "FooA"]
+                                ),
+                                .product(
+                                    name: "X",
+                                    package: "xPkg",
+                                    moduleAliases: ["Foo": "FooX"]
+                                ),
+                            ]
                         ),
                         TargetDescription(name: "Foo", dependencies: []),
                     ]
@@ -1619,14 +1703,16 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try await BuildPlanResult(plan: try mockBuildPlan(
-            graph: graph,
-            linkingParameters: .init(
-                shouldLinkStaticSwiftStdlib: true
-            ),
-            fileSystem: fs,
-            observabilityScope: observability.topScope
-        ))
+        let result = try await BuildPlanResult(
+            plan: try mockBuildPlan(
+                graph: graph,
+                linkingParameters: .init(
+                    shouldLinkStaticSwiftStdlib: true
+                ),
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            )
+        )
 
         result.checkProductsCount(1)
         result.checkTargetsCount(11)
@@ -1670,7 +1756,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
     func testModuleAliasingAllConflictingAliasesFromMultiProducts() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/aPkg/Sources/A/main.swift",
+                "/aPkg/Sources/A/main.swift",
             "/aPkg/Sources/A/file.swift",
             "/bPkg/Sources/B/file.swift",
             "/bPkg/Sources/Utils/file.swift",
@@ -1690,26 +1776,28 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     displayName: "gPkg",
                     path: "/gPkg",
                     dependencies: [
-                        .localSourceControl(path: "/dPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/dPkg", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
-                        ProductDescription(name: "G", type: .library(.automatic), targets: ["G"]),
+                        ProductDescription(name: "G", type: .library(.automatic), targets: ["G"])
                     ],
                     targets: [
                         TargetDescription(
                             name: "G",
-                            dependencies: [.product(
-                                name: "D",
-                                package: "dPkg"
-                            )]
-                        ),
+                            dependencies: [
+                                .product(
+                                    name: "D",
+                                    package: "dPkg"
+                                )
+                            ]
+                        )
                     ]
                 ),
                 Manifest.createFileSystemManifest(
                     displayName: "dPkg",
                     path: "/dPkg",
                     products: [
-                        ProductDescription(name: "D", type: .library(.automatic), targets: ["D"]),
+                        ProductDescription(name: "D", type: .library(.automatic), targets: ["D"])
                     ],
                     targets: [
                         TargetDescription(name: "D", dependencies: ["Utils", "Log"]),
@@ -1721,7 +1809,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     displayName: "cPkg",
                     path: "/cPkg",
                     dependencies: [
-                        .localSourceControl(path: "/dPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/dPkg", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
                         ProductDescription(name: "C", type: .library(.automatic), targets: ["C"]),
@@ -1736,7 +1824,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                                     name: "D",
                                     package: "dPkg",
                                     moduleAliases: ["Log": "ZLog"]
-                                ),
+                                )
                             ]
                         ),
                     ]
@@ -1745,10 +1833,10 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     displayName: "bPkg",
                     path: "/bPkg",
                     dependencies: [
-                        .localSourceControl(path: "/cPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/cPkg", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
-                        ProductDescription(name: "B", type: .library(.automatic), targets: ["B"]),
+                        ProductDescription(name: "B", type: .library(.automatic), targets: ["B"])
                     ],
                     targets: [
                         TargetDescription(
@@ -1758,8 +1846,10 @@ final class ModuleAliasingBuildTests: XCTestCase {
                                 .product(
                                     name: "C",
                                     package: "cPkg",
-                                    moduleAliases: ["Utils": "YUtils",
-                                                    "Log": "YLog"]
+                                    moduleAliases: [
+                                        "Utils": "YUtils",
+                                        "Log": "YLog",
+                                    ]
                                 ),
                             ]
                         ),
@@ -1784,11 +1874,13 @@ final class ModuleAliasingBuildTests: XCTestCase {
                                 .product(
                                     name: "B",
                                     package: "bPkg",
-                                    moduleAliases: ["Utils": "XUtils",
-                                                    "YLog": "XLog"]
+                                    moduleAliases: [
+                                        "Utils": "XUtils",
+                                        "YLog": "XLog",
+                                    ]
                                 ),
                             ]
-                        ),
+                        )
                     ]
                 ),
             ],
@@ -1796,14 +1888,16 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try await BuildPlanResult(plan: try mockBuildPlan(
-            graph: graph,
-            linkingParameters: .init(
-                shouldLinkStaticSwiftStdlib: true
-            ),
-            fileSystem: fs,
-            observabilityScope: observability.topScope
-        ))
+        let result = try await BuildPlanResult(
+            plan: try mockBuildPlan(
+                graph: graph,
+                linkingParameters: .init(
+                    shouldLinkStaticSwiftStdlib: true
+                ),
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            )
+        )
 
         result.checkProductsCount(1)
         result.checkTargetsCount(9)
@@ -1814,59 +1908,72 @@ final class ModuleAliasingBuildTests: XCTestCase {
         XCTAssertTrue(
             result.targetMap.values
                 .contains {
-                    $0.module.name == "B" && $0.module.moduleAliases?["Utils"] == "XUtils" && $0.module
-                        .moduleAliases?["Log"] == "XLog" && $0.module.moduleAliases?.count == 2
+                    $0.module.name == "B" && $0.module.moduleAliases?["Utils"] == "XUtils"
+                        && $0.module
+                            .moduleAliases?["Log"] == "XLog"
+                        && $0.module.moduleAliases?.count == 2
                 }
         )
         XCTAssertTrue(
             result.targetMap.values
                 .contains {
-                    $0.module.name == "XUtils" && $0.module.moduleAliases?["Utils"] == "XUtils" && $0.module
-                        .moduleAliases?
-                        .count == 1
+                    $0.module.name == "XUtils" && $0.module.moduleAliases?["Utils"] == "XUtils"
+                        && $0.module
+                            .moduleAliases?
+                            .count == 1
                 }
         )
         XCTAssertTrue(
             result.targetMap.values
                 .contains {
-                    $0.module.name == "C" && $0.module.moduleAliases?["Log"] == "XLog" && $0.module
-                        .moduleAliases?["Utils"] == "YUtils" && $0.module.moduleAliases?.count == 2
+                    $0.module.name == "C" && $0.module.moduleAliases?["Log"] == "XLog"
+                        && $0.module
+                            .moduleAliases?["Utils"] == "YUtils"
+                        && $0.module.moduleAliases?.count == 2
                 }
         )
         XCTAssertTrue(
             result.targetMap.values
                 .contains {
-                    $0.module.name == "XLog" && $0.module.moduleAliases?["Log"] == "XLog" && $0.module
-                        .moduleAliases?["Utils"] == "YUtils" && $0.module.moduleAliases?.count == 2
+                    $0.module.name == "XLog" && $0.module.moduleAliases?["Log"] == "XLog"
+                        && $0.module
+                            .moduleAliases?["Utils"] == "YUtils"
+                        && $0.module.moduleAliases?.count == 2
                 }
         )
         XCTAssertTrue(
             result.targetMap.values
                 .contains {
-                    $0.module.name == "D" && $0.module.moduleAliases?["Utils"] == "YUtils" && $0.module
-                        .moduleAliases?["Log"] == "ZLog" && $0.module.moduleAliases?.count == 2
+                    $0.module.name == "D" && $0.module.moduleAliases?["Utils"] == "YUtils"
+                        && $0.module
+                            .moduleAliases?["Log"] == "ZLog"
+                        && $0.module.moduleAliases?.count == 2
                 }
         )
         XCTAssertTrue(
             result.targetMap.values
                 .contains {
-                    $0.module.name == "YUtils" && $0.module.moduleAliases?["Utils"] == "YUtils" && $0.module
-                        .moduleAliases?
-                        .count == 1
+                    $0.module.name == "YUtils" && $0.module.moduleAliases?["Utils"] == "YUtils"
+                        && $0.module
+                            .moduleAliases?
+                            .count == 1
                 }
         )
         XCTAssertTrue(
             result.targetMap.values
                 .contains {
-                    $0.module.name == "ZLog" && $0.module.moduleAliases?["Log"] == "ZLog" && $0.module.moduleAliases?
-                        .count == 1
+                    $0.module.name == "ZLog" && $0.module.moduleAliases?["Log"] == "ZLog"
+                        && $0.module.moduleAliases?
+                            .count == 1
                 }
         )
         XCTAssertTrue(
             result.targetMap.values
                 .contains {
-                    $0.module.name == "G" && $0.module.moduleAliases?["Utils"] == "YUtils" && $0.module
-                        .moduleAliases?["Log"] == "ZLog" && $0.module.moduleAliases?.count == 2
+                    $0.module.name == "G" && $0.module.moduleAliases?["Utils"] == "YUtils"
+                        && $0.module
+                            .moduleAliases?["Log"] == "ZLog"
+                        && $0.module.moduleAliases?.count == 2
                 }
         )
     }
@@ -1874,7 +1981,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
     func testModuleAliasingSomeConflictingAliasesInMultiProducts() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/aPkg/Sources/A/main.swift",
+                "/aPkg/Sources/A/main.swift",
             "/aPkg/Sources/A/file.swift",
             "/bPkg/Sources/B/file.swift",
             "/cPkg/Sources/C/file.swift",
@@ -1892,42 +1999,43 @@ final class ModuleAliasingBuildTests: XCTestCase {
                 Manifest.createFileSystemManifest(
                     displayName: "hPkg",
                     path: "/hPkg",
-                    dependencies: [
-                    ],
+                    dependencies: [],
                     products: [
-                        ProductDescription(name: "H", type: .library(.automatic), targets: ["Utils"]),
+                        ProductDescription(name: "H", type: .library(.automatic), targets: ["Utils"])
                     ],
                     targets: [
                         TargetDescription(
                             name: "Utils",
                             dependencies: []
-                        ),
+                        )
                     ]
                 ),
                 Manifest.createFileSystemManifest(
                     displayName: "gPkg",
                     path: "/gPkg",
                     dependencies: [
-                        .localSourceControl(path: "/hPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/hPkg", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
-                        ProductDescription(name: "G", type: .library(.automatic), targets: ["G"]),
+                        ProductDescription(name: "G", type: .library(.automatic), targets: ["G"])
                     ],
                     targets: [
                         TargetDescription(
                             name: "G",
-                            dependencies: [.product(
-                                name: "H",
-                                package: "hPkg"
-                            )]
-                        ),
+                            dependencies: [
+                                .product(
+                                    name: "H",
+                                    package: "hPkg"
+                                )
+                            ]
+                        )
                     ]
                 ),
                 Manifest.createFileSystemManifest(
                     displayName: "dPkg",
                     path: "/dPkg",
                     products: [
-                        ProductDescription(name: "D", type: .library(.automatic), targets: ["D"]),
+                        ProductDescription(name: "D", type: .library(.automatic), targets: ["D"])
                     ],
                     targets: [
                         TargetDescription(name: "D", dependencies: ["Utils", "Log"]),
@@ -1939,10 +2047,10 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     displayName: "cPkg",
                     path: "/cPkg",
                     dependencies: [
-                        .localSourceControl(path: "/dPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/dPkg", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
-                        ProductDescription(name: "C", type: .library(.automatic), targets: ["C"]),
+                        ProductDescription(name: "C", type: .library(.automatic), targets: ["C"])
                     ],
                     targets: [
                         TargetDescription(
@@ -1952,19 +2060,19 @@ final class ModuleAliasingBuildTests: XCTestCase {
                                     name: "D",
                                     package: "dPkg",
                                     moduleAliases: ["Log": "ZLog"]
-                                ),
+                                )
                             ]
-                        ),
+                        )
                     ]
                 ),
                 Manifest.createFileSystemManifest(
                     displayName: "bPkg",
                     path: "/bPkg",
                     dependencies: [
-                        .localSourceControl(path: "/cPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/cPkg", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
-                        ProductDescription(name: "B", type: .library(.automatic), targets: ["B"]),
+                        ProductDescription(name: "B", type: .library(.automatic), targets: ["B"])
                     ],
                     targets: [
                         TargetDescription(
@@ -1973,11 +2081,13 @@ final class ModuleAliasingBuildTests: XCTestCase {
                                 .product(
                                     name: "C",
                                     package: "cPkg",
-                                    moduleAliases: ["Utils": "YUtils",
-                                                    "ZLog": "YLog"]
-                                ),
+                                    moduleAliases: [
+                                        "Utils": "YUtils",
+                                        "ZLog": "YLog",
+                                    ]
+                                )
                             ]
-                        ),
+                        )
                     ]
                 ),
                 Manifest.createRootManifest(
@@ -1994,8 +2104,10 @@ final class ModuleAliasingBuildTests: XCTestCase {
                                 .product(
                                     name: "B",
                                     package: "bPkg",
-                                    moduleAliases: ["YUtils": "XUtils",
-                                                    "YLog": "XLog"]
+                                    moduleAliases: [
+                                        "YUtils": "XUtils",
+                                        "YLog": "XLog",
+                                    ]
                                 ),
                                 .product(
                                     name: "G",
@@ -2003,7 +2115,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                                     moduleAliases: ["Utils": "GUtils"]
                                 ),
                             ]
-                        ),
+                        )
                     ]
                 ),
             ],
@@ -2011,14 +2123,16 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try await BuildPlanResult(plan: try mockBuildPlan(
-            graph: graph,
-            linkingParameters: .init(
-                shouldLinkStaticSwiftStdlib: true
-            ),
-            fileSystem: fs,
-            observabilityScope: observability.topScope
-        ))
+        let result = try await BuildPlanResult(
+            plan: try mockBuildPlan(
+                graph: graph,
+                linkingParameters: .init(
+                    shouldLinkStaticSwiftStdlib: true
+                ),
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            )
+        )
 
         result.checkProductsCount(1)
         result.checkTargetsCount(8)
@@ -2026,59 +2140,70 @@ final class ModuleAliasingBuildTests: XCTestCase {
         XCTAssertTrue(
             result.targetMap.values
                 .contains {
-                    $0.module.name == "A" && $0.module.moduleAliases?["Log"] == "XLog" && $0.module.moduleAliases?
-                        .count == 1
+                    $0.module.name == "A" && $0.module.moduleAliases?["Log"] == "XLog"
+                        && $0.module.moduleAliases?
+                            .count == 1
                 }
         )
         XCTAssertTrue(
             result.targetMap.values
                 .contains {
-                    $0.module.name == "B" && $0.module.moduleAliases?["Utils"] == "XUtils" && $0.module
-                        .moduleAliases?["Log"] == "XLog" && $0.module.moduleAliases?.count == 2
+                    $0.module.name == "B" && $0.module.moduleAliases?["Utils"] == "XUtils"
+                        && $0.module
+                            .moduleAliases?["Log"] == "XLog"
+                        && $0.module.moduleAliases?.count == 2
                 }
         )
         XCTAssertTrue(
             result.targetMap.values
                 .contains {
-                    $0.module.name == "C" && $0.module.moduleAliases?["Log"] == "XLog" && $0.module
-                        .moduleAliases?["Utils"] == "XUtils" && $0.module.moduleAliases?.count == 2
+                    $0.module.name == "C" && $0.module.moduleAliases?["Log"] == "XLog"
+                        && $0.module
+                            .moduleAliases?["Utils"] == "XUtils"
+                        && $0.module.moduleAliases?.count == 2
                 }
         )
         XCTAssertTrue(
             result.targetMap.values
                 .contains {
-                    $0.module.name == "D" && $0.module.moduleAliases?["Utils"] == "XUtils" && $0.module
-                        .moduleAliases?["Log"] == "XLog" && $0.module.moduleAliases?.count == 2
+                    $0.module.name == "D" && $0.module.moduleAliases?["Utils"] == "XUtils"
+                        && $0.module
+                            .moduleAliases?["Log"] == "XLog"
+                        && $0.module.moduleAliases?.count == 2
                 }
         )
         XCTAssertTrue(
             result.targetMap.values
                 .contains {
-                    $0.module.name == "XUtils" && $0.module.moduleAliases?["Utils"] == "XUtils" && $0.module
-                        .moduleAliases?
-                        .count == 1
+                    $0.module.name == "XUtils" && $0.module.moduleAliases?["Utils"] == "XUtils"
+                        && $0.module
+                            .moduleAliases?
+                            .count == 1
                 }
         )
         XCTAssertTrue(
             result.targetMap.values
                 .contains {
-                    $0.module.name == "XLog" && $0.module.moduleAliases?["Log"] == "XLog" && $0.module.moduleAliases?
-                        .count == 1
+                    $0.module.name == "XLog" && $0.module.moduleAliases?["Log"] == "XLog"
+                        && $0.module.moduleAliases?
+                            .count == 1
                 }
         )
         XCTAssertTrue(
             result.targetMap.values
                 .contains {
-                    $0.module.name == "G" && $0.module.moduleAliases?["Utils"] == "GUtils" && $0.module.moduleAliases?
-                        .count == 1
+                    $0.module.name == "G" && $0.module.moduleAliases?["Utils"] == "GUtils"
+                        && $0.module.moduleAliases?
+                            .count == 1
                 }
         )
         XCTAssertTrue(
             result.targetMap.values
                 .contains {
-                    $0.module.name == "GUtils" && $0.module.moduleAliases?["Utils"] == "GUtils" && $0.module
-                        .moduleAliases?
-                        .count == 1
+                    $0.module.name == "GUtils" && $0.module.moduleAliases?["Utils"] == "GUtils"
+                        && $0.module
+                            .moduleAliases?
+                            .count == 1
                 }
         )
     }
@@ -2086,7 +2211,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
     func testModuleAliasingMergeAliasesOfSameTargets() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/aPkg/Sources/A/main.swift",
+                "/aPkg/Sources/A/main.swift",
             "/aPkg/Sources/A/file.swift",
             "/bPkg/Sources/B/file.swift",
             "/cPkg/Sources/C/file.swift",
@@ -2105,49 +2230,53 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     displayName: "hPkg",
                     path: "/hPkg",
                     dependencies: [
-                        .localSourceControl(path: "/dPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/dPkg", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
-                        ProductDescription(name: "H", type: .library(.automatic), targets: ["H"]),
+                        ProductDescription(name: "H", type: .library(.automatic), targets: ["H"])
                     ],
                     targets: [
                         TargetDescription(
                             name: "H",
-                            dependencies: [.product(
-                                name: "D",
-                                package: "dPkg"
-                            )]
-                        ),
+                            dependencies: [
+                                .product(
+                                    name: "D",
+                                    package: "dPkg"
+                                )
+                            ]
+                        )
                     ]
                 ),
                 Manifest.createFileSystemManifest(
                     displayName: "gPkg",
                     path: "/gPkg",
                     dependencies: [
-                        .localSourceControl(path: "/hPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/hPkg", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
-                        ProductDescription(name: "G", type: .library(.automatic), targets: ["G"]),
+                        ProductDescription(name: "G", type: .library(.automatic), targets: ["G"])
                     ],
                     targets: [
                         TargetDescription(
                             name: "G",
-                            dependencies: [.product(
-                                name: "H",
-                                package: "hPkg",
-                                moduleAliases: [
-                                    "Utils": "GUtils",
-                                    "Log": "GLog",
-                                ]
-                            )]
-                        ),
+                            dependencies: [
+                                .product(
+                                    name: "H",
+                                    package: "hPkg",
+                                    moduleAliases: [
+                                        "Utils": "GUtils",
+                                        "Log": "GLog",
+                                    ]
+                                )
+                            ]
+                        )
                     ]
                 ),
                 Manifest.createFileSystemManifest(
                     displayName: "dPkg",
                     path: "/dPkg",
                     products: [
-                        ProductDescription(name: "D", type: .library(.automatic), targets: ["D"]),
+                        ProductDescription(name: "D", type: .library(.automatic), targets: ["D"])
                     ],
                     targets: [
                         TargetDescription(name: "D", dependencies: ["Utils", "Log"]),
@@ -2159,10 +2288,10 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     displayName: "cPkg",
                     path: "/cPkg",
                     dependencies: [
-                        .localSourceControl(path: "/dPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/dPkg", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
-                        ProductDescription(name: "C", type: .library(.automatic), targets: ["C"]),
+                        ProductDescription(name: "C", type: .library(.automatic), targets: ["C"])
                     ],
                     targets: [
                         TargetDescription(
@@ -2172,19 +2301,19 @@ final class ModuleAliasingBuildTests: XCTestCase {
                                     name: "D",
                                     package: "dPkg",
                                     moduleAliases: ["Log": "ZLog"]
-                                ),
+                                )
                             ]
-                        ),
+                        )
                     ]
                 ),
                 Manifest.createFileSystemManifest(
                     displayName: "bPkg",
                     path: "/bPkg",
                     dependencies: [
-                        .localSourceControl(path: "/cPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/cPkg", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
-                        ProductDescription(name: "B", type: .library(.automatic), targets: ["B"]),
+                        ProductDescription(name: "B", type: .library(.automatic), targets: ["B"])
                     ],
                     targets: [
                         TargetDescription(
@@ -2193,11 +2322,13 @@ final class ModuleAliasingBuildTests: XCTestCase {
                                 .product(
                                     name: "C",
                                     package: "cPkg",
-                                    moduleAliases: ["Utils": "YUtils",
-                                                    "ZLog": "YLog"]
-                                ),
+                                    moduleAliases: [
+                                        "Utils": "YUtils",
+                                        "ZLog": "YLog",
+                                    ]
+                                )
                             ]
-                        ),
+                        )
                     ]
                 ),
                 Manifest.createRootManifest(
@@ -2218,11 +2349,13 @@ final class ModuleAliasingBuildTests: XCTestCase {
                                 .product(
                                     name: "B",
                                     package: "bPkg",
-                                    moduleAliases: ["YUtils": "XUtils",
-                                                    "YLog": "XLog"]
+                                    moduleAliases: [
+                                        "YUtils": "XUtils",
+                                        "YLog": "XLog",
+                                    ]
                                 ),
                             ]
-                        ),
+                        )
                     ]
                 ),
             ],
@@ -2230,72 +2363,88 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try await BuildPlanResult(plan: try mockBuildPlan(
-            graph: graph,
-            linkingParameters: .init(
-                shouldLinkStaticSwiftStdlib: true
-            ),
-            fileSystem: fs,
-            observabilityScope: observability.topScope
-        ))
+        let result = try await BuildPlanResult(
+            plan: try mockBuildPlan(
+                graph: graph,
+                linkingParameters: .init(
+                    shouldLinkStaticSwiftStdlib: true
+                ),
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            )
+        )
 
         result.checkProductsCount(1)
         result.checkTargetsCount(8)
         XCTAssertTrue(
             result.targetMap.values
                 .contains {
-                    $0.module.name == "A" && $0.module.moduleAliases?["Utils"] == "XUtils" && $0.module
-                        .moduleAliases?["Log"] == "XLog" && $0.module.moduleAliases?.count == 2
+                    $0.module.name == "A" && $0.module.moduleAliases?["Utils"] == "XUtils"
+                        && $0.module
+                            .moduleAliases?["Log"] == "XLog"
+                        && $0.module.moduleAliases?.count == 2
                 }
         )
         XCTAssertTrue(
             result.targetMap.values
                 .contains {
-                    $0.module.name == "B" && $0.module.moduleAliases?["Utils"] == "XUtils" && $0.module
-                        .moduleAliases?["Log"] == "XLog" && $0.module.moduleAliases?.count == 2
+                    $0.module.name == "B" && $0.module.moduleAliases?["Utils"] == "XUtils"
+                        && $0.module
+                            .moduleAliases?["Log"] == "XLog"
+                        && $0.module.moduleAliases?.count == 2
                 }
         )
         XCTAssertTrue(
             result.targetMap.values
                 .contains {
-                    $0.module.name == "C" && $0.module.moduleAliases?["Log"] == "XLog" && $0.module
-                        .moduleAliases?["Utils"] == "XUtils" && $0.module.moduleAliases?.count == 2
+                    $0.module.name == "C" && $0.module.moduleAliases?["Log"] == "XLog"
+                        && $0.module
+                            .moduleAliases?["Utils"] == "XUtils"
+                        && $0.module.moduleAliases?.count == 2
                 }
         )
         XCTAssertTrue(
             result.targetMap.values
                 .contains {
-                    $0.module.name == "D" && $0.module.moduleAliases?["Utils"] == "XUtils" && $0.module
-                        .moduleAliases?["Log"] == "XLog" && $0.module.moduleAliases?.count == 2
+                    $0.module.name == "D" && $0.module.moduleAliases?["Utils"] == "XUtils"
+                        && $0.module
+                            .moduleAliases?["Log"] == "XLog"
+                        && $0.module.moduleAliases?.count == 2
                 }
         )
         XCTAssertTrue(
             result.targetMap.values
                 .contains {
-                    $0.module.name == "XUtils" && $0.module.moduleAliases?["Utils"] == "XUtils" && $0.module
-                        .moduleAliases?
-                        .count == 1
+                    $0.module.name == "XUtils" && $0.module.moduleAliases?["Utils"] == "XUtils"
+                        && $0.module
+                            .moduleAliases?
+                            .count == 1
                 }
         )
         XCTAssertTrue(
             result.targetMap.values
                 .contains {
-                    $0.module.name == "XLog" && $0.module.moduleAliases?["Log"] == "XLog" && $0.module.moduleAliases?
-                        .count == 1
+                    $0.module.name == "XLog" && $0.module.moduleAliases?["Log"] == "XLog"
+                        && $0.module.moduleAliases?
+                            .count == 1
                 }
         )
         XCTAssertTrue(
             result.targetMap.values
                 .contains {
-                    $0.module.name == "G" && $0.module.moduleAliases?["Utils"] == "XUtils" && $0.module
-                        .moduleAliases?["Log"] == "XLog" && $0.module.moduleAliases?.count == 2
+                    $0.module.name == "G" && $0.module.moduleAliases?["Utils"] == "XUtils"
+                        && $0.module
+                            .moduleAliases?["Log"] == "XLog"
+                        && $0.module.moduleAliases?.count == 2
                 }
         )
         XCTAssertTrue(
             result.targetMap.values
                 .contains {
-                    $0.module.name == "H" && $0.module.moduleAliases?["Utils"] == "XUtils" && $0.module
-                        .moduleAliases?["Log"] == "XLog" && $0.module.moduleAliases?.count == 2
+                    $0.module.name == "H" && $0.module.moduleAliases?["Utils"] == "XUtils"
+                        && $0.module
+                            .moduleAliases?["Log"] == "XLog"
+                        && $0.module.moduleAliases?.count == 2
                 }
         )
     }
@@ -2303,7 +2452,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
     func testModuleAliasingOverrideSameNameTargetAndDepWithAliases() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/appPkg/Sources/App/main.swift",
+                "/appPkg/Sources/App/main.swift",
             "/appPkg/Sources/Utils/file1.swift",
             "/appPkg/Sources/Render/file2.swift",
             "/libPkg/Sources/Lib/fileLib.swift",
@@ -2321,17 +2470,17 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     displayName: "drawPkg",
                     path: "/drawPkg",
                     products: [
-                        ProductDescription(name: "DrawProd", type: .library(.automatic), targets: ["Render"]),
+                        ProductDescription(name: "DrawProd", type: .library(.automatic), targets: ["Render"])
                     ],
                     targets: [
-                        TargetDescription(name: "Render", dependencies: []),
+                        TargetDescription(name: "Render", dependencies: [])
                     ]
                 ),
                 Manifest.createFileSystemManifest(
                     displayName: "gamePkg",
                     path: "/gamePkg",
                     dependencies: [
-                        .localSourceControl(path: "/drawPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/drawPkg", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
                         ProductDescription(name: "Game", type: .library(.automatic), targets: ["Game"]),
@@ -2348,7 +2497,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                                     name: "DrawProd",
                                     package: "drawPkg",
                                     moduleAliases: ["Render": "DrawRender"]
-                                ),
+                                )
                             ]
                         ),
                     ]
@@ -2357,10 +2506,10 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     displayName: "libPkg",
                     path: "/libPkg",
                     dependencies: [
-                        .localSourceControl(path: "/gamePkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/gamePkg", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
-                        ProductDescription(name: "LibProd", type: .library(.automatic), targets: ["Lib"]),
+                        ProductDescription(name: "LibProd", type: .library(.automatic), targets: ["Lib"])
                     ],
                     targets: [
                         TargetDescription(
@@ -2377,28 +2526,30 @@ final class ModuleAliasingBuildTests: XCTestCase {
                                     moduleAliases: ["Render": "GameRender"]
                                 ),
                             ]
-                        ),
+                        )
                     ]
                 ),
                 Manifest.createRootManifest(
                     displayName: "appPkg",
                     path: "/appPkg",
                     dependencies: [
-                        .localSourceControl(path: "/libPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/libPkg", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     targets: [
                         TargetDescription(
                             name: "App",
-                            dependencies: ["Utils",
-                                           "Render",
-                                           .product(
-                                               name: "LibProd",
-                                               package: "libPkg",
-                                               moduleAliases: [
-                                                   "GameUtils": "LibUtils",
-                                                   "GameRender": "LibRender",
-                                               ]
-                                           )]
+                            dependencies: [
+                                "Utils",
+                                "Render",
+                                .product(
+                                    name: "LibProd",
+                                    package: "libPkg",
+                                    moduleAliases: [
+                                        "GameUtils": "LibUtils",
+                                        "GameRender": "LibRender",
+                                    ]
+                                ),
+                            ]
                         ),
                         TargetDescription(name: "Utils", dependencies: []),
                         TargetDescription(name: "Render", dependencies: []),
@@ -2409,14 +2560,16 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try await BuildPlanResult(plan: try mockBuildPlan(
-            graph: graph,
-            linkingParameters: .init(
-                shouldLinkStaticSwiftStdlib: true
-            ),
-            fileSystem: fs,
-            observabilityScope: observability.topScope
-        ))
+        let result = try await BuildPlanResult(
+            plan: try mockBuildPlan(
+                graph: graph,
+                linkingParameters: .init(
+                    shouldLinkStaticSwiftStdlib: true
+                ),
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            )
+        )
 
         result.checkProductsCount(1)
         result.checkTargetsCount(8)
@@ -2424,8 +2577,9 @@ final class ModuleAliasingBuildTests: XCTestCase {
         XCTAssertTrue(
             result.targetMap.values
                 .contains {
-                    $0.module.name == "Lib" && $0.module.moduleAliases?["Utils"] == "LibUtils" && $0.module
-                        .moduleAliases?["Render"] == "LibRender"
+                    $0.module.name == "Lib" && $0.module.moduleAliases?["Utils"] == "LibUtils"
+                        && $0.module
+                            .moduleAliases?["Render"] == "LibRender"
                 }
         )
         XCTAssertTrue(
@@ -2439,8 +2593,9 @@ final class ModuleAliasingBuildTests: XCTestCase {
         XCTAssertTrue(
             result.targetMap.values
                 .contains {
-                    $0.module.name == "Game" && $0.module.moduleAliases?["Utils"] == "LibUtils" && $0.module
-                        .moduleAliases?["Render"] == nil
+                    $0.module.name == "Game" && $0.module.moduleAliases?["Utils"] == "LibUtils"
+                        && $0.module
+                            .moduleAliases?["Render"] == nil
                 }
         )
         XCTAssertTrue(
@@ -2456,7 +2611,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
     func testModuleAliasingAddOverrideAliasesUpstream() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/appPkg/Sources/App/main.swift",
+                "/appPkg/Sources/App/main.swift",
             "/appPkg/Sources/Utils/file1.swift",
             "/appPkg/Sources/Render/file2.swift",
             "/libPkg/Sources/Lib/fileLib.swift",
@@ -2473,17 +2628,17 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     displayName: "drawPkg",
                     path: "/drawPkg",
                     products: [
-                        ProductDescription(name: "DrawProd", type: .library(.automatic), targets: ["Render"]),
+                        ProductDescription(name: "DrawProd", type: .library(.automatic), targets: ["Render"])
                     ],
                     targets: [
-                        TargetDescription(name: "Render", dependencies: []),
+                        TargetDescription(name: "Render", dependencies: [])
                     ]
                 ),
                 Manifest.createFileSystemManifest(
                     displayName: "gamePkg",
                     path: "/gamePkg",
                     dependencies: [
-                        .localSourceControl(path: "/drawPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/drawPkg", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
                         ProductDescription(name: "Game", type: .library(.automatic), targets: ["Utils"]),
@@ -2500,7 +2655,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                                     name: "DrawProd",
                                     package: "drawPkg",
                                     moduleAliases: ["Render": "DrawRender"]
-                                ),
+                                )
                             ]
                         ),
                     ]
@@ -2509,42 +2664,46 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     displayName: "libPkg",
                     path: "/libPkg",
                     dependencies: [
-                        .localSourceControl(path: "/gamePkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/gamePkg", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
-                        ProductDescription(name: "LibProd", type: .library(.automatic), targets: ["Lib"]),
+                        ProductDescription(name: "LibProd", type: .library(.automatic), targets: ["Lib"])
                     ],
                     targets: [
                         TargetDescription(
                             name: "Lib",
-                            dependencies: [.product(
-                                name: "UtilsProd",
-                                package: "gamePkg",
-                                moduleAliases: ["Utils": "GameUtils"]
-                            ),
-                            .product(
-                                name: "RenderProd",
-                                package: "gamePkg",
-                                moduleAliases: ["Render": "GameRender"]
-                            )]
-                        ),
+                            dependencies: [
+                                .product(
+                                    name: "UtilsProd",
+                                    package: "gamePkg",
+                                    moduleAliases: ["Utils": "GameUtils"]
+                                ),
+                                .product(
+                                    name: "RenderProd",
+                                    package: "gamePkg",
+                                    moduleAliases: ["Render": "GameRender"]
+                                ),
+                            ]
+                        )
                     ]
                 ),
                 Manifest.createRootManifest(
                     displayName: "appPkg",
                     path: "/appPkg",
                     dependencies: [
-                        .localSourceControl(path: "/libPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/libPkg", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     targets: [
                         TargetDescription(
                             name: "App",
-                            dependencies: ["Utils",
-                                           "Render",
-                                           .product(
-                                               name: "LibProd",
-                                               package: "libPkg"
-                                           )]
+                            dependencies: [
+                                "Utils",
+                                "Render",
+                                .product(
+                                    name: "LibProd",
+                                    package: "libPkg"
+                                ),
+                            ]
                         ),
                         TargetDescription(name: "Utils", dependencies: []),
                         TargetDescription(name: "Render", dependencies: []),
@@ -2555,14 +2714,16 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try await BuildPlanResult(plan: try mockBuildPlan(
-            graph: graph,
-            linkingParameters: .init(
-                shouldLinkStaticSwiftStdlib: true
-            ),
-            fileSystem: fs,
-            observabilityScope: observability.topScope
-        ))
+        let result = try await BuildPlanResult(
+            plan: try mockBuildPlan(
+                graph: graph,
+                linkingParameters: .init(
+                    shouldLinkStaticSwiftStdlib: true
+                ),
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            )
+        )
 
         result.checkProductsCount(1)
         result.checkTargetsCount(7)
@@ -2570,8 +2731,9 @@ final class ModuleAliasingBuildTests: XCTestCase {
         XCTAssertTrue(
             result.targetMap.values
                 .contains {
-                    $0.module.name == "Lib" && $0.module.moduleAliases?["Utils"] == "GameUtils" && $0.module
-                        .moduleAliases?["Render"] == "GameRender"
+                    $0.module.name == "Lib" && $0.module.moduleAliases?["Utils"] == "GameUtils"
+                        && $0.module
+                            .moduleAliases?["Render"] == "GameRender"
                 }
         )
         XCTAssertTrue(
@@ -2594,7 +2756,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
     func testModuleAliasingOverrideUpstreamTargetsWithAliases() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/appPkg/Sources/App/main.swift",
+                "/appPkg/Sources/App/main.swift",
             "/appPkg/Sources/Utils/file1.swift",
             "/appPkg/Sources/Render/file2.swift",
             "/libPkg/Sources/Lib/fileLib.swift",
@@ -2612,17 +2774,17 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     displayName: "drawPkg",
                     path: "/drawPkg",
                     products: [
-                        ProductDescription(name: "DrawProd", type: .library(.automatic), targets: ["Render"]),
+                        ProductDescription(name: "DrawProd", type: .library(.automatic), targets: ["Render"])
                     ],
                     targets: [
-                        TargetDescription(name: "Render", dependencies: []),
+                        TargetDescription(name: "Render", dependencies: [])
                     ]
                 ),
                 Manifest.createFileSystemManifest(
                     displayName: "gamePkg",
                     path: "/gamePkg",
                     dependencies: [
-                        .localSourceControl(path: "/drawPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/drawPkg", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
                         ProductDescription(name: "Game", type: .library(.automatic), targets: ["Utils"]),
@@ -2641,7 +2803,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                                     name: "DrawProd",
                                     package: "drawPkg",
                                     moduleAliases: ["Render": "DrawRender"]
-                                ),
+                                )
                             ]
                         ),
                     ]
@@ -2650,46 +2812,50 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     displayName: "libPkg",
                     path: "/libPkg",
                     dependencies: [
-                        .localSourceControl(path: "/gamePkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/gamePkg", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
-                        ProductDescription(name: "LibProd", type: .library(.automatic), targets: ["Lib"]),
+                        ProductDescription(name: "LibProd", type: .library(.automatic), targets: ["Lib"])
                     ],
                     targets: [
                         TargetDescription(
                             name: "Lib",
-                            dependencies: [.product(
-                                name: "UtilsProd",
-                                package: "gamePkg",
-                                moduleAliases: ["Utils": "GameUtils"]
-                            ),
-                            .product(
-                                name: "RenderProd",
-                                package: "gamePkg",
-                                moduleAliases: ["Render": "GameRender"]
-                            ),
-                            .product(
-                                name: "SceneProd",
-                                package: "gamePkg"
-                            )]
-                        ),
+                            dependencies: [
+                                .product(
+                                    name: "UtilsProd",
+                                    package: "gamePkg",
+                                    moduleAliases: ["Utils": "GameUtils"]
+                                ),
+                                .product(
+                                    name: "RenderProd",
+                                    package: "gamePkg",
+                                    moduleAliases: ["Render": "GameRender"]
+                                ),
+                                .product(
+                                    name: "SceneProd",
+                                    package: "gamePkg"
+                                ),
+                            ]
+                        )
                     ]
                 ),
                 Manifest.createRootManifest(
                     displayName: "appPkg",
                     path: "/appPkg",
                     dependencies: [
-                        .localSourceControl(path: "/libPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/libPkg", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     targets: [
                         TargetDescription(
                             name: "App",
-                            dependencies: ["Utils",
-                                           "Render",
-                                           .product(
-                                               name: "LibProd",
-                                               package: "libPkg"
-                                           )]
+                            dependencies: [
+                                "Utils",
+                                "Render",
+                                .product(
+                                    name: "LibProd",
+                                    package: "libPkg"
+                                ),
+                            ]
                         ),
                         TargetDescription(name: "Utils", dependencies: []),
                         TargetDescription(name: "Render", dependencies: []),
@@ -2700,14 +2866,16 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try await BuildPlanResult(plan: try mockBuildPlan(
-            graph: graph,
-            linkingParameters: .init(
-                shouldLinkStaticSwiftStdlib: true
-            ),
-            fileSystem: fs,
-            observabilityScope: observability.topScope
-        ))
+        let result = try await BuildPlanResult(
+            plan: try mockBuildPlan(
+                graph: graph,
+                linkingParameters: .init(
+                    shouldLinkStaticSwiftStdlib: true
+                ),
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            )
+        )
 
         result.checkProductsCount(1)
         result.checkTargetsCount(8)
@@ -2715,8 +2883,9 @@ final class ModuleAliasingBuildTests: XCTestCase {
         XCTAssertTrue(
             result.targetMap.values
                 .contains {
-                    $0.module.name == "Lib" && $0.module.moduleAliases?["Utils"] == "GameUtils" && $0.module
-                        .moduleAliases?["Render"] == "GameRender"
+                    $0.module.name == "Lib" && $0.module.moduleAliases?["Utils"] == "GameUtils"
+                        && $0.module
+                            .moduleAliases?["Render"] == "GameRender"
                 }
         )
         XCTAssertTrue(
@@ -2743,7 +2912,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
     func testModuleAliasingOverrideUpstreamTargetsWithAliasesMultipleAliasesInProduct() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/appPkg/Sources/App/main.swift",
+                "/appPkg/Sources/App/main.swift",
             "/appPkg/Sources/Utils/file1.swift",
             "/appPkg/Sources/Render/file2.swift",
             "/libPkg/Sources/Lib/fileLib.swift",
@@ -2760,17 +2929,17 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     displayName: "drawPkg",
                     path: "/drawPkg",
                     products: [
-                        ProductDescription(name: "DrawProd", type: .library(.automatic), targets: ["Render"]),
+                        ProductDescription(name: "DrawProd", type: .library(.automatic), targets: ["Render"])
                     ],
                     targets: [
-                        TargetDescription(name: "Render", dependencies: []),
+                        TargetDescription(name: "Render", dependencies: [])
                     ]
                 ),
                 Manifest.createFileSystemManifest(
                     displayName: "gamePkg",
                     path: "/gamePkg",
                     dependencies: [
-                        .localSourceControl(path: "/drawPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/drawPkg", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
                         ProductDescription(name: "GameProd", type: .library(.automatic), targets: ["Game"]),
@@ -2795,7 +2964,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                                     name: "DrawProd",
                                     package: "drawPkg",
                                     moduleAliases: ["Render": "DrawRender"]
-                                ),
+                                )
                             ]
                         ),
                     ]
@@ -2804,44 +2973,48 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     displayName: "libPkg",
                     path: "/libPkg",
                     dependencies: [
-                        .localSourceControl(path: "/gamePkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/gamePkg", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
-                        ProductDescription(name: "LibProd", type: .library(.automatic), targets: ["Lib"]),
+                        ProductDescription(name: "LibProd", type: .library(.automatic), targets: ["Lib"])
                     ],
                     targets: [
                         TargetDescription(
                             name: "Lib",
-                            dependencies: [.product(
-                                name: "UtilsProd",
-                                package: "gamePkg",
-                                moduleAliases: [
-                                    "Utils": "GameUtils",
-                                    "Render": "GameRender",
-                                ]
-                            )]
-                        ),
+                            dependencies: [
+                                .product(
+                                    name: "UtilsProd",
+                                    package: "gamePkg",
+                                    moduleAliases: [
+                                        "Utils": "GameUtils",
+                                        "Render": "GameRender",
+                                    ]
+                                )
+                            ]
+                        )
                     ]
                 ),
                 Manifest.createRootManifest(
                     displayName: "appPkg",
                     path: "/appPkg",
                     dependencies: [
-                        .localSourceControl(path: "/libPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/libPkg", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     targets: [
                         TargetDescription(
                             name: "App",
-                            dependencies: ["Utils",
-                                           "Render",
-                                           .product(
-                                               name: "LibProd",
-                                               package: "libPkg",
-                                               moduleAliases: [
-                                                   "GameUtils": "LibUtils",
-                                                   "GameRender": "LibRender",
-                                               ]
-                                           )]
+                            dependencies: [
+                                "Utils",
+                                "Render",
+                                .product(
+                                    name: "LibProd",
+                                    package: "libPkg",
+                                    moduleAliases: [
+                                        "GameUtils": "LibUtils",
+                                        "GameRender": "LibRender",
+                                    ]
+                                ),
+                            ]
                         ),
                         TargetDescription(name: "Utils", dependencies: []),
                         TargetDescription(name: "Render", dependencies: []),
@@ -2852,14 +3025,16 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try await BuildPlanResult(plan: try mockBuildPlan(
-            graph: graph,
-            linkingParameters: .init(
-                shouldLinkStaticSwiftStdlib: true
-            ),
-            fileSystem: fs,
-            observabilityScope: observability.topScope
-        ))
+        let result = try await BuildPlanResult(
+            plan: try mockBuildPlan(
+                graph: graph,
+                linkingParameters: .init(
+                    shouldLinkStaticSwiftStdlib: true
+                ),
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            )
+        )
 
         result.checkProductsCount(1)
         result.checkTargetsCount(7)
@@ -2867,8 +3042,9 @@ final class ModuleAliasingBuildTests: XCTestCase {
         XCTAssertTrue(
             result.targetMap.values
                 .contains {
-                    $0.module.name == "Lib" && $0.module.moduleAliases?["Utils"] == "LibUtils" && $0.module
-                        .moduleAliases?["Render"] == "LibRender"
+                    $0.module.name == "Lib" && $0.module.moduleAliases?["Utils"] == "LibUtils"
+                        && $0.module
+                            .moduleAliases?["Render"] == "LibRender"
                 }
         )
         XCTAssertTrue(
@@ -2895,7 +3071,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
     func testModuleAliasingOverrideUpstreamTargetsWithAliasesDownstream() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/appPkg/Sources/App/main.swift",
+                "/appPkg/Sources/App/main.swift",
             "/appPkg/Sources/Utils/file1.swift",
             "/appPkg/Sources/Render/file2.swift",
             "/libPkg/Sources/Lib/fileLib.swift",
@@ -2914,17 +3090,17 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     displayName: "drawPkg",
                     path: "/drawPkg",
                     products: [
-                        ProductDescription(name: "DrawProd", type: .library(.automatic), targets: ["Render"]),
+                        ProductDescription(name: "DrawProd", type: .library(.automatic), targets: ["Render"])
                     ],
                     targets: [
-                        TargetDescription(name: "Render", dependencies: []),
+                        TargetDescription(name: "Render", dependencies: [])
                     ]
                 ),
                 Manifest.createFileSystemManifest(
                     displayName: "gamePkg",
                     path: "/gamePkg",
                     dependencies: [
-                        .localSourceControl(path: "/drawPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/drawPkg", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
                         ProductDescription(name: "Game", type: .library(.automatic), targets: ["Game"]),
@@ -2943,7 +3119,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                                     name: "DrawProd",
                                     package: "drawPkg",
                                     moduleAliases: ["Render": "DrawRender"]
-                                ),
+                                )
                             ]
                         ),
                     ]
@@ -2952,50 +3128,54 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     displayName: "libPkg",
                     path: "/libPkg",
                     dependencies: [
-                        .localSourceControl(path: "/gamePkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/gamePkg", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
-                        ProductDescription(name: "LibProd", type: .library(.automatic), targets: ["Lib"]),
+                        ProductDescription(name: "LibProd", type: .library(.automatic), targets: ["Lib"])
                     ],
                     targets: [
                         TargetDescription(
                             name: "Lib",
-                            dependencies: [.product(
-                                name: "UtilsProd",
-                                package: "gamePkg",
-                                moduleAliases: ["Utils": "GameUtils"]
-                            ),
-                            .product(
-                                name: "RenderProd",
-                                package: "gamePkg",
-                                moduleAliases: ["Render": "GameRender"]
-                            ),
-                            .product(
-                                name: "SceneProd",
-                                package: "gamePkg"
-                            )]
-                        ),
+                            dependencies: [
+                                .product(
+                                    name: "UtilsProd",
+                                    package: "gamePkg",
+                                    moduleAliases: ["Utils": "GameUtils"]
+                                ),
+                                .product(
+                                    name: "RenderProd",
+                                    package: "gamePkg",
+                                    moduleAliases: ["Render": "GameRender"]
+                                ),
+                                .product(
+                                    name: "SceneProd",
+                                    package: "gamePkg"
+                                ),
+                            ]
+                        )
                     ]
                 ),
                 Manifest.createRootManifest(
                     displayName: "appPkg",
                     path: "/appPkg",
                     dependencies: [
-                        .localSourceControl(path: "/libPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/libPkg", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     targets: [
                         TargetDescription(
                             name: "App",
-                            dependencies: ["Utils",
-                                           "Render",
-                                           .product(
-                                               name: "LibProd",
-                                               package: "libPkg",
-                                               moduleAliases: [
-                                                   "GameUtils": "LibUtils",
-                                                   "GameRender": "LibRender",
-                                               ]
-                                           )]
+                            dependencies: [
+                                "Utils",
+                                "Render",
+                                .product(
+                                    name: "LibProd",
+                                    package: "libPkg",
+                                    moduleAliases: [
+                                        "GameUtils": "LibUtils",
+                                        "GameRender": "LibRender",
+                                    ]
+                                ),
+                            ]
                         ),
                         TargetDescription(name: "Utils", dependencies: []),
                         TargetDescription(name: "Render", dependencies: []),
@@ -3006,14 +3186,16 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try await BuildPlanResult(plan: try mockBuildPlan(
-            graph: graph,
-            linkingParameters: .init(
-                shouldLinkStaticSwiftStdlib: true
-            ),
-            fileSystem: fs,
-            observabilityScope: observability.topScope
-        ))
+        let result = try await BuildPlanResult(
+            plan: try mockBuildPlan(
+                graph: graph,
+                linkingParameters: .init(
+                    shouldLinkStaticSwiftStdlib: true
+                ),
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            )
+        )
 
         result.checkProductsCount(1)
         result.checkTargetsCount(9)
@@ -3021,8 +3203,9 @@ final class ModuleAliasingBuildTests: XCTestCase {
         XCTAssertTrue(
             result.targetMap.values
                 .contains {
-                    $0.module.name == "Lib" && $0.module.moduleAliases?["Utils"] == "LibUtils" && $0.module
-                        .moduleAliases?["Render"] == "LibRender"
+                    $0.module.name == "Lib" && $0.module.moduleAliases?["Utils"] == "LibUtils"
+                        && $0.module
+                            .moduleAliases?["Render"] == "LibRender"
                 }
         )
         XCTAssertTrue(
@@ -3053,7 +3236,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
     func testModuleAliasingSameTargetFromUpstreamWithoutAlias() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/thisPkg/Sources/exe/main.swift",
+                "/thisPkg/Sources/exe/main.swift",
             "/thisPkg/Sources/MyLogging/file.swift",
             "/fooPkg/Sources/Utils/fileUtils.swift",
             "/barPkg/Sources/Logging/fileLogging.swift"
@@ -3067,29 +3250,31 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     displayName: "barPkg",
                     path: "/barPkg",
                     products: [
-                        ProductDescription(name: "Logging", type: .library(.automatic), targets: ["Logging"]),
+                        ProductDescription(name: "Logging", type: .library(.automatic), targets: ["Logging"])
                     ],
                     targets: [
-                        TargetDescription(name: "Logging", dependencies: []),
+                        TargetDescription(name: "Logging", dependencies: [])
                     ]
                 ),
                 Manifest.createFileSystemManifest(
                     displayName: "fooPkg",
                     path: "/fooPkg",
                     dependencies: [
-                        .localSourceControl(path: "/barPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/barPkg", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
-                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
+                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"])
                     ],
                     targets: [
                         TargetDescription(
                             name: "Utils",
-                            dependencies: [.product(
-                                name: "Logging",
-                                package: "barPkg"
-                            )]
-                        ),
+                            dependencies: [
+                                .product(
+                                    name: "Logging",
+                                    package: "barPkg"
+                                )
+                            ]
+                        )
                     ]
                 ),
                 Manifest.createRootManifest(
@@ -3102,16 +3287,18 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     targets: [
                         TargetDescription(
                             name: "exe",
-                            dependencies: ["MyLogging",
-                                           .product(
-                                               name: "Utils",
-                                               package: "fooPkg",
-                                               moduleAliases: ["Logging": "FooLogging"]
-                                           ),
-                                           .product(
-                                               name: "Logging",
-                                               package: "barPkg"
-                                           )]
+                            dependencies: [
+                                "MyLogging",
+                                .product(
+                                    name: "Utils",
+                                    package: "fooPkg",
+                                    moduleAliases: ["Logging": "FooLogging"]
+                                ),
+                                .product(
+                                    name: "Logging",
+                                    package: "barPkg"
+                                ),
+                            ]
                         ),
                         TargetDescription(name: "MyLogging", dependencies: []),
                     ]
@@ -3121,14 +3308,16 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try await BuildPlanResult(plan: try mockBuildPlan(
-            graph: graph,
-            linkingParameters: .init(
-                shouldLinkStaticSwiftStdlib: true
-            ),
-            fileSystem: fs,
-            observabilityScope: observability.topScope
-        ))
+        let result = try await BuildPlanResult(
+            plan: try mockBuildPlan(
+                graph: graph,
+                linkingParameters: .init(
+                    shouldLinkStaticSwiftStdlib: true
+                ),
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            )
+        )
 
         result.checkProductsCount(1)
         result.checkTargetsCount(4)
@@ -3154,7 +3343,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
     func testModuleAliasingDuplicateTargetNamesFromMultiplePkgs() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/thisPkg/Sources/exe/main.swift",
+                "/thisPkg/Sources/exe/main.swift",
             "/thisPkg/Sources/MyLogging/file.swift",
             "/fooPkg/Sources/Utils/fileUtils.swift",
             "/barPkg/Sources/Logging/fileLogging.swift",
@@ -3169,39 +3358,41 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     displayName: "carPkg",
                     path: "/carPkg",
                     products: [
-                        ProductDescription(name: "CarLog", type: .library(.automatic), targets: ["Logging"]),
+                        ProductDescription(name: "CarLog", type: .library(.automatic), targets: ["Logging"])
                     ],
                     targets: [
-                        TargetDescription(name: "Logging", dependencies: []),
+                        TargetDescription(name: "Logging", dependencies: [])
                     ]
                 ),
                 Manifest.createFileSystemManifest(
                     displayName: "barPkg",
                     path: "/barPkg",
                     products: [
-                        ProductDescription(name: "BarLog", type: .library(.automatic), targets: ["Logging"]),
+                        ProductDescription(name: "BarLog", type: .library(.automatic), targets: ["Logging"])
                     ],
                     targets: [
-                        TargetDescription(name: "Logging", dependencies: []),
+                        TargetDescription(name: "Logging", dependencies: [])
                     ]
                 ),
                 Manifest.createFileSystemManifest(
                     displayName: "fooPkg",
                     path: "/fooPkg",
                     dependencies: [
-                        .localSourceControl(path: "/barPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/barPkg", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
-                        ProductDescription(name: "UtilsProd", type: .library(.automatic), targets: ["Utils"]),
+                        ProductDescription(name: "UtilsProd", type: .library(.automatic), targets: ["Utils"])
                     ],
                     targets: [
                         TargetDescription(
                             name: "Utils",
-                            dependencies: [.product(
-                                name: "BarLog",
-                                package: "barPkg"
-                            )]
-                        ),
+                            dependencies: [
+                                .product(
+                                    name: "BarLog",
+                                    package: "barPkg"
+                                )
+                            ]
+                        )
                     ]
                 ),
                 Manifest.createRootManifest(
@@ -3214,17 +3405,19 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     targets: [
                         TargetDescription(
                             name: "exe",
-                            dependencies: ["MyLogging",
-                                           .product(
-                                               name: "UtilsProd",
-                                               package: "fooPkg",
-                                               moduleAliases: ["Logging": "FooLogging"]
-                                           ),
-                                           .product(
-                                               name: "CarLog",
-                                               package: "carPkg",
-                                               moduleAliases: ["Logging": "CarLogging"]
-                                           )]
+                            dependencies: [
+                                "MyLogging",
+                                .product(
+                                    name: "UtilsProd",
+                                    package: "fooPkg",
+                                    moduleAliases: ["Logging": "FooLogging"]
+                                ),
+                                .product(
+                                    name: "CarLog",
+                                    package: "carPkg",
+                                    moduleAliases: ["Logging": "CarLogging"]
+                                ),
+                            ]
                         ),
                         TargetDescription(name: "MyLogging", dependencies: []),
                     ]
@@ -3234,14 +3427,16 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = try await BuildPlanResult(plan: try mockBuildPlan(
-            graph: graph,
-            linkingParameters: .init(
-                shouldLinkStaticSwiftStdlib: true
-            ),
-            fileSystem: fs,
-            observabilityScope: observability.topScope
-        ))
+        let result = try await BuildPlanResult(
+            plan: try mockBuildPlan(
+                graph: graph,
+                linkingParameters: .init(
+                    shouldLinkStaticSwiftStdlib: true
+                ),
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            )
+        )
 
         result.checkProductsCount(1)
         result.checkTargetsCount(5)
@@ -3271,7 +3466,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
     func testModuleAliasingTargetAndProductTargetWithSameName() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/appPkg/Sources/App/main.swift",
+                "/appPkg/Sources/App/main.swift",
             "/appPkg/Sources/Utils/file.swift",
             "/xPkg/Sources/X/file.swift",
             "/xPkg/Sources/Utils/file.swift"
@@ -3284,7 +3479,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     displayName: "xpkg",
                     path: "/xPkg",
                     products: [
-                        ProductDescription(name: "X", type: .library(.automatic), targets: ["X"]),
+                        ProductDescription(name: "X", type: .library(.automatic), targets: ["X"])
                     ],
                     targets: [
                         TargetDescription(name: "X", dependencies: ["Utils"]),
@@ -3295,17 +3490,19 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     displayName: "appPkg",
                     path: "/appPkg",
                     dependencies: [
-                        .localSourceControl(path: "/xPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/xPkg", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     targets: [
                         TargetDescription(
                             name: "App",
-                            dependencies: ["Utils",
-                                           .product(
-                                               name: "X",
-                                               package: "xpkg",
-                                               moduleAliases: ["Utils": "XUtils"]
-                                           )]
+                            dependencies: [
+                                "Utils",
+                                .product(
+                                    name: "X",
+                                    package: "xpkg",
+                                    moduleAliases: ["Utils": "XUtils"]
+                                ),
+                            ]
                         ),
                         TargetDescription(name: "Utils", dependencies: []),
                     ]
@@ -3314,14 +3511,16 @@ final class ModuleAliasingBuildTests: XCTestCase {
             observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
-        let result = try await BuildPlanResult(plan: try mockBuildPlan(
-            graph: graph,
-            linkingParameters: .init(
-                shouldLinkStaticSwiftStdlib: true
-            ),
-            fileSystem: fs,
-            observabilityScope: observability.topScope
-        ))
+        let result = try await BuildPlanResult(
+            plan: try mockBuildPlan(
+                graph: graph,
+                linkingParameters: .init(
+                    shouldLinkStaticSwiftStdlib: true
+                ),
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            )
+        )
         result.checkProductsCount(1)
         result.checkTargetsCount(4)
         XCTAssertTrue(
@@ -3339,7 +3538,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
     func testModuleAliasingProductTargetsWithSameName1() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/appPkg/Sources/App/main.swift",
+                "/appPkg/Sources/App/main.swift",
             "/xPkg/Sources/X/file.swift",
             "/yPkg/Sources/Utils/file.swift",
             "/aPkg/Sources/A/file.swift",
@@ -3354,20 +3553,20 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     displayName: "cpkg",
                     path: "/cPkg",
                     products: [
-                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
+                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"])
                     ],
                     targets: [
-                        TargetDescription(name: "Utils", dependencies: []),
+                        TargetDescription(name: "Utils", dependencies: [])
                     ]
                 ),
                 Manifest.createRootManifest(
                     displayName: "bpkg",
                     path: "/bPkg",
                     dependencies: [
-                        .localSourceControl(path: "/cPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/cPkg", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
-                        ProductDescription(name: "B", type: .library(.automatic), targets: ["B"]),
+                        ProductDescription(name: "B", type: .library(.automatic), targets: ["B"])
                     ],
                     targets: [
                         TargetDescription(
@@ -3376,19 +3575,19 @@ final class ModuleAliasingBuildTests: XCTestCase {
                                 .product(
                                     name: "Utils",
                                     package: "cpkg"
-                                ),
+                                )
                             ]
-                        ),
+                        )
                     ]
                 ),
                 Manifest.createRootManifest(
                     displayName: "apkg",
                     path: "/aPkg",
                     dependencies: [
-                        .localSourceControl(path: "/bPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/bPkg", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
-                        ProductDescription(name: "A", type: .library(.automatic), targets: ["A"]),
+                        ProductDescription(name: "A", type: .library(.automatic), targets: ["A"])
                     ],
                     targets: [
                         TargetDescription(
@@ -3397,29 +3596,29 @@ final class ModuleAliasingBuildTests: XCTestCase {
                                 .product(
                                     name: "B",
                                     package: "bpkg"
-                                ),
+                                )
                             ]
-                        ),
+                        )
                     ]
                 ),
                 Manifest.createRootManifest(
                     displayName: "ypkg",
                     path: "/yPkg",
                     products: [
-                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
+                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"])
                     ],
                     targets: [
-                        TargetDescription(name: "Utils", dependencies: []),
+                        TargetDescription(name: "Utils", dependencies: [])
                     ]
                 ),
                 Manifest.createRootManifest(
                     displayName: "xpkg",
                     path: "/xPkg",
                     dependencies: [
-                        .localSourceControl(path: "/yPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/yPkg", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
-                        ProductDescription(name: "X", type: .library(.automatic), targets: ["X"]),
+                        ProductDescription(name: "X", type: .library(.automatic), targets: ["X"])
                     ],
                     targets: [
                         TargetDescription(
@@ -3428,9 +3627,9 @@ final class ModuleAliasingBuildTests: XCTestCase {
                                 .product(
                                     name: "Utils",
                                     package: "ypkg"
-                                ),
+                                )
                             ]
-                        ),
+                        )
                     ]
                 ),
                 Manifest.createRootManifest(
@@ -3455,21 +3654,23 @@ final class ModuleAliasingBuildTests: XCTestCase {
                                     moduleAliases: ["Utils": "AUtils"]
                                 ),
                             ]
-                        ),
+                        )
                     ]
                 ),
             ],
             observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
-        let result = try await BuildPlanResult(plan: try mockBuildPlan(
-            graph: graph,
-            linkingParameters: .init(
-                shouldLinkStaticSwiftStdlib: true
-            ),
-            fileSystem: fs,
-            observabilityScope: observability.topScope
-        ))
+        let result = try await BuildPlanResult(
+            plan: try mockBuildPlan(
+                graph: graph,
+                linkingParameters: .init(
+                    shouldLinkStaticSwiftStdlib: true
+                ),
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            )
+        )
         result.checkProductsCount(1)
         result.checkTargetsCount(6)
         XCTAssertTrue(
@@ -3499,7 +3700,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
     func testModuleAliasingUpstreamProductTargetsWithSameName2() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/appPkg/Sources/App/main.swift",
+                "/appPkg/Sources/App/main.swift",
             "/aPkg/Sources/A/file.swift",
             "/bPkg/Sources/Utils/file.swift",
             "/cPkg/Sources/Utils/file.swift",
@@ -3515,20 +3716,20 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     displayName: "zpkg",
                     path: "/zPkg",
                     products: [
-                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
+                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"])
                     ],
                     targets: [
-                        TargetDescription(name: "Utils", dependencies: []),
+                        TargetDescription(name: "Utils", dependencies: [])
                     ]
                 ),
                 Manifest.createRootManifest(
                     displayName: "ypkg",
                     path: "/yPkg",
                     products: [
-                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
+                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"])
                     ],
                     targets: [
-                        TargetDescription(name: "Utils", dependencies: []),
+                        TargetDescription(name: "Utils", dependencies: [])
                     ]
                 ),
                 Manifest.createRootManifest(
@@ -3540,7 +3741,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                         .localSourceControl(path: "/zPkg", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
-                        ProductDescription(name: "X", type: .library(.automatic), targets: ["X"]),
+                        ProductDescription(name: "X", type: .library(.automatic), targets: ["X"])
                     ],
                     targets: [
                         TargetDescription(
@@ -3556,27 +3757,27 @@ final class ModuleAliasingBuildTests: XCTestCase {
                                     moduleAliases: ["Utils": "YUtils"]
                                 ),
                             ]
-                        ),
+                        )
                     ]
                 ),
                 Manifest.createRootManifest(
                     displayName: "cpkg",
                     path: "/cPkg",
                     products: [
-                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
+                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"])
                     ],
                     targets: [
-                        TargetDescription(name: "Utils", dependencies: []),
+                        TargetDescription(name: "Utils", dependencies: [])
                     ]
                 ),
                 Manifest.createRootManifest(
                     displayName: "bpkg",
                     path: "/bPkg",
                     products: [
-                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
+                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"])
                     ],
                     targets: [
-                        TargetDescription(name: "Utils", dependencies: []),
+                        TargetDescription(name: "Utils", dependencies: [])
                     ]
                 ),
                 Manifest.createRootManifest(
@@ -3588,7 +3789,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                         .localSourceControl(path: "/cPkg", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
-                        ProductDescription(name: "A", type: .library(.automatic), targets: ["A"]),
+                        ProductDescription(name: "A", type: .library(.automatic), targets: ["A"])
                     ],
                     targets: [
                         TargetDescription(
@@ -3604,7 +3805,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                                     moduleAliases: ["Utils": "BUtils"]
                                 ),
                             ]
-                        ),
+                        )
                     ]
                 ),
                 Manifest.createRootManifest(
@@ -3631,21 +3832,23 @@ final class ModuleAliasingBuildTests: XCTestCase {
                                 ),
                             ],
                             type: .executable
-                        ),
+                        )
                     ]
                 ),
             ],
             observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
-        let result = try await BuildPlanResult(plan: try mockBuildPlan(
-            graph: graph,
-            linkingParameters: .init(
-                shouldLinkStaticSwiftStdlib: true
-            ),
-            fileSystem: fs,
-            observabilityScope: observability.topScope
-        ))
+        let result = try await BuildPlanResult(
+            plan: try mockBuildPlan(
+                graph: graph,
+                linkingParameters: .init(
+                    shouldLinkStaticSwiftStdlib: true
+                ),
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            )
+        )
         result.checkProductsCount(1)
         result.checkTargetsCount(7)
         XCTAssertTrue(result.targetMap.values.contains { $0.module.name == "X" && $0.module.moduleAliases == nil })
@@ -3673,7 +3876,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
     func testModuleAliasingUpstreamProductTargetsWithSameName3() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/appPkg/Sources/App/main.swift",
+                "/appPkg/Sources/App/main.swift",
             "/aPkg/Sources/A/file.swift",
             "/aPkg/Sources/Utils/file.swift",
             "/xPkg/Sources/X/file.swift",
@@ -3688,20 +3891,20 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     displayName: "zpkg",
                     path: "/zPkg",
                     products: [
-                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
+                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"])
                     ],
                     targets: [
-                        TargetDescription(name: "Utils", dependencies: []),
+                        TargetDescription(name: "Utils", dependencies: [])
                     ]
                 ),
                 Manifest.createRootManifest(
                     displayName: "ypkg",
                     path: "/yPkg",
                     products: [
-                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
+                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"])
                     ],
                     targets: [
-                        TargetDescription(name: "Utils", dependencies: []),
+                        TargetDescription(name: "Utils", dependencies: [])
                     ]
                 ),
                 Manifest.createRootManifest(
@@ -3713,7 +3916,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                         .localSourceControl(path: "/zPkg", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
-                        ProductDescription(name: "X", type: .library(.automatic), targets: ["X"]),
+                        ProductDescription(name: "X", type: .library(.automatic), targets: ["X"])
                     ],
                     targets: [
                         TargetDescription(
@@ -3729,14 +3932,14 @@ final class ModuleAliasingBuildTests: XCTestCase {
                                     moduleAliases: ["Utils": "YUtils"]
                                 ),
                             ]
-                        ),
+                        )
                     ]
                 ),
                 Manifest.createRootManifest(
                     displayName: "apkg",
                     path: "/aPkg",
                     products: [
-                        ProductDescription(name: "A", type: .library(.automatic), targets: ["A"]),
+                        ProductDescription(name: "A", type: .library(.automatic), targets: ["A"])
                     ],
                     targets: [
                         TargetDescription(name: "A", dependencies: ["Utils"]),
@@ -3766,21 +3969,23 @@ final class ModuleAliasingBuildTests: XCTestCase {
                                 ),
                             ],
                             type: .executable
-                        ),
+                        )
                     ]
                 ),
             ],
             observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
-        let result = try await BuildPlanResult(plan: try mockBuildPlan(
-            graph: graph,
-            linkingParameters: .init(
-                shouldLinkStaticSwiftStdlib: true
-            ),
-            fileSystem: fs,
-            observabilityScope: observability.topScope
-        ))
+        let result = try await BuildPlanResult(
+            plan: try mockBuildPlan(
+                graph: graph,
+                linkingParameters: .init(
+                    shouldLinkStaticSwiftStdlib: true
+                ),
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            )
+        )
         result.checkProductsCount(1)
         result.checkTargetsCount(6)
         XCTAssertTrue(result.targetMap.values.contains { $0.module.name == "X" && $0.module.moduleAliases == nil })
@@ -3803,7 +4008,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
     func testModuleAliasingUpstreamProductTargetsWithSameName4() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/appPkg/Sources/App/main.swift",
+                "/appPkg/Sources/App/main.swift",
             "/aPkg/Sources/A/file.swift",
             "/aPkg/Sources/Utils/file.swift",
             "/xPkg/Sources/X/file.swift",
@@ -3818,20 +4023,20 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     displayName: "zpkg",
                     path: "/zPkg",
                     products: [
-                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
+                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"])
                     ],
                     targets: [
-                        TargetDescription(name: "Utils", dependencies: []),
+                        TargetDescription(name: "Utils", dependencies: [])
                     ]
                 ),
                 Manifest.createRootManifest(
                     displayName: "ypkg",
                     path: "/yPkg",
                     products: [
-                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
+                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"])
                     ],
                     targets: [
-                        TargetDescription(name: "Utils", dependencies: []),
+                        TargetDescription(name: "Utils", dependencies: [])
                     ]
                 ),
                 Manifest.createRootManifest(
@@ -3843,7 +4048,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                         .localSourceControl(path: "/zPkg", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
-                        ProductDescription(name: "X", type: .library(.automatic), targets: ["X"]),
+                        ProductDescription(name: "X", type: .library(.automatic), targets: ["X"])
                     ],
                     targets: [
                         TargetDescription(
@@ -3859,17 +4064,17 @@ final class ModuleAliasingBuildTests: XCTestCase {
                                     moduleAliases: ["Utils": "YUtils"]
                                 ),
                             ]
-                        ),
+                        )
                     ]
                 ),
                 Manifest.createRootManifest(
                     displayName: "apkg",
                     path: "/aPkg",
                     products: [
-                        ProductDescription(name: "A", type: .library(.automatic), targets: ["Utils"]),
+                        ProductDescription(name: "A", type: .library(.automatic), targets: ["Utils"])
                     ],
                     targets: [
-                        TargetDescription(name: "Utils", dependencies: []),
+                        TargetDescription(name: "Utils", dependencies: [])
                     ]
                 ),
                 Manifest.createRootManifest(
@@ -3896,21 +4101,23 @@ final class ModuleAliasingBuildTests: XCTestCase {
                                 ),
                             ],
                             type: .executable
-                        ),
+                        )
                     ]
                 ),
             ],
             observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
-        let result = try await BuildPlanResult(plan: try mockBuildPlan(
-            graph: graph,
-            linkingParameters: .init(
-                shouldLinkStaticSwiftStdlib: true
-            ),
-            fileSystem: fs,
-            observabilityScope: observability.topScope
-        ))
+        let result = try await BuildPlanResult(
+            plan: try mockBuildPlan(
+                graph: graph,
+                linkingParameters: .init(
+                    shouldLinkStaticSwiftStdlib: true
+                ),
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            )
+        )
         result.checkProductsCount(1)
         result.checkTargetsCount(5)
         XCTAssertTrue(result.targetMap.values.contains { $0.module.name == "X" && $0.module.moduleAliases == nil })
@@ -3933,7 +4140,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
     func testModuleAliasingChainedAliases1() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/appPkg/Sources/App/main.swift",
+                "/appPkg/Sources/App/main.swift",
             "/aPkg/Sources/A/file.swift",
             "/aPkg/Sources/Utils/file.swift",
             "/bPkg/Sources/Utils/file.swift",
@@ -3949,20 +4156,20 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     displayName: "ypkg",
                     path: "/yPkg",
                     products: [
-                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
+                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"])
                     ],
                     targets: [
-                        TargetDescription(name: "Utils", dependencies: []),
+                        TargetDescription(name: "Utils", dependencies: [])
                     ]
                 ),
                 Manifest.createFileSystemManifest(
                     displayName: "xpkg",
                     path: "/xPkg",
                     dependencies: [
-                        .localSourceControl(path: "/yPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/yPkg", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
-                        ProductDescription(name: "X", type: .library(.automatic), targets: ["X"]),
+                        ProductDescription(name: "X", type: .library(.automatic), targets: ["X"])
                     ],
                     targets: [
                         TargetDescription(
@@ -3983,20 +4190,20 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     displayName: "bpkg",
                     path: "/bPkg",
                     products: [
-                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
+                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"])
                     ],
                     targets: [
-                        TargetDescription(name: "Utils", dependencies: []),
+                        TargetDescription(name: "Utils", dependencies: [])
                     ]
                 ),
                 Manifest.createFileSystemManifest(
                     displayName: "apkg",
                     path: "/aPkg",
                     dependencies: [
-                        .localSourceControl(path: "/bPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/bPkg", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
-                        ProductDescription(name: "A", type: .library(.automatic), targets: ["A"]),
+                        ProductDescription(name: "A", type: .library(.automatic), targets: ["A"])
                     ],
                     targets: [
                         TargetDescription(
@@ -4023,51 +4230,57 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     targets: [
                         TargetDescription(
                             name: "App",
-                            dependencies: [.product(
-                                name: "A",
-                                package: "apkg",
-                                moduleAliases: [
-                                    "Utils": "AUtils",
-                                    "FooUtils": "AFooUtils",
-                                ]
-                            ),
-                            .product(
-                                name: "X",
-                                package: "xpkg",
-                                moduleAliases: [
-                                    "Utils": "XUtils",
-                                    "FooUtils": "XFooUtils",
-                                ]
-                            )]
-                        ),
+                            dependencies: [
+                                .product(
+                                    name: "A",
+                                    package: "apkg",
+                                    moduleAliases: [
+                                        "Utils": "AUtils",
+                                        "FooUtils": "AFooUtils",
+                                    ]
+                                ),
+                                .product(
+                                    name: "X",
+                                    package: "xpkg",
+                                    moduleAliases: [
+                                        "Utils": "XUtils",
+                                        "FooUtils": "XFooUtils",
+                                    ]
+                                ),
+                            ]
+                        )
                     ]
                 ),
             ],
             observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
-        let result = try await BuildPlanResult(plan: try mockBuildPlan(
-            graph: graph,
-            linkingParameters: .init(
-                shouldLinkStaticSwiftStdlib: true
-            ),
-            fileSystem: fs,
-            observabilityScope: observability.topScope
-        ))
+        let result = try await BuildPlanResult(
+            plan: try mockBuildPlan(
+                graph: graph,
+                linkingParameters: .init(
+                    shouldLinkStaticSwiftStdlib: true
+                ),
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            )
+        )
         result.checkProductsCount(1)
         result.checkTargetsCount(7)
         XCTAssertTrue(
             result.targetMap.values
                 .contains {
-                    $0.module.name == "A" && $0.module.moduleAliases?["Utils"] == "AUtils" && $0.module
-                        .moduleAliases?["FooUtils"] == "AFooUtils"
+                    $0.module.name == "A" && $0.module.moduleAliases?["Utils"] == "AUtils"
+                        && $0.module
+                            .moduleAliases?["FooUtils"] == "AFooUtils"
                 }
         )
         XCTAssertTrue(
             result.targetMap.values
                 .contains {
-                    $0.module.name == "X" && $0.module.moduleAliases?["Utils"] == "XUtils" && $0.module
-                        .moduleAliases?["FooUtils"] == "XFooUtils"
+                    $0.module.name == "X" && $0.module.moduleAliases?["Utils"] == "XUtils"
+                        && $0.module
+                            .moduleAliases?["FooUtils"] == "XFooUtils"
                 }
         )
         XCTAssertTrue(
@@ -4092,7 +4305,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
     func testModuleAliasingChainedAliases2() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/appPkg/Sources/App/main.swift",
+                "/appPkg/Sources/App/main.swift",
             "/aPkg/Sources/A/file.swift",
             "/aPkg/Sources/Utils/file.swift",
             "/bPkg/Sources/Utils/file.swift",
@@ -4109,20 +4322,20 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     displayName: "zpkg",
                     path: "/zPkg",
                     products: [
-                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
+                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"])
                     ],
                     targets: [
-                        TargetDescription(name: "Utils", dependencies: []),
+                        TargetDescription(name: "Utils", dependencies: [])
                     ]
                 ),
                 Manifest.createFileSystemManifest(
                     displayName: "ypkg",
                     path: "/yPkg",
                     products: [
-                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
+                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"])
                     ],
                     targets: [
-                        TargetDescription(name: "Utils", dependencies: []),
+                        TargetDescription(name: "Utils", dependencies: [])
                     ]
                 ),
                 Manifest.createFileSystemManifest(
@@ -4134,7 +4347,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                         .localSourceControl(path: "/zPkg", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
-                        ProductDescription(name: "X", type: .library(.automatic), targets: ["X"]),
+                        ProductDescription(name: "X", type: .library(.automatic), targets: ["X"])
                     ],
                     targets: [
                         TargetDescription(
@@ -4150,17 +4363,17 @@ final class ModuleAliasingBuildTests: XCTestCase {
                                     package: "zpkg"
                                 ),
                             ]
-                        ),
+                        )
                     ]
                 ),
                 Manifest.createFileSystemManifest(
                     displayName: "bpkg",
                     path: "/bPkg",
                     products: [
-                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
+                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"])
                     ],
                     targets: [
-                        TargetDescription(name: "Utils", dependencies: []),
+                        TargetDescription(name: "Utils", dependencies: [])
                     ]
                 ),
                 Manifest.createFileSystemManifest(
@@ -4168,10 +4381,10 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     path: "/aPkg",
                     toolsVersion: .v5_9,
                     dependencies: [
-                        .localSourceControl(path: "/bPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/bPkg", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
-                        ProductDescription(name: "A", type: .library(.automatic), targets: ["A"]),
+                        ProductDescription(name: "A", type: .library(.automatic), targets: ["A"])
                     ],
                     targets: [
                         TargetDescription(
@@ -4199,42 +4412,47 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     targets: [
                         TargetDescription(
                             name: "App",
-                            dependencies: [.product(
-                                name: "A",
-                                package: "apkg",
-                                moduleAliases: [
-                                    "Utils": "AUtils",
-                                    "FooUtils": "AFUtils",
-                                ]
-                            ),
-                            .product(
-                                name: "X",
-                                package: "xpkg",
-                                moduleAliases: ["FooUtils": "XFUtils"]
-                            )],
+                            dependencies: [
+                                .product(
+                                    name: "A",
+                                    package: "apkg",
+                                    moduleAliases: [
+                                        "Utils": "AUtils",
+                                        "FooUtils": "AFUtils",
+                                    ]
+                                ),
+                                .product(
+                                    name: "X",
+                                    package: "xpkg",
+                                    moduleAliases: ["FooUtils": "XFUtils"]
+                                ),
+                            ],
                             type: .executable
-                        ),
+                        )
                     ]
                 ),
             ],
             observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
-        let result = try await BuildPlanResult(plan: try mockBuildPlan(
-            graph: graph,
-            linkingParameters: .init(
-                shouldLinkStaticSwiftStdlib: true
-            ),
-            fileSystem: fs,
-            observabilityScope: observability.topScope
-        ))
+        let result = try await BuildPlanResult(
+            plan: try mockBuildPlan(
+                graph: graph,
+                linkingParameters: .init(
+                    shouldLinkStaticSwiftStdlib: true
+                ),
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            )
+        )
         result.checkProductsCount(1)
         result.checkTargetsCount(7)
         XCTAssertTrue(
             result.targetMap.values
                 .contains {
-                    $0.module.name == "A" && $0.module.moduleAliases?["Utils"] == "AUtils" && $0.module
-                        .moduleAliases?["FooUtils"] == "AFUtils"
+                    $0.module.name == "A" && $0.module.moduleAliases?["Utils"] == "AUtils"
+                        && $0.module
+                            .moduleAliases?["FooUtils"] == "AFUtils"
                 }
         )
         XCTAssertTrue(
@@ -4260,7 +4478,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
     func testModuleAliasingChainedAliases3() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/appPkg/Sources/App/main.swift",
+                "/appPkg/Sources/App/main.swift",
             "/aPkg/Sources/A/file.swift",
             "/aPkg/Sources/Utils/file.swift",
             "/bPkg/Sources/Utils/file.swift",
@@ -4277,20 +4495,20 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     displayName: "zpkg",
                     path: "/zPkg",
                     products: [
-                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
+                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"])
                     ],
                     targets: [
-                        TargetDescription(name: "Utils", dependencies: []),
+                        TargetDescription(name: "Utils", dependencies: [])
                     ]
                 ),
                 Manifest.createFileSystemManifest(
                     displayName: "ypkg",
                     path: "/yPkg",
                     products: [
-                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
+                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"])
                     ],
                     targets: [
-                        TargetDescription(name: "Utils", dependencies: []),
+                        TargetDescription(name: "Utils", dependencies: [])
                     ]
                 ),
                 Manifest.createFileSystemManifest(
@@ -4302,7 +4520,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                         .localSourceControl(path: "/zPkg", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
-                        ProductDescription(name: "X", type: .library(.automatic), targets: ["X"]),
+                        ProductDescription(name: "X", type: .library(.automatic), targets: ["X"])
                     ],
                     targets: [
                         TargetDescription(
@@ -4319,17 +4537,17 @@ final class ModuleAliasingBuildTests: XCTestCase {
                                     moduleAliases: ["Utils": "ZUtils"]
                                 ),
                             ]
-                        ),
+                        )
                     ]
                 ),
                 Manifest.createFileSystemManifest(
                     displayName: "bpkg",
                     path: "/bPkg",
                     products: [
-                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
+                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"])
                     ],
                     targets: [
-                        TargetDescription(name: "Utils", dependencies: []),
+                        TargetDescription(name: "Utils", dependencies: [])
                     ]
                 ),
                 Manifest.createFileSystemManifest(
@@ -4337,10 +4555,10 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     path: "/aPkg",
                     toolsVersion: .v5_9,
                     dependencies: [
-                        .localSourceControl(path: "/bPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/bPkg", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
-                        ProductDescription(name: "A", type: .library(.automatic), targets: ["A"]),
+                        ProductDescription(name: "A", type: .library(.automatic), targets: ["A"])
                     ],
                     targets: [
                         TargetDescription(
@@ -4368,45 +4586,50 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     targets: [
                         TargetDescription(
                             name: "App",
-                            dependencies: [.product(
-                                name: "A",
-                                package: "apkg",
-                                moduleAliases: [
-                                    "Utils": "AUtils",
-                                    "FooUtils": "AFooUtils",
-                                ]
-                            ),
-                            .product(
-                                name: "X",
-                                package: "xpkg",
-                                moduleAliases: [
-                                    "ZUtils": "XUtils",
-                                    "FooUtils": "XFooUtils",
-                                ]
-                            )],
+                            dependencies: [
+                                .product(
+                                    name: "A",
+                                    package: "apkg",
+                                    moduleAliases: [
+                                        "Utils": "AUtils",
+                                        "FooUtils": "AFooUtils",
+                                    ]
+                                ),
+                                .product(
+                                    name: "X",
+                                    package: "xpkg",
+                                    moduleAliases: [
+                                        "ZUtils": "XUtils",
+                                        "FooUtils": "XFooUtils",
+                                    ]
+                                ),
+                            ],
                             type: .executable
-                        ),
+                        )
                     ]
                 ),
             ],
             observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
-        let result = try await BuildPlanResult(plan: try mockBuildPlan(
-            graph: graph,
-            linkingParameters: .init(
-                shouldLinkStaticSwiftStdlib: true
-            ),
-            fileSystem: fs,
-            observabilityScope: observability.topScope
-        ))
+        let result = try await BuildPlanResult(
+            plan: try mockBuildPlan(
+                graph: graph,
+                linkingParameters: .init(
+                    shouldLinkStaticSwiftStdlib: true
+                ),
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            )
+        )
         result.checkProductsCount(1)
         result.checkTargetsCount(7)
         XCTAssertTrue(
             result.targetMap.values
                 .contains {
-                    $0.module.name == "A" && $0.module.moduleAliases?["Utils"] == "AUtils" && $0.module
-                        .moduleAliases?["FooUtils"] == "AFooUtils"
+                    $0.module.name == "A" && $0.module.moduleAliases?["Utils"] == "AUtils"
+                        && $0.module
+                            .moduleAliases?["FooUtils"] == "AFooUtils"
                 }
         )
         XCTAssertTrue(
@@ -4420,8 +4643,9 @@ final class ModuleAliasingBuildTests: XCTestCase {
         XCTAssertTrue(
             result.targetMap.values
                 .contains {
-                    $0.module.name == "X" && $0.module.moduleAliases?["ZUtils"] == "XUtils" && $0.module
-                        .moduleAliases?["FooUtils"] == "XFooUtils"
+                    $0.module.name == "X" && $0.module.moduleAliases?["ZUtils"] == "XUtils"
+                        && $0.module
+                            .moduleAliases?["FooUtils"] == "XFooUtils"
                 }
         )
         XCTAssertTrue(
@@ -4439,7 +4663,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
     func testModuleAliasingChainedAliases5() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/appPkg/Sources/App/main.swift",
+                "/appPkg/Sources/App/main.swift",
             "/xPkg/Sources/Utils/file.swift",
             "/yPkg/Sources/Utils/file.swift",
             "/zPkg/Sources/Utils/file.swift",
@@ -4454,40 +4678,40 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     displayName: "apkg",
                     path: "/aPkg",
                     products: [
-                        ProductDescription(name: "A", type: .library(.automatic), targets: ["Utils"]),
+                        ProductDescription(name: "A", type: .library(.automatic), targets: ["Utils"])
                     ],
                     targets: [
-                        TargetDescription(name: "Utils", dependencies: []),
+                        TargetDescription(name: "Utils", dependencies: [])
                     ]
                 ),
                 Manifest.createFileSystemManifest(
                     displayName: "wpkg",
                     path: "/wPkg",
                     products: [
-                        ProductDescription(name: "W", type: .library(.automatic), targets: ["Utils"]),
+                        ProductDescription(name: "W", type: .library(.automatic), targets: ["Utils"])
                     ],
                     targets: [
-                        TargetDescription(name: "Utils", dependencies: []),
+                        TargetDescription(name: "Utils", dependencies: [])
                     ]
                 ),
                 Manifest.createFileSystemManifest(
                     displayName: "zpkg",
                     path: "/zPkg",
                     products: [
-                        ProductDescription(name: "Z", type: .library(.automatic), targets: ["Utils"]),
+                        ProductDescription(name: "Z", type: .library(.automatic), targets: ["Utils"])
                     ],
                     targets: [
-                        TargetDescription(name: "Utils", dependencies: []),
+                        TargetDescription(name: "Utils", dependencies: [])
                     ]
                 ),
                 Manifest.createFileSystemManifest(
                     displayName: "ypkg",
                     path: "/yPkg",
                     dependencies: [
-                        .localSourceControl(path: "/zPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/zPkg", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
-                        ProductDescription(name: "Y", type: .library(.automatic), targets: ["Utils"]),
+                        ProductDescription(name: "Y", type: .library(.automatic), targets: ["Utils"])
                     ],
                     targets: [
                         TargetDescription(
@@ -4495,11 +4719,11 @@ final class ModuleAliasingBuildTests: XCTestCase {
                             dependencies: [
                                 .product(
                                     name: "Z",
-                                    package: "zpkg", // import ZUtils
+                                    package: "zpkg",  // import ZUtils
                                     moduleAliases: ["Utils": "ZUtils"]
-                                ),
+                                )
                             ]
-                        ),
+                        )
                     ]
                 ),
                 Manifest.createFileSystemManifest(
@@ -4510,7 +4734,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                         .localSourceControl(path: "/wPkg", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
-                        ProductDescription(name: "X", type: .library(.automatic), targets: ["Utils"]),
+                        ProductDescription(name: "X", type: .library(.automatic), targets: ["Utils"])
                     ],
                     targets: [
                         TargetDescription(
@@ -4518,16 +4742,16 @@ final class ModuleAliasingBuildTests: XCTestCase {
                             dependencies: [
                                 .product(
                                     name: "Y",
-                                    package: "ypkg", // import YUtils
+                                    package: "ypkg",  // import YUtils
                                     moduleAliases: ["ZUtils": "YUtils"]
                                 ),
                                 .product(
                                     name: "W",
-                                    package: "wpkg", // import WUtils
+                                    package: "wpkg",  // import WUtils
                                     moduleAliases: ["Utils": "WUtils"]
                                 ),
                             ]
-                        ),
+                        )
                     ]
                 ),
                 Manifest.createRootManifest(
@@ -4540,35 +4764,39 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     targets: [
                         TargetDescription(
                             name: "App",
-                            dependencies: [.product(
-                                name: "X",
-                                package: "xpkg",
-                                moduleAliases: [
-                                    "Utils": "XUtils",
-                                ]
-                            ),
-                            .product(
-                                name: "A",
-                                package: "apkg",
-                                moduleAliases: [
-                                    "Utils": "AUtils",
-                                ]
-                            )]
-                        ),
+                            dependencies: [
+                                .product(
+                                    name: "X",
+                                    package: "xpkg",
+                                    moduleAliases: [
+                                        "Utils": "XUtils"
+                                    ]
+                                ),
+                                .product(
+                                    name: "A",
+                                    package: "apkg",
+                                    moduleAliases: [
+                                        "Utils": "AUtils"
+                                    ]
+                                ),
+                            ]
+                        )
                     ]
                 ),
             ],
             observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
-        let result = try await BuildPlanResult(plan: try mockBuildPlan(
-            graph: graph,
-            linkingParameters: .init(
-                shouldLinkStaticSwiftStdlib: true
-            ),
-            fileSystem: fs,
-            observabilityScope: observability.topScope
-        ))
+        let result = try await BuildPlanResult(
+            plan: try mockBuildPlan(
+                graph: graph,
+                linkingParameters: .init(
+                    shouldLinkStaticSwiftStdlib: true
+                ),
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            )
+        )
         result.checkProductsCount(1)
         result.checkTargetsCount(6)
         XCTAssertTrue(
@@ -4601,7 +4829,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
     func testProductAliasingDoesNotBreakPackagesWithOlderToolsVersions() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/Lunch/Sources/MyTarget/file.swift",
+                "/Lunch/Sources/MyTarget/file.swift",
             "/Some/Sources/Some/file.swift",
             "/Other/Sources/Other/file.swift"
         )
@@ -4638,7 +4866,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                         )
                     ],
                     targets: [
-                        TargetDescription(name: "Some"),
+                        TargetDescription(name: "Some")
                     ]
                 ),
                 Manifest.createFileSystemManifest(
@@ -4652,28 +4880,30 @@ final class ModuleAliasingBuildTests: XCTestCase {
                         )
                     ],
                     targets: [
-                        TargetDescription(name: "Other"),
+                        TargetDescription(name: "Other")
                     ]
-                )
+                ),
             ],
             observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
-        let result = try await BuildPlanResult(plan: try mockBuildPlan(
-            graph: graph,
-            linkingParameters: .init(
-                shouldLinkStaticSwiftStdlib: true
-            ),
-            fileSystem: fs,
-            observabilityScope: observability.topScope
-        ))
+        let result = try await BuildPlanResult(
+            plan: try mockBuildPlan(
+                graph: graph,
+                linkingParameters: .init(
+                    shouldLinkStaticSwiftStdlib: true
+                ),
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            )
+        )
         result.checkTargetsCount(3)
     }
 
     func testProductAliasingWarnsIfPackageWithOlderToolsVersionIsPossibleCauseOfConflict() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/Lunch/Sources/MyTarget/file.swift",
+                "/Lunch/Sources/MyTarget/file.swift",
             "/Some/Sources/Some/file.swift",
             "/Other/Sources/Some/file.swift"
         )
@@ -4711,7 +4941,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
                             )
                         ],
                         targets: [
-                            TargetDescription(name: "Some"),
+                            TargetDescription(name: "Some")
                         ]
                     ),
                     Manifest.createFileSystemManifest(
@@ -4725,9 +4955,9 @@ final class ModuleAliasingBuildTests: XCTestCase {
                             )
                         ],
                         targets: [
-                            TargetDescription(name: "Some"),
+                            TargetDescription(name: "Some")
                         ]
-                    )
+                    ),
                 ],
                 observabilityScope: observability.topScope
             )

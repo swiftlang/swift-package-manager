@@ -110,7 +110,7 @@ enum Color4: String, Color {
             return .brightRed
         case .green:
             return .brightGreen
-        case .yellow :
+        case .yellow:
             return .brightYellow
         case .blue:
             return .brightBlue

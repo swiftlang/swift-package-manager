@@ -14,7 +14,7 @@ import Foundation
 import Testing
 import XCTest
 
-import _CryptoExtras // For RSA
+import _CryptoExtras  // For RSA
 import Basics
 import Crypto
 @testable import PackageSigning
@@ -85,23 +85,23 @@ struct SigningIdentityTests {
 final class SigningIdentityXCTests: XCTestCase {
 
     #if os(macOS)
-    func testSigningIdentityFromKeychain() async throws {
-        #if ENABLE_REAL_SIGNING_IDENTITY_TEST
-        #else
-        try XCTSkipIf(true)
-        #endif
+        func testSigningIdentityFromKeychain() async throws {
+            #if ENABLE_REAL_SIGNING_IDENTITY_TEST
+            #else
+                try XCTSkipIf(true)
+            #endif
 
-        guard let label = Environment.current["REAL_SIGNING_IDENTITY_LABEL"] else {
-            throw XCTSkip("Skipping because 'REAL_SIGNING_IDENTITY_LABEL' env var is not set")
+            guard let label = Environment.current["REAL_SIGNING_IDENTITY_LABEL"] else {
+                throw XCTSkip("Skipping because 'REAL_SIGNING_IDENTITY_LABEL' env var is not set")
+            }
+            let identityStore = SigningIdentityStore(observabilityScope: ObservabilitySystem.NOOP)
+            let matches = identityStore.find(by: label)
+            XCTAssertTrue(!matches.isEmpty)
+
+            let subject = try Certificate(secIdentity: matches[0] as! SecIdentity).subject
+            XCTAssertNotNil(subject.commonName)
+            XCTAssertNotNil(subject.organizationalUnitName)
+            XCTAssertNotNil(subject.organizationName)
         }
-        let identityStore = SigningIdentityStore(observabilityScope: ObservabilitySystem.NOOP)
-        let matches = identityStore.find(by: label)
-        XCTAssertTrue(!matches.isEmpty)
-
-        let subject = try Certificate(secIdentity: matches[0] as! SecIdentity).subject
-        XCTAssertNotNil(subject.commonName)
-        XCTAssertNotNil(subject.organizationalUnitName)
-        XCTAssertNotNil(subject.organizationName)
-    }
     #endif
 }

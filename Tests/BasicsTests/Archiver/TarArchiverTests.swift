@@ -12,7 +12,7 @@
 
 import Basics
 @testable import struct Basics.TarArchiver
-import TSCclibc // for SPM_posix_spawn_file_actions_addchdir_np_supported
+import TSCclibc  // for SPM_posix_spawn_file_actions_addchdir_np_supported
 import _InternalTestSupport
 import XCTest
 
@@ -70,9 +70,9 @@ final class TarArchiverTests: XCTestCase {
                 .appending(components: "Inputs", "invalid_archive.tar.gz")
             await XCTAssertAsyncThrowsError(try await archiver.extract(from: inputArchivePath, to: tmpdir)) { error in
                 #if os(Linux)
-                XCTAssertMatch((error as? StringError)?.description, .contains("not in gzip format"))
+                    XCTAssertMatch((error as? StringError)?.description, .contains("not in gzip format"))
                 #else
-                XCTAssertMatch((error as? StringError)?.description, .contains("Unrecognized archive format"))
+                    XCTAssertMatch((error as? StringError)?.description, .contains("Unrecognized archive format"))
                 #endif
             }
         }
@@ -94,7 +94,7 @@ final class TarArchiverTests: XCTestCase {
             try await XCTAssertAsyncFalse(try await archiver.validate(path: path))
         }
         // error
-        try await  testWithTemporaryDirectory { _ in
+        try await testWithTemporaryDirectory { _ in
             let archiver = TarArchiver(fileSystem: localFileSystem)
             let path = AbsolutePath.root.appending("does_not_exist.tar.gz")
             await XCTAssertAsyncThrowsError(try await archiver.validate(path: path)) { error in
@@ -105,9 +105,9 @@ final class TarArchiverTests: XCTestCase {
 
     func testCompress() async throws {
         #if !os(Windows)
-        guard SPM_posix_spawn_file_actions_addchdir_np_supported() else {
-            throw XCTSkip("working directory not supported on this platform")
-        }
+            guard SPM_posix_spawn_file_actions_addchdir_np_supported() else {
+                throw XCTSkip("working directory not supported on this platform")
+            }
         #endif
 
         try await testWithTemporaryDirectory { tmpdir in

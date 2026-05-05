@@ -20,13 +20,13 @@ import PackageModel
 extension SBOMTestModulesGraph {
     private static let conditionalDeps: [MockDependency] = [
         .sourceControl(path: "./Package1", requirement: .upToNextMajor(from: "1.0.0"), products: .specific(["Package1Library1"])),
-        .sourceControl(path: "./Package2", requirement: .upToNextMajor(from: "1.0.0"), products: .specific(["Package2Library1"]))
+        .sourceControl(path: "./Package2", requirement: .upToNextMajor(from: "1.0.0"), products: .specific(["Package2Library1"])),
     ]
 
     static func createConditionalModulesGraph(traitConfiguration: TraitConfiguration) async throws -> ModulesGraph {
-       let sandbox = AbsolutePath("/tmp/ws-traits-\(UUID().uuidString)")
+        let sandbox = AbsolutePath("/tmp/ws-traits-\(UUID().uuidString)")
         let fs = InMemoryFileSystem()
-        
+
         let workspace = try await MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
@@ -46,7 +46,7 @@ extension SBOMTestModulesGraph {
                                     name: "Package2Library1",
                                     package: "Package2",
                                     condition: .init(traits: ["EnablePackage2Dep"])
-                                )
+                                ),
                             ]
                         )
                     ],
@@ -55,12 +55,12 @@ extension SBOMTestModulesGraph {
                     ],
                     dependencies: [
                         .sourceControl(path: "./Package1", requirement: .upToNextMajor(from: "1.0.0")),
-                        .sourceControl(path: "./Package2", requirement: .upToNextMajor(from: "1.0.0"))
+                        .sourceControl(path: "./Package2", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     traits: [
                         .init(name: "default", enabledTraits: ["EnablePackage1Dep"]),
                         "EnablePackage1Dep",
-                        "EnablePackage2Dep"
+                        "EnablePackage2Dep",
                     ]
                 )
             ],
@@ -77,11 +77,11 @@ extension SBOMTestModulesGraph {
                     targets: [try MockTarget(name: "Package2Library1")],
                     products: [MockProduct(name: "Package2Library1", modules: ["Package2Library1"])],
                     versions: ["1.0.0"]
-                )
+                ),
             ],
             traitConfiguration: traitConfiguration
         )
-        
+
         var capturedGraph: ModulesGraph?
         try await workspace.checkPackageGraph(
             roots: ["PackageConditionalDeps"],
@@ -90,12 +90,10 @@ extension SBOMTestModulesGraph {
             XCTAssertNoDiagnostics(diagnostics)
             capturedGraph = graph
         }
-        
+
         guard let graph = capturedGraph else {
             throw SBOMTestError.failedToCaptureModulesGraph
         }
         return graph
     }
 }
-
-

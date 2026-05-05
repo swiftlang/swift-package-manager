@@ -67,11 +67,11 @@ final class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
         XCTAssertEqual(bar.dependencies, ["foo"])
 
         // Check dependencies.
-        let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map{ ($0.identity.description, $0) })
+        let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map { ($0.identity.description, $0) })
         XCTAssertEqual(deps["foo1"], .localSourceControl(path: "/foo1", requirement: .upToNextMajor(from: "1.0.0")))
 
         // Check products.
-        let products = Dictionary(uniqueKeysWithValues: manifest.products.map{ ($0.name, $0) })
+        let products = Dictionary(uniqueKeysWithValues: manifest.products.map { ($0.name, $0) })
 
         let tool = products["tool"]!
         XCTAssertEqual(tool.name, "tool")
@@ -124,12 +124,12 @@ final class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
 
         do {
             let content = """
-                import PackageDescription
-                let package = Package(
-                   name: "Foo",
-                   swiftLanguageVersions: [.version("")]
-                )
-            """
+                    import PackageDescription
+                    let package = Package(
+                       name: "Foo",
+                       swiftLanguageVersions: [.version("")]
+                    )
+                """
 
             let observability = ObservabilitySystem.makeForTesting()
             await XCTAssertAsyncThrowsError(try await loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") { error in
@@ -159,11 +159,14 @@ final class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
         XCTAssertNoDiagnostics(observability.diagnostics)
         XCTAssertNoDiagnostics(validationDiagnostics)
 
-        XCTAssertEqual(manifest.platforms, [
-            PlatformDescription(name: "macos", version: "10.13", options: ["option1", "option2"]),
-            PlatformDescription(name: "ios", version: "12.2", options: ["option2"]),
-            PlatformDescription(name: "tvos", version: "12.3.4", options: ["option5", "option7", "option9"]),
-        ])
+        XCTAssertEqual(
+            manifest.platforms,
+            [
+                PlatformDescription(name: "macos", version: "10.13", options: ["option1", "option2"]),
+                PlatformDescription(name: "ios", version: "12.2", options: ["option2"]),
+                PlatformDescription(name: "tvos", version: "12.3.4", options: ["option5", "option7", "option9"]),
+            ]
+        )
     }
 
     func testPlatforms() async throws {
@@ -184,12 +187,15 @@ final class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
             XCTAssertNoDiagnostics(observability.diagnostics)
             XCTAssertNoDiagnostics(validationDiagnostics)
 
-            XCTAssertEqual(manifest.platforms, [
-                PlatformDescription(name: "macos", version: "10.13"),
-                PlatformDescription(name: "ios", version: "12.2"),
-                PlatformDescription(name: "tvos", version: "12.0"),
-                PlatformDescription(name: "watchos", version: "3.0"),
-            ])
+            XCTAssertEqual(
+                manifest.platforms,
+                [
+                    PlatformDescription(name: "macos", version: "10.13"),
+                    PlatformDescription(name: "ios", version: "12.2"),
+                    PlatformDescription(name: "tvos", version: "12.0"),
+                    PlatformDescription(name: "watchos", version: "3.0"),
+                ]
+            )
         }
 
         // Test invalid custom versions.
@@ -207,12 +213,15 @@ final class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
             let observability = ObservabilitySystem.makeForTesting()
             await XCTAssertAsyncThrowsError(try await loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") { error in
                 if case ManifestParseError.runtimeManifestErrors(let errors) = error {
-                    XCTAssertEqual(errors, [
-                        "invalid macOS version -11.2; -11 should be a positive integer",
-                        "invalid iOS version 12.x.2; x should be a positive integer",
-                        "invalid tvOS version 10..2; found an empty component",
-                        "invalid watchOS version 1.0; the minimum major version should be 2",
-                    ])
+                    XCTAssertEqual(
+                        errors,
+                        [
+                            "invalid macOS version -11.2; -11 should be a positive integer",
+                            "invalid iOS version 12.x.2; x should be a positive integer",
+                            "invalid tvOS version 10..2; found an empty component",
+                            "invalid watchOS version 1.0; the minimum major version should be 2",
+                        ]
+                    )
                 } else {
                     XCTFail("unexpected error: \(error)")
                 }
@@ -369,7 +378,8 @@ final class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
             let loader = ManifestLoader(
                 toolchain: try UserToolchain.default,
                 serializedDiagnostics: true,
-                cacheDir: path)
+                cacheDir: path
+            )
 
             do {
                 let observability = ObservabilitySystem.makeForTesting()
@@ -378,16 +388,16 @@ final class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
                 try fs.writeFileContents(
                     manifestPath,
                     string: """
-                    import PackageDescription
-                    let package = Package(
-                    name: "Trivial",
-                        targets: [
-                            .target(
-                                name: "foo",
-                                dependencies: []),
+                        import PackageDescription
+                        let package = Package(
+                        name: "Trivial",
+                            targets: [
+                                .target(
+                                    name: "foo",
+                                    dependencies: []),
 
-                    )
-                    """
+                        )
+                        """
                 )
 
                 do {
@@ -411,19 +421,19 @@ final class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
                 try fs.writeFileContents(
                     manifestPath,
                     string: """
-                    import PackageDescription
-                    func foo() {
-                        let a = 5
-                    }
-                    let package = Package(
-                        name: "Trivial",
-                        targets: [
-                            .target(
-                                name: "foo",
-                                dependencies: []),
-                        ]
-                    )
-                    """
+                        import PackageDescription
+                        func foo() {
+                            let a = 5
+                        }
+                        let package = Package(
+                            name: "Trivial",
+                            targets: [
+                                .target(
+                                    name: "foo",
+                                    dependencies: []),
+                            ]
+                        )
+                        """
                 )
 
                 _ = try await loader.load(
@@ -595,18 +605,18 @@ final class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
             try fs.writeFileContents(
                 manifestPath,
                 string: """
-                // swift-tools-version:5
-                import PackageDescription
+                    // swift-tools-version:5
+                    import PackageDescription
 
-                let package = Package(
-                    name: "Trivial",
-                    targets: [
-                        .target(
-                            name: "foo",
-                            dependencies: []),
-                    ]
-                )
-                """
+                    let package = Package(
+                        name: "Trivial",
+                        targets: [
+                            .target(
+                                name: "foo",
+                                dependencies: []),
+                        ]
+                    )
+                    """
             )
 
             let moduleTraceFilePath = path.appending("swift-module-trace")
@@ -617,7 +627,8 @@ final class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
                 toolchain: toolchain,
                 serializedDiagnostics: true,
                 isManifestSandboxEnabled: false,
-                cacheDir: nil)
+                cacheDir: nil
+            )
 
             let observability = ObservabilitySystem.makeForTesting()
             let manifest = try await manifestLoader.load(

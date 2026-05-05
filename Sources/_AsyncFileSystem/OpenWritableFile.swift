@@ -76,4 +76,3 @@ package actor OpenWritableFile: WritableStream {
         }
     }
 }
-

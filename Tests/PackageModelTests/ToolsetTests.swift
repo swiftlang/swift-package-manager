@@ -15,9 +15,11 @@
 import _InternalTestSupport
 import XCTest
 
-private let usrBinTools = Dictionary(uniqueKeysWithValues: Toolset.KnownTool.allCases.map {
-    ($0, try! AbsolutePath(validating: "/usr/bin/\($0.rawValue)"))
-})
+private let usrBinTools = Dictionary(
+    uniqueKeysWithValues: Toolset.KnownTool.allCases.map {
+        ($0, try! AbsolutePath(validating: "/usr/bin/\($0.rawValue)"))
+    }
+)
 
 private let cCompilerOptions = ["-fopenmp"]
 private let newCCompilerOptions = ["-pedantic"]

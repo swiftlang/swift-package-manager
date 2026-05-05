@@ -35,15 +35,15 @@ private struct StaticLinuxIntegrationTests {
 
             let arch: String
             #if os(Linux)
-            #if arch(x86_64)
-            arch = "x86_64"
-            #elseif arch(aarch64)
-            arch = "aarch64"
+                #if arch(x86_64)
+                    arch = "x86_64"
+                #elseif arch(aarch64)
+                    arch = "aarch64"
+                #else
+                    arch = "x86_64"
+                #endif
             #else
-            arch = "x86_64"
-            #endif
-            #else
-            arch = "x86_64"
+                arch = "x86_64"
             #endif
 
             let buildOutput = try await executeSwiftBuild(
@@ -65,11 +65,11 @@ private struct StaticLinuxIntegrationTests {
             #expect(localFileSystem.exists(binary), "Expected binary at \(binary)")
 
             #if os(Linux)
-            // Static-linux binaries are standalone ELFs that can run directly on a Linux host of the same arch.
-            let result = try await AsyncProcess.popen(arguments: [binary.pathString])
-            let stdout = try result.utf8Output().trimmingCharacters(in: .whitespacesAndNewlines)
-            #expect(result.exitStatus == .terminated(code: 0), "binary exited with non-zero status")
-            #expect(stdout == "Hello, world!", "Unexpected output: \(stdout)")
+                // Static-linux binaries are standalone ELFs that can run directly on a Linux host of the same arch.
+                let result = try await AsyncProcess.popen(arguments: [binary.pathString])
+                let stdout = try result.utf8Output().trimmingCharacters(in: .whitespacesAndNewlines)
+                #expect(result.exitStatus == .terminated(code: 0), "binary exited with non-zero status")
+                #expect(stdout == "Hello, world!", "Unexpected output: \(stdout)")
             #endif
         }
     }

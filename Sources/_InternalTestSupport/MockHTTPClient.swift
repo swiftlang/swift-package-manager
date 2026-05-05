@@ -16,7 +16,7 @@ extension HTTPClient {
     public static func mock(fileSystem: FileSystem) -> HTTPClient {
         HTTPClient { request, _ in
             switch request.kind {
-            case.generic:
+            case .generic:
                 return .okay(body: request.url.absoluteString)
 
             case .download(let fileSystem, let destination):

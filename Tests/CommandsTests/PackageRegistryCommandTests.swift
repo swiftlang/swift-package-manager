@@ -20,7 +20,7 @@ import PackageRegistry
 import struct SPMBuildCore.BuildSystemProvider
 import PackageSigning
 import _InternalTestSupport
-import TSCclibc // for SPM_posix_spawn_file_actions_addchdir_np_supported
+import TSCclibc  // for SPM_posix_spawn_file_actions_addchdir_np_supported
 import Workspace
 import Testing
 
@@ -68,7 +68,6 @@ struct PackageRegistryCommandTests {
         let stdout = try await SwiftPM.Registry.execute(["-help"]).stdout
         #expect(stdout.contains("USAGE: swift package-registry"), "got stdout: '\(stdout)'")
     }
-
 
     @Test(
         .tags(
@@ -607,7 +606,6 @@ struct PackageRegistryCommandTests {
         buildSystem: BuildSystemProvider.Kind,
     ) throws {
         let config = BuildConfiguration.debug
-
 
         let packageIdentity = "test.my-package"
         let version = "0.1.0"
@@ -1230,8 +1228,10 @@ struct PackageRegistryCommandTests {
             )
 
             // no metadata so no signature
-            #expect(!localFileSystem
-                .exists(workingDirectory.appending("\(packageIdentity)-\(version)-metadata.sig")))
+            #expect(
+                !localFileSystem
+                    .exists(workingDirectory.appending("\(packageIdentity)-\(version)-metadata.sig"))
+            )
 
             // manifest signatures
             let manifest = try localFileSystem.readFileContents(manifestPath).contents
@@ -1282,8 +1282,9 @@ struct PackageRegistryCommandTests {
         arguments: [
             LogingUrlData(loginApiPath: nil, expectedComponent: "login"),
             LogingUrlData(loginApiPath: "/secret-sign-in", expectedComponent: "secret-sign-in"),
-        ], [
-            "https://packages.example.com",
+        ],
+        [
+            "https://packages.example.com"
             // "https://packages.example.com:8081",
         ]
     )
@@ -1293,8 +1294,8 @@ struct PackageRegistryCommandTests {
     ) async throws {
         let registryURL = try #require(URL(string: registryUrl), "Failed to instantiate registry URL")
 
-        let actualUrl =  try PackageRegistryCommand.Login.loginURL(from: registryURL, loginAPIPath: data.loginApiPath)
-        let actualString =  actualUrl.absoluteString
+        let actualUrl = try PackageRegistryCommand.Login.loginURL(from: registryURL, loginAPIPath: data.loginApiPath)
+        let actualString = actualUrl.absoluteString
 
         #expect(actualString == "\(registryUrl)/\(data.expectedComponent)")
     }
@@ -1326,7 +1327,8 @@ struct PackageRegistryCommandTests {
 
     private func getRoots() throws -> [[UInt8]] {
         try fixture(name: "Signing") { fixturePath in
-            let rootCA = try localFileSystem
+            let rootCA =
+                try localFileSystem
                 .readFileContents(fixturePath.appending(components: "Certificates", "TestRootCA.cer")).contents
             return [rootCA]
         }

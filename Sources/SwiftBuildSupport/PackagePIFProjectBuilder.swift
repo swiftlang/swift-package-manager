@@ -170,11 +170,13 @@ struct PackagePIFProjectBuilder {
         generatedResourceFiles: [String]
     ) throws -> (PackagePIFBuilder.EmbedResourcesResult, PackagePIFBuilder.ModuleOrProduct?) {
         if module.resources.isEmpty && generatedResourceFiles.isEmpty {
-            return (PackagePIFBuilder.EmbedResourcesResult(
-                bundleName: nil,
-                shouldGenerateBundleAccessor: false,
-                shouldGenerateEmbedInCodeAccessor: false
-            ), nil)
+            return (
+                PackagePIFBuilder.EmbedResourcesResult(
+                    bundleName: nil,
+                    shouldGenerateBundleAccessor: false,
+                    shouldGenerateEmbedInCodeAccessor: false
+                ), nil
+            )
         }
 
         let bundleName = self.resourceBundleName(forModuleName: module.name)
@@ -207,8 +209,7 @@ struct PackagePIFProjectBuilder {
         self.log(
             .debug,
             indent: 1,
-            "Created target '\(resourcesTarget.id)' of type '\(resourcesTarget.productType)' " +
-            "with name '\(resourcesTarget.name)' and product name '\(resourcesTarget.productName)'"
+            "Created target '\(resourcesTarget.id)' of type '\(resourcesTarget.productType)' " + "with name '\(resourcesTarget.name)' and product name '\(resourcesTarget.productName)'"
         )
 
         var settings: ProjectModel.BuildSettings = self.package.underlying.packageBaseBuildSettings
@@ -443,7 +444,8 @@ struct PackagePIFProjectBuilder {
             let files = self.process(
                 pluginGeneratedFilePaths: pluginResult.prebuildCommandOutputPaths,
                 forModule: module,
-                toolsVersion: self.package.manifest.toolsVersion)
+                toolsVersion: self.package.manifest.toolsVersion
+            )
             generatedFiles.add(files)
         }
 
@@ -562,7 +564,7 @@ struct PackagePIFProjectBuilder {
             FileRuleDescription(
                 rule: .processResource(localization: .none),
                 toolsVersion: .v5_7,
-                fileTypes: ["rkassets"] // visionOS
+                fileTypes: ["rkassets"]  // visionOS
             ),
         ]
 

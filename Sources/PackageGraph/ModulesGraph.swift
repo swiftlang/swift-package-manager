@@ -87,7 +87,8 @@ enum PackageGraphError: Swift.Error {
     )
 }
 
-@available(*,
+@available(
+    *,
     deprecated,
     renamed: "ModulesGraph",
     message: "PackageGraph had a misleading name, it's a graph of dependencies between modules, not just packages"
@@ -134,9 +135,10 @@ public struct ModulesGraph {
         ) { (accumulator: inout IdentifiableSet<ResolvedModule>, package: ResolvedPackage) in
             let allDependencies = package.modules.flatMap { $0.dependencies }
             let unsatisfiedDependencies = allDependencies.filter { !$0.satisfies(buildEnvironment) }
-            let unsatisfiedDependencyModules = unsatisfiedDependencies.compactMap { (
-                dep: ResolvedModule.Dependency
-            ) -> ResolvedModule? in
+            let unsatisfiedDependencyModules = unsatisfiedDependencies.compactMap {
+                (
+                    dep: ResolvedModule.Dependency
+                ) -> ResolvedModule? in
                 switch dep {
                 case .module(let moduleDependency, _):
                     return moduleDependency
@@ -214,13 +216,14 @@ public struct ModulesGraph {
         var allModules = IdentifiableSet<ResolvedModule>()
         var allProducts = IdentifiableSet<ResolvedProduct>()
         for package in self.packages {
-            let modulesToInclude = if rootPackages.contains(id: package.id) {
-                Array(package.modules)
-            } else {
-                // Don't include tests modules from non-root packages so swift-test doesn't
-                // try to run them.
-                package.modules.filter { $0.type != .test }
-            }
+            let modulesToInclude =
+                if rootPackages.contains(id: package.id) {
+                    Array(package.modules)
+                } else {
+                    // Don't include tests modules from non-root packages so swift-test doesn't
+                    // try to run them.
+                    package.modules.filter { $0.type != .test }
+                }
 
             for module in modulesToInclude {
                 allModules.insert(module)
@@ -270,9 +273,12 @@ public struct ModulesGraph {
 
         for module in rootModules where module.type == .executable {
             // Find all dependencies of this module within its package. Note that we do not traverse plugin usages.
-            let dependencies = try topologicalSortIdentifiable(module.dependencies, successors: {
-                $0.dependencies.compactMap{ $0.module }.filter{ $0.type != .plugin }.map{ .module($0, conditions: []) }
-            }).compactMap({ $0.module })
+            let dependencies = try topologicalSortIdentifiable(
+                module.dependencies,
+                successors: {
+                    $0.dependencies.compactMap { $0.module }.filter { $0.type != .plugin }.map { .module($0, conditions: []) }
+                }
+            ).compactMap({ $0.module })
 
             // Include the test modules whose dependencies intersect with the
             // current module's (recursive) dependencies.
@@ -290,8 +296,7 @@ public struct ModulesGraph {
         if self.rootPackages.isEmpty {
             throw StringError("Root package does not exist.")
         }
-        return self.rootPackages[self.rootPackages.startIndex].identity.description +
-            Product.replProductSuffix
+        return self.rootPackages[self.rootPackages.startIndex].identity.description + Product.replProductSuffix
     }
 }
 
@@ -302,9 +307,7 @@ extension PackageGraphError: CustomStringConvertible {
             return "package '\(package)' contains no products"
 
         case .dependencyCycleDetected(let path, let package):
-            return "cyclic dependency between packages " +
-            (path.map({ $0.displayName }).joined(separator: " -> ")) +
-            " -> \(package.displayName) requires tools-version 6.0 or later"
+            return "cyclic dependency between packages " + (path.map({ $0.displayName }).joined(separator: " -> ")) + " -> \(package.displayName) requires tools-version 6.0 or later"
 
         case .productDependencyNotFound(let package, let moduleName, let dependencyProductName, let dependencyPackageName, let dependencyProductInDecl, let similarProductName, let packageContainingSimilarProduct):
             if dependencyProductInDecl {
@@ -327,19 +330,11 @@ extension PackageGraphError: CustomStringConvertible {
             let otherDependencyPath
         ):
             var description =
-                "Conflicting identity for \(identity): " +
-                "dependency '\(dependencyURL)' and dependency '\(otherDependencyURL)' " +
-                "both point to the same package identity '\(identity)'."
+                "Conflicting identity for \(identity): " + "dependency '\(dependencyURL)' and dependency '\(otherDependencyURL)' " + "both point to the same package identity '\(identity)'."
             if !dependencyPath.isEmpty && !otherDependencyPath.isEmpty {
                 let chainA = dependencyPath.map { String(describing: $0) }.joined(separator: "->")
                 let chainB = otherDependencyPath.map { String(describing: $0) }.joined(separator: "->")
-                description += (
-                    " The dependencies are introduced through the following chains: " +
-                    "(A) \(chainA) (B) \(chainB). If there are multiple chains that lead to the same dependency, " +
-                    "only the first chain is shown here. To see all chains use debug output option. " +
-                    "To resolve the conflict, coordinate with the maintainer of the package " +
-                    "that introduces the conflicting dependency."
-                )
+                description += (" The dependencies are introduced through the following chains: " + "(A) \(chainA) (B) \(chainB). If there are multiple chains that lead to the same dependency, " + "only the first chain is shown here. To see all chains use debug output option. " + "To resolve the conflict, coordinate with the maintainer of the package " + "that introduces the conflicting dependency.")
             }
             return description
 
@@ -353,9 +348,9 @@ extension PackageGraphError: CustomStringConvertible {
         ):
 
             let solution = """
-            reference the package in the target dependency with '.product(name: "\(productName)", package: \
-            "\(packageIdentifier)")'
-            """
+                reference the package in the target dependency with '.product(name: "\(productName)", package: \
+                "\(packageIdentifier)")'
+                """
 
             return "dependency '\(productName)' in target '\(moduleName)' requires explicit declaration; \(solution)"
 
@@ -364,8 +359,8 @@ extension PackageGraphError: CustomStringConvertible {
                 var description = "'\($0.identity)'"
                 switch $0.manifest.packageKind {
                 case .root(let path),
-                        .fileSystem(let path),
-                        .localSourceControl(let path):
+                    .fileSystem(let path),
+                    .localSourceControl(let path):
                     description += " (at '\(path)')"
                 case .remoteSourceControl(let url):
                     description += " (from '\(url)')"
@@ -377,10 +372,10 @@ extension PackageGraphError: CustomStringConvertible {
             return "multiple packages (\(packagesDescriptions.joined(separator: ", "))) declare products with a conflicting name: '\(product)’; product names need to be unique across the package graph"
         case .multipleModuleAliases(let target, let product, let package, let aliases):
             return "multiple aliases: ['\(aliases.joined(separator: "', '"))'] found for target '\(target)' in product '\(product)' from package '\(package)'"
-        case .unsupportedPluginDependency(let targetName, let dependencyName, let dependencyType,  let dependencyPackage):
+        case .unsupportedPluginDependency(let targetName, let dependencyName, let dependencyType, let dependencyPackage):
             var trailingMsg = ""
             if let dependencyPackage {
-              trailingMsg = " from package '\(dependencyPackage)'"
+                trailingMsg = " from package '\(dependencyPackage)'"
             }
             return "plugin '\(targetName)' cannot depend on '\(dependencyName)' of type '\(dependencyType)'\(trailingMsg); this dependency is unsupported"
         }
@@ -410,12 +405,17 @@ enum GraphError: Error {
 /// - Complexity: O(v + e) where (v, e) are the number of vertices and edges
 /// reachable from the input nodes via the relation.
 func topologicalSortIdentifiable<T: Identifiable>(
-    _ nodes: [T], successors: (T) throws -> [T]
+    _ nodes: [T],
+    successors: (T) throws -> [T]
 ) throws -> [T] {
     // Implements a topological sort via recursion and reverse postorder DFS.
-    func visit(_ node: T,
-               _ stack: inout OrderedCollections.OrderedSet<T.ID>, _ visited: inout Set<T.ID>, _ result: inout [T],
-               _ successors: (T) throws -> [T]) throws {
+    func visit(
+        _ node: T,
+        _ stack: inout OrderedCollections.OrderedSet<T.ID>,
+        _ visited: inout Set<T.ID>,
+        _ result: inout [T],
+        _ successors: (T) throws -> [T]
+    ) throws {
         // Mark this node as visited -- we are done if it already was.
         if !visited.insert(node.id).inserted {
             return
@@ -492,8 +492,10 @@ public func loadModulesGraph(
     return try ModulesGraph.load(
         root: graphRoot,
         identityResolver: identityResolver,
-        additionalFileRules: useXCBuildFileRules ? FileRuleDescription.xcbuildFileTypes : FileRuleDescription
-            .swiftpmFileTypes,
+        additionalFileRules: useXCBuildFileRules
+            ? FileRuleDescription.xcbuildFileTypes
+            : FileRuleDescription
+                .swiftpmFileTypes,
         externalManifests: externalManifests,
         binaryArtifacts: binaryArtifacts,
         prebuilts: prebuilts,

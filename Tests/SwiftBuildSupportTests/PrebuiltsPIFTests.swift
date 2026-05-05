@@ -78,7 +78,8 @@ struct PrebuiltsPIFTests {
                     dependencies: [
                         .remoteSourceControl(
                             url: "https://github.com/swiftlang/swift-syntax",
-                            requirement: .exact("600.0.1")),
+                            requirement: .exact("600.0.1")
+                        ),
                         .fileSystem(path: "/MyPackage"),
                     ],
                     products: [
@@ -104,7 +105,8 @@ struct PrebuiltsPIFTests {
                     dependencies: [
                         .remoteSourceControl(
                             url: "https://github.com/swiftlang/swift-syntax",
-                            requirement: .exact("600.0.1"))
+                            requirement: .exact("600.0.1")
+                        )
                     ],
                     products: [
                         ProductDescription(
@@ -113,7 +115,7 @@ struct PrebuiltsPIFTests {
                             targets: [
                                 "MacroLib"
                             ]
-                        ),
+                        )
                     ],
                     targets: [
                         TargetDescription(
@@ -171,7 +173,9 @@ struct PrebuiltsPIFTests {
         let pifBuilder: PIFBuilder = PIFBuilder(
             graph: graph,
             parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
-                temporaryDirectory: AbsolutePath.root, addLocalRpaths: true),
+                temporaryDirectory: AbsolutePath.root,
+                addLocalRpaths: true
+            ),
             fileSystem: fs,
             observabilityScope: observability.topScope
         )
@@ -265,7 +269,7 @@ struct PrebuiltsPIFTests {
                         TargetDescription(
                             name: "MyApp",
                             dependencies: [
-                                .product(name: "MacroLib", package: "MyPackage"),
+                                .product(name: "MacroLib", package: "MyPackage")
                             ],
                             type: .executable,
                             pluginUsages: [
@@ -275,16 +279,16 @@ struct PrebuiltsPIFTests {
                         TargetDescription(
                             name: "LeakyLib",
                             dependencies: [
-                                .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
+                                .product(name: "SwiftSyntaxMacros", package: "swift-syntax")
                             ]
-                        )
+                        ),
                     ],
                 ),
                 Manifest.createFileSystemManifest(
                     displayName: "MyPackage",
                     path: "/MyPackage",
                     dependencies: [
-                        .remoteSourceControl(url: "https://github.com/swiftlang/swift-syntax", requirement: .exact("600.0.1")),
+                        .remoteSourceControl(url: "https://github.com/swiftlang/swift-syntax", requirement: .exact("600.0.1"))
                     ],
                     products: [
                         ProductDescription(
@@ -306,7 +310,7 @@ struct PrebuiltsPIFTests {
                         TargetDescription(
                             name: "Base",
                             dependencies: [
-                                .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
+                                .product(name: "SwiftSyntaxMacros", package: "swift-syntax")
                             ]
                         ),
                         TargetDescription(
@@ -360,11 +364,13 @@ struct PrebuiltsPIFTests {
                     targets: [
                         TargetDescription(name: "SwiftSyntaxMacros")
                     ]
-                )
+                ),
             ],
-            prebuilts: [prebuiltLibrary.identity: prebuiltLibrary.products.reduce(into: [:]) {
-                $0[$1] = prebuiltLibrary
-            }],
+            prebuilts: [
+                prebuiltLibrary.identity: prebuiltLibrary.products.reduce(into: [:]) {
+                    $0[$1] = prebuiltLibrary
+                }
+            ],
             observabilityScope: observability.topScope
         )
 

@@ -33,14 +33,11 @@ extension ModuleMapType: Codable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         if let path = try container.decodeIfPresent(AbsolutePath.self, forKey: .custom) {
             self = .custom(path)
-        }
-        else if let path = try container.decodeIfPresent(AbsolutePath.self, forKey: .umbrellaHeader) {
+        } else if let path = try container.decodeIfPresent(AbsolutePath.self, forKey: .umbrellaHeader) {
             self = .umbrellaHeader(path)
-        }
-        else if let path = try container.decodeIfPresent(AbsolutePath.self, forKey: .umbrellaDirectory) {
+        } else if let path = try container.decodeIfPresent(AbsolutePath.self, forKey: .umbrellaDirectory) {
             self = .umbrellaDirectory(path)
-        }
-        else {
+        } else {
             self = .none
         }
     }

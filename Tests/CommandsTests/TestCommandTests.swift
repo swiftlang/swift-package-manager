@@ -147,11 +147,11 @@ struct TestCommandTests {
 
                 // swift-build-tool output should go to stderr.
                 switch buildSystem {
-                    case .native:
-                        #expect(stderr.contains("Compiling"))
-                        #expect(stderr.contains("Linking"))
-                    case .swiftbuild, .xcode:
-                        break
+                case .native:
+                    #expect(stderr.contains("Compiling"))
+                    #expect(stderr.contains("Linking"))
+                case .swiftbuild, .xcode:
+                    break
                 }
             }
         } when: {
@@ -224,16 +224,16 @@ struct TestCommandTests {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let configuration = BuildConfiguration.debug
-            // default should run with testability
-            try await fixture(name: "Miscellaneous/TestableExe") { fixturePath in
-                let result = try await execute(
-                    ["--vv"],
-                    packagePath: fixturePath,
-                    configuration: configuration,
-                    buildSystem: buildSystem,
-                )
-                #expect(result.stderr.contains("-enable-testing") == true)
-            }
+        // default should run with testability
+        try await fixture(name: "Miscellaneous/TestableExe") { fixturePath in
+            let result = try await execute(
+                ["--vv"],
+                packagePath: fixturePath,
+                configuration: configuration,
+                buildSystem: buildSystem,
+            )
+            #expect(result.stderr.contains("-enable-testing") == true)
+        }
     }
 
     @Test(
@@ -248,25 +248,25 @@ struct TestCommandTests {
     ) async throws {
         let configuration = BuildConfiguration.debug
         // disabled
-            try await fixture(name: "Miscellaneous/TestableExe") { fixturePath in
-                let error = await #expect(throws: SwiftPMError.self) {
-                    try await execute(
-                        ["--disable-testable-imports", "--vv"],
-                        packagePath: fixturePath,
-                        configuration: configuration,
-                        buildSystem: buildSystem,
-                    )
-                }
-                guard case let SwiftPMError.executionFailure(_, stdout, stderr) = try #require(error) else {
-                    Issue.record("Incorrect error was raised.")
-                    return
-                }
-
-                #expect(
-                    stderr.contains("was not compiled for testing") || stderr.contains("ignore swiftmodule built without '-enable-testing'"),
-                    "got stdout: \(stdout), stderr: \(stderr)",
+        try await fixture(name: "Miscellaneous/TestableExe") { fixturePath in
+            let error = await #expect(throws: SwiftPMError.self) {
+                try await execute(
+                    ["--disable-testable-imports", "--vv"],
+                    packagePath: fixturePath,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
                 )
             }
+            guard case let SwiftPMError.executionFailure(_, stdout, stderr) = try #require(error) else {
+                Issue.record("Incorrect error was raised.")
+                return
+            }
+
+            #expect(
+                stderr.contains("was not compiled for testing") || stderr.contains("ignore swiftmodule built without '-enable-testing'"),
+                "got stdout: \(stdout), stderr: \(stderr)",
+            )
+        }
     }
 
     @Test(
@@ -279,15 +279,15 @@ struct TestCommandTests {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let configuration = BuildConfiguration.debug
-            try await fixture(name: "Miscellaneous/TestableExe") { fixturePath in
-                let result = try await execute(
-                    ["--enable-testable-imports", "--vv"],
-                    packagePath: fixturePath,
-                    configuration: configuration,
-                    buildSystem: buildSystem,
-                )
-                #expect(result.stderr.contains("-enable-testing") == true)
-            }
+        try await fixture(name: "Miscellaneous/TestableExe") { fixturePath in
+            let result = try await execute(
+                ["--enable-testable-imports", "--vv"],
+                packagePath: fixturePath,
+                configuration: configuration,
+                buildSystem: buildSystem,
+            )
+            #expect(result.stderr.contains("-enable-testing") == true)
+        }
     }
 
     @Test(
@@ -413,7 +413,7 @@ struct TestCommandTests {
     }
 
     @Test(
-         .tags(
+        .tags(
             .Feature.TargetType.Executable,
             .Feature.CommandLineArguments.TestParallel,
         ),
@@ -433,7 +433,8 @@ struct TestCommandTests {
                         ["--parallel"],
                         packagePath: fixturePath,
                         configuration: configuration,
-                        buildSystem: buildSystem)
+                        buildSystem: buildSystem
+                    )
                 }
                 guard case SwiftPMError.executionFailure(_, let stdout, _) = try #require(error) else {
                     Issue.record("Incorrect error was raised.")
@@ -446,7 +447,7 @@ struct TestCommandTests {
                 #expect(stdout.contains("[3/3]"))
             }
         } when: {
-            [ .windows].contains(ProcessInfo.hostOperatingSystem) && buildSystem == .swiftbuild
+            [.windows].contains(ProcessInfo.hostOperatingSystem) && buildSystem == .swiftbuild
         }
     }
 
@@ -630,7 +631,8 @@ struct TestCommandTests {
         ),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8479", relationship: .defect),
         .SWBINTTODO("Result XML could not be found. The build fails because of missing test helper generation logic for non-macOS platforms"),
-        arguments: SupportedBuildSystemOnAllPlatforms.filter { $0 != .xcode }, [
+        arguments: SupportedBuildSystemOnAllPlatforms.filter { $0 != .xcode },
+        [
             (
                 fixtureName: "Miscellaneous/TestSingleFailureXCTest",
                 testRunner: TestRunner.XCTest,
@@ -738,7 +740,7 @@ struct TestCommandTests {
                 ],
                 configuration: BuildConfiguration.debug,
                 id: "Multiple Swift Testing Tests Failure Message With Flag Disabled",
-            )
+            ),
         ]
     )
     func swiftTestXMLOutputFailureMessage(
@@ -748,7 +750,7 @@ struct TestCommandTests {
         // windows issue not recorded for:
         //   - native, single, XCTest, experimental true
         //   - native, single, XCTest, experimental false
-        try await withKnownIssue( isIntermittent: true) {
+        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: tcdata.fixtureName) { fixturePath in
                 // GIVEN we have a Package with a failing \(testRunner) test cases
                 let xUnitOutput = fixturePath.appending("result.xml")
@@ -855,17 +857,17 @@ struct TestCommandTests {
                 fixturePath: "Miscellaneous/TestSingleFailureXCTest",
                 buildSystem: .native,
                 expectedNote: """
-                Note: Some test targets reported failures:
-                  - TestFailuresPackageTests (XCTest)
-                """,
+                    Note: Some test targets reported failures:
+                      - TestFailuresPackageTests (XCTest)
+                    """,
             ),
             .init(
                 fixturePath: "Miscellaneous/TestSingleFailureSwiftTesting",
                 buildSystem: .native,
                 expectedNote: """
-                Note: Some test targets reported failures:
-                  - TestFailuresSwiftTestingPackageTests (Swift Testing)
-                """,
+                    Note: Some test targets reported failures:
+                      - TestFailuresSwiftTestingPackageTests (Swift Testing)
+                    """,
             ),
             .init(
                 fixturePath: "Miscellaneous/TestSingleFailureXCTest",
@@ -877,9 +879,9 @@ struct TestCommandTests {
                 isSwiftTestingEnabled: false,
                 buildSystem: .native,
                 expectedNote: """
-                Note: Some test targets reported failures:
-                  - TestFailuresPackageTests (XCTest)
-                """,
+                    Note: Some test targets reported failures:
+                      - TestFailuresPackageTests (XCTest)
+                    """,
             ),
             .init(
                 fixturePath: "Miscellaneous/TestSingleFailureXCTest",
@@ -895,17 +897,17 @@ struct TestCommandTests {
                 fixturePath: "Miscellaneous/TestSingleFailureXCTest",
                 buildSystem: .swiftbuild,
                 expectedNote: """
-                Note: Some test targets reported failures:
-                  - TestFailuresTests (XCTest)
-                """,
+                    Note: Some test targets reported failures:
+                      - TestFailuresTests (XCTest)
+                    """,
             ),
             .init(
                 fixturePath: "Miscellaneous/TestSingleFailureSwiftTesting",
                 buildSystem: .swiftbuild,
                 expectedNote: """
-                Note: Some test targets reported failures:
-                  - TestFailuresSwiftTestingTests (Swift Testing)
-                """,
+                    Note: Some test targets reported failures:
+                      - TestFailuresSwiftTestingTests (Swift Testing)
+                    """,
             ),
             .init(
                 fixturePath: "Miscellaneous/TestSingleFailureXCTest",
@@ -917,9 +919,9 @@ struct TestCommandTests {
                 isSwiftTestingEnabled: false,
                 buildSystem: .swiftbuild,
                 expectedNote: """
-                Note: Some test targets reported failures:
-                  - TestFailuresTests (XCTest)
-                """,
+                    Note: Some test targets reported failures:
+                      - TestFailuresTests (XCTest)
+                    """,
             ),
             .init(
                 fixturePath: "Miscellaneous/TestSingleFailureXCTest",
@@ -931,55 +933,55 @@ struct TestCommandTests {
                 fixturePath: "Miscellaneous/TestMixedFailuresAcrossTargets",
                 buildSystem: .native,
                 expectedNote: """
-                Note: Some test targets reported failures:
-                  - TestMixedFailuresAcrossTargetsPackageTests (XCTest)
-                  - TestMixedFailuresAcrossTargetsPackageTests (Swift Testing)
-                """
+                    Note: Some test targets reported failures:
+                      - TestMixedFailuresAcrossTargetsPackageTests (XCTest)
+                      - TestMixedFailuresAcrossTargetsPackageTests (Swift Testing)
+                    """
             ),
             .init(
                 fixturePath: "Miscellaneous/TestMixedFailuresAcrossTargets",
                 buildSystem: .swiftbuild,
                 expectedNote: """
-                Note: Some test targets reported failures:
-                  - XCTestFailingTests (XCTest)
-                  - SwiftTestingFailingTests (Swift Testing)
-                """
+                    Note: Some test targets reported failures:
+                      - XCTestFailingTests (XCTest)
+                      - SwiftTestingFailingTests (Swift Testing)
+                    """
             ),
             .init(
                 fixturePath: "Miscellaneous/MultipleXCTestSuitesWithFailures",
                 parallel: false,
                 buildSystem: .native,
                 expectedNote: """
-                Note: Some test targets reported failures:
-                  - MultipleXCTestSuitesWithFailuresPackageTests (XCTest)
-                """
+                    Note: Some test targets reported failures:
+                      - MultipleXCTestSuitesWithFailuresPackageTests (XCTest)
+                    """
             ),
             .init(
                 fixturePath: "Miscellaneous/MultipleXCTestSuitesWithFailures",
                 parallel: true,
                 buildSystem: .native,
                 expectedNote: """
-                Note: Some test targets reported failures:
-                  - MultipleXCTestSuitesWithFailuresPackageTests (XCTest)
-                """
+                    Note: Some test targets reported failures:
+                      - MultipleXCTestSuitesWithFailuresPackageTests (XCTest)
+                    """
             ),
             .init(
                 fixturePath: "Miscellaneous/MultipleXCTestSuitesWithFailures",
                 parallel: false,
                 buildSystem: .swiftbuild,
                 expectedNote: """
-                Note: Some test targets reported failures:
-                  - MultipleXCTestSuitesWithFailuresTests (XCTest)
-                """
+                    Note: Some test targets reported failures:
+                      - MultipleXCTestSuitesWithFailuresTests (XCTest)
+                    """
             ),
             .init(
                 fixturePath: "Miscellaneous/MultipleXCTestSuitesWithFailures",
                 parallel: true,
                 buildSystem: .swiftbuild,
                 expectedNote: """
-                Note: Some test targets reported failures:
-                  - MultipleXCTestSuitesWithFailuresTests (XCTest)
-                """
+                    Note: Some test targets reported failures:
+                      - MultipleXCTestSuitesWithFailuresTests (XCTest)
+                    """
             ),
         ] as [TestFailureNoteTestArgument]
     )
@@ -1016,7 +1018,7 @@ struct TestCommandTests {
     }
 
     @Test(
-         .tags(
+        .tags(
             .Feature.TargetType.Executable,
             .Feature.CommandLineArguments.TestFilter,
         ),
@@ -1249,13 +1251,13 @@ struct TestCommandTests {
                 )
                 #expect(buildStdout.contains("Build complete!"))
             } when: {
-                (buildSystem == .native && configuration == .release) // error: module 'Simple' was not compiled for testing
-                || (configuration == .release && buildSystem != .native && ProcessInfo.hostOperatingSystem != .windows) // (configuration == .release)
-                || (buildSystem != .native && ProcessInfo.hostOperatingSystem == .windows) // || (ProcessInfo.hostOperatingSystem == .windows)
+                (buildSystem == .native && configuration == .release)  // error: module 'Simple' was not compiled for testing
+                    || (configuration == .release && buildSystem != .native && ProcessInfo.hostOperatingSystem != .windows)  // (configuration == .release)
+                    || (buildSystem != .native && ProcessInfo.hostOperatingSystem == .windows)  // || (ProcessInfo.hostOperatingSystem == .windows)
             }
 
             // list
-            try await withKnownIssue("Fails to find test executable", isIntermittent: true) { // windows; issue not recorded
+            try await withKnownIssue("Fails to find test executable", isIntermittent: true) {  // windows; issue not recorded
                 let (listStdout, listStderr) = try await execute(
                     ["list"],
                     packagePath: fixturePath,
@@ -1270,7 +1272,7 @@ struct TestCommandTests {
                 #expect(listStdout.contains("SimpleTests.SimpleTests/testThrowing"))
             } when: {
                 (configuration == .release && ProcessInfo.hostOperatingSystem != .macOS)
-                || (buildSystem == .swiftbuild && [.windows].contains(ProcessInfo.hostOperatingSystem)) && configuration == .debug
+                    || (buildSystem == .swiftbuild && [.windows].contains(ProcessInfo.hostOperatingSystem)) && configuration == .debug
             }
         }
     }
@@ -1295,14 +1297,14 @@ struct TestCommandTests {
         try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
                 // build first
-                    // This might be intermittently failing on windows
-                    let (buildStdout, _) = try await executeSwiftBuild(
-                        fixturePath,
-                        configuration: configuration,
-                        extraArgs: ["--build-tests"],
-                        buildSystem: buildSystem,
-                    )
-                    #expect(buildStdout.contains("Build complete!"))
+                // This might be intermittently failing on windows
+                let (buildStdout, _) = try await executeSwiftBuild(
+                    fixturePath,
+                    configuration: configuration,
+                    extraArgs: ["--build-tests"],
+                    buildSystem: buildSystem,
+                )
+                #expect(buildStdout.contains("Build complete!"))
 
                 // list while skipping build
                 let (listStdout, listStderr) = try await execute(["list", "--skip-build"], packagePath: fixturePath, buildSystem: buildSystem)
@@ -1433,7 +1435,7 @@ struct TestCommandTests {
     }
 
     @Test(
-         .tags(
+        .tags(
             .Feature.TargetType.Executable,
         ),
         .skipHostOS(.macOS),  // because this was guarded with `#if !canImport(Darwin)`
@@ -1462,7 +1464,7 @@ struct TestCommandTests {
     }
 
     @Test(
-         .tags(
+        .tags(
             .Feature.TargetType.Executable,
         ),
         .IssueWindowsPathTestsFailures,
@@ -1665,30 +1667,30 @@ struct TestCommandTests {
     }
 
     @Test(
-            .IssueWindowsLongPath,
-            .tags(
-                .Feature.TargetType.Executable,
-            ),
-            arguments: SupportedBuildSystemOnAllPlatforms,
-        )
-        func testableExecutableWithEmbeddedResources(
-            buildSystem: BuildSystemProvider.Kind,
-        ) async throws {
-            let configuration = BuildConfiguration.debug
-            try await withKnownIssue(isIntermittent: true) {
-                try await fixture(name: "Miscellaneous/TestableExeWithResources") { fixturePath in
-                    let result = try await execute(
-                        ["--vv"],
-                        packagePath: fixturePath,
-                        configuration: configuration,
-                        buildSystem: buildSystem,
-                    )
-                }
-            } when: {
-                .windows == ProcessInfo.hostOperatingSystem
-                || ProcessInfo.processInfo.environment["SWIFTCI_EXHIBITS_GH_9524"] != nil
+        .IssueWindowsLongPath,
+        .tags(
+            .Feature.TargetType.Executable,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func testableExecutableWithEmbeddedResources(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        let configuration = BuildConfiguration.debug
+        try await withKnownIssue(isIntermittent: true) {
+            try await fixture(name: "Miscellaneous/TestableExeWithResources") { fixturePath in
+                let result = try await execute(
+                    ["--vv"],
+                    packagePath: fixturePath,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                )
             }
-         }
+        } when: {
+            .windows == ProcessInfo.hostOperatingSystem
+                || ProcessInfo.processInfo.environment["SWIFTCI_EXHIBITS_GH_9524"] != nil
+        }
+    }
 
     // Regression test for https://github.com/swiftlang/swift-package-manager/issues/9986. Ensure
     // environment is computed correctly throughout the testing pipeline.

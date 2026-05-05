@@ -27,12 +27,12 @@ internal struct PluginContextDeserializer {
     var targetsById: [WireInput.Target.Id: Target] = [:]
     var xcodeProjectsById: [WireInput.XcodeProject.Id: XcodeProjectPluginInvocationRecord.XcodeProject] = [:]
     var xcodeTargetsById: [WireInput.XcodeTarget.Id: XcodeProjectPluginInvocationRecord.XcodeTarget] = [:]
-    
+
     /// Initializes the deserializer with the given wire input.
     init(_ input: WireInput) {
         self.wireInput = input
     }
-    
+
     /// Returns the `URL` that corresponds to the given ID (a small integer),
     /// or throws an error if the ID is invalid. The URL is deserialized on-
     /// demand if it hasn't already been deserialized.
@@ -41,19 +41,19 @@ internal struct PluginContextDeserializer {
         guard id < wireInput.paths.count else {
             throw PluginDeserializationError.malformedInputJSON("invalid URL id (\(id))")
         }
-        
+
         // Compose a path based on an optional base path and a subpath.
         let wirePath = wireInput.paths[id]
-        let basePath = try wireInput.paths[id].baseURLId.map{ try self.url(for: $0) }
+        let basePath = try wireInput.paths[id].baseURLId.map { try self.url(for: $0) }
         let path: URL
         if let basePath {
             path = basePath.appendingPathComponent(wirePath.subpath)
         } else {
             #if os(Windows)
-            // Windows does not have a single root path like UNIX, if this component has no base path, it IS the root and should not be joined with anything
-            path = URL(fileURLWithPath: wirePath.subpath)
+                // Windows does not have a single root path like UNIX, if this component has no base path, it IS the root and should not be joined with anything
+                path = URL(fileURLWithPath: wirePath.subpath)
             #else
-            path = URL(fileURLWithPath: "/").appendingPathComponent(wirePath.subpath)
+                path = URL(fileURLWithPath: "/").appendingPathComponent(wirePath.subpath)
             #endif
         }
 
@@ -67,8 +67,9 @@ internal struct PluginContextDeserializer {
     /// demand if it hasn't already been deserialized.
     mutating func target(for id: WireInput.Target.Id, pluginGeneratedSources: [URL] = [], pluginGeneratedResources: [URL] = []) throws -> Target {
         if let target = targetsById[id],
-           target.sourceModule?.pluginGeneratedSources.count == pluginGeneratedSources.count,
-           target.sourceModule?.pluginGeneratedResources.count == pluginGeneratedResources.count {
+            target.sourceModule?.pluginGeneratedSources.count == pluginGeneratedSources.count,
+            target.sourceModule?.pluginGeneratedResources.count == pluginGeneratedResources.count
+        {
             return target
         }
         guard id < wireInput.targets.count else {
@@ -89,23 +90,25 @@ internal struct PluginContextDeserializer {
         let directory = try self.url(for: wireTarget.directoryId)
         let target: Target
         switch wireTarget.info {
-        
+
         case let .swiftSourceModuleInfo(moduleName, kind, sourceFiles, compilationConditions, linkedLibraries, linkedFrameworks):
-            let sourceFiles = FileList(try sourceFiles.map {
-                let path = try self.url(for: $0.basePathId).appendingPathComponent($0.name)
-                let type: FileType
-                switch $0.type {
-                case .source:
-                    type = .source
-                case .header:
-                    type = .header
-                case .resource:
-                    type = .resource
-                case .unknown:
-                    type = .unknown
+            let sourceFiles = FileList(
+                try sourceFiles.map {
+                    let path = try self.url(for: $0.basePathId).appendingPathComponent($0.name)
+                    let type: FileType
+                    switch $0.type {
+                    case .source:
+                        type = .source
+                    case .header:
+                        type = .header
+                    case .resource:
+                        type = .resource
+                    case .unknown:
+                        type = .unknown
+                    }
+                    return File(url: path, type: type)
                 }
-                return File(url: path, type: type)
-            })
+            )
             target = try SwiftSourceModuleTarget(
                 id: String(id),
                 name: wireTarget.name,
@@ -124,21 +127,23 @@ internal struct PluginContextDeserializer {
 
         case let .clangSourceModuleInfo(moduleName, kind, sourceFiles, preprocessorDefinitions, headerSearchPaths, publicHeadersDirId, linkedLibraries, linkedFrameworks):
             let publicHeadersDir = try publicHeadersDirId.map { try self.url(for: $0) }
-            let sourceFiles = FileList(try sourceFiles.map {
-                let path = try self.url(for: $0.basePathId).appendingPathComponent($0.name)
-                let type: FileType
-                switch $0.type {
-                case .source:
-                    type = .source
-                case .header:
-                    type = .header
-                case .resource:
-                    type = .resource
-                case .unknown:
-                    type = .unknown
+            let sourceFiles = FileList(
+                try sourceFiles.map {
+                    let path = try self.url(for: $0.basePathId).appendingPathComponent($0.name)
+                    let type: FileType
+                    switch $0.type {
+                    case .source:
+                        type = .source
+                    case .header:
+                        type = .header
+                    case .resource:
+                        type = .resource
+                    case .unknown:
+                        type = .unknown
+                    }
+                    return File(url: path, type: type)
                 }
-                return File(url: path, type: type)
-            })
+            )
             target = try ClangSourceModuleTarget(
                 id: String(id),
                 name: wireTarget.name,
@@ -183,7 +188,8 @@ internal struct PluginContextDeserializer {
                 kind: artifactKind,
                 origin: artifactOrigin,
                 artifact: Path(url: artifact),
-                artifactURL: artifact)
+                artifactURL: artifact
+            )
 
         case let .systemLibraryInfo(pkgConfig, compilerFlags, linkerFlags):
             target = try SystemLibraryTarget(
@@ -194,9 +200,10 @@ internal struct PluginContextDeserializer {
                 dependencies: dependencies,
                 pkgConfig: pkgConfig,
                 compilerFlags: compilerFlags,
-                linkerFlags: linkerFlags)
+                linkerFlags: linkerFlags
+            )
         }
-        
+
         targetsById[id] = target
         return target
     }
@@ -211,7 +218,7 @@ internal struct PluginContextDeserializer {
         }
 
         let wireProduct = wireInput.products[id]
-        let targets: [Target] = try wireProduct.targetIds.map{ try self.target(for: $0) }
+        let targets: [Target] = try wireProduct.targetIds.map { try self.target(for: $0) }
         let product: Product
         switch wireProduct.info {
 
@@ -221,7 +228,8 @@ internal struct PluginContextDeserializer {
                 id: String(id),
                 name: wireProduct.name,
                 targets: targets,
-                mainTarget: mainTarget)
+                mainTarget: mainTarget
+            )
 
         case .library(let type):
             let libraryKind: LibraryProduct.Kind
@@ -237,9 +245,10 @@ internal struct PluginContextDeserializer {
                 id: String(id),
                 name: wireProduct.name,
                 targets: targets,
-                kind: libraryKind)
+                kind: libraryKind
+            )
         }
-        
+
         productsById[id] = product
         return product
     }
@@ -250,20 +259,23 @@ internal struct PluginContextDeserializer {
     mutating func package(for id: WireInput.Product.Id) throws -> Package {
         if let package = packagesById[id] { return package }
         guard id < wireInput.packages.count else {
-            throw PluginDeserializationError.malformedInputJSON("invalid package id (\(id))") }
-        
+            throw PluginDeserializationError.malformedInputJSON("invalid package id (\(id))")
+        }
+
         let wirePackage = wireInput.packages[id]
         let directory = try self.url(for: wirePackage.directoryId)
         let toolsVersion = ToolsVersion(
             major: wirePackage.toolsVersion.major,
             minor: wirePackage.toolsVersion.minor,
-            patch: wirePackage.toolsVersion.patch)
+            patch: wirePackage.toolsVersion.patch
+        )
         let dependencies: [PackageDependency] = try wirePackage.dependencies.map {
             .init(package: try self.package(for: $0.packageId))
         }
         let products = try wirePackage.productIds.map { try self.product(for: $0) }
         let targets = try wirePackage.targetIds.map { try self.target(for: $0) }
-        let origin: PackageOrigin = switch wirePackage.origin {
+        let origin: PackageOrigin =
+            switch wirePackage.origin {
             case .root:
                 .root
             case .local(let pathId):
@@ -272,18 +284,19 @@ internal struct PluginContextDeserializer {
                 .repository(url: url, displayVersion: displayVersion, scmRevision: scmRevision)
             case .registry(let identity, let displayVersion):
                 .registry(identity: identity, displayVersion: displayVersion)
-        }
+            }
         let package = try Package(
             id: wirePackage.identity,
             displayName: wirePackage.displayName,
             directory: Path(url: directory),
             directoryURL: directory,
-            origin:  origin,
+            origin: origin,
             toolsVersion: toolsVersion,
             dependencies: dependencies,
             products: products,
-            targets: targets)
-        
+            targets: targets
+        )
+
         packagesById[id] = package
         return package
     }
@@ -293,8 +306,9 @@ internal struct PluginContextDeserializer {
     /// demand if it hasn't already been deserialized.
     mutating func xcodeTarget(for id: WireInput.XcodeTarget.Id, pluginGeneratedSources: [URL] = [], pluginGeneratedResources: [URL] = []) throws -> XcodeProjectPluginInvocationRecord.XcodeTarget {
         if let xcodeTarget = xcodeTargetsById[id],
-           xcodeTarget.pluginGeneratedSources.count == pluginGeneratedSources.count,
-           xcodeTarget.pluginGeneratedResources.count == pluginGeneratedResources.count {
+            xcodeTarget.pluginGeneratedSources.count == pluginGeneratedSources.count,
+            xcodeTarget.pluginGeneratedResources.count == pluginGeneratedResources.count
+        {
             return xcodeTarget
         }
         guard id < wireInput.xcodeTargets.count else {
@@ -318,21 +332,23 @@ internal struct PluginContextDeserializer {
             }
             return .init(name: $0.name, kind: kind)
         }
-        let inputFiles = FileList(try wireXcodeTarget.inputFiles.map {
-            let path = try self.url(for: $0.basePathId).appendingPathComponent($0.name)
-            let type: FileType
-            switch $0.type {
-            case .source:
-                type = .source
-            case .header:
-                type = .header
-            case .resource:
-                type = .resource
-            case .unknown:
-                type = .unknown
+        let inputFiles = FileList(
+            try wireXcodeTarget.inputFiles.map {
+                let path = try self.url(for: $0.basePathId).appendingPathComponent($0.name)
+                let type: FileType
+                switch $0.type {
+                case .source:
+                    type = .source
+                case .header:
+                    type = .header
+                case .resource:
+                    type = .resource
+                case .unknown:
+                    type = .unknown
+                }
+                return .init(url: path, type: type)
             }
-            return .init(url: path, type: type)
-        })
+        )
         let xcodeTarget = XcodeProjectPluginInvocationRecord.XcodeTarget(
             id: String(id),
             displayName: wireXcodeTarget.displayName,
@@ -352,19 +368,21 @@ internal struct PluginContextDeserializer {
     mutating func xcodeProject(for id: WireInput.XcodeProject.Id) throws -> XcodeProjectPluginInvocationRecord.XcodeProject {
         if let xcodeProject = xcodeProjectsById[id] { return xcodeProject }
         guard id < wireInput.xcodeProjects.count else {
-            throw PluginDeserializationError.malformedInputJSON("invalid Xcode project id (\(id))") }
-        
+            throw PluginDeserializationError.malformedInputJSON("invalid Xcode project id (\(id))")
+        }
+
         let wireXcodeProject = wireInput.xcodeProjects[id]
         let directoryPath = try self.url(for: wireXcodeProject.directoryPathId)
-        let filePaths = PathList(try wireXcodeProject.urlIds.map{ try self.url(for: $0) })
+        let filePaths = PathList(try wireXcodeProject.urlIds.map { try self.url(for: $0) })
         let targets = try wireXcodeProject.targetIds.map { try self.xcodeTarget(for: $0) }
         let xcodeProject = XcodeProjectPluginInvocationRecord.XcodeProject(
             id: String(id),
             displayName: wireXcodeProject.displayName,
             directoryPathURL: directoryPath,
             filePaths: filePaths,
-            targets: targets)
-        
+            targets: targets
+        )
+
         xcodeProjectsById[id] = xcodeProject
         return xcodeProject
     }

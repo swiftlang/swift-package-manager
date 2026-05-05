@@ -62,8 +62,10 @@ extension SwiftPackageCommand {
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
-        @Flag(name: .customLong("force"),
-              help: "Unedit the package even if it has uncommitted and unpushed changes.")
+        @Flag(
+            name: .customLong("force"),
+            help: "Unedit the package even if it has uncommitted and unpushed changes."
+        )
         var shouldForceRemove: Bool = false
 
         @Argument(help: "The identity of the package to unedit.")

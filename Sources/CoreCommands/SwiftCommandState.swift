@@ -19,8 +19,7 @@ import class Foundation.ProcessInfo
 import PackageFingerprint
 import PackageGraph
 import PackageLoading
-@_spi(SwiftPMInternal)
-import PackageModel
+@_spi(SwiftPMInternal) import PackageModel
 import PackageRegistry
 import PackageSigning
 import SourceControl
@@ -28,24 +27,21 @@ import SPMBuildCore
 import Workspace
 
 #if USE_IMPL_ONLY_IMPORTS
-@_implementationOnly
-@_spi(SwiftPMInternal)
-import DriverSupport
+    @_implementationOnly @_spi(SwiftPMInternal) import DriverSupport
 #else
-@_spi(SwiftPMInternal)
-import DriverSupport
+    @_spi(SwiftPMInternal) import DriverSupport
 #endif
 
 #if canImport(WinSDK)
-import WinSDK
+    import WinSDK
 #elseif canImport(Darwin)
-import Darwin
+    import Darwin
 #elseif canImport(Glibc)
-import Glibc
+    import Glibc
 #elseif canImport(Musl)
-import Musl
+    import Musl
 #elseif canImport(Bionic)
-import Bionic
+    import Bionic
 #endif
 
 import class Basics.AsyncProcess
@@ -164,7 +160,8 @@ extension SwiftCommand {
 
 package func createCacheDirFile(
     inDirectory directory: AbsolutePath,
-    _ fileSystem: FileSystem = localFileSystem) -> AbsolutePath? {
+    _ fileSystem: FileSystem = localFileSystem
+) -> AbsolutePath? {
     // https://bford.info/cachedir/
     let path = directory.appending("CACHEDIR.TAG")
     do {
@@ -241,8 +238,8 @@ extension AsyncSwiftCommand {
 
 public final class SwiftCommandState {
     #if os(Windows)
-    // unfortunately this is needed for C callback handlers used by Windows shutdown handler
-    static var cancellator: Cancellator?
+        // unfortunately this is needed for C callback handlers used by Windows shutdown handler
+        static var cancellator: Cancellator?
     #endif
 
     /// The original working directory.
@@ -432,9 +429,7 @@ public final class SwiftCommandState {
 
         self.packageRoot = packageRoot
         self.scratchDirectory =
-            try BuildSystemUtilities.getEnvBuildPath(workingDir: cwd) ??
-            options.locations.scratchDirectory ??
-            (packageRoot ?? cwd).appending(".build")
+            try BuildSystemUtilities.getEnvBuildPath(workingDir: cwd) ?? options.locations.scratchDirectory ?? (packageRoot ?? cwd).appending(".build")
 
         // make sure common directories are created
         self.sharedSecurityDirectory = try getSharedSecurityDirectory(options: options, fileSystem: fileSystem)
@@ -481,12 +476,12 @@ public final class SwiftCommandState {
 
         // --enable-test-discovery should never be called on darwin based platforms
         #if canImport(Darwin)
-        if options.build.enableTestDiscovery {
-            observabilityScope
-                .emit(
-                    warning: "'--enable-test-discovery' option is deprecated; tests are automatically discovered on all platforms"
-                )
-        }
+            if options.build.enableTestDiscovery {
+                observabilityScope
+                    .emit(
+                        warning: "'--enable-test-discovery' option is deprecated; tests are automatically discovered on all platforms"
+                    )
+            }
         #endif
 
         if options.caching.shouldDisableManifestCaching {
@@ -721,7 +716,8 @@ public final class SwiftCommandState {
             let legacyPath = multiRootPackageDataFile.appending(components: "xcshareddata", "swiftpm", "config")
             let newPath = Workspace.DefaultLocations
                 .mirrorsConfigurationFile(
-                    at: multiRootPackageDataFile
+                    at:
+                        multiRootPackageDataFile
                         .appending(components: "xcshareddata", "swiftpm", "configuration")
                 )
             return try Workspace.migrateMirrorsConfiguration(
@@ -752,7 +748,7 @@ public final class SwiftCommandState {
         }
 
         #if canImport(Security)
-        authorization.keychain = self.options.security.keychain ? .enabled : .disabled
+            authorization.keychain = self.options.security.keychain ? .enabled : .disabled
         #endif
 
         return try authorization.makeAuthorizationProvider(
@@ -771,7 +767,7 @@ public final class SwiftCommandState {
 
         // Don't use OS credential store if user wants netrc
         #if canImport(Security)
-        authorization.keychain = self.options.security.forceNetrc ? .disabled : .enabled
+            authorization.keychain = self.options.security.forceNetrc ? .disabled : .enabled
         #endif
 
         return try authorization.makeRegistryAuthorizationProvider(
@@ -909,8 +905,7 @@ public final class SwiftCommandState {
 
         let buildParameters = try self.productsBuildParameters
         let haveBuildManifestAndDescription =
-            self.fileSystem.exists(buildParameters.llbuildManifest) &&
-            self.fileSystem.exists(buildParameters.buildDescriptionPath)
+            self.fileSystem.exists(buildParameters.llbuildManifest) && self.fileSystem.exists(buildParameters.buildDescriptionPath)
 
         if !haveBuildManifestAndDescription {
             return false
@@ -975,9 +970,9 @@ public final class SwiftCommandState {
     }
 
     static let entitlementsMacOSWarning = """
-    `--enable-get-task-allow-entitlement` and `--disable-get-task-allow-entitlement` only have an effect \
-    when building on macOS.
-    """
+        `--enable-get-task-allow-entitlement` and `--disable-get-task-allow-entitlement` only have an effect \
+        when building on macOS.
+        """
 
     private func _buildParams(
         toolchain: UserToolchain,
@@ -1023,9 +1018,8 @@ public final class SwiftCommandState {
                 debugInfoFormat: self.options.build.debugInfoFormat?.buildParameter,
                 triple: triple,
                 shouldEnableDebuggingEntitlement:
-                self.options.build
-                    .getTaskAllowEntitlement ??
-                    (self.options.build.configuration ?? self.preferredBuildConfiguration == .debug),
+                    self.options.build
+                    .getTaskAllowEntitlement ?? (self.options.build.configuration ?? self.preferredBuildConfiguration == .debug),
                 omitFramePointers: self.options.build.omitFramePointers
             ),
             driverParameters: .init(
@@ -1143,7 +1137,8 @@ public final class SwiftCommandState {
                 environment: self.environment,
                 customTargetInfo: targetInfo,
                 observabilityScope: self.observabilityScope,
-                fileSystem: self.fileSystem)
+                fileSystem: self.fileSystem
+            )
         })
     }()
 
@@ -1165,20 +1160,21 @@ public final class SwiftCommandState {
     })
 
     private lazy var _manifestLoader: Result<ManifestLoader, Swift.Error> = Result(catching: {
-        let cachePath: AbsolutePath? = switch (
-            self.options.caching.shouldDisableManifestCaching,
-            self.options.caching.manifestCachingMode
-        ) {
-        case (true, _):
-            // backwards compatibility
-            .none
-        case (false, .none):
-            .none
-        case (false, .local):
-            self.scratchDirectory
-        case (false, .shared):
-            Workspace.DefaultLocations.manifestsDirectory(at: self.sharedCacheDirectory)
-        }
+        let cachePath: AbsolutePath? =
+            switch (
+                self.options.caching.shouldDisableManifestCaching,
+                self.options.caching.manifestCachingMode
+            ) {
+            case (true, _):
+                // backwards compatibility
+                .none
+            case (false, .none):
+                .none
+            case (false, .local):
+                self.scratchDirectory
+            case (false, .shared):
+                Workspace.DefaultLocations.manifestsDirectory(at: self.sharedCacheDirectory)
+            }
 
         var extraManifestFlags = self.options.build.manifestFlags
         if self.logLevel <= .info {

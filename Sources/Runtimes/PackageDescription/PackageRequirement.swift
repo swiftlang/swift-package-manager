@@ -218,16 +218,15 @@ extension Range {
     ///
     /// - Parameter version: The minimum version for the version range.
     public static func upToNextMajor(from version: Version) -> Range<Bound> where Bound == Version {
-        return version ..< Version(version.major + 1, 0, 0)
+        return version..<Version(version.major + 1, 0, 0)
     }
-
 
     /// Returns a requirement for a version range, starting at the given minimum
     /// version and going up to the next minor version.
     ///
     /// - Parameter version: The minimum version for the version range.
     public static func upToNextMinor(from version: Version) -> Range<Bound> where Bound == Version {
-        return version ..< Version(version.major, version.minor + 1, 0)
+        return version..<Version(version.major, version.minor + 1, 0)
     }
 }
 

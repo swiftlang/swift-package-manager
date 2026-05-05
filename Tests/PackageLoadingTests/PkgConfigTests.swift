@@ -22,7 +22,8 @@ extension SystemLibraryModule {
             name: "Foo",
             path: "/fake",
             pkgConfig: pkgConfig.isEmpty ? nil : pkgConfig,
-            providers: providers.isEmpty ? nil : providers)
+            providers: providers.isEmpty ? nil : providers
+        )
     }
 }
 
@@ -58,7 +59,8 @@ class PkgConfigTests: XCTestCase {
                 for: target,
                 pkgConfigDirectories: [],
                 fileSystem: fs,
-                observabilityScope: observability.topScope) {
+                observabilityScope: observability.topScope
+            ) {
                 XCTAssertEqual(result.pkgConfigName, "Foo")
                 XCTAssertEqual(result.cFlags, [])
                 XCTAssertEqual(result.libs, [])

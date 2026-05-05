@@ -133,9 +133,9 @@ public struct PkgConfig {
         get throws {
             if let configPath = Environment.current["PKG_CONFIG_PATH"] {
                 #if os(Windows)
-                return try configPath.split(separator: ";").map({ try AbsolutePath(validating: String($0)) })
+                    return try configPath.split(separator: ";").map({ try AbsolutePath(validating: String($0)) })
                 #else
-                return try configPath.split(separator: ":").map({ try AbsolutePath(validating: String($0)) })
+                    return try configPath.split(separator: ":").map({ try AbsolutePath(validating: String($0)) })
                 #endif
             }
             return []
@@ -153,7 +153,6 @@ extension PkgConfig {
         public var pkgConfigStack: [String]
     }
 }
-
 
 /// Parser for the `pkg-config` `.pc` file format.
 ///
@@ -210,7 +209,7 @@ internal struct PkgConfigParser {
 
         // Only trim if sysroot is defined with a meaningful value
         guard let sysrootDir, sysrootDir != "/" else {
-           return value
+            return value
         }
 
         // Only trim absolute paths starting with sysroot
@@ -338,7 +337,7 @@ internal struct PkgConfigParser {
                 // Encountered a separator, use the token.
                 if separators.contains(String(char)) {
                     // If next character is a space skip.
-                    if let peeked = peek(idx: idx+1), peeked == " " { continue }
+                    if let peeked = peek(idx: idx + 1), peeked == " " { continue }
                     // Append to array of tokens and reset token variable.
                     tokens.append(token)
                     token = ""
@@ -358,10 +357,12 @@ internal struct PkgConfigParser {
             if operators.contains(arg) {
                 // We should have a version number next, skip.
                 guard it.next() != nil else {
-                    throw PkgConfigError.parsingError("""
+                    throw PkgConfigError.parsingError(
+                        """
                         Expected version number after \(deps.last.debugDescription) \(arg) in \"\(depString)\" in \
                         \(pcFile)
-                        """)
+                        """
+                    )
                 }
             } else if !arg.isEmpty {
                 // Otherwise it is a dependency.
@@ -381,10 +382,11 @@ internal struct PkgConfigParser {
         // Returns variable name, start index and end index of a variable in a string if present.
         // We make sure it of form ${name} otherwise it is not a variable.
         func findVariable(_ fragment: String)
-            -> (name: String, startIndex: String.Index, endIndex: String.Index)? {
+            -> (name: String, startIndex: String.Index, endIndex: String.Index)?
+        {
             guard let dollar = fragment.firstIndex(of: "$"),
-                  dollar != fragment.endIndex && fragment[fragment.index(after: dollar)] == "{",
-                  let variableEndIndex = fragment.firstIndex(of: "}")
+                dollar != fragment.endIndex && fragment[fragment.index(after: dollar)] == "{",
+                let variableEndIndex = fragment.firstIndex(of: "}")
             else { return nil }
             return (String(fragment[fragment.index(dollar, offsetBy: 2)..<variableEndIndex]), dollar, variableEndIndex)
         }
@@ -398,7 +400,8 @@ internal struct PkgConfigParser {
                 result += fragment[fragment.startIndex..<variable.startIndex]
                 guard let variableValue = variables[variable.name] else {
                     throw PkgConfigError.parsingError(
-                        "Expected a value for variable '\(variable.name)' in \(pcFile). Variables: \(variables)")
+                        "Expected a value for variable '\(variable.name)' in \(pcFile). Variables: \(variables)"
+                    )
                 }
                 // Append the value of the variable.
                 result += variableValue
@@ -437,9 +440,9 @@ internal struct PkgConfigParser {
                 inQuotes = !inQuotes
             } else if char == "\\" {
                 if let next = it.next() {
-#if os(Windows)
-                    if ![" ", "\\"].contains(next) { fragment.append("\\") }
-#endif
+                    #if os(Windows)
+                        if ![" ", "\\"].contains(next) { fragment.append("\\") }
+                    #endif
                     fragment.append(next)
                 }
             } else if char == " " && !inQuotes {
@@ -450,7 +453,8 @@ internal struct PkgConfigParser {
         }
         guard !inQuotes else {
             throw PkgConfigError.parsingError(
-                "Text ended before matching quote was found in line: \(line) file: \(pcFile)")
+                "Text ended before matching quote was found in line: \(line) file: \(pcFile)"
+            )
         }
         saveFragment()
         return splits
@@ -463,7 +467,7 @@ internal struct PCFileFinder {
     /// FIXME: This shouldn't use a static variable, since the first lookup
     /// will cache the result of whatever `brewPrefix` was passed in.  It is
     /// also not threadsafe.
-    public private(set) static var pkgConfigPaths: [Basics.AbsolutePath]? // FIXME: @testable(internal)
+    public private(set) static var pkgConfigPaths: [Basics.AbsolutePath]?  // FIXME: @testable(internal)
     private static var shouldEmitPkgConfigPathsDiagnostic = false
 
     /// The built-in search path list.
@@ -484,15 +488,19 @@ internal struct PCFileFinder {
     private init(pkgConfigPath: String) {
         if PCFileFinder.pkgConfigPaths == nil {
             do {
-                let searchPaths = try AsyncProcess.checkNonZeroExit(args:
-                    pkgConfigPath, "--variable", "pc_path", "pkg-config"
+                let searchPaths = try AsyncProcess.checkNonZeroExit(
+                    args:
+                        pkgConfigPath,
+                    "--variable",
+                    "pc_path",
+                    "pkg-config"
                 ).spm_chomp()
 
-#if os(Windows)
-                PCFileFinder.pkgConfigPaths = try searchPaths.split(separator: ";").map({ try AbsolutePath(validating: String($0)) })
-#else
-                PCFileFinder.pkgConfigPaths = try searchPaths.split(separator: ":").map({ try AbsolutePath(validating: String($0)) })
-#endif
+                #if os(Windows)
+                    PCFileFinder.pkgConfigPaths = try searchPaths.split(separator: ";").map({ try AbsolutePath(validating: String($0)) })
+                #else
+                    PCFileFinder.pkgConfigPaths = try searchPaths.split(separator: ":").map({ try AbsolutePath(validating: String($0)) })
+                #endif
             } catch {
                 PCFileFinder.shouldEmitPkgConfigPathsDiagnostic = true
                 PCFileFinder.pkgConfigPaths = []

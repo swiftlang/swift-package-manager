@@ -117,7 +117,7 @@ struct PackageSigningEntityTOFU {
         // We recorded the version's signer(s) previously
         if !signingEntitiesForVersion.isEmpty {
             guard let signingEntityToCheck = signingEntity,
-                  signingEntitiesForVersion.contains(signingEntityToCheck)
+                signingEntitiesForVersion.contains(signingEntityToCheck)
             else {
                 // The given signer is nil or different
                 // TODO: This could indicate a legitimate change
@@ -129,7 +129,7 @@ struct PackageSigningEntityTOFU {
                     package: package,
                     version: version,
                     latest: signingEntity,
-                    existing: signingEntitiesForVersion.first!, // !-safe since signingEntitiesForVersion is non-empty
+                    existing: signingEntitiesForVersion.first!,  // !-safe since signingEntitiesForVersion is non-empty
                     observabilityScope: observabilityScope
                 )
                 return false
@@ -144,7 +144,7 @@ struct PackageSigningEntityTOFU {
         case .some(let signingEntity):
             // Does the package have an expected signer?
             if let expectedSigner = packageSigners.expectedSigner,
-               version >= expectedSigner.fromVersion
+                version >= expectedSigner.fromVersion
             {
                 // Signer is as expected
                 if signingEntity == expectedSigner.signingEntity {
@@ -159,8 +159,8 @@ struct PackageSigningEntityTOFU {
                 // set to v1.5, then it should not be a TOFU failure if we see signer A
                 // for v1.9.
                 if let knownSigner = packageSigners.signers[signingEntity],
-                   let highestKnownVersion = knownSigner.versions.sorted(by: >).first,
-                   version < highestKnownVersion
+                    let highestKnownVersion = knownSigner.versions.sorted(by: >).first,
+                    version < highestKnownVersion
                 {
                     return true
                 }

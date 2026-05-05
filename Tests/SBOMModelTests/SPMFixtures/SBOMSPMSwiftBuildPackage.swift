@@ -162,7 +162,7 @@ extension SBOMTestModulesGraph {
             packageIdentity: identity,
             module: swbLibcModule,
             dependencies: [
-                .module(resolvedSWBCLibcModule, conditions: []),
+                .module(resolvedSWBCLibcModule, conditions: [])
             ]
         )
 
@@ -199,7 +199,7 @@ extension SBOMTestModulesGraph {
             packageIdentity: identity,
             module: swbProtocolModule,
             dependencies: [
-                .module(resolvedSWBUtilModule, conditions: []),
+                .module(resolvedSWBUtilModule, conditions: [])
             ]
         )
 
@@ -207,7 +207,7 @@ extension SBOMTestModulesGraph {
             packageIdentity: identity,
             module: swbServiceCoreModule,
             dependencies: [
-                .module(resolvedSWBProtocolModule, conditions: []),
+                .module(resolvedSWBProtocolModule, conditions: [])
             ]
         )
 
@@ -360,7 +360,7 @@ extension SBOMTestModulesGraph {
             packageIdentity: identity,
             module: swbProjectModelModule,
             dependencies: [
-                .module(resolvedSWBProtocolModule, conditions: []),
+                .module(resolvedSWBProtocolModule, conditions: [])
             ]
         )
 

@@ -230,9 +230,9 @@ final class CommandWorkspaceDelegate: WorkspaceDelegate {
         self.inputHandler("\(package) \(version) from \(registryURL) is unsigned. okay to proceed? (yes/no) ") { response in
             switch response?.lowercased() {
             case "yes":
-                completion(true) // continue
+                completion(true)  // continue
             case "no":
-                completion(false) // stop resolution
+                completion(false)  // stop resolution
             default:
                 self.outputHandler("invalid response: '\(response ?? "")'", .always)
                 completion(false)
@@ -244,9 +244,9 @@ final class CommandWorkspaceDelegate: WorkspaceDelegate {
         self.inputHandler("\(package) \(version) from \(registryURL) is signed with an untrusted certificate. okay to proceed? (yes/no) ") { response in
             switch response?.lowercased() {
             case "yes":
-                completion(true) // continue
+                completion(true)  // continue
             case "no":
-                completion(false) // stop resolution
+                completion(false)  // stop resolution
             default:
                 self.outputHandler("invalid response: '\(response ?? "")'", .always)
                 completion(false)

@@ -158,7 +158,9 @@ struct TripleTests {
         ]
     )
     func tripleStringForPlatformVersion(
-        tripleName: String, version: String, expectedTriple: String
+        tripleName: String,
+        version: String,
+        expectedTriple: String
     ) throws {
         let triple = try Triple(tripleName)
         let actualTriple = triple.tripleString(forPlatformVersion: version)
@@ -187,7 +189,7 @@ struct TripleTests {
             DataKnownTripleParsing(
                 tripleName: "armv7em-apple-none-eabihf-macho",
                 expectedArch: .arm,
-                expectedSubArch : .arm(.v7em),
+                expectedSubArch: .arm(.v7em),
                 expectedVendor: .apple,
                 expectedOs: .noneOS,
                 expectedEnvironment: .eabihf,
@@ -246,7 +248,7 @@ struct TripleTests {
                 expectedOs: .wasi,
                 expectedEnvironment: nil,
                 expectedObjectFormat: .wasm
-            )
+            ),
         ]
     )
     func knownTripleParsing(
@@ -352,7 +354,9 @@ struct TripleTests {
         ],
     )
     func isRuntimeCompatibleWith(
-        firstTripleName: String, secondTripleName: String, isCompatible: Bool,
+        firstTripleName: String,
+        secondTripleName: String,
+        isCompatible: Bool,
     ) throws {
         let triple = try Triple(firstTripleName)
         let other = try Triple(secondTripleName)

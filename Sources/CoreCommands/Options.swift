@@ -149,10 +149,10 @@ public struct LocationOptions: ParsableArguments {
     @Option(
         name: .customLong("pkg-config-path"),
         help:
-        """
-        Specify alternative path to search for pkg-config `.pc` files. Use the option multiple times to
-        specify more than one path.
-        """,
+            """
+            Specify alternative path to search for pkg-config `.pc` files. Use the option multiple times to
+            specify more than one path.
+            """,
         completion: .directory
     )
     public var pkgConfigDirectories: [AbsolutePath] = []
@@ -174,7 +174,8 @@ public struct CachingOptions: ParsableArguments {
     public init() {}
 
     /// Disables package caching.
-    @Flag(name: .customLong("dependency-cache"),
+    @Flag(
+        name: .customLong("dependency-cache"),
         inversion: .prefixedEnableDisable,
         help: "Determines whether dependency fetching uses a shared cache."
     )
@@ -206,9 +207,11 @@ public struct CachingOptions: ParsableArguments {
     }
 
     /// Whether to use macro prebuilts or not
-    @Flag(name: .customLong("experimental-prebuilts"),
-          inversion: .prefixedEnableDisable,
-          help: "Determines whether macros use prebuilt swift-syntax libraries.")
+    @Flag(
+        name: .customLong("experimental-prebuilts"),
+        inversion: .prefixedEnableDisable,
+        help: "Determines whether macros use prebuilt swift-syntax libraries."
+    )
     public var usePrebuilts: Bool = true
 
     /// Hidden option to override the prebuilts download location for testing
@@ -240,13 +243,15 @@ public struct LoggingOptions: ParsableArguments {
     @Flag(name: .shortAndLong, help: "Decrease verbosity to only include error output.")
     public var quiet: Bool = false
 
-    @Flag(name: .customLong("color-diagnostics"),
-          inversion: .prefixedNo,
-          help:
+    @Flag(
+        name: .customLong("color-diagnostics"),
+        inversion: .prefixedNo,
+        help:
             """
             Determines whether color diagnostics appear when printing to a TTY.
             By default, color diagnostics are enabled when connected to a TTY and disabled otherwise.
-            """)
+            """
+    )
     public var colorDiagnostics: Bool = ProcessInfo.processInfo.environment["NO_COLOR"] == nil
 }
 
@@ -283,19 +288,19 @@ public struct SecurityOptions: ParsableArguments {
     /// when downloading binary artifacts. This has no effects on registry
     /// communications.
     #if canImport(Security)
-    @Flag(
-        inversion: .prefixedEnableDisable,
-        exclusivity: .exclusive,
-        help: "Determines whether SwiftPM searches for credentials in the macOS keychain."
-    )
-    public var keychain: Bool = true
+        @Flag(
+            inversion: .prefixedEnableDisable,
+            exclusivity: .exclusive,
+            help: "Determines whether SwiftPM searches for credentials in the macOS keychain."
+        )
+        public var keychain: Bool = true
     #else
-    @Flag(
-        inversion: .prefixedEnableDisable,
-        exclusivity: .exclusive,
-        help: .hidden
-    )
-    public var keychain: Bool = false
+        @Flag(
+            inversion: .prefixedEnableDisable,
+            exclusivity: .exclusive,
+            help: .hidden
+        )
+        public var keychain: Bool = false
     #endif
 
     @Option(name: .customLong("resolver-fingerprint-checking"))
@@ -443,9 +448,7 @@ public struct BuildOptions: ParsableArguments {
     public var _deprecated_manifestFlags: [String] = []
 
     var manifestFlags: [String] {
-        self._deprecated_manifestFlags.isEmpty ?
-            self._buildToolsSwiftCFlags :
-            self._deprecated_manifestFlags
+        self._deprecated_manifestFlags.isEmpty ? self._buildToolsSwiftCFlags : self._deprecated_manifestFlags
     }
 
     var pluginSwiftCFlags: [String] {
@@ -607,7 +610,7 @@ public struct BuildOptions: ParsableArguments {
     public var traceEventsFilePath: String? = nil
 
     // Build dynamic library targets as frameworks (only available for Darwin targets and only when using the 'swiftbuild' build-system (currently used for tests).
-    @Flag(name: .customLong("experimental-build-dylibs-as-frameworks"), help: .hidden )
+    @Flag(name: .customLong("experimental-build-dylibs-as-frameworks"), help: .hidden)
     public var shouldBuildDylibsAsFrameworks: Bool = false
 
     /// Enable code size profiling by emitting SIL, LLVM IR, and optimization records.
@@ -676,26 +679,32 @@ public struct TestLibraryOptions: ParsableArguments {
     ///
     /// Callers will generally want to use ``enableXCTestSupport`` since it will
     /// have the correct default value if the user didn't specify one.
-    @Flag(name: .customLong("xctest"),
-          inversion: .prefixedEnableDisable,
-          help: "Determines whether the build includes XCTest support.")
+    @Flag(
+        name: .customLong("xctest"),
+        inversion: .prefixedEnableDisable,
+        help: "Determines whether the build includes XCTest support."
+    )
     public var explicitlyEnableXCTestSupport: Bool?
 
     /// Whether to enable support for Swift Testing (as explicitly specified by the user.)
     ///
     /// Callers will generally want to use ``enableSwiftTestingLibrarySupport`` since it will
     /// have the correct default value if the user didn't specify one.
-    @Flag(name: .customLong("swift-testing"),
-          inversion: .prefixedEnableDisable,
-          help: "Determines whether the build includes Swift Testing support.")
+    @Flag(
+        name: .customLong("swift-testing"),
+        inversion: .prefixedEnableDisable,
+        help: "Determines whether the build includes Swift Testing support."
+    )
     public var explicitlyEnableSwiftTestingLibrarySupport: Bool?
 
     /// Legacy experimental equivalent of ``explicitlyEnableSwiftTestingLibrarySupport``.
     ///
     /// This option will be removed in a future update.
-    @Flag(name: .customLong("experimental-swift-testing"),
-          inversion: .prefixedEnableDisable,
-          help: .private)
+    @Flag(
+        name: .customLong("experimental-swift-testing"),
+        inversion: .prefixedEnableDisable,
+        help: .private
+    )
     public var explicitlyEnableExperimentalSwiftTestingLibrarySupport: Bool?
 
     /// The common implementation for `isEnabled()` and `isExplicitlyEnabled()`.
@@ -710,7 +719,8 @@ public struct TestLibraryOptions: ParsableArguments {
                 return explicitlyEnableXCTestSupport
             }
             if let toolchain = try? swiftCommandState.getHostToolchain(),
-               toolchain.swiftSDK.xctestSupport == .supported {
+                toolchain.swiftSDK.xctestSupport == .supported
+            {
                 return `default`
             }
             return false

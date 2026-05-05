@@ -42,7 +42,7 @@ extension SwiftPackageCommand {
                 archivePath = output
             } else {
                 let graph = try await swiftCommandState.loadPackageGraph()
-                let packageName = graph.rootPackages[graph.rootPackages.startIndex].manifest.displayName // TODO: use identity instead?
+                let packageName = graph.rootPackages[graph.rootPackages.startIndex].manifest.displayName  // TODO: use identity instead?
                 archivePath = packageDirectory.appending("\(packageName).zip")
             }
 

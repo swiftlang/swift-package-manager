@@ -23,7 +23,7 @@ internal struct SBOMComponent: Codable, Equatable, Hashable, Comparable {
         case optional
         case test
     }
-    
+
     internal enum Entity: String, Codable, Equatable {
         case product = "swift-product"
         case package = "swift-package"
@@ -80,7 +80,7 @@ internal struct SBOMComponent: Codable, Equatable, Hashable, Comparable {
         self.components = components
         self.entity = entity
     }
-    
+
     // Comparable implementation for deterministic ordering
     internal static func < (lhs: SBOMComponent, rhs: SBOMComponent) -> Bool {
         lhs.id.value < rhs.id.value

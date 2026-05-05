@@ -211,8 +211,7 @@ public final class ClangModuleBuildDescription {
             // If there's a custom module map, use it as given.
             if case .custom(let path) = clangTarget.moduleMapType {
                 self.moduleMap = path
-            }
-            else if let pluginDerivedModuleMap {
+            } else if let pluginDerivedModuleMap {
                 self.moduleMap = pluginDerivedModuleMap
             }
             // If a generated module map is needed, generate one now in our temporary directory.
@@ -248,7 +247,7 @@ public final class ClangModuleBuildDescription {
         let sources = [
             target.sources.root: target.sources.relativePaths,
             derivedSources.root: derivedSources.relativePaths,
-            pluginDerivedSources.root: pluginDerivedSources.relativePaths
+            pluginDerivedSources.root: pluginDerivedSources.relativePaths,
         ]
 
         return try sources.flatMap { root, relativePaths in
@@ -401,8 +400,8 @@ public final class ClangModuleBuildDescription {
         if (triple.isLinux() || triple.isAndroid()) && self.package.id == .plain("swift-corelibs-foundation") {
             let swiftCompilerPath = self.buildParameters.toolchain.swiftCompilerPath
             let toolchainResourcesPath = swiftCompilerPath.parentDirectory
-                                                          .parentDirectory
-                                                          .appending(components: ["lib", "swift"])
+                .parentDirectory
+                .appending(components: ["lib", "swift"])
             args += ["-I", toolchainResourcesPath.pathString]
         }
 
@@ -510,7 +509,7 @@ public final class ClangModuleBuildDescription {
             "-fmodules-cache-path=\(cachePath)",
         ]
     }
-    
+
     private func currentModuleMapFileArguments() throws -> [String] {
         // Pass the path to the current module's module map if present.
         if let moduleMap = self.moduleMap {

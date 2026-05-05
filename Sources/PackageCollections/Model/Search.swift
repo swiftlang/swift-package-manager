@@ -26,10 +26,10 @@ extension PackageCollectionsModel {
 
             /// Package collections that contain the package
             public internal(set) var collections: [PackageCollectionsModel.CollectionIdentifier]
-            
+
             /// Package indexes that contain the package
             public internal(set) var indexes: [URL]
-            
+
             init(
                 package: PackageCollectionsModel.Package,
                 collections: [PackageCollectionsModel.CollectionIdentifier] = [],

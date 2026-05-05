@@ -244,10 +244,10 @@ struct SQLiteBackedCacheTests {
     }
 }
 
-private func makeMockData(fileSystem: FileSystem, rootPath: AbsolutePath, count: Int = Int.random(in: 50 ..< 100)) throws -> [String: String] {
+private func makeMockData(fileSystem: FileSystem, rootPath: AbsolutePath, count: Int = Int.random(in: 50..<100)) throws -> [String: String] {
     var data = [String: String]()
     let value = UUID().uuidString
-    for index in 0 ..< count {
+    for index in 0..<count {
         data["\(index)"] = "\(index) \(value)"
     }
     return data

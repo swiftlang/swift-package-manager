@@ -19,13 +19,15 @@ import PackageModel
 import struct TSCUtility.Version
 
 public class MockPackageFingerprintStorage: PackageFingerprintStorage {
-    private var packageFingerprints: [PackageIdentity: [Version: [Fingerprint
+    private var packageFingerprints:
+        [PackageIdentity: [Version: [Fingerprint
             .Kind: [Fingerprint.ContentType: Fingerprint]]]]
     private let lock = NSLock()
 
-    public init(_ packageFingerprints: [PackageIdentity: [Version: [Fingerprint
-            .Kind: [Fingerprint.ContentType: Fingerprint]]]] = [:])
-    {
+    public init(
+        _ packageFingerprints: [PackageIdentity: [Version: [Fingerprint
+            .Kind: [Fingerprint.ContentType: Fingerprint]]]] = [:]
+    ) {
         self.packageFingerprints = packageFingerprints
     }
 

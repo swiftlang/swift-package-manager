@@ -36,12 +36,12 @@ public struct SwiftLanguageVersion: Hashable, Sendable {
 
     /// The list of known Swift language versions.
     public static let knownSwiftLanguageVersions = [
-        v3, v4, v4_2, v5, v6
+        v3, v4, v4_2, v5, v6,
     ]
 
     /// The list of supported Swift language versions for this toolchain.
     public static let supportedSwiftLanguageVersions = [
-        v4, v4_2, v5, v6
+        v4, v4_2, v5, v6,
     ]
 
     /// The raw value of the language version.

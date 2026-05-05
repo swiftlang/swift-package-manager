@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-
 import Basics
 import Dispatch
 import Foundation
@@ -18,13 +17,13 @@ import PackageCollectionsModel
 import SwiftASN1
 
 #if USE_IMPL_ONLY_IMPORTS
-@_implementationOnly import _CryptoExtras
-@_implementationOnly import Crypto
-@_implementationOnly import X509
+    @_implementationOnly import _CryptoExtras
+    @_implementationOnly import Crypto
+    @_implementationOnly import X509
 #else
-import _CryptoExtras
-import Crypto
-import X509
+    import _CryptoExtras
+    import Crypto
+    import X509
 #endif
 
 public protocol PackageCollectionSigner {
@@ -107,21 +106,23 @@ public actor PackageCollectionSigning: PackageCollectionSigner, PackageCollectio
         observabilityScope: ObservabilityScope
     ) {
         self.trustedRootCertsDir = trustedRootCertsDir
-        self.additionalTrustedRootCerts = additionalTrustedRootCerts.map { $0.compactMap {
-            guard let data = Data(base64Encoded: $0) else {
-                observabilityScope.emit(error: "The certificate \($0) is not in valid base64 encoding")
-                return nil
+        self.additionalTrustedRootCerts = additionalTrustedRootCerts.map {
+            $0.compactMap {
+                guard let data = Data(base64Encoded: $0) else {
+                    observabilityScope.emit(error: "The certificate \($0) is not in valid base64 encoding")
+                    return nil
+                }
+                do {
+                    return try Certificate(derEncoded: Array(data))
+                } catch {
+                    observabilityScope.emit(
+                        error: "The certificate \($0) is not in valid DER format",
+                        underlyingError: error
+                    )
+                    return nil
+                }
             }
-            do {
-                return try Certificate(derEncoded: Array(data))
-            } catch {
-                observabilityScope.emit(
-                    error: "The certificate \($0) is not in valid DER format",
-                    underlyingError: error
-                )
-                return nil
-            }
-        } }
+        }
 
         self.certPolicies = [:]
         self.encoder = JSONEncoder.makeWithDefaults()
@@ -204,7 +205,8 @@ public actor PackageCollectionSigning: PackageCollectionSigner, PackageCollectio
                 let privateKey = try _RSA.Signing.PrivateKey(pemRepresentation: privateKeyPEMString)
 
                 guard privateKey.keySizeInBits >= Self.minimumRSAKeySizeInBits else {
-                    throw PackageCollectionSigningError
+                    throw
+                        PackageCollectionSigningError
                         .invalidKeySize(minimumBits: Self.minimumRSAKeySizeInBits)
                 }
 
@@ -233,7 +235,7 @@ public actor PackageCollectionSigning: PackageCollectionSigner, PackageCollectio
             throw PackageCollectionSigningError.invalidSignature
         }
 
-        let certificate = certChain.first! // !-safe because certChain cannot be empty at this point
+        let certificate = certChain.first!  // !-safe because certChain cannot be empty at this point
         let collectionSignature = Model.Signature(
             signature: signature,
             certificate: Model.Signature.Certificate(
@@ -262,10 +264,11 @@ public actor PackageCollectionSigning: PackageCollectionSigner, PackageCollectio
 
         // Verify the collection embedded in the signature is the same as received
         // i.e., the signature is associated with the given collection and not another
-        guard let collectionFromSignature = try? self.decoder.decode(
-            Model.Collection.self,
-            from: signature.payload
-        ),
+        guard
+            let collectionFromSignature = try? self.decoder.decode(
+                Model.Collection.self,
+                from: signature.payload
+            ),
             signedCollection.collection == collectionFromSignature
         else {
             throw PackageCollectionSigningError.invalidSignature

@@ -63,12 +63,10 @@ struct CardStack {
         let isColorized: Bool = swiftCommandState.options.logging.colorDiagnostics
 
         if let prompt {
-            isColorized ?
-                print(brightBlack { prompt }.terminalString()) :
-                print(plain { prompt }.terminalString())
+            isColorized ? print(brightBlack { prompt }.terminalString()) : print(plain { prompt }.terminalString())
         }
-        isColorized ?
-            terminal.write(">>> ", inColor: .green, bold: true)
+        isColorized
+            ? terminal.write(">>> ", inColor: .green, bold: true)
             : terminal.write(">>> ", inColor: .noColor, bold: false)
 
         return readLine(strippingNewline: true)

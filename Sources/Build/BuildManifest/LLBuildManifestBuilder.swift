@@ -17,9 +17,9 @@ import PackageModel
 import SPMBuildCore
 
 #if USE_IMPL_ONLY_IMPORTS
-@_implementationOnly import SwiftDriver
+    @_implementationOnly import SwiftDriver
 #else
-import SwiftDriver
+    import SwiftDriver
 #endif
 
 import struct TSCBasic.ByteString
@@ -259,8 +259,9 @@ extension LLBuildManifestBuilder {
     private func addTestEntryPointGenerationCommand() throws {
         for module in self.plan.targets {
             guard case .swift(let swiftModule) = module,
-                  case .entryPoint(let isSynthesized) = swiftModule.testTargetRole,
-                  isSynthesized else { continue }
+                case .entryPoint(let isSynthesized) = swiftModule.testTargetRole,
+                isSynthesized
+            else { continue }
 
             let testEntryPointTarget = swiftModule
 
@@ -300,7 +301,8 @@ extension ModuleBuildDescription {
     /// then this returns that Swift target build description, else returns nil.
     fileprivate var testDiscoveryTargetBuildDescription: SwiftModuleBuildDescription? {
         guard case .swift(let targetBuildDescription) = self,
-              case .discovery = targetBuildDescription.testTargetRole else { return nil }
+            case .discovery = targetBuildDescription.testTargetRole
+        else { return nil }
         return targetBuildDescription
     }
 }

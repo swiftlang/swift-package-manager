@@ -142,12 +142,12 @@ struct BuildPrebuilts: AsyncParsableCommand {
 
             var packageContents = try String(contentsOf: packageFile.asURL)
             packageContents += """
-                    package.products += [
-                        .library(name: "\(libraryName)", type: .static, targets: [
-                            \(libraryTargets.map({ "\"\($0.name)\"" }).joined(separator: ","))
-                        ])
-                    ]
-                    """
+                package.products += [
+                    .library(name: "\(libraryName)", type: .static, targets: [
+                        \(libraryTargets.map({ "\"\($0.name)\"" }).joined(separator: ","))
+                    ])
+                ]
+                """
             try fileSystem.writeFileContents(packageFile, string: packageContents)
 
             // Build
@@ -282,7 +282,7 @@ struct BuildPrebuilts: AsyncParsableCommand {
             certChainPathStrs = [
                 certsPath.appending("Test_rsa.cer").pathString,
                 certsPath.appending("TestIntermediateCA.cer").pathString,
-                certsPath.appending("TestRootCA.cer").pathString
+                certsPath.appending("TestRootCA.cer").pathString,
             ]
         }
 
@@ -346,11 +346,11 @@ struct BuildPrebuilts: AsyncParsableCommand {
 func shell(_ command: String, cwd: AbsolutePath) async throws {
     _ = FileManager.default.changeCurrentDirectoryPath(cwd.pathString)
 
-#if os(Windows)
-    let arguments = ["C:\\Windows\\System32\\cmd.exe", "/c", command]
-#else
-    let arguments = ["/bin/bash", "-c", command]
-#endif
+    #if os(Windows)
+        let arguments = ["C:\\Windows\\System32\\cmd.exe", "/c", command]
+    #else
+        let arguments = ["/bin/bash", "-c", command]
+    #endif
     let process = AsyncProcess(
         arguments: arguments,
         outputRedirection: .none
@@ -363,13 +363,13 @@ func shell(_ command: String, cwd: AbsolutePath) async throws {
         if code != 0 {
             throw StringError("Command exited with code \(code): \(command)")
         }
-#if os(Windows)
-    case .abnormal(exception: let exception):
-        throw StringError("Command threw exception \(exception): \(command)")
-#else
-    case .signalled(signal: let signal):
-        throw StringError("Command exited on signal \(signal): \(command)")
-#endif
+    #if os(Windows)
+        case .abnormal(exception: let exception):
+            throw StringError("Command threw exception \(exception): \(command)")
+    #else
+        case .signalled(signal: let signal):
+            throw StringError("Command exited on signal \(signal): \(command)")
+    #endif
     }
 }
 

@@ -69,9 +69,9 @@ internal struct SBOMExtractor {
                             // can't read the license in the root directory bc SBOM generation isn't always running in swift-package-manager
                             name: PackageCollectionsModel.LicenseType.Apache2_0.description,
                             url: "http://swift.org/LICENSE.txt"
-                        ),
+                        )
                     ]
-                ),
+                )
             ]
         )
     }
@@ -127,11 +127,12 @@ internal struct SBOMExtractor {
 
         let hasUncommittedChanges = gitRepo.hasUncommittedChanges()
         let currentTag = gitRepo.getCurrentTag()
-        let revisionString: String = if let currentTag {
-            hasUncommittedChanges ? "\(currentTag)-modified" : currentTag
-        } else {
-            hasUncommittedChanges ? "\(currentRevision.identifier)-modified" : currentRevision.identifier
-        }
+        let revisionString: String =
+            if let currentTag {
+                hasUncommittedChanges ? "\(currentTag)-modified" : currentTag
+            } else {
+                hasUncommittedChanges ? "\(currentRevision.identifier)-modified" : currentRevision.identifier
+            }
 
         let commit = try gitRepo.getCurrentBranch()
             .flatMap { try? gitRepo.getRemote(for: $0) }
@@ -189,16 +190,17 @@ internal struct SBOMExtractor {
                     originator: SBOMOriginator()
                 )
             }
-            
+
             guard let actualResolvedPackage = modulesGraph.packages.first(where: { $0.identity == packageIdentity }),
-                  let registryMetadata = actualResolvedPackage.registryMetadata,
-                  case .registry(let registryURL) = registryMetadata.source else {
+                let registryMetadata = actualResolvedPackage.registryMetadata,
+                case .registry(let registryURL) = registryMetadata.source
+            else {
                 return SBOMVersionInfo(
                     version: SBOMComponent.Version(revision: version),
                     originator: SBOMOriginator()
                 )
             }
-            
+
             let entry = SBOMRegistryEntry(
                 url: registryURL,
                 scope: registry.scope.description,
@@ -212,7 +214,7 @@ internal struct SBOMExtractor {
         } else {
             let commit = SBOMCommit(
                 sha: sha,
-                repository: resolvedPackage.packageRef.kind.locationString // absolute path, URL string, or package identity
+                repository: resolvedPackage.packageRef.kind.locationString  // absolute path, URL string, or package identity
             )
             return SBOMVersionInfo(
                 version: SBOMComponent.Version(revision: version, commit: commit),
@@ -308,7 +310,7 @@ internal struct SBOMExtractor {
         try await SBOMDocument(
             id: SBOMIdentifier.generate(),
             metadata: self.extractMetadata(),
-            primaryComponent: self.extractPrimaryComponent(product: product), // either a root package or a product of the root package
+            primaryComponent: self.extractPrimaryComponent(product: product),  // either a root package or a product of the root package
             dependencies: extractDependencies(product: product, filter: filter)
         )
     }

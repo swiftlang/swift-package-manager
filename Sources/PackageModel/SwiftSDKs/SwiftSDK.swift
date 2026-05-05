@@ -63,8 +63,8 @@ public enum SwiftSDKError: Swift.Error {
     case swiftSDKArtifactAlreadyInstalled(installedBundleName: String, newBundleName: String, artifactID: String)
 
     #if os(macOS)
-    /// Quarantine attribute should be removed by the `xattr` command from an installed bundle.
-    case quarantineAttributePresent(bundlePath: Basics.AbsolutePath)
+        /// Quarantine attribute should be removed by the `xattr` command from an installed bundle.
+        case quarantineAttributePresent(bundlePath: Basics.AbsolutePath)
     #endif
 }
 
@@ -73,20 +73,20 @@ extension SwiftSDKError: CustomStringConvertible {
         switch self {
         case let .checksumInvalid(computed, provided):
             return """
-            Computed archive checksum `\(computed)` does not match the provided checksum `\(provided)`.
-            """
+                Computed archive checksum `\(computed)` does not match the provided checksum `\(provided)`.
+                """
 
         case .checksumNotProvided(let url):
             return """
-            Bundles installed from remote URLs (`\(url)`) require their checksum passed via `--checksum` option.
-            The distributor of the bundle must compute it with the `swift package compute-checksum` \
-            command and provide it with their Swift SDK installation instructions.
-            """
+                Bundles installed from remote URLs (`\(url)`) require their checksum passed via `--checksum` option.
+                The distributor of the bundle must compute it with the `swift package compute-checksum` \
+                command and provide it with their Swift SDK installation instructions.
+                """
         case .invalidBundleArchive(let archivePath):
             return """
-            Swift SDK archive at `\(archivePath)` does not contain at least one directory with the \
-            `.artifactbundle` extension.
-            """
+                Swift SDK archive at `\(archivePath)` does not contain at least one directory with the \
+                `.artifactbundle` extension.
+                """
         case .invalidPathOrURL(let argument):
             return "`\(argument)` is neither a valid filesystem path nor a URL."
         case .invalidSchemaVersion:
@@ -95,50 +95,50 @@ extension SwiftSDKError: CustomStringConvertible {
             return problem
         case .invalidBundleName(let name):
             return """
-            invalid bundle name `\(name)`, unpacked Swift SDK bundles are expected to have `.artifactbundle` extension
-            """
+                invalid bundle name `\(name)`, unpacked Swift SDK bundles are expected to have `.artifactbundle` extension
+                """
         case .noSwiftSDKDecoded(let path):
             return "no valid Swift SDKs were decoded from a metadata file at path `\(path)`"
         case .pathIsNotDirectory(let path):
             return "path expected to be a directory is not a directory or doesn't exist: `\(path)`"
         case .unserializableMetadata:
             return """
-            Swift SDK configuration couldn't be serialized with the latest serialization schema, potentially because \
-            it was deserialized from an earlier incompatible schema version or initialized manually with missing \
-            properties required for initialization
-            """
+                Swift SDK configuration couldn't be serialized with the latest serialization schema, potentially because \
+                it was deserialized from an earlier incompatible schema version or initialized manually with missing \
+                properties required for initialization
+                """
         case .swiftSDKNotFound(let artifactID, let hostTriple, let targetTriple):
             if let targetTriple {
                 return """
-                Swift SDK with ID `\(artifactID)`, host triple \(hostTriple), and target triple \(targetTriple) is not \
-                currently installed.
-                """
+                    Swift SDK with ID `\(artifactID)`, host triple \(hostTriple), and target triple \(targetTriple) is not \
+                    currently installed.
+                    """
             } else {
                 return """
-                Swift SDK with ID `\(artifactID)` is not currently installed.
-                """
+                    Swift SDK with ID `\(artifactID)` is not currently installed.
+                    """
             }
         case .swiftSDKBundleAlreadyInstalled(let bundleName):
             return """
-            Swift SDK bundle with name `\(bundleName)` is already installed. Can't install a new bundle \
-            with the same name.
-            """
+                Swift SDK bundle with name `\(bundleName)` is already installed. Can't install a new bundle \
+                with the same name.
+                """
         case .swiftSDKArtifactAlreadyInstalled(let installedBundleName, let newBundleName, let artifactID):
             return """
-            A Swift SDK with artifact ID `\(artifactID)` is already included in an installed bundle with name \
-            `\(installedBundleName)`. Can't install a new bundle `\(newBundleName)` with this artifact, artifact IDs \
-            are expected to be unique across all installed Swift SDK bundles.
-            """
+                A Swift SDK with artifact ID `\(artifactID)` is already included in an installed bundle with name \
+                `\(installedBundleName)`. Can't install a new bundle `\(newBundleName)` with this artifact, artifact IDs \
+                are expected to be unique across all installed Swift SDK bundles.
+                """
         #if os(macOS)
-        case .quarantineAttributePresent(let bundlePath):
-            return """
-            Quarantine attribute is present on a Swift SDK bundle at path `\(bundlePath)`. If you're certain that the \
-            bundle was downloaded from a trusted source, you can remove the attribute with this command:
+            case .quarantineAttributePresent(let bundlePath):
+                return """
+                    Quarantine attribute is present on a Swift SDK bundle at path `\(bundlePath)`. If you're certain that the \
+                    bundle was downloaded from a trusted source, you can remove the attribute with this command:
 
-            xattr -d -r -s com.apple.quarantine "\(bundlePath)"
+                    xattr -d -r -s com.apple.quarantine "\(bundlePath)"
 
-            and try to install this bundle again.
-            """
+                    and try to install this bundle again.
+                    """
         #endif
         }
     }
@@ -576,25 +576,25 @@ public struct SwiftSDK: Equatable {
 
         let sdkPath: Basics.AbsolutePath?
         #if os(macOS)
-        let darwinPlatform = darwinPlatformOverride ?? .macOS
-        // Get the SDK.
-        if let value = environment["SDKROOT"] {
-            sdkPath = try AbsolutePath(validating: value)
-        } else if let value = environment[EnvironmentKey("SWIFTPM_SDKROOT_\(darwinPlatform.xcrunName)")] {
-            sdkPath = try AbsolutePath(validating: value)
-        } else {
-            // No value in env, so search for it.
-            let sdkPathStr = try AsyncProcess.checkNonZeroExit(
-                arguments: ["/usr/bin/xcrun", "--sdk", darwinPlatform.xcrunName, "--show-sdk-path"],
-                environment: environment
-            ).spm_chomp()
-            guard !sdkPathStr.isEmpty else {
-                throw SwiftSDKError.invalidInstallation("default SDK not found")
+            let darwinPlatform = darwinPlatformOverride ?? .macOS
+            // Get the SDK.
+            if let value = environment["SDKROOT"] {
+                sdkPath = try AbsolutePath(validating: value)
+            } else if let value = environment[EnvironmentKey("SWIFTPM_SDKROOT_\(darwinPlatform.xcrunName)")] {
+                sdkPath = try AbsolutePath(validating: value)
+            } else {
+                // No value in env, so search for it.
+                let sdkPathStr = try AsyncProcess.checkNonZeroExit(
+                    arguments: ["/usr/bin/xcrun", "--sdk", darwinPlatform.xcrunName, "--show-sdk-path"],
+                    environment: environment
+                ).spm_chomp()
+                guard !sdkPathStr.isEmpty else {
+                    throw SwiftSDKError.invalidInstallation("default SDK not found")
+                }
+                sdkPath = try AbsolutePath(validating: sdkPathStr)
             }
-            sdkPath = try AbsolutePath(validating: sdkPathStr)
-        }
         #else
-        sdkPath = nil
+            sdkPath = nil
         #endif
 
         // Compute common arguments for clang and swift.
@@ -602,22 +602,22 @@ public struct SwiftSDK: Equatable {
         var extraCCFlags: [String] = []
         var extraSwiftCFlags: [String] = []
         #if os(macOS)
-        do {
-            let sdkPaths = try SwiftSDK.sdkPlatformPaths(for: darwinPlatform, environment: environment)
-            extraCCFlags.append(contentsOf: sdkPaths.buildTimeFrameworkSearchPaths.flatMap { ["-F", $0.pathString] })
-            extraSwiftCFlags.append(contentsOf: sdkPaths.buildTimeFrameworkSearchPaths.flatMap { ["-F", $0.pathString] })
-            extraSwiftCFlags.append(contentsOf: sdkPaths.buildTimeLibrarySearchPaths.flatMap { ["-I", $0.pathString] })
-            extraSwiftCFlags.append(contentsOf: sdkPaths.buildTimeLibrarySearchPaths.flatMap { ["-L", $0.pathString] })
-            xctestSupport = .supported
-        } catch {
-            xctestSupport = .unsupported(reason: String(describing: error))
-        }
+            do {
+                let sdkPaths = try SwiftSDK.sdkPlatformPaths(for: darwinPlatform, environment: environment)
+                extraCCFlags.append(contentsOf: sdkPaths.buildTimeFrameworkSearchPaths.flatMap { ["-F", $0.pathString] })
+                extraSwiftCFlags.append(contentsOf: sdkPaths.buildTimeFrameworkSearchPaths.flatMap { ["-F", $0.pathString] })
+                extraSwiftCFlags.append(contentsOf: sdkPaths.buildTimeLibrarySearchPaths.flatMap { ["-I", $0.pathString] })
+                extraSwiftCFlags.append(contentsOf: sdkPaths.buildTimeLibrarySearchPaths.flatMap { ["-L", $0.pathString] })
+                xctestSupport = .supported
+            } catch {
+                xctestSupport = .unsupported(reason: String(describing: error))
+            }
         #else
-        xctestSupport = .supported
+            xctestSupport = .supported
         #endif
 
         #if !os(Windows)
-        extraCCFlags += ["-fPIC"]
+            extraCCFlags += ["-fPIC"]
         #endif
 
         return SwiftSDK(
@@ -678,12 +678,14 @@ public struct SwiftSDK: Equatable {
     ) throws -> PlatformPaths {
         let sdkPlatformFrameworkPath = try _sdkPlatformFrameworkPathCache.memoize(darwinPlatform) {
             // Compute the platform path.
-            let platformPath = try environment[
-                EnvironmentKey("SWIFTPM_PLATFORM_PATH_\(darwinPlatform.xcrunName)")
-            ] ?? AsyncProcess.checkNonZeroExit(
-                arguments: ["/usr/bin/xcrun", "--sdk", darwinPlatform.xcrunName, "--show-sdk-platform-path"],
-                environment: environment
-            ).spm_chomp()
+            let platformPath =
+                try environment[
+                    EnvironmentKey("SWIFTPM_PLATFORM_PATH_\(darwinPlatform.xcrunName)")
+                ]
+                ?? AsyncProcess.checkNonZeroExit(
+                    arguments: ["/usr/bin/xcrun", "--sdk", darwinPlatform.xcrunName, "--show-sdk-platform-path"],
+                    environment: environment
+                ).spm_chomp()
 
             guard !platformPath.isEmpty else {
                 throw StringError("could not determine SDK platform path")
@@ -691,15 +693,21 @@ public struct SwiftSDK: Equatable {
 
             // For testing frameworks.
             let frameworksPath = try Basics.AbsolutePath(validating: platformPath).appending(
-                components: "Developer", "Library", "Frameworks"
+                components: "Developer",
+                "Library",
+                "Frameworks"
             )
             let privateFrameworksPath = try Basics.AbsolutePath(validating: platformPath).appending(
-                components: "Developer", "Library", "PrivateFrameworks"
+                components: "Developer",
+                "Library",
+                "PrivateFrameworks"
             )
 
             // For testing libraries.
             let librariesPath = try Basics.AbsolutePath(validating: platformPath).appending(
-                components: "Developer", "usr", "lib"
+                components: "Developer",
+                "usr",
+                "lib"
             )
 
             let sdkPlatformFrameworkPath = PlatformPaths(
@@ -729,16 +737,16 @@ public struct SwiftSDK: Equatable {
         environment: Environment = .current
     ) -> SwiftSDK? {
         #if os(macOS)
-        if let darwinPlatform = targetTriple.darwinPlatform {
-            // the Darwin SDKs are trivially available on macOS
-            var sdk = try? self.systemSwiftSDK(
-                hostSDK.toolset.rootPaths.first,
-                environment: environment,
-                darwinPlatformOverride: darwinPlatform
-            )
-            sdk?.targetTriple = targetTriple
-            return sdk
-        }
+            if let darwinPlatform = targetTriple.darwinPlatform {
+                // the Darwin SDKs are trivially available on macOS
+                var sdk = try? self.systemSwiftSDK(
+                    hostSDK.toolset.rootPaths.first,
+                    environment: environment,
+                    darwinPlatformOverride: darwinPlatform
+                )
+                sdk?.targetTriple = targetTriple
+                return sdk
+            }
         #endif
 
         return nil
@@ -746,18 +754,18 @@ public struct SwiftSDK: Equatable {
 
     /// Computes the target Swift SDK for the given options.
     public static func deriveTargetSwiftSDK(
-      hostSwiftSDK: SwiftSDK,
-      hostTriple: Triple,
-      customToolsets: [Basics.AbsolutePath] = [],
-      customCompileDestination: Basics.AbsolutePath? = nil,
-      customCompileTriple: Triple? = nil,
-      customCompileToolchain: Basics.AbsolutePath? = nil,
-      customCompileSDK: Basics.AbsolutePath? = nil,
-      swiftSDKSelector: String? = nil,
-      architectures: [String] = [],
-      store: SwiftSDKBundleStore,
-      observabilityScope: ObservabilityScope,
-      fileSystem: FileSystem
+        hostSwiftSDK: SwiftSDK,
+        hostTriple: Triple,
+        customToolsets: [Basics.AbsolutePath] = [],
+        customCompileDestination: Basics.AbsolutePath? = nil,
+        customCompileTriple: Triple? = nil,
+        customCompileToolchain: Basics.AbsolutePath? = nil,
+        customCompileSDK: Basics.AbsolutePath? = nil,
+        swiftSDKSelector: String? = nil,
+        architectures: [String] = [],
+        store: SwiftSDKBundleStore,
+        observabilityScope: ObservabilityScope,
+        fileSystem: FileSystem
     ) throws -> SwiftSDK {
         var swiftSDK: SwiftSDK
         var isBasedOnHostSDK: Bool = false
@@ -773,15 +781,15 @@ public struct SwiftSDK: Equatable {
             if swiftSDKs.count == 1 {
                 swiftSDK = swiftSDKs[0]
             } else if swiftSDKs.count > 1,
-                      let triple = customCompileTriple,
-                      let matchingSDK = swiftSDKs.first(where: { $0.targetTriple == triple })
+                let triple = customCompileTriple,
+                let matchingSDK = swiftSDKs.first(where: { $0.targetTriple == triple })
             {
                 swiftSDK = matchingSDK
             } else {
                 throw SwiftSDKError.noSwiftSDKDecoded(customDestination)
             }
         } else if let targetTriple = customCompileTriple,
-                  let targetSwiftSDK = SwiftSDK.defaultSwiftSDK(for: targetTriple, hostSDK: hostSwiftSDK)
+            let targetSwiftSDK = SwiftSDK.defaultSwiftSDK(for: targetTriple, hostSDK: hostSwiftSDK)
         {
             swiftSDK = targetSwiftSDK
         } else if let swiftSDKSelector {
@@ -807,7 +815,8 @@ public struct SwiftSDK: Equatable {
                 // If a user-installed bundle for the selector doesn't exist, check if the
                 // selector is recognized as a default SDK.
                 if let targetTriple = try? Triple(swiftSDKSelector),
-                   let defaultSDK = SwiftSDK.defaultSwiftSDK(for: targetTriple, hostSDK: hostSwiftSDK) {
+                    let defaultSDK = SwiftSDK.defaultSwiftSDK(for: targetTriple, hostSDK: hostSwiftSDK)
+                {
                     swiftSDK = defaultSDK
                 } else {
                     throw error
@@ -950,11 +959,12 @@ extension SwiftSDK {
                 let triple = try Triple(triple)
 
                 let pathStrings = properties.toolsetPaths ?? []
-                let defaultTools: [Toolset.KnownTool: Toolset.ToolProperties] = if triple.isWasm {
-                    [.debugger: wasmKitProperties, .testRunner: wasmKitProperties]
-                } else {
-                    [:]
-                }
+                let defaultTools: [Toolset.KnownTool: Toolset.ToolProperties] =
+                    if triple.isWasm {
+                        [.debugger: wasmKitProperties, .testRunner: wasmKitProperties]
+                    } else {
+                        [:]
+                    }
                 let toolset = try pathStrings.reduce(into: Toolset(knownTools: defaultTools, rootPaths: [])) {
                     try $0.merge(
                         with: Toolset(
@@ -981,11 +991,12 @@ extension SwiftSDK {
             return try swiftSDKs.targetTriples.map { triple, properties in
                 let triple = try Triple(triple)
 
-                let defaultTools: [Toolset.KnownTool: Toolset.ToolProperties] = if triple.isWasm {
-                    [.debugger: wasmKitProperties, .testRunner: wasmKitProperties]
-                } else {
-                    [:]
-                }
+                let defaultTools: [Toolset.KnownTool: Toolset.ToolProperties] =
+                    if triple.isWasm {
+                        [.debugger: wasmKitProperties, .testRunner: wasmKitProperties]
+                    } else {
+                        [:]
+                    }
                 let pathStrings = properties.toolsetPaths ?? []
                 let toolset = try pathStrings.reduce(into: Toolset(knownTools: defaultTools, rootPaths: [])) {
                     try $0.merge(

@@ -28,13 +28,24 @@ package extension GitRepository {
     /// Returns current branch name. If HEAD is on a detached state, this returns HEAD.
     func currentBranch() throws -> String {
         return try AsyncProcess.checkNonZeroExit(
-            args: Git.tool, "-C", path.pathString, "rev-parse", "--abbrev-ref", "HEAD").spm_chomp()
+            args: Git.tool,
+            "-C",
+            path.pathString,
+            "rev-parse",
+            "--abbrev-ref",
+            "HEAD"
+        ).spm_chomp()
     }
 
     /// Returns the revision for a given tag.
     func revision(forTag tag: String) throws -> String {
         return try AsyncProcess.checkNonZeroExit(
-            args: Git.tool, "-C", path.pathString, "rev-parse", tag).spm_chomp()
+            args: Git.tool,
+            "-C",
+            path.pathString,
+            "rev-parse",
+            tag
+        ).spm_chomp()
     }
 
     /// Stage a file.

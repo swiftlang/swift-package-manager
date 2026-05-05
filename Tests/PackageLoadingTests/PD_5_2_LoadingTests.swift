@@ -192,7 +192,6 @@ final class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
             }
         }
 
-
         do {
             let content = """
                 import PackageDescription
@@ -284,7 +283,7 @@ final class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
         XCTAssertNoDiagnostics(observability.diagnostics)
         XCTAssertNoDiagnostics(validationDiagnostics)
 
-        let dependencies = Dictionary(uniqueKeysWithValues: manifest.dependencies.map{ ($0.nameForModuleDependencyResolutionOnly, $0) })
+        let dependencies = Dictionary(uniqueKeysWithValues: manifest.dependencies.map { ($0.nameForModuleDependencyResolutionOnly, $0) })
         let dependencyFoobar = dependencies["Foobar"]!
         let dependencyBarfoo = dependencies["Barfoo"]!
         let targetFoo = manifest.targetMap["foo"]!
@@ -433,8 +432,8 @@ final class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
 
     func testManifestLoadingIsSandboxed() async throws {
         #if !os(macOS)
-        // Sandboxing is only done on macOS today.
-        try XCTSkipIf(true, "test is only supported on macOS")
+            // Sandboxing is only done on macOS today.
+            try XCTSkipIf(true, "test is only supported on macOS")
         #endif
         let content = """
             import Foundation

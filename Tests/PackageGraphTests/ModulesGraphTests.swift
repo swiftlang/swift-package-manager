@@ -15,8 +15,7 @@ import Basics
 import PackageLoading
 import TSCUtility
 
-@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
-@testable import PackageGraph
+@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly) @testable import PackageGraph
 
 import _InternalTestSupport
 import PackageModel
@@ -45,7 +44,7 @@ struct ModulesGraphTests {
                 binaryArtifacts: [:],
             )
 
-            #expect(throws: StringError("Root package does not exist.")) { // Index out of range
+            #expect(throws: StringError("Root package does not exist.")) {  // Index out of range
                 let _ = try moduleGraph.getReplProductName()
             }
         }
@@ -120,7 +119,7 @@ struct ModulesGraphTests {
         try withKnownIssue {
             let fs = InMemoryFileSystem(
                 emptyFiles:
-                "/Foo/Sources/Foo/source.swift",
+                    "/Foo/Sources/Foo/source.swift",
                 "/Foo/Sources/Foo/source.swift",
                 "/Foo/Sources/FooDep/source.swift",
                 "/Foo/Tests/FooTests/source.swift",
@@ -137,7 +136,7 @@ struct ModulesGraphTests {
                         displayName: "Foo",
                         path: "/Foo",
                         products: [
-                            ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"]),
+                            ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"])
                         ],
                         targets: [
                             TargetDescription(name: "Foo", dependencies: ["FooDep"]),
@@ -148,20 +147,20 @@ struct ModulesGraphTests {
                         displayName: "Bar",
                         path: "/Bar",
                         dependencies: [
-                            .localSourceControl(path: "/Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                            .localSourceControl(path: "/Foo", requirement: .upToNextMajor(from: "1.0.0"))
                         ],
                         products: [
-                            ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"]),
+                            ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"])
                         ],
                         targets: [
-                            TargetDescription(name: "Bar", dependencies: ["Foo"], path: "./"),
+                            TargetDescription(name: "Bar", dependencies: ["Foo"], path: "./")
                         ]
                     ),
                     Manifest.createRootManifest(
                         displayName: "Baz",
                         path: "/Baz",
                         dependencies: [
-                            .localSourceControl(path: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                            .localSourceControl(path: "/Bar", requirement: .upToNextMajor(from: "1.0.0"))
                         ],
                         targets: [
                             TargetDescription(name: "Baz", dependencies: ["Bar"]),
@@ -199,7 +198,7 @@ struct ModulesGraphTests {
     func productDependencies() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/Foo/Sources/Foo/source.swift",
+                "/Foo/Sources/Foo/source.swift",
             "/Bar/Source/Bar/source.swift",
             "/Bar/Source/CBar/module.modulemap"
         )
@@ -212,10 +211,10 @@ struct ModulesGraphTests {
                     displayName: "Foo",
                     path: "/Foo",
                     dependencies: [
-                        .localSourceControl(path: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/Bar", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     targets: [
-                        TargetDescription(name: "Foo", dependencies: ["Bar", "CBar"]),
+                        TargetDescription(name: "Foo", dependencies: ["Bar", "CBar"])
                     ]
                 ),
                 Manifest.createFileSystemManifest(
@@ -260,36 +259,36 @@ struct ModulesGraphTests {
                     displayName: "Foo",
                     path: "/Foo",
                     dependencies: [
-                        .localSourceControl(path: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/Bar", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     targets: [
-                        TargetDescription(name: "Foo", dependencies: ["Bar"]),
+                        TargetDescription(name: "Foo", dependencies: ["Bar"])
                     ]
                 ),
                 Manifest.createFileSystemManifest(
                     displayName: "Bar",
                     path: "/Bar",
                     dependencies: [
-                        .localSourceControl(path: "/Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/Baz", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
-                        ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"]),
+                        ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"])
                     ],
                     targets: [
-                        TargetDescription(name: "Bar", dependencies: ["Baz"]),
+                        TargetDescription(name: "Bar", dependencies: ["Baz"])
                     ]
                 ),
                 Manifest.createFileSystemManifest(
                     displayName: "Baz",
                     path: "/Baz",
                     dependencies: [
-                        .localSourceControl(path: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/Bar", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
-                        ProductDescription(name: "Baz", type: .library(.automatic), targets: ["Baz"]),
+                        ProductDescription(name: "Baz", type: .library(.automatic), targets: ["Baz"])
                     ],
                     targets: [
-                        TargetDescription(name: "Baz", dependencies: ["Bar"]),
+                        TargetDescription(name: "Baz", dependencies: ["Bar"])
                     ]
                 ),
             ],
@@ -323,7 +322,7 @@ struct ModulesGraphTests {
                         TargetDescription(name: "Foo", dependencies: ["Bar"]),
                         TargetDescription(name: "Bar", dependencies: ["Foo"]),
                     ]
-                ),
+                )
             ],
             observabilityScope: observability.topScope
         )
@@ -354,20 +353,20 @@ struct ModulesGraphTests {
                     path: "/Foo",
                     toolsVersion: .v5_10,
                     dependencies: [
-                        .localSourceControl(path: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/Bar", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
-                        ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"]),
+                        ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"])
                     ],
                     targets: [
-                        TargetDescription(name: "Foo", dependencies: ["Bar"]),
+                        TargetDescription(name: "Foo", dependencies: ["Bar"])
                     ]
                 ),
                 Manifest.createFileSystemManifest(
                     displayName: "Bar",
                     path: "/Bar",
                     dependencies: [
-                        .localSourceControl(path: "/Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/Foo", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
                         ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"]),
@@ -409,39 +408,39 @@ struct ModulesGraphTests {
                         path: "/A",
                         toolsVersion: rootToolsVersion,
                         dependencies: [
-                            .localSourceControl(path: "/B", requirement: .upToNextMajor(from: "1.0.0")),
+                            .localSourceControl(path: "/B", requirement: .upToNextMajor(from: "1.0.0"))
                         ],
                         products: [
-                            ProductDescription(name: "A", type: .library(.automatic), targets: ["A"]),
+                            ProductDescription(name: "A", type: .library(.automatic), targets: ["A"])
                         ],
                         targets: [
-                            TargetDescription(name: "A", dependencies: ["B"]),
+                            TargetDescription(name: "A", dependencies: ["B"])
                         ]
                     ),
                     Manifest.createFileSystemManifest(
                         displayName: "B",
                         path: "/B",
                         dependencies: [
-                            .localSourceControl(path: "/C", requirement: .upToNextMajor(from: "1.0.0")),
+                            .localSourceControl(path: "/C", requirement: .upToNextMajor(from: "1.0.0"))
                         ],
                         products: [
-                            ProductDescription(name: "B", type: .library(.automatic), targets: ["B"]),
+                            ProductDescription(name: "B", type: .library(.automatic), targets: ["B"])
                         ],
                         targets: [
-                            TargetDescription(name: "B"),
+                            TargetDescription(name: "B")
                         ]
                     ),
                     Manifest.createFileSystemManifest(
                         displayName: "C",
                         path: "/C",
                         dependencies: [
-                            .localSourceControl(path: "/A", requirement: .upToNextMajor(from: "1.0.0")),
+                            .localSourceControl(path: "/A", requirement: .upToNextMajor(from: "1.0.0"))
                         ],
                         products: [
-                            ProductDescription(name: "C", type: .library(.automatic), targets: ["C"]),
+                            ProductDescription(name: "C", type: .library(.automatic), targets: ["C"])
                         ],
                         targets: [
-                            TargetDescription(name: "C"),
+                            TargetDescription(name: "C")
                         ]
                     ),
                 ],
@@ -478,20 +477,20 @@ struct ModulesGraphTests {
                     path: "/Foo",
                     toolsVersion: .v6_0,
                     dependencies: [
-                        .localSourceControl(path: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/Bar", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
-                        ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"]),
+                        ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"])
                     ],
                     targets: [
-                        TargetDescription(name: "Foo", dependencies: ["Bar"]),
+                        TargetDescription(name: "Foo", dependencies: ["Bar"])
                     ]
                 ),
                 Manifest.createFileSystemManifest(
                     displayName: "Bar",
                     path: "/Bar",
                     dependencies: [
-                        .localSourceControl(path: "/Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/Foo", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
                         ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"]),
@@ -531,13 +530,13 @@ struct ModulesGraphTests {
                     path: "/Foo",
                     toolsVersion: .v6_0,
                     products: [
-                        ProductDescription(name: "Foo", type: .library(.automatic), targets: ["FooTest"]),
+                        ProductDescription(name: "Foo", type: .library(.automatic), targets: ["FooTest"])
                     ],
                     targets: [
                         TargetDescription(name: "Foo", dependencies: ["FooTest"]),
                         TargetDescription(name: "FooTest", type: .test),
                     ]
-                ),
+                )
             ],
             observabilityScope: observability.topScope
         )
@@ -571,7 +570,7 @@ struct ModulesGraphTests {
                         TargetDescription(name: "Foo", dependencies: ["FooTest"], type: .executable),
                         TargetDescription(name: "FooTest", type: .test),
                     ]
-                ),
+                )
             ],
             observabilityScope: observability.topScope
         )
@@ -610,7 +609,7 @@ struct ModulesGraphTests {
                         ),
                         TargetDescription(name: "FooTest", type: .test),
                     ]
-                ),
+                )
             ],
             observabilityScope: observability.topScope
         )
@@ -648,7 +647,7 @@ struct ModulesGraphTests {
                         ),
                         TargetDescription(name: "FooTest", type: .test),
                     ]
-                ),
+                )
             ],
             observabilityScope: observability.topScope
         )
@@ -660,7 +659,6 @@ struct ModulesGraphTests {
             )
         }
     }
-
 
     @Test
     func validDependencyOnTestTarget() throws {
@@ -679,13 +677,12 @@ struct ModulesGraphTests {
                     displayName: "Foo",
                     path: "/Foo",
                     toolsVersion: .v6_0,
-                    products: [
-                    ],
+                    products: [],
                     targets: [
                         TargetDescription(name: "Foo", dependencies: ["FooTest"], type: .test),
                         TargetDescription(name: "FooTest", type: .test),
                     ]
-                ),
+                )
             ],
             observabilityScope: observability.topScope
         )
@@ -713,7 +710,7 @@ struct ModulesGraphTests {
                     displayName: "Bar",
                     path: "/Bar",
                     dependencies: [
-                        .localSourceControl(path: "/Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/Foo", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     targets: [
                         TargetDescription(name: "Bar", dependencies: ["Foo"]),
@@ -724,7 +721,7 @@ struct ModulesGraphTests {
                     displayName: "Foo",
                     path: "/Foo",
                     products: [
-                        ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"]),
+                        ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"])
                     ],
                     targets: [
                         TargetDescription(name: "Foo", dependencies: []),
@@ -781,7 +778,7 @@ struct ModulesGraphTests {
                             packageAccess: true
                         ),
                     ]
-                ),
+                )
             ],
             observabilityScope: observability.topScope
         )
@@ -814,7 +811,7 @@ struct ModulesGraphTests {
                     displayName: "Foo",
                     path: "/Foo",
                     dependencies: [
-                        .localSourceControl(path: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/Bar", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     targets: [
                         TargetDescription(name: "Foo"),
@@ -859,30 +856,30 @@ struct ModulesGraphTests {
                     displayName: "Fourth",
                     path: "/Fourth",
                     products: [
-                        ProductDescription(name: "Fourth", type: .library(.automatic), targets: ["First"]),
+                        ProductDescription(name: "Fourth", type: .library(.automatic), targets: ["First"])
                     ],
                     targets: [
-                        TargetDescription(name: "First"),
+                        TargetDescription(name: "First")
                     ]
                 ),
                 Manifest.createFileSystemManifest(
                     displayName: "Third",
                     path: "/Third",
                     products: [
-                        ProductDescription(name: "Third", type: .library(.automatic), targets: ["First"]),
+                        ProductDescription(name: "Third", type: .library(.automatic), targets: ["First"])
                     ],
                     targets: [
-                        TargetDescription(name: "First"),
+                        TargetDescription(name: "First")
                     ]
                 ),
                 Manifest.createFileSystemManifest(
                     displayName: "Second",
                     path: "/Second",
                     products: [
-                        ProductDescription(name: "Second", type: .library(.automatic), targets: ["First"]),
+                        ProductDescription(name: "Second", type: .library(.automatic), targets: ["First"])
                     ],
                     targets: [
-                        TargetDescription(name: "First"),
+                        TargetDescription(name: "First")
                     ]
                 ),
                 Manifest.createRootManifest(
@@ -894,7 +891,7 @@ struct ModulesGraphTests {
                         .localSourceControl(path: "/Fourth", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
-                        TargetDescription(name: "First", dependencies: ["Second", "Third", "Fourth"]),
+                        TargetDescription(name: "First", dependencies: ["Second", "Third", "Fourth"])
                     ]
                 ),
             ],
@@ -931,7 +928,7 @@ struct ModulesGraphTests {
                     displayName: "Fourth",
                     path: "/Fourth",
                     products: [
-                        ProductDescription(name: "Fourth", type: .library(.automatic), targets: ["Fourth", "Bar"]),
+                        ProductDescription(name: "Fourth", type: .library(.automatic), targets: ["Fourth", "Bar"])
                     ],
                     targets: [
                         TargetDescription(name: "Fourth"),
@@ -942,7 +939,7 @@ struct ModulesGraphTests {
                     displayName: "Third",
                     path: "/Third",
                     products: [
-                        ProductDescription(name: "Third", type: .library(.automatic), targets: ["Third", "Bar"]),
+                        ProductDescription(name: "Third", type: .library(.automatic), targets: ["Third", "Bar"])
                     ],
                     targets: [
                         TargetDescription(name: "Third"),
@@ -953,7 +950,7 @@ struct ModulesGraphTests {
                     displayName: "Second",
                     path: "/Second",
                     products: [
-                        ProductDescription(name: "Second", type: .library(.automatic), targets: ["Second", "Foo"]),
+                        ProductDescription(name: "Second", type: .library(.automatic), targets: ["Second", "Foo"])
                     ],
                     targets: [
                         TargetDescription(name: "Second"),
@@ -969,7 +966,7 @@ struct ModulesGraphTests {
                         .localSourceControl(path: "/Fourth", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
-                        ProductDescription(name: "First", type: .library(.automatic), targets: ["First", "Foo"]),
+                        ProductDescription(name: "First", type: .library(.automatic), targets: ["First", "Foo"])
                     ],
                     targets: [
                         TargetDescription(name: "First"),
@@ -1011,7 +1008,7 @@ struct ModulesGraphTests {
                     displayName: "Fourth",
                     path: "/Fourth",
                     products: [
-                        ProductDescription(name: "Fourth", type: .library(.automatic), targets: ["Fourth", "First"]),
+                        ProductDescription(name: "Fourth", type: .library(.automatic), targets: ["Fourth", "First"])
                     ],
                     targets: [
                         TargetDescription(name: "Fourth"),
@@ -1022,39 +1019,39 @@ struct ModulesGraphTests {
                     displayName: "Third",
                     path: "/Third",
                     dependencies: [
-                        .localSourceControl(path: "/Fourth", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/Fourth", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
-                        ProductDescription(name: "Third", type: .library(.automatic), targets: ["Third"]),
+                        ProductDescription(name: "Third", type: .library(.automatic), targets: ["Third"])
                     ],
                     targets: [
-                        TargetDescription(name: "Third", dependencies: ["Fourth"]),
+                        TargetDescription(name: "Third", dependencies: ["Fourth"])
                     ]
                 ),
                 Manifest.createFileSystemManifest(
                     displayName: "Second",
                     path: "/Second",
                     dependencies: [
-                        .localSourceControl(path: "/Third", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/Third", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
-                        ProductDescription(name: "Second", type: .library(.automatic), targets: ["Second"]),
+                        ProductDescription(name: "Second", type: .library(.automatic), targets: ["Second"])
                     ],
                     targets: [
-                        TargetDescription(name: "Second", dependencies: ["Third"]),
+                        TargetDescription(name: "Second", dependencies: ["Third"])
                     ]
                 ),
                 Manifest.createRootManifest(
                     displayName: "First",
                     path: "/First",
                     dependencies: [
-                        .localSourceControl(path: "/Second", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/Second", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
-                        ProductDescription(name: "First", type: .library(.automatic), targets: ["First"]),
+                        ProductDescription(name: "First", type: .library(.automatic), targets: ["First"])
                     ],
                     targets: [
-                        TargetDescription(name: "First", dependencies: ["Second"]),
+                        TargetDescription(name: "First", dependencies: ["Second"])
                     ]
                 ),
             ],
@@ -1087,10 +1084,10 @@ struct ModulesGraphTests {
                     displayName: "First",
                     path: "/First",
                     dependencies: [
-                        .localSourceControl(path: "/Second", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/Second", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
-                        ProductDescription(name: "First", type: .library(.automatic), targets: ["Foo", "Bar"]),
+                        ProductDescription(name: "First", type: .library(.automatic), targets: ["Foo", "Bar"])
                     ],
                     targets: [
                         TargetDescription(name: "Foo"),
@@ -1101,7 +1098,7 @@ struct ModulesGraphTests {
                     displayName: "Second",
                     path: "/Second",
                     products: [
-                        ProductDescription(name: "Second", type: .library(.automatic), targets: ["Foo", "Bar"]),
+                        ProductDescription(name: "Second", type: .library(.automatic), targets: ["Foo", "Bar"])
                     ],
                     targets: [
                         TargetDescription(name: "Foo"),
@@ -1144,14 +1141,14 @@ struct ModulesGraphTests {
                     displayName: "First",
                     path: "/First",
                     dependencies: [
-                        .localSourceControl(path: "/Second", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/Second", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
                         ProductDescription(
                             name: "First",
                             type: .library(.automatic),
                             targets: ["Foo", "Bar", "Baz", "Qux", "Quux"]
-                        ),
+                        )
                     ],
                     targets: [
                         TargetDescription(name: "Foo"),
@@ -1169,7 +1166,7 @@ struct ModulesGraphTests {
                             name: "Second",
                             type: .library(.automatic),
                             targets: ["Foo", "Bar", "Baz", "Qux", "Quux"]
-                        ),
+                        )
                     ],
                     targets: [
                         TargetDescription(name: "Foo"),
@@ -1211,10 +1208,10 @@ struct ModulesGraphTests {
                     displayName: "First",
                     path: "/First",
                     dependencies: [
-                        .registry(identity: "test.second", requirement: .upToNextMajor(from: "1.0.0")),
+                        .registry(identity: "test.second", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
-                        ProductDescription(name: "First", type: .library(.automatic), targets: ["Foo", "Bar"]),
+                        ProductDescription(name: "First", type: .library(.automatic), targets: ["Foo", "Bar"])
                     ],
                     targets: [
                         TargetDescription(name: "Foo"),
@@ -1226,7 +1223,7 @@ struct ModulesGraphTests {
                     identity: .plain("test.second"),
                     path: "/Second",
                     products: [
-                        ProductDescription(name: "Second", type: .library(.automatic), targets: ["Foo", "Bar"]),
+                        ProductDescription(name: "Second", type: .library(.automatic), targets: ["Foo", "Bar"])
                     ],
                     targets: [
                         TargetDescription(name: "Foo"),
@@ -1265,20 +1262,20 @@ struct ModulesGraphTests {
                     displayName: "Foo",
                     path: "/Foo",
                     dependencies: [
-                        .localSourceControl(path: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/Bar", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     targets: [
-                        TargetDescription(name: "Foo", dependencies: ["Bar"]),
+                        TargetDescription(name: "Foo", dependencies: ["Bar"])
                     ]
                 ),
                 Manifest.createFileSystemManifest(
                     displayName: "Bar",
                     path: .init(validating: Bar.pathString),
                     products: [
-                        ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"]),
+                        ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"])
                     ],
                     targets: [
-                        TargetDescription(name: "Bar"),
+                        TargetDescription(name: "Bar")
                     ]
                 ),
             ],
@@ -1312,12 +1309,12 @@ struct ModulesGraphTests {
                     displayName: "Bar",
                     path: "/Bar",
                     products: [
-                        ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"]),
+                        ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"])
                     ],
                     targets: [
-                        TargetDescription(name: "Bar"),
+                        TargetDescription(name: "Bar")
                     ]
-                ),
+                )
             ],
             observabilityScope: observability.topScope
         )
@@ -1344,9 +1341,9 @@ struct ModulesGraphTests {
                     displayName: "Foo",
                     path: "/Foo",
                     targets: [
-                        TargetDescription(name: "FooTarget", dependencies: ["Barx"]),
+                        TargetDescription(name: "FooTarget", dependencies: ["Barx"])
                     ]
-                ),
+                )
             ],
             observabilityScope: observability.topScope
         )
@@ -1378,7 +1375,7 @@ struct ModulesGraphTests {
                         TargetDescription(name: "Rail", dependencies: ["Spoke"]),
                         TargetDescription(name: "Spike"),
                     ]
-                ),
+                )
             ],
             observabilityScope: observability.topScope
         )
@@ -1407,10 +1404,10 @@ struct ModulesGraphTests {
                     displayName: "weather",
                     path: "/weather",
                     products: [
-                        ProductDescription(name: "Rain", type: .library(.automatic), targets: ["Rain"]),
+                        ProductDescription(name: "Rain", type: .library(.automatic), targets: ["Rain"])
                     ],
                     targets: [
-                        TargetDescription(name: "Rain"),
+                        TargetDescription(name: "Rain")
                     ]
                 ),
                 Manifest.createRootManifest(
@@ -1418,7 +1415,7 @@ struct ModulesGraphTests {
                     path: "/forecast",
                     dependencies: [.fileSystem(path: "/weather")],
                     targets: [
-                        TargetDescription(name: "Forecast", dependencies: ["Rail"]),
+                        TargetDescription(name: "Forecast", dependencies: ["Rail"])
                     ]
                 ),
             ],
@@ -1451,7 +1448,7 @@ struct ModulesGraphTests {
                     path: "/flavors",
                     products: [ProductDescription(name: "Bitter", type: .library(.automatic), targets: ["Bitter"])],
                     targets: [
-                        TargetDescription(name: "Bitter"),
+                        TargetDescription(name: "Bitter")
                     ]
                 ),
                 Manifest.createFileSystemManifest(
@@ -1459,7 +1456,7 @@ struct ModulesGraphTests {
                     path: "/farm",
                     products: [ProductDescription(name: "Butter", type: .library(.automatic), targets: ["Butter"])],
                     targets: [
-                        TargetDescription(name: "Butter"),
+                        TargetDescription(name: "Butter")
                     ]
                 ),
                 Manifest.createRootManifest(
@@ -1467,10 +1464,13 @@ struct ModulesGraphTests {
                     path: "/grocery",
                     dependencies: [.fileSystem(path: "/farm"), .fileSystem(path: "/flavors")],
                     targets: [
-                        TargetDescription(name: "Grocery", dependencies: [
-                            .product(name: "Biter", package: "farm"),
-                            .product(name: "Bitter", package: "flavors"),
-                        ]),
+                        TargetDescription(
+                            name: "Grocery",
+                            dependencies: [
+                                .product(name: "Biter", package: "farm"),
+                                .product(name: "Bitter", package: "flavors"),
+                            ]
+                        )
                     ]
                 ),
             ],
@@ -1503,11 +1503,13 @@ struct ModulesGraphTests {
                 Manifest.createFileSystemManifest(
                     displayName: "sandwich",
                     path: "/sandwich",
-                    products: [ProductDescription(
-                        name: "Sandwich",
-                        type: .library(.automatic),
-                        targets: ["Sandwich"]
-                    )],
+                    products: [
+                        ProductDescription(
+                            name: "Sandwich",
+                            type: .library(.automatic),
+                            targets: ["Sandwich"]
+                        )
+                    ],
                     targets: [
                         TargetDescription(name: "Sandwich", dependencies: ["Bread"]),
                         TargetDescription(name: "Bread"),
@@ -1520,7 +1522,7 @@ struct ModulesGraphTests {
                     // but there's a target with the same name.
                     dependencies: [.fileSystem(path: "/sandwich")],
                     targets: [
-                        TargetDescription(name: "Lunch", dependencies: [.product(name: "Bread", package: "sandwich")]),
+                        TargetDescription(name: "Lunch", dependencies: [.product(name: "Bread", package: "sandwich")])
                     ]
                 ),
             ],
@@ -1553,7 +1555,7 @@ struct ModulesGraphTests {
                     path: "/controls",
                     products: [ProductDescription(name: "Valve", type: .library(.automatic), targets: ["Valve"])],
                     targets: [
-                        TargetDescription(name: "Valve"),
+                        TargetDescription(name: "Valve")
                     ]
                 ),
                 Manifest.createRootManifest(
@@ -1563,9 +1565,13 @@ struct ModulesGraphTests {
                     // there's a lexically-close product name in a different package.
                     dependencies: [.fileSystem(path: "/controls")],
                     targets: [
-                        TargetDescription(name: "Chart", dependencies: [
-                            "Valv",
-                            .product(name: "Valve", package: "controls")]),
+                        TargetDescription(
+                            name: "Chart",
+                            dependencies: [
+                                "Valv",
+                                .product(name: "Valve", package: "controls"),
+                            ]
+                        ),
                         TargetDescription(name: "Value"),
                     ]
                 ),
@@ -1597,14 +1603,14 @@ struct ModulesGraphTests {
                     displayName: "Foo",
                     path: "/Foo",
                     targets: [
-                        TargetDescription(name: "Foo", dependencies: ["Qux"]),
+                        TargetDescription(name: "Foo", dependencies: ["Qux"])
                     ]
                 ),
                 Manifest.createRootManifest(
                     displayName: "Bar",
                     path: "/Bar",
                     targets: [
-                        TargetDescription(name: "Bar"),
+                        TargetDescription(name: "Bar")
                     ]
                 ),
             ],
@@ -1635,13 +1641,13 @@ struct ModulesGraphTests {
                     displayName: "Foo",
                     path: "/Foo",
                     products: [
-                        ProductDescription(name: "Foo", type: .library(.automatic), targets: ["FooTarget"]),
+                        ProductDescription(name: "Foo", type: .library(.automatic), targets: ["FooTarget"])
                     ],
                     targets: [
                         TargetDescription(name: "FooTarget", dependencies: []),
                         TargetDescription(name: "FooTests", dependencies: ["Foo"], type: .test),
                     ]
-                ),
+                )
             ],
             observabilityScope: observability.topScope
         )
@@ -1672,7 +1678,7 @@ struct ModulesGraphTests {
                         TargetDescription(name: "XYZ", dependencies: [], type: .executable),
                         TargetDescription(name: "XYZTests", dependencies: ["XYZ"], type: .test),
                     ]
-                ),
+                )
             ],
             observabilityScope: observability.topScope
         )
@@ -1695,13 +1701,13 @@ struct ModulesGraphTests {
                     displayName: "Foo",
                     path: "/Foo",
                     products: [
-                        ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"]),
+                        ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"])
                     ],
                     targets: [
                         TargetDescription(name: "Foo", dependencies: []),
                         TargetDescription(name: "FooTests", dependencies: ["Foo"], type: .test),
                     ]
-                ),
+                )
             ],
             observabilityScope: observability.topScope
         )
@@ -1724,9 +1730,9 @@ struct ModulesGraphTests {
                     path: "/Foo",
                     toolsVersion: .v5_2,
                     targets: [
-                        TargetDescription(name: "FooTarget", dependencies: [.product(name: "Barx", package: "Bar")]),
+                        TargetDescription(name: "FooTarget", dependencies: [.product(name: "Barx", package: "Bar")])
                     ]
-                ),
+                )
             ],
             observabilityScope: observability.topScope
         )
@@ -1755,10 +1761,10 @@ struct ModulesGraphTests {
                     path: "/Foo",
                     toolsVersion: .v5_2,
                     targets: [
-                        TargetDescription(name: "FooTarget", dependencies: [.product(name: "Barx")]),
+                        TargetDescription(name: "FooTarget", dependencies: [.product(name: "Barx")])
                     ],
                     traits: []
-                ),
+                )
             ],
             observabilityScope: observability.topScope
         )
@@ -1795,17 +1801,17 @@ struct ModulesGraphTests {
                         .localSourceControl(path: "/FizPath", requirement: .upToNextMajor(from: "1.1.2")),
                     ],
                     targets: [
-                        TargetDescription(name: "Foo", dependencies: ["BarLib", "Biz", "FizLib"]),
+                        TargetDescription(name: "Foo", dependencies: ["BarLib", "Biz", "FizLib"])
                     ]
                 ),
                 Manifest.createLocalSourceControlManifest(
                     displayName: "Bar",
                     path: "/Bar",
                     products: [
-                        ProductDescription(name: "BarLib", type: .library(.automatic), targets: ["BarLib"]),
+                        ProductDescription(name: "BarLib", type: .library(.automatic), targets: ["BarLib"])
                     ],
                     targets: [
-                        TargetDescription(name: "BarLib"),
+                        TargetDescription(name: "BarLib")
                     ]
                 ),
                 Manifest.createLocalSourceControlManifest(
@@ -1813,10 +1819,10 @@ struct ModulesGraphTests {
                     path: "/BizPath",
                     version: "1.2.3",
                     products: [
-                        ProductDescription(name: "Biz", type: .library(.automatic), targets: ["Biz"]),
+                        ProductDescription(name: "Biz", type: .library(.automatic), targets: ["Biz"])
                     ],
                     targets: [
-                        TargetDescription(name: "Biz"),
+                        TargetDescription(name: "Biz")
                     ]
                 ),
                 Manifest.createLocalSourceControlManifest(
@@ -1824,10 +1830,10 @@ struct ModulesGraphTests {
                     path: "/FizPath",
                     version: "1.2.3",
                     products: [
-                        ProductDescription(name: "FizLib", type: .library(.automatic), targets: ["FizLib"]),
+                        ProductDescription(name: "FizLib", type: .library(.automatic), targets: ["FizLib"])
                     ],
                     targets: [
-                        TargetDescription(name: "FizLib"),
+                        TargetDescription(name: "FizLib")
                     ]
                 ),
             ],
@@ -1837,20 +1843,20 @@ struct ModulesGraphTests {
         try expectDiagnostics(observability.diagnostics) { result in
             result.checkUnordered(
                 diagnostic: """
-                dependency 'BarLib' in target 'Foo' requires explicit declaration; reference the package in the target dependency with '.product(name: "BarLib", package: "Bar")'
-                """,
+                    dependency 'BarLib' in target 'Foo' requires explicit declaration; reference the package in the target dependency with '.product(name: "BarLib", package: "Bar")'
+                    """,
                 severity: .error
             )
             result.checkUnordered(
                 diagnostic: """
-                dependency 'Biz' in target 'Foo' requires explicit declaration; reference the package in the target dependency with '.product(name: "Biz", package: "BizPath")'
-                """,
+                    dependency 'Biz' in target 'Foo' requires explicit declaration; reference the package in the target dependency with '.product(name: "Biz", package: "BizPath")'
+                    """,
                 severity: .error
             )
             result.checkUnordered(
                 diagnostic: """
-                dependency 'FizLib' in target 'Foo' requires explicit declaration; reference the package in the target dependency with '.product(name: "FizLib", package: "FizPath")'
-                """,
+                    dependency 'FizLib' in target 'Foo' requires explicit declaration; reference the package in the target dependency with '.product(name: "FizLib", package: "FizPath")'
+                    """,
                 severity: .error
             )
         }
@@ -1873,20 +1879,20 @@ struct ModulesGraphTests {
                     path: "/Foo",
                     toolsVersion: .v5_2,
                     dependencies: [
-                        .localSourceControl(deprecatedName: "UnBar", path: "/Bar", requirement: .branch("main")),
+                        .localSourceControl(deprecatedName: "UnBar", path: "/Bar", requirement: .branch("main"))
                     ],
                     targets: [
-                        TargetDescription(name: "Foo", dependencies: [.product(name: "BarProduct", package: "UnBar")]),
+                        TargetDescription(name: "Foo", dependencies: [.product(name: "BarProduct", package: "UnBar")])
                     ]
                 ),
                 Manifest.createLocalSourceControlManifest(
                     displayName: "UnBar",
                     path: "/Bar",
                     products: [
-                        ProductDescription(name: "BarProduct", type: .library(.automatic), targets: ["Bar"]),
+                        ProductDescription(name: "BarProduct", type: .library(.automatic), targets: ["Bar"])
                     ],
                     targets: [
-                        TargetDescription(name: "Bar"),
+                        TargetDescription(name: "Bar")
                     ]
                 ),
             ],
@@ -1920,37 +1926,37 @@ struct ModulesGraphTests {
                         .localSourceControl(path: "/Biz", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
-                        TargetDescription(name: "Foo", dependencies: ["BarLibrary"]),
+                        TargetDescription(name: "Foo", dependencies: ["BarLibrary"])
                     ]
                 ),
                 Manifest.createFileSystemManifest(
                     displayName: "Biz",
                     path: "/Biz",
                     products: [
-                        ProductDescription(name: "biz", type: .executable, targets: ["Biz"]),
+                        ProductDescription(name: "biz", type: .executable, targets: ["Biz"])
                     ],
                     targets: [
-                        TargetDescription(name: "Biz"),
+                        TargetDescription(name: "Biz")
                     ]
                 ),
                 Manifest.createFileSystemManifest(
                     displayName: "Bar",
                     path: "/Bar",
                     products: [
-                        ProductDescription(name: "BarLibrary", type: .library(.automatic), targets: ["Bar"]),
+                        ProductDescription(name: "BarLibrary", type: .library(.automatic), targets: ["Bar"])
                     ],
                     targets: [
-                        TargetDescription(name: "Bar"),
+                        TargetDescription(name: "Bar")
                     ]
                 ),
                 Manifest.createFileSystemManifest(
                     displayName: "Baz",
                     path: "/Baz",
                     products: [
-                        ProductDescription(name: "BazLibrary", type: .library(.automatic), targets: ["Baz"]),
+                        ProductDescription(name: "BazLibrary", type: .library(.automatic), targets: ["Baz"])
                     ],
                     targets: [
-                        TargetDescription(name: "Baz"),
+                        TargetDescription(name: "Baz")
                     ]
                 ),
             ],
@@ -1963,9 +1969,9 @@ struct ModulesGraphTests {
             #expect(metadata.packageIdentity == "foo")
             let packageKind = try #require(metadata.packageKind)
             #expect(packageKind.isRoot)
-#if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
-            result.check(diagnostic: "dependency 'biz' is not used by any target", severity: .warning)
-#endif
+            #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
+                result.check(diagnostic: "dependency 'biz' is not used by any target", severity: .warning)
+            #endif
         }
     }
 
@@ -1985,10 +1991,10 @@ struct ModulesGraphTests {
                     displayName: "Bar",
                     path: "/Bar",
                     dependencies: [
-                        .localSourceControl(path: "/Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/Foo", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     targets: [
-                        TargetDescription(name: "Bar"),
+                        TargetDescription(name: "Bar")
                     ]
                 ),
                 Manifest.createFileSystemManifest(
@@ -2022,7 +2028,7 @@ struct ModulesGraphTests {
                         .localSourceControl(path: "/Foo", requirement: .upToNextMajor(from: "1.0.0")),
                         // Baz is unused by all targets in this package, and thus should be omitted
                         // with `pruneDependencies` enabled.
-                            .localSourceControl(path: "/Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/Baz", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(
@@ -2035,9 +2041,9 @@ struct ModulesGraphTests {
                                     // is not enabled by default, the package dependency `Foo` will
                                     // be omitted since `pruneDependencies` is enabled.
                                     condition: .init(traits: ["Trait2"])
-                                ),
+                                )
                             ]
-                        ),
+                        )
                     ],
                     traits: [.init(name: "default", enabledTraits: ["Trait1"]), "Trait1", "Trait2"],
                     pruneDependencies: true
@@ -2046,26 +2052,26 @@ struct ModulesGraphTests {
                     displayName: "Foo",
                     path: "/Foo",
                     products: [
-                        .init(name: "FooLibrary", type: .library(.automatic), targets: ["Foo"]),
+                        .init(name: "FooLibrary", type: .library(.automatic), targets: ["Foo"])
                     ],
                     targets: [
                         TargetDescription(
                             name: "Foo",
                             dependencies: []
-                        ),
+                        )
                     ]
                 ),
                 Manifest.createFileSystemManifest(
                     displayName: "Baz",
                     path: "/Baz",
                     products: [
-                        .init(name: "BazLibrary", type: .library(.automatic), targets: ["Baz"]),
+                        .init(name: "BazLibrary", type: .library(.automatic), targets: ["Baz"])
                     ],
                     targets: [
                         TargetDescription(
                             name: "Baz",
                             dependencies: []
-                        ),
+                        )
                     ]
 
                 ),
@@ -2095,7 +2101,7 @@ struct ModulesGraphTests {
                     displayName: "Start",
                     path: "/Start",
                     dependencies: [
-                        .localSourceControl(path: "/Dep1", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/Dep1", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     targets: [
                         TargetDescription(name: "Foo", dependencies: ["BazLibrary"]),
@@ -2106,13 +2112,13 @@ struct ModulesGraphTests {
                     displayName: "Dep1",
                     path: "/Dep1",
                     dependencies: [
-                        .localSourceControl(path: "/Dep2", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/Dep2", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
-                        ProductDescription(name: "BazLibrary", type: .library(.automatic), targets: ["Baz"]),
+                        ProductDescription(name: "BazLibrary", type: .library(.automatic), targets: ["Baz"])
                     ],
                     targets: [
-                        TargetDescription(name: "Baz", dependencies: ["FooLibrary"]),
+                        TargetDescription(name: "Baz", dependencies: ["FooLibrary"])
                     ]
                 ),
                 Manifest.createFileSystemManifest(
@@ -2164,27 +2170,27 @@ struct ModulesGraphTests {
                             .localSourceControl(path: bazPkg, requirement: .upToNextMajor(from: "1.0.0")),
                         ],
                         targets: [
-                            TargetDescription(name: "Foo", dependencies: ["Bar"]),
+                            TargetDescription(name: "Foo", dependencies: ["Bar"])
                         ]
                     ),
                     Manifest.createFileSystemManifest(
                         displayName: "Bar",
                         path: barPkg,
                         products: [
-                            ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"]),
+                            ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"])
                         ],
                         targets: [
-                            TargetDescription(name: "Bar"),
+                            TargetDescription(name: "Bar")
                         ]
                     ),
                     Manifest.createFileSystemManifest(
                         displayName: "Baz",
                         path: bazPkg,
                         products: [
-                            ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Baz"]),
+                            ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Baz"])
                         ],
                         targets: [
-                            TargetDescription(name: "Baz"),
+                            TargetDescription(name: "Baz")
                         ]
                     ),
                 ],
@@ -2217,7 +2223,7 @@ struct ModulesGraphTests {
                     displayName: "Foo",
                     path: "/Foo",
                     dependencies: [
-                        .localSourceControl(path: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/Bar", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     targets: [
                         TargetDescription(name: "Foo", dependencies: ["Bar"]),
@@ -2254,7 +2260,7 @@ struct ModulesGraphTests {
                         TargetDescription(
                             name: "Bar3",
                             settings: [
-                                .init(tool: .swift, kind: .unsafeFlags([])),
+                                .init(tool: .swift, kind: .unsafeFlags([]))
                             ]
                         ),
                         TargetDescription(
@@ -2278,7 +2284,6 @@ struct ModulesGraphTests {
         #expect(observability.diagnostics.count == 0)
     }
 
-
     @Test
     func testUnsafeFlagsEnabled() throws {
         let observability = try loadUnsafeModulesGraph(toolsVersion: .v6_1)
@@ -2287,24 +2292,30 @@ struct ModulesGraphTests {
         try expectDiagnostics(observability.diagnostics) { result in
             var expectedMetadata = ObservabilityMetadata()
             expectedMetadata.moduleName = "Foo2"
-            let diagnostic1 = try #require(result.checkUnordered(
-                diagnostic: .contains("the target 'Bar2' in product 'TransitiveBar' contains unsafe build flags"),
-                severity: .error
-            ))
+            let diagnostic1 = try #require(
+                result.checkUnordered(
+                    diagnostic: .contains("the target 'Bar2' in product 'TransitiveBar' contains unsafe build flags"),
+                    severity: .error
+                )
+            )
             let diagnostic1_metadata = try #require(diagnostic1.metadata)
             #expect(diagnostic1_metadata.moduleName == "Foo2")
 
-            let diagnostic2 = try #require(result.checkUnordered(
-                diagnostic: .contains("the target 'Bar' in product 'Bar' contains unsafe build flags"),
-                severity: .error
-            ))
+            let diagnostic2 = try #require(
+                result.checkUnordered(
+                    diagnostic: .contains("the target 'Bar' in product 'Bar' contains unsafe build flags"),
+                    severity: .error
+                )
+            )
             let diagnostic2_metadata = try #require(diagnostic2.metadata)
             #expect(diagnostic2_metadata.moduleName == "Foo")
 
-            let diagnostic3 = try #require(result.checkUnordered(
-                diagnostic: .contains("the target 'Bar2' in product 'Bar' contains unsafe build flags"),
-                severity: .error
-            ))
+            let diagnostic3 = try #require(
+                result.checkUnordered(
+                    diagnostic: .contains("the target 'Bar2' in product 'Bar' contains unsafe build flags"),
+                    severity: .error
+                )
+            )
             let diagnostic3_metadata = try #require(diagnostic3.metadata)
             #expect(diagnostic3_metadata.moduleName == "Foo")
         }
@@ -2328,23 +2339,36 @@ struct ModulesGraphTests {
                     displayName: "Foo",
                     path: "/Foo",
                     dependencies: [
-                        .fileSystem(path: "/Biz"),
+                        .fileSystem(path: "/Biz")
                     ],
                     targets: [
-                        TargetDescription(name: "Foo", dependencies: [
-                            .target(name: "Bar", condition: PackageConditionDescription(
-                                platformNames: ["linux"],
-                                config: nil
-                            )),
-                            .byName(name: "Baz", condition: PackageConditionDescription(
-                                platformNames: [],
-                                config: "debug"
-                            )),
-                            .product(name: "Biz", package: "Biz", condition: PackageConditionDescription(
-                                platformNames: ["watchos", "ios"],
-                                config: "release"
-                            )),
-                        ]),
+                        TargetDescription(
+                            name: "Foo",
+                            dependencies: [
+                                .target(
+                                    name: "Bar",
+                                    condition: PackageConditionDescription(
+                                        platformNames: ["linux"],
+                                        config: nil
+                                    )
+                                ),
+                                .byName(
+                                    name: "Baz",
+                                    condition: PackageConditionDescription(
+                                        platformNames: [],
+                                        config: "debug"
+                                    )
+                                ),
+                                .product(
+                                    name: "Biz",
+                                    package: "Biz",
+                                    condition: PackageConditionDescription(
+                                        platformNames: ["watchos", "ios"],
+                                        config: "release"
+                                    )
+                                ),
+                            ]
+                        ),
                         TargetDescription(name: "Bar"),
                         TargetDescription(name: "Baz"),
                     ],
@@ -2354,10 +2378,10 @@ struct ModulesGraphTests {
                     displayName: "Biz",
                     path: "/Biz",
                     products: [
-                        ProductDescription(name: "Biz", type: .library(.automatic), targets: ["Biz"]),
+                        ProductDescription(name: "Biz", type: .library(.automatic), targets: ["Biz"])
                     ],
                     targets: [
-                        TargetDescription(name: "Biz"),
+                        TargetDescription(name: "Biz")
                     ]
                 ),
             ],
@@ -2411,12 +2435,15 @@ struct ModulesGraphTests {
                     path: "/Root",
                     toolsVersion: .v5_2,
                     dependencies: [
-                        .localSourceControl(path: "/Immediate", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/Immediate", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     targets: [
-                        TargetDescription(name: "Root", dependencies: [
-                            .product(name: "ImmediateUsed", package: "Immediate"),
-                        ]),
+                        TargetDescription(
+                            name: "Root",
+                            dependencies: [
+                                .product(name: "ImmediateUsed", package: "Immediate")
+                            ]
+                        )
                     ]
                 ),
                 Manifest.createFileSystemManifest(
@@ -2446,13 +2473,19 @@ struct ModulesGraphTests {
                         ),
                     ],
                     targets: [
-                        TargetDescription(name: "ImmediateUsed", dependencies: [
-                            .product(name: "TransitiveUsed", package: "Transitive"),
-                        ]),
-                        TargetDescription(name: "ImmediateUnused", dependencies: [
-                            .product(name: "TransitiveUnused", package: "Transitive"),
-                            .product(name: "Nonexistent", package: "Nonexistent"),
-                        ]),
+                        TargetDescription(
+                            name: "ImmediateUsed",
+                            dependencies: [
+                                .product(name: "TransitiveUsed", package: "Transitive")
+                            ]
+                        ),
+                        TargetDescription(
+                            name: "ImmediateUnused",
+                            dependencies: [
+                                .product(name: "TransitiveUnused", package: "Transitive"),
+                                .product(name: "Nonexistent", package: "Nonexistent"),
+                            ]
+                        ),
                     ]
                 ),
                 Manifest.createFileSystemManifest(
@@ -2463,20 +2496,23 @@ struct ModulesGraphTests {
                         .localSourceControl(
                             path: "/Nonexistent",
                             requirement: .upToNextMajor(from: "1.0.0")
-                        ),
+                        )
                     ],
                     products: [
                         ProductDescription(
                             name: "TransitiveUsed",
                             type: .library(.automatic),
                             targets: ["TransitiveUsed"]
-                        ),
+                        )
                     ],
                     targets: [
                         TargetDescription(name: "TransitiveUsed"),
-                        TargetDescription(name: "TransitiveUnused", dependencies: [
-                            .product(name: "Nonexistent", package: "Nonexistent"),
-                        ]),
+                        TargetDescription(
+                            name: "TransitiveUnused",
+                            dependencies: [
+                                .product(name: "Nonexistent", package: "Nonexistent")
+                            ]
+                        ),
                     ]
                 ),
             ],
@@ -2489,32 +2525,32 @@ struct ModulesGraphTests {
     @Test
     func resolvedPackagesStoreIsResilientAgainstDupes() throws {
         let json = """
-              {
-                "version": 1,
-                "object": {
-                  "pins": [
-                    {
-                      "package": "Yams",
-                      "repositoryURL": "https://github.com/jpsim/yams",
-                      "state": {
-                        "branch": null,
-                        "revision": "b08dba4bcea978bf1ad37703a384097d3efce5af",
-                        "version": "1.0.2"
-                      }
-                    },
-                    {
-                      "package": "Yams",
-                      "repositoryURL": "https://github.com/jpsim/yams",
-                      "state": {
-                        "branch": null,
-                        "revision": "b08dba4bcea978bf1ad37703a384097d3efce5af",
-                        "version": "1.0.2"
-                      }
+                  {
+                    "version": 1,
+                    "object": {
+                      "pins": [
+                        {
+                          "package": "Yams",
+                          "repositoryURL": "https://github.com/jpsim/yams",
+                          "state": {
+                            "branch": null,
+                            "revision": "b08dba4bcea978bf1ad37703a384097d3efce5af",
+                            "version": "1.0.2"
+                          }
+                        },
+                        {
+                          "package": "Yams",
+                          "repositoryURL": "https://github.com/jpsim/yams",
+                          "state": {
+                            "branch": null,
+                            "revision": "b08dba4bcea978bf1ad37703a384097d3efce5af",
+                            "version": "1.0.2"
+                          }
+                        }
+                      ]
                     }
-                  ]
-                }
-              }
-        """
+                  }
+            """
 
         let fs = InMemoryFileSystem()
         let packageResolvedFile = AbsolutePath("/Package.resolved")
@@ -2562,57 +2598,57 @@ struct ModulesGraphTests {
                         .localSourceControl(path: "/F", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
-                        TargetDescription(name: "A", dependencies: []),
+                        TargetDescription(name: "A", dependencies: [])
                     ]
                 ),
                 Manifest.createFileSystemManifest(
                     displayName: "B",
                     path: "/B",
                     products: [
-                        ProductDescription(name: "B", type: .library(.automatic), targets: ["B"]),
+                        ProductDescription(name: "B", type: .library(.automatic), targets: ["B"])
                     ],
                     targets: [
-                        TargetDescription(name: "B"),
+                        TargetDescription(name: "B")
                     ]
                 ),
                 Manifest.createFileSystemManifest(
                     displayName: "C",
                     path: "/C",
                     products: [
-                        ProductDescription(name: "C", type: .library(.automatic), targets: ["C"]),
+                        ProductDescription(name: "C", type: .library(.automatic), targets: ["C"])
                     ],
                     targets: [
-                        TargetDescription(name: "C"),
+                        TargetDescription(name: "C")
                     ]
                 ),
                 Manifest.createFileSystemManifest(
                     displayName: "D",
                     path: "/D",
                     products: [
-                        ProductDescription(name: "D", type: .library(.automatic), targets: ["D"]),
+                        ProductDescription(name: "D", type: .library(.automatic), targets: ["D"])
                     ],
                     targets: [
-                        TargetDescription(name: "D"),
+                        TargetDescription(name: "D")
                     ]
                 ),
                 Manifest.createFileSystemManifest(
                     displayName: "E",
                     path: "/E",
                     products: [
-                        ProductDescription(name: "E", type: .library(.automatic), targets: ["E"]),
+                        ProductDescription(name: "E", type: .library(.automatic), targets: ["E"])
                     ],
                     targets: [
-                        TargetDescription(name: "E"),
+                        TargetDescription(name: "E")
                     ]
                 ),
                 Manifest.createFileSystemManifest(
                     displayName: "F",
                     path: "/F",
                     products: [
-                        ProductDescription(name: "F", type: .library(.automatic), targets: ["F"]),
+                        ProductDescription(name: "F", type: .library(.automatic), targets: ["F"])
                     ],
                     targets: [
-                        TargetDescription(name: "F"),
+                        TargetDescription(name: "F")
                     ]
                 ),
             ],
@@ -2645,10 +2681,10 @@ struct ModulesGraphTests {
                     path: "/Foo",
                     toolsVersion: .v5,
                     dependencies: [
-                        .localSourceControl(path: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/Bar", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     targets: [
-                        TargetDescription(name: "Foo", dependencies: ["Bar"]),
+                        TargetDescription(name: "Foo", dependencies: ["Bar"])
                     ]
                 ),
                 Manifest.createFileSystemManifest(
@@ -2656,10 +2692,10 @@ struct ModulesGraphTests {
                     path: "/Bar",
                     toolsVersion: .v5,
                     products: [
-                        ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"]),
+                        ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"])
                     ],
                     targets: [
-                        TargetDescription(name: "Bar"),
+                        TargetDescription(name: "Bar")
                     ]
                 ),
             ],
@@ -2686,10 +2722,10 @@ struct ModulesGraphTests {
                     path: "/Foo",
                     toolsVersion: .v5,
                     dependencies: [
-                        .localSourceControl(path: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/Bar", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     targets: [
-                        TargetDescription(name: "Foo", dependencies: ["Unknown"]),
+                        TargetDescription(name: "Foo", dependencies: ["Unknown"])
                     ]
                 ),
                 Manifest.createFileSystemManifest(
@@ -2697,10 +2733,10 @@ struct ModulesGraphTests {
                     path: "/Bar",
                     toolsVersion: .v5,
                     products: [
-                        ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"]),
+                        ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"])
                     ],
                     targets: [
-                        TargetDescription(name: "Bar"),
+                        TargetDescription(name: "Bar")
                     ]
                 ),
             ],
@@ -2710,8 +2746,8 @@ struct ModulesGraphTests {
         try expectDiagnostics(observability.diagnostics) { result in
             result.check(
                 diagnostic: """
-                product 'Unknown' required by package 'foo' target 'Foo' not found.
-                """,
+                    product 'Unknown' required by package 'foo' target 'Foo' not found.
+                    """,
                 severity: .error
             )
         }
@@ -2734,10 +2770,10 @@ struct ModulesGraphTests {
                     path: "/Foo",
                     toolsVersion: .v5_2,
                     dependencies: [
-                        .localSourceControl(path: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/Bar", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     targets: [
-                        TargetDescription(name: "Foo", dependencies: ["Bar"]),
+                        TargetDescription(name: "Foo", dependencies: ["Bar"])
                     ]
                 ),
                 Manifest.createFileSystemManifest(
@@ -2745,10 +2781,10 @@ struct ModulesGraphTests {
                     path: "/Bar",
                     toolsVersion: .v5_2,
                     products: [
-                        ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"]),
+                        ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"])
                     ],
                     targets: [
-                        TargetDescription(name: "Bar"),
+                        TargetDescription(name: "Bar")
                     ]
                 ),
             ],
@@ -2775,10 +2811,10 @@ struct ModulesGraphTests {
                     path: "/Foo",
                     toolsVersion: .v5_2,
                     dependencies: [
-                        .localSourceControl(path: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/Bar", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     targets: [
-                        TargetDescription(name: "Foo", dependencies: ["Unknown"]),
+                        TargetDescription(name: "Foo", dependencies: ["Unknown"])
                     ]
                 ),
                 Manifest.createFileSystemManifest(
@@ -2786,10 +2822,10 @@ struct ModulesGraphTests {
                     path: "/Bar",
                     toolsVersion: .v5_2,
                     products: [
-                        ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"]),
+                        ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"])
                     ],
                     targets: [
-                        TargetDescription(name: "Bar"),
+                        TargetDescription(name: "Bar")
                     ]
                 ),
             ],
@@ -2799,8 +2835,8 @@ struct ModulesGraphTests {
         try expectDiagnostics(observability.diagnostics) { result in
             result.check(
                 diagnostic: """
-                product 'Unknown' required by package 'foo' target 'Foo' not found.
-                """,
+                    product 'Unknown' required by package 'foo' target 'Foo' not found.
+                    """,
                 severity: .error
             )
         }
@@ -2820,10 +2856,10 @@ struct ModulesGraphTests {
                 path: "/Foo",
                 toolsVersion: .v5_2,
                 dependencies: [
-                    .localSourceControl(path: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    .localSourceControl(path: "/Bar", requirement: .upToNextMajor(from: "1.0.0"))
                 ],
                 targets: [
-                    TargetDescription(name: "Foo", dependencies: ["ProductBar"]),
+                    TargetDescription(name: "Foo", dependencies: ["ProductBar"])
                 ]
             ),
             Manifest.createFileSystemManifest(
@@ -2831,10 +2867,10 @@ struct ModulesGraphTests {
                 path: "/Bar",
                 toolsVersion: .v5_2,
                 products: [
-                    ProductDescription(name: "ProductBar", type: .library(.automatic), targets: ["Bar"]),
+                    ProductDescription(name: "ProductBar", type: .library(.automatic), targets: ["Bar"])
                 ],
                 targets: [
-                    TargetDescription(name: "Bar"),
+                    TargetDescription(name: "Bar")
                 ]
             ),
         ]
@@ -2845,8 +2881,8 @@ struct ModulesGraphTests {
             try expectDiagnostics(observability.diagnostics) { result in
                 result.check(
                     diagnostic: """
-                    dependency 'ProductBar' in target 'Foo' requires explicit declaration; reference the package in the target dependency with '.product(name: "ProductBar", package: "Bar")'
-                    """,
+                        dependency 'ProductBar' in target 'Foo' requires explicit declaration; reference the package in the target dependency with '.product(name: "ProductBar", package: "Bar")'
+                        """,
                     severity: .error
                 )
             }
@@ -2857,9 +2893,9 @@ struct ModulesGraphTests {
         do {
             let fixedManifests = try [
                 manifests[0].withTargets([
-                    TargetDescription(name: "Foo", dependencies: [.product(name: "ProductBar", package: "Bar")]),
+                    TargetDescription(name: "Foo", dependencies: [.product(name: "ProductBar", package: "Bar")])
                 ]),
-                manifests[1], // same
+                manifests[1],  // same
             ]
 
             let observability = ObservabilitySystem.makeForTesting()
@@ -2891,10 +2927,10 @@ struct ModulesGraphTests {
                         deprecatedName: "Bar",
                         path: "/Bar",
                         requirement: .upToNextMajor(from: "1.0.0")
-                    ),
+                    )
                 ],
                 targets: [
-                    TargetDescription(name: "Foo", dependencies: ["ProductBar"]),
+                    TargetDescription(name: "Foo", dependencies: ["ProductBar"])
                 ]
             ),
             Manifest.createFileSystemManifest(
@@ -2902,10 +2938,10 @@ struct ModulesGraphTests {
                 path: "/Bar",
                 toolsVersion: .v5_2,
                 products: [
-                    ProductDescription(name: "ProductBar", type: .library(.automatic), targets: ["Bar"]),
+                    ProductDescription(name: "ProductBar", type: .library(.automatic), targets: ["Bar"])
                 ],
                 targets: [
-                    TargetDescription(name: "Bar"),
+                    TargetDescription(name: "Bar")
                 ]
             ),
         ]
@@ -2916,8 +2952,8 @@ struct ModulesGraphTests {
             try expectDiagnostics(observability.diagnostics) { result in
                 result.check(
                     diagnostic: """
-                    dependency 'ProductBar' in target 'Foo' requires explicit declaration; reference the package in the target dependency with '.product(name: "ProductBar", package: "Bar")'
-                    """,
+                        dependency 'ProductBar' in target 'Foo' requires explicit declaration; reference the package in the target dependency with '.product(name: "ProductBar", package: "Bar")'
+                        """,
                     severity: .error
                 )
             }
@@ -2928,9 +2964,9 @@ struct ModulesGraphTests {
         do {
             let fixedManifests = try [
                 manifests[0].withTargets([
-                    TargetDescription(name: "Foo", dependencies: [.product(name: "ProductBar", package: "Bar")]),
+                    TargetDescription(name: "Foo", dependencies: [.product(name: "ProductBar", package: "Bar")])
                 ]),
-                manifests[1], // same
+                manifests[1],  // same
             ]
 
             let observability = ObservabilitySystem.makeForTesting()
@@ -2957,10 +2993,10 @@ struct ModulesGraphTests {
                 path: "/Foo",
                 toolsVersion: .v5_2,
                 dependencies: [
-                    .localSourceControl(path: "/Some-Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    .localSourceControl(path: "/Some-Bar", requirement: .upToNextMajor(from: "1.0.0"))
                 ],
                 targets: [
-                    TargetDescription(name: "Foo", dependencies: ["Bar"]),
+                    TargetDescription(name: "Foo", dependencies: ["Bar"])
                 ]
             ),
             Manifest.createFileSystemManifest(
@@ -2968,10 +3004,10 @@ struct ModulesGraphTests {
                 path: "/Some-Bar",
                 toolsVersion: .v5_2,
                 products: [
-                    ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"]),
+                    ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"])
                 ],
                 targets: [
-                    TargetDescription(name: "Bar"),
+                    TargetDescription(name: "Bar")
                 ]
             ),
         ]
@@ -2982,8 +3018,8 @@ struct ModulesGraphTests {
             try expectDiagnostics(observability.diagnostics) { result in
                 result.check(
                     diagnostic: """
-                    dependency 'Bar' in target 'Foo' requires explicit declaration; reference the package in the target dependency with '.product(name: "Bar", package: "Some-Bar")'
-                    """,
+                        dependency 'Bar' in target 'Foo' requires explicit declaration; reference the package in the target dependency with '.product(name: "Bar", package: "Some-Bar")'
+                        """,
                     severity: .error
                 )
             }
@@ -2994,9 +3030,9 @@ struct ModulesGraphTests {
         do {
             let fixedManifests = try [
                 manifests[0].withTargets([
-                    TargetDescription(name: "Foo", dependencies: [.product(name: "Bar", package: "Some-Bar")]),
+                    TargetDescription(name: "Foo", dependencies: [.product(name: "Bar", package: "Some-Bar")])
                 ]),
-                manifests[1], // same
+                manifests[1],  // same
             ]
 
             let observability = ObservabilitySystem.makeForTesting()
@@ -3023,10 +3059,10 @@ struct ModulesGraphTests {
                 path: "/Foo",
                 toolsVersion: .v5_2,
                 dependencies: [
-                    .localSourceControl(path: "/Some-Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    .localSourceControl(path: "/Some-Bar", requirement: .upToNextMajor(from: "1.0.0"))
                 ],
                 targets: [
-                    TargetDescription(name: "Foo", dependencies: ["ProductBar"]),
+                    TargetDescription(name: "Foo", dependencies: ["ProductBar"])
                 ]
             ),
             Manifest.createFileSystemManifest(
@@ -3034,10 +3070,10 @@ struct ModulesGraphTests {
                 path: "/Some-Bar",
                 toolsVersion: .v5_2,
                 products: [
-                    ProductDescription(name: "ProductBar", type: .library(.automatic), targets: ["Bar"]),
+                    ProductDescription(name: "ProductBar", type: .library(.automatic), targets: ["Bar"])
                 ],
                 targets: [
-                    TargetDescription(name: "Bar"),
+                    TargetDescription(name: "Bar")
                 ]
             ),
         ]
@@ -3048,8 +3084,8 @@ struct ModulesGraphTests {
             try expectDiagnostics(observability.diagnostics) { result in
                 let diagnostic = result.check(
                     diagnostic: """
-                    dependency 'ProductBar' in target 'Foo' requires explicit declaration; reference the package in the target dependency with '.product(name: "ProductBar", package: "Some-Bar")'
-                    """,
+                        dependency 'ProductBar' in target 'Foo' requires explicit declaration; reference the package in the target dependency with '.product(name: "ProductBar", package: "Some-Bar")'
+                        """,
                     severity: .error
                 )
                 #expect(diagnostic?.metadata?.packageIdentity == .plain("foo"))
@@ -3061,9 +3097,9 @@ struct ModulesGraphTests {
         do {
             let fixedManifests = try [
                 manifests[0].withTargets([
-                    TargetDescription(name: "Foo", dependencies: [.product(name: "ProductBar", package: "Foo-Bar")]),
+                    TargetDescription(name: "Foo", dependencies: [.product(name: "ProductBar", package: "Foo-Bar")])
                 ]),
-                manifests[1], // same
+                manifests[1],  // same
             ]
 
             let observability = ObservabilitySystem.makeForTesting()
@@ -3096,10 +3132,10 @@ struct ModulesGraphTests {
                         deprecatedName: "Bar",
                         path: "/Some-Bar",
                         requirement: .upToNextMajor(from: "1.0.0")
-                    ),
+                    )
                 ],
                 targets: [
-                    TargetDescription(name: "Foo", dependencies: ["Bar"]),
+                    TargetDescription(name: "Foo", dependencies: ["Bar"])
                 ]
             ),
             Manifest.createFileSystemManifest(
@@ -3107,10 +3143,10 @@ struct ModulesGraphTests {
                 path: "/Some-Bar",
                 toolsVersion: .v5_2,
                 products: [
-                    ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"]),
+                    ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"])
                 ],
                 targets: [
-                    TargetDescription(name: "Bar"),
+                    TargetDescription(name: "Bar")
                 ]
             ),
         ]
@@ -3140,10 +3176,10 @@ struct ModulesGraphTests {
                         deprecatedName: "Bar",
                         path: "/Some-Bar",
                         requirement: .upToNextMajor(from: "1.0.0")
-                    ),
+                    )
                 ],
                 targets: [
-                    TargetDescription(name: "Foo", dependencies: ["ProductBar"]),
+                    TargetDescription(name: "Foo", dependencies: ["ProductBar"])
                 ]
             ),
             Manifest.createFileSystemManifest(
@@ -3151,10 +3187,10 @@ struct ModulesGraphTests {
                 path: "/Some-Bar",
                 toolsVersion: .v5_2,
                 products: [
-                    ProductDescription(name: "ProductBar", type: .library(.automatic), targets: ["Bar"]),
+                    ProductDescription(name: "ProductBar", type: .library(.automatic), targets: ["Bar"])
                 ],
                 targets: [
-                    TargetDescription(name: "Bar"),
+                    TargetDescription(name: "Bar")
                 ]
             ),
         ]
@@ -3165,8 +3201,8 @@ struct ModulesGraphTests {
             try expectDiagnostics(observability.diagnostics) { result in
                 let diagnostic = result.check(
                     diagnostic: """
-                    dependency 'ProductBar' in target 'Foo' requires explicit declaration; reference the package in the target dependency with '.product(name: "ProductBar", package: "Bar")'
-                    """,
+                        dependency 'ProductBar' in target 'Foo' requires explicit declaration; reference the package in the target dependency with '.product(name: "ProductBar", package: "Bar")'
+                        """,
                     severity: .error
                 )
                 #expect(diagnostic?.metadata?.packageIdentity == .plain("foo"))
@@ -3178,9 +3214,9 @@ struct ModulesGraphTests {
         do {
             let fixedManifests = try [
                 manifests[0].withTargets([
-                    TargetDescription(name: "Foo", dependencies: [.product(name: "ProductBar", package: "Some-Bar")]),
+                    TargetDescription(name: "Foo", dependencies: [.product(name: "ProductBar", package: "Some-Bar")])
                 ]),
-                manifests[1], // same
+                manifests[1],  // same
             ]
 
             let observability = ObservabilitySystem.makeForTesting()
@@ -3219,7 +3255,7 @@ struct ModulesGraphTests {
                         .product(name: "Product", package: "Alias"),
                         .product(name: "Unrelated", package: "Unrelated"),
                     ]
-                ),
+                )
             ]
         )
         // Make sure aliases are found properly and do not fall back to pre‐5.2 behavior, leaking across onto other
@@ -3227,12 +3263,13 @@ struct ModulesGraphTests {
         let required = try manifest.dependenciesRequired(for: .everything)
         let unrelated = try #require(
             required
-                .first(where: { $0.nameForModuleDependencyResolutionOnly == "Unrelated" }))
+                .first(where: { $0.nameForModuleDependencyResolutionOnly == "Unrelated" })
+        )
         let requestedProducts = unrelated.productFilter
-#if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
-        // Unrelated should not have been asked for Product, because it should know Product comes from Identity.
-        #expect(!requestedProducts.contains("Product"), "Product requests are leaking.")
-#endif
+        #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
+            // Unrelated should not have been asked for Product, because it should know Product comes from Identity.
+            #expect(!requestedProducts.contains("Product"), "Product requests are leaking.")
+        #endif
     }
 
     @Test
@@ -3269,7 +3306,8 @@ struct ModulesGraphTests {
             PackageModel.Platform.visionOS: PlatformVersion("1.0"),
         ]
 
-        let expectedPlatformsForTests = customXCTestMinimumDeploymentTargets
+        let expectedPlatformsForTests =
+            customXCTestMinimumDeploymentTargets
             .reduce(into: [PackageModel.Platform: PlatformVersion]()) { partialResult, entry in
                 if entry.value > entry.key.oldestSupportedVersion {
                     partialResult[entry.key] = entry.value
@@ -3283,7 +3321,7 @@ struct ModulesGraphTests {
             let manifest = try Manifest.createRootManifest(
                 displayName: "pkg",
                 platforms: [
-                    PlatformDescription(name: "macos", version: "10.14", options: ["option1"]),
+                    PlatformDescription(name: "macos", version: "10.14", options: ["option1"])
                 ],
                 products: [
                     ProductDescription(name: "foo", type: .library(.automatic), targets: ["foo"]),
@@ -3318,7 +3356,7 @@ struct ModulesGraphTests {
 
             try PackageGraphTester(graph) { result in
                 let expectedDeclaredPlatforms = [
-                    "macos": "10.14",
+                    "macos": "10.14"
                 ]
 
                 // default platforms will be auto-added during package build
@@ -3354,25 +3392,25 @@ struct ModulesGraphTests {
                     target.checkDerivedPlatformOptions(.macOS, options: ["option1"])
                     target.checkDerivedPlatformOptions(.iOS, options: [])
                 }
-               try result.checkProduct("foo") { product in
+                try result.checkProduct("foo") { product in
                     product.checkDeclaredPlatforms(expectedDeclaredPlatforms)
                     product.checkDerivedPlatforms(expectedDerivedPlatforms)
                     product.checkDerivedPlatformOptions(.macOS, options: ["option1"])
                     product.checkDerivedPlatformOptions(.iOS, options: [])
                 }
-               try result.checkProduct("bar") { product in
+                try result.checkProduct("bar") { product in
                     product.checkDeclaredPlatforms(expectedDeclaredPlatforms)
                     product.checkDerivedPlatforms(expectedDerivedPlatforms)
                     product.checkDerivedPlatformOptions(.macOS, options: ["option1"])
                     product.checkDerivedPlatformOptions(.iOS, options: [])
                 }
-               try result.checkProduct("cbar") { product in
+                try result.checkProduct("cbar") { product in
                     product.checkDeclaredPlatforms(expectedDeclaredPlatforms)
                     product.checkDerivedPlatforms(expectedDerivedPlatforms)
                     product.checkDerivedPlatformOptions(.macOS, options: ["option1"])
                     product.checkDerivedPlatformOptions(.iOS, options: [])
                 }
-               try result.checkProduct("multi-target") { product in
+                try result.checkProduct("multi-target") { product in
                     var expected = expectedDerivedPlatforms
                     for item in [PackageModel.Platform.macOS, .iOS, .tvOS, .watchOS] {
                         expected[item.name] = expectedPlatformsForTests[item]?.versionString
@@ -3436,15 +3474,15 @@ struct ModulesGraphTests {
                     target.checkDeclaredPlatforms(expectedDeclaredPlatforms)
                     target.checkDerivedPlatforms(expectedDerivedPlatforms)
                 }
-               try result.checkProduct("foo") { product in
+                try result.checkProduct("foo") { product in
                     product.checkDeclaredPlatforms(expectedDeclaredPlatforms)
                     product.checkDerivedPlatforms(expectedDerivedPlatforms)
                 }
-               try result.checkProduct("bar") { product in
+                try result.checkProduct("bar") { product in
                     product.checkDeclaredPlatforms(expectedDeclaredPlatforms)
                     product.checkDerivedPlatforms(expectedDerivedPlatforms)
                 }
-               try result.checkProduct("cbar") { product in
+                try result.checkProduct("cbar") { product in
                     product.checkDeclaredPlatforms(expectedDeclaredPlatforms)
                     product.checkDerivedPlatforms(expectedDerivedPlatforms)
                 }
@@ -3456,10 +3494,10 @@ struct ModulesGraphTests {
             let manifest = try Manifest.createRootManifest(
                 displayName: "pkg",
                 platforms: [
-                    PlatformDescription(name: "ios", version: "15.0"),
+                    PlatformDescription(name: "ios", version: "15.0")
                 ],
                 products: [
-                    ProductDescription(name: "cbar", type: .library(.automatic), targets: ["cbar"]),
+                    ProductDescription(name: "cbar", type: .library(.automatic), targets: ["cbar"])
                 ],
                 targets: [
                     TargetDescription(name: "cbar"),
@@ -3478,7 +3516,7 @@ struct ModulesGraphTests {
 
             try PackageGraphTester(graph) { result in
                 let expectedDeclaredPlatforms = [
-                    "ios": "15.0",
+                    "ios": "15.0"
                 ]
 
                 var expectedDerivedPlatforms = defaultDerivedPlatforms.merging(
@@ -3503,7 +3541,7 @@ struct ModulesGraphTests {
                     target.checkDeclaredPlatforms(expectedDeclaredPlatforms)
                     target.checkDerivedPlatforms(expectedDerivedPlatforms)
                 }
-               try result.checkProduct("cbar") { product in
+                try result.checkProduct("cbar") { product in
                     product.checkDeclaredPlatforms(expectedDeclaredPlatforms)
                     product.checkDerivedPlatforms(expectedDerivedPlatforms)
                 }
@@ -3538,13 +3576,13 @@ struct ModulesGraphTests {
             let manifest = try Manifest.createRootManifest(
                 displayName: "pkg",
                 platforms: [
-                    PlatformDescription(name: "customos", version: "1.0"),
+                    PlatformDescription(name: "customos", version: "1.0")
                 ],
                 products: [
-                    ProductDescription(name: "foo", type: .library(.automatic), targets: ["foo"]),
+                    ProductDescription(name: "foo", type: .library(.automatic), targets: ["foo"])
                 ],
                 targets: [
-                    TargetDescription(name: "foo", type: .system),
+                    TargetDescription(name: "foo", type: .system)
                 ]
             )
 
@@ -3558,7 +3596,7 @@ struct ModulesGraphTests {
 
             try PackageGraphTester(graph) { result in
                 let expectedDeclaredPlatforms = [
-                    "customos": "1.0",
+                    "customos": "1.0"
                 ]
 
                 // default platforms will be auto-added during package build
@@ -3571,7 +3609,7 @@ struct ModulesGraphTests {
                     target.checkDeclaredPlatforms(expectedDeclaredPlatforms)
                     target.checkDerivedPlatforms(expectedDerivedPlatforms)
                 }
-               try result.checkProduct("foo") { product in
+                try result.checkProduct("foo") { product in
                     product.checkDeclaredPlatforms(expectedDeclaredPlatforms)
                     product.checkDerivedPlatforms(expectedDerivedPlatforms)
                 }
@@ -3587,10 +3625,10 @@ struct ModulesGraphTests {
                     PlatformDescription(name: "anothercustomos", version: "2.3"),
                 ],
                 products: [
-                    ProductDescription(name: "foo", type: .library(.automatic), targets: ["foo"]),
+                    ProductDescription(name: "foo", type: .library(.automatic), targets: ["foo"])
                 ],
                 targets: [
-                    TargetDescription(name: "foo", type: .system),
+                    TargetDescription(name: "foo", type: .system)
                 ]
             )
 
@@ -3618,7 +3656,7 @@ struct ModulesGraphTests {
                     target.checkDeclaredPlatforms(expectedDeclaredPlatforms)
                     target.checkDerivedPlatforms(expectedDerivedPlatforms)
                 }
-               try result.checkProduct("foo") { product in
+                try result.checkProduct("foo") { product in
                     product.checkDeclaredPlatforms(expectedDeclaredPlatforms)
                     product.checkDerivedPlatforms(expectedDerivedPlatforms)
                 }
@@ -3647,7 +3685,7 @@ struct ModulesGraphTests {
                     displayName: "Foo",
                     path: "/Foo",
                     dependencies: [
-                        .localSourceControl(path: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/Bar", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     targets: [
                         TargetDescription(name: "Foo", dependencies: ["Bar"]),
@@ -3669,13 +3707,13 @@ struct ModulesGraphTests {
                         TargetDescription(
                             name: "Bar",
                             settings: [
-                                .init(tool: .swift, kind: .enableUpcomingFeature("ConciseMagicFile")),
+                                .init(tool: .swift, kind: .enableUpcomingFeature("ConciseMagicFile"))
                             ]
                         ),
                         TargetDescription(
                             name: "Bar2",
                             settings: [
-                                .init(tool: .swift, kind: .enableUpcomingFeature("UnknownToTheseTools")),
+                                .init(tool: .swift, kind: .enableUpcomingFeature("UnknownToTheseTools"))
                             ]
                         ),
                         TargetDescription(
@@ -3715,10 +3753,10 @@ struct ModulesGraphTests {
                     path: "/Foo",
                     toolsVersion: .v5_9,
                     dependencies: [
-                        .fileSystem(deprecatedName: "Bar", path: "/Bar2"),
+                        .fileSystem(deprecatedName: "Bar", path: "/Bar2")
                     ],
                     targets: [
-                        TargetDescription(name: "Foo", dependencies: [.product(name: "Bar", package: "BAR")]),
+                        TargetDescription(name: "Foo", dependencies: [.product(name: "Bar", package: "BAR")])
                     ]
                 ),
                 Manifest.createFileSystemManifest(
@@ -3726,10 +3764,10 @@ struct ModulesGraphTests {
                     path: "/Bar2",
                     toolsVersion: .v5_9,
                     products: [
-                        ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"]),
+                        ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"])
                     ],
                     targets: [
-                        TargetDescription(name: "Bar"),
+                        TargetDescription(name: "Bar")
                     ]
                 ),
             ],
@@ -3755,7 +3793,7 @@ struct ModulesGraphTests {
                     displayName: "aaa",
                     path: "/aaa",
                     dependencies: [
-                        .localSourceControl(path: "/zzz", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/zzz", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [],
                     targets: [
@@ -3763,7 +3801,7 @@ struct ModulesGraphTests {
                             name: "aaa",
                             dependencies: ["mmm"],
                             type: .executable
-                        ),
+                        )
                     ]
                 ),
                 Manifest.createFileSystemManifest(
@@ -3774,12 +3812,12 @@ struct ModulesGraphTests {
                             name: "zzz",
                             type: .library(.automatic),
                             targets: ["zzz"]
-                        ),
+                        )
                     ],
                     targets: [
                         TargetDescription(
                             name: "zzz"
-                        ),
+                        )
                     ]
                 ),
             ],

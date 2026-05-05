@@ -13,22 +13,25 @@
 import Basics
 
 package final class MockArchiver: Archiver {
-    package typealias ExtractionHandler = @Sendable (
-        MockArchiver,
-        AbsolutePath,
-        AbsolutePath,
-        (Result<Void, Error>) -> Void
-    ) throws -> Void
-    package typealias CompressionHandler = @Sendable (
-        MockArchiver,
-        AbsolutePath,
-        AbsolutePath
-    ) async throws -> Void
-    package typealias ValidationHandler = @Sendable (
-        MockArchiver,
-        AbsolutePath,
-        (Result<Bool, Error>) -> Void
-    ) throws -> Void
+    package typealias ExtractionHandler =
+        @Sendable (
+            MockArchiver,
+            AbsolutePath,
+            AbsolutePath,
+            (Result<Void, Error>) -> Void
+        ) throws -> Void
+    package typealias CompressionHandler =
+        @Sendable (
+            MockArchiver,
+            AbsolutePath,
+            AbsolutePath
+        ) async throws -> Void
+    package typealias ValidationHandler =
+        @Sendable (
+            MockArchiver,
+            AbsolutePath,
+            (Result<Bool, Error>) -> Void
+        ) throws -> Void
 
     package struct Extraction: Equatable {
         public let archivePath: AbsolutePath

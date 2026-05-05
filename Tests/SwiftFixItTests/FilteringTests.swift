@@ -30,7 +30,7 @@ struct FilteringTests {
                                 start: .init(path: path, line: 1, column: 1),
                                 end: .init(path: path, line: 1, column: 4),
                                 text: "let"
-                            ),
+                            )
                         ]
                     ),
                     PrimaryDiagnostic(
@@ -43,7 +43,7 @@ struct FilteringTests {
                                 start: .init(path: path, line: 1, column: 9),
                                 end: .init(path: path, line: 1, column: 10),
                                 text: "22"
-                            ),
+                            )
                         ]
                     ),
                     PrimaryDiagnostic(
@@ -64,7 +64,7 @@ struct FilteringTests {
                                         start: .init(path: path, line: 1, column: 5),
                                         end: .init(path: path, line: 1, column: 6),
                                         text: "_"
-                                    ),
+                                    )
                                 ]
                             ),
                         ]
@@ -91,7 +91,7 @@ struct FilteringTests {
                                 start: .init(path: path, line: 1, column: 1),
                                 end: .init(path: path, line: 1, column: 4),
                                 text: "let"
-                            ),
+                            )
                         ]
                     ),
                     PrimaryDiagnostic(
@@ -104,7 +104,7 @@ struct FilteringTests {
                                 start: .init(path: path, line: 1, column: 9),
                                 end: .init(path: path, line: 1, column: 10),
                                 text: "22"
-                            ),
+                            )
                         ]
                     ),
                     PrimaryDiagnostic(
@@ -125,7 +125,7 @@ struct FilteringTests {
                                         start: .init(path: path, line: 1, column: 5),
                                         end: .init(path: path, line: 1, column: 6),
                                         text: "_"
-                                    ),
+                                    )
                                 ]
                             ),
                         ]
@@ -148,7 +148,7 @@ struct FilteringTests {
                                         start: .init(path: path, line: 1, column: 7),
                                         end: .init(path: path, line: 1, column: 8),
                                         text: ":"
-                                    ),
+                                    )
                                 ]
                             ),
                         ]
@@ -179,7 +179,7 @@ struct FilteringTests {
                                         start: .init(path: path, line: 1, column: 1),
                                         end: .init(path: path, line: 1, column: 4),
                                         text: "let"
-                                    ),
+                                    )
                                 ]
                             ),
                             Note(
@@ -191,7 +191,7 @@ struct FilteringTests {
                                         start: .init(path: path, line: 1, column: 9),
                                         end: .init(path: path, line: 1, column: 10),
                                         text: "22"
-                                    ),
+                                    )
                                 ]
                             ),
                         ]
@@ -210,7 +210,7 @@ struct FilteringTests {
                                         start: .init(path: path, line: 1, column: 5),
                                         end: .init(path: path, line: 1, column: 6),
                                         text: "y"
-                                    ),
+                                    )
                                 ]
                             ),
                             // This separator note should not make a difference.
@@ -227,7 +227,7 @@ struct FilteringTests {
                                         start: .init(path: path, line: 1, column: 7),
                                         end: .init(path: path, line: 1, column: 8),
                                         text: ":"
-                                    ),
+                                    )
                                 ]
                             ),
                         ]
@@ -254,7 +254,7 @@ struct FilteringTests {
                                 start: .init(path: path, line: 1, column: 1),
                                 end: .init(path: path, line: 1, column: 4),
                                 text: "let"
-                            ),
+                            )
                         ]
                     ),
                     PrimaryDiagnostic(
@@ -271,7 +271,7 @@ struct FilteringTests {
                                         start: .init(path: path, line: 1, column: 10),
                                         end: .init(path: path, line: 1, column: 11),
                                         text: "22"
-                                    ),
+                                    )
                                 ]
                             ),
                             Note(
@@ -294,9 +294,9 @@ struct FilteringTests {
                                         start: .init(path: path, line: 1, column: 5),
                                         end: .init(path: path, line: 1, column: 6),
                                         text: "y"
-                                    ),
+                                    )
                                 ]
-                            ),
+                            )
                         ]
                     ),
                     PrimaryDiagnostic(
@@ -309,7 +309,7 @@ struct FilteringTests {
                                 start: .init(path: path, line: 1, column: 7),
                                 end: .init(path: path, line: 1, column: 8),
                                 text: ":"
-                            ),
+                            )
                         ]
                     ),
                     PrimaryDiagnostic(
@@ -322,7 +322,7 @@ struct FilteringTests {
                                 start: .init(path: path, line: 1, column: 14),
                                 end: .init(path: path, line: 1, column: 14),
                                 text: "3"
-                            ),
+                            )
                         ]
                     ),
                 ]
@@ -352,7 +352,7 @@ struct FilteringTests {
                                 start: .init(path: path, line: 1, column: 1),
                                 end: .init(path: path, line: 1, column: 4),
                                 text: "let"
-                            ),
+                            )
                         ]
                     ),
                     PrimaryDiagnostic(
@@ -365,7 +365,7 @@ struct FilteringTests {
                                 start: .init(path: path, line: 1, column: 1),
                                 end: .init(path: path, line: 1, column: 4),
                                 text: "let"
-                            ),
+                            )
                         ]
                     ),
                     // On notes.
@@ -383,9 +383,9 @@ struct FilteringTests {
                                         start: .init(path: path, line: 1, column: 9),
                                         end: .init(path: path, line: 1, column: 10),
                                         text: "22"
-                                    ),
+                                    )
                                 ]
-                            ),
+                            )
                         ]
                     ),
                     PrimaryDiagnostic(
@@ -402,9 +402,9 @@ struct FilteringTests {
                                         start: .init(path: path, line: 1, column: 9),
                                         end: .init(path: path, line: 1, column: 10),
                                         text: "22"
-                                    ),
+                                    )
                                 ]
-                            ),
+                            )
                         ]
                     ),
                 ]
@@ -437,7 +437,7 @@ struct FilteringTests {
                                 start: .init(path: path, line: 1, column: 1),
                                 end: .init(path: path, line: 1, column: 1),
                                 text: "@W "
-                            ),
+                            )
                         ]
                     ),
                     PrimaryDiagnostic(
@@ -454,9 +454,9 @@ struct FilteringTests {
                                         start: .init(path: path, line: 1, column: 9),
                                         end: .init(path: path, line: 1, column: 9),
                                         text: "2"
-                                    ),
+                                    )
                                 ]
-                            ),
+                            )
                         ]
                     ),
                     PrimaryDiagnostic(
@@ -469,7 +469,7 @@ struct FilteringTests {
                                 start: .init(path: path, line: 1, column: 1),
                                 end: .init(path: path, line: 1, column: 1),
                                 text: "@W "
-                            ),
+                            )
                         ]
                     ),
                     PrimaryDiagnostic(
@@ -482,7 +482,7 @@ struct FilteringTests {
                                 start: .init(path: path, line: 1, column: 5),
                                 end: .init(path: path, line: 1, column: 5),
                                 text: "y"
-                            ),
+                            )
                         ]
                     ),
                     PrimaryDiagnostic(
@@ -499,9 +499,9 @@ struct FilteringTests {
                                         start: .init(path: path, line: 1, column: 9),
                                         end: .init(path: path, line: 1, column: 9),
                                         text: "2"
-                                    ),
+                                    )
                                 ]
-                            ),
+                            )
                         ]
                     ),
                     PrimaryDiagnostic(
@@ -518,9 +518,9 @@ struct FilteringTests {
                                         start: .init(path: path, line: 1, column: 5),
                                         end: .init(path: path, line: 1, column: 5),
                                         text: "y"
-                                    ),
+                                    )
                                 ]
-                            ),
+                            )
                         ]
                     ),
                 ]
@@ -555,7 +555,7 @@ struct FilteringTests {
                                 start: .init(path: path1, line: 1, column: 5),
                                 end: .init(path: path1, line: 1, column: 6),
                                 text: "y"
-                            ),
+                            )
                         ]
                     ),
                     PrimaryDiagnostic(
@@ -572,9 +572,9 @@ struct FilteringTests {
                                         start: .init(path: path1, line: 1, column: 9),
                                         end: .init(path: path1, line: 1, column: 10),
                                         text: "2"
-                                    ),
+                                    )
                                 ]
-                            ),
+                            )
                         ]
                     ),
                     // path2.
@@ -588,7 +588,7 @@ struct FilteringTests {
                                 start: .init(path: path2, line: 1, column: 5),
                                 end: .init(path: path2, line: 1, column: 6),
                                 text: "y"
-                            ),
+                            )
                         ]
                     ),
                     PrimaryDiagnostic(
@@ -605,9 +605,9 @@ struct FilteringTests {
                                         start: .init(path: path2, line: 1, column: 9),
                                         end: .init(path: path2, line: 1, column: 10),
                                         text: "2"
-                                    ),
+                                    )
                                 ]
-                            ),
+                            )
                         ]
                     ),
                 ]

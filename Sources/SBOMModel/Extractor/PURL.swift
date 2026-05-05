@@ -114,12 +114,12 @@ extension PURL {
         // SSH URLs (git@host:org/repo.git or git@host:org/repo)
         let sshPattern = #"^[^@]+@([^:]+):([^/]+)(?:/.*)?$"#
         if let regex = try? NSRegularExpression(pattern: sshPattern, options: []),
-           let match = regex.firstMatch(
-               in: packageLocation,
-               options: [],
-               range: NSRange(location: 0, length: packageLocation.count)
-           ),
-           match.numberOfRanges == 3
+            let match = regex.firstMatch(
+                in: packageLocation,
+                options: [],
+                range: NSRange(location: 0, length: packageLocation.count)
+            ),
+            match.numberOfRanges == 3
         {
             let hostRange = Range(match.range(at: 1), in: packageLocation)
             let orgRange = Range(match.range(at: 2), in: packageLocation)
@@ -133,17 +133,19 @@ extension PURL {
         if let url = URL(string: packageLocation), let host = url.host {
             let pathComponents = url.pathComponents.filter { $0 != "/" && !$0.isEmpty }
             if pathComponents.count >= 2 {
-                let org = pathComponents[0] // swiftlang
+                let org = pathComponents[0]  // swiftlang
                 return "\(host)/\(org)"
             }
         }
         // com.example.package-name format
-        if packageLocation.contains(".") && !packageLocation.hasPrefix("/") && !packageLocation
-            .contains("://") && !packageLocation.contains("@")
+        if packageLocation.contains(".") && !packageLocation.hasPrefix("/")
+            && !packageLocation
+                .contains("://")
+            && !packageLocation.contains("@")
         {
             let components = packageLocation.components(separatedBy: ".")
             if components.count >= 2 {
-                return components.dropLast().joined(separator: ".") // com.example
+                return components.dropLast().joined(separator: ".")  // com.example
             }
         }
         return nil

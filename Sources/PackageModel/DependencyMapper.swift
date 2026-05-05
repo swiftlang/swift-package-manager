@@ -31,11 +31,12 @@ public struct DefaultDependencyMapper: DependencyMapper {
 
     public func mappedDependency(_ dependency: MappablePackageDependency, fileSystem: FileSystem) throws -> PackageDependency {
         // clean up variants of path based dependencies
-        let dependencyLocationString = try self.normalizeDependencyLocation(
-            dependency: dependency,
-            parentPackagePath: dependency.parentPackagePath,
-            fileSystem: fileSystem
-        ) ?? dependency.locationString
+        let dependencyLocationString =
+            try self.normalizeDependencyLocation(
+                dependency: dependency,
+                parentPackagePath: dependency.parentPackagePath,
+                fileSystem: fileSystem
+            ) ?? dependency.locationString
 
         // location mapping (aka mirrors) if any
         let mappedLocationString = self.identityResolver.mappedLocation(for: dependencyLocationString)
@@ -114,10 +115,10 @@ public struct DefaultDependencyMapper: DependencyMapper {
                 let location = String(dependencyLocation.dropFirst(Self.filePrefix.count))
                 let hostnameComponent = location.prefix(while: { $0 != "/" })
                 guard hostnameComponent.isEmpty else {
-                  if hostnameComponent == ".." {
-                      throw DependencyMappingError.invalidFileURL("file:// URLs cannot be relative, did you mean to use '.package(path:)'?")
-                  }
-                  throw DependencyMappingError.invalidFileURL("file:// URLs with hostnames are not supported, are you missing a '/'?")
+                    if hostnameComponent == ".." {
+                        throw DependencyMappingError.invalidFileURL("file:// URLs cannot be relative, did you mean to use '.package(path:)'?")
+                    }
+                    throw DependencyMappingError.invalidFileURL("file:// URLs with hostnames are not supported, are you missing a '/'?")
                 }
                 return try AbsolutePath(validating: location).pathString
             // if the location has a scheme, assume a URL and nothing to normalize

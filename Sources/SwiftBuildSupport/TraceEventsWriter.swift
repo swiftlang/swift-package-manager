@@ -152,7 +152,8 @@ package final class TraceEventsWriter {
         let taskID = TaskID(info.taskID)
         let endInstant = ContinuousClock.now
         guard let lane = laneAssignments.removeValue(forKey: taskID),
-              let startInstant = taskStartTimes.removeValue(forKey: taskID) else {
+            let startInstant = taskStartTimes.removeValue(forKey: taskID)
+        else {
             return
         }
 
@@ -172,37 +173,60 @@ package final class TraceEventsWriter {
             args["backtrace"] = .string(backtrace)
         }
         args["result"] = .string("\(info.result)")
-        appendEvent(TraceEvent(
-            name: startedInfo.executionDescription,
-            category: .build,
-            phase: .complete,
-            timestamp: startMicroseconds,
-            duration: durationMicroseconds,
-            processID: 1,
-            threadID: lane,
-            arguments: args
-        ))
+        appendEvent(
+            TraceEvent(
+                name: startedInfo.executionDescription,
+                category: .build,
+                phase: .complete,
+                timestamp: startMicroseconds,
+                duration: durationMicroseconds,
+                processID: 1,
+                threadID: lane,
+                arguments: args
+            )
+        )
     }
 
     package func close() {
-        appendEvent(TraceEvent(
-            name: "process_name", category: .none, phase: .metadata,
-            timestamp: 0, duration: 0, processID: 1, threadID: .metadata,
-            arguments: ["name": .string("Build")]
-        ))
+        appendEvent(
+            TraceEvent(
+                name: "process_name",
+                category: .none,
+                phase: .metadata,
+                timestamp: 0,
+                duration: 0,
+                processID: 1,
+                threadID: .metadata,
+                arguments: ["name": .string("Build")]
+            )
+        )
 
         var lane = LaneID.firstTask
         while lane < nextLane {
-            appendEvent(TraceEvent(
-                name: "thread_name", category: .none, phase: .metadata,
-                timestamp: 0, duration: 0, processID: 1, threadID: lane,
-                arguments: ["name": .string("Lane \(lane.rawValue)")]
-            ))
-            appendEvent(TraceEvent(
-                name: "thread_sort_index", category: .none, phase: .metadata,
-                timestamp: 0, duration: 0, processID: 1, threadID: lane,
-                arguments: ["sort_index": .int(lane.rawValue)]
-            ))
+            appendEvent(
+                TraceEvent(
+                    name: "thread_name",
+                    category: .none,
+                    phase: .metadata,
+                    timestamp: 0,
+                    duration: 0,
+                    processID: 1,
+                    threadID: lane,
+                    arguments: ["name": .string("Lane \(lane.rawValue)")]
+                )
+            )
+            appendEvent(
+                TraceEvent(
+                    name: "thread_sort_index",
+                    category: .none,
+                    phase: .metadata,
+                    timestamp: 0,
+                    duration: 0,
+                    processID: 1,
+                    threadID: lane,
+                    arguments: ["sort_index": .int(lane.rawValue)]
+                )
+            )
             lane = lane.next()
         }
 

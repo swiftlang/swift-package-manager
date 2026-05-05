@@ -25,15 +25,18 @@ import enum TSCUtility.Diagnostics
 extension SwiftPackageCommand {
     struct Format: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(
-            commandName: "_format", shouldDisplay: false,
+            commandName: "_format",
+            shouldDisplay: false,
             helpNames: [.short, .long, .customLong("help", withSingleDash: true)]
         )
 
         @OptionGroup(visibility: .private)
         var globalOptions: GlobalOptions
 
-        @Argument(parsing: .captureForPassthrough,
-                  help: "Pass flag through to the swift-format tool.")
+        @Argument(
+            parsing: .captureForPassthrough,
+            help: "Pass flag through to the swift-format tool."
+        )
         var swiftFormatFlags: [String] = []
 
         func run(_ swiftCommandState: SwiftCommandState) async throws {
@@ -57,9 +60,9 @@ extension SwiftPackageCommand {
                 observabilityScope: swiftCommandState.observabilityScope
             )
 
-
             // Use the user provided flags or default to formatting mode.
-            let formatOptions = swiftFormatFlags.isEmpty
+            let formatOptions =
+                swiftFormatFlags.isEmpty
                 ? ["--mode", "format", "--in-place", "--parallel"]
                 : swiftFormatFlags
 
@@ -71,7 +74,7 @@ extension SwiftPackageCommand {
             }.map { $0.pathString }
 
             let args = [swiftFormat.pathString] + formatOptions + [packagePath.pathString] + paths
-            print("Running:", args.map{ $0.spm_shellEscaped() }.joined(separator: " "))
+            print("Running:", args.map { $0.spm_shellEscaped() }.joined(separator: " "))
 
             let result = try await AsyncProcess.popen(arguments: args)
             let output = try (result.utf8Output() + result.utf8stderrOutput())

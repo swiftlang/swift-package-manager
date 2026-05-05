@@ -36,30 +36,30 @@ struct PathShimTests {
 struct WalkTests {
     @Test
     func nonRecursive() throws {
-#if os(Android)
-        let root = "/system"
-        var expected: [AbsolutePath] = [
-            "\(root)/usr",
-            "\(root)/bin",
-            "\(root)/etc",
-        ]
-        let expectedCount = 3
-#elseif os(Windows)
-        let root = ProcessInfo.processInfo.environment["SystemRoot"]!
-        var expected: [AbsolutePath] = [
-            "\(root)/System32",
-            "\(root)/SysWOW64",
-        ]
-        let expectedCount = (root as NSString).pathComponents.count + 2
-#else
-        let root = ""
-        var expected: [AbsolutePath] = [
-            "/usr",
-            "/bin",
-            "/sbin",
-        ]
-        let expectedCount = 2
-#endif
+        #if os(Android)
+            let root = "/system"
+            var expected: [AbsolutePath] = [
+                "\(root)/usr",
+                "\(root)/bin",
+                "\(root)/etc",
+            ]
+            let expectedCount = 3
+        #elseif os(Windows)
+            let root = ProcessInfo.processInfo.environment["SystemRoot"]!
+            var expected: [AbsolutePath] = [
+                "\(root)/System32",
+                "\(root)/SysWOW64",
+            ]
+            let expectedCount = (root as NSString).pathComponents.count + 2
+        #else
+            let root = ""
+            var expected: [AbsolutePath] = [
+                "/usr",
+                "/bin",
+                "/sbin",
+            ]
+            let expectedCount = 2
+        #endif
         for x in try walk(AbsolutePath(validating: "\(root)/"), recursively: false) {
             if let i = expected.firstIndex(of: x) {
                 expected.remove(at: i)

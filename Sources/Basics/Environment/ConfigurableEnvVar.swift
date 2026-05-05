@@ -41,7 +41,7 @@ package enum ConfigurableEnvVar: String, CaseIterable {
     /// Inline netrc-formatted content for per-host credentials
     case SWIFTPM_NETRC_DATA
 
-    private var isCacheable : Bool {
+    private var isCacheable: Bool {
         switch self {
         case .SWIFTPM_BUILD_SBOM_SPEC: false
         case .SWIFTPM_BUILD_SBOM_OUTPUT_DIR: false

@@ -29,16 +29,15 @@ extension Workspace {
         // the trait configuration set in the `Workspace`. Otherwise,
         // check the enabled traits map to see if there are traits
         // that have already been recorded as enabled.
-        let explicitlyEnabledTraits = manifest.packageKind.isRoot ?
-        try manifest.enabledTraits(using: self.traitConfiguration) :
-        self.enabledTraitsMap[manifest.packageIdentity]
+        let explicitlyEnabledTraits = manifest.packageKind.isRoot ? try manifest.enabledTraits(using: self.traitConfiguration) : self.enabledTraitsMap[manifest.packageIdentity]
 
         var enabledTraits = try manifest.enabledTraits(using: explicitlyEnabledTraits)
 
         // Check if any parents requested default traits for this package
         // If so, expand the default traits and union them with existing traits
         if let defaultSetters = self.enabledTraitsMap[defaultSettersFor: manifest.packageIdentity],
-           !defaultSetters.isEmpty {
+            !defaultSetters.isEmpty
+        {
             // Calculate what the default traits are for this manifest
             let defaultTraits = try manifest.enabledTraits(using: .defaults)
 
@@ -70,7 +69,8 @@ extension Workspace {
 
         if let dependencyTraits = dependency.traits {
             // Parent explicitly specified traits (could be [] to disable, or a list of specific traits)
-            let explicitlyEnabledTraits = dependencyTraits
+            let explicitlyEnabledTraits =
+                dependencyTraits
                 .filter { $0.isEnabled(by: parentEnabledTraits) }
                 .map(\.name)
 

@@ -237,10 +237,12 @@ extension PackageCollectionsModel {
                 public let organization: String?
 
                 /// Creates a `Name`
-                public init(userID: String?,
-                            commonName: String?,
-                            organizationalUnit: String?,
-                            organization: String?) {
+                public init(
+                    userID: String?,
+                    commonName: String?,
+                    organizationalUnit: String?,
+                    organization: String?
+                ) {
                     self.userID = userID
                     self.commonName = commonName
                     self.organizationalUnit = organizationalUnit

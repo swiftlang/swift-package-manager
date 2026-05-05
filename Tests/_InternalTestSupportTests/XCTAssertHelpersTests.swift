@@ -27,9 +27,9 @@ final class TestRequiresTool: XCTestCase {
     func testErrorIsNotThrownIfExecutableIsOnThePath() throws {
         // Essentially call either "which which" or "where.exe where.exe"
         #if os(Windows)
-        let executable = "where.exe"
+            let executable = "where.exe"
         #else
-        let executable = "which"
+            let executable = "which"
         #endif
         XCTAssertNoThrow(
             try _requiresTools(executable)

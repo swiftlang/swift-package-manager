@@ -81,81 +81,81 @@ struct SwiftSDKCommandTests {
         bundle: String,
     ) async throws {
         try await withKnownIssue(isIntermittent: true) {
-        try await fixture(name: "SwiftSDKs") { fixturePath in
-            let bundlePath = fixturePath.appending(bundle)
-            expectFileExists(at: bundlePath)
-            var (stdout, stderr) = try await command.execute(
-                [
-                    "install",
-                    "--swift-sdks-path", fixturePath.pathString,
-                    bundlePath.pathString,
-                ]
-            )
-
-            if command == .experimentalSDK {
-                #expect(stderr.contains(sdkCommandDeprecationWarning))
-                #expect(!stdout.contains(sdkCommandDeprecationWarning))
-            }
-
-            // We only expect tool's output on the stdout stream.
-            #expect(
-                (stdout + "\nstderr:\n" + stderr).contains("\(bundle)` successfully installed as test-sdk.artifactbundle.")
-            )
-
-            (stdout, stderr) = try await command.execute(
-                ["list", "--swift-sdks-path", fixturePath.pathString])
-
-            if command == .experimentalSDK {
-                #expect(stderr.contains(sdkCommandDeprecationWarning))
-                #expect(!stdout.contains(sdkCommandDeprecationWarning))
-            }
-
-            // We only expect tool's output on the stdout stream.
-            #expect(stdout.contains("test-artifact"))
-
-            await expectThrowsCommandExecutionError(
-                try await command.execute(
+            try await fixture(name: "SwiftSDKs") { fixturePath in
+                let bundlePath = fixturePath.appending(bundle)
+                expectFileExists(at: bundlePath)
+                var (stdout, stderr) = try await command.execute(
                     [
                         "install",
                         "--swift-sdks-path", fixturePath.pathString,
                         bundlePath.pathString,
                     ]
                 )
-            ) { error in
-                let stderr = error.stderr
+
+                if command == .experimentalSDK {
+                    #expect(stderr.contains(sdkCommandDeprecationWarning))
+                    #expect(!stdout.contains(sdkCommandDeprecationWarning))
+                }
+
+                // We only expect tool's output on the stdout stream.
                 #expect(
-                    stderr.contains(
-                        "Error: Swift SDK bundle with name `test-sdk.artifactbundle` is already installed. Can't install a new bundle with the same name."
-                    ),
+                    (stdout + "\nstderr:\n" + stderr).contains("\(bundle)` successfully installed as test-sdk.artifactbundle.")
                 )
+
+                (stdout, stderr) = try await command.execute(
+                    ["list", "--swift-sdks-path", fixturePath.pathString])
+
+                if command == .experimentalSDK {
+                    #expect(stderr.contains(sdkCommandDeprecationWarning))
+                    #expect(!stdout.contains(sdkCommandDeprecationWarning))
+                }
+
+                // We only expect tool's output on the stdout stream.
+                #expect(stdout.contains("test-artifact"))
+
+                await expectThrowsCommandExecutionError(
+                    try await command.execute(
+                        [
+                            "install",
+                            "--swift-sdks-path", fixturePath.pathString,
+                            bundlePath.pathString,
+                        ]
+                    )
+                ) { error in
+                    let stderr = error.stderr
+                    #expect(
+                        stderr.contains(
+                            "Error: Swift SDK bundle with name `test-sdk.artifactbundle` is already installed. Can't install a new bundle with the same name."
+                        ),
+                    )
+                }
+
+                if command == .experimentalSDK {
+                    #expect(stderr.contains(sdkCommandDeprecationWarning))
+                }
+
+                (stdout, stderr) = try await command.execute(
+                    ["remove", "--swift-sdks-path", fixturePath.pathString, "test-artifact"])
+
+                if command == .experimentalSDK {
+                    #expect(stderr.contains(sdkCommandDeprecationWarning))
+                    #expect(!stdout.contains(sdkCommandDeprecationWarning))
+                }
+
+                // We only expect tool's output on the stdout stream.
+                #expect(stdout.contains("test-sdk.artifactbundle` was successfully removed from the file system."))
+
+                (stdout, stderr) = try await command.execute(
+                    ["list", "--swift-sdks-path", fixturePath.pathString])
+
+                if command == .experimentalSDK {
+                    #expect(stderr.contains(sdkCommandDeprecationWarning))
+                    #expect(!stdout.contains(sdkCommandDeprecationWarning))
+                }
+
+                // We only expect tool's output on the stdout stream.
+                #expect(!stdout.contains("test-artifact"))
             }
-
-            if command == .experimentalSDK {
-                #expect(stderr.contains(sdkCommandDeprecationWarning))
-            }
-
-            (stdout, stderr) = try await command.execute(
-                ["remove", "--swift-sdks-path", fixturePath.pathString, "test-artifact"])
-
-            if command == .experimentalSDK {
-                #expect(stderr.contains(sdkCommandDeprecationWarning))
-                #expect(!stdout.contains(sdkCommandDeprecationWarning))
-            }
-
-            // We only expect tool's output on the stdout stream.
-            #expect(stdout.contains("test-sdk.artifactbundle` was successfully removed from the file system."))
-
-            (stdout, stderr) = try await command.execute(
-                ["list", "--swift-sdks-path", fixturePath.pathString])
-
-            if command == .experimentalSDK {
-                #expect(stderr.contains(sdkCommandDeprecationWarning))
-                #expect(!stdout.contains(sdkCommandDeprecationWarning))
-            }
-
-            // We only expect tool's output on the stdout stream.
-            #expect(!stdout.contains("test-artifact"))
-        }
         } when: {
             ProcessInfo.isHostAmazonLinux2()
         }
@@ -313,7 +313,7 @@ struct SwiftSDKCommandTests {
             await expectThrowsCommandExecutionError(
                 try await command.execute(
                     [
-                       "configure", "--show-configuration",
+                        "configure", "--show-configuration",
                         "--swift-sdks-path", fixturePath.pathString,
                         "test-artifact",
                         "aarch64-unknown-linux-gnu11.0",

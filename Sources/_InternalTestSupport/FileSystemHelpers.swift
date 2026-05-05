@@ -72,7 +72,8 @@ public func getFiles(
         try fileSystem.enumerate(directory: directory) { filePath in
             if fileSystem.isFile(filePath) {
                 if let fileExtension = filePath.extension?.lowercased(),
-                   fileExtension == normalizedExtension {
+                    fileExtension == normalizedExtension
+                {
                     matchingFiles.append(filePath)
                 }
             }
@@ -84,7 +85,8 @@ public func getFiles(
             let itemPath = directory.appending(component: item)
             if fileSystem.isFile(itemPath) {
                 if let fileExtension = itemPath.extension?.lowercased(),
-                   fileExtension == normalizedExtension {
+                    fileExtension == normalizedExtension
+                {
                     matchingFiles.append(itemPath)
                 }
             }

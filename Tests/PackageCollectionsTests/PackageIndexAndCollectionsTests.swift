@@ -22,7 +22,7 @@ import struct TSCUtility.Version
 class PackageIndexAndCollectionsTests: XCTestCase {
     func testCollectionAddRemoveGetList() async throws {
         try PackageCollectionsTests_skipIfUnsupportedPlatform()
-        
+
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
         let mockCollections = makeMockCollections()
@@ -44,19 +44,19 @@ class PackageIndexAndCollectionsTests: XCTestCase {
             let list = try await indexAndCollections.listCollections()
             XCTAssertEqual(list, mockCollections, "list count should match")
         }
-        
+
         do {
             let collection = try await indexAndCollections.getCollection(mockCollections.first!.source)
             XCTAssertEqual(collection, mockCollections.first, "collection should match")
         }
-        
+
         do {
             try await indexAndCollections.removeCollection(mockCollections.first!.source)
             let list = try await indexAndCollections.listCollections()
             XCTAssertEqual(list.count, mockCollections.count - 1, "list count should match")
         }
     }
-    
+
     func testRefreshCollections() async throws {
         try PackageCollectionsTests_skipIfUnsupportedPlatform()
 
@@ -78,7 +78,7 @@ class PackageIndexAndCollectionsTests: XCTestCase {
         let list = try await indexAndCollections.listCollections()
         XCTAssertEqual(list.count, mockCollections.count, "list count should match")
     }
-    
+
     func testRefreshCollection() async throws {
         try PackageCollectionsTests_skipIfUnsupportedPlatform()
 
@@ -113,8 +113,10 @@ class PackageIndexAndCollectionsTests: XCTestCase {
             PackageCollectionsModel.Target(name: $0, moduleName: $0)
         }
 
-        let mockProducts = [PackageCollectionsModel.Product(name: UUID().uuidString, type: .executable, targets: [mockTargets.first!]),
-                            PackageCollectionsModel.Product(name: UUID().uuidString, type: .executable, targets: mockTargets)]
+        let mockProducts = [
+            PackageCollectionsModel.Product(name: UUID().uuidString, type: .executable, targets: [mockTargets.first!]),
+            PackageCollectionsModel.Product(name: UUID().uuidString, type: .executable, targets: mockTargets),
+        ]
         let toolsVersion = ToolsVersion(string: "5.2")!
         let mockManifest = PackageCollectionsModel.Package.Version.Manifest(
             toolsVersion: toolsVersion,
@@ -124,52 +126,60 @@ class PackageIndexAndCollectionsTests: XCTestCase {
             minimumPlatformVersions: nil
         )
 
-        let mockVersion = PackageCollectionsModel.Package.Version(version: TSCUtility.Version(1, 0, 0),
-                                                                  title: nil,
-                                                                  summary: nil,
-                                                                  manifests: [toolsVersion: mockManifest],
-                                                                  defaultToolsVersion: toolsVersion,
-                                                                  verifiedCompatibility: nil,
-                                                                  license: nil,
-                                                                  author: nil,
-                                                                  signer: nil,
-                                                                  createdAt: nil)
+        let mockVersion = PackageCollectionsModel.Package.Version(
+            version: TSCUtility.Version(1, 0, 0),
+            title: nil,
+            summary: nil,
+            manifests: [toolsVersion: mockManifest],
+            defaultToolsVersion: toolsVersion,
+            verifiedCompatibility: nil,
+            license: nil,
+            author: nil,
+            signer: nil,
+            createdAt: nil
+        )
 
         let mockPackageURL = "https://packages.mock/\(UUID().uuidString)"
-        let mockPackage = PackageCollectionsModel.Package(identity: .init(urlString: mockPackageURL),
-                                                          location: mockPackageURL,
-                                                          summary: UUID().uuidString,
-                                                          keywords: [UUID().uuidString, UUID().uuidString],
-                                                          versions: [mockVersion],
-                                                          watchersCount: nil,
-                                                          readmeURL: nil,
-                                                          license: nil,
-                                                          authors: nil,
-                                                          languages: nil)
+        let mockPackage = PackageCollectionsModel.Package(
+            identity: .init(urlString: mockPackageURL),
+            location: mockPackageURL,
+            summary: UUID().uuidString,
+            keywords: [UUID().uuidString, UUID().uuidString],
+            versions: [mockVersion],
+            watchersCount: nil,
+            readmeURL: nil,
+            license: nil,
+            authors: nil,
+            languages: nil
+        )
 
-        let mockCollection = PackageCollectionsModel.Collection(source: .init(type: .json, url: "https://feed.mock/\(UUID().uuidString)"),
-                                                                name: UUID().uuidString,
-                                                                overview: UUID().uuidString,
-                                                                keywords: [UUID().uuidString, UUID().uuidString],
-                                                                packages: [mockPackage],
-                                                                createdAt: Date(),
-                                                                createdBy: nil,
-                                                                signature: nil)
+        let mockCollection = PackageCollectionsModel.Collection(
+            source: .init(type: .json, url: "https://feed.mock/\(UUID().uuidString)"),
+            name: UUID().uuidString,
+            overview: UUID().uuidString,
+            keywords: [UUID().uuidString, UUID().uuidString],
+            packages: [mockPackage],
+            createdAt: Date(),
+            createdBy: nil,
+            signature: nil
+        )
 
-        let mockCollection2 = PackageCollectionsModel.Collection(source: .init(type: .json, url: "https://feed.mock/\(UUID().uuidString)"),
-                                                                 name: UUID().uuidString,
-                                                                 overview: UUID().uuidString,
-                                                                 keywords: [UUID().uuidString, UUID().uuidString],
-                                                                 packages: [mockPackage],
-                                                                 createdAt: Date(),
-                                                                 createdBy: nil,
-                                                                 signature: nil)
+        let mockCollection2 = PackageCollectionsModel.Collection(
+            source: .init(type: .json, url: "https://feed.mock/\(UUID().uuidString)"),
+            name: UUID().uuidString,
+            overview: UUID().uuidString,
+            keywords: [UUID().uuidString, UUID().uuidString],
+            packages: [mockPackage],
+            createdAt: Date(),
+            createdBy: nil,
+            signature: nil
+        )
 
         mockCollections.append(mockCollection)
         mockCollections.append(mockCollection2)
 
         let packageCollections = makePackageCollections(mockCollections: mockCollections, storage: storage)
-        
+
         let packageIndex = MockPackageIndex()
         let indexAndCollections = PackageIndexAndCollections(index: packageIndex, collections: packageCollections, observabilityScope: ObservabilitySystem.NOOP)
         defer { XCTAssertNoThrow(try indexAndCollections.close()) }
@@ -239,7 +249,7 @@ class PackageIndexAndCollectionsTests: XCTestCase {
         let expectedCollections = Set(mockCollections.filter { !$0.packages.filter { expectedPackages.contains($0.identity) }.isEmpty }.map { $0.identifier })
         XCTAssertEqual(targetsCollectionsList, expectedCollections, "collections should match")
     }
-    
+
     func testFindTargets() async throws {
         try PackageCollectionsTests_skipIfUnsupportedPlatform()
 
@@ -252,8 +262,10 @@ class PackageIndexAndCollectionsTests: XCTestCase {
             PackageCollectionsModel.Target(name: $0, moduleName: $0)
         }
 
-        let mockProducts = [PackageCollectionsModel.Product(name: UUID().uuidString, type: .executable, targets: [mockTargets.first!]),
-                            PackageCollectionsModel.Product(name: UUID().uuidString, type: .executable, targets: mockTargets)]
+        let mockProducts = [
+            PackageCollectionsModel.Product(name: UUID().uuidString, type: .executable, targets: [mockTargets.first!]),
+            PackageCollectionsModel.Product(name: UUID().uuidString, type: .executable, targets: mockTargets),
+        ]
         let toolsVersion = ToolsVersion(string: "5.2")!
         let mockManifest = PackageCollectionsModel.Package.Version.Manifest(
             toolsVersion: toolsVersion,
@@ -263,46 +275,54 @@ class PackageIndexAndCollectionsTests: XCTestCase {
             minimumPlatformVersions: nil
         )
 
-        let mockVersion = PackageCollectionsModel.Package.Version(version: TSCUtility.Version(1, 0, 0),
-                                                                  title: nil,
-                                                                  summary: nil,
-                                                                  manifests: [toolsVersion: mockManifest],
-                                                                  defaultToolsVersion: toolsVersion,
-                                                                  verifiedCompatibility: nil,
-                                                                  license: nil,
-                                                                  author: nil,
-                                                                  signer: nil,
-                                                                  createdAt: nil)
+        let mockVersion = PackageCollectionsModel.Package.Version(
+            version: TSCUtility.Version(1, 0, 0),
+            title: nil,
+            summary: nil,
+            manifests: [toolsVersion: mockManifest],
+            defaultToolsVersion: toolsVersion,
+            verifiedCompatibility: nil,
+            license: nil,
+            author: nil,
+            signer: nil,
+            createdAt: nil
+        )
 
         let mockPackageURL = "https://packages.mock/\(UUID().uuidString)"
-        let mockPackage = PackageCollectionsModel.Package(identity: .init(urlString: mockPackageURL),
-                                                          location: mockPackageURL,
-                                                          summary: UUID().uuidString,
-                                                          keywords: [UUID().uuidString, UUID().uuidString],
-                                                          versions: [mockVersion],
-                                                          watchersCount: nil,
-                                                          readmeURL: nil,
-                                                          license: nil,
-                                                          authors: nil,
-                                                          languages: nil)
+        let mockPackage = PackageCollectionsModel.Package(
+            identity: .init(urlString: mockPackageURL),
+            location: mockPackageURL,
+            summary: UUID().uuidString,
+            keywords: [UUID().uuidString, UUID().uuidString],
+            versions: [mockVersion],
+            watchersCount: nil,
+            readmeURL: nil,
+            license: nil,
+            authors: nil,
+            languages: nil
+        )
 
-        let mockCollection = PackageCollectionsModel.Collection(source: .init(type: .json, url: "https://feed.mock/\(UUID().uuidString)"),
-                                                                name: UUID().uuidString,
-                                                                overview: UUID().uuidString,
-                                                                keywords: [UUID().uuidString, UUID().uuidString],
-                                                                packages: [mockPackage],
-                                                                createdAt: Date(),
-                                                                createdBy: nil,
-                                                                signature: nil)
+        let mockCollection = PackageCollectionsModel.Collection(
+            source: .init(type: .json, url: "https://feed.mock/\(UUID().uuidString)"),
+            name: UUID().uuidString,
+            overview: UUID().uuidString,
+            keywords: [UUID().uuidString, UUID().uuidString],
+            packages: [mockPackage],
+            createdAt: Date(),
+            createdBy: nil,
+            signature: nil
+        )
 
-        let mockCollection2 = PackageCollectionsModel.Collection(source: .init(type: .json, url: "https://feed.mock/\(UUID().uuidString)"),
-                                                                 name: UUID().uuidString,
-                                                                 overview: UUID().uuidString,
-                                                                 keywords: [UUID().uuidString, UUID().uuidString],
-                                                                 packages: [mockPackage],
-                                                                 createdAt: Date(),
-                                                                 createdBy: nil,
-                                                                 signature: nil)
+        let mockCollection2 = PackageCollectionsModel.Collection(
+            source: .init(type: .json, url: "https://feed.mock/\(UUID().uuidString)"),
+            name: UUID().uuidString,
+            overview: UUID().uuidString,
+            keywords: [UUID().uuidString, UUID().uuidString],
+            packages: [mockPackage],
+            createdAt: Date(),
+            createdBy: nil,
+            signature: nil
+        )
 
         let expectedCollections = [mockCollection, mockCollection2]
         let expectedCollectionsIdentifiers = expectedCollections.map { $0.identifier }.sorted()
@@ -341,12 +361,12 @@ class PackageIndexAndCollectionsTests: XCTestCase {
             XCTAssertEqual(searchResult.items.count, 0, "list count should match")
         }
     }
-        
+
     func testListPackagesInIndex() async throws {
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
         let packageCollections = makePackageCollections(mockCollections: [], storage: storage)
-        
+
         let mockPackages = (0..<10).map { packageIndex -> PackageCollectionsModel.Package in
             makeMockPackage(id: "package-\(packageIndex)")
         }
@@ -357,10 +377,10 @@ class PackageIndexAndCollectionsTests: XCTestCase {
         let result = try await indexAndCollections.listPackagesInIndex(offset: 1, limit: 5)
         XCTAssertFalse(result.items.isEmpty)
     }
-    
+
     func testGetPackageMetadata() async throws {
         try PackageCollectionsTests_skipIfUnsupportedPlatform()
-        
+
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
         let mockCollections = makeMockCollections(count: 3)
@@ -372,7 +392,7 @@ class PackageIndexAndCollectionsTests: XCTestCase {
         let packageIndex = MockPackageIndex(packages: mockCollections.last!.packages)
         let indexAndCollections = PackageIndexAndCollections(index: packageIndex, collections: packageCollections, observabilityScope: ObservabilitySystem.NOOP)
         defer { XCTAssertNoThrow(try indexAndCollections.close()) }
-        
+
         do {
             let list = try await indexAndCollections.listCollections()
             XCTAssertEqual(list.count, 0, "list should be empty")
@@ -385,21 +405,21 @@ class PackageIndexAndCollectionsTests: XCTestCase {
             let list = try await indexAndCollections.listCollections()
             XCTAssertEqual(list.count, mockCollections.count, "list count should match")
         }
-        
+
         let metadata = try await indexAndCollections.getPackageMetadata(identity: mockPackage.identity, location: mockPackage.location)
-        
+
         let expectedCollections = Set(mockCollections.filter { $0.packages.map { $0.identity }.contains(mockPackage.identity) }.map { $0.identifier })
         XCTAssertEqual(Set(metadata.collections), expectedCollections, "collections should match")
-        
+
         // Metadata comes from package index - package returned as-is, no merging
         XCTAssertEqual(metadata.package, mockPackage)
         XCTAssertNotNil(metadata.provider)
         XCTAssertEqual(metadata.provider?.name, "package index")
     }
-    
+
     func testGetPackageMetadata_brokenIndex() async throws {
         try PackageCollectionsTests_skipIfUnsupportedPlatform()
-        
+
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
         let mockCollections = makeMockCollections(count: 3)
@@ -411,7 +431,7 @@ class PackageIndexAndCollectionsTests: XCTestCase {
         let packageIndex = BrokenPackageIndex()
         let indexAndCollections = PackageIndexAndCollections(index: packageIndex, collections: packageCollections, observabilityScope: ObservabilitySystem.NOOP)
         defer { XCTAssertNoThrow(try indexAndCollections.close()) }
-        
+
         do {
             let list = try await indexAndCollections.listCollections()
             XCTAssertEqual(list.count, 0, "list should be empty")
@@ -424,22 +444,22 @@ class PackageIndexAndCollectionsTests: XCTestCase {
             let list = try await indexAndCollections.listCollections()
             XCTAssertEqual(list.count, mockCollections.count, "list count should match")
         }
-        
+
         let metadata = try await indexAndCollections.getPackageMetadata(identity: mockPackage.identity, location: mockPackage.location)
 
         let expectedCollections = Set(mockCollections.filter { $0.packages.map { $0.identity }.contains(mockPackage.identity) }.map { $0.identifier })
         XCTAssertEqual(Set(metadata.collections), expectedCollections, "collections should match")
-        
+
         // Metadata comes from collections - merged with basic metadata
         let expectedMetadata = PackageCollections.mergedPackageMetadata(package: mockPackage, basicMetadata: mockMetadata)
         XCTAssertEqual(metadata.package, expectedMetadata, "package should match")
 
         XCTAssertNil(metadata.provider)
     }
-    
+
     func testGetPackageMetadata_indexAndCollectionError() async throws {
         try PackageCollectionsTests_skipIfUnsupportedPlatform()
-        
+
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
         let packageCollections = makePackageCollections(mockCollections: [], storage: storage)
@@ -447,7 +467,7 @@ class PackageIndexAndCollectionsTests: XCTestCase {
         let packageIndex = BrokenPackageIndex()
         let indexAndCollections = PackageIndexAndCollections(index: packageIndex, collections: packageCollections, observabilityScope: ObservabilitySystem.NOOP)
         defer { XCTAssertNoThrow(try indexAndCollections.close()) }
-        
+
         let mockPackage = makeMockPackage(id: "test-package")
         // Package not found in collections; index is broken
         await XCTAssertAsyncThrowsError(try await indexAndCollections.getPackageMetadata(identity: mockPackage.identity, location: mockPackage.location)) { error in
@@ -457,10 +477,10 @@ class PackageIndexAndCollectionsTests: XCTestCase {
             }
         }
     }
-    
+
     func testFindPackages() async throws {
         try PackageCollectionsTests_skipIfUnsupportedPlatform()
-        
+
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
 
@@ -470,8 +490,10 @@ class PackageIndexAndCollectionsTests: XCTestCase {
             PackageCollectionsModel.Target(name: $0, moduleName: $0)
         }
 
-        let mockProducts = [PackageCollectionsModel.Product(name: UUID().uuidString, type: .executable, targets: [mockTargets.first!]),
-                            PackageCollectionsModel.Product(name: UUID().uuidString, type: .executable, targets: mockTargets)]
+        let mockProducts = [
+            PackageCollectionsModel.Product(name: UUID().uuidString, type: .executable, targets: [mockTargets.first!]),
+            PackageCollectionsModel.Product(name: UUID().uuidString, type: .executable, targets: mockTargets),
+        ]
         let toolsVersion = ToolsVersion(string: "5.2")!
         let mockManifest = PackageCollectionsModel.Package.Version.Manifest(
             toolsVersion: toolsVersion,
@@ -481,46 +503,54 @@ class PackageIndexAndCollectionsTests: XCTestCase {
             minimumPlatformVersions: nil
         )
 
-        let mockVersion = PackageCollectionsModel.Package.Version(version: TSCUtility.Version(1, 0, 0),
-                                                                  title: nil,
-                                                                  summary: nil,
-                                                                  manifests: [toolsVersion: mockManifest],
-                                                                  defaultToolsVersion: toolsVersion,
-                                                                  verifiedCompatibility: nil,
-                                                                  license: nil,
-                                                                  author: nil,
-                                                                  signer: nil,
-                                                                  createdAt: nil)
+        let mockVersion = PackageCollectionsModel.Package.Version(
+            version: TSCUtility.Version(1, 0, 0),
+            title: nil,
+            summary: nil,
+            manifests: [toolsVersion: mockManifest],
+            defaultToolsVersion: toolsVersion,
+            verifiedCompatibility: nil,
+            license: nil,
+            author: nil,
+            signer: nil,
+            createdAt: nil
+        )
 
         let url = "https://packages.mock/\(UUID().uuidString)"
-        let mockPackage = PackageCollectionsModel.Package(identity: .init(urlString: url),
-                                                          location: url,
-                                                          summary: UUID().uuidString,
-                                                          keywords: [UUID().uuidString, UUID().uuidString],
-                                                          versions: [mockVersion],
-                                                          watchersCount: nil,
-                                                          readmeURL: nil,
-                                                          license: nil,
-                                                          authors: nil,
-                                                          languages: nil)
+        let mockPackage = PackageCollectionsModel.Package(
+            identity: .init(urlString: url),
+            location: url,
+            summary: UUID().uuidString,
+            keywords: [UUID().uuidString, UUID().uuidString],
+            versions: [mockVersion],
+            watchersCount: nil,
+            readmeURL: nil,
+            license: nil,
+            authors: nil,
+            languages: nil
+        )
 
-        let mockCollection = PackageCollectionsModel.Collection(source: .init(type: .json, url: "https://feed.mock/\(UUID().uuidString)"),
-                                                                name: UUID().uuidString,
-                                                                overview: UUID().uuidString,
-                                                                keywords: [UUID().uuidString, UUID().uuidString],
-                                                                packages: [mockPackage],
-                                                                createdAt: Date(),
-                                                                createdBy: nil,
-                                                                signature: nil)
+        let mockCollection = PackageCollectionsModel.Collection(
+            source: .init(type: .json, url: "https://feed.mock/\(UUID().uuidString)"),
+            name: UUID().uuidString,
+            overview: UUID().uuidString,
+            keywords: [UUID().uuidString, UUID().uuidString],
+            packages: [mockPackage],
+            createdAt: Date(),
+            createdBy: nil,
+            signature: nil
+        )
 
-        let mockCollection2 = PackageCollectionsModel.Collection(source: .init(type: .json, url: "https://feed.mock/\(UUID().uuidString)"),
-                                                                 name: UUID().uuidString,
-                                                                 overview: UUID().uuidString,
-                                                                 keywords: [UUID().uuidString, UUID().uuidString],
-                                                                 packages: [mockPackage],
-                                                                 createdAt: Date(),
-                                                                 createdBy: nil,
-                                                                 signature: nil)
+        let mockCollection2 = PackageCollectionsModel.Collection(
+            source: .init(type: .json, url: "https://feed.mock/\(UUID().uuidString)"),
+            name: UUID().uuidString,
+            overview: UUID().uuidString,
+            keywords: [UUID().uuidString, UUID().uuidString],
+            packages: [mockPackage],
+            createdAt: Date(),
+            createdBy: nil,
+            signature: nil
+        )
 
         let expectedCollections = [mockCollection, mockCollection2]
         let expectedCollectionsIdentifiers = expectedCollections.map { $0.identifier }.sorted()
@@ -531,11 +561,11 @@ class PackageIndexAndCollectionsTests: XCTestCase {
         let packageIndex = MockPackageIndex(packages: [mockPackage])
         let indexAndCollections = PackageIndexAndCollections(index: packageIndex, collections: packageCollections, observabilityScope: ObservabilitySystem.NOOP)
         defer { XCTAssertNoThrow(try indexAndCollections.close()) }
-        
+
         for collection in mockCollections {
             _ = try await indexAndCollections.addCollection(collection.source, trustConfirmationProvider: { _, cb in cb(true) })
         }
-        
+
         // both index and collections
         do {
             let searchResult = try await indexAndCollections.findPackages(mockPackage.identity.description, in: .both(collections: nil))
@@ -543,7 +573,7 @@ class PackageIndexAndCollectionsTests: XCTestCase {
             XCTAssertEqual(searchResult.items.first?.collections.sorted(), expectedCollectionsIdentifiers, "collections should match")
             XCTAssertEqual(searchResult.items.first?.indexes, [packageIndex.url], "indexes should match")
         }
-        
+
         // index only
         do {
             let searchResult = try await indexAndCollections.findPackages(mockPackage.identity.description, in: .index)
@@ -551,7 +581,7 @@ class PackageIndexAndCollectionsTests: XCTestCase {
             XCTAssertTrue(searchResult.items.first?.collections.isEmpty ?? true, "collections should match")
             XCTAssertEqual(searchResult.items.first?.indexes, [packageIndex.url], "indexes should match")
         }
-        
+
         // collections only
         do {
             let searchResult = try await indexAndCollections.findPackages(mockPackage.identity.description, in: .collections(nil))
@@ -560,10 +590,10 @@ class PackageIndexAndCollectionsTests: XCTestCase {
             XCTAssertTrue(searchResult.items.first?.indexes.isEmpty ?? true, "indexes should match")
         }
     }
-    
+
     func testFindPackages_brokenIndex() async throws {
         try PackageCollectionsTests_skipIfUnsupportedPlatform()
-        
+
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
 
@@ -573,8 +603,10 @@ class PackageIndexAndCollectionsTests: XCTestCase {
             PackageCollectionsModel.Target(name: $0, moduleName: $0)
         }
 
-        let mockProducts = [PackageCollectionsModel.Product(name: UUID().uuidString, type: .executable, targets: [mockTargets.first!]),
-                            PackageCollectionsModel.Product(name: UUID().uuidString, type: .executable, targets: mockTargets)]
+        let mockProducts = [
+            PackageCollectionsModel.Product(name: UUID().uuidString, type: .executable, targets: [mockTargets.first!]),
+            PackageCollectionsModel.Product(name: UUID().uuidString, type: .executable, targets: mockTargets),
+        ]
         let toolsVersion = ToolsVersion(string: "5.2")!
         let mockManifest = PackageCollectionsModel.Package.Version.Manifest(
             toolsVersion: toolsVersion,
@@ -584,46 +616,54 @@ class PackageIndexAndCollectionsTests: XCTestCase {
             minimumPlatformVersions: nil
         )
 
-        let mockVersion = PackageCollectionsModel.Package.Version(version: TSCUtility.Version(1, 0, 0),
-                                                                  title: nil,
-                                                                  summary: nil,
-                                                                  manifests: [toolsVersion: mockManifest],
-                                                                  defaultToolsVersion: toolsVersion,
-                                                                  verifiedCompatibility: nil,
-                                                                  license: nil,
-                                                                  author: nil,
-                                                                  signer: nil,
-                                                                  createdAt: nil)
+        let mockVersion = PackageCollectionsModel.Package.Version(
+            version: TSCUtility.Version(1, 0, 0),
+            title: nil,
+            summary: nil,
+            manifests: [toolsVersion: mockManifest],
+            defaultToolsVersion: toolsVersion,
+            verifiedCompatibility: nil,
+            license: nil,
+            author: nil,
+            signer: nil,
+            createdAt: nil
+        )
 
         let url = "https://packages.mock/\(UUID().uuidString)"
-        let mockPackage = PackageCollectionsModel.Package(identity: .init(urlString: url),
-                                                          location: url,
-                                                          summary: UUID().uuidString,
-                                                          keywords: [UUID().uuidString, UUID().uuidString],
-                                                          versions: [mockVersion],
-                                                          watchersCount: nil,
-                                                          readmeURL: nil,
-                                                          license: nil,
-                                                          authors: nil,
-                                                          languages: nil)
+        let mockPackage = PackageCollectionsModel.Package(
+            identity: .init(urlString: url),
+            location: url,
+            summary: UUID().uuidString,
+            keywords: [UUID().uuidString, UUID().uuidString],
+            versions: [mockVersion],
+            watchersCount: nil,
+            readmeURL: nil,
+            license: nil,
+            authors: nil,
+            languages: nil
+        )
 
-        let mockCollection = PackageCollectionsModel.Collection(source: .init(type: .json, url: "https://feed.mock/\(UUID().uuidString)"),
-                                                                name: UUID().uuidString,
-                                                                overview: UUID().uuidString,
-                                                                keywords: [UUID().uuidString, UUID().uuidString],
-                                                                packages: [mockPackage],
-                                                                createdAt: Date(),
-                                                                createdBy: nil,
-                                                                signature: nil)
+        let mockCollection = PackageCollectionsModel.Collection(
+            source: .init(type: .json, url: "https://feed.mock/\(UUID().uuidString)"),
+            name: UUID().uuidString,
+            overview: UUID().uuidString,
+            keywords: [UUID().uuidString, UUID().uuidString],
+            packages: [mockPackage],
+            createdAt: Date(),
+            createdBy: nil,
+            signature: nil
+        )
 
-        let mockCollection2 = PackageCollectionsModel.Collection(source: .init(type: .json, url: "https://feed.mock/\(UUID().uuidString)"),
-                                                                 name: UUID().uuidString,
-                                                                 overview: UUID().uuidString,
-                                                                 keywords: [UUID().uuidString, UUID().uuidString],
-                                                                 packages: [mockPackage],
-                                                                 createdAt: Date(),
-                                                                 createdBy: nil,
-                                                                 signature: nil)
+        let mockCollection2 = PackageCollectionsModel.Collection(
+            source: .init(type: .json, url: "https://feed.mock/\(UUID().uuidString)"),
+            name: UUID().uuidString,
+            overview: UUID().uuidString,
+            keywords: [UUID().uuidString, UUID().uuidString],
+            packages: [mockPackage],
+            createdAt: Date(),
+            createdBy: nil,
+            signature: nil
+        )
 
         let expectedCollections = [mockCollection, mockCollection2]
         let expectedCollectionsIdentifiers = expectedCollections.map { $0.identifier }.sorted()
@@ -634,11 +674,11 @@ class PackageIndexAndCollectionsTests: XCTestCase {
         let packageIndex = BrokenPackageIndex()
         let indexAndCollections = PackageIndexAndCollections(index: packageIndex, collections: packageCollections, observabilityScope: ObservabilitySystem.NOOP)
         defer { XCTAssertNoThrow(try indexAndCollections.close()) }
-        
+
         for collection in mockCollections {
             _ = try await indexAndCollections.addCollection(collection.source, trustConfirmationProvider: { _, cb in cb(true) })
         }
-        
+
         // both index and collections
         do {
             let searchResult = try await indexAndCollections.findPackages(mockPackage.identity.description, in: .both(collections: nil))
@@ -647,7 +687,7 @@ class PackageIndexAndCollectionsTests: XCTestCase {
             // Results come from collections since index is broken
             XCTAssertEqual(searchResult.items.first?.indexes, [], "indexes should match")
         }
-        
+
         // index only
         do {
             await XCTAssertAsyncThrowsError(try await indexAndCollections.findPackages(mockPackage.identity.description, in: .index)) { error in
@@ -656,7 +696,7 @@ class PackageIndexAndCollectionsTests: XCTestCase {
                 }
             }
         }
-        
+
         // collections only
         do {
             let searchResult = try await indexAndCollections.findPackages(mockPackage.identity.description, in: .collections(nil))
@@ -676,7 +716,7 @@ private func makePackageCollections(
     let configuration = PackageCollections.Configuration()
     let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider(mockCollections)]
     let metadataProvider = metadataProvider
-    
+
     return PackageCollections(
         configuration: configuration,
         fileSystem: localFileSystem,
@@ -692,7 +732,7 @@ private struct MockPackageIndex: PackageIndexProtocol {
     let url: URL
 
     private let packages: [PackageCollectionsModel.Package]
-    
+
     init(
         url: URL = "https://mock-package-index",
         packages: [PackageCollectionsModel.Package] = []
@@ -713,11 +753,11 @@ private struct MockPackageIndex: PackageIndexProtocol {
 
     func findPackages(
         _ query: String
-    ) async throws  -> PackageCollectionsModel.PackageSearchResult{
+    ) async throws -> PackageCollectionsModel.PackageSearchResult {
         let items = self.packages.filter { $0.identity.description.contains(query) }
         return PackageCollectionsModel.PackageSearchResult(items: items.map { .init(package: $0, collections: [], indexes: [self.url]) })
     }
-    
+
     func listPackages(
         offset: Int,
         limit: Int
@@ -737,7 +777,7 @@ private struct MockPackageIndex: PackageIndexProtocol {
 
 private struct BrokenPackageIndex: PackageIndexProtocol {
     let isEnabled = true
-    
+
     func getPackageMetadata(
         identity: PackageIdentity,
         location: String?
@@ -750,13 +790,13 @@ private struct BrokenPackageIndex: PackageIndexProtocol {
     ) async throws -> PackageCollectionsModel.PackageSearchResult {
         throw TerribleThing()
     }
-    
+
     func listPackages(
         offset: Int,
         limit: Int
     ) async throws -> PackageCollectionsModel.PaginatedPackageList {
         throw TerribleThing()
     }
-    
+
     struct TerribleThing: Error {}
 }

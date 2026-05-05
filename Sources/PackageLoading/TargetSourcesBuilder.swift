@@ -84,9 +84,12 @@ public struct TargetSourcesBuilder {
         let excludedPaths = target.exclude.compactMap { try? AbsolutePath(validating: $0, relativeTo: path) }
         self.excludedPaths = Set(excludedPaths)
         self.opaqueDirectoriesExtensions = FileRuleDescription.opaqueDirectoriesExtensions.union(
-            additionalFileRules.reduce(into: Set<String>(), { partial, item in
-                partial.formUnion(item.fileTypes)
-            })
+            additionalFileRules.reduce(
+                into: Set<String>(),
+                { partial, item in
+                    partial.formUnion(item.fileTypes)
+                }
+            )
         )
         self.fileSystem = fileSystem
 
@@ -113,9 +116,10 @@ public struct TargetSourcesBuilder {
 
         self.declaredSources = declaredSources
 
-        self.declaredResources = (try? target.resources.map {
-            (path: try AbsolutePath(validating: $0.path, relativeTo: path), rule: $0.rule)
-        }) ?? []
+        self.declaredResources =
+            (try? target.resources.map {
+                (path: try AbsolutePath(validating: $0.path, relativeTo: path), rule: $0.rule)
+            }) ?? []
 
         self.excludedPaths.forEach { exclude in
             if let message = validTargetPath(at: exclude), self.packageKind.emitAuthorWarnings {
@@ -131,9 +135,9 @@ public struct TargetSourcesBuilder {
             }
         }
 
-      #if DEBUG
-        validateRules(self.rules)
-      #endif
+        #if DEBUG
+            validateRules(self.rules)
+        #endif
     }
 
     private static func rules(additionalFileRules: [FileRuleDescription], toolsVersion: ToolsVersion) -> [FileRuleDescription] {
@@ -230,17 +234,19 @@ public struct TargetSourcesBuilder {
     }
 
     /// Compute the rule for the given path.
-    private static func computeRule(for path: Basics.AbsolutePath,
-                                    toolsVersion: ToolsVersion,
-                                    additionalFileRules: [FileRuleDescription],
-                                    observabilityScope: ObservabilityScope) -> FileRuleDescription.Rule {
+    private static func computeRule(
+        for path: Basics.AbsolutePath,
+        toolsVersion: ToolsVersion,
+        additionalFileRules: [FileRuleDescription],
+        observabilityScope: ObservabilityScope
+    ) -> FileRuleDescription.Rule {
         let rules = Self.rules(additionalFileRules: additionalFileRules, toolsVersion: toolsVersion)
         // For now, we are not passing in any declared resources or sources here and instead handle any generated files automatically at the callsite. Eventually, we will want the ability to declare opinions for generated files in the manifest as well.
         return Self.computeRule(for: path, toolsVersion: toolsVersion, rules: rules, declaredResources: [], declaredSources: nil, observabilityScope: observabilityScope)
     }
 
     private static func computeRule(
-        for path: Basics.AbsolutePath, 
+        for path: Basics.AbsolutePath,
         toolsVersion: ToolsVersion,
         rules: [FileRuleDescription],
         declaredResources: [(path: Basics.AbsolutePath, rule: TargetDescription.Resource.Rule)],
@@ -269,21 +275,23 @@ public struct TargetSourcesBuilder {
                     observabilityScope.emit(error: "duplicate rule found for file at '\(path)'")
                 }
 
-                    // Check for header files as they're allowed to be mixed with sources.
-                    if let ext = path.extension,
-                      FileRuleDescription.header.fileTypes.contains(ext) {
-                        matchedRule = .header
-                    } else if toolsVersion >= .v5_3 {
-                        matchedRule = .compile
-                    } else if let ext = path.extension,
-                      SupportedLanguageExtension.validExtensions(toolsVersion: toolsVersion).contains(ext) {
-                        matchedRule = .compile
-                    }
-                    // The source file might have been declared twice so
-                    // exit on first match.
-                    // FIXME: We should emitting warnings for duplicate// declarations.
+                // Check for header files as they're allowed to be mixed with sources.
+                if let ext = path.extension,
+                    FileRuleDescription.header.fileTypes.contains(ext)
+                {
+                    matchedRule = .header
+                } else if toolsVersion >= .v5_3 {
+                    matchedRule = .compile
+                } else if let ext = path.extension,
+                    SupportedLanguageExtension.validExtensions(toolsVersion: toolsVersion).contains(ext)
+                {
+                    matchedRule = .compile
                 }
+                // The source file might have been declared twice so
+                // exit on first match.
+                // FIXME: We should emitting warnings for duplicate// declarations.
             }
+        }
 
         // We haven't found a rule using that's explicitly declared in the manifest
         // so try doing an automatic match.
@@ -306,7 +314,7 @@ public struct TargetSourcesBuilder {
 
         return matchedRule
     }
-    
+
     private static func isDescendantOfOrEqualToAny(_ path: Basics.AbsolutePath, _ ancestorPaths: OrderedCollections.OrderedSet<Basics.AbsolutePath>) -> Bool {
         var currentPath = path
         while true {
@@ -339,7 +347,7 @@ public struct TargetSourcesBuilder {
             }()
 
             let explicitLocalization: String? = {
-                switch rule  {
+                switch rule {
                 case .processResource(localization: .default):
                     return defaultLocalization ?? "en"
                 case .processResource(localization: .base):
@@ -381,10 +389,12 @@ public struct TargetSourcesBuilder {
     }
 
     private func diagnoseCopyConflictsWithLocalizationDirectories(in resources: [Resource]) {
-        let localizationDirectories = Set(resources
-            .lazy
-            .compactMap({ $0.localization })
-            .map({ "\($0).\(Resource.localizationDirectoryExtension)" }))
+        let localizationDirectories = Set(
+            resources
+                .lazy
+                .compactMap({ $0.localization })
+                .map({ "\($0).\(Resource.localizationDirectoryExtension)" })
+        )
 
         for resource in resources where resource.rule == .copy {
             if localizationDirectories.contains(resource.path.basename.lowercased()) {
@@ -408,9 +418,12 @@ public struct TargetSourcesBuilder {
     private func diagnoseInfoPlistConflicts(in resources: [Resource]) throws {
         for resource in resources {
             if try resource.destination == RelativePath(validating: "Info.plist") {
-                self.observabilityScope.emit(.infoPlistResourceConflict(
-                    path: resource.path.relative(to: targetPath),
-                    targetName: target.name))
+                self.observabilityScope.emit(
+                    .infoPlistResourceConflict(
+                        path: resource.path.relative(to: targetPath),
+                        targetName: target.name
+                    )
+                )
             }
         }
     }
@@ -487,9 +500,9 @@ public struct TargetSourcesBuilder {
             // ie, do not include their content, and instead treat the directory itself as the content
             if toolsVersion >= .v5_6 {
                 if let directoryExtension = path.extension,
-                   self.opaqueDirectoriesExtensions.contains(directoryExtension),
-                   directoryExtension != Resource.localizationDirectoryExtension,
-                   !isDeclaredSource(path)
+                    self.opaqueDirectoriesExtensions.contains(directoryExtension),
+                    directoryExtension != Resource.localizationDirectoryExtension,
+                    !isDeclaredSource(path)
                 {
                     contents.append(path)
                     continue
@@ -498,8 +511,8 @@ public struct TargetSourcesBuilder {
                 // maintain the broken behavior prior to fixing it in 5.6
                 // see rdar://82933763
                 if let directoryExtension = path.extension,
-                   directoryExtension != Resource.localizationDirectoryExtension,
-                   !isDeclaredSource(path)
+                    directoryExtension != Resource.localizationDirectoryExtension,
+                    !isDeclaredSource(path)
                 {
                     contents.append(path)
                     continue
@@ -507,7 +520,7 @@ public struct TargetSourcesBuilder {
             }
 
             // Check if the directory is marked to be copied.
-            let directoryMarkedToBeCopied = target.resources.contains{ resource in
+            let directoryMarkedToBeCopied = target.resources.contains { resource in
                 let resourcePath = try? AbsolutePath(validating: resource.path, relativeTo: self.targetPath)
                 if resource.rule == .copy && resourcePath == path {
                     return true
@@ -524,9 +537,12 @@ public struct TargetSourcesBuilder {
             // We found a directory inside a localization directory, which is forbidden.
             if path.parentDirectory.extension == Resource.localizationDirectoryExtension {
                 let relativePath = path.parentDirectory.relative(to: targetPath)
-                self.observabilityScope.emit(.localizationDirectoryContainsSubDirectories(
-                    localizationDirectory: relativePath,
-                    targetName: target.name))
+                self.observabilityScope.emit(
+                    .localizationDirectoryContainsSubDirectories(
+                        localizationDirectory: relativePath,
+                        targetName: target.name
+                    )
+                )
                 continue
             }
 
@@ -546,8 +562,8 @@ public struct TargetSourcesBuilder {
         additionalFileRules: [FileRuleDescription],
         defaultLocalization: String?,
         module: Module,
-        observabilityScope: ObservabilityScope) -> GeneratedFiles
-    {
+        observabilityScope: ObservabilityScope
+    ) -> GeneratedFiles {
         var files = GeneratedFiles()
 
         generatedFiles.forEach { absPath in
@@ -635,8 +651,8 @@ public struct GeneratedFiles {
         headers: [Basics.AbsolutePath] = [],
         moduleMaps: [Basics.AbsolutePath] = [],
         apiNotes: [Basics.AbsolutePath] = [],
-        resources: [Basics.AbsolutePath: Resource] = [:])
-    {
+        resources: [Basics.AbsolutePath: Resource] = [:]
+    ) {
         self.sources = sources
         self.headers = headers
         self.moduleMaps = moduleMaps
@@ -873,14 +889,17 @@ public struct FileRuleDescription: Sendable {
     /// List of file directory extensions that should be treated as opaque, non source, directories.
     public static var opaqueDirectoriesExtensions: Set<String> {
         let types = Self.xcbuildFileTypes + Self.swiftpmFileTypes
-        return types.reduce(into: Set<String>(), { partial, item in
-            partial.formUnion(item.fileTypes)
-        })
+        return types.reduce(
+            into: Set<String>(),
+            { partial, item in
+                partial.formUnion(item.fileTypes)
+            }
+        )
     }
 }
 
 extension FileRuleDescription.Rule {
-    init(_ seed: TargetDescription.Resource.Rule)  {
+    init(_ seed: TargetDescription.Resource.Rule) {
         switch seed {
         case .process(let localization):
             self = .processResource(localization: localization)

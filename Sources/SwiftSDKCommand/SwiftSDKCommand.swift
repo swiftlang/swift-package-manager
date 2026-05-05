@@ -12,7 +12,7 @@
 
 import ArgumentParser
 import Basics
-    
+
 package struct SwiftSDKCommand: AsyncParsableCommand {
     package static let configuration = CommandConfiguration(
         commandName: "sdk",

@@ -23,16 +23,16 @@ import Testing
 /// This bypasses the bundle search logic in production code which doesn't work in test contexts
 fileprivate func createTestValidator(for spec: SBOMSpec) throws -> any SBOMValidatorProtocol {
     let schemaFilename = spec.schemaFilename
-    
+
     // Find the SBOMModel bundle - schema files are resources of SBOMModel, not SBOMModelTests
     // Search for the bundle in the same directory as the test bundle
     let testBundleURL = Bundle.module.bundleURL
     let buildDir = testBundleURL.deletingLastPathComponent()
-    
+
     // Try both .bundle and .resources extensions (macOS vs other platforms)
     let bundleExtensions = ["bundle", "resources"]
     var sbomModelBundle: Bundle?
-    
+
     for ext in bundleExtensions {
         let bundleURL = buildDir.appendingPathComponent("SwiftPM_SBOMModel.\(ext)")
         if let bundle = Bundle(url: bundleURL) {
@@ -40,17 +40,18 @@ fileprivate func createTestValidator(for spec: SBOMSpec) throws -> any SBOMValid
             break
         }
     }
-    
+
     guard let bundle = sbomModelBundle,
-          let schemaURL = bundle.url(forResource: schemaFilename, withExtension: "json") else {
+        let schemaURL = bundle.url(forResource: schemaFilename, withExtension: "json")
+    else {
         throw SBOMSchemaError.schemaFileNotFound(filename: schemaFilename, bundlePath: buildDir.path)
     }
-    
+
     let schemaData = try Data(contentsOf: schemaURL)
     guard let jsonObject = try JSONSerialization.jsonObject(with: schemaData) as? [String: Any] else {
         throw SBOMSchemaError.invalidSchemaFormat(message: "Could not parse schema as JSON dictionary")
     }
-    
+
     // Create the appropriate validator based on spec type
     switch spec.concreteSpec {
     case .cyclonedx1:
@@ -74,7 +75,7 @@ struct SBOMValidationTests {
         let inputStore: ResolvedPackagesStore
         let wantError: Bool
 
-        var description: String { // don't print the graph because it's large
+        var description: String {  // don't print the graph because it's large
             "ValidateGraphSBOMTestCase(graph: \(self.graphName), spec: \(self.inputSpec), wantError: \(self.wantError))"
         }
     }
@@ -123,11 +124,11 @@ struct SBOMValidationTests {
         let observability = ObservabilitySystem.makeForTesting()
         let encoder = SBOMEncoder(sbom: document, observabilityScope: observability.topScope)
         let encodedData = try await encoder.encodeSBOMData(spec: testCase.inputSpec)
-        
+
         guard let sbomJSONObject = try JSONSerialization.jsonObject(with: encodedData) as? [String: Any] else {
             throw SBOMEncoderError.jsonConversionFailed(message: "Could not convert generated SBOM file into JSON object for validation")
         }
-        
+
         let validator = try createTestValidator(for: testCase.inputSpec)
         try await validator.validate(sbomJSONObject)
     }

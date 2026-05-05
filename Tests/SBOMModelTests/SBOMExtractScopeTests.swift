@@ -127,7 +127,7 @@ struct SBOMExtractScopeTests {
             )
             products.append(product)
         }
-        
+
         var modules: [Module] = []
         for (index, moduleType) in testCase.additionalModules.enumerated() {
             let module = SBOMTestModulesGraph.createSwiftModule(
@@ -136,7 +136,7 @@ struct SBOMExtractScopeTests {
             )
             modules.append(module)
         }
-        
+
         let resolvedPackage = try SBOMTestModulesGraph.createPackage(
             name: "TestPackage",
             products: products,
