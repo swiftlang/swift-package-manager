@@ -902,13 +902,13 @@ struct PIFBuilderTests {
                     .buildConfig(named: configuration)
                 switch indexStoreSettingUT {
                     case .on, .off:
-                        #expect(targetConfig.settings[.SWIFT_INDEX_STORE_ENABLE] == nil)
+                        #expect(targetConfig.settings[.INDEX_ENABLE_DATA_STORE] == nil)
                     case .auto:
                         let expectedSwiftIndexStoreEnableValue: String? = switch configuration {
                             case .debug: "YES"
                             case .release: nil
                         }
-                        #expect(targetConfig.settings[.SWIFT_INDEX_STORE_ENABLE] == expectedSwiftIndexStoreEnableValue)
+                        #expect(targetConfig.settings[.INDEX_ENABLE_DATA_STORE] == expectedSwiftIndexStoreEnableValue)
                 }
 
                 let testTargetConfig = try pif.workspace
@@ -917,9 +917,9 @@ struct PIFBuilderTests {
                     .buildConfig(named: configuration)
                 switch indexStoreSettingUT {
                     case .on, .off:
-                        #expect(testTargetConfig.settings[.SWIFT_INDEX_STORE_ENABLE] == nil)
+                        #expect(testTargetConfig.settings[.INDEX_ENABLE_DATA_STORE] == nil)
                     case .auto:
-                        #expect(testTargetConfig.settings[.SWIFT_INDEX_STORE_ENABLE] == "YES")
+                        #expect(testTargetConfig.settings[.INDEX_ENABLE_DATA_STORE] == "YES")
                 }
             }
         }

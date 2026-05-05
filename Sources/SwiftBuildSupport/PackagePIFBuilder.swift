@@ -679,7 +679,7 @@ public final class PackagePIFBuilder {
         debugSettings[.ENABLE_TESTABILITY] = "YES"
         debugSettings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS, default: []].append(contentsOf: ["DEBUG"])
         debugSettings[.GCC_PREPROCESSOR_DEFINITIONS, default: ["$(inherited)"]].append(contentsOf: ["DEBUG=1"])
-        debugSettings[.SWIFT_INDEX_STORE_ENABLE] = "YES"
+        debugSettings[.INDEX_ENABLE_DATA_STORE] = "YES"
         builder.project.addBuildConfig { id in BuildConfig(id: id, name: "Debug", settings: debugSettings) }
 
         // Add the build settings that are specific to release builds, and set those as the "Release" configuration.
