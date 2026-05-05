@@ -1829,7 +1829,7 @@ struct TestCommandTests {
                 )
 
                 #expect(
-                    stdout.contains("failbreak breakpoint set"),
+                    stdout.contains("failbreak command registered: 1 specs"),
                     "Expected a failure breakpoint to be setup, got stdout: \(stdout), stderr: \(stderr)",
                 )
             }
@@ -1865,7 +1865,7 @@ struct TestCommandTests {
                 )
 
                 #expect(
-                    stdout.contains("failbreak breakpoint set"),
+                    stdout.contains("failbreak command registered: 1 specs"),
                     "Expected Swift Testing failure breakpoint setup, got stdout: \(stdout), stderr: \(stderr)",
                 )
             }
@@ -1907,7 +1907,7 @@ struct TestCommandTests {
                 }
 
                 #expect(
-                    getNumberOfMatches(of: "breakpoint set", in: stdout) == 2,
+                    stdout.contains("failbreak command registered: 2 specs"),
                     "Expected combined failure breakpoint setup, got stdout: \(stdout), stderr: \(stderr)",
                 )
 

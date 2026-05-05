@@ -561,6 +561,19 @@ struct DebugTestRunner {
             .replacingOccurrences(of: "\"", with: "\\\"")
     }
 
+    /// Escapes a string for embedding inside a double-quoted Python string
+    /// literal. Python interprets `\n`, `\r`, `\t`, `\x`, `\u`, etc. as
+    /// escape sequences inside `"..."` literals, so LLDB-style escaping
+    /// (which only handles `\` and `"`) is not sufficient. Backslash is
+    /// doubled first so the escapes we introduce aren't re-escaped.
+    static func escapeForPythonStringLiteral(_ s: String) -> String {
+        s.replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+            .replacingOccurrences(of: "\n", with: "\\n")
+            .replacingOccurrences(of: "\r", with: "\\r")
+            .replacingOccurrences(of: "\t", with: "\\t")
+    }
+
     /// Builds an inline LLDB `script` command that registers an
     /// `SBDebugger.SetDestroyCallback` to delete the given directory
     /// when LLDB tears down. Fires on `quit`, `exit`, EOF, and most
@@ -695,7 +708,12 @@ struct DebugTestRunner {
             }
         }
 
-        setupCommandAliases(&lldbCommands, hasSwiftTesting: hasSwiftTesting, hasXCTest: hasXCTest)
+        try setupCommandAliases(
+            &lldbCommands,
+            scratchDir: scratchDir,
+            hasSwiftTesting: hasSwiftTesting,
+            hasXCTest: hasXCTest
+        )
 
         if target.isMultiSession {
             let scriptPath = try createTargetSwitchingScript(in: scratchDir)
@@ -704,26 +722,219 @@ struct DebugTestRunner {
         }
     }
 
-    private func setupCommandAliases(_ lldbCommands: inout [String], hasSwiftTesting: Bool, hasXCTest: Bool) {
+    private func setupCommandAliases(_ lldbCommands: inout [String], scratchDir: AbsolutePath, hasSwiftTesting: Bool, hasXCTest: Bool) throws {
         #if os(macOS)
-            let swiftTestingFailureBreakpoint = "-s Testing -n \"failureBreakpoint()\""
-            let xctestFailureBreakpoint = "-n \"_XCTFailureBreakpoint\""
+            let swiftTestingSpec: (module: String?, symbol: String) = ("Testing", "failureBreakpoint()")
+            let xctestSpec: (module: String?, symbol: String) = (nil, "_XCTFailureBreakpoint")
         #elseif os(Windows)
-            let swiftTestingFailureBreakpoint = "-s Testing.dll -n \"failureBreakpoint()\""
-            let xctestFailureBreakpoint = "-s XCTest.dll -n \"XCTest.XCTestCase.recordFailure\""
+            let swiftTestingSpec: (module: String?, symbol: String) = ("Testing.dll", "failureBreakpoint()")
+            let xctestSpec: (module: String?, symbol: String) = ("XCTest.dll", "XCTest.XCTestCase.recordFailure")
         #else
-            let swiftTestingFailureBreakpoint = "-s libTesting.so -n \"Testing.failureBreakpoint\""
-            let xctestFailureBreakpoint = "-s libXCTest.so -n \"XCTest.XCTestCase.recordFailure\""
+            let swiftTestingSpec: (module: String?, symbol: String) = ("libTesting.so", "Testing.failureBreakpoint")
+            let xctestSpec: (module: String?, symbol: String) = ("libXCTest.so", "XCTest.XCTestCase.recordFailure")
         #endif
 
-        // Add failure breakpoint commands based on available libraries
-        if hasSwiftTesting && hasXCTest {
-            lldbCommands.append("command alias failbreak script lldb.debugger.HandleCommand('breakpoint set \(swiftTestingFailureBreakpoint)'); lldb.debugger.HandleCommand('breakpoint set \(xctestFailureBreakpoint)')")
-        } else if hasSwiftTesting {
-            lldbCommands.append("command alias failbreak breakpoint set \(swiftTestingFailureBreakpoint)")
-        } else if hasXCTest {
-            lldbCommands.append("command alias failbreak breakpoint set \(xctestFailureBreakpoint)")
+        var specs: [(module: String?, symbol: String)] = []
+        if hasSwiftTesting {
+            specs.append(swiftTestingSpec)
         }
+        if hasXCTest {
+            specs.append(xctestSpec)
+        }
+
+        guard !specs.isEmpty else { return }
+
+        let scriptPath = try createFailbreakScript(in: scratchDir, specs: specs)
+        lldbCommands.append("command script import \"\(Self.escapeForQuotedLLDBArgument(scriptPath.pathString))\"")
+        lldbCommands.append("command script add -f failbreak.failbreak failbreak")
+        lldbCommands.append("script print(\"failbreak command registered: \(specs.count) specs\")")
+    }
+
+    /// Creates a Python script that implements the `failbreak` command.
+    ///
+    /// On invocation, `failbreak` sets breakpoints on the failure-anchor
+    /// symbols inside the testing libraries and installs a stop hook that,
+    /// when the process stops inside one of those anchors, selects the
+    /// first stack frame that has debug info and lives outside the testing
+    /// libraries — typically the user's `XCTAssert` call or `#expect`
+    /// macro expansion site.
+    ///
+    /// A stop hook is used (rather than a breakpoint callback) because
+    /// LLDB's "most relevant frame" selection runs *after* breakpoint
+    /// callbacks and would otherwise clobber our `SetSelectedFrame` call.
+    ///
+    /// The stop hook is installed lazily on first `failbreak` invocation
+    /// rather than at LLDB startup, so users who never invoke `failbreak`
+    /// pay no per-target setup overhead.
+    private func createFailbreakScript(in scratchDir: AbsolutePath, specs: [(module: String?, symbol: String)]) throws -> AbsolutePath {
+        let scriptPath = scratchDir.appending("failbreak.py")
+
+        let specsLiteral = specs.map { spec -> String in
+            let moduleLiteral = spec.module.map { "\"\(Self.escapeForPythonStringLiteral($0))\"" } ?? "None"
+            let symbolLiteral = "\"\(Self.escapeForPythonStringLiteral(spec.symbol))\""
+            return "    (\(moduleLiteral), \(symbolLiteral)),"
+        }.joined(separator: "\n")
+
+        let pythonScript = """
+# failbreak.py
+import lldb
+
+_FAILBREAK_SPECS = [
+\(specsLiteral)
+]
+
+_FAILBREAK_SYMBOLS = {spec[1] for spec in _FAILBREAK_SPECS}
+
+_TESTING_MODULES = {
+    "Testing", "Testing.dll", "libTesting.so", "libTesting.dylib",
+    "XCTest", "XCTest.dll", "libXCTest.so", "libXCTest.dylib",
+    "XCTestCore", "libXCTestCore.dylib",
+}
+
+_stop_hook_installed = False
+
+def _is_testing_module(module):
+    if not module.IsValid():
+        return False
+    name = module.GetFileSpec().GetFilename() or ""
+    return name in _TESTING_MODULES
+
+def _is_macro_expansion(frame):
+    name = frame.GetFunctionName() or ""
+    if "macro expansion" in name:
+        return True
+    line_entry = frame.GetLineEntry()
+    if line_entry.IsValid():
+        filename = line_entry.GetFileSpec().GetFilename() or ""
+        if filename.startswith("@__swiftmacro_"):
+            return True
+    return False
+
+def _frame_is_failure_anchor(frame):
+    name = frame.GetFunctionName() or ""
+    for sym in _FAILBREAK_SYMBOLS:
+        if sym in name:
+            return True
+    return False
+
+def _select_user_frame(thread, stream):
+    \"\"\"Walk frames and select the first one outside the testing libraries and
+    outside freestanding-macro expansions.\"\"\"
+    for i in range(thread.GetNumFrames()):
+        f = thread.GetFrameAtIndex(i)
+        line_entry = f.GetLineEntry()
+        if not line_entry.IsValid() or not line_entry.GetFileSpec().IsValid():
+            continue
+        if _is_testing_module(f.GetModule()):
+            continue
+        if _is_macro_expansion(f):
+            continue
+        thread.SetSelectedFrame(i)
+        if stream is not None:
+            func = f.GetFunctionName() or "<unknown>"
+            filename = line_entry.GetFileSpec().GetFilename() or "<unknown>"
+            line = line_entry.GetLine()
+            stream.Print("[failbreak] selected frame #%d: %s at %s:%d\\n" % (i, func, filename, line))
+        return i
+    return None
+
+class FailbreakStopHook:
+    \"\"\"Stop hook: when we stop at a failure anchor, jump to the first user frame.\"\"\"
+
+    def __init__(self, target, extra_args, internal_dict):
+        pass
+
+    def handle_stop(self, exe_ctx, stream):
+        thread = exe_ctx.GetThread()
+        if not thread.IsValid():
+            return True
+        if thread.GetStopReason() != lldb.eStopReasonBreakpoint:
+            return True
+        if not _frame_is_failure_anchor(thread.GetFrameAtIndex(0)):
+            return True
+        _select_user_frame(thread, stream)
+        return True
+
+def _install_stop_hook(debugger, result):
+    \"\"\"Install the FailbreakStopHook on every existing target.
+
+    `target stop-hook add` normally applies to the currently selected
+    target, and switching the selected target from inside a Python
+    command handler (via either `SBDebugger.SetSelectedTarget` or
+    `HandleCommand("target select N")`) doesn't reliably propagate to
+    subsequent `HandleCommand` calls — both leave us installing every
+    hook on the originally-selected target.
+
+    Pass an `SBExecutionContext` override to `HandleCommand` so the
+    command applies to the target we explicitly name. No `target select`
+    switching needed.
+
+    Returns True if at least one install succeeded; only then is the
+    module-level sentinel flipped so that a completely-failed install
+    will be retried on the next `failbreak` invocation.
+    \"\"\"
+    global _stop_hook_installed
+    if _stop_hook_installed:
+        return True
+    ci = debugger.GetCommandInterpreter()
+    installed = 0
+    attempted = 0
+    for i in range(debugger.GetNumTargets()):
+        t = debugger.GetTargetAtIndex(i)
+        if not t.IsValid():
+            continue
+        attempted += 1
+        ret = lldb.SBCommandReturnObject()
+        exe_ctx = lldb.SBExecutionContext(t)
+        ci.HandleCommand(
+            "target stop-hook add -P failbreak.FailbreakStopHook",
+            exe_ctx, ret, False
+        )
+        if ret.Succeeded():
+            installed += 1
+        else:
+            err = ret.GetError() or "unknown error"
+            result.AppendWarning(
+                "failbreak: could not install stop hook on target #%d: %s"
+                % (i, err.rstrip())
+            )
+    if installed > 0:
+        _stop_hook_installed = True
+        return True
+    if attempted > 0:
+        result.AppendWarning(
+            "failbreak: stop hook install failed on all %d target(s); "
+            "frame selection on failure will not occur" % attempted
+        )
+    return False
+
+def failbreak(debugger, command, exe_ctx, result, internal_dict):
+    \"\"\"`failbreak` command: set breakpoints on testing-library failure anchors.\"\"\"
+    target = debugger.GetSelectedTarget()
+    if not target.IsValid():
+        result.SetError("no target selected")
+        return
+    _install_stop_hook(debugger, result)
+    installed = 0
+    for module_name, symbol in _FAILBREAK_SPECS:
+        if module_name:
+            bp = target.BreakpointCreateByName(symbol, module_name)
+        else:
+            bp = target.BreakpointCreateByName(symbol)
+        if bp.IsValid():
+            installed += 1
+            result.AppendMessage("failbreak breakpoint set: " + symbol)
+        else:
+            result.AppendWarning("failbreak: could not set breakpoint on " + symbol)
+    if installed == 0 and _FAILBREAK_SPECS:
+        result.SetError(
+            "failbreak: no breakpoints could be set; "
+            "testing libraries may not be loaded yet"
+        )
+"""
+
+        try fileSystem.writeFileContents(scriptPath, string: pythonScript)
+        return scriptPath
     }
 
     /// Gets the executable path and arguments for a given testing library
