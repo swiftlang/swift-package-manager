@@ -559,7 +559,7 @@ final class SwiftSDKBundleTests: XCTestCase {
         let system = ObservabilitySystem.makeForTesting()
         let store = SwiftSDKBundleStore(
             swiftSDKsDirectory: swiftSDKsDirectory,
-            hostToolchainBinDir: "/tmp",
+            hostToolchainBinDir: AbsolutePath("/tmp"),
             fileSystem: fileSystem,
             observabilityScope: system.topScope,
             outputHandler: { _ in }
@@ -575,8 +575,8 @@ final class SwiftSDKBundleTests: XCTestCase {
             for api in apiLevels {
                 let env = arch == "armv7" ? "androideabi" : "android"
                 let triple = try Triple("\(arch)-unknown-linux-\(env)\(api)")
-                let expectedSwiftResources = "\(swiftSDKsDirectory.pathString)/android-sdk.artifactbundle/\(variantPath)/swift-resources/usr/lib/swift-\(arch)"
-                let expectedSwiftStaticResources = "\(swiftSDKsDirectory.pathString)/android-sdk.artifactbundle/\(variantPath)/swift-resources/usr/lib/swift_static-\(arch)"
+                let expectedSwiftResources = swiftSDKsDirectory.appending(components: "android-sdk.artifactbundle", "\(variantPath)", "swift-resources", "usr", "lib", "swift-\(arch)").pathString
+                let expectedSwiftStaticResources = swiftSDKsDirectory.appending(components: "android-sdk.artifactbundle", "\(variantPath)", "swift-resources", "usr", "lib", "swift_static-\(arch)").pathString
 
                 let (id, sdk) = try store.selectBundle(
                     matching: artifactID,
