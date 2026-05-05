@@ -179,7 +179,7 @@ struct BuildCommandTestCases {
                 )
 
                 // The original symlink should not exists
-                expectFileDoesNotExists(at: originalSymlink)
+                expectFileDoesNotExist(at: originalSymlink)
 
                 // Let's build the package
                 try await executeSwiftBuild(
