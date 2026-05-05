@@ -349,16 +349,21 @@ final class TraitLoadingTests: PackageDescriptionLoadingTests {
         let thirdDiagnostic = try XCTUnwrap(validationDiagnostics[2])
         let fourthDiagnostic = try XCTUnwrap(validationDiagnostics[3])
 
-        XCTAssertEqual(firstDiagnostic.severity, .error)
-        XCTAssertEqual(firstDiagnostic.message, "Trait 'UndefinedTrait2' referenced in the build settings condition for target 'Target' is not defined in the package")
+        func createDiagnostic(_ traitName: String) throws -> Basics.Diagnostic {
+            let target = try XCTUnwrap(TargetDescription(name: "Target"))
+            return Basics.Diagnostic.invalidTraitInSettingsCondition(trait: traitName, target: target)
+        }
 
-        XCTAssertEqual(secondDiagnostic.severity, .error)
-        XCTAssertEqual(secondDiagnostic.message, "Trait 'UndefinedTrait3' referenced in the build settings condition for target 'Target' is not defined in the package")
+        let diagnostic1 = try XCTUnwrap(createDiagnostic("UndefinedTrait2"))
+        XCTAssertEqual(firstDiagnostic.description, diagnostic1.description)
 
-        XCTAssertEqual(thirdDiagnostic.severity, .error)
-        XCTAssertEqual(thirdDiagnostic.message, "Trait 'Trait1' referenced in the build settings condition for target 'Target' is not defined in the package")
+        let diagnostic2 = try XCTUnwrap(createDiagnostic("UndefinedTrait3"))
+        XCTAssertEqual(secondDiagnostic.description, diagnostic2.description)
 
-        XCTAssertEqual(fourthDiagnostic.severity, .error)
-        XCTAssertEqual(fourthDiagnostic.message, "Trait 'UndefinedTrait1' referenced in the build settings condition for target 'Target' is not defined in the package")
+        let diagnostic3 = try XCTUnwrap(createDiagnostic("Trait1"))
+        XCTAssertEqual(thirdDiagnostic.description, diagnostic3.description)
+
+        let diagnostic4 = try XCTUnwrap(createDiagnostic("UndefinedTrait1"))
+        XCTAssertEqual(fourthDiagnostic.description, diagnostic4.description)
     }
 }

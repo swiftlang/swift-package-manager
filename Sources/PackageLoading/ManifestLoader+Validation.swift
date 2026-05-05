@@ -390,7 +390,7 @@ extension Basics.Diagnostic {
         .error("Trait \(enablerTrait) enables \(trait) which is not defined in the package")
     }
 
-    static func invalidTraitInSettingsCondition(trait: String, target: TargetDescription) -> Self {
+    public static func invalidTraitInSettingsCondition(trait: String, target: TargetDescription) -> Self {
         .error("Trait '\(trait)' referenced in the build settings condition for target '\(target.name)' is not defined in the package")
     }
 
