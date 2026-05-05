@@ -662,6 +662,15 @@ public final class SwiftModuleBuildDescription {
         )
         args += try self.macroArguments()
 
+        /// When using the standard library package, pass -nostdimport
+        /// and -nostdlibimport to prevent the compiler from looking into
+        /// the standard include paths for modules. Every module dependency
+        /// will need to be explicit.
+        if self.buildParameters.useStandardLibraryPackage {
+            args.append("-nostdimport")
+            args.append("-nostdlibimport")
+        }
+
         // rdar://117578677
         // Pass -fno-omit-frame-pointer to support backtraces
         // this can be removed once the backtracer uses DWARF instead of frame pointers
