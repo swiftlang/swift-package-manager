@@ -840,7 +840,6 @@ def _select_user_frame(thread, stream):
             func = f.GetFunctionName() or "<unknown>"
             filename = line_entry.GetFileSpec().GetFilename() or "<unknown>"
             line = line_entry.GetLine()
-            stream.Print("[failbreak] selected frame #%d: %s at %s:%d\\n" % (i, func, filename, line))
         return i
     return None
 
