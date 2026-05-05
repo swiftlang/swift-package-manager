@@ -88,7 +88,7 @@ struct CFamilyTargetTestCase {
                     Issue.record("Test expectation have not been implemented.")
                 }
                 let path = try SwiftPM.packagePath(for: "Foo", packageRoot: packageRoot)
-                let actualTags = try GitRepository(path: path).getTags()
+                let actualTags = try await GitRepository(path: path).getTags()
                 #expect(actualTags == ["1.2.3"])
             }
     }
