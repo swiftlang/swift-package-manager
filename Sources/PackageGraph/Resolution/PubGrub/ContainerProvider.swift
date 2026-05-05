@@ -25,6 +25,9 @@ final class ContainerProvider {
     /// Whether to perform update (git fetch) on existing cloned repositories or not.
     private let skipUpdate: Bool
 
+    /// Whether pinned packages from `Package.resolved` should avoid eager repository updates.
+    private let skipUpdateForResolvedPackages: Bool
+
     /// `Package.resolved` file representation.
     private let resolvedPackages: ResolvedPackagesStore.ResolvedPackages
 
@@ -40,13 +43,39 @@ final class ContainerProvider {
     init(
         provider underlying: PackageContainerProvider,
         skipUpdate: Bool,
+        skipUpdateForResolvedPackages: Bool,
         resolvedPackages: ResolvedPackagesStore.ResolvedPackages,
         observabilityScope: ObservabilityScope
     ) {
         self.underlying = underlying
         self.skipUpdate = skipUpdate
+        self.skipUpdateForResolvedPackages = skipUpdateForResolvedPackages
         self.resolvedPackages = resolvedPackages
         self.observabilityScope = observabilityScope
+    }
+
+    private func updateStrategy(for package: PackageReference) -> ContainerUpdateStrategy {
+        guard !self.skipUpdate else {
+            return .never
+        }
+
+        guard
+            self.skipUpdateForResolvedPackages,
+            let resolvedPackage = self.resolvedPackages[package.identity]
+        else {
+            return .always
+        }
+
+        switch resolvedPackage.state {
+        case .branch(_, let revision), .revision(let revision), .version(_, .some(let revision)):
+            return .ifNeeded(revision: revision)
+        case .version(_, .none):
+            return .never
+        }
+    }
+
+    private func trustPinnedVersions(for package: PackageReference) -> Bool {
+        self.skipUpdateForResolvedPackages && self.resolvedPackages[package.identity] != nil
     }
 
     /// Get a cached container for the given identifier, asserting / throwing if not found.
@@ -83,12 +112,19 @@ final class ContainerProvider {
             // Otherwise, fetch the container from the provider
             self.underlying.getContainer(
                 for: package,
-                updateStrategy: self.skipUpdate ? .never : .always, // TODO: make this more elaborate
-                observabilityScope: self.observabilityScope.makeChildScope(description: "getting package container", metadata: package.diagnosticsMetadata),
+                updateStrategy: self.updateStrategy(for: package),
+                observabilityScope: self.observabilityScope.makeChildScope(
+                    description: "getting package container",
+                    metadata: package.diagnosticsMetadata
+                ),
                 on: .sharedConcurrent
             ) { result in
                 let result = result.tryMap { container -> PubGrubPackageContainer in
-                    let pubGrubContainer = PubGrubPackageContainer(underlying: container, resolvedPackages: self.resolvedPackages)
+                    let pubGrubContainer = PubGrubPackageContainer(
+                        underlying: container,
+                        resolvedPackages: self.resolvedPackages,
+                        trustPinnedVersions: self.trustPinnedVersions(for: package)
+                    )
                     // only cache positive results
                     self.containersCache[package] = pubGrubContainer
                     return pubGrubContainer
@@ -112,14 +148,21 @@ final class ContainerProvider {
             if needsFetching {
                 self.underlying.getContainer(
                     for: identifier,
-                    updateStrategy: self.skipUpdate ? .never : .always, // TODO: make this more elaborate
-                    observabilityScope: self.observabilityScope.makeChildScope(description: "prefetching package container", metadata: identifier.diagnosticsMetadata),
+                    updateStrategy: self.updateStrategy(for: identifier),
+                    observabilityScope: self.observabilityScope.makeChildScope(
+                        description: "prefetching package container",
+                        metadata: identifier.diagnosticsMetadata
+                    ),
                     on: .sharedConcurrent
                 ) { result in
                     defer { self.prefetches[identifier]?.leave() }
                     // only cache positive results
                     if case .success(let container) = result {
-                        self.containersCache[identifier] = PubGrubPackageContainer(underlying: container, resolvedPackages: self.resolvedPackages)
+                        self.containersCache[identifier] = PubGrubPackageContainer(
+                            underlying: container,
+                            resolvedPackages: self.resolvedPackages,
+                            trustPinnedVersions: self.trustPinnedVersions(for: identifier)
+                        )
                     }
                 }
             }
