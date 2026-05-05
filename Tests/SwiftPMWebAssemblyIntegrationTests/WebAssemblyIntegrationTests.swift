@@ -57,6 +57,7 @@ extension Trait where Self == Testing.ConditionTrait {
 }
 
 @Suite(
+    .serialized,
     .tags(
         Tag.Feature.Command.Build,
     )
@@ -150,6 +151,85 @@ private struct WebAssemblyIntegrationTests {
             let lines = stdout.split(separator: "\n").map(String.init)
             #expect(lines.contains("Executable flag: ONE"))
             #expect(lines.contains("Plugin tool flag: NONE"))
+        }
+    }
+
+    @Test(.requiresWebAssemblySwiftSDK)
+    func configuredSwiftSDKSearchPaths() async throws {
+        try await fixture(name: "WebAssembly/ConfiguredSDKSearchPaths") { fixturePath in
+            let (compilerPath, sdkID) = try #require(try await findCompilerAndWebAssemblySDKIDForTesting())
+
+            var env = Environment()
+            env["SWIFT_EXEC"] = compilerPath.pathString
+
+            let externalDependencyPath = fixturePath.appending(component: "ExternalDependency")
+            let consumerPath = fixturePath.appending(component: "Consumer")
+
+            // Build a library we can use as mock "SDK content"
+            _ = try await executeSwiftBuild(
+                externalDependencyPath,
+                extraArgs: ["--swift-sdk", sdkID],
+                env: env,
+                buildSystem: .swiftbuild,
+            )
+            let libBinPathOutput = try await executeSwiftBuild(
+                externalDependencyPath,
+                extraArgs: ["--swift-sdk", sdkID, "--show-bin-path"],
+                env: env,
+                buildSystem: .swiftbuild,
+            )
+            let libBinPath = try AbsolutePath(
+                validating: libBinPathOutput.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+            )
+            let staticArchive = libBinPath.appending(component: "libGreeter.a")
+            let swiftModule = libBinPath.appending(component: "Greeter.swiftmodule")
+            #expect(localFileSystem.exists(staticArchive), "Expected static archive at \(staticArchive)")
+            #expect(localFileSystem.exists(swiftModule), "Expected Swift module at \(swiftModule)")
+            let configuredSDKSearchPath = fixturePath.appending(component: "ConfiguredSDKSearchPath")
+            try localFileSystem.createDirectory(configuredSDKSearchPath)
+            try localFileSystem.copy(from: staticArchive, to: configuredSDKSearchPath.appending(component: "libGreeter.a"))
+            try localFileSystem.copy(from: swiftModule, to: configuredSDKSearchPath.appending(component: "Greeter.swiftmodule"))
+
+            // Configure the Swift SDK we're using with additional search paths for the mock SDK content.
+            let triple = "wasm32-unknown-wasip1"
+            try await SwiftPM.sdk.execute([
+                "configure", sdkID, triple,
+                "--include-search-path", configuredSDKSearchPath.pathString,
+                "--library-search-path", configuredSDKSearchPath.pathString,
+            ], env: env)
+            defer {
+                _ = try? await SwiftPM.sdk.execute([
+                    "configure", sdkID, triple, "--reset",
+                ], env: env)
+            }
+
+            // Build a second package which depends on the mock SDK content
+            let buildOutput = try await executeSwiftBuild(
+                consumerPath,
+                extraArgs: ["--swift-sdk", sdkID],
+                env: env,
+                buildSystem: .swiftbuild,
+            )
+            #expect(buildOutput.stdout.contains("Build complete"))
+            let consumerBinPathOutput = try await executeSwiftBuild(
+                consumerPath,
+                extraArgs: ["--swift-sdk", sdkID, "--show-bin-path"],
+                env: env,
+                buildSystem: .swiftbuild,
+            )
+            let consumerBinPath = try AbsolutePath(
+                validating: consumerBinPathOutput.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+            )
+            let wasmBinary = consumerBinPath.appending(component: "GreeterUser.wasm")
+            #expect(localFileSystem.exists(wasmBinary), "Expected .wasm binary at \(wasmBinary)")
+
+            let wasmkitPath = try #require(try findWasmKit(sdkID: sdkID), "wasmkit not found in Swift SDK \(sdkID)")
+            let result = try await AsyncProcess.popen(
+                arguments: [wasmkitPath.pathString, "run", wasmBinary.pathString]
+            )
+            let stdout = try result.utf8Output().trimmingCharacters(in: .whitespacesAndNewlines)
+            #expect(result.exitStatus == .terminated(code: 0), "wasmkit exited with non-zero status")
+            #expect(stdout == "Hello from Greeter!", "Unexpected output: \(stdout)")
         }
     }
 }
