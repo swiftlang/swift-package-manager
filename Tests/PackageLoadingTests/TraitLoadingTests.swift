@@ -315,4 +315,55 @@ final class TraitLoadingTests: PackageDescriptionLoadingTests {
             )
         )
     }
+
+    func testTargetBuildSettingsConditionTraits() async throws {
+        let content =  """
+            import PackageDescription
+            let package = Package(
+                name: "Foo",
+                targets: [
+                    .target(
+                        name: "Target",
+                        cSettings: [
+                            .headerSearchPath("path/to/headers", .when(traits: ["UndefinedTrait2"])),
+                        ],
+                        cxxSettings: [
+                            .define("CXX_FLAG", .when(traits: ["UndefinedTrait3"])),
+                        ],
+                        swiftSettings: [
+                            .define("DEFINE1", .when(traits: ["Trait1"])),
+                        ],
+                        linkerSettings: [
+                            .linkedFramework("_Framework", .when(traits: ["UndefinedTrait1"]))
+                        ],
+                    )
+                ]
+            )
+            """
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let (_, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
+        XCTAssertNoDiagnostics(observability.diagnostics)
+        let firstDiagnostic = try XCTUnwrap(validationDiagnostics[0])
+        let secondDiagnostic = try XCTUnwrap(validationDiagnostics[1])
+        let thirdDiagnostic = try XCTUnwrap(validationDiagnostics[2])
+        let fourthDiagnostic = try XCTUnwrap(validationDiagnostics[3])
+
+        func createDiagnostic(_ traitName: String) throws -> Basics.Diagnostic {
+            let target = try XCTUnwrap(TargetDescription(name: "Target"))
+            return Basics.Diagnostic.invalidTraitInSettingsCondition(trait: traitName, target: target)
+        }
+
+        let diagnostic1 = try XCTUnwrap(createDiagnostic("UndefinedTrait2"))
+        XCTAssertEqual(firstDiagnostic.description, diagnostic1.description)
+
+        let diagnostic2 = try XCTUnwrap(createDiagnostic("UndefinedTrait3"))
+        XCTAssertEqual(secondDiagnostic.description, diagnostic2.description)
+
+        let diagnostic3 = try XCTUnwrap(createDiagnostic("Trait1"))
+        XCTAssertEqual(thirdDiagnostic.description, diagnostic3.description)
+
+        let diagnostic4 = try XCTUnwrap(createDiagnostic("UndefinedTrait1"))
+        XCTAssertEqual(fourthDiagnostic.description, diagnostic4.description)
+    }
 }
