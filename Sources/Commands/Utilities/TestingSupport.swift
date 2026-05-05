@@ -703,6 +703,12 @@ struct DebugTestRunner {
             switch testingLibrary.kind {
             case .xctest:
                 hasXCTest = true
+                #if os(macOS)
+                // Prevent the xctest binary from running any swift-testing tests it finds
+                // if the test target contains both types of tests. If the test target is mixed,
+                // we create one lldb target for each type.
+                lldbCommands.append("settings set target.env-vars SWIFT_TESTING_ENABLED=0")
+                #endif
             case .swiftTesting:
                 hasSwiftTesting = true
             }

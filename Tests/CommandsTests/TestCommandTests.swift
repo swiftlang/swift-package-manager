@@ -1915,6 +1915,13 @@ struct TestCommandTests {
                     stdout.contains("command script import"),
                     "Expected Python script import for multi-target switching, got stdout: \(stdout), stderr: \(stderr)",
                 )
+
+                #if os(macOS)
+                #expect(
+                    stdout.contains("settings set target.env-vars SWIFT_TESTING_ENABLED=0"),
+                    "Expected SWIFT_TESTING_ENABLED=0 scoped to the xctest target to prevent duplicate Swift Testing runs, got stdout: \(stdout), stderr: \(stderr)",
+                )
+                #endif
             }
         }
 
