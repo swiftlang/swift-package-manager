@@ -38,3 +38,5 @@ if (-not $SkipAndroid) {
     # Work around a bug in the package causing the env var to be set incorrectly
     $env:ANDROID_NDK_ROOT = $env:ANDROID_NDK_ROOT.replace('-windows.zip','')
 }
+
+Get-ChildItem Env:
