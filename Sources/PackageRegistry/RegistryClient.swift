@@ -964,7 +964,18 @@ public final class RegistryClient: AsyncCancellable {
                     // Mirrors the existing guard in
                     // Sources/Workspace/Workspace+BinaryArtifacts.swift after
                     // every archiver.extract call.
-                    try fileSystem.validateNoEscapingSymlinks(in: destinationPath)
+                    //
+                    // If validation fails the archive has already been written
+                    // to disk under destinationPath; remove it before re-throwing
+                    // so that a subsequent `swift build` cannot pick up the
+                    // unsafe contents (the throw alone only stops `swift package
+                    // resolve`, not later build steps reading the same path).
+                    do {
+                        try fileSystem.validateNoEscapingSymlinks(in: destinationPath)
+                    } catch {
+                        try? fileSystem.removeFileTree(destinationPath)
+                        throw error
+                    }
                     observabilityScope
                         .emit(
                             debug: "extracted \(package) \(version) source archive to '\(destinationPath)' in \(extractStart.distance(to: .now()).descriptionInSeconds)"

@@ -329,9 +329,14 @@ extension Workspace {
                                         from: archivePath,
                                         to: tempExtractionDirectory
                                     )
-                                    try self.fileSystem.validateNoEscapingSymlinks(
-                                        in: tempExtractionDirectory
-                                    )
+                                    do {
+                                        try self.fileSystem.validateNoEscapingSymlinks(
+                                            in: tempExtractionDirectory
+                                        )
+                                    } catch {
+                                        try? self.fileSystem.removeFileTree(tempExtractionDirectory)
+                                        throw error
+                                    }
 
                                     defer {
                                         observabilityScope.trap { try self.fileSystem.removeFileTree(archivePath) }
@@ -481,9 +486,14 @@ extension Workspace {
 
                         do {
                             try await self.archiver.extract(from: artifact.path, to: tempExtractionDirectory)
-                            try self.fileSystem.validateNoEscapingSymlinks(
-                                in: tempExtractionDirectory
-                            )
+                            do {
+                                try self.fileSystem.validateNoEscapingSymlinks(
+                                    in: tempExtractionDirectory
+                                )
+                            } catch {
+                                try? self.fileSystem.removeFileTree(tempExtractionDirectory)
+                                throw error
+                            }
 
                             return observabilityScope.trap {
                                 try self.fileSystem.withLock(on: destinationDirectory, type: .exclusive) {
