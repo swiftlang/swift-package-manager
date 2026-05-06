@@ -1787,7 +1787,8 @@ final class PubGrubTests: XCTestCase {
             resolvedPackages: [
                 package.identity: .init(
                     packageRef: package,
-                    state: .version(pinnedVersion, revision: nil)
+                    state: .version(pinnedVersion, revision: nil),
+                    originalScmUrl: nil
                 )
             ],
             trustPinnedVersions: true

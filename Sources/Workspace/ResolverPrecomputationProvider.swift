@@ -73,10 +73,7 @@ struct ResolverPrecomputationProvider: PackageContainerProvider {
             .contains(package.identity) ?? true
         if canUseLocalContainer {
             // Start by searching manifests from the Workspace's resolved dependencies.
-            if let manifest = self.dependencyManifests.dependencies.first(where: { _, managed, _, _ in
-                managed.packageRef.equalsIncludingLocation(package)
-                    || managed.packageRef.identity == package.identity
-            }) {
+            if let manifest = self.dependencyManifests.dependencies.first(where: { _, managed, _, _ in managed.packageRef == package }) {
                 let container = LocalPackageContainer(
                     package: package,
                     manifest: manifest.manifest,

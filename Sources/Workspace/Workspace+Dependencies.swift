@@ -145,12 +145,10 @@ extension Workspace {
             )
             self.activeResolver = resolver
 
-            let initialResult = await self.solveDependencies(
-                resolver: resolver,
-                constraints: updateConstraints
-            )
+            os_signpost(.begin, name: SignpostName.pubgrub)
+            let initialResult = await resolver.solve(constraints: updateConstraints)
+            os_signpost(.end, name: SignpostName.pubgrub)
 
-            // Reset the active resolver.
             self.activeResolver = nil
 
             guard !observabilityScope.errorsReported else {
@@ -160,7 +158,7 @@ extension Workspace {
             switch initialResult {
             case .success(let bindings):
                 updateResults = bindings
-            case .failure:
+            case .failure(let error) where Self.canRetryPartialUpdateWithRefreshedContainers(error):
                 observabilityScope.emit(
                     debug: "partial update could not be resolved using pinned dependency metadata alone; retrying with refreshed package containers"
                 )
@@ -176,6 +174,9 @@ extension Workspace {
                     observabilityScope: observabilityScope
                 )
                 self.activeResolver = nil
+            case .failure(let error):
+                observabilityScope.emit(error)
+                return nil
             }
         } else {
             // Resolve the dependencies.
@@ -1244,26 +1245,15 @@ extension Workspace {
         )
     }
 
-    fileprivate func solveDependencies(
-        resolver: PubGrubDependencyResolver,
-        constraints: [PackageContainerConstraint]
-    ) async -> Result<[DependencyResolverBinding], Error> {
-        os_signpost(.begin, name: SignpostName.pubgrub)
-        let result = await resolver.solve(constraints: constraints)
-        os_signpost(.end, name: SignpostName.pubgrub)
-        return result
-    }
-
     /// Runs the dependency resolver based on constraints provided and returns the results.
     fileprivate func resolveDependencies(
         resolver: PubGrubDependencyResolver,
         constraints: [PackageContainerConstraint],
         observabilityScope: ObservabilityScope
     ) async -> [DependencyResolverBinding] {
-        let result = await self.solveDependencies(
-            resolver: resolver,
-            constraints: constraints
-        )
+        os_signpost(.begin, name: SignpostName.pubgrub)
+        let result = await resolver.solve(constraints: constraints)
+        os_signpost(.end, name: SignpostName.pubgrub)
 
         // Take an action based on the result.
         switch result {
@@ -1273,6 +1263,14 @@ extension Workspace {
             observabilityScope.emit(error)
             return []
         }
+    }
+
+    // Only retry partial-update failures caused by the local-precomputation shortcut
+    // itself (missing or mismatched local manifests). Other errors — manifest parsing,
+    // registry, tools-version, PubGrub unresolvable — will fail again with refreshed
+    // containers, so they are surfaced directly.
+    private static func canRetryPartialUpdateWithRefreshedContainers(_ error: Error) -> Bool {
+        error is ResolverPrecomputationError
     }
 
     /// Create the cache directories.
