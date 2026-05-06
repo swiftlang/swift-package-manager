@@ -509,4 +509,133 @@ final class ResolvedPackagesStoreTests: XCTestCase {
         }
     }
 
+    func testLoadingSchema3RegistryPinWithoutOriginalLocation() throws {
+        let fs = InMemoryFileSystem()
+        let packageResolvedFile = AbsolutePath("/Package.resolved")
+
+        try fs.writeFileContents(packageResolvedFile, string:
+            """
+            {
+                "version": 3,
+                "originHash": "abc123",
+                "pins": [
+                  {
+                    "identity": "scope.package",
+                    "kind": "registry",
+                    "location": "",
+                    "state": {
+                      "version": "1.0.0"
+                    }
+                  }
+                ]
+            }
+            """
+        )
+
+        let store = try ResolvedPackagesStore(packageResolvedFile: packageResolvedFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
+        let identity = PackageIdentity.plain("scope.package")
+        let resolution = try XCTUnwrap(store.resolvedPackages[identity])
+
+        // originalLocation absent in old file — should have nil SCM URL
+        XCTAssertNil(resolution.originalScmUrl)
+    }
+
+    func testLoadingSchema3RegistryPinWithOriginalLocation() throws {
+        let fs = InMemoryFileSystem()
+        let packageResolvedFile = AbsolutePath("/Package.resolved")
+        let scmURLString = "https://github.com/apple/swift-argument-parser.git"
+
+        try fs.writeFileContents(packageResolvedFile, string:
+            """
+            {
+                "version": 3,
+                "originHash": "abc123",
+                "pins": [
+                  {
+                    "identity": "apple.swift-argument-parser",
+                    "kind": "registry",
+                    "location": "",
+                    "originalLocation": "\(scmURLString)",
+                    "state": {
+                      "version": "1.7.0"
+                    }
+                  }
+                ]
+            }
+            """
+        )
+
+        let store = try ResolvedPackagesStore(packageResolvedFile: packageResolvedFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
+        let identity = PackageIdentity.plain("apple.swift-argument-parser")
+        let resolution = try XCTUnwrap(store.resolvedPackages[identity])
+
+        if let scmURL = resolution.originalScmUrl {
+            XCTAssertEqual(scmURL, SourceControlURL(scmURLString))
+        } else {
+            XCTFail("Expected .registry kind")
+        }
+    }
+
+    func testTrackRegistryPackageWithScmUrlRoundTrip() throws {
+        let fs = InMemoryFileSystem()
+        let packageResolvedFile = AbsolutePath("/Package.resolved")
+        let scmURL = SourceControlURL("https://github.com/apple/swift-argument-parser.git")
+        let identity = PackageIdentity.plain("apple.swift-argument-parser")
+
+        var store = try ResolvedPackagesStore(
+            packageResolvedFile: packageResolvedFile,
+            workingDirectory: .root,
+            fileSystem: fs,
+            mirrors: .init()
+        )
+        store.track(
+            packageRef: .registry(identity: identity),
+            state: .version("1.7.0", revision: .none),
+            scm: scmURL
+        )
+        try store.saveState(toolsVersion: .current, originHash: .none)
+
+        // Reload and verify originalScmUrl survived the round-trip
+        let store2 = try ResolvedPackagesStore(
+            packageResolvedFile: packageResolvedFile,
+            workingDirectory: .root,
+            fileSystem: fs,
+            mirrors: .init()
+        )
+        let resolution = try XCTUnwrap(store2.resolvedPackages[identity])
+        XCTAssertEqual(resolution.originalScmUrl, scmURL)
+
+        // Also verify the Package.resolved JSON contains the originalLocation field
+        let content: String = try fs.readFileContents(packageResolvedFile)
+        XCTAssertMatch(content, .contains("originalLocation"))
+        XCTAssertMatch(content, .contains(scmURL.absoluteString))
+    }
+
+    func testTrackRegistryPackageWithoutScmUrlProducesNilOriginalScmUrl() throws {
+        let fs = InMemoryFileSystem()
+        let packageResolvedFile = AbsolutePath("/Package.resolved")
+        let identity = PackageIdentity.plain("scope.package")
+
+        var store = try ResolvedPackagesStore(
+            packageResolvedFile: packageResolvedFile,
+            workingDirectory: .root,
+            fileSystem: fs,
+            mirrors: .init()
+        )
+        store.track(
+            packageRef: .registry(identity: identity),
+            state: .version("1.0.0", revision: .none)
+            // no scm: parameter
+        )
+        try store.saveState(toolsVersion: .current, originHash: .none)
+
+        let store2 = try ResolvedPackagesStore(
+            packageResolvedFile: packageResolvedFile,
+            workingDirectory: .root,
+            fileSystem: fs,
+            mirrors: .init()
+        )
+        let resolution = try XCTUnwrap(store2.resolvedPackages[identity])
+        XCTAssertNil(resolution.originalScmUrl)
+    }
 }

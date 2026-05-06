@@ -141,7 +141,8 @@ private struct SwiftBuildSystemFactory: BuildSystemFactory {
                 workDirectory: try self.swiftCommandState.getActiveWorkspace().location.pluginWorkingDirectory,
                 disableSandbox: self.swiftCommandState.shouldDisableSandbox
             ),
-            delegate: delegate
+            delegate: delegate,
+            scratchDirectory: self.swiftCommandState.scratchDirectory,
         )
     }
 }

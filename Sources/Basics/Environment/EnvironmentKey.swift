@@ -35,7 +35,7 @@ extension EnvironmentKey {
     }
 
     /// A set of known keys which should not be included in cache keys.
-    package static let nonCachable: Set<Self> = [
+    package static let nonCachable: Set<Self> = Set([
         "TERM",
         "TERM_PROGRAM",
         "TERM_PROGRAM_VERSION",
@@ -51,7 +51,7 @@ extension EnvironmentKey {
         "VSCODE_IPC_HOOK_CLI",
         "HYPERFINE_RANDOMIZED_ENVIRONMENT_OFFSET",
         "SSH_AUTH_SOCK",
-    ]
+    ]).union(ConfigurableEnvVar.nonCachableEnvVars())
 }
 
 extension EnvironmentKey: CodingKeyRepresentable {}

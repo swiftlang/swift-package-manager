@@ -20,9 +20,19 @@ import SwiftPMBuildServer
 import _InternalTestSupport
 import Testing
 
-final fileprivate class NotificationCollectingMessageHandler: MessageHandler {
-    func handle(_ notification: some NotificationType) {}
+final fileprivate class NotificationCollectingMessageHandler: MessageHandler, @unchecked Sendable {
+    private let lock = NSLock()
+    private var _notifications: [Any] = []
+
+    func handle(_ notification: some NotificationType) {
+        lock.withLock { _notifications.append(notification) }
+    }
+
     func handle<Request>(_ request: Request, id: RequestID, reply: @escaping @Sendable (LSPResult<Request.Response>) -> Void) where Request : RequestType {}
+
+    func notifications<T: NotificationType>(of type: T.Type) -> [T] {
+        lock.withLock { _notifications.compactMap { $0 as? T } }
+    }
 }
 
 fileprivate func withSwiftPMBSP(fixtureName: String, extraBSPArgs: [String] = [], body: (Connection, NotificationCollectingMessageHandler, AbsolutePath) async throws -> Void) async throws {
@@ -172,6 +182,39 @@ struct SwiftPMBuildServerTests {
     }
 
     @Test
+    func packageReloadNotifications() async throws {
+        try await withSwiftPMBSP(fixtureName: "Miscellaneous/Simple") { connection, notificationCollector, fixturePath in
+            #expect(notificationCollector.notifications(of: TaskStartNotification.self).count == 1)
+            #expect(notificationCollector.notifications(of: TaskFinishNotification.self).count == 1)
+
+            try localFileSystem.writeFileContents(fixturePath.appending(component: "Bar.swift"), body: {
+                $0.write("public let baz = \"hello\"")
+            })
+
+            connection.send(OnWatchedFilesDidChangeNotification(changes: [
+                .init(uri: .init(.init(filePath: fixturePath.appending(component: "Bar.swift").pathString)), type: .created)
+            ]))
+            _ = try await connection.send(WorkspaceWaitForBuildSystemUpdatesRequest())
+
+            #expect(notificationCollector.notifications(of: TaskStartNotification.self).count == 2)
+            #expect(notificationCollector.notifications(of: TaskFinishNotification.self).count == 2)
+
+            let taskStarts = notificationCollector.notifications(of: TaskStartNotification.self)
+            #expect(taskStarts.count == 2)
+            for start in taskStarts {
+                #expect(start.taskId.id == "package-reloading")
+                #expect(WorkDoneProgressTask(fromLSPAny: start.data)?.title == "SwiftPM: Reloading Package")
+            }
+
+            let taskFinishes = notificationCollector.notifications(of: TaskFinishNotification.self)
+            #expect(taskFinishes.count == 2)
+            for finish in taskFinishes {
+                #expect(finish.taskId.id == "package-reloading")
+            }
+        }
+    }
+
+    @Test
     func compilerArgsFromUserInitiatedBuild() async throws {
         try await withSwiftPMBSP(
             fixtureName: "Miscellaneous/Simple",
@@ -263,6 +306,86 @@ struct SwiftPMBuildServerTests {
     }
 
     @Test
+    func missingTargetSources() async throws {
+        try await withSwiftPMBSP(fixtureName: "Miscellaneous/MissingSources") { connection, _, fixturePath in
+            // The manifest compiles successfully even though MyLib has no sources, verify we can fetch compiler args for the manifest.
+            let targetResponse = try await connection.send(WorkspaceBuildTargetsRequest())
+            let manifestTarget = try #require(targetResponse.targets.first(where: { $0.displayName == "Package Manifest" }))
+            let manifestSourcesResponse = try await connection.send(BuildTargetSourcesRequest(targets: [manifestTarget.id]))
+            let manifestItem = try #require(manifestSourcesResponse.items.only?.sources.only)
+            #expect(manifestItem.uri.fileURL?.lastPathComponent == "Package.swift")
+            let manifestSettingsResponse = try #require(try await connection.send(TextDocumentSourceKitOptionsRequest(textDocument: TextDocumentIdentifier(manifestItem.uri), target: manifestTarget.id, language: .swift)))
+            try await AsyncProcess.checkNonZeroExit(arguments: [UserToolchain.default.swiftCompilerPath.pathString, "-typecheck"] + manifestSettingsResponse.compilerArguments)
+
+            // Now add the missing source file and check we can get args for it.
+            let sourcesDir = fixturePath.appending(components: "Sources", "MyLib")
+            try localFileSystem.createDirectory(sourcesDir, recursive: true)
+            let sourceFilePath = sourcesDir.appending(component: "MyLib.swift")
+            try localFileSystem.writeFileContents(sourceFilePath, body: {
+                $0.write("public let greeting = \"hello\"")
+            })
+            connection.send(OnWatchedFilesDidChangeNotification(changes: [
+                .init(uri: .init(.init(filePath: sourceFilePath.pathString)), type: .created)
+            ]))
+            _ = try await connection.send(WorkspaceWaitForBuildSystemUpdatesRequest())
+            let updatedTargetResponse = try await connection.send(WorkspaceBuildTargetsRequest())
+            let myLibTarget = try #require(updatedTargetResponse.targets.first(where: { $0.displayName == "MyLib" }))
+            let myLibID = myLibTarget.id
+            let sourcesResponse = try await connection.send(BuildTargetSourcesRequest(targets: [myLibID]))
+            let sourceItem = try #require(sourcesResponse.items.only?.sources.only)
+            #expect(sourceItem.uri.fileURL?.lastPathComponent == "MyLib.swift")
+            _ = try await connection.send(BuildTargetPrepareRequest(targets: [myLibID]))
+            let settingsResponse = try #require(try await connection.send(TextDocumentSourceKitOptionsRequest(textDocument: TextDocumentIdentifier(sourceItem.uri), target: myLibID, language: .swift)))
+            #expect(settingsResponse.compilerArguments.contains(["-module-name", "MyLib"]))
+            try await AsyncProcess.checkNonZeroExit(arguments: [UserToolchain.default.swiftCompilerPath.pathString, "-typecheck"] + settingsResponse.compilerArguments)
+        }
+    }
+
+    @Test
+    func brokenManifestArgs() async throws {
+        try await withSwiftPMBSP(fixtureName: "Miscellaneous/BrokenManifest") { connection, handler, fixturePath in
+            // The manifest does not compile, but the build server should still report it as a target and return compiler args for it.
+            let targetResponse = try await connection.send(WorkspaceBuildTargetsRequest())
+            let manifestTarget = try #require(targetResponse.targets.first(where: { $0.displayName == "Package Manifest" }))
+            let manifestID = manifestTarget.id
+            let sourcesResponse = try await connection.send(BuildTargetSourcesRequest(targets: [manifestID]))
+            let manifestItem = try #require(sourcesResponse.items.only?.sources.only)
+            #expect(manifestItem.uri.fileURL?.lastPathComponent == "Package.swift")
+            let settingsResponse = try #require(try await connection.send(TextDocumentSourceKitOptionsRequest(textDocument: TextDocumentIdentifier(manifestItem.uri), target: manifestID, language: .swift)))
+            #expect(settingsResponse.compilerArguments.contains("-package-description-version"))
+
+            // Fix the manifest, then ensure we can get the full list of targets and compiler args.
+            try localFileSystem.writeFileContents(fixturePath.appending(component: "Package.swift"), body: {
+                $0.write("""
+                // swift-tools-version:5.9
+                import PackageDescription
+
+                let package = Package(
+                    name: "BrokenManifest",
+                    targets: [
+                        .target(name: "MyLib"),
+                    ]
+                )
+                """)
+            })
+            connection.send(OnWatchedFilesDidChangeNotification(changes: [
+                .init(uri: .init(.init(filePath: fixturePath.appending(component: "Package.swift").pathString)), type: .changed)
+            ]))
+            _ = try await connection.send(WorkspaceWaitForBuildSystemUpdatesRequest())
+            let updatedTargetResponse = try await connection.send(WorkspaceBuildTargetsRequest())
+            let myLibID = try #require(updatedTargetResponse.targets.first(where: { $0.displayName == "MyLib" })).id
+            let updatedSourcesResponse = try await connection.send(BuildTargetSourcesRequest(targets: [myLibID]))
+            let item = try #require(updatedSourcesResponse.items.only?.sources.only)
+            #expect(item.kind == .file)
+            #expect(item.uri.fileURL?.lastPathComponent == "foo.swift")
+            _ = try await connection.send(BuildTargetPrepareRequest(targets: [myLibID]))
+            let updatedSettingsResponse = try #require(try await connection.send(TextDocumentSourceKitOptionsRequest(textDocument: TextDocumentIdentifier(item.uri), target: myLibID, language: .swift)))
+            #expect(updatedSettingsResponse.compilerArguments.contains(["-module-name", "MyLib"]))
+            try await AsyncProcess.checkNonZeroExit(arguments: [UserToolchain.default.swiftCompilerPath.pathString, "-typecheck"] + updatedSettingsResponse.compilerArguments)
+        }
+    }
+
+    @Test
     func pluginScriptArgs() async throws {
         try await withSwiftPMBSP(fixtureName: "Miscellaneous/Plugins/MySourceGenPlugin") { connection, _, _ in
             let targetResponse = try await connection.send(WorkspaceBuildTargetsRequest())
@@ -284,6 +407,24 @@ struct SwiftPMBuildServerTests {
                     try await AsyncProcess.checkNonZeroExit(arguments: [UserToolchain.default.swiftCompilerPath.pathString, "-typecheck"] + settingsResponse.compilerArguments)
                 }
             }
+        }
+    }
+
+    @Test
+    func doccCatalogSources() async throws {
+        try await withSwiftPMBSP(fixtureName: "Miscellaneous/LibraryWithDocC") { connection, _, _ in
+            let targetResponse = try await connection.send(WorkspaceBuildTargetsRequest())
+            let myLibTarget = try #require(targetResponse.targets.first(where: { $0.displayName == "MyLib" }))
+            let sourcesResponse = try await connection.send(BuildTargetSourcesRequest(targets: [myLibTarget.id]))
+            let sources = try #require(sourcesResponse.items.only?.sources)
+
+            let swiftSource = try #require(sources.first(where: { $0.uri.fileURL?.lastPathComponent == "MyLib.swift" }))
+            #expect(swiftSource.kind == .file)
+
+            let doccCatalog = try #require(sources.first(where: { $0.uri.fileURL?.pathExtension == "docc" }))
+            #expect(doccCatalog.kind == .directory)
+            #expect(doccCatalog.uri.fileURL?.lastPathComponent == "Documentation.docc")
+            #expect(doccCatalog.sourceKitData?.kind == .doccCatalog)
         }
     }
 }

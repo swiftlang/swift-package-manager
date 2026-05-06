@@ -118,16 +118,21 @@ final class PluginDelegate: PluginInvocationDelegate {
     ) async throws -> PluginInvocationBuildResult {
         // Configure the build parameters.
         var buildParameters = try self.swiftCommandState.productsBuildParameters
+        var toolsBuildParameters = try swiftCommandState.toolsBuildParameters
         switch parameters.configuration {
         case .debug:
             buildParameters.configuration = .debug
+            toolsBuildParameters.configuration = .debug
         case .release:
             buildParameters.configuration = .release
+            toolsBuildParameters.configuration = .release
         case .inherit:
             // The top level argument parser set buildParameters.configuration according to the
             // --configuration command line parameter.   We don't need to do anything to inherit it.
             break
         }
+        // FIXME: Not applying these to the toolsBuildParameters is inconsistent with the handling of
+        // -Xcc, -Xswiftc, etc. However, resolving that is known to break some existing plugins.
         buildParameters.flags.cCompilerFlags.append(contentsOf: parameters.otherCFlags.constructBuildFlags(source: .plugin))
         buildParameters.flags.cxxCompilerFlags.append(contentsOf: parameters.otherCxxFlags.constructBuildFlags(source: .plugin))
         buildParameters.flags.swiftCompilerFlags.append(contentsOf: parameters.otherSwiftcFlags.constructBuildFlags(source: .plugin))
@@ -173,6 +178,7 @@ final class PluginDelegate: PluginInvocationDelegate {
             explicitProduct: explicitProduct,
             cacheBuildManifest: false,
             productsBuildParameters: buildParameters,
+            toolsBuildParameters: toolsBuildParameters,
             outputStream: outputStream,
             logLevel: logLevel
         )

@@ -100,4 +100,88 @@ struct FileSystemTests {
             }
         }
     }
+
+    @Test
+    func validateNoEscapingSymlinksAllowsInternalSymlinks() throws {
+        try withTemporaryDirectory { tmpDir in
+            let dir = tmpDir.appending("extraction")
+            try localFileSystem.createDirectory(dir, recursive: true)
+            let subdir = dir.appending("sub")
+            try localFileSystem.createDirectory(subdir)
+            try localFileSystem.writeFileContents(subdir.appending("file.txt"), string: "content")
+            try localFileSystem.createSymbolicLink(
+                dir.appending("link"),
+                pointingAt: subdir.appending("file.txt"),
+                relative: true
+            )
+
+            #expect(throws: Never.self) {
+                try localFileSystem.validateNoEscapingSymlinks(in: dir)
+            }
+        }
+    }
+
+    @Test
+    func validateNoEscapingSymlinksRejectsEscapingAbsoluteSymlink() throws {
+        try withTemporaryDirectory { tmpDir in
+            let dir = tmpDir.appending("extraction")
+            try localFileSystem.createDirectory(dir, recursive: true)
+            try localFileSystem.createSymbolicLink(
+                dir.appending("escape"),
+                pointingAt: tmpDir,
+                relative: false
+            )
+
+            #expect(throws: StringError.self) {
+                try localFileSystem.validateNoEscapingSymlinks(in: dir)
+            }
+        }
+    }
+
+    @Test
+    func validateNoEscapingSymlinksRejectsEscapingRelativeSymlink() throws {
+        try withTemporaryDirectory { tmpDir in
+            let dir = tmpDir.appending("extraction")
+            try localFileSystem.createDirectory(dir, recursive: true)
+            try localFileSystem.createSymbolicLink(
+                dir.appending("escape"),
+                pointingAt: tmpDir,
+                relative: true
+            )
+
+            #expect(throws: StringError.self) {
+                try localFileSystem.validateNoEscapingSymlinks(in: dir)
+            }
+        }
+    }
+
+    @Test
+    func validateNoEscapingSymlinksRejectsNestedEscapingSymlink() throws {
+        try withTemporaryDirectory { tmpDir in
+            let dir = tmpDir.appending("extraction")
+            let nested = dir.appending(components: "a", "b")
+            try localFileSystem.createDirectory(nested, recursive: true)
+            try localFileSystem.createSymbolicLink(
+                nested.appending("escape"),
+                pointingAt: tmpDir,
+                relative: true
+            )
+
+            #expect(throws: StringError.self) {
+                try localFileSystem.validateNoEscapingSymlinks(in: dir)
+            }
+        }
+    }
+
+    @Test
+    func validateNoEscapingSymlinksEmptyDirectorySucceeds() throws {
+        try withTemporaryDirectory { tmpDir in
+            let dir = tmpDir.appending("extraction")
+            try localFileSystem.createDirectory(dir, recursive: true)
+
+            #expect(throws: Never.self) {
+                try localFileSystem.validateNoEscapingSymlinks(in: dir)
+            }
+        }
+    }
 }

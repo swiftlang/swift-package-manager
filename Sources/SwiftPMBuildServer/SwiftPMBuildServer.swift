@@ -114,6 +114,7 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
     var state: ServerState = .waitingForInitializeRequest
 
     private var headersByTargetGUID: [String: Set<Basics.AbsolutePath>] = [:]
+    private var doccCatalogsByTargetGUID: [String: Set<Basics.AbsolutePath>] = [:]
 
     private struct PluginInfo {
         var name: String
@@ -216,7 +217,19 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
             await request.reply {
                 var underlyingRequest = request.params
                 underlyingRequest.targets.removeAll(where: \.isSwiftPMBuildServerTargetID)
-                var sourcesResponse = try await connectionToUnderlyingBuildServer.send(underlyingRequest)
+                var sourcesResponse: BuildTargetSourcesResponse
+                do {
+                    sourcesResponse = try await connectionToUnderlyingBuildServer.send(underlyingRequest)
+                } catch {
+                    // If the client requested info for at least one target with the SwiftPM scheme (a manifest/plugin),
+                    // warn and return a potentially partial response. Otherwise, report the underlying error.
+                    if request.params.targets.contains(where: \.isSwiftPMBuildServerTargetID) {
+                        logToClient(.warning, "Underlying build server reported error for BuildTargetSources request: '\(error)'")
+                        sourcesResponse = .init(items: [])
+                    } else {
+                        throw error
+                    }
+                }
                 for target in request.params.targets.filter({ $0.isSwiftPMBuildServerTargetID }) {
                     if target == .forPackageManifest {
                         sourcesResponse.items.append(manifestSourcesItem())
@@ -250,6 +263,18 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
                             )
                         )
                     }
+                    let doccCatalogs = self.doccCatalogsByTargetGUID[targetGUID] ?? []
+                    for doccCatalog in doccCatalogs {
+                        sourcesResponse.items[index].sources.append(
+                            SourceItem(
+                                uri: DocumentURI(doccCatalog.asURL),
+                                kind: .directory,
+                                generated: false,
+                                dataKind: .sourceKit,
+                                data: SourceKitSourceItemData(kind: .doccCatalog).encodeToLSPAny()
+                            )
+                        )
+                    }
                 }
                 return sourcesResponse
             }
@@ -274,7 +299,13 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
             }
         case let request as RequestAndReply<WorkspaceBuildTargetsRequest>:
             await request.reply {
-                var targetsResponse = try await connectionToUnderlyingBuildServer.send(request.params)
+                var targetsResponse: WorkspaceBuildTargetsResponse
+                do {
+                    targetsResponse = try await connectionToUnderlyingBuildServer.send(request.params)
+                } catch {
+                    logToClient(.warning, "Underlying build server reported error for WorkspaceBuildTargets request: '\(error)'")
+                    targetsResponse = .init(targets: [])
+                }
                 targetsResponse.targets.append(manifestTarget())
                 targetsResponse.targets.append(contentsOf: pluginTargetsList())
                 return targetsResponse
@@ -457,10 +488,22 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
         self.headersByTargetGUID = headers
     }
 
+    private func rebuildDocCCatalogMapping(pifAccompanyingMetadata: [PackagePIFBuilder.ModuleOrProduct]) async {
+        var doccCatalogs: [String: Set<Basics.AbsolutePath>] = [:]
+        for moduleOrProduct in pifAccompanyingMetadata {
+            guard let pifTarget = moduleOrProduct.pifTarget else { continue }
+            let guid = pifTarget.id.value
+            if !moduleOrProduct.doccCatalogs.isEmpty {
+                doccCatalogs[guid] = moduleOrProduct.doccCatalogs
+            }
+        }
+        self.doccCatalogsByTargetGUID = doccCatalogs
+    }
+
     private func rebuildPluginMapping(pifAccompanyingMetadata: [PackagePIFBuilder.ModuleOrProduct]) {
         var plugins: [BuildTargetIdentifier: PluginInfo] = [:]
         for moduleOrProduct in pifAccompanyingMetadata {
-            guard [.buildToolPlugin, .commandPlugin].contains(moduleOrProduct.type),
+            guard [.buildToolPlugin, .commandPlugin, .plugin].contains(moduleOrProduct.type),
                   let moduleName = moduleOrProduct.moduleName,
                   let toolsVersion = moduleOrProduct.toolsVersion,
                   !moduleOrProduct.pluginScriptSourcePaths.isEmpty else {
@@ -507,17 +550,31 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
 
     public func scheduleRegeneratingBuildDescription() {
         packageLoadingQueue.async { [buildSystem] in
+            let reloadingTaskID = TaskId(id: "package-reloading")
             do {
+                self.connectionToClient.send(
+                    TaskStartNotification(
+                        taskId: reloadingTaskID,
+                        data: WorkDoneProgressTask(title: "SwiftPM: Reloading Package").encodeToLSPAny()
+                    )
+                )
                 let result = try await buildSystem.generatePIFAndAccompanyingMetadata(preserveStructure: false)
                 try localFileSystem.writeIfChanged(path: buildSystem.buildParameters.pifManifest, string: result.pif)
                 await self.rebuildHeaderMapping(pifAccompanyingMetadata: result.accompanyingMetadata)
+                await self.rebuildDocCCatalogMapping(pifAccompanyingMetadata: result.accompanyingMetadata)
                 self.rebuildPluginMapping(pifAccompanyingMetadata: result.accompanyingMetadata)
                 self.connectionToUnderlyingBuildServer.send(OnWatchedFilesDidChangeNotification(changes: [
                     .init(uri: .init(buildSystem.buildParameters.pifManifest.asURL), type: .changed)
                 ]))
                 _ = try await self.connectionToUnderlyingBuildServer.send(WorkspaceWaitForBuildSystemUpdatesRequest())
+                self.connectionToClient.send(
+                    TaskFinishNotification(taskId: reloadingTaskID, status: .ok)
+                )
             } catch {
                 self.logToClient(.warning, "error regenerating build description: \(error)")
+                self.connectionToClient.send(
+                    TaskFinishNotification(taskId: reloadingTaskID, status: .error)
+                )
             }
         }
     }

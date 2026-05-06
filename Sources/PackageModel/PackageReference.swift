@@ -158,7 +158,7 @@ public struct PackageReference {
     }
 
     public static func registry(identity: PackageIdentity) -> PackageReference {
-        PackageReference(identity: identity, kind: .registry(identity))
+        return PackageReference(identity: identity, kind: .registry(identity))
     }
 }
 

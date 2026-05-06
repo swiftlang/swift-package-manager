@@ -5263,7 +5263,7 @@ final class WorkspaceTests: XCTestCase {
             let revision = try fooRepo.resolveRevision(tag: "1.0.0")
             let newState = ResolvedPackagesStore.ResolutionState.version("1.0.0", revision: revision.identifier)
 
-            resolvedPackagesStore.track(packageRef: fooPin.packageRef, state: newState)
+            resolvedPackagesStore.track(packageRef: fooPin.packageRef, state: newState, scm: nil)
             try resolvedPackagesStore.saveState(toolsVersion: ToolsVersion.current, originHash: .none)
         }
 
@@ -9496,14 +9496,14 @@ final class WorkspaceTests: XCTestCase {
             "https://mirror.example.com/artifacts/a.zip",
         ])
 
-        // Verify managed artifacts store the mirrored archive URL
+        // Verify managed artifacts store the mirrored index URL and index checksum
         await workspace.checkManagedArtifacts { result in
             result.check(
                 packageIdentity: .plain("a"),
                 targetName: "A",
                 source: .remote(
-                    url: "https://mirror.example.com/artifacts/a.zip",
-                    checksum: "a1"
+                    url: "https://mirror.example.com/artifacts/index.artifactbundleindex",
+                    checksum: indexFileChecksum
                 ),
                 path: workspace.artifactsDir.appending(components: "a", "A", "A.xcframework")
             )
@@ -10036,8 +10036,8 @@ final class WorkspaceTests: XCTestCase {
                 packageIdentity: .plain("a"),
                 targetName: "A1",
                 source: .remote(
-                    url: "https://a.com/a1.zip",
-                    checksum: "a1"
+                    url: "https://a.com/a1.artifactbundleindex",
+                    checksum: ariFilesChecksums[0]
                 ),
                 path: workspace.artifactsDir.appending(components: "a", "A1", "A1.artifactbundle")
             )
@@ -10045,8 +10045,8 @@ final class WorkspaceTests: XCTestCase {
                 packageIdentity: .plain("a"),
                 targetName: "A2",
                 source: .remote(
-                    url: "https://a.com/a2/a2.zip",
-                    checksum: "a2"
+                    url: "https://a.com/a2.artifactbundleindex",
+                    checksum: ariFilesChecksums[1]
                 ),
                 path: workspace.artifactsDir.appending(components: "a", "A2", "A2.artifactbundle")
             )
@@ -10233,6 +10233,77 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    func testDownloadArchiveIndexFileSkipsDownloadWhenChecksumMatches() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let httpClient = HTTPClient { request, _ in
+            throw StringError("unexpected network request: \(request.url)")
+        }
+
+        let checksumAlgorithm = MockHashAlgorithm()
+        let indexChecksum = "matching-checksum"
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(
+                            name: "A",
+                            type: .binary,
+                            url: "https://a.com/a.artifactbundleindex",
+                            checksum: indexChecksum
+                        ),
+                    ]
+                ),
+            ],
+            binaryArtifactsManager: .init(
+                httpClient: httpClient,
+                archiver: MockArchiver(),
+                useCache: false
+            ),
+            checksumAlgorithm: checksumAlgorithm
+        )
+
+        let rootPath = try workspace.pathToRoot(withName: "Root")
+        let rootRef = PackageReference.root(identity: PackageIdentity(path: rootPath), path: rootPath)
+        let artifactPath = workspace.artifactsDir.appending(components: "root", "A", "A.xcframework")
+
+        try await workspace.set(
+            managedArtifacts: [
+                .init(
+                    packageRef: rootRef,
+                    targetName: "A",
+                    source: .remote(
+                        url: "https://a.com/a.artifactbundleindex",
+                        checksum: indexChecksum
+                    ),
+                    path: artifactPath,
+                    kind: .xcframework
+                ),
+            ]
+        )
+
+        try await workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+
+        await workspace.checkManagedArtifacts { result in
+            result.check(
+                packageIdentity: .plain("root"),
+                targetName: "A",
+                source: .remote(
+                    url: "https://a.com/a.artifactbundleindex",
+                    checksum: indexChecksum
+                ),
+                path: artifactPath
+            )
+        }
+    }
+
     func testDownloadArchiveIndexFileBadArchivesChecksum() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
@@ -10406,6 +10477,72 @@ final class WorkspaceTests: XCTestCase {
                     diagnostic: .contains(
                         "failed downloading 'https://a.com/not-found.zip' which is required by binary target 'A': badResponseStatusCode(404)"
                     ),
+                    severity: .error
+                )
+            }
+        }
+    }
+
+    func testDownloadArchiveIndexFileRejectsPathTraversalFileName() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+        try fs.createMockToolchain()
+        let hostToolchain = try UserToolchain.mockHostToolchain(fs)
+
+        let ari = """
+        {
+            "schemaVersion": "1.0",
+            "archives": [
+                {
+                    "fileName": "../../evil.zip",
+                    "checksum": "a",
+                    "supportedTriples": ["\(hostToolchain.targetTriple.tripleString)"]
+                }
+            ]
+        }
+        """
+        let checksumAlgorithm = MockHashAlgorithm()
+        let ariChecksum = checksumAlgorithm.hash(ari).hexadecimalRepresentation
+
+        let httpClient = HTTPClient { request, _ in
+            switch request.kind {
+            case .generic:
+                switch request.url.lastPathComponent {
+                case "a.artifactbundleindex":
+                    return .okay(body: ari)
+                default:
+                    throw StringError("unexpected url \(request.url)")
+                }
+            case .download:
+                throw StringError("should not download")
+            }
+        }
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(
+                            name: "A",
+                            type: .binary,
+                            url: "https://a.com/a.artifactbundleindex",
+                            checksum: ariChecksum
+                        ),
+                    ]
+                ),
+            ],
+            binaryArtifactsManager: .init(
+                httpClient: httpClient
+            )
+        )
+
+        await workspace.checkPackageGraphFailure(roots: ["Root"]) { diagnostics in
+            testDiagnostics(diagnostics) { result in
+                result.check(
+                    diagnostic: .contains("invalid archive fileName '../../evil.zip'"),
                     severity: .error
                 )
             }
@@ -16384,6 +16521,339 @@ final class WorkspaceTests: XCTestCase {
         } catch {
             XCTFail("unexpected error: \(error)")
         }
+    }
+
+    // End-to-end — forceResolvedVersions + swizzle resolves correctly
+    // without making registry network requests on the second run.
+    func testForceResolvedWithReplaceScmWithRegistryResolvesCorrectly() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    path: "root",
+                    targets: [
+                        MockTarget(name: "RootTarget", dependencies: [
+                            .product(name: "FooProduct", package: "org.foo"),
+                        ]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .sourceControl(url: "https://git/org/foo", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    toolsVersion: .v5_6
+                ),
+            ],
+            packages: [
+                // org.foo is a registry package whose SCM URL maps to the registry identity
+                MockPackage(
+                    name: "FooPackage",
+                    identity: "org.foo",
+                    alternativeURLs: ["https://git/org/foo"],
+                    targets: [
+                        MockTarget(
+                            name: "FooTarget",
+                            dependencies: [
+                                .product(name: "Bar", package: "Bar")
+                            ]),
+                    ],
+                    products: [
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                    ],
+                    dependencies: [
+                        .sourceControl(url: "https://git/org/bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    versions: ["1.0.0", "1.1.0"]
+                ),
+                // Bar is a pure SCM dependency with no registry equivalent
+                MockPackage(
+                    name: "BarPackage",
+                    url: "https://git/org/bar",
+                    targets: [MockTarget(name: "BarTarget")],
+                    products: [MockProduct(name: "Bar", modules: ["BarTarget"])],
+                    versions: ["1.0.0", "1.1.0"]
+                ),
+            ]
+        )
+
+        // Run 1: initial resolve with swizzle — produces Package.resolved with
+        // registry pin for org.foo (with originalLocation) and SCM pin for bar.
+        workspace.sourceControlToRegistryDependencyTransformation = .swizzle
+        try await workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+            PackageGraphTesterXCTest(graph) { result in
+                result.check(packages: "org.foo", "bar", "Root")
+            }
+        }
+        await workspace.checkManagedDependencies { result in
+            result.check(dependency: "org.foo", at: .registryDownload("1.1.0"))
+            result.check(dependency: "bar", at: .checkout(.version("1.1.0")))
+        }
+
+        // Reset workspace state, keep Package.resolved.
+        try await workspace.closeWorkspace(resetState: true, resetResolvedFile: false)
+
+        // Run 2: force-resolved + swizzle — should resolve from Package.resolved
+        // without hitting the registry for identity lookups.
+        workspace.sourceControlToRegistryDependencyTransformation = .swizzle
+        try await workspace.checkPackageGraph(roots: ["root"], forceResolvedVersions: true) { graph, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+            PackageGraphTesterXCTest(graph) { result in
+                result.check(packages: "org.foo", "bar", "Root")
+            }
+        }
+        await workspace.checkManagedDependencies { result in
+            result.check(dependency: "org.foo", at: .registryDownload("1.1.0"))
+            result.check(dependency: "bar", at: .checkout(.version("1.1.0")))
+        }
+    }
+
+    // identityLookupCache is pre-populated from Package.resolved entries
+    // (both positive registry mappings and nil mappings for SCM-only packages)
+    // when --force-resolved-versions is active.
+    func testIdentityLookupCachePrePopulatedFromResolvedFileOnForceResolved() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+        let fooSCMURL = SourceControlURL("https://git/org/foo")
+        let barSCMURL = SourceControlURL("https://git/org/bar")
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    path: "root",
+                    targets: [
+                        MockTarget(name: "RootTarget", dependencies: [
+                            .product(name: "FooProduct", package: "org.foo"),
+                        ]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .sourceControl(url: "https://git/org/foo", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    toolsVersion: .v5_6
+                ),
+            ],
+            packages: [
+                // org.foo is a registry package whose SCM URL maps to the registry identity
+                MockPackage(
+                    name: "FooPackage",
+                    identity: "org.foo",
+                    alternativeURLs: ["https://git/org/foo"],
+                    targets: [
+                        MockTarget(
+                            name: "FooTarget",
+                            dependencies: [
+                                .product(name: "Bar", package: "Bar")
+                            ]),
+                    ],
+                    products: [
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                    ],
+                    dependencies: [
+                        .sourceControl(url: "https://git/org/bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    versions: ["1.0.0", "1.1.0"]
+                ),
+                // Bar is a pure SCM dependency with no registry equivalent
+                MockPackage(
+                    name: "BarPackage",
+                    url: "https://git/org/bar",
+                    targets: [MockTarget(name: "BarTarget")],
+                    products: [MockProduct(name: "Bar", modules: ["BarTarget"])],
+                    versions: ["1.0.0", "1.1.0"]
+                ),
+            ]
+        )
+
+        // Run 1: produce Package.resolved.
+        workspace.sourceControlToRegistryDependencyTransformation = .swizzle
+        try await workspace.checkPackageGraph(roots: ["root"]) { _, _ in }
+
+        // Reset, keep Package.resolved.
+        try await workspace.closeWorkspace(resetState: true, resetResolvedFile: false)
+
+        // Run 2: forceResolvedVersions — pre-population should run.
+        workspace.sourceControlToRegistryDependencyTransformation = .swizzle
+        try await workspace.checkPackageGraph(roots: ["root"], forceResolvedVersions: true) { _, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+
+        let ws = try workspace.getOrCreateWorkspace()
+
+        // org.foo was a registry pin with originalLocation — positive mapping expected.
+        let fooCacheEntry = try XCTUnwrap(ws.identityLookupCache[fooSCMURL], "Expected cache entry for foo SCM URL")
+        if case .success(let identity) = fooCacheEntry.result {
+            XCTAssertEqual(identity, PackageIdentity("org.foo"))
+        } else {
+            XCTFail("Expected .success(org.foo) in identityLookupCache for foo SCM URL")
+        }
+        // bar was a remoteSourceControl pin — nil mapping expected (second pass).
+        let barCacheEntry = try XCTUnwrap(ws.identityLookupCache[barSCMURL])
+
+        if case .notApplicable = barCacheEntry.result {
+            // expected — bar is SCM-only, no registry mapping
+        } else {
+            XCTFail("Expected .notApplicable for bar (SCM-only package)")
+        }                                                                                                                              }
+
+    // identityLookupCache is NOT pre-populated at workspace creation —
+    // pre-population only happens inside tryResolveBasedOnResolvedVersionsFile,
+    // which is only called when forceResolvedVersions is true.
+    func testIdentityLookupCacheNotPrePopulatedWithoutForceResolved() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+        let fooSCMURL = SourceControlURL("https://git/org/foo")
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    path: "root",
+                    targets: [
+                        MockTarget(name: "RootTarget", dependencies: [
+                            .product(name: "FooProduct", package: "org.foo"),
+                        ]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .sourceControl(url: "https://git/org/foo", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    toolsVersion: .v5_6
+                ),
+            ],
+            packages: [
+                // org.foo is a registry package whose SCM URL maps to the registry identity
+                MockPackage(
+                    name: "FooPackage",
+                    identity: "org.foo",
+                    alternativeURLs: ["https://git/org/foo"],
+                    targets: [
+                        MockTarget(
+                            name: "FooTarget",
+                            dependencies: [
+                                .product(name: "Bar", package: "Bar")
+                            ]),
+                    ],
+                    products: [
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                    ],
+                    dependencies: [
+                        .sourceControl(url: "https://git/org/bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    versions: ["1.0.0", "1.1.0"]
+                ),
+                // Bar is a pure SCM dependency with no registry equivalent
+                MockPackage(
+                    name: "BarPackage",
+                    url: "https://git/org/bar",
+                    targets: [MockTarget(name: "BarTarget")],
+                    products: [MockProduct(name: "Bar", modules: ["BarTarget"])],
+                    versions: ["1.0.0", "1.1.0"]
+                ),
+            ]
+        )
+
+        // Run 1: produce Package.resolved.
+        workspace.sourceControlToRegistryDependencyTransformation = WorkspaceConfiguration
+            .SourceControlToRegistryDependencyTransformation.swizzle
+        try await workspace.checkPackageGraph(roots: ["root"]) { _, _ in }
+        try await workspace.closeWorkspace(resetState: true, resetResolvedFile: false)
+
+        // Create a fresh workspace instance — cache must be empty at creation time
+        // regardless of what Package.resolved contains.
+        let freshWS = try workspace.getOrCreateWorkspace()
+        XCTAssertTrue(
+            freshWS.identityLookupCache.isEmpty,
+            "Cache should be empty at workspace creation — pre-population only happens during forceResolvedVersions resolution"
+        )
+
+        // Resolve WITHOUT forceResolvedVersions — pre-population does NOT run.
+        workspace.sourceControlToRegistryDependencyTransformation = WorkspaceConfiguration
+            .SourceControlToRegistryDependencyTransformation.swizzle
+        try await workspace.checkPackageGraph(roots: ["root"], forceResolvedVersions: false) { _, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+
+        // Cache may have been populated via registry HTTP calls during manifest loading,
+        // but the specific foo entry should have come from the registry, not Package.resolved.
+        // We can observe this is a different path by resetting again and confirming the
+        // cache is still empty before the forceResolved path populates it.
+        try await workspace.closeWorkspace(resetState: true, resetResolvedFile: false)
+        let freshWS2 = try workspace.getOrCreateWorkspace()
+        XCTAssertTrue(
+            freshWS2.identityLookupCache.isEmpty,
+            "Cache must be empty before forceResolvedVersions resolution runs pre-population"
+        )
+
+        workspace.sourceControlToRegistryDependencyTransformation = WorkspaceConfiguration
+            .SourceControlToRegistryDependencyTransformation.swizzle
+        try await workspace.checkPackageGraph(roots: ["root"], forceResolvedVersions: true) { _, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+
+        // Now the cache should contain the entry, populated from Package.resolved.
+        XCTAssertTrue(
+            freshWS2.identityLookupCache[fooSCMURL] != nil,
+            "Cache should contain foo SCM URL after forceResolvedVersions run (pre-populated from Package.resolved)"
+        )
+    }
+
+    func testRegistryDownloadManagedDependencyHasScmUrlAfterSwizzle() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    path: "root",
+                    targets: [MockTarget(name: "RootTarget", dependencies: [
+                        .product(name: "FooProduct", package: "org.foo"),
+                    ])],
+                    products: [],
+                    dependencies: [
+                        .sourceControl(url: "https://git/org/foo", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    toolsVersion: .v5_6
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "FooPackage",
+                    identity: "org.foo",
+                    alternativeURLs: ["https://git/org/foo"],
+                    targets: [MockTarget(name: "FooTarget")],
+                    products: [MockProduct(name: "FooProduct", modules: ["FooTarget"])],
+                    versions: ["1.0.0", "1.1.0"]
+                ),
+            ]
+        )
+
+        workspace.sourceControlToRegistryDependencyTransformation = .swizzle
+        try await workspace.checkPackageGraph(roots: ["root"]) { _, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+
+        // The managed dependency for org.foo should carry the original SCM URL
+        let ws = try workspace.getOrCreateWorkspace()
+        let deps = await ws.state.dependencies
+        let fooDep = try XCTUnwrap(deps[PackageIdentity.plain("org.foo")])
+        guard case .registryDownload(_, let scmUrl) = fooDep.state else {
+            return XCTFail("Expected registryDownload state for org.foo")
+        }
+        XCTAssertEqual(scmUrl, SourceControlURL("https://git/org/foo"),
+            "registryDownload should carry the original SCM URL it was swizzled from")
     }
 
     func makeRegistryClient(

@@ -1153,6 +1153,33 @@ struct PackageCommandTests {
 
     @Test(
         .tags(
+            .Feature.Command.Package.Describe,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func testDescribeJSONWithUnhandledResource_EnsureValidJSONOutput(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        let config = BuildConfiguration.debug
+        try await fixture(name: "Miscellaneous/UnhandledResource") { fixturePath in
+            let (jsonOutput, stderr) = try await execute(
+                ["describe", "--type=json"],
+                packagePath: fixturePath,
+                configuration: config,
+                buildSystem: buildSystem,
+            )
+
+            // Verify stdout contains valid JSON, not corrupted by diagnostic output.
+            let json = try JSON(bytes: ByteString(encodingAsUTF8: jsonOutput))
+            #expect(json["name"]?.string == "UnhandledResource")
+
+            // Verify the warning appears on stderr.
+            #expect(stderr.contains("Found unhandled resource"))
+        }
+    }
+
+    @Test(
+        .tags(
             .Feature.Command.Package.DumpPackage,
         ),
         arguments: SupportedBuildSystemOnAllPlatforms,
@@ -1285,6 +1312,56 @@ struct PackageCommandTests {
                     #expect(JSONText.components(separatedBy: .newlines).count == 1)
                 }
             }
+    }
+
+    @Test(
+        .requireSwift6_3,
+        .tags(
+            .Feature.Command.Package.DumpSymbolGraph,
+        ),
+        .IssueWindowsLongPath,
+        .requiresSymbolgraphExtract,
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func dumpSymbolGraphForExecutable(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await testWithTemporaryDirectory { tmpPath in
+            let packageDir = tmpPath.appending(components: "MyPackage")
+            try localFileSystem.createDirectory(packageDir)
+            try localFileSystem.writeFileContents(
+                packageDir.appending(components: "Package.swift"),
+                string: """
+                    // swift-tools-version: 6.3
+                    import PackageDescription
+                    let package = Package(
+                        name: "MyPackage",
+                        targets: [
+                            .executableTarget(name: "MyCommand"),
+                        ]
+                    )
+                    """
+            )
+            let mainPath = packageDir.appending(components: "Sources", "MyCommand", "main.swift")
+            try localFileSystem.createDirectory(mainPath.parentDirectory, recursive: true)
+            try localFileSystem.writeFileContents(mainPath, string: #"print("Hello World")"#)
+
+            let outputDir = tmpPath.appending(components: "symbolgraphs")
+            try localFileSystem.createDirectory(outputDir)
+
+            try await execute(
+                ["dump-symbol-graph", "--output-dir", outputDir.pathString],
+                packagePath: packageDir,
+                configuration: .debug,
+                buildSystem: buildSystem,
+            )
+
+            let outputFiles = try localFileSystem.getDirectoryContents(outputDir)
+            #expect(
+                outputFiles.contains { $0.hasPrefix("MyCommand") && $0.hasSuffix(".symbols.json") },
+                "No symbol graph files found for executable target 'MyCommand', dir contains: \(outputFiles)"
+            )
+        }
     }
 
     @Suite(
@@ -2778,6 +2855,210 @@ struct PackageCommandTests {
 
     @Test(
         .tags(
+            .Feature.Command.Package.AddTargetPlugin,
+        ),
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+    )
+    func packageAddPluginDependencyExternalPackage(
+        data: BuildData,
+    ) async throws {
+        try await testWithTemporaryDirectory { tmpPath in
+            let fs = localFileSystem
+            let path = tmpPath.appending("PackageB")
+            try fs.createDirectory(path)
+
+            try fs.writeFileContents(
+                path.appending("Package.swift"),
+                string:
+                    """
+                    // swift-tools-version: 5.9
+                    import PackageDescription
+                    let package = Package(
+                        name: "client",
+                        targets: [ .target(name: "library") ]
+                    )
+                    """
+            )
+            try localFileSystem.writeFileContents(
+                path.appending(components: "Sources", "library", "library.swift"),
+                string:
+                    """
+                    public func Foo() { }
+                    """
+            )
+
+            _ = try await execute(
+                ["add-target-plugin", "--package", "other-package", "other-product", "library"],
+                packagePath: path,
+                configuration: data.config,
+                buildSystem: data.buildSystem,
+            )
+
+            let manifest = path.appending("Package.swift")
+            expectFileExists(at: manifest)
+            let contents: String = try fs.readFileContents(manifest)
+
+            #expect(contents.contains(#".plugin(name: "other-product", package: "other-package"#))
+        }
+    }
+
+    @Test(
+        .tags(
+            .Feature.Command.Package.AddTargetPlugin,
+        ),
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+    )
+    func packageAddPluginDependencyFromExternalPackageToNonexistentTarget(
+        data: BuildData,
+    ) async throws {
+        try await testWithTemporaryDirectory { tmpPath in
+            let fs = localFileSystem
+            let path = tmpPath.appending("PackageB")
+            try fs.createDirectory(path)
+
+            try fs.writeFileContents(
+                path.appending("Package.swift"),
+                string:
+                    """
+                    // swift-tools-version: 5.9
+                    import PackageDescription
+                    let package = Package(
+                        name: "client",
+                        targets: [ .target(name: "library") ]
+                    )
+                    """
+            )
+            try localFileSystem.writeFileContents(
+                path.appending(components: "Sources", "library", "library.swift"),
+                string:
+                    """
+                    public func Foo() { }
+                    """
+            )
+
+            await expectThrowsCommandExecutionError(
+                try await execute(
+                    ["add-target-plugin", "--package", "other-package", "other-product", "library-that-does-not-exist"],
+                    packagePath: path,
+                    configuration: data.config,
+                    buildSystem: data.buildSystem,
+                )
+            ) { error in
+                #expect(error.stderr.contains("error: unable to find target named 'library-that-does-not-exist' in package"))
+            }
+
+            let manifest = path.appending("Package.swift")
+            expectFileExists(at: manifest)
+            let contents: String = try fs.readFileContents(manifest)
+
+            #expect(!contents.contains(#".plugin(name: "other-product", package: "other-package"#))
+        }
+    }
+
+    @Test(
+        .tags(
+            .Feature.Command.Package.AddTargetPlugin,
+        ),
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+    )
+    func packageAddPluginDependencyInternalPackage(
+        data: BuildData,
+    ) async throws {
+        try await testWithTemporaryDirectory { tmpPath in
+            let fs = localFileSystem
+            let path = tmpPath.appending("PackageB")
+            try fs.createDirectory(path)
+
+            try fs.writeFileContents(
+                path.appending("Package.swift"),
+                string:
+                    """
+                    // swift-tools-version: 5.9
+                    import PackageDescription
+                    let package = Package(
+                        name: "client",
+                        targets: [ .target(name: "library") ]
+                    )
+                    """
+            )
+            try localFileSystem.writeFileContents(
+                path.appending(components: "Sources", "library", "library.swift"),
+                string:
+                    """
+                    public func Foo() { }
+                    """
+            )
+
+            _ = try await execute(
+                ["add-target-plugin", "other-product", "library"],
+                packagePath: path,
+                configuration: data.config,
+                buildSystem: data.buildSystem,
+            )
+
+            let manifest = path.appending("Package.swift")
+            expectFileExists(at: manifest)
+            let contents: String = try fs.readFileContents(manifest)
+
+            #expect(contents.contains(#".plugin(name: "other-product"#))
+        }
+    }
+
+    @Test(
+        .tags(
+            .Feature.Command.Package.AddTargetPlugin,
+        ),
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+    )
+    func packageAddPluginDependencyFromInternalPackageToNonexistentTarget(
+        data: BuildData,
+    ) async throws {
+        try await testWithTemporaryDirectory { tmpPath in
+            let fs = localFileSystem
+            let path = tmpPath.appending("PackageB")
+            try fs.createDirectory(path)
+
+            try fs.writeFileContents(
+                path.appending("Package.swift"),
+                string:
+                    """
+                    // swift-tools-version: 5.9
+                    import PackageDescription
+                    let package = Package(
+                        name: "client",
+                        targets: [ .target(name: "library") ]
+                    )
+                    """
+            )
+            try localFileSystem.writeFileContents(
+                path.appending(components: "Sources", "library", "library.swift"),
+                string:
+                    """
+                    public func Foo() { }
+                    """
+            )
+
+            await expectThrowsCommandExecutionError(
+                try await execute(
+                    ["add-target-plugin", "--package", "other-package", "other-product", "library-that-does-not-exist"],
+                    packagePath: path,
+                    configuration: data.config,
+                    buildSystem: data.buildSystem,
+                )
+            ) { error in
+                #expect(error.stderr.contains("error: unable to find target named 'library-that-does-not-exist' in package"))
+            }
+
+            let manifest = path.appending("Package.swift")
+            expectFileExists(at: manifest)
+            let contents: String = try fs.readFileContents(manifest)
+
+            #expect(!contents.contains(#".plugin(name: "other-product"#))
+        }
+    }
+
+    @Test(
+        .tags(
             .Feature.Command.Package.AddProduct,
             .Feature.ProductType.StaticLibrary,
         ),
@@ -3109,7 +3390,7 @@ struct PackageCommandTests {
             )
             expectFileDoesNotExists(at: binFile)
             try #expect(
-                !localFileSystem.getDirectoryContents(buildPath.appending("repositories")).isEmpty
+                localFileSystem.getDirectoryContents(buildPath.appending("repositories")).isEmpty == false
             )
 
             // Fully clean.
@@ -3119,7 +3400,7 @@ struct PackageCommandTests {
                 configuration: config,
                 buildSystem: buildSystem,
             )
-            #expect(!localFileSystem.isDirectory(buildPath))
+            #expect(localFileSystem.isDirectory(buildPath) == false)
 
             // Test that we can successfully run reset again.
             _ = try await execute(
@@ -4657,11 +4938,11 @@ struct PackageCommandTests {
                     #expect(error.stderr.contains("This is text from the plugin"))
                     #expect(error.stderr.contains("error: This is an error from the plugin"))
                     switch buildSystem {
-                        case .native:
+                    case .native, .swiftbuild:
                             #expect(
                                 error.stderr.contains("build planning stopped due to build-tool plugin failures")
                             )
-                        case .swiftbuild, .xcode:
+                        case .xcode:
                             break
                     }
                 }
@@ -5447,8 +5728,10 @@ struct PackageCommandTests {
 
                     try await runPlugin(flags: [], diagnostics: ["print"]) { stdout, stderr in
                         #expect(stdout == isOnlyPrint)
+                        let buidlSystemDeprecationDiag = Basics.Diagnostic.deprecatedBuildSystem(buildSystem: buildSystem)
                         let filteredStderr = stderr.components(separatedBy: "\n")
-                            .filter { !$0.contains("Unable to locate libSwiftScan") }.joined(separator: "\n")
+                            .filter { !$0.contains("Unable to locate libSwiftScan") }
+                            .filter { !$0.contains(buidlSystemDeprecationDiag.message)}.joined(separator: "\n")
                         #expect(filteredStderr == isEmpty)
                     }
 
@@ -5841,10 +6124,12 @@ struct PackageCommandTests {
                 )
                 #expect(stdout == isEmpty)
                 // Filter some unrelated output that could show up on stderr.
+                let buidlSystemDeprecationDiag = Basics.Diagnostic.deprecatedBuildSystem(buildSystem: buildSystem)
                 let filteredStderr = stderr.components(separatedBy: "\n")
                     .filter { !$0.contains("Unable to locate libSwiftScan") }
                     .filter { !($0.contains("warning: ") && $0.contains("unable to find libclang")) }
                     .filter { !$0.contains("Build description")}
+                    .filter { !$0.contains(buidlSystemDeprecationDiag.message)}
                     .joined(separator: "\n")
                 #expect(filteredStderr == isEmpty)
             }
@@ -5860,10 +6145,12 @@ struct PackageCommandTests {
                 )
                 #expect(stdout.contains(containsLogtext))
                 // Filter some unrelated output that could show up on stderr.
+                let deprecatedBuildSystemDiag = Basics.Diagnostic.deprecatedBuildSystem(buildSystem: buildSystem)
                 let filteredStderr = stderr.components(separatedBy: "\n")
                     .filter { !$0.contains("Unable to locate libSwiftScan") }
                     .filter { !($0.contains("warning: ") && $0.contains("unable to find libclang")) }
                     .filter { !$0.contains("Build description")}
+                    .filter { !$0.contains(deprecatedBuildSystemDiag.message)}
                     .joined(separator: "\n")
                 #expect(filteredStderr == isEmpty)
             }

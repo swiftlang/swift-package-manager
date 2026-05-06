@@ -193,6 +193,32 @@ package func expectDirectoryContainsFile(
     Issue.record("Directory \(dir) does not contain \(filename)", sourceLocation: sourceLocation)
 }
 
+public func expectSymlink(
+    _ path: AbsolutePath,
+    pointsTo target: AbsolutePath,
+    fileSystem fs: FileSystem = localFileSystem,
+    sourceLocation: SourceLocation = #_sourceLocation,
+) throws {
+    #expect(
+        fs.isSymlink(path),
+        "Source (\(path)) is not a symbolic link",
+        sourceLocation: sourceLocation,
+    )
+
+    #expect(
+        fs.exists(path, followSymlink: true),
+        "Source (\(path)) does not exists while following symliks",
+        sourceLocation: sourceLocation,
+    )
+
+    let resolvedSymlinkLocation = try resolveSymlinks(path)
+    let resolvedtarget = try resolveSymlinks(target)
+    #expect(
+        resolvedSymlinkLocation == resolvedtarget,
+        "Resolved symlink location does not match the resolved target",
+        sourceLocation: sourceLocation,
+    )
+}
 
 /// Expects that the expression throws a CommandExecutionError and passes it to the provided throwing error handler.
 /// - Parameters:
