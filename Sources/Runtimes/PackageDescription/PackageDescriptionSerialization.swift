@@ -294,6 +294,7 @@ enum Serialization {
         let name: String
         let platforms: [SupportedPlatform]?
         let defaultLocalization: LanguageTag?
+        let defaultSwiftSettings: [SwiftSetting]?
         let pkgConfig: String?
         let providers: [SystemPackageProvider]?
         let targets: [Target]

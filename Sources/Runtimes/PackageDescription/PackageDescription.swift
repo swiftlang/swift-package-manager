@@ -114,6 +114,8 @@ public final class Package {
         set { swiftLanguageModes = newValue }
     }
 
+    public var defaultSwiftSettings: [SwiftSetting]?
+
     /// The C language standard to use for all C targets in this package.
     public var cLanguageStandard: CLanguageStandard?
 
@@ -308,6 +310,7 @@ public final class Package {
     public init(
         name: String,
         defaultLocalization: LanguageTag? = nil,
+        defaultSwiftSettings: [SwiftSetting]? = nil,
         platforms: [SupportedPlatform]? = nil,
         pkgConfig: String? = nil,
         providers: [SystemPackageProvider]? = nil,
@@ -320,6 +323,7 @@ public final class Package {
     ) {
         self.name = name
         self.defaultLocalization = defaultLocalization
+        self.defaultSwiftSettings = defaultSwiftSettings
         self.platforms = platforms
         self.pkgConfig = pkgConfig
         self.providers = providers

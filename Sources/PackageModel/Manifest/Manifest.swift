@@ -74,6 +74,8 @@ public final class Manifest: Sendable {
     /// The declared package dependencies.
     public let dependencies: [PackageDependency]
 
+    public let defaultSwiftSettings: [TargetBuildSettingDescription.Setting]?
+
     /// The targets declared in the manifest.
     public let targets: [TargetDescription]
 
@@ -123,6 +125,7 @@ public final class Manifest: Sendable {
         packageKind: PackageReference.Kind,
         packageLocation: String,
         defaultLocalization: String?,
+        defaultSwiftSettings: [TargetBuildSettingDescription.Setting] = [],
         platforms: [PlatformDescription],
         version: TSCUtility.Version?,
         revision: String?,
@@ -159,6 +162,7 @@ public final class Manifest: Sendable {
         self.targetMap = Dictionary(targets.lazy.map { ($0.name, $0) }, uniquingKeysWith: { $1 })
         self.traits = traits
         self.pruneDependencies = pruneDependencies
+        self.defaultSwiftSettings = defaultSwiftSettings
     }
 
     /// Returns the targets required for a particular product filter.
