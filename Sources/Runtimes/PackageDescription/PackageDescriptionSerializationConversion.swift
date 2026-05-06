@@ -401,9 +401,11 @@ extension Serialization.Package {
         self.name = package.name
         self.platforms = package.platforms?.map { .init($0) }
         self.defaultLocalization = package.defaultLocalization.map { .init($0) }
+        // TODO: hmmm
+        self.defaultSwiftSettings = []
         self.pkgConfig = package.pkgConfig
         self.providers = package.providers?.map { .init($0) }
-        self.targets = package.targets.map { .init($0) }
+        self.targets = package.targets.map { Serialization.Target.init($0) }
         self.products = package.products.map { .init($0) }
         self.traits = package.traits.map { Serialization.Trait($0) }
             .sorted { $0.name < $1.name }

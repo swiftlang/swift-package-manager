@@ -38,6 +38,7 @@ enum ManifestJSONParser {
     struct Result {
         var name: String
         var defaultLocalization: String?
+        var defaultSwiftSettings: [TargetBuildSettingDescription.Setting]? = []
         var platforms: [PlatformDescription] = []
         var targets: [TargetDescription] = []
         var pkgConfig: String?
@@ -107,6 +108,7 @@ enum ManifestJSONParser {
         return Result(
             name: input.package.name,
             defaultLocalization: input.package.defaultLocalization?.tag,
+            defaultSwiftSettings: [], // TODO: map this
             platforms: try input.package.platforms.map { try Self.parsePlatforms($0) } ?? [],
             targets: try input.package.targets.map { try Self.parseTarget(target: $0, identityResolver: identityResolver) },
             pkgConfig: input.package.pkgConfig,
