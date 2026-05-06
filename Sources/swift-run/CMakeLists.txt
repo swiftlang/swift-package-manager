@@ -16,3 +16,8 @@ target_compile_options(swift-run PRIVATE
 
 install(TARGETS swift-run
   RUNTIME DESTINATION bin)
+if(MSVC)
+  install(FILES $<TARGET_FILE_DIR:swift-run>/$<TARGET_FILE_BASE_NAME:swift-run>.pdb
+    DESTINATION bin
+    OPTIONAL)
+endif()
