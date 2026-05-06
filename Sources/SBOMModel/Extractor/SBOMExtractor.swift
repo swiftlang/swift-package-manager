@@ -125,8 +125,8 @@ internal struct SBOMExtractor {
             )
         }
 
-        let hasUncommittedChanges = await gitRepo.hasUncommittedChanges()
-        let currentTag = await gitRepo.getCurrentTag()
+        let hasUncommittedChanges = try await gitRepo.hasUncommittedChanges()
+        let currentTag = try await gitRepo.getCurrentTag()
         let revisionString: String = if let currentTag {
             hasUncommittedChanges ? "\(currentTag)-modified" : currentTag
         } else {

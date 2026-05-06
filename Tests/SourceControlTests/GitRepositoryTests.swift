@@ -452,14 +452,12 @@ class GitRepositoryTests: XCTestCase {
             let repoSpec = RepositorySpecifier(path: testRepoPath)
             try await provider.fetch(repository: repoSpec, to: testClonePath)
             let clonedRepo = provider.open(repository: repoSpec, at: testClonePath)
-            let tags2 = try await clonedRepo.getTags()
-            XCTAssertEqual(tags2, ["1.2.3"])
+            XCTAssertEqual(try clonedRepo.getTags(), ["1.2.3"])
 
             // Clone off a checkout.
             let checkoutPath = path.appending("checkout")
             let checkoutRepo = try await provider.createWorkingCopy(repository: repoSpec, sourcePath: testClonePath, at: checkoutPath, editable: false)
-            let tags3 = try await checkoutRepo.getTags()
-            XCTAssertEqual(tags3, ["1.2.3"])
+            XCTAssertEqual(try checkoutRepo.getTags(), ["1.2.3"])
 
             // Add a new file to original repo.
             try localFileSystem.writeFileContents(testRepoPath.appending("test.txt"), bytes: "Hi")
@@ -469,14 +467,12 @@ class GitRepositoryTests: XCTestCase {
             try testRepo.tag(name: "2.0.0")
 
             // Update the cloned repo.
-            try await clonedRepo.fetch()
-            let tags4 = try await clonedRepo.getTags()
-            XCTAssertEqual(tags4.sorted(), ["1.2.3", "2.0.0"])
+            try clonedRepo.fetch()
+            XCTAssertEqual(try clonedRepo.getTags().sorted(), ["1.2.3", "2.0.0"])
 
             // Update the checkout.
-            try await checkoutRepo.fetch()
-            let tags5 = try await checkoutRepo.getTags()
-            XCTAssertEqual(tags5.sorted(), ["1.2.3", "2.0.0"])
+            try checkoutRepo.fetch()
+            XCTAssertEqual(try checkoutRepo.getTags().sorted(), ["1.2.3", "2.0.0"])
         }
     }
 
@@ -786,8 +782,7 @@ class GitRepositoryTests: XCTestCase {
             let repoSpec = RepositorySpecifier(path: testRepoPath)
             try await provider.fetch(repository: repoSpec, to: testClonePath)
             let clonedRepo = provider.open(repository: repoSpec, at: testClonePath)
-            let tagsB = try await clonedRepo.getTags()
-            XCTAssertEqual(tagsB, ["1.2.3"])
+            XCTAssertEqual(try clonedRepo.getTags(), ["1.2.3"])
 
             // Clone off a checkout.
             let checkoutPath = path.appending("checkout")

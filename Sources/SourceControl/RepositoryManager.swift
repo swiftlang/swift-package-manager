@@ -161,15 +161,19 @@ public class RepositoryManager: Cancellable {
 
             do {
                 let result = try await task.value
-                // Remove completed entry so subsequent calls re-evaluate
-                // updateStrategy (e.g. a later .always call after a .never).
+                // Clear the slot only if it still holds our task — a later
+                // caller may have already installed a successor.
                 self.pendingLookupsLock.withLock {
-                    self.pendingLookups[repositorySpecifier] = nil
+                    if self.pendingLookups[repositorySpecifier] == task {
+                        self.pendingLookups[repositorySpecifier] = nil
+                    }
                 }
                 return result
             } catch {
                 self.pendingLookupsLock.withLock {
-                    self.pendingLookups[repositorySpecifier] = nil
+                    if self.pendingLookups[repositorySpecifier] == task {
+                        self.pendingLookups[repositorySpecifier] = nil
+                    }
                 }
                 throw error
             }
@@ -190,7 +194,6 @@ public class RepositoryManager: Cancellable {
         // check if a repository already exists
         // errors when trying to check if a repository already exists are legitimate
         // and recoverable, and as such can be ignored
-        //
         quick: if await self.isValidDirectory(repositoryPath) {
             let repository = try await handle.open()
 
@@ -199,6 +202,7 @@ public class RepositoryManager: Cancellable {
                 break quick
             }
 
+            // Update the repository if needed
             if self.fetchRequired(repository: repository, updateStrategy: updateStrategy) {
                 let start = DispatchTime.now()
 
