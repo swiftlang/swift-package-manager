@@ -681,7 +681,7 @@ extension Workspace {
         // before the dependency manifest is loaded and its default traits are known.
         let allManifests = allNodes.mapValues(\.manifest)
         for (_, manifest) in allManifests {
-            try updateEnabledTraits(for: manifest)
+            try await updateEnabledTraits(for: manifest, observabilityScope: observabilityScope)
         }
 
         let dependencyManifests = allNodes.filter { !$0.value.manifest.packageKind.isRoot }
@@ -891,7 +891,7 @@ extension Workspace {
         }
 
         // Upon loading a new manifest, update enabled traits.
-        try self.updateEnabledTraits(for: manifest)
+        try await self.updateEnabledTraits(for: manifest, observabilityScope: observabilityScope)
 
         self.delegate?.didLoadManifest(
             packageIdentity: packageIdentity,

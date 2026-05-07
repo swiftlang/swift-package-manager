@@ -59,24 +59,12 @@ extension Manifest {
     }
 
     /// Validates a trait by checking that it is defined in the manifest; if not, an error is thrown.
-    private func validateTrait(_ trait: TraitDescription) throws {
-        guard !trait.isDefault else {
-            if !supportsTraits {
-                throw TraitError.invalidTrait(
-                    package: .init(self),
-                    trait: .init(stringLiteral: trait.name),
-                    availableTraits: traits.map({ $0.name })
-                )
-            }
-
-            return
-        }
-
+    public func validateTrait(_ trait: TraitDescription) throws {
         try self.validateTrait(EnabledTrait(stringLiteral: trait.name))
     }
 
     /// Validates a trait by checking that it is defined in the manifest; if not, an error is thrown.
-    private func validateTrait(_ trait: EnabledTrait) throws {
+    public func validateTrait(_ trait: EnabledTrait) throws {
         guard !trait.isDefault else {
             if !supportsTraits {
                 throw TraitError.invalidTrait(
@@ -102,7 +90,7 @@ extension Manifest {
     /// Validates a set of traits that is intended to be enabled for the manifest; if there are any discrepencies in the
     /// set of enabled traits and whether the manifest defines these traits (or if it defines any traits at all), then an
     /// error indicating the issue will be thrown.
-    private func validateEnabledTraits(_ explicitlyEnabledTraits: EnabledTraits) throws {
+    public func validateEnabledTraits(_ explicitlyEnabledTraits: EnabledTraits) throws {
         guard supportsTraits else {
             if explicitlyEnabledTraits != ["default"] {
                 throw TraitError.traitsNotSupported(
@@ -220,7 +208,6 @@ extension Manifest {
         // If this manifest does not support traits, but the passed configuration either
         // disables default traits or enables non-default traits (i.e. traits that would
         // not exist for this manifest) then we must throw an error.
-        try validateEnabledTraits(explicitlyEnabledTraits)
         guard supportsTraits else {
             return ["default"]
         }
@@ -236,11 +223,6 @@ extension Manifest {
 
     /// Determines if a trait is enabled with a given set of enabled traits.
     public func isTraitEnabled(_ trait: TraitDescription, _ enabledTraits: EnabledTraits) throws -> Bool {
-        // First, check that the queried trait is valid.
-        try validateTrait(trait)
-        // Then, check that the list of enabled traits is valid.
-        try validateEnabledTraits(enabledTraits)
-
         // Special case for dealing with whether a default trait is enabled.
         guard !trait.isDefault else {
             // Check that the manifest defines default traits; if so,
@@ -270,8 +252,7 @@ extension Manifest {
     }
 
     /// Calculates and returns a set of all enabled traits, beginning with a set of explicitly enabled traits (which can either be the default traits of a manifest, or a configuration of enabled traits determined from a user-generated trait configuration) and determines which traits are transitively enabled.
-    private func calculateAllEnabledTraits(explicitlyEnabledTraits: EnabledTraits) throws -> EnabledTraits {
-        try validateEnabledTraits(explicitlyEnabledTraits)
+    private func calculateAllEnabledTraits(explicitlyEnabledTraits: EnabledTraits) -> EnabledTraits {
         // This the point where we flatten the enabled traits and resolve the recursive traits
         var enabledTraits = explicitlyEnabledTraits
         let areDefaultsEnabled = enabledTraits.remove("default") != nil
@@ -294,19 +275,15 @@ extension Manifest {
         while true {
             // We are going to calculate which traits are actually enabled for a node here. To do this
             // we have to check if default traits should be used and then flatten all the enabled traits.
-            let transitivelyEnabledTraits = try enabledTraits.flatMap { trait in
+            let transitivelyEnabledTraits = enabledTraits.compactMap { trait -> EnabledTraits? in
                 guard let traitDescription = traitsMap[trait.name] else {
-                    throw TraitError.invalidTrait(
-                        package: .init(self),
-                        trait: trait
-                    )
+                    return nil
                 }
                 return EnabledTraits(
                     traitDescription.enabledTraits,
                     setBy: .trait(traitDescription.name)
                 )
-            }
-
+            }.flatMap({ $0 })
 
             let appendedList = enabledTraits.union(transitivelyEnabledTraits)
             if appendedList.count == enabledTraits.count {
@@ -321,7 +298,7 @@ extension Manifest {
 
     /// Computes the dependencies that are in use per target in this manifest.
     private func usedTargetDependencies(withTraits enabledTraits: EnabledTraits) throws -> [String: Set<TargetDescription.Dependency>] {
-        let enabledTraits = try calculateAllEnabledTraits(explicitlyEnabledTraits: enabledTraits)
+        let enabledTraits = calculateAllEnabledTraits(explicitlyEnabledTraits: enabledTraits)
         return self.targets.reduce(into: [String: Set<TargetDescription.Dependency>]()) { depMap, target in
             let nonTraitDeps = target.dependencies.filter {
                 $0.condition?.traits?.isEmpty ?? true
@@ -447,8 +424,6 @@ extension Manifest {
     /// Given a set of enabled traits, determine whether a package dependecy of this manifest is
     /// guarded by traits.
     private func isPackageDependencyTraitGuarded(_ dependency: PackageDependency, enabledTraits: EnabledTraits) throws -> Bool {
-        try validateEnabledTraits(enabledTraits)
-
         let targetDependenciesForPackageDependency = self.targets.flatMap({ $0.dependencies })
             .filter({
             $0.package?.caseInsensitiveCompare(dependency.identity.description) == .orderedSame
