@@ -93,5 +93,32 @@ public enum TargetBuildSettingDescription {
             self.kind = kind
             self.condition = condition
         }
+
+        public func overridesDefault(_ defaultSetting: Setting) -> Bool {
+            guard tool == defaultSetting.tool else {
+                return false
+            }
+
+            switch (kind, defaultSetting.kind) {
+            case (.defaultIsolation, .defaultIsolation):
+                return true
+            case (.interoperabilityMode, .interoperabilityMode):
+                return true
+            case (.swiftLanguageMode, .swiftLanguageMode):
+                return true
+            case (.treatAllWarnings, .treatAllWarnings):
+                return true
+            case (.unsafeFlags, .unsafeFlags):
+                return true
+            case (.treatWarning(let value, _), .treatWarning(let defaultValue, _)):
+                return value == defaultValue
+            case (.enableWarning(let value), .disableWarning(let defaultValue)):
+                return value == defaultValue
+            case (.disableWarning(let value), .enableWarning(let defaultValue)):
+                return value == defaultValue
+            default:
+                return false
+            }
+        }
     }
 }

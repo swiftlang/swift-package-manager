@@ -1086,6 +1086,31 @@ public final class PackageBuilder {
         }
     }
 
+    private func resolvedSettings(for target: TargetDescription) -> [TargetBuildSettingDescription.Setting] {
+        var resolved = target.settings
+
+        let defaultSettings = manifest.defaultSwiftSettings ?? []
+
+        for defaultSetting in defaultSettings {
+            var eligible = true
+
+            // Look for an existing target setting that takes precedence. If none are found,
+            // the default is accepted.
+            for setting in resolved {
+                if setting.overridesDefault(defaultSetting) {
+                    eligible = false
+                    break
+                }
+            }
+
+            if eligible {
+                resolved.append(defaultSetting)
+            }
+        }
+
+        return resolved
+    }
+
     /// Creates build setting assignment table for the given target.
     func buildSettings(
         for target: TargetDescription?,
@@ -1103,7 +1128,7 @@ public final class PackageBuilder {
         table.add(versionAssignment, for: .SWIFT_VERSION)
 
         // Process each setting.
-        for setting in target.settings {
+        for setting in resolvedSettings(for: target) {
             if let traits = setting.condition?.traits, traits.intersection(self.enabledTraits.names).isEmpty {
                 // The setting is currently not enabled so we should skip it
                 continue
