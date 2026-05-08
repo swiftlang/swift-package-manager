@@ -275,13 +275,17 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                 for package in graph.rootPackages {
                     for product in package.products where product.type == .test {
                         let binaryPath = try buildParameters.binaryPath(for: product)
+                        let coverageBinaryPath = try buildParameters.buildPath.appending(
+                            buildParameters.testCoverageBinaryRelativePath(forTestProductName: product.name)
+                        )
                         builtProducts.append(
                             BuiltTestProduct(
                                 productName: product.name,
                                 umbrellaProductName: package.manifest.umbrellaPackageTestsProductName,
                                 binaryPath: binaryPath,
                                 packagePath: package.path,
-                                testEntryPointPath: product.underlying.testEntryPointPath
+                                testEntryPointPath: product.underlying.testEntryPointPath,
+                                coverageBinaryPath: coverageBinaryPath,
                             )
                         )
                     }
@@ -846,7 +850,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                 case .scudo:
                     settings["ENABLE_SCUDO_SANITIZER"] = "YES"
                 case .fuzzer:
-                    throw StringError("\(sanitizer) is not currently supported with this build system.")
+                    settings["ENABLE_LIBFUZZER"] = "YES"
             }
         }
 
@@ -993,7 +997,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         settings["ADD_TOOLCHAIN_CONCURRENCY_BACK_DEPLOY_RPATH"] = "YES"
         settings["ADD_TOOLCHAIN_SPAN_BACK_DEPLOY_RPATH"] = "YES"
 
-        try settings.merge(Self.constructDebuggingSettingsOverrides(from: buildParameters.debuggingParameters), uniquingKeysWith: reportConflict)
+        try settings.merge(Self.constructDebuggingSettingsOverrides(from: buildParameters.debuggingParameters, for: buildParameters.configuration), uniquingKeysWith: reportConflict)
         try settings.merge(Self.constructDriverSettingsOverrides(from: buildParameters.driverParameters), uniquingKeysWith: reportConflict)
         try settings.merge(self.constructLinkerSettingsOverrides(from: buildParameters.linkingParameters, triple: buildParameters.triple), uniquingKeysWith: reportConflict)
         try settings.merge(Self.constructTestingSettingsOverrides(from: buildParameters.testingParameters), uniquingKeysWith: reportConflict)
@@ -1155,7 +1159,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         return settings
     }
 
-    private static func constructDebuggingSettingsOverrides(from parameters: BuildParameters.Debugging) -> [String: String] {
+    private static func constructDebuggingSettingsOverrides(from parameters: BuildParameters.Debugging, for configuration: BuildConfiguration) -> [String: String] {
         var settings: [String: String] = [:]
         if parameters.shouldEnableDebuggingEntitlement {
             settings["DEPLOYMENT_POSTPROCESSING"] = "NO"
@@ -1163,7 +1167,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         // Set DEBUG_INFORMATION_FORMAT based on debugInfoFormat
         switch parameters.debugInfoFormat {
         case .dwarf:
-            settings["DEBUG_INFORMATION_FORMAT"] = "dwarf"
+            settings["DEBUG_INFORMATION_FORMAT"] =  configuration == .debug ? "dwarf" : "dwarf-with-dsym"
         case .codeview:
             settings["DEBUG_INFORMATION_FORMAT"] = "codeview"
         case .none?:

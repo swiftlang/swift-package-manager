@@ -195,6 +195,12 @@ extension Trait where Self == Testing.ConditionTrait {
         }
     }
 
+    public static var requiresStaticLinuxSwiftSDK: Self {
+        enabled("Static Linux Swift SDK is not installed") {
+            try await findCompilerAndStaticLinuxSDKIDForTesting() != nil
+        }
+    }
+
     /// Skip test if built by XCode.
     public static func skipIfXcodeBuilt() -> Self {
         disabled("Tests built by Xcode") {

@@ -23,6 +23,14 @@ public struct BuiltTestProduct: Codable, Hashable {
     /// The path of the test binary.
     public let binaryPath: AbsolutePath
 
+    /// The path of the artifact whose coverage mapping should be passed to `llvm-cov export`.
+    ///
+    /// For most build systems this is equal to ``binaryPath``. On SwiftBuild + non-Darwin,
+    /// where ``binaryPath`` points at a thin `-test-runner` launcher, this points at the
+    /// sibling shared library that actually holds the compiled test code (and therefore
+    /// its coverage mapping).
+    public let coverageBinaryPath: AbsolutePath
+
     /// The path to the package this product was declared in.
     public let packagePath: AbsolutePath
 
@@ -41,7 +49,7 @@ public struct BuiltTestProduct: Codable, Hashable {
         guard let bundlePath = hierarchySequence.first(where: { $0.basename.hasSuffix(pathExtension) }) else {
             fatalError("could not find test bundle path from '\(binaryPath)'")
         }
-        
+
         return bundlePath
     }
 
@@ -55,11 +63,22 @@ public struct BuiltTestProduct: Codable, Hashable {
     ///   - binaryPath: The path of the test binary.
     ///   - packagePath: The path to the package this product was declared in.
     ///   - mainSourceFilePath: The path to the main source file used, if any.
-    public init(productName: String, umbrellaProductName: String?, binaryPath: AbsolutePath, packagePath: AbsolutePath, testEntryPointPath: AbsolutePath?) {
+    ///   - coverageBinaryPath: The path of the artifact whose coverage mapping should be
+    ///     fed to `llvm-cov`. Defaults to `binaryPath`; callers that build a test product
+    ///     as a separate launcher + shared library should pass the shared library here.
+    public init(
+        productName: String,
+        umbrellaProductName: String?,
+        binaryPath: AbsolutePath,
+        packagePath: AbsolutePath,
+        testEntryPointPath: AbsolutePath?,
+        coverageBinaryPath: AbsolutePath? = nil,
+    ) {
         self.productName = productName
         self.umbrellaProductName = umbrellaProductName
         self.binaryPath = binaryPath
         self.packagePath = packagePath
         self.testEntryPointPath = testEntryPointPath
+        self.coverageBinaryPath = coverageBinaryPath ?? binaryPath
     }
 }

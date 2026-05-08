@@ -1494,6 +1494,7 @@ struct TestCommandTests {
     }
 
     @Test(
+        .IssueWindowsPathNoEntry,
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func defaultInteropMode(
@@ -1515,6 +1516,7 @@ struct TestCommandTests {
     }
 
     @Test(
+        .IssueWindowsPathNoEntry,
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func noDefaultInteropMode(
@@ -1536,6 +1538,7 @@ struct TestCommandTests {
     }
 
     @Test(
+        .IssueWindowsPathNoEntry,
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func respectUserOverrideInteropMode(
@@ -1687,4 +1690,31 @@ struct TestCommandTests {
             }
          }
 
+    // Regression test for https://github.com/swiftlang/swift-package-manager/issues/9986. Ensure
+    // environment is computed correctly throughout the testing pipeline.
+    @Test(
+        .tags(
+            .Feature.TargetType.Test,
+            .Feature.ProductType.DynamicLibrary,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func testTargetWithDynamicLibraryProductDependency(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        let configuration = BuildConfiguration.debug
+        try await withKnownIssue("Windows path issue", isIntermittent: true) {
+            try await fixture(name: "Miscellaneous/TestWithDynamicDep") { fixturePath in
+                _ = try await execute(
+                    [],
+                    packagePath: fixturePath,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                    throwIfCommandFails: true
+                )
+            }
+        } when: {
+            .windows == ProcessInfo.hostOperatingSystem
+        }
+    }
 }

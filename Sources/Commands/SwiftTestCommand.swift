@@ -705,7 +705,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             let jsonPath = productsBuildParameters.codeCovAsJSONPath(packageName: rootManifest.displayName)
             try await exportCodeCovAsJSON(
                 to: jsonPath,
-                testBinary: product.binaryPath,
+                testBinary: product.coverageBinaryPath,
                 swiftCommandState: swiftCommandState,
             )
         }

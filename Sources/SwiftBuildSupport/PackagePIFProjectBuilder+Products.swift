@@ -146,7 +146,8 @@ extension PackagePIFProjectBuilder {
             settings[.SKIP_INSTALL] = "NO"
             settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS].lazilyInitialize { ["$(inherited)"] }
             // Enable index-while building for Swift compilations to facilitate discovery of XCTest tests.
-            settings[.SWIFT_INDEX_STORE_ENABLE] = "YES"
+            settings[.INDEX_ENABLE_DATA_STORE] = "YES"
+
         } else if mainModule.type == .executable {
             // Setup install path for executables if it's in root of a pure Swift package.
             if pifBuilder.delegate.hostsOnlyPackages && pifBuilder.delegate.isRootPackage {
@@ -154,6 +155,13 @@ extension PackagePIFProjectBuilder {
                 settings[.INSTALL_PATH] = "/usr/local/bin"
                 settings[.LD_RUNPATH_SEARCH_PATHS] = ["$(inherited)", "@executable_path/../lib"]
             }
+
+            // When the fuzzing is enabled via build request overrides, rename the entry point of executables
+            // so that we use the libFuzzer entrypoint.
+            settings[.OTHER_SWIFT_FLAGS].lazilyInitializeAndMutate(initialValue: ["$(inherited)"]) {
+                $0.append("$(OTHER_SWIFT_FLAGS_ENABLE_LIBFUZZER_$(ENABLE_LIBFUZZER))")
+            }
+            settings[multiple: "OTHER_SWIFT_FLAGS_ENABLE_LIBFUZZER_YES"] = ["-Xfrontend", "-entry-point-function-name", "-Xfrontend", "\(mainModule.c99name)_main"]
         }
 
         mainModule.addParseAsLibrarySettings(to: &settings, toolsVersion: package.manifest.toolsVersion, fileSystem: pifBuilder.fileSystem)
@@ -228,6 +236,8 @@ extension PackagePIFProjectBuilder {
         }
 
         let headerFiles = Set(mainModule.headerFileAbsolutePaths)
+
+        let doccCatalogs = mainModule.underlying.doccCatalogPaths
 
         // Add any additional source files emitted by custom build commands.
         for path in generatedFiles.sources {
@@ -543,6 +553,7 @@ extension PackagePIFProjectBuilder {
             pifTarget: .target(self.project[keyPath: mainModuleTargetKeyPath]),
             indexableFileURLs: indexableFileURLs,
             headerFiles: headerFiles,
+            doccCatalogs: doccCatalogs,
             linkedPackageBinaries: linkedPackageBinaries,
             swiftLanguageVersion: mainModule.packageSwiftLanguageVersion(manifest: packageManifest),
             declaredPlatforms: self.declaredPlatforms,
@@ -1110,8 +1121,8 @@ extension PackagePIFProjectBuilder {
             moduleName: pluginProduct.c99name,
             pifTarget: .aggregate(self.project[keyPath: pluginTargetKeyPath]),
             indexableFileURLs: [],
-            pluginScriptSourcePaths: pluginProduct.pluginModules?.only?.sources.paths ?? [],
             headerFiles: [],
+            pluginScriptSourcePaths: pluginProduct.pluginModules?.only?.sources.paths ?? [],
             linkedPackageBinaries: [],
             swiftLanguageVersion: nil,
             declaredPlatforms: self.declaredPlatforms,

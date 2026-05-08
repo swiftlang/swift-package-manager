@@ -53,7 +53,7 @@ extension [SwiftSDKBundle] {
     ///   - hostTriple: triple of the machine on which the Swift SDK is building.
     ///   - targetTriple: triple of the machine for which the Swift SDK is building.
     /// - Returns: ``SwiftSDK`` value with a given artifact ID, `nil` if none found.
-    public func selectSwiftSDK(id: String, hostTriple: Triple?, targetTriple: Triple) -> SwiftSDK? {
+    public func selectSwiftSDK(id: String, hostTriple: Triple, targetTriple: Triple) -> SwiftSDK? {
         for bundle in self {
             for (artifactID, variants) in bundle.artifacts {
                 guard artifactID == id else {
@@ -61,10 +61,8 @@ extension [SwiftSDKBundle] {
                 }
 
                 for variant in variants {
-                    if let hostTriple {
-                        guard variant.isSupporting(hostTriple: hostTriple) else {
-                            continue
-                        }
+                    guard variant.isSupporting(hostTriple: hostTriple) else {
+                        continue
                     }
 
                     return variant.swiftSDKs.first { $0.targetTriple?.tripleString == targetTriple.tripleString }
