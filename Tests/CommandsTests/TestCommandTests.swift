@@ -1828,10 +1828,16 @@ struct TestCommandTests {
                     "Expected LLDB to target xctest binary, got stdout: \(stdout), stderr: \(stderr)",
                 )
 
-                #expect(
-                    stdout.contains("failbreak command registered: 1 specs"),
-                    "Expected a failure breakpoint to be setup, got stdout: \(stdout), stderr: \(stderr)",
-                )
+                withKnownIssue {
+                    #expect(
+                        stdout.contains("failbreak command registered: 1 specs"),
+                        "Expected a failure breakpoint to be setup, got stdout: \(stdout), stderr: \(stderr)",
+                    )
+                } when: {
+                    // Smoke-test CI's lldb lacks Python bindings, so `command script import`
+                    // fails and the failbreak command never registers.
+                    CiEnvironment.runningInSmokeTestPipeline
+                }
             }
         }
 
@@ -1864,10 +1870,16 @@ struct TestCommandTests {
                     "Expected LLDB to target swiftpm-testing-helper binary, got stdout: \(stdout), stderr: \(stderr)",
                 )
 
-                #expect(
-                    stdout.contains("failbreak command registered: 1 specs"),
-                    "Expected Swift Testing failure breakpoint setup, got stdout: \(stdout), stderr: \(stderr)",
-                )
+                withKnownIssue {
+                    #expect(
+                        stdout.contains("failbreak command registered: 1 specs"),
+                        "Expected Swift Testing failure breakpoint setup, got stdout: \(stdout), stderr: \(stderr)",
+                    )
+                } when: {
+                    // Smoke-test CI's lldb lacks Python bindings, so `command script import`
+                    // fails and the failbreak command never registers.
+                    CiEnvironment.runningInSmokeTestPipeline
+                }
             }
         }
 
@@ -1906,10 +1918,16 @@ struct TestCommandTests {
                     CiEnvironment.runningInSmokeTestPipeline
                 }
 
-                #expect(
-                    stdout.contains("failbreak command registered: 2 specs"),
-                    "Expected combined failure breakpoint setup, got stdout: \(stdout), stderr: \(stderr)",
-                )
+                withKnownIssue {
+                    #expect(
+                        stdout.contains("failbreak command registered: 2 specs"),
+                        "Expected combined failure breakpoint setup, got stdout: \(stdout), stderr: \(stderr)",
+                    )
+                } when: {
+                    // Smoke-test CI's lldb lacks Python bindings, so `command script import`
+                    // fails and the failbreak command never registers.
+                    CiEnvironment.runningInSmokeTestPipeline
+                }
 
                 #expect(
                     stdout.contains("command script import"),
