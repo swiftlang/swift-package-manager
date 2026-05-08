@@ -52,7 +52,7 @@ extension SwiftPackageCommand {
         @Option(name: .customLong("name"), help: "Provide a custom package name.")
         var packageName: String?
 
-        // This command should support creating the supplied --package-path if it isn't created.
+        // This command supports creating the supplied --package-path if it isn't created.
         var createPackagePath = true
 
         func run(_ swiftCommandState: SwiftCommandState) throws {

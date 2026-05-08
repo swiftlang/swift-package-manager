@@ -44,7 +44,7 @@ struct APIDiff: AsyncSwiftCommand {
         abstract: "Diagnose API-breaking changes to Swift modules in a package.",
         discussion: """
         The diagnose-api-breaking-changes command can be used to compare the Swift API of \
-        a package to a baseline revision, diagnosing any breaking changes which have \
+        a package to a baseline revision, diagnosing any breaking changes that have \
         been introduced. By default, it compares every Swift module from the baseline \
         revision which is part of a library product. For packages with many targets, this \
         behavior may be undesirable as the comparison can be slow. \
@@ -58,9 +58,9 @@ struct APIDiff: AsyncSwiftCommand {
     var globalOptions: GlobalOptions
 
     @Option(help: """
-    The path to a text file containing breaking changes which should be ignored by the API comparison. \
+    The path to a text file containing breaking changes that the API comparison should ignore. \
     Each ignored breaking change in the file should appear on its own line and contain the exact message \
-    to be ignored (for example, 'API breakage: func foo() has been removed').
+    to ignore (for example, 'API breakage: func foo() has been removed').
     """)
     var breakageAllowlistPath: Basics.AbsolutePath?
 

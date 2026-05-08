@@ -149,7 +149,7 @@ extension PackageRegistryCommand {
         )
         var tokenFilePath: AbsolutePath?
 
-        @Flag(help: "Write to the netrc file without asking for confirmation.")
+        @Flag(help: "Write to the .netrc file without asking for confirmation.")
         var noConfirm: Bool = false
 
         private static let PLACEHOLDER_TOKEN_USER = "token"

@@ -41,7 +41,7 @@ struct ConfigureSwiftSDK: AsyncParsableCommand {
     @Option(
         parsing: .singleValue,
         help: """
-        A path to a directory containing headers. Multiple paths can be specified by providing this option multiple \
+        A path to a directory containing headers. You can specify multiple paths by providing this option multiple \
         times to the command.
         """
     )
@@ -50,7 +50,7 @@ struct ConfigureSwiftSDK: AsyncParsableCommand {
     @Option(
         parsing: .singleValue,
         help: """
-        A path to a directory containing libraries. Multiple paths can be specified by providing this option multiple \
+        A path to a directory containing libraries. You can specify multiple paths by providing this option multiple \
         times to the command.
         """
     )
@@ -59,7 +59,7 @@ struct ConfigureSwiftSDK: AsyncParsableCommand {
     @Option(
         parsing: .singleValue,
         help: """
-        A path to a toolset file. Multiple paths can be specified by providing this option multiple times to the command.
+        A path to a toolset file. You can specify multiple paths by providing this option multiple times to the command.
         """
     )
     var toolsetPath: [String] = []
@@ -67,8 +67,7 @@ struct ConfigureSwiftSDK: AsyncParsableCommand {
     @Flag(
         name: .customLong("reset"),
         help: """
-        Reset configuration properties currently applied to a given Swift SDK and target triple. If no specific \
-        property is specified, all of them are reset for the Swift SDK.
+        Reset configuration properties currently applied to a given Swift SDK and target triple. If you don't specify a property, the system resets all of them for the Swift SDK.
         """
     )
     var shouldReset: Bool = false

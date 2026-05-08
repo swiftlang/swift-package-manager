@@ -157,9 +157,9 @@ struct TestCommandOptions: ParsableArguments {
           help: "Determines whether tests run in parallel.")
     var shouldRunInParallel: Bool = false
 
-    /// Number of tests to execute in parallel
+    /// The number of tests to execute in parallel.
     @Option(name: .customLong("num-workers"),
-            help: "Number of tests to execute in parallel.")
+            help: "The number of tests to execute in parallel.")
     var numberOfWorkers: Int?
 
     /// Width of task group used by Swift Testing.
@@ -172,7 +172,7 @@ struct TestCommandOptions: ParsableArguments {
     @Option(help: .hidden)
     var experimentalMaximumRepetitions: Int?
 
-    /// The condition upon which to stop repeating (Swift Testing only).
+    /// The condition upon which repetition stops (Swift Testing only).
     @Option(help: .hidden)
     var experimentalRepeatUntil: String?
 
@@ -198,8 +198,8 @@ struct TestCommandOptions: ParsableArguments {
     var _testCaseSpecifier: String?
 
     @Option(help: """
-        Run test cases that match a regular expression. \
-        Format: <test-target>.<test-case> or <test-target>.<test-case>/<test>.
+        Run test cases that match a regular expression, for example, \
+        <test-target>.<test-case> or <test-target>.<test-case>/<test>.
         """)
     var filter: [String] = []
 
@@ -207,9 +207,9 @@ struct TestCommandOptions: ParsableArguments {
             help: "Skip test cases that match a regular expression. For example: '--skip PerformanceTests'.")
     var _testCaseSkip: [String] = []
 
-    /// Path where the xUnit xml file should be generated.
+    /// The path where the xUnit XML file generates.
     @Option(name: .customLong("xunit-output"),
-            help: "Path where the xUnit xml file should be generated.")
+            help: "The path where the xUnit XML file generates.")
     var xUnitOutput: AbsolutePath?
 
     @Flag(
@@ -231,7 +231,7 @@ struct TestCommandOptions: ParsableArguments {
           help: "Determines whether testing measures code coverage.")
     var enableCodeCoverage: Bool = false
 
-    /// Configure test output.
+    /// Configure the test output.
     @Option(help: ArgumentHelp("", visibility: .hidden))
     public var testOutput: TestOutput = .default
 

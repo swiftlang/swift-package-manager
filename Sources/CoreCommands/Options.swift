@@ -205,13 +205,13 @@ public struct CachingOptions: ParsableArguments {
         }
     }
 
-    /// Whether to use macro prebuilts or not
+    /// Whether to use prebuilt swift-syntax libraries.
     @Flag(name: .customLong("experimental-prebuilts"),
           inversion: .prefixedEnableDisable,
           help: "Determines whether macros use prebuilt swift-syntax libraries.")
     public var usePrebuilts: Bool = true
 
-    /// Hidden option to override the prebuilts download location for testing
+    /// A hidden option to override the prebuilt's download location for testing.
     @Option(
         name: .customLong("experimental-prebuilts-download-url"),
         help: .hidden
@@ -245,7 +245,7 @@ public struct LoggingOptions: ParsableArguments {
           help:
             """
             Determines whether color diagnostics appear when printing to a TTY.
-            By default, color diagnostics are enabled when connected to a TTY and disabled otherwise.
+            By default, the terminal enables color diagnostics when connected to a TTY and disables them otherwise.
             """)
     public var colorDiagnostics: Bool = ProcessInfo.processInfo.environment["NO_COLOR"] == nil
 }
@@ -253,15 +253,15 @@ public struct LoggingOptions: ParsableArguments {
 public struct SecurityOptions: ParsableArguments {
     public init() {}
 
-    /// Disables sandboxing when executing subprocesses.
+    /// Disables sandboxing when running subprocesses.
     @Flag(name: .customLong("disable-sandbox"), help: "Disable the sandbox when executing subprocesses.")
     public var shouldDisableSandbox: Bool = false
 
-    /// Force usage of the netrc file even in cases where it is not allowed.
+    /// Force usage of the .netrc file even in cases where other credential stores are preferred.
     @Flag(name: .customLong("netrc"), help: "Use netrc file even in cases where other credential stores are preferred.")
     public var forceNetrc: Bool = false
 
-    /// Whether to load netrc files for authenticating with remote servers
+    /// Whether to load .netrc files for authenticating with remote servers
     /// when downloading binary artifacts. This has no effects on registry
     /// communications.
     @Flag(
@@ -380,7 +380,7 @@ public struct ResolverOptions: ParsableArguments {
 public struct BuildOptions: ParsableArguments {
     public init() {}
 
-    /// Build configuration.
+    /// Build the configuration.
     @Option(name: .shortAndLong, help: "Build with the specified configuration.")
     public var configuration: BuildConfiguration?
 
@@ -541,7 +541,7 @@ public struct BuildOptions: ParsableArguments {
     /// Whether to use the integrated Swift driver rather than shelling out
     /// to a separate process.
     @Flag()
-    /// This flag is deprecated but cannot indicate so in Swift Argument Parser until https://github.com/apple/swift-argument-parser/issues/656
+    /// This flag is deprecated but cannot indicate so in Swift Argument Parser until https://github.com/apple/swift-argument-parser/issues/656.
     public var useIntegratedSwiftDriver: Bool = false
 
     /// A flag that indicates this build should check whether targets only import
@@ -658,7 +658,7 @@ public struct LinkerOptions: ParsableArguments {
     @Flag(
         name: .customLong("dead-strip"),
         inversion: .prefixedEnableDisable,
-        help: "Determines whether the linker strips dead code."
+        help: "Determines whether the linker strips unused code."
     )
     public var linkerDeadStrip: Bool = true
 
@@ -736,7 +736,7 @@ public struct TraitOptions: ParsableArguments {
     /// The traits to enable for the package.
     @Option(
         name: .customLong("traits"),
-        help: "Enable the specified traits of the package. Specify multiple traits as a comma-separated list, for example: `--traits Trait1,Trait2`. When enabling specific traits, the default traits must also be explicitly enabled by passing `defaults` to this option."
+        help: "Enable the specified traits of the package. Specify multiple traits as a comma-separated list, for example: `--traits Trait1,Trait2`. When enabling specific traits, you must also explicitly enable the default traits by passing `defaults` to this option."
     )
     package var _enabledTraits: String?
 
@@ -779,14 +779,14 @@ extension TraitConfiguration {
 public struct SBOMOptions: ParsableArguments {
     public init() {}
 
-    /// SBOM specification(s) to generate.
+    /// The SBOM specification(s) to generate.
     @Option(
         name: .customLong("sbom-spec"),
         help: ArgumentHelp("Set the SBOM specification and generate an SBOM.")
     )
     package var _sbomSpecs: [SBOMModel.Spec] = []
 
-    /// Directory path to generate SBOM(s) in.
+    /// The directory path to generate SBOM(s) in.
     @Option(
         name: .customLong("sbom-output-dir"),
         help: ArgumentHelp("The absolute or relative directory path to generate the SBOM(s) in. Must be used with --sbom-spec. (default: <scratch_path>/sboms)."),
