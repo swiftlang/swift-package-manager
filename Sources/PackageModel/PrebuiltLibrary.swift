@@ -25,7 +25,7 @@ public struct PrebuiltLibrary: Codable {
     public let path: AbsolutePath
 
     /// The path to the checked out source
-    public let checkoutPath: AbsolutePath?
+    public let checkoutPath: AbsolutePath
 
     /// The products in the library
     public let products: [String]
@@ -45,18 +45,14 @@ public struct PrebuiltLibrary: Codable {
 
     /// The header path to the Swift modules and C Module headers
     public var headerPaths: [AbsolutePath] {
-        var paths = [path.appending(component: "Modules")]
-        if let checkoutPath {
-            paths += includePath.map { checkoutPath.appending($0) }
-        }
-        return paths
+        [path.appending(component: "Modules")] + includePath.map { checkoutPath.appending($0) }
     }
 
     public init(
         identity: PackageIdentity,
         libraryName: String,
         path: AbsolutePath,
-        checkoutPath: AbsolutePath?,
+        checkoutPath: AbsolutePath,
         products: [String],
         includePath: [RelativePath]
     ) {

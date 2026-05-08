@@ -65,6 +65,11 @@ extension BuildPlan {
             }
         }
 
+        // Add prebuilt libraries
+        for path in dependencies.prebuiltLibraryPaths {
+            buildProduct.additionalFlags += [path.pathString]
+        }
+
         // Don't link libc++ or libstd++ when building for Embedded Swift.
         // Users can still link it manually for embedded platforms when needed,
         // by providing `-Xlinker -lc++` options via CLI or `Package.swift`.
@@ -125,6 +130,7 @@ extension BuildPlan {
         staticTargets: [ModuleBuildDescription],
         systemModules: [ResolvedModule],
         libraryBinaryPaths: Set<AbsolutePath>,
+        prebuiltLibraryPaths: Set<AbsolutePath>,
         availableTools: [String: AbsolutePath]
     ) {
         let product = productDescription.product
@@ -242,6 +248,7 @@ extension BuildPlan {
         var staticTargets = [ModuleBuildDescription]()
         var systemModules = [ResolvedModule]()
         var libraryBinaryPaths: Set<AbsolutePath> = []
+        var prebuiltLibraryPaths: Set<AbsolutePath> = []
         var availableTools = [String: AbsolutePath]()
 
         for dependency in allDependencies {
@@ -324,7 +331,7 @@ extension BuildPlan {
                             libraryBinaryPaths.insert(library.libraryPath)
                         }
                     case .prebuilt(let prebuilt):
-                        libraryBinaryPaths.insert(prebuilt.libraryPath)
+                        prebuiltLibraryPaths.insert(prebuilt.libraryPath)
                     case .unknown:
                         throw InternalError("unknown binary target '\(module.name)' type")
                     }
@@ -349,7 +356,7 @@ extension BuildPlan {
             })
         }
 
-        return (linkLibraries, staticTargets, systemModules, libraryBinaryPaths, availableTools)
+        return (linkLibraries, staticTargets, systemModules, libraryBinaryPaths, prebuiltLibraryPaths, availableTools)
     }
 
     /// Extracts the artifacts  from an artifactsArchive

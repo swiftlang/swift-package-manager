@@ -32,7 +32,7 @@ extension Workspace {
         public let path: AbsolutePath
 
         /// The path to the checked out source
-        public let checkoutPath: AbsolutePath?
+        public let checkoutPath: AbsolutePath
 
         /// The products in the library
         public let products: [String]

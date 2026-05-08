@@ -284,7 +284,6 @@ public final class SwiftBuildSystemMessageHandler {
             }
         case .taskComplete(let info):
             let startedInfo = try buildState.completed(task: info)
-            let targetInfo = try buildState.target(for: startedInfo)
 
             let renderedBacktrace = self.enableBacktraces
                 ? self.renderTaskBacktrace(for: startedInfo)
@@ -293,12 +292,13 @@ public final class SwiftBuildSystemMessageHandler {
             traceEventsWriter?.taskCompleted(
                 info,
                 startedInfo: startedInfo,
-                targetInfo: targetInfo
+                backtrace: renderedBacktrace
             )
 
             // Handler for task output, handling failures if applicable.
             try self.handleTaskOutput(info, startedInfo, renderedBacktrace)
 
+            let targetInfo = try buildState.target(for: startedInfo)
             callback = { [weak self] buildSystem in
                 self?.buildDelegate?.buildSystem(buildSystem, didFinishCommand: BuildSystemCommand(startedInfo, targetInfo: targetInfo))
             }
