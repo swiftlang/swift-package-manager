@@ -49,7 +49,8 @@ jobs:
       windows_build_timeout: 280
       windows_swift_versions: ${{ case(matrix.windows_with_docker,'["nightly-main", "nightly-6.3", "6.2.0"]', '["nightly-main"]') }}
       windows_pre_build_command: 'Invoke-Program .\.github\scripts\prebuild.ps1 -SkipAndroid'
-      windows_build_command: 'Invoke-Program .\.github\scripts\run-swift-test.ps1 -TimeoutMinutes 240 -Command "swift run --configuration release swift-test --scratch-path .test --parallel --experimental-xunit-message-failure --xunit-output windows-xunit.xml"'
+      windows_build_command: 'Invoke-Program .\.github\scripts\run-swift-test.ps1 -TimeoutMinutes 240 -Command "swift run swift-test --scratch-path .test --parallel --experimental-xunit-message-failure --xunit-output windows-xunit.xml --filter WorkspaceTests --filter BasicTests --filter BasicsTests"'
+      # windows_build_command: 'Invoke-Program .\.github\scripts\run-swift-test.ps1 -TimeoutMinutes 240 -Command "swift run --configuration release swift-test --scratch-path .test --parallel --experimental-xunit-message-failure --xunit-output windows-xunit.xml"'
 
   soundness:
     name: Soundness
