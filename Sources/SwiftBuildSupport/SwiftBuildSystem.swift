@@ -12,6 +12,7 @@
 
 @_spi(SwiftPMInternal)
 import Basics
+import SPMBuildCore // for the Basics.Diagnostic extension
 import Dispatch
 import class Foundation.FileManager
 import class Foundation.JSONEncoder
@@ -427,6 +428,15 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         guard !buildParameters.shouldSkipBuilding else {
             result.serializedDiagnosticPathsByTargetName = .failure(StringError("Building was skipped"))
             return result
+        }
+
+        if let stripProdduct = self.buildParameters.stripProducts, self.buildParameters.configuration != .release {
+            self.observabilityScope.emit(
+                Basics.Diagnostic.unsupportedStripProductsConfigurationFlag(
+                    isEnabled: stripProdduct,
+                    with: .swiftbuild,
+                )
+            )
         }
 
         guard try await self.compilePlugins(in: subset) else {
@@ -867,6 +877,12 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                 case .fuzzer:
                     settings["ENABLE_LIBFUZZER"] = "YES"
             }
+        }
+
+        settings["STRIP_INSTALLED_PRODUCT"] = if let stripInstalledProducts = self.buildParameters.stripProducts {
+            stripInstalledProducts ? "YES" : "NO"
+        } else {
+            "NO"
         }
 
         // FIXME: workaround for old Xcode installations such as what is in CI

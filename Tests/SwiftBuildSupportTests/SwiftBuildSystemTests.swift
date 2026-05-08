@@ -137,7 +137,7 @@ extension PackageModel.Sanitizer {
     .tags(
         .TestSize.medium,
     ),
-    .requireCompiledWith6_3OrLater("https://github.com/swiftlang/swift-corelibs-foundation/pull/5269")
+    .requireCompiledWith6_3OrLater(because: "https://github.com/swiftlang/swift-corelibs-foundation/pull/5269")
 )
 struct SwiftBuildSystemTests {
 
@@ -342,6 +342,43 @@ struct SwiftBuildSystemTests {
         }
     }
 
+
+    @Test(
+        arguments: [
+            (stripProductsSettingUT: true, expectedValue: "YES"),
+            (stripProductsSettingUT: false, expectedValue: "NO"),
+            (stripProductsSettingUT: nil, expectedValue: "NO"),
+        ]
+    )
+    func validatestripProductsetting(
+        stripProductsSettingUT: Bool?,
+        expectedValue: String
+    ) async throws {
+        try await withInstantiatedSwiftBuildSystem(
+            fromFixture: "PIFBuilder/Simple",
+            buildParameters: mockBuildParameters(
+                destination: .host,
+                buildSystemKind: .swiftbuild,
+                stripProducts: stripProductsSettingUT,
+            ),
+        ) { swiftBuild, service, session, observabilityScope, buildParameters in
+
+            let buildSettings = try await swiftBuild.makeBuildParameters(
+                service: service,
+                session: session,
+                symbolGraphOptions: nil,
+                setToolchainSetting: false, // Set this to false as SwiftBuild checks the toolchain path
+            )
+
+            let synthesizedArgs = try #require(buildSettings.overrides.synthesized)
+            let actual = synthesizedArgs.table["STRIP_INSTALLED_PRODUCT"]
+            #expect(
+                actual == expectedValue,
+                "strip install products: \(String(describing: stripProductsSettingUT)) >>> Actual: '\(actual)' expected: '\(expectedValue)'",
+            )
+       }
+    }
+
     @Test(
         .serialized,
         arguments: [
@@ -377,6 +414,7 @@ struct SwiftBuildSystemTests {
             )
        }
     }
+
 
     @Test(
         .issue("https://github.com/swiftlang/swift-package-manager/issues/9321", relationship: .verifies),
@@ -516,7 +554,6 @@ struct SwiftBuildSystemTests {
             }
         }
 
-        #if os(Windows)
         @Test
         func debugInfoFormatCodeViewOnWindows() async throws {
             // Test CodeView format separately as it's only supported on Windows
@@ -540,7 +577,6 @@ struct SwiftBuildSystemTests {
                 #expect(synthesizedArgs.table["DEBUG_INFORMATION_FORMAT"] == "codeview")
             }
         }
-        #endif
 
         @Test(
             arguments: [

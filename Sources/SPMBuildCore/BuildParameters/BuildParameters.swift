@@ -94,6 +94,9 @@ public struct BuildParameters: Encodable {
     /// Whether to create dylibs for dynamic library products.
     public var shouldCreateDylibForDynamicProducts: Bool
 
+    /// Whether to strip debug symbols from the final binary
+    public var stripProducts: Bool?
+
     /// The current build environment.
     public var buildEnvironment: BuildEnvironment {
         BuildEnvironment(platform: currentPlatform, configuration: configuration)
@@ -187,7 +190,8 @@ public struct BuildParameters: Encodable {
         linkingParameters: Linking = .init(),
         outputParameters: Output = .init(),
         testingParameters: Testing = .init(),
-        apiDigesterMode: APIDigesterMode? = nil
+        apiDigesterMode: APIDigesterMode? = nil,
+        stripProducts: Bool? = nil,
     ) throws {
         // Default to the unversioned triple if none is provided so that we defer to the package's requested deployment target, for Darwin platforms. For other platforms, continue to include the version since those don't have the concept of a package-specified version, and the version is meaningful for some platforms including Android and FreeBSD.
         let triple = try triple ?? {
@@ -253,6 +257,7 @@ public struct BuildParameters: Encodable {
         self.outputParameters = outputParameters
         self.testingParameters = testingParameters
         self.apiDigesterMode = apiDigesterMode
+        self.stripProducts = stripProducts
     }
 
     /// The path to the build directory (inside the data directory).
