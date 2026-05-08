@@ -14,6 +14,12 @@ import Foundation
 import class Dispatch.DispatchQueue
 import struct Dispatch.DispatchTime
 import struct TSCBasic.FileSystemError
+import Subprocess
+#if canImport(System)
+import System
+#else
+import SystemPackage
+#endif
 
 #if os(Windows)
 import WinSDK
@@ -104,22 +110,28 @@ public struct TarArchiver: Archiver {
             throw FileSystemError(.notDirectory, directory.underlying)
         }
 
-        let process = AsyncProcess(
-            arguments: [self.tarCommand, "acf", destinationPath.pathString, directory.basename],
-            environment: .current,
-            workingDirectory: directory.parentDirectory
-        )
+        #if os(Windows)
+        let executable = Subprocess.Executable.path(FilePath(self.tarCommand))
+        #else
+        let executable = Subprocess.Executable.name(self.tarCommand)
+        #endif
 
-        guard let registrationKey = self.cancellator.register(process) else {
-            throw CancellationError.failedToRegisterProcess(process)
+        let outcome = try await self.cancellator.withCancellable(name: self.tarCommand) {
+            try await Subprocess.run(
+                executable,
+                arguments: Subprocess.Arguments(["acf", destinationPath.pathString, directory.basename]),
+                workingDirectory: FilePath(directory.parentDirectory.pathString),
+                error: .combinedWithOutput
+            ) { _, outputSequence -> String in
+                var output = ""
+                for try await buffer in outputSequence {
+                    buffer.withUnsafeBytes { output += String(decoding: $0, as: UTF8.self) }
+                }
+                return output
+            }
         }
-
-        defer { self.cancellator.deregister(registrationKey) }
-
-        try process.launch()
-        let processResult = try await process.waitUntilExit()
-        guard processResult.exitStatus == .terminated(code: 0) else {
-            throw try StringError(processResult.utf8stderrOutput())
+        guard outcome.terminationStatus.isSuccess else {
+            throw StringError(outcome.value)
         }
     }
 
