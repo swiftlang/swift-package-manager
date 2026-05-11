@@ -376,8 +376,17 @@ extension PackagePIFProjectBuilder {
         // Ensure the intermediates for this target don't clash with the intermediates of a target representing a package product with the same name
         settings[.TARGET_TEMP_DIR_SUFFIX] = "-t"
 
-        if sourceModule.platformConstraint == .host
-            || self.pifBuilder.hostOnlyModuleIds.contains(sourceModule.id) {
+        // Do NOT also restrict based on `pifBuilder.hostOnlyModuleIds` here.
+        // Module-level restriction is the wrong layer: it over-restricts
+        // "leaky" root-package libraries (modules like `Base`/`Intermediate`
+        // from `PrebuiltsPIFTests.testLeakyLibrary` whose fixture package
+        // doesn't export them but that a future caller might). Host-chain
+        // reachability is instead enforced at the product emission site in
+        // `PackagePIFProjectBuilder+Products.swift::makeMainModuleProduct`,
+        // which is all swift-build needs because it specializes the build
+        // graph per run-destination and only compiles modules that a
+        // requested product transitively depends on.
+        if sourceModule.platformConstraint == .host {
             settings[.SUPPORTED_PLATFORMS] = ["$(HOST_PLATFORM)"]
         }
         if shouldGenerateBundleAccessor {

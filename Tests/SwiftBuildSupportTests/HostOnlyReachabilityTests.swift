@@ -195,10 +195,10 @@ struct HostOnlyReachabilityTests {
         #expect(!hostOnlyNames.contains("LibB"))
     }
 
-    /// T4 — end-to-end PIF emission. Using the JS Kit-like topology, generate
-    /// the PIF via `PIFBuilder.constructPIF(...)` and inspect per-target
-    /// `SUPPORTED_PLATFORMS`. Plugin-tool-reachable-only modules must be
-    /// host-restricted; the root library must not.
+    /// T4 — end-to-end PIF emission on a JS-Kit-like topology. Host-chain
+    /// reachability is emitted at the product level only (see site B in
+    /// `PackagePIFProjectBuilder+Products.swift::makeMainModuleProduct`);
+    /// per-module targets are not explicitly restricted.
     @Test
     func pifEmissionRestrictsPlatformsForHostOnlyModules() async throws {
         let fs = InMemoryFileSystem(emptyFiles:
@@ -302,13 +302,16 @@ struct HostOnlyReachabilityTests {
         }
 
         // MyTool is an executable; only emitted as a product target named
-        // "MyTool-product". Must be host-restricted.
+        // "MyTool-product". Must be host-restricted via the product-level hook.
         #expect(supportedPlatforms(forTargetMatching: "MyTool-product") == ["$(HOST_PLATFORM)"],
                 "MyTool-product SUPPORTED_PLATFORMS mismatch. All targets:\n\(dumpAllTargets())")
 
-        // SwiftSyntax is a library; emitted as a per-module target named
-        // "SwiftSyntax". Must be host-restricted.
-        #expect(supportedPlatforms(forTargetMatching: "SwiftSyntax") == ["$(HOST_PLATFORM)"],
+        // SwiftSyntax is a library; emitted as a per-module target. Per-module
+        // targets carry no explicit SUPPORTED_PLATFORMS setting — swift-build
+        // specializes the build graph per run destination and only compiles
+        // them when a requested product transitively depends on them, so
+        // `MyTool-product`'s host restriction suffices.
+        #expect(supportedPlatforms(forTargetMatching: "SwiftSyntax") == nil,
                 "SwiftSyntax SUPPORTED_PLATFORMS mismatch. All targets:\n\(dumpAllTargets())")
 
         // MyApp is a library reachable from a non-host context; must NOT be

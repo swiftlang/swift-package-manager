@@ -173,6 +173,16 @@ extension PackagePIFProjectBuilder {
         // chains (plugin tools, etc.) to the host platform. Applies across
         // product types; the macro-prebuilts branch above handles ARCHS
         // pinning separately.
+        //
+        // This is the SOLE site where host-chain reachability (not the
+        // author-declared `platformConstraint == .host`) feeds
+        // `SUPPORTED_PLATFORMS`. Module-level restriction used to also
+        // consult this set but was removed because swift-build specializes
+        // the build graph per run destination — only compiling modules that
+        // a requested product transitively depends on — so restricting here
+        // is sufficient AND avoids false-positive module-level restrictions
+        // on "leaky" root-package libraries (see
+        // `PrebuiltsPIFTests.testLeakyLibrary`).
         if self.pifBuilder.hostOnlyModuleIds.contains(mainModule.id) {
             settings[.SUPPORTED_PLATFORMS] = ["$(HOST_PLATFORM)"]
         }

@@ -439,8 +439,14 @@ struct PrebuiltsPIFTests {
 
         let targets = pif.workspace.projects.flatMap({ $0.underlying.targets })
         for target in targets {
-            guard !["Plugin", "Macros"].contains(target.common.name) else {
-                // The Plugin target does have HOST_PLATFORM test
+            // Legitimate host-restrictions that are intentional and don't
+            // represent a prebuilt "leak":
+            //  - "Plugin" / "Macros"         — declared host-only (plugin, macro).
+            //  - "Generator-product"          — product for a plugin-tool
+            //    executable (consumed only by "Plugin"), host-restricted at
+            //    the product level by `makeMainModuleProduct`'s reachability
+            //    hook. Plugin-tool executables never run cross-compiled.
+            guard !["Plugin", "Macros", "Generator-product"].contains(target.common.name) else {
                 continue
             }
             let isHost: Bool = target.common.buildConfigs.contains {
