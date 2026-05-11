@@ -42,7 +42,7 @@ logging.basicConfig(
     ]),
     level=logging.INFO,
 )
-g_macos_deployment_target = '14.0'
+g_macos_deployment_target = '15.0'
 
 g_shared_lib_prefix = "lib"
 if platform.system() == 'Darwin':
