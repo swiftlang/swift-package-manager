@@ -59,10 +59,16 @@ fileprivate func withGeneratedPIF(
     addLocalRpaths: Bool = true,
     shouldCreateDylibForDynamicProducts: Bool = true,
     buildParameters: BuildParameters? = nil,
+    hostBuildParameters: BuildParameters? = nil,
     do doIt: (SwiftBuildSupport.PIF.TopLevelObject, TestingObservability) async throws -> ()
 ) async throws {
     let buildParameters = if let buildParameters {
         buildParameters
+    } else {
+        mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+    }
+    let hostBuildParameters = if let hostBuildParameters {
+        hostBuildParameters
     } else {
         mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
     }
@@ -93,8 +99,9 @@ fileprivate func withGeneratedPIF(
             fileSystem: localFileSystem,
             observabilityScope: observabilitySystem.topScope
         )
-        let pif = try await builder.constructPIF(
+        let (pif, _) = try await builder.constructPIF(
             buildParameters: buildParameters,
+            hostBuildParameters: hostBuildParameters
         )
         try await doIt(pif, observabilitySystem)
     }
@@ -384,8 +391,9 @@ struct PIFBuilderTests {
         )
 
         // Act
-        let pif = try await pifBuilder.constructPIF(
+        let (pif, _) = try await pifBuilder.constructPIF(
             buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild),
+            hostBuildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
         )
 
         // Assert
@@ -497,6 +505,35 @@ struct PIFBuilderTests {
                 $0.message.contains("found binary artifact")
             }
             #expect(binaryArtifactMessages.count > 0, "Expected to find binary artifact processing messages")
+        }
+    }
+
+    @Test func buildToolPluginCommandLineUsesHostBuildPath() async throws {
+        let hostBuildPath = AbsolutePath("/path/to/host/build")
+        let destBuildPath = AbsolutePath("/path/to/dest/build")
+        let hostBuildParams = mockBuildParameters(
+            destination: .host,
+            buildPath: hostBuildPath,
+            buildSystemKind: .swiftbuild
+        )
+        let destBuildParams = mockBuildParameters(
+            destination: .host,
+            buildPath: destBuildPath,
+            buildSystemKind: .swiftbuild
+        )
+
+        try await withGeneratedPIF(
+            fromFixture: "Miscellaneous/Plugins/MySourceGenPlugin",
+            buildParameters: destBuildParams,
+            hostBuildParameters: hostBuildParams
+        ) { pif, observabilitySystem in
+            let project = try pif.workspace.project(named: "MySourceGenPlugin")
+            let target = try project.target(named: "MyLocalTool-product")
+            for task in target.common.customTasks {
+                let commandLine = task.commandLine
+                #expect(commandLine.contains { $0.contains(hostBuildPath.pathString) })
+                #expect(!commandLine.contains { $0.contains(destBuildPath.pathString) })
+            }
         }
     }
 
@@ -789,8 +826,9 @@ struct PIFBuilderTests {
             fileSystem: fs,
             observabilityScope: observability.topScope
         )
-        let pif = try await pifBuilder.constructPIF(
-            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+        let (pif, _) = try await pifBuilder.constructPIF(
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild),
+            hostBuildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
         )
 
         let remoteProject = try pif.workspace.project(named: "remote-pkg")
@@ -864,13 +902,13 @@ struct PIFBuilderTests {
                     .buildConfig(named: configuration)
                 switch indexStoreSettingUT {
                     case .on, .off:
-                        #expect(targetConfig.settings[.SWIFT_INDEX_STORE_ENABLE] == nil)
+                        #expect(targetConfig.settings[.INDEX_ENABLE_DATA_STORE] == nil)
                     case .auto:
                         let expectedSwiftIndexStoreEnableValue: String? = switch configuration {
                             case .debug: "YES"
                             case .release: nil
                         }
-                        #expect(targetConfig.settings[.SWIFT_INDEX_STORE_ENABLE] == expectedSwiftIndexStoreEnableValue)
+                        #expect(targetConfig.settings[.INDEX_ENABLE_DATA_STORE] == expectedSwiftIndexStoreEnableValue)
                 }
 
                 let testTargetConfig = try pif.workspace
@@ -879,9 +917,9 @@ struct PIFBuilderTests {
                     .buildConfig(named: configuration)
                 switch indexStoreSettingUT {
                     case .on, .off:
-                        #expect(testTargetConfig.settings[.SWIFT_INDEX_STORE_ENABLE] == nil)
+                        #expect(testTargetConfig.settings[.INDEX_ENABLE_DATA_STORE] == nil)
                     case .auto:
-                        #expect(testTargetConfig.settings[.SWIFT_INDEX_STORE_ENABLE] == "YES")
+                        #expect(testTargetConfig.settings[.INDEX_ENABLE_DATA_STORE] == "YES")
                 }
             }
         }
@@ -927,8 +965,9 @@ struct PIFBuilderTests {
             observabilityScope: observability.topScope
         )
 
-        let pif = try await pifBuilder.constructPIF(
-            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+        let (pif, _) = try await pifBuilder.constructPIF(
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild),
+            hostBuildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
         )
 
         let project = try pif.workspace.project(named: "Root")
@@ -965,5 +1004,112 @@ struct PIFBuilderTests {
                 "Module ModuleC (not in dynamic library) should not have SWIFT_COMPILE_FOR_STATIC_LINKING on platform \(platform)"
             )
         }
+    }
+
+    @Test func macroPackageSupportedPlatforms() async throws {
+        try await withGeneratedPIF(fromFixture: "Macros/MinimalMacroPackage") { pif, observabilitySystem in
+            #expect(observabilitySystem.diagnostics.filter { $0.severity == .error }.isEmpty)
+            let project = try pif.workspace.project(named: "MinimalMacroPackage")
+            let projectPlatforms = try project.buildConfig(named: .debug).settings[.SUPPORTED_PLATFORMS]
+            #expect(projectPlatforms == ["$(AVAILABLE_PLATFORMS)"])
+            let targets = project.underlying.targets
+            for target in targets {
+                let id = target.common.id.value
+                let config = try target.buildConfig(named: .debug)
+                let platforms = config.settings[.SUPPORTED_PLATFORMS]
+                if id == "PACKAGE-TARGET:MacroImpl" {
+                    #expect(platforms == ["$(HOST_PLATFORM)"], "target \(id) did not have the expected supported platform setting")
+                } else {
+                    #expect(platforms == nil, "target \(id) has supported platforms set, unexpectedly")
+                }
+            }
+        }
+    }
+
+    @Test func mixedSourceTarget() async throws {
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                "/Pkg/Sources/lib/file1.swift",
+                "/Pkg/Sources/lib/file2.c"
+        )
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Pkg",
+                    path: "/Pkg",
+                    toolsVersion: try #require(ToolsVersion(string: "6.4.0", experimentalFeatures: [.experimentalMultiLang])),
+                    targets: [
+                        TargetDescription(name: "lib"),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+        #expect(observability.diagnostics.isEmpty)
+
+        let pifBuilder = PIFBuilder(
+            graph: graph,
+            parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
+                temporaryDirectory: AbsolutePath.root.appending("tmp"),
+                addLocalRpaths: true
+            ),
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+
+        let (pif, _) = try await pifBuilder.constructPIF(
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild),
+            hostBuildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+        )
+
+        let project = try pif.workspace.project(named: "Pkg")
+        let lib = try project.target(named: "lib")
+
+        // Ensure both sources are included
+        let sourcesPhase: ProjectModel.SourcesBuildPhase = try #require(lib.common.buildPhases.compactMap({
+            guard case let .sources(sourcesBuildPhase) = $0 else {
+                return nil
+            }
+            return sourcesBuildPhase
+        }).only)
+
+        let sources: [Basics.AbsolutePath] = sourcesPhase.files.compactMap({
+            guard case .reference(id: let refId) = $0.ref else {
+                return nil
+            }
+            return try? project.underlying.mainGroup.findSource(ref: refId)
+        }).sorted()
+        let expected: [Basics.AbsolutePath] = [
+            "/Pkg/Sources/lib/file1.swift",
+            "/Pkg/Sources/lib/file2.c",
+        ]
+        #expect(sources == expected)
+     }
+}
+
+extension ProjectModel.Group {
+    func findSource(ref: GUID) throws -> Basics.AbsolutePath? {
+        for child in subitems {
+            switch child {
+            case .file(let file):
+                if file.id == ref {
+                    if let file = try? Basics.AbsolutePath(validating: file.path) {
+                        return file
+                    }
+                    guard self.pathBase == .absolute else {
+                        return nil
+                    }
+                    let groupPath = try Basics.AbsolutePath(validating: self.path)
+                    return groupPath.appending(file.path)
+                }
+            case .group(let group):
+                if let file = try group.findSource(ref: ref) {
+                    return file
+                }
+            }
+        }
+        return nil
     }
 }

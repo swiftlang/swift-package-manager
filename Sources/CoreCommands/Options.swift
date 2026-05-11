@@ -13,9 +13,11 @@
 import ArgumentParser
 
 import struct Basics.AbsolutePath
+import enum Basics.ConfigurableEnvVar
 import var Basics.localFileSystem
 import enum Basics.TestingLibrary
 import struct Basics.Triple
+import struct Basics.Environment
 
 import struct Foundation.URL
 
@@ -35,7 +37,6 @@ import enum SBOMModel.SBOMCommandError
 
 import struct SPMBuildCore.BuildParameters
 import struct SPMBuildCore.BuildSystemProvider
-import enum SPMBuildCore.ConfigurableEnvVar
 
 import struct TSCBasic.StringError
 
@@ -557,7 +558,7 @@ public struct BuildOptions: ParsableArguments {
 
     /// The Debug Information Format to use.
     @Option(name: .customLong("debug-info-format", withSingleDash: true), help: "The Debug Information Format to use.")
-    public var debugInfoFormat: DebugInfoFormat = .dwarf
+    public var debugInfoFormat: DebugInfoFormat? = nil
 
     public var buildSystem: BuildSystemProvider.Kind {
         switch self._buildSystem {
@@ -600,6 +601,10 @@ public struct BuildOptions: ParsableArguments {
     // Whether to enable task backtrace logging.
     @Flag(name: .customLong("experimental-task-backtraces"), help: .hidden)
     public var enableTaskBacktraces: Bool = false
+
+    // Path to write a Trace Event Format JSON file with build task timeline data.
+    @Option(name: .customLong("experimental-trace-events-file"), help: .hidden)
+    public var traceEventsFilePath: String? = nil
 
     // Build dynamic library targets as frameworks (only available for Darwin targets and only when using the 'swiftbuild' build-system (currently used for tests).
     @Flag(name: .customLong("experimental-build-dylibs-as-frameworks"), help: .hidden )
@@ -812,7 +817,7 @@ public struct SBOMOptions: ParsableArguments {
             if !_sbomSpecs.isEmpty {
                 return _sbomSpecs
             }
-            if let envSpecs = SPMBuildCore.ConfigurableEnvVar.SWIFTPM_BUILD_SBOM_SPEC.getEnvVar() {
+            if let envSpecs = Basics.ConfigurableEnvVar.SWIFTPM_BUILD_SBOM_SPEC.value(from: Environment.current) {
                 let specStrings = envSpecs.components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) }
                 var specs: Set<SBOMModel.Spec> = []
                 for specString in specStrings {
@@ -834,7 +839,7 @@ public struct SBOMOptions: ParsableArguments {
         if let cmdLineDir = _sbomDirectory {
             return cmdLineDir
         }
-        if let envDir = SPMBuildCore.ConfigurableEnvVar.SWIFTPM_BUILD_SBOM_OUTPUT_DIR.getEnvVar() {
+        if let envDir = ConfigurableEnvVar.SWIFTPM_BUILD_SBOM_OUTPUT_DIR.value(from: Environment.current) {
             guard let path = AbsolutePath(argument: envDir) else {
                 return nil
             }
@@ -850,7 +855,7 @@ public struct SBOMOptions: ParsableArguments {
             if let cliFilter = _sbomFilter {
                 return cliFilter
             }
-            if let envFilter = SPMBuildCore.ConfigurableEnvVar.SWIFTPM_BUILD_SBOM_FILTER.getEnvVar() {
+            if let envFilter = Basics.ConfigurableEnvVar.SWIFTPM_BUILD_SBOM_FILTER.value(from: Environment.current) {
                 guard let filter = SBOMModel.Filter(rawValue: envFilter) else {
                     throw SBOMModel.SBOMCommandError.invalidFilterValue(value: envFilter)
                 }
@@ -865,7 +870,7 @@ public struct SBOMOptions: ParsableArguments {
         if _sbomWarningOnly {
             return true
         }
-        if let envWarningOnly = SPMBuildCore.ConfigurableEnvVar.SWIFTPM_BUILD_SBOM_WARNING_ONLY.getEnvVar() {
+        if let envWarningOnly = Basics.ConfigurableEnvVar.SWIFTPM_BUILD_SBOM_WARNING_ONLY.value(from: Environment.current) {
             let lowercased = envWarningOnly.lowercased()
             return !["false", "0", "no"].contains(lowercased)
         }

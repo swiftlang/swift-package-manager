@@ -132,6 +132,8 @@ extension PackagePIFProjectBuilder {
         settings[.SWIFT_PACKAGE_NAME] = mainModule.packageName
 
         if mainModule.type == .test {
+            settings[.BUILD_SERVER_PROTOCOL_TARGET_TAGS, default: ["$(inherited)"]].append("test")
+
             // FIXME: we shouldn't always include both the deep and shallow bundle paths here, but for that we'll need rdar://31867023
             if pifBuilder.addLocalRpaths {
                 settings[.LD_RUNPATH_SEARCH_PATHS] = [
@@ -144,7 +146,7 @@ extension PackagePIFProjectBuilder {
             settings[.SKIP_INSTALL] = "NO"
             settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS].lazilyInitialize { ["$(inherited)"] }
             // Enable index-while building for Swift compilations to facilitate discovery of XCTest tests.
-            settings[.SWIFT_INDEX_STORE_ENABLE] = "YES"
+            settings[.INDEX_ENABLE_DATA_STORE] = "YES"
 
             if mainModule.platformConstraint == .host {
                 // This is a macro test using prebuilts
@@ -165,6 +167,13 @@ extension PackagePIFProjectBuilder {
                 settings[.INSTALL_PATH] = "/usr/local/bin"
                 settings[.LD_RUNPATH_SEARCH_PATHS] = ["$(inherited)", "@executable_path/../lib"]
             }
+
+            // When the fuzzing is enabled via build request overrides, rename the entry point of executables
+            // so that we use the libFuzzer entrypoint.
+            settings[.OTHER_SWIFT_FLAGS].lazilyInitializeAndMutate(initialValue: ["$(inherited)"]) {
+                $0.append("$(OTHER_SWIFT_FLAGS_ENABLE_LIBFUZZER_$(ENABLE_LIBFUZZER))")
+            }
+            settings[multiple: "OTHER_SWIFT_FLAGS_ENABLE_LIBFUZZER_YES"] = ["-Xfrontend", "-entry-point-function-name", "-Xfrontend", "\(mainModule.c99name)_main"]
         }
 
         // Configure parse-as-library settings for the target
@@ -247,6 +256,8 @@ extension PackagePIFProjectBuilder {
         }
 
         let headerFiles = Set(mainModule.headerFileAbsolutePaths)
+
+        let doccCatalogs = mainModule.underlying.doccCatalogPaths
 
         // Add any additional source files emitted by custom build commands.
         for path in generatedFiles.sources {
@@ -512,6 +523,9 @@ extension PackagePIFProjectBuilder {
             }
         }
 
+        // Custom source module build settings, if any.
+        pifBuilder.delegate.configureSourceModuleBuildSettings(sourceModule: mainModule, settings: &settings)
+
         // Until this point the build settings for the target have been the same between debug and release
         // configurations.
         // The custom manifest settings might cause them to diverge.
@@ -551,10 +565,12 @@ extension PackagePIFProjectBuilder {
             pifTarget: .target(self.project[keyPath: mainModuleTargetKeyPath]),
             indexableFileURLs: indexableFileURLs,
             headerFiles: headerFiles,
+            doccCatalogs: doccCatalogs,
             linkedPackageBinaries: linkedPackageBinaries,
             swiftLanguageVersion: mainModule.packageSwiftLanguageVersion(manifest: packageManifest),
             declaredPlatforms: self.declaredPlatforms,
-            deploymentTargets: mainTargetDeploymentTargets
+            deploymentTargets: mainTargetDeploymentTargets,
+            toolsVersion: pifBuilder.packageManifest.toolsVersion
         )
         self.builtModulesAndProducts.append(moduleOrProduct)
 
@@ -940,7 +956,8 @@ extension PackagePIFProjectBuilder {
             linkedPackageBinaries: linkedPackageBinaries,
             swiftLanguageVersion: nil,
             declaredPlatforms: self.declaredPlatforms,
-            deploymentTargets: self.deploymentTargets
+            deploymentTargets: self.deploymentTargets,
+            toolsVersion: pifBuilder.packageManifest.toolsVersion
         )
     }
 
@@ -990,7 +1007,8 @@ extension PackagePIFProjectBuilder {
             linkedPackageBinaries: [],
             swiftLanguageVersion: nil,
             declaredPlatforms: self.declaredPlatforms,
-            deploymentTargets: self.deploymentTargets
+            deploymentTargets: self.deploymentTargets,
+            toolsVersion: pifBuilder.packageManifest.toolsVersion
         )
         self.builtModulesAndProducts.append(systemLibrary)
     }
@@ -1050,10 +1068,12 @@ extension PackagePIFProjectBuilder {
             pifTarget: .aggregate(self.project[keyPath: pluginTargetKeyPath]),
             indexableFileURLs: [],
             headerFiles: [],
+            pluginScriptSourcePaths: pluginProduct.pluginModules?.only?.sources.paths ?? [],
             linkedPackageBinaries: [],
             swiftLanguageVersion: nil,
             declaredPlatforms: self.declaredPlatforms,
-            deploymentTargets: self.deploymentTargets
+            deploymentTargets: self.deploymentTargets,
+            toolsVersion: pifBuilder.packageManifest.toolsVersion
         )
         self.builtModulesAndProducts.append(pluginProductMetadata)
     }
@@ -1157,7 +1177,8 @@ extension PackagePIFProjectBuilder {
             linkedPackageBinaries: [],
             swiftLanguageVersion: nil,
             declaredPlatforms: self.declaredPlatforms,
-            deploymentTargets: self.deploymentTargets
+            deploymentTargets: self.deploymentTargets,
+            toolsVersion: pifBuilder.packageManifest.toolsVersion
         )
         self.builtModulesAndProducts.append(testRunner)
     }

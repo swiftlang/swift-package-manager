@@ -22,12 +22,8 @@ import struct TSCBasic.FileSystemError
 final class UniversalArchiverTests: XCTestCase {
     override func setUp() async throws {
         let zipAchiver = ZipArchiver(fileSystem: localFileSystem)
-        #if os(Windows)
-            try XCTRequires(executable: zipAchiver.windowsTar)
-        #else
-            try XCTRequires(executable: zipAchiver.unzip)
-            try XCTRequires(executable: zipAchiver.zip)
-        #endif
+        try XCTRequires(executable: zipAchiver.unzip)
+        try XCTRequires(executable: zipAchiver.zip)
         #if os(FreeBSD)
             try XCTRequires(executable: zipAchiver.tar)
         #endif
@@ -100,7 +96,7 @@ final class UniversalArchiverTests: XCTestCase {
             inputArchivePath = AbsolutePath(#file).parentDirectory
                 .appending(components: "Inputs", "invalid_archive.zip")
             await XCTAssertAsyncThrowsError(try await archiver.extract(from: inputArchivePath, to: tmpdir)) { error in
-#if os(Windows) || os(FreeBSD)
+#if os(FreeBSD)
                 XCTAssertMatch((error as? StringError)?.description, .contains("Unrecognized archive format"))
 #else
                 XCTAssertMatch((error as? StringError)?.description, .contains("End-of-central-directory signature not found"))

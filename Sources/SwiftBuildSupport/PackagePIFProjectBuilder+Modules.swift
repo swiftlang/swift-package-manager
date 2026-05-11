@@ -142,10 +142,12 @@ extension PackagePIFProjectBuilder {
             pifTarget: .target(self.project[keyPath: pluginTargetKeyPath]),
             indexableFileURLs: [],
             headerFiles: [],
+            pluginScriptSourcePaths: pluginModule.sources.paths,
             linkedPackageBinaries: [],
             swiftLanguageVersion: nil,
             declaredPlatforms: self.declaredPlatforms,
-            deploymentTargets: self.deploymentTargets
+            deploymentTargets: self.deploymentTargets,
+            toolsVersion: pifBuilder.packageManifest.toolsVersion
         )
         self.builtModulesAndProducts.append(pluginModuleMetadata)
     }
@@ -387,7 +389,7 @@ extension PackagePIFProjectBuilder {
         // Generate a module map file, if needed.
         var moduleMapFileContents = ""
         let generatedModuleMapDir = "$(GENERATED_MODULEMAP_DIR)"
-        let generatedModuleMapPath = try RelativePath(validating:"\(generatedModuleMapDir)/\(sourceModule.name).modulemap").pathString
+        var generatedModuleMapPath = try RelativePath(validating:"\(generatedModuleMapDir)/\(sourceModule.name).modulemap").pathString
 
         if sourceModule.usesSwift && desiredModuleType != .macro {
             // Generate ObjC compatibility header for Swift library targets.
@@ -404,18 +406,19 @@ extension PackagePIFProjectBuilder {
             impartedSettings[.OTHER_CFLAGS] = ["-fmodule-map-file=\(generatedModuleMapPath)", "$(inherited)"]
         } else {
             // Otherwise, this is a C library module and we generate a modulemap if one is already not provided.
-            if let generatedModuleMapPath = generatedFiles.moduleMaps.first {
+            if let pluginGeneratedModuleMapPath = generatedFiles.moduleMaps.first {
                 // Warn about ignored generated module maps if more than one
                 if generatedFiles.moduleMaps.count > 1 {
-                    let ignoredFiles = generatedFiles.moduleMaps.filter({ $0 != generatedModuleMapPath })
+                    let ignoredFiles = generatedFiles.moduleMaps.filter({ $0 != pluginGeneratedModuleMapPath })
                     pifBuilder.observabilityScope.emit(
                         severity: .warning,
-                        message: "Plugins generated multiple module maps. Selected \(generatedModuleMapPath) and ignored \(ignoredFiles.map(\.pathString).joined(separator: " "))"
+                        message: "Plugins generated multiple module maps. Selected \(pluginGeneratedModuleMapPath) and ignored \(ignoredFiles.map(\.pathString).joined(separator: " "))"
                     )
                 }
                 // The modulemap was already generated, we should explicitly impart it on dependents,
-                impartedSettings[.OTHER_CFLAGS] = ["-fmodule-map-file=\(generatedModuleMapPath)", "$(inherited)"]
-                impartedSettings[.OTHER_SWIFT_FLAGS] = ["-Xcc", "-fmodule-map-file=\(generatedModuleMapPath)", "$(inherited)"]
+                impartedSettings[.OTHER_CFLAGS] = ["-fmodule-map-file=\(pluginGeneratedModuleMapPath)", "$(inherited)"]
+                impartedSettings[.OTHER_SWIFT_FLAGS] = ["-Xcc", "-fmodule-map-file=\(pluginGeneratedModuleMapPath)", "$(inherited)"]
+                generatedModuleMapPath = pluginGeneratedModuleMapPath.pathString
             } else {
                 switch sourceModule.moduleMapType {
                 case nil, .some(.none):
@@ -632,6 +635,8 @@ extension PackagePIFProjectBuilder {
 
         let headerFiles = Set(sourceModule.headerFileAbsolutePaths)
 
+        let doccCatalogs = sourceModule.underlying.doccCatalogPaths
+
         // Add any additional source files emitted by custom build commands.
         for path in generatedFiles.sources {
             let sourceFileRef = self.project.mainGroup[keyPath: targetSourceFileGroupKeyPath].addFileReference { id in
@@ -666,6 +671,7 @@ extension PackagePIFProjectBuilder {
 
         if desiredModuleType == .macro {
             settings[.SWIFT_IMPLEMENTS_MACROS_FOR_MODULE_NAMES] = [sourceModule.c99name]
+            settings[.SUPPORTED_PLATFORMS] = ["$(HOST_PLATFORM)"]
 
             // Don't install the Swift module when building the macro executable, lest it conflict with the testable variant.
             // The contents of the testable variant's module will exactly match the binary linked by dependencies (test targets).
@@ -872,10 +878,12 @@ extension PackagePIFProjectBuilder {
             pifTarget: .target(self.project[keyPath: sourceModuleTargetKeyPath]),
             indexableFileURLs: indexableFileURLs,
             headerFiles: headerFiles,
+            doccCatalogs: doccCatalogs,
             linkedPackageBinaries: linkedPackageBinaries,
             swiftLanguageVersion: sourceModule.packageSwiftLanguageVersion(manifest: packageManifest),
             declaredPlatforms: self.declaredPlatforms,
-            deploymentTargets: self.deploymentTargets
+            deploymentTargets: self.deploymentTargets,
+            toolsVersion: pifBuilder.packageManifest.toolsVersion
         )
 
         return (moduleOrProduct, resourceBundleName)
@@ -961,7 +969,8 @@ extension PackagePIFProjectBuilder {
             linkedPackageBinaries: [],
             swiftLanguageVersion: nil,
             declaredPlatforms: self.declaredPlatforms,
-            deploymentTargets: self.deploymentTargets
+            deploymentTargets: self.deploymentTargets,
+            toolsVersion: pifBuilder.packageManifest.toolsVersion
         )
         self.builtModulesAndProducts.append(systemModule)
     }

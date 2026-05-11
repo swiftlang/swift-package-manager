@@ -116,6 +116,16 @@ import SwiftBuild
                 }
             }
 
+            func buildCommandLine(
+                sourceFiles: [Basics.AbsolutePath],
+                pluginName: String,
+                toolsVersion: ToolsVersion,
+                workers: UInt32,
+                observabilityScope: ObservabilityScope?
+            ) -> (commandLine: [String], execName: String, execFilePath: Basics.AbsolutePath, diagFilePath: Basics.AbsolutePath) {
+                fatalError("Not implemented")
+            }
+
             func runPluginScript(
                 sourceFiles: [Basics.AbsolutePath],
                 pluginName: String,
@@ -194,8 +204,12 @@ import SwiftBuild
             buildParameters: mockBuildParameters(
                 destination: .host,
                 buildSystemKind: .swiftbuild,
+            ),
+            hostBuildParameters: mockBuildParameters(
+                destination: .host,
+                buildSystemKind: .swiftbuild,
             )
-        )
+        ).0
     }
 
     /// This is more to test out that the setup routines provide a good test environment
@@ -234,6 +248,9 @@ import SwiftBuild
                 #expect(impartedCFlags.contains(pluginModuleMapArg))
                 let impartedSwiftFlags = try #require(config.impartedBuildProperties.settings[.OTHER_SWIFT_FLAGS])
                 #expect(impartedSwiftFlags.contains(pluginModuleMapArg))
+
+                let moduleMapPath = try #require(config.settings[.MODULEMAP_PATH])
+                #expect(moduleMapPath == pluginModuleMapFile.pathString)
             }
 
             // Make sure our generated source is included
@@ -320,30 +337,5 @@ extension HostToPluginMessage.InputContext {
             path = AbsolutePath.root.appending(wirePath.subpath)
         }
         return path
-    }
-}
-
-extension ProjectModel.Group {
-    func findSource(ref: GUID) throws -> Basics.AbsolutePath? {
-        for child in subitems {
-            switch child {
-            case .file(let file):
-                if file.id == ref {
-                    if let file = try? Basics.AbsolutePath(validating: file.path) {
-                        return file
-                    }
-                    guard self.pathBase == .absolute else {
-                        return nil
-                    }
-                    let groupPath = try Basics.AbsolutePath(validating: self.path)
-                    return groupPath.appending(file.path)
-                }
-            case .group(let group):
-                if let file = try group.findSource(ref: ref) {
-                    return file
-                }
-            }
-        }
-        return nil
     }
 }

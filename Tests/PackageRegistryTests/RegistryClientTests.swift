@@ -3279,6 +3279,147 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
         let identities = try await registryClient.lookupIdentities(scmURL: packageURL)
         #expect([PackageIdentity.plain("mona.LinkedList")] == identities)
     }
+
+    @Test func requestAuthorization_inferredToken() async throws {
+        let token = "top-sekret"
+
+        let handler: HTTPClient.Implementation = { request, _ in
+            switch (request.method, request.url) {
+            case (.get, identifiersURL):
+                #expect(request.headers.get("Authorization").first == "Bearer \(token)")
+                #expect(request.headers.get("Accept").first == "application/vnd.swift.registry.v1+json")
+
+                let data = #"""
+                {
+                    "identifiers": [
+                    "mona.LinkedList"
+                    ]
+                }
+                """#.data(using: .utf8)!
+
+                return .init(
+                    statusCode: 200,
+                    headers: .init([
+                        .init(name: "Content-Length", value: "\(data.count)"),
+                        .init(name: "Content-Type", value: "application/json"),
+                        .init(name: "Content-Version", value: "1"),
+                    ]),
+                    body: data
+                )
+            default:
+                throw StringError("method and url should match")
+            }
+        }
+
+        let httpClient = HTTPClient(implementation: handler)
+        var configuration = RegistryConfiguration()
+        configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
+
+        let authorizationProvider = TestProvider(map: [registryURL.host!: ("token", token)])
+
+        let registryClient = makeRegistryClient(
+            configuration: configuration,
+            httpClient: httpClient,
+            authorizationProvider: authorizationProvider
+        )
+        let identities = try await registryClient.lookupIdentities(scmURL: packageURL)
+        #expect([PackageIdentity.plain("mona.LinkedList")] == identities)
+    }
+
+    @Test func requestAuthorization_inferredBasic() async throws {
+        let user = "jappleseed"
+        let password = "top-sekret"
+
+        let handler: HTTPClient.Implementation = { request, _ in
+            switch (request.method, request.url) {
+            case (.get, identifiersURL):
+                #expect(request.headers.get("Authorization").first == "Basic \(Data("\(user):\(password)".utf8).base64EncodedString())")
+                #expect(request.headers.get("Accept").first == "application/vnd.swift.registry.v1+json")
+
+                let data = #"""
+                {
+                    "identifiers": [
+                    "mona.LinkedList"
+                    ]
+                }
+                """#.data(using: .utf8)!
+
+                return .init(
+                    statusCode: 200,
+                    headers: .init([
+                        .init(name: "Content-Length", value: "\(data.count)"),
+                        .init(name: "Content-Type", value: "application/json"),
+                        .init(name: "Content-Version", value: "1"),
+                    ]),
+                    body: data
+                )
+            default:
+                throw StringError("method and url should match")
+            }
+        }
+
+        let httpClient = HTTPClient(implementation: handler)
+        var configuration = RegistryConfiguration()
+        configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
+
+        let authorizationProvider = TestProvider(map: [registryURL.host!: (user, password)])
+
+        let registryClient = makeRegistryClient(
+            configuration: configuration,
+            httpClient: httpClient,
+            authorizationProvider: authorizationProvider
+        )
+        let identities = try await registryClient.lookupIdentities(scmURL: packageURL)
+        #expect([PackageIdentity.plain("mona.LinkedList")] == identities)
+    }
+
+    @Test func requestAuthorization_explicitConfigOverridesInference() async throws {
+        let user = "token"
+        let password = "top-sekret"
+
+        let handler: HTTPClient.Implementation = { request, _ in
+            switch (request.method, request.url) {
+            case (.get, identifiersURL):
+                #expect(request.headers.get("Authorization").first == "Basic \(Data("\(user):\(password)".utf8).base64EncodedString())")
+                #expect(request.headers.get("Accept").first == "application/vnd.swift.registry.v1+json")
+
+                let data = #"""
+                {
+                    "identifiers": [
+                    "mona.LinkedList"
+                    ]
+                }
+                """#.data(using: .utf8)!
+
+                return .init(
+                    statusCode: 200,
+                    headers: .init([
+                        .init(name: "Content-Length", value: "\(data.count)"),
+                        .init(name: "Content-Type", value: "application/json"),
+                        .init(name: "Content-Version", value: "1"),
+                    ]),
+                    body: data
+                )
+            default:
+                throw StringError("method and url should match")
+            }
+        }
+
+        let httpClient = HTTPClient(implementation: handler)
+        var configuration = RegistryConfiguration()
+        configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
+        configuration.registryAuthentication[registryURL.host!] = .init(type: .basic)
+
+        let authorizationProvider = TestProvider(map: [registryURL.host!: (user, password)])
+
+        let registryClient = makeRegistryClient(
+            configuration: configuration,
+            httpClient: httpClient,
+            authorizationProvider: authorizationProvider
+        )
+        let identities = try await registryClient.lookupIdentities(scmURL: packageURL)
+        #expect([PackageIdentity.plain("mona.LinkedList")] == identities)
+    }
 }
 
 @Suite("Login") struct Login {
@@ -3533,6 +3674,62 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
             )
 
             #expect(result == .processing(statusURL: expectedLocation, retryAfter: expectedRetry))
+        }
+    }
+
+    @Test func publishMetadataDoesNotDeclareQuotedPrintableTransferEncoding() async throws {
+        let archiveContent = UUID().uuidString
+        let metadataContent = """
+        {
+            "description": "This metadata includes a non-ASCII apostrophe: user’s package."
+        }
+        """
+
+        let handler: HTTPClient.Implementation = { request, _ in
+            switch (request.method, request.url) {
+            case (.put, publishURL):
+                let body = String(decoding: try #require(request.body), as: UTF8.self)
+                #expect(body.contains(metadataContent))
+                #expect(!body.contains("Content-Transfer-Encoding: quoted-printable"))
+
+                return .init(
+                    statusCode: 201,
+                    headers: .init([
+                        .init(name: "Location", value: publishURL.absoluteString),
+                        .init(name: "Content-Version", value: "1"),
+                    ]),
+                    body: .none
+                )
+            default:
+                throw StringError("method and url should match")
+            }
+        }
+
+        try await withTemporaryDirectory { temporaryDirectory in
+            let archivePath = temporaryDirectory.appending(component: "\(identity)-\(version).zip")
+            try localFileSystem.writeFileContents(archivePath, string: archiveContent)
+
+            let metadataPath = temporaryDirectory.appending(component: "\(identity)-\(version)-metadata.json")
+            try localFileSystem.writeFileContents(metadataPath, string: metadataContent)
+
+            let httpClient = HTTPClient(implementation: handler)
+            var configuration = RegistryConfiguration()
+            configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
+
+            let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
+            let result = try await registryClient.publish(
+                registryURL: registryURL,
+                packageIdentity: identity,
+                packageVersion: version,
+                packageArchive: archivePath,
+                packageMetadata: metadataPath,
+                signature: .none,
+                metadataSignature: .none,
+                signatureFormat: .none,
+                fileSystem: localFileSystem
+            )
+
+            #expect(result == .published(publishURL))
         }
     }
 

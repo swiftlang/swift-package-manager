@@ -197,7 +197,7 @@ public struct TargetSourcesBuilder {
                 if handledResources.contains(resource.path) {
                     return nil
                 } else {
-                    self.observabilityScope.emit(info: "Found unhandled resource at \(resource.path)")
+                    self.observabilityScope.emit(warning: "Found unhandled resource at \(resource.path)")
                     return self.resource(for: resource.path, with: .init(resource.rule))
                 }
             }
@@ -220,8 +220,9 @@ public struct TargetSourcesBuilder {
         try diagnoseInfoPlistConflicts(in: resources)
         diagnoseInvalidResource(in: target.resources)
 
-        // It's an error to contain mixed language source files.
-        if sources.containsMixedLanguage {
+        // It's an error to contain mixed language source files
+        // Unless experimental flag is turned on
+        if sources.containsMixedLanguage && !toolsVersion.experimentalMultiLang {
             throw Module.Error.mixedSources(targetPath)
         }
 

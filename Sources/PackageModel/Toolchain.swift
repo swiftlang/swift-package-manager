@@ -60,7 +60,7 @@ public protocol Toolchain {
     // the OSS clang compiler. This API should not used for any other purpose.
     /// Returns true if clang compiler's vendor is Apple and nil if unknown.
     func _isClangCompilerVendorApple() throws -> Bool?
-    
+
     /// Additional flags to be passed to the build tools.
     var extraFlags: BuildFlags { get }
 
@@ -77,6 +77,14 @@ public protocol Toolchain {
     var extraCPPFlags: [String] { get }
 
     var swiftSDK: SwiftSDK { get }
+
+    var targetTriple: Basics.Triple { get }
+
+    var swiftCompilerEnvironment: Environment { get }
+
+    var swiftCompilerFlags: [String] { get }
+
+    var swiftCompilerPathForManifests: AbsolutePath { get }
 }
 
 extension Toolchain {
@@ -145,7 +153,7 @@ extension Toolchain {
     public var extraCPPFlags: [String] {
         extraFlags.cxxCompilerFlags.rawFlags
     }
-    
+
     public var extraSwiftCFlags: [String] {
         extraFlags.swiftCompilerFlags.rawFlags
     }

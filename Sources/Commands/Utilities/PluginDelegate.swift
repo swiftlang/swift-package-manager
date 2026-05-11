@@ -118,16 +118,21 @@ final class PluginDelegate: PluginInvocationDelegate {
     ) async throws -> PluginInvocationBuildResult {
         // Configure the build parameters.
         var buildParameters = try self.swiftCommandState.productsBuildParameters
+        var toolsBuildParameters = try swiftCommandState.toolsBuildParameters
         switch parameters.configuration {
         case .debug:
             buildParameters.configuration = .debug
+            toolsBuildParameters.configuration = .debug
         case .release:
             buildParameters.configuration = .release
+            toolsBuildParameters.configuration = .release
         case .inherit:
             // The top level argument parser set buildParameters.configuration according to the
             // --configuration command line parameter.   We don't need to do anything to inherit it.
             break
         }
+        // FIXME: Not applying these to the toolsBuildParameters is inconsistent with the handling of
+        // -Xcc, -Xswiftc, etc. However, resolving that is known to break some existing plugins.
         buildParameters.flags.cCompilerFlags.append(contentsOf: parameters.otherCFlags.constructBuildFlags(source: .plugin))
         buildParameters.flags.cxxCompilerFlags.append(contentsOf: parameters.otherCxxFlags.constructBuildFlags(source: .plugin))
         buildParameters.flags.swiftCompilerFlags.append(contentsOf: parameters.otherSwiftcFlags.constructBuildFlags(source: .plugin))
@@ -173,6 +178,7 @@ final class PluginDelegate: PluginInvocationDelegate {
             explicitProduct: explicitProduct,
             cacheBuildManifest: false,
             productsBuildParameters: buildParameters,
+            toolsBuildParameters: toolsBuildParameters,
             outputStream: outputStream,
             logLevel: logLevel
         )
@@ -237,12 +243,14 @@ final class PluginDelegate: PluginInvocationDelegate {
         }
 
         // Construct the environment we'll pass down to the tests.
+        let toolsVersion = try await swiftCommandState.getToolsVersion()
         let testEnvironment = try await TestingSupport.constructTestEnvironment(
             toolchain: toolchain,
             destinationBuildParameters: toolsBuildParameters,
             sanitizers: swiftCommandState.options.build.sanitizers,
             library: .xctest, // FIXME: support both libraries
-            testProductPaths: buildSystem.builtTestProducts.map(\.bundlePath)
+            testProductPaths: buildSystem.builtTestProducts.map(\.bundlePath),
+            interopMode: toolsVersion?.defaultInteropMode
         )
 
         // Iterate over the tests and run those that match the filter.
@@ -279,7 +287,7 @@ final class PluginDelegate: PluginInvocationDelegate {
                         // Configure a test runner.
                         let additionalArguments = TestRunner.xctestArguments(forTestSpecifiers: CollectionOfOne(testSpecifier))
                         let testRunner = TestRunner(
-                            bundlePaths: [testProduct.bundlePath],
+                            testProducts: [testProduct],
                             additionalArguments: additionalArguments,
                             cancellator: swiftCommandState.cancellator,
                             toolchain: toolchain,

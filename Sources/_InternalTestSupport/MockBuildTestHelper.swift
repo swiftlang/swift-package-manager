@@ -42,6 +42,10 @@ public struct MockToolchain: PackageModel.Toolchain {
         manifestLibraryPath: AbsolutePath("/fake/manifestLib/path"), pluginLibraryPath: AbsolutePath("/fake/pluginLibrary/path")
     )
     public var swiftSDK: PackageModel.SwiftSDK
+    public let targetTriple = Basics.Triple.macOS
+    public let swiftCompilerEnvironment: Basics.Environment = .mockEnvironment
+    public let swiftCompilerFlags: [String] = []
+    public let swiftCompilerPathForManifests = AbsolutePath("/fake/path/to/manifest/swiftc")
 
     public func getClangCompiler() throws -> AbsolutePath {
         "/fake/path/to/clang"
@@ -94,6 +98,7 @@ public func mockBuildParameters(
     shouldDisableLocalRpath: Bool = false,
     canRenameEntrypointFunctionName: Bool = false,
     triple: Basics.Triple = hostTriple,
+    sdkRootOverride: AbsolutePath? = nil,
     indexStoreMode: BuildParameters.IndexStoreMode = .auto,
     linkerDeadStrip: Bool = true,
     linkTimeOptimizationMode: BuildParameters.LinkTimeOptimizationMode? = nil,
@@ -111,6 +116,7 @@ public func mockBuildParameters(
         configuration: config,
         toolchain: toolchain,
         triple: triple,
+        sdkRootOverride: sdkRootOverride,
         flags: flags,
         buildSystemKind: buildSystemKind,
         pkgConfigDirectories: [],

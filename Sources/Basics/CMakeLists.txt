@@ -27,6 +27,7 @@ add_library(Basics
   Concurrency/ThrowingDefer.swift
   Concurrency/TokenBucket.swift
   DispatchTimeInterval+Extensions.swift
+  Environment/ConfigurableEnvVar.swift
   Environment/Environment.swift
   Environment/EnvironmentKey.swift
   Environment/EnvironmentShims.swift
@@ -59,6 +60,7 @@ add_library(Basics
   ImportScanning.swift
   JSON+Extensions.swift
   JSONDecoder+Extensions.swift
+  KnownFolders.swift
   Netrc.swift
   Observability.swift
   OSSignpost.swift

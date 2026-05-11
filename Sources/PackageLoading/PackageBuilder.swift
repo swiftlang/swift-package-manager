@@ -1003,7 +1003,7 @@ public final class PackageBuilder {
                 throw ModuleError.pluginCapabilityNotDeclared(target: manifestTarget.name)
             }
 
-            // Create and return an PluginTarget configured with the information from the manifest.
+            // Create and return a PluginTarget configured with the information from the manifest.
             return PluginModule(
                 name: potentialModule.name,
                 sources: sources,
@@ -1867,7 +1867,7 @@ extension Manifest {
 }
 
 extension Sources {
-    var hasSwiftSources: Bool {
+    public var hasSwiftSources: Bool {
         paths.contains { path in
             guard let ext = path.extension else { return false }
 
@@ -1875,7 +1875,7 @@ extension Sources {
         }
     }
 
-    var hasClangSources: Bool {
+    public var hasClangSources: Bool {
         let supportedClangFileExtensions = FileRuleDescription.clang.fileTypes.union(FileRuleDescription.asm.fileTypes)
 
         return paths.contains { path in
@@ -1885,7 +1885,7 @@ extension Sources {
         }
     }
 
-    var containsMixedLanguage: Bool {
+    public var containsMixedLanguage: Bool {
         self.hasSwiftSources && self.hasClangSources
     }
 

@@ -123,6 +123,7 @@ private struct SwiftBuildSystemFactory: BuildSystemFactory {
     ) throws -> any BuildSystem {
         return try SwiftBuildSystem(
             buildParameters: productsBuildParameters ?? self.swiftCommandState.productsBuildParameters,
+            hostBuildParameters: toolsBuildParameters ?? self.swiftCommandState.toolsBuildParameters,
             packageGraphLoader: packageGraphLoader ?? {
                 try await self.swiftCommandState.loadPackageGraph(
                     explicitProduct: explicitProduct,
@@ -140,7 +141,8 @@ private struct SwiftBuildSystemFactory: BuildSystemFactory {
                 workDirectory: try self.swiftCommandState.getActiveWorkspace().location.pluginWorkingDirectory,
                 disableSandbox: self.swiftCommandState.shouldDisableSandbox
             ),
-            delegate: delegate
+            delegate: delegate,
+            scratchDirectory: self.swiftCommandState.scratchDirectory,
         )
     }
 }

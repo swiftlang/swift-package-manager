@@ -121,8 +121,75 @@ $ swift package-registry login https://packages.example.com
 ```
 
 SwiftPM will save the credentials to the operating system's credential store
-(e.g., Keychain in macOS) or netrc file (which by default is located at `~/.netrc`) 
+(e.g., Keychain in macOS) or netrc file (which by default is located at `~/.netrc`)
 and apply them automatically when making registry API requests.
+
+#### Environment variable authentication
+
+For CI environments where keychain and `.netrc` files are impractical,
+credentials can be provided via environment variables. Environment
+variables take the highest precedence, overriding both keychain and
+netrc credentials when set.
+
+**All-host registry credentials:**
+
+| Variable | Description |
+|---|---|
+| `SWIFTPM_REGISTRY_TOKEN` | Bearer token for package registry authentication |
+| `SWIFTPM_REGISTRY_LOGIN` | Username for Basic auth (must be paired with `SWIFTPM_REGISTRY_PASSWORD`) |
+| `SWIFTPM_REGISTRY_PASSWORD` | Password for Basic auth (must be paired with `SWIFTPM_REGISTRY_LOGIN`) |
+
+If `SWIFTPM_REGISTRY_TOKEN` is set, it takes precedence over
+`SWIFTPM_REGISTRY_LOGIN`/`SWIFTPM_REGISTRY_PASSWORD`.
+
+Example CI usage with token authentication:
+```bash
+export SWIFTPM_REGISTRY_TOKEN="$CI_REGISTRY_TOKEN"
+swift build
+```
+
+**All-host credentials for binary artifact and prebuilt downloads:**
+
+| Variable | Description |
+|---|---|
+| `SWIFTPM_SOURCE_CONTROL_TOKEN` | Token for HTTP downloads of binary artifacts and prebuilts |
+
+`SWIFTPM_SOURCE_CONTROL_TOKEN` authenticates HTTP requests that SwiftPM
+makes to download binary target archives (declared via `.binaryTarget(url:)`
+in `Package.swift`) and prebuilt package archives. It does **not** affect
+`git clone` or `git fetch` operations, which use git's own credential
+system (credential helpers, SSH keys, etc.).
+
+**Per-host credentials via inline netrc:**
+
+| Variable | Description |
+|---|---|
+| `SWIFTPM_NETRC_DATA` | Inline netrc-formatted content for per-host credentials |
+
+For scenarios requiring different credentials per host (e.g., multiple
+registries or a mix of registry and source control hosts), use
+`SWIFTPM_NETRC_DATA` with standard netrc format:
+
+```bash
+export SWIFTPM_NETRC_DATA="machine registry1.example.com login user1 password pass1
+machine registry2.example.com login user2 password pass2
+machine github.com login token password ghp_abc123"
+swift build
+```
+
+**Credential precedence order:**
+
+For registry operations:
+1. `SWIFTPM_REGISTRY_TOKEN` / `SWIFTPM_REGISTRY_LOGIN`+`PASSWORD` (all-host, highest)
+2. `SWIFTPM_NETRC_DATA` (per-host)
+3. Keychain (macOS only)
+4. `~/.netrc` file
+
+For binary artifact and prebuilt downloads:
+1. `SWIFTPM_SOURCE_CONTROL_TOKEN` (all-host, highest)
+2. `SWIFTPM_NETRC_DATA` (per-host)
+3. `~/.netrc` file
+4. Keychain (macOS only)
 
 ## Dependency Resolution Using Registry
 
@@ -276,9 +343,11 @@ optionally signs the package release, and
 [publishes the package release](Registry.md#endpoint-6)
 to the registry.
 
-If authentication is required for package publication, 
+If authentication is required for package publication,
 package author should [configure registry login](#registry-authentication)
-before running `publish`.
+before running `publish`. For CI-based publishing workflows,
+[environment variable authentication](#environment-variable-authentication)
+can be used as an alternative to `swift package-registry login`.
 
 ### Package release metadata
 
