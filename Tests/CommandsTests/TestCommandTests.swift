@@ -1804,40 +1804,45 @@ struct TestCommandTests {
         )
         func debuggerFlagWithXCTestSuite(buildSystem: BuildSystemProvider.Kind) async throws {
             let configuration = BuildConfiguration.debug
-            try await fixture(name: "Miscellaneous/TestDebugging") { fixturePath in
-                let (stdout, stderr) = try await execute(
-                    ["--debugger", "--disable-swift-testing", "--verbose"],
-                    packagePath: fixturePath,
-                    configuration: configuration,
-                    buildSystem: buildSystem,
-                )
-
-                #expect(
-                    !stderr.contains("error: --debugger cannot be used with"),
-                    "got stdout: \(stdout), stderr: \(stderr)",
-                )
-
-                #if os(macOS)
-                let targetName = "xctest"
-                #else
-                let targetName = buildSystem == .swiftbuild ? "test-runner" : "xctest"
-                #endif
-
-                #expect(
-                    stdout.contains("target create") && stdout.contains(targetName),
-                    "Expected LLDB to target xctest binary, got stdout: \(stdout), stderr: \(stderr)",
-                )
-
-                withKnownIssue {
-                    #expect(
-                        stdout.contains("failbreak command registered: 1 specs"),
-                        "Expected a failure breakpoint to be setup, got stdout: \(stdout), stderr: \(stderr)",
+            try await withKnownIssue {
+                try await fixture(name: "Miscellaneous/TestDebugging") { fixturePath in
+                    let (stdout, stderr) = try await execute(
+                        ["--debugger", "--disable-swift-testing", "--verbose"],
+                        packagePath: fixturePath,
+                        configuration: configuration,
+                        buildSystem: buildSystem,
                     )
-                } when: {
-                    // Smoke-test CI's lldb lacks Python bindings, so `command script import`
-                    // fails and the failbreak command never registers.
-                    CiEnvironment.runningInSmokeTestPipeline
+
+                    #expect(
+                        !stderr.contains("error: --debugger cannot be used with"),
+                        "got stdout: \(stdout), stderr: \(stderr)",
+                    )
+
+                    #if os(macOS)
+                    let targetName = "xctest"
+                    #else
+                    let targetName = buildSystem == .swiftbuild ? "test-runner" : "xctest"
+                    #endif
+
+                    #expect(
+                        stdout.contains("target create") && stdout.contains(targetName),
+                        "Expected LLDB to target xctest binary, got stdout: \(stdout), stderr: \(stderr)",
+                    )
+
+                    withKnownIssue {
+                        #expect(
+                            stdout.contains("failbreak command registered: 1 specs"),
+                            "Expected a failure breakpoint to be setup, got stdout: \(stdout), stderr: \(stderr)",
+                        )
+                    } when: {
+                        CiEnvironment.lldbLacksPythonBindings
+                    }
                 }
+            } when: {
+                // Windows lldb ships without python310.dll on PATH, so it crashes
+                // with access violation when the failbreak `command script import`
+                // runs, and swift-test exits abnormally before producing any output.
+                ProcessInfo.hostOperatingSystem == .windows
             }
         }
 
@@ -1846,40 +1851,45 @@ struct TestCommandTests {
         )
         func debuggerFlagWithSwiftTestingSuite(buildSystem: BuildSystemProvider.Kind) async throws {
             let configuration = BuildConfiguration.debug
-            try await fixture(name: "Miscellaneous/TestDebugging") { fixturePath in
-                let (stdout, stderr) = try await execute(
-                    ["--debugger", "--disable-xctest", "--verbose"],
-                    packagePath: fixturePath,
-                    configuration: configuration,
-                    buildSystem: buildSystem,
-                )
-
-                #expect(
-                    !stderr.contains("error: --debugger cannot be used with"),
-                    "got stdout: \(stdout), stderr: \(stderr)",
-                )
-
-                #if os(macOS)
-                let targetName = "swiftpm-testing-helper"
-                #else
-                let targetName = buildSystem == .native ? "TestDebuggingPackageTests.xctest" : "TestDebuggingTests-test-runner"
-                #endif
-
-                #expect(
-                    stdout.contains("target create") && stdout.contains(targetName),
-                    "Expected LLDB to target swiftpm-testing-helper binary, got stdout: \(stdout), stderr: \(stderr)",
-                )
-
-                withKnownIssue {
-                    #expect(
-                        stdout.contains("failbreak command registered: 1 specs"),
-                        "Expected Swift Testing failure breakpoint setup, got stdout: \(stdout), stderr: \(stderr)",
+            try await withKnownIssue {
+                try await fixture(name: "Miscellaneous/TestDebugging") { fixturePath in
+                    let (stdout, stderr) = try await execute(
+                        ["--debugger", "--disable-xctest", "--verbose"],
+                        packagePath: fixturePath,
+                        configuration: configuration,
+                        buildSystem: buildSystem,
                     )
-                } when: {
-                    // Smoke-test CI's lldb lacks Python bindings, so `command script import`
-                    // fails and the failbreak command never registers.
-                    CiEnvironment.runningInSmokeTestPipeline
+
+                    #expect(
+                        !stderr.contains("error: --debugger cannot be used with"),
+                        "got stdout: \(stdout), stderr: \(stderr)",
+                    )
+
+                    #if os(macOS)
+                    let targetName = "swiftpm-testing-helper"
+                    #else
+                    let targetName = buildSystem == .native ? "TestDebuggingPackageTests.xctest" : "TestDebuggingTests-test-runner"
+                    #endif
+
+                    #expect(
+                        stdout.contains("target create") && stdout.contains(targetName),
+                        "Expected LLDB to target swiftpm-testing-helper binary, got stdout: \(stdout), stderr: \(stderr)",
+                    )
+
+                    withKnownIssue {
+                        #expect(
+                            stdout.contains("failbreak command registered: 1 specs"),
+                            "Expected Swift Testing failure breakpoint setup, got stdout: \(stdout), stderr: \(stderr)",
+                        )
+                    } when: {
+                        CiEnvironment.lldbLacksPythonBindings
+                    }
                 }
+            } when: {
+                // Windows lldb ships without python310.dll on PATH, so it crashes
+                // with access violation when the failbreak `command script import`
+                // runs, and swift-test exits abnormally before producing any output.
+                ProcessInfo.hostOperatingSystem == .windows
             }
         }
 
@@ -1888,58 +1898,63 @@ struct TestCommandTests {
         )
         func debuggerFlagWithBothTestingSuites(buildSystem: BuildSystemProvider.Kind) async throws {
             let configuration = BuildConfiguration.debug
-            try await fixture(name: "Miscellaneous/TestDebugging") { fixturePath in
-                let (stdout, stderr) = try await execute(
-                    ["--debugger", "--verbose"],
-                    packagePath: fixturePath,
-                    configuration: configuration,
-                    buildSystem: buildSystem,
-                )
-
-                #expect(
-                    !stderr.contains("error: --debugger cannot be used with"),
-                    "got stdout: \(stdout), stderr: \(stderr)",
-                )
-
-                #expect(
-                    stdout.contains("target create"),
-                    "Expected LLDB to create targets, got stdout: \(stdout), stderr: \(stderr)",
-                )
-
-                let productName = buildSystem == .native ? "TestDebuggingPackageTests" : "TestDebuggingTests"
-                withKnownIssue {
-                    #expect(
-                        stdout.contains("\(productName) (XCTest)") && stdout.contains("\(productName) (Swift Testing)"),
-                        "Expected labeled LLDB targets, got stdout: \(stdout), stderr: \(stderr)",
+            try await withKnownIssue {
+                try await fixture(name: "Miscellaneous/TestDebugging") { fixturePath in
+                    let (stdout, stderr) = try await execute(
+                        ["--debugger", "--verbose"],
+                        packagePath: fixturePath,
+                        configuration: configuration,
+                        buildSystem: buildSystem,
                     )
-                } when: {
-                    // Smoke-test CI's lldb is too old to support `target create -l`,
-                    // so the production code skips emitting labels there.
-                    CiEnvironment.runningInSmokeTestPipeline
-                }
 
-                withKnownIssue {
                     #expect(
-                        stdout.contains("failbreak command registered: 2 specs"),
-                        "Expected combined failure breakpoint setup, got stdout: \(stdout), stderr: \(stderr)",
+                        !stderr.contains("error: --debugger cannot be used with"),
+                        "got stdout: \(stdout), stderr: \(stderr)",
                     )
-                } when: {
-                    // Smoke-test CI's lldb lacks Python bindings, so `command script import`
-                    // fails and the failbreak command never registers.
-                    CiEnvironment.runningInSmokeTestPipeline
+
+                    #expect(
+                        stdout.contains("target create"),
+                        "Expected LLDB to create targets, got stdout: \(stdout), stderr: \(stderr)",
+                    )
+
+                    let productName = buildSystem == .native ? "TestDebuggingPackageTests" : "TestDebuggingTests"
+                    withKnownIssue {
+                        #expect(
+                            stdout.contains("\(productName) (XCTest)") && stdout.contains("\(productName) (Swift Testing)"),
+                            "Expected labeled LLDB targets, got stdout: \(stdout), stderr: \(stderr)",
+                        )
+                    } when: {
+                        // Smoke-test CI's lldb is too old to support `target create -l`,
+                        // so the production code skips emitting labels there.
+                        CiEnvironment.runningInSmokeTestPipeline
+                    }
+
+                    withKnownIssue {
+                        #expect(
+                            stdout.contains("failbreak command registered: 2 specs"),
+                            "Expected combined failure breakpoint setup, got stdout: \(stdout), stderr: \(stderr)",
+                        )
+                    } when: {
+                        CiEnvironment.lldbLacksPythonBindings
+                    }
+
+                    #expect(
+                        stdout.contains("command script import"),
+                        "Expected Python script import for multi-target switching, got stdout: \(stdout), stderr: \(stderr)",
+                    )
+
+                    #if os(macOS)
+                    #expect(
+                        stdout.contains("settings set target.env-vars SWIFT_TESTING_ENABLED=0"),
+                        "Expected SWIFT_TESTING_ENABLED=0 scoped to the xctest target to prevent duplicate Swift Testing runs, got stdout: \(stdout), stderr: \(stderr)",
+                    )
+                    #endif
                 }
-
-                #expect(
-                    stdout.contains("command script import"),
-                    "Expected Python script import for multi-target switching, got stdout: \(stdout), stderr: \(stderr)",
-                )
-
-                #if os(macOS)
-                #expect(
-                    stdout.contains("settings set target.env-vars SWIFT_TESTING_ENABLED=0"),
-                    "Expected SWIFT_TESTING_ENABLED=0 scoped to the xctest target to prevent duplicate Swift Testing runs, got stdout: \(stdout), stderr: \(stderr)",
-                )
-                #endif
+            } when: {
+                // Windows lldb ships without python310.dll on PATH, so it crashes
+                // with access violation when the failbreak `command script import`
+                // runs, and swift-test exits abnormally before producing any output.
+                ProcessInfo.hostOperatingSystem == .windows
             }
         }
 
@@ -1985,9 +2000,10 @@ struct TestCommandTests {
             } when: {
                 // swift-build on Windows fails to emit the per-target *.LinkFileList
                 // for the second test runner in a multi-test-target package, so the
-                // build itself fails before lldb is ever invoked. Same root cause as
-                // noteTestFailures with TestMixedFailuresAcrossTargets.
-                buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows
+                // build itself fails before lldb is ever invoked. On Windows native,
+                // lldb crashes without python310.dll when importing the failbreak
+                // script, exiting swift-test abnormally.
+                ProcessInfo.hostOperatingSystem == .windows
             }
         }
 
@@ -2027,9 +2043,10 @@ struct TestCommandTests {
             } when: {
                 // swift-build on Windows fails to emit the per-target *.LinkFileList
                 // for the second test runner in a multi-test-target package, so the
-                // build itself fails before lldb is ever invoked. Same root cause as
-                // noteTestFailures with TestMixedFailuresAcrossTargets.
-                buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows
+                // build itself fails before lldb is ever invoked. On Windows native,
+                // lldb crashes without python310.dll when importing the failbreak
+                // script, exiting swift-test abnormally.
+                ProcessInfo.hostOperatingSystem == .windows
             }
         }
 
@@ -2069,9 +2086,10 @@ struct TestCommandTests {
             } when: {
                 // swift-build on Windows fails to emit the per-target *.LinkFileList
                 // for the second test runner in a multi-test-target package, so the
-                // build itself fails before lldb is ever invoked. Same root cause as
-                // noteTestFailures with TestMixedFailuresAcrossTargets.
-                buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows
+                // build itself fails before lldb is ever invoked. On Windows native,
+                // lldb crashes without python310.dll when importing the failbreak
+                // script, exiting swift-test abnormally.
+                ProcessInfo.hostOperatingSystem == .windows
             }
         }
 
@@ -2102,9 +2120,7 @@ struct TestCommandTests {
                         "Expected process to exit with status 0, got stdout: \(stdout), stderr: \(stderr)"
                     )
                 } when: {
-                    // Smoke-test CI runs an old /opt/swift/5.9.2/usr/bin/lldb that was built
-                    // without Python bindings.
-                    CiEnvironment.runningInSmokeTestPipeline
+                    CiEnvironment.lldbLacksPythonBindings
                 }
             }
         }

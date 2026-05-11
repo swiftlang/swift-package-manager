@@ -49,6 +49,13 @@ public let isSelfHostedCiEnvironment = CiEnvironment.runningInSelfHostedPipeline
 public struct CiEnvironmentStruct {
     public let runningInSmokeTestPipeline = ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] != nil
     public let runningInSelfHostedPipeline = ProcessInfo.processInfo.environment["SWIFTCI_IS_SELF_HOSTED"] != nil
+
+    // Smoke-test CI runs an old lldb built without Python bindings, and the
+    // Windows Swift toolchain ships lldb without python310.dll on PATH, so
+    // `command script import` crashes lldb on both.
+    public var lldbLacksPythonBindings: Bool {
+        runningInSmokeTestPipeline || ProcessInfo.hostOperatingSystem == .windows
+    }
 }
 
 public let CiEnvironment = CiEnvironmentStruct()
