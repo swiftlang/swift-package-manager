@@ -161,6 +161,22 @@ extension DispatchQueue {
     )
 }
 
+// MARK: - Process Logging
+
+/// Enable detailed process I/O thread debugging by setting SWIFTPM_DEBUG_PROCESS_IO=1
+/// This is a low-level debugging flag for diagnosing process hangs and defunct processes.
+private let debugProcessIO = Environment.current["SWIFTPM_DEBUG_PROCESS_IO"] != nil
+
+/// Helper to log process I/O events for debugging hangs.
+/// Only active when SWIFTPM_DEBUG_PROCESS_IO=1 is set.
+private func logProcessIODebug(_ message: String) {
+    if debugProcessIO {
+        // Use fputs to stderr for low-level debugging that bypasses all handlers
+        fputs("[AsyncProcess] \(message)\n", stderr)
+        fflush(stderr)
+    }
+}
+
 /// Process allows spawning new subprocesses and working with them.
 ///
 /// Note: This class is thread safe.
@@ -266,6 +282,9 @@ package final class AsyncProcess {
 
     /// Global logging handler storage.
     private static let _loggingHandler = ThreadSafeBox<LoggingHandler?>()
+
+    /// Unique identifier for tracking this process instance in logs
+    private let processTrackingID: String = UUID().uuidString.prefix(8).description
 
     /// Global logging handler. Use with care! preferably use instance level instead of setting one globally.
     package static var loggingHandler: LoggingHandler? {
@@ -476,9 +495,15 @@ package final class AsyncProcess {
             loggingHandler(self.arguments.map { $0.spm_shellEscaped() }.joined(separator: " "))
         }
 
+        // Additional low-level debugging for process I/O hangs (only with SWIFTPM_DEBUG_PROCESS_IO=1)
+        logProcessIODebug(
+            "[\(self.processTrackingID)] SPAWN: \(self.arguments.map { $0.spm_shellEscaped() }.joined(separator: " "))"
+        )
+
         // Look for executable.
         let executable = self.arguments[0]
         guard let executablePath = AsyncProcess.findExecutable(executable, workingDirectory: workingDirectory) else {
+            logProcessIODebug("[\(self.processTrackingID)] ERROR: Executable not found: \(executable)")
             throw AsyncProcess.Error.missingExecutableProgram(program: executable)
         }
 
@@ -683,8 +708,11 @@ package final class AsyncProcess {
         let rv = posix_spawnp(&self.processID, argv.cArray[0]!, &fileActions, &attributes, argv.cArray, env.cArray)
 
         guard rv == 0 else {
+            logProcessIODebug("[\(self.processTrackingID)] ERROR: posix_spawnp failed with rv=\(rv)")
             throw SystemError.posix_spawn(rv, self.arguments)
         }
+
+        logProcessIODebug("[\(self.processTrackingID)] SPAWNED: PID=\(self.processID), cmd=\(self.arguments[0])")
 
         do {
             // Close the local read end of the input pipe.
@@ -693,6 +721,7 @@ package final class AsyncProcess {
             let group = DispatchGroup()
             if !self.outputRedirection.redirectsOutput {
                 // no stdout or stderr in this case
+                logProcessIODebug("[\(self.processTrackingID)] I/O: No output redirection, skipping I/O threads")
                 self.stateLock.withLock {
                     self.state = .outputReady(stdout: .success([]), stderr: .success([]))
                 }
@@ -707,28 +736,42 @@ package final class AsyncProcess {
 
                 // Create a thread and start reading the output on it.
                 group.enter()
-                let stdoutThread = Thread { [weak self] in
-                    if let readResult = self?.readOutput(
+                logProcessIODebug("[\(self.processTrackingID)] I/O: stdout thread group.enter()")
+
+                let stdoutThread = Thread { [weak self, processTrackingID] in
+                    logProcessIODebug("[\(processTrackingID)] I/O: stdout thread started")
+
+                    guard let self else {
+                        logProcessIODebug(
+                            "[\(processTrackingID)] I/O: stdout thread - self is nil, calling group.leave()"
+                        )
+                        group.leave()
+                        return
+                    }
+
+                    let readResult = self.readOutput(
                         onFD: outputPipe[0],
                         outputClosure: outputClosures?.stdoutClosure
-                    ) {
-                        pendingLock.withLock {
-                            if let stderrResult = pending {
-                                self?.stateLock.withLock {
-                                    self?.state = .outputReady(stdout: readResult, stderr: stderrResult)
-                                }
-                            } else {
-                                pending = readResult
+                    )
+                    logProcessIODebug("[\(processTrackingID)] I/O: stdout thread read completed")
+
+                    pendingLock.withLock {
+                        if let stderrResult = pending {
+                            // TODO: this is more of an error
+                            self.stateLock.withLock {
+                                self.state = .outputReady(stdout: readResult, stderr: stderrResult)
                             }
+                            logProcessIODebug("[\(processTrackingID)] I/O: stdout thread - both ready")
+                        } else {
+                            pending = readResult
+                            logProcessIODebug(
+                                "[\(processTrackingID)] I/O: stdout thread - stored result, waiting for stderr"
+                            )
                         }
-                        group.leave()
-                    } else if let stderrResult = (pendingLock.withLock { pending }) {
-                        // TODO: this is more of an error
-                        self?.stateLock.withLock {
-                            self?.state = .outputReady(stdout: .success([]), stderr: stderrResult)
-                        }
-                        group.leave()
                     }
+
+                    group.leave()
+                    logProcessIODebug("[\(processTrackingID)] I/O: stdout thread finished")
                 }
 
                 // Only schedule a thread for stderr if no redirect was requested.
@@ -739,30 +782,42 @@ package final class AsyncProcess {
 
                     // Create a thread and start reading the stderr output on it.
                     group.enter()
-                    stderrThread = Thread { [weak self] in
-                        if let readResult = self?.readOutput(
+                    logProcessIODebug("[\(self.processTrackingID)] I/O: stderr thread group.enter()")
+
+                    stderrThread = Thread { [weak self, processTrackingID] in
+                        logProcessIODebug("[\(processTrackingID)] I/O: stderr thread started")
+
+                        guard let self else {
+                            logProcessIODebug("[\(processTrackingID)] I/O: stderr thread - self is nil")
+                            return
+                        }
+
+                        let readResult = self.readOutput(
                             onFD: stderrPipe[0],
                             outputClosure: outputClosures?.stderrClosure
-                        ) {
-                            pendingLock.withLock {
-                                if let stdoutResult = pending {
-                                    self?.stateLock.withLock {
-                                        self?.state = .outputReady(stdout: stdoutResult, stderr: readResult)
-                                    }
-                                } else {
-                                    pending = readResult
+                        )
+                        logProcessIODebug("[\(processTrackingID)] I/O: stderr thread read completed")
+
+                        pendingLock.withLock {
+                            if let stdoutResult = pending {
+                                // TODO: this is more of an error
+                                self.stateLock.withLock {
+                                    self.state = .outputReady(stdout: stdoutResult, stderr: readResult)
                                 }
+                                logProcessIODebug("[\(processTrackingID)] I/O: stderr thread - both ready")
+                            } else {
+                                pending = readResult
+                                logProcessIODebug(
+                                    "[\(processTrackingID)] I/O: stderr thread - stored result, waiting for stdout"
+                                )
                             }
-                            group.leave()
-                        } else if let stdoutResult = (pendingLock.withLock { pending }) {
-                            // TODO: this is more of an error
-                            self?.stateLock.withLock {
-                                self?.state = .outputReady(stdout: stdoutResult, stderr: .success([]))
-                            }
-                            group.leave()
                         }
+
+                        group.leave()
+                        logProcessIODebug("[\(processTrackingID)] I/O: stderr thread finished")
                     }
                 } else {
+                    logProcessIODebug("[\(self.processTrackingID)] I/O: stderr redirected to stdout")
                     pendingLock.withLock {
                         pending = .success([]) // no stderr in this case
                     }
@@ -773,8 +828,10 @@ package final class AsyncProcess {
                     self.state = .readingOutput(sync: group)
                 }
 
+                logProcessIODebug("[\(self.processTrackingID)] I/O: Starting I/O threads")
                 stdoutThread.start()
                 stderrThread?.start()
+                logProcessIODebug("[\(self.processTrackingID)] I/O: I/O threads started, waiting for completion")
             }
 
             return stdinStream
@@ -829,11 +886,18 @@ package final class AsyncProcess {
             completion(.failure(error))
         case .readingOutput(let sync):
             self.stateLock.unlock()
+            logProcessIODebug("[\(self.processTrackingID)] WAIT: Waiting for I/O threads to complete")
+
             sync.notify(queue: self.completionQueue) {
                 self.waitUntilExit(completion)
             }
         case .outputReady(let stdoutResult, let stderrResult):
             defer { self.stateLock.unlock() }
+
+            logProcessIODebug(
+                "[\(self.processTrackingID)] WAIT: I/O ready, waiting for process exit (PID=\(self.processID))"
+            )
+
             // Wait until process finishes execution.
             #if os(Windows)
             precondition(self._process != nil, "The process is not yet launched.")
@@ -848,10 +912,15 @@ package final class AsyncProcess {
                 result = waitpid(self.processID, &exitStatusCode, 0)
             }
             if result == -1 {
+                logProcessIODebug("[\(self.processTrackingID)] ERROR: waitpid failed with errno=\(errno)")
                 self.state = .failed(SystemError.waitpid(errno))
             }
             let normalExit = !WIFSIGNALED(result)
             #endif
+
+            logProcessIODebug(
+                "[\(self.processTrackingID)] EXIT: Process exited with status=\(exitStatusCode), normal=\(normalExit)"
+            )
 
             // Construct the result.
             let executionResult = AsyncProcessResult(
