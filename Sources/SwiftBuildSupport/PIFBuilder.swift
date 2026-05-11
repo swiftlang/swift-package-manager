@@ -351,6 +351,11 @@ public final class PIFBuilder {
                         diagnosticsEmitter.emit(diag)
                     }
 
+                    guard result.succeeded else {
+                        observabilityScope.emit(error: "build planning stopped due to build-tool plugin failures")
+                        throw Diagnostics.fatalError
+                    }
+
                     prebuildCommands.append(contentsOf: result.prebuildCommands)
 
                     buildCommands.append(contentsOf: result.buildCommands.map( { buildCommand in

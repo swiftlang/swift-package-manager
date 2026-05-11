@@ -18,6 +18,7 @@ import class Basics.ObservabilityScope
 import func Basics.os_signpost
 import struct Basics.RelativePath
 import enum Basics.SignpostName
+import struct Basics.SourceControlURL
 import class Basics.ThreadSafeKeyValueStore
 import class Dispatch.DispatchGroup
 import struct Dispatch.DispatchTime
@@ -345,6 +346,19 @@ extension Workspace {
         // Ensure the cache path exists.
         self.createCacheDirectories(observabilityScope: observabilityScope)
 
+        // Populate the identity lookup cache via the Package.resolved.
+        // This will only ever be done if the user has passed in `--force-resolved-versions`
+        do {
+            self.identityLookupCache.deriveCache(
+                from: try self.resolvedPackagesStore.load().resolvedPackages,
+                self.configuration.sourceControlToRegistryDependencyTransformation
+            )
+        } catch {
+            // If we cannot load the resolved file, send log to user and
+            // continue.
+            observabilityScope.emit(debug: "Unable to prepopulate identity lookup cache", underlyingError: error)
+        }
+
         let rootManifests = try await self.loadRootManifests(
             packages: root.packages,
             observabilityScope: observabilityScope
@@ -423,7 +437,7 @@ extension Workspace {
             switch dependency.state {
             case .sourceControlCheckout(let checkoutState):
                 return !pin.state.equals(checkoutState)
-            case .registryDownload(let version):
+            case .registryDownload(let version, _):
                 return !pin.state.equals(version)
             case .edited, .fileSystem, .custom:
                 return true
@@ -1119,7 +1133,7 @@ extension Workspace {
             case .version(let version):
                 let stateChange: PackageStateChange
                 switch currentDependency?.state {
-                case .sourceControlCheckout(.version(version, _)), .registryDownload(version), .custom(version, _):
+                case .sourceControlCheckout(.version(version, _)), .registryDownload(version, _), .custom(version, _):
                     stateChange = .unchanged
                 case .edited, .fileSystem, .sourceControlCheckout, .registryDownload, .custom:
                     stateChange = .updated(.init(requirement: .version(version), products: binding.products))

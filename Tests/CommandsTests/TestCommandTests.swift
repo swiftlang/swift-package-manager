@@ -539,6 +539,66 @@ struct TestCommandTests {
         }
     }
 
+    /// Regression: `--xunit-output=PATH` must be stripped when forwarding argv to Swift Testing so only
+    /// SPM's suffixed path is passed; otherwise the helper receives duplicate `--xunit-output` flags and
+    /// overwrites the XCTest JUnit file. See discussion in swift-package-manager around combined forms.
+    @Test(
+        .tags(
+            .Feature.TargetType.Executable,
+            .Feature.CommandLineArguments.TestParallel,
+            .Feature.CommandLineArguments.TestOutputXunit,
+            .Feature.CommandLineArguments.TestEnableXCTest,
+            .Feature.CommandLineArguments.TestEnableSwiftTesting,
+        ),
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/9960", relationship: .verifies),
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/9982", relationship: .defect),
+        arguments: SupportedBuildSystemOnAllPlatforms.filter { $0 != .xcode },
+    )
+    func swiftTestParallelXunitOutputCombinedEqualsForm(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        let configuration = BuildConfiguration.debug
+        try await withKnownIssue(isIntermittent: true) {
+            try await fixture(name: "Miscellaneous/DefaultInteropMode") { fixturePath in
+                let xUnitOutput = fixturePath.appending("output.xml")
+                let swiftTestingXUnitOutput = fixturePath.appending("output-swift-testing.xml")
+                _ = try await execute(
+                    [
+                        "--parallel",
+                        "--enable-xctest",
+                        "--enable-swift-testing",
+                        "--xunit-output=\(xUnitOutput.pathString)",
+                    ],
+                    packagePath: fixturePath,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                )
+
+                expectFileExists(at: xUnitOutput, "\(xUnitOutput) does not exist")
+                expectFileExists(at: swiftTestingXUnitOutput, "\(swiftTestingXUnitOutput) does not exist")
+
+                let xctestContents: String = try localFileSystem.readFileContents(xUnitOutput)
+                #expect(
+                    xctestContents.contains(#"<testsuite name="TestResults""#),
+                    "XCTest JUnit should be generated at the base path; got:\n\(xctestContents)",
+                )
+                #expect(
+                    xctestContents.contains(#"name="testInteropSetToComplete""#),
+                    "Expected XCTest case in base xUnit file; got:\n\(xctestContents)",
+                )
+
+                let swiftTestingContents: String = try localFileSystem.readFileContents(swiftTestingXUnitOutput)
+                #expect(
+                    swiftTestingContents.contains("DefaultInteropModeSwiftTestingTests")
+                        || swiftTestingContents.contains("Interop mode should be set to complete"),
+                    "Expected Swift Testing output in suffixed xUnit file; got:\n\(swiftTestingContents)",
+                )
+            }
+        } when: {
+            ProcessInfo.hostOperatingSystem == .windows
+        }
+    }
+
     enum TestRunner {
         case XCTest
         case SwiftTesting
@@ -1434,6 +1494,7 @@ struct TestCommandTests {
     }
 
     @Test(
+        .IssueWindowsPathNoEntry,
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func defaultInteropMode(
@@ -1455,6 +1516,7 @@ struct TestCommandTests {
     }
 
     @Test(
+        .IssueWindowsPathNoEntry,
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func noDefaultInteropMode(
@@ -1476,6 +1538,7 @@ struct TestCommandTests {
     }
 
     @Test(
+        .IssueWindowsPathNoEntry,
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func respectUserOverrideInteropMode(
@@ -1627,4 +1690,31 @@ struct TestCommandTests {
             }
          }
 
+    // Regression test for https://github.com/swiftlang/swift-package-manager/issues/9986. Ensure
+    // environment is computed correctly throughout the testing pipeline.
+    @Test(
+        .tags(
+            .Feature.TargetType.Test,
+            .Feature.ProductType.DynamicLibrary,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func testTargetWithDynamicLibraryProductDependency(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        let configuration = BuildConfiguration.debug
+        try await withKnownIssue("Windows path issue", isIntermittent: true) {
+            try await fixture(name: "Miscellaneous/TestWithDynamicDep") { fixturePath in
+                _ = try await execute(
+                    [],
+                    packagePath: fixturePath,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                    throwIfCommandFails: true
+                )
+            }
+        } when: {
+            .windows == ProcessInfo.hostOperatingSystem
+        }
+    }
 }

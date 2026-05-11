@@ -633,7 +633,6 @@ extension ManifestLoader {
                 return versionSpecificPath
             }
         }
-
         let contents: [String]
         do { contents = try fileSystem.getDirectoryContents(packagePath) } catch {
             throw ToolsVersionParser.Error.inaccessiblePackage(path: packagePath, reason: String(describing: error))

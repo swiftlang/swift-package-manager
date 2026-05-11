@@ -141,7 +141,9 @@ extension Workspace {
                                 packageRef: packageReference,
                                 targetName: target.name,
                                 url: url,
-                                checksum: checksum
+                                checksum: checksum,
+                                originalURL: nil,
+                                originalChecksum: nil
                             )
                         )
                     } else {
@@ -203,13 +205,20 @@ extension Workspace {
                                         "No supported archive was found for '\(self.hostToolchain.targetTriple.tripleString)'"
                                     )
                                 }
+                                guard !supportedArchive.fileName.contains("..") else {
+                                    throw StringError(
+                                        "invalid archive fileName '\(supportedArchive.fileName)'"
+                                    )
+                                }
                                 // add relevant archive
                                 return RemoteArtifact(
                                     packageRef: indexFile.packageRef,
                                     targetName: indexFile.targetName,
                                     url: indexFile.url.deletingLastPathComponent()
                                         .appendingPathComponent(supportedArchive.fileName),
-                                    checksum: supportedArchive.checksum
+                                    checksum: supportedArchive.checksum,
+                                    originalURL: indexFile.url,
+                                    originalChecksum: indexFile.checksum
                                 )
                             } catch {
                                 errors.append(error)
@@ -320,6 +329,9 @@ extension Workspace {
                                         from: archivePath,
                                         to: tempExtractionDirectory
                                     )
+                                    try self.fileSystem.validateNoEscapingSymlinks(
+                                        in: tempExtractionDirectory
+                                    )
 
                                     defer {
                                         observabilityScope.trap { try self.fileSystem.removeFileTree(archivePath) }
@@ -385,8 +397,8 @@ extension Workspace {
                                     return ManagedArtifact.remote(
                                         packageRef: artifact.packageRef,
                                         targetName: artifact.targetName,
-                                        url: artifact.url.absoluteString,
-                                        checksum: artifact.checksum,
+                                        url: (artifact.originalURL ?? artifact.url).absoluteString,
+                                        checksum: artifact.originalChecksum ?? artifact.checksum,
                                         path: artifactPath,
                                         kind: artifactKind
                                     )
@@ -469,6 +481,9 @@ extension Workspace {
 
                         do {
                             try await self.archiver.extract(from: artifact.path, to: tempExtractionDirectory)
+                            try self.fileSystem.validateNoEscapingSymlinks(
+                                in: tempExtractionDirectory
+                            )
 
                             return observabilityScope.trap {
                                 try self.fileSystem.withLock(on: destinationDirectory, type: .exclusive) {
@@ -690,6 +705,8 @@ extension Workspace.BinaryArtifactsManager {
         let targetName: String
         let url: URL
         let checksum: String
+        let originalURL: URL?
+        let originalChecksum: String?
     }
 }
 
@@ -739,7 +756,7 @@ extension Workspace.BinaryArtifactsManager {
             return binaryArtifact
         } else if let binaryArtifact = binaryArtifacts.first {
             // single one
-            observabilityScope.emit(info: "found binary artifact: '\(binaryArtifact)'")
+            observabilityScope.emit(info: "found binary artifact: '\(binaryArtifact.0)'")
             return binaryArtifact
         } else {
             return .none
@@ -913,6 +930,7 @@ extension Workspace {
                 if case .remote(let existingURL, let existingChecksum) = existingArtifact.source {
                     // If we already have an artifact with the same checksum, we don't need to download it again.
                     if artifact.checksum == existingChecksum {
+                        observabilityScope.emit(debug: "binary artifact '\(artifact.targetName)' is up to date at \(existingArtifact.path)")
                         continue
                     }
 

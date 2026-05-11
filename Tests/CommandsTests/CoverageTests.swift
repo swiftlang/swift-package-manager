@@ -42,7 +42,6 @@ struct CoverageTests {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let config = BuildConfiguration.debug
-        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { path in
                 _ = try await executeSwiftBuild(
                     path,
@@ -50,7 +49,6 @@ struct CoverageTests {
                     extraArgs: ["--build-tests"],
                     buildSystem: buildSystem,
                 )
-                await withKnownIssue(isIntermittent: true) {
                 await #expect(throws: (any Error).self ) {
                     try await executeSwiftTest(
                         path,
@@ -63,13 +61,7 @@ struct CoverageTests {
                         throwIfCommandFails: true,
                     )
                 }
-                } when: {
-                    ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild
-                }
             }
-        } when: {
-            ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild
-        }
     }
 
     @Test(
@@ -86,7 +78,6 @@ struct CoverageTests {
     ) async throws {
         let config = BuildConfiguration.debug
         // Test that enabling code coverage during building produces the expected folder.
-        try await withKnownIssue(isIntermittent: true) {
         try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { path in
             let codeCovPathString = try await getCoveragePath(
                 path,
@@ -121,9 +112,6 @@ struct CoverageTests {
                 let codeCovFiles = try localFileSystem.getDirectoryContents(codeCovPath.parentDirectory)
                 #expect(codeCovFiles.count > 0)
         }
-        } when: {
-            ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild // This was no longer an issue when I tested at-desk
-        }
     }
 
     @Test(
@@ -151,7 +139,6 @@ struct CoverageTests {
             try #require(!localFileSystem.exists(coveragePath))
 
             // WHEN we test with coverage enabled
-            try await withKnownIssue(isIntermittent: true) {
                 try await executeSwiftTest(
                     path,
                     configuration: config,
@@ -164,9 +151,6 @@ struct CoverageTests {
 
                 // THEN we expect the file to exists
                 #expect(localFileSystem.exists(coveragePath))
-            } when: {
-                (ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild)
-            }
         }
     }
 
