@@ -102,11 +102,11 @@ private struct Expression: CachingQuery {
 struct QueryEngineTests {
     @Test
     func filePathHashing() throws {
-#if os(Windows)
-        let path = "C:\\root"
-#else
-        let path = "/root"
-#endif
+        #if os(Windows)
+            let path = "C:\\root"
+        #else
+            let path = "/root"
+        #endif
 
         let hashEncoder1 = HashEncoder<SHA256>()
         try hashEncoder1.encode(FilePath(path))

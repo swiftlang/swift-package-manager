@@ -31,7 +31,7 @@ public protocol DependencyResolverDelegate {
 public struct ObservabilityDependencyResolverDelegate: DependencyResolverDelegate {
     private let observabilityScope: ObservabilityScope
 
-    public init (observabilityScope: ObservabilityScope) {
+    public init(observabilityScope: ObservabilityScope) {
         self.observabilityScope = observabilityScope.makeChildScope(description: "DependencyResolver")
     }
 
@@ -78,40 +78,40 @@ public struct ObservabilityDependencyResolverDelegate: DependencyResolverDelegat
 public struct MultiplexResolverDelegate: DependencyResolverDelegate {
     private let underlying: [DependencyResolverDelegate]
 
-    public init (_ underlying: [DependencyResolverDelegate]) {
+    public init(_ underlying: [DependencyResolverDelegate]) {
         self.underlying = underlying
     }
 
     public func willResolve(term: Term) {
-        underlying.forEach { $0.willResolve(term: term)  }
+        underlying.forEach { $0.willResolve(term: term) }
     }
 
     public func didResolve(term: Term, version: Version, duration: DispatchTimeInterval) {
-        underlying.forEach { $0.didResolve(term: term, version: version, duration: duration)  }
+        underlying.forEach { $0.didResolve(term: term, version: version, duration: duration) }
     }
 
     public func derived(term: Term) {
-        underlying.forEach { $0.derived(term: term)  }
+        underlying.forEach { $0.derived(term: term) }
     }
 
     public func conflict(conflict: Incompatibility) {
-        underlying.forEach { $0.conflict(conflict: conflict)  }
+        underlying.forEach { $0.conflict(conflict: conflict) }
     }
 
     public func satisfied(term: Term, by assignment: Assignment, incompatibility: Incompatibility) {
-        underlying.forEach { $0.satisfied(term: term, by: assignment, incompatibility: incompatibility)  }
+        underlying.forEach { $0.satisfied(term: term, by: assignment, incompatibility: incompatibility) }
     }
 
     public func partiallySatisfied(term: Term, by assignment: Assignment, incompatibility: Incompatibility, difference: Term) {
-        underlying.forEach { $0.partiallySatisfied(term: term, by: assignment, incompatibility: incompatibility, difference: difference)  }
+        underlying.forEach { $0.partiallySatisfied(term: term, by: assignment, incompatibility: incompatibility, difference: difference) }
     }
 
     public func failedToResolve(incompatibility: Incompatibility) {
-        underlying.forEach { $0.failedToResolve(incompatibility: incompatibility)  }
+        underlying.forEach { $0.failedToResolve(incompatibility: incompatibility) }
     }
 
     public func solved(result: [DependencyResolverBinding]) {
-        underlying.forEach { $0.solved(result: result)  }
+        underlying.forEach { $0.solved(result: result) }
     }
 
 }

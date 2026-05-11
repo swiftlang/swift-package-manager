@@ -25,8 +25,7 @@ package func createBuildSymbolicLinks(
         do {
             // This does not delete the directory pointed to by the symbolic link
             try fileSystem.removeFileTree(path)
-        }
-        catch {
+        } catch {
             observabilityScope.emit(
                 warning: "unable to delete \(path), skip creating symbolic link",
                 underlyingError: error

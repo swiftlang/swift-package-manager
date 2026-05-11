@@ -197,114 +197,114 @@ extension TestIssue {
     }
 }
 
-#if false // This is just here for pre-flighting the code generation done in `SwiftTargetBuildDescription`.
-import XCTest
+#if false  // This is just here for pre-flighting the code generation done in `SwiftTargetBuildDescription`.
+    import XCTest
 
-#if canImport(Darwin) // XCTAttachment is unavailable in swift-corelibs-xctest.
-extension TestAttachment {
-    init(_ attachment: XCTAttachment) {
-        self.init(
-            name: attachment.name,
-            uniformTypeIdentifier: attachment.uniformTypeIdentifier,
-            payload: attachment.value(forKey: "payload") as? Data
-        )
-    }
-}
-#endif
+    #if canImport(Darwin)  // XCTAttachment is unavailable in swift-corelibs-xctest.
+        extension TestAttachment {
+            init(_ attachment: XCTAttachment) {
+                self.init(
+                    name: attachment.name,
+                    uniformTypeIdentifier: attachment.uniformTypeIdentifier,
+                    payload: attachment.value(forKey: "payload") as? Data
+                )
+            }
+        }
+    #endif
 
-extension TestBundle {
-    init(_ testBundle: Bundle) {
-        self.init(
-            bundleIdentifier: testBundle.bundleIdentifier,
-            bundlePath: testBundle.bundlePath
-        )
-    }
-}
-
-extension TestCase {
-    init(_ testCase: XCTestCase) {
-        self.init(name: testCase.name)
-    }
-}
-
-extension TestErrorInfo {
-    init(_ error: Swift.Error) {
-        self.init(description: "\(error)", type: "\(Swift.type(of: error))")
-    }
-}
-
-#if canImport(Darwin) // XCTIssue is unavailable in swift-corelibs-xctest.
-extension TestIssue {
-    init(_ issue: XCTIssue) {
-        self.init(
-            type: .init(defaultBuildParameters: issue.type),
-            compactDescription: issue.compactDescription,
-            detailedDescription: issue.detailedDescription,
-            associatedError: issue.associatedError.map { .init(defaultBuildParameters: $0) },
-            sourceCodeContext: .init(defaultBuildParameters: issue.sourceCodeContext),
-            attachments: issue.attachments.map { .init(defaultBuildParameters: $0) }
-        )
-    }
-}
-
-extension TestIssueType {
-    init(_ type: XCTIssue.IssueType) {
-        switch type {
-        case .assertionFailure: self = .assertionFailure
-        case .thrownError: self = .thrownError
-        case .uncaughtException: self = .uncaughtException
-        case .performanceRegression: self = .performanceRegression
-        case .system: self = .system
-        case .unmatchedExpectedFailure: self = .unmatchedExpectedFailure
-        @unknown default: self = .unknown
+    extension TestBundle {
+        init(_ testBundle: Bundle) {
+            self.init(
+                bundleIdentifier: testBundle.bundleIdentifier,
+                bundlePath: testBundle.bundlePath
+            )
         }
     }
-}
-#endif
 
-#if canImport(Darwin) // XCTSourceCodeLocation/XCTSourceCodeContext/XCTSourceCodeFrame/XCTSourceCodeSymbolInfo is unavailable in swift-corelibs-xctest.
-extension TestLocation {
-    init(_ location: XCTSourceCodeLocation) {
-        self.init(
-            file: location.fileURL.absoluteString,
-            line: location.lineNumber
-        )
+    extension TestCase {
+        init(_ testCase: XCTestCase) {
+            self.init(name: testCase.name)
+        }
     }
-}
 
-extension TestSourceCodeContext {
-    init(_ context: XCTSourceCodeContext) {
-        self.init(
-            callStack: context.callStack.map { .init(defaultBuildParameters: $0) },
-            location: context.location.map { .init(defaultBuildParameters: $0) }
-        )
+    extension TestErrorInfo {
+        init(_ error: Swift.Error) {
+            self.init(description: "\(error)", type: "\(Swift.type(of: error))")
+        }
     }
-}
 
-extension TestSourceCodeFrame {
-    init(_ frame: XCTSourceCodeFrame) {
-        self.init(
-            address: frame.address,
-            symbolInfo: (try? frame.symbolInfo()).map { .init(defaultBuildParameters: $0) },
-            symbolicationError: frame.symbolicationError.map { .init(defaultBuildParameters: $0) }
-        )
-    }
-}
+    #if canImport(Darwin)  // XCTIssue is unavailable in swift-corelibs-xctest.
+        extension TestIssue {
+            init(_ issue: XCTIssue) {
+                self.init(
+                    type: .init(defaultBuildParameters: issue.type),
+                    compactDescription: issue.compactDescription,
+                    detailedDescription: issue.detailedDescription,
+                    associatedError: issue.associatedError.map { .init(defaultBuildParameters: $0) },
+                    sourceCodeContext: .init(defaultBuildParameters: issue.sourceCodeContext),
+                    attachments: issue.attachments.map { .init(defaultBuildParameters: $0) }
+                )
+            }
+        }
 
-extension TestSourceCodeSymbolInfo {
-    init(_ symbolInfo: XCTSourceCodeSymbolInfo) {
-        self.init(
-            imageName: symbolInfo.imageName,
-            symbolName: symbolInfo.symbolName,
-            location: symbolInfo.location.map { .init(defaultBuildParameters: $0) }
-        )
-    }
-}
-#endif
+        extension TestIssueType {
+            init(_ type: XCTIssue.IssueType) {
+                switch type {
+                case .assertionFailure: self = .assertionFailure
+                case .thrownError: self = .thrownError
+                case .uncaughtException: self = .uncaughtException
+                case .performanceRegression: self = .performanceRegression
+                case .system: self = .system
+                case .unmatchedExpectedFailure: self = .unmatchedExpectedFailure
+                @unknown default: self = .unknown
+                }
+            }
+        }
+    #endif
 
-extension TestSuiteRecord {
-    init(_ testSuite: XCTestSuite) {
-        self.init(name: testSuite.name)
+    #if canImport(Darwin)  // XCTSourceCodeLocation/XCTSourceCodeContext/XCTSourceCodeFrame/XCTSourceCodeSymbolInfo is unavailable in swift-corelibs-xctest.
+        extension TestLocation {
+            init(_ location: XCTSourceCodeLocation) {
+                self.init(
+                    file: location.fileURL.absoluteString,
+                    line: location.lineNumber
+                )
+            }
+        }
+
+        extension TestSourceCodeContext {
+            init(_ context: XCTSourceCodeContext) {
+                self.init(
+                    callStack: context.callStack.map { .init(defaultBuildParameters: $0) },
+                    location: context.location.map { .init(defaultBuildParameters: $0) }
+                )
+            }
+        }
+
+        extension TestSourceCodeFrame {
+            init(_ frame: XCTSourceCodeFrame) {
+                self.init(
+                    address: frame.address,
+                    symbolInfo: (try? frame.symbolInfo()).map { .init(defaultBuildParameters: $0) },
+                    symbolicationError: frame.symbolicationError.map { .init(defaultBuildParameters: $0) }
+                )
+            }
+        }
+
+        extension TestSourceCodeSymbolInfo {
+            init(_ symbolInfo: XCTSourceCodeSymbolInfo) {
+                self.init(
+                    imageName: symbolInfo.imageName,
+                    symbolName: symbolInfo.symbolName,
+                    location: symbolInfo.location.map { .init(defaultBuildParameters: $0) }
+                )
+            }
+        }
+    #endif
+
+    extension TestSuiteRecord {
+        init(_ testSuite: XCTestSuite) {
+            self.init(name: testSuite.name)
+        }
     }
-}
 #endif

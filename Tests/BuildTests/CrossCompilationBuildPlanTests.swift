@@ -48,13 +48,15 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
             shouldLinkStaticSwiftStdlib: true
         )
 
-        var result = try await BuildPlanResult(plan: mockBuildPlan(
-            triple: triple,
-            graph: graph,
-            linkingParameters: linkingParameters,
-            fileSystem: fs,
-            observabilityScope: observabilityScope
-        ))
+        var result = try await BuildPlanResult(
+            plan: mockBuildPlan(
+                triple: triple,
+                graph: graph,
+                linkingParameters: linkingParameters,
+                fileSystem: fs,
+                observabilityScope: observabilityScope
+            )
+        )
         result.checkProductsCount(2)
         // There are two additional modules on non-Apple platforms, for test discovery and
         // test entry point
@@ -77,13 +79,15 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
 
         (graph, fs, observabilityScope) = try embeddedCxxInteropPackageGraph()
 
-        result = try await BuildPlanResult(plan: mockBuildPlan(
-            triple: triple,
-            graph: graph,
-            linkingParameters: linkingParameters,
-            fileSystem: fs,
-            observabilityScope: observabilityScope
-        ))
+        result = try await BuildPlanResult(
+            plan: mockBuildPlan(
+                triple: triple,
+                graph: graph,
+                linkingParameters: linkingParameters,
+                fileSystem: fs,
+                observabilityScope: observabilityScope
+            )
+        )
         result.checkProductsCount(2)
         // There are two additional modules on non-Apple platforms, for test discovery and
         // test entry point
@@ -108,17 +112,19 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
     func testWasmTargetRelease() async throws {
         let (graph, fs, observabilityScope) = try trivialPackageGraph()
 
-        let result = try await BuildPlanResult(plan: mockBuildPlan(
-            config: .release,
-            triple: .wasi,
-            graph: graph,
-            linkingParameters: .init(
-                linkerDeadStrip: true,
-                shouldLinkStaticSwiftStdlib: true
-            ),
-            fileSystem: fs,
-            observabilityScope: observabilityScope
-        ))
+        let result = try await BuildPlanResult(
+            plan: mockBuildPlan(
+                config: .release,
+                triple: .wasi,
+                graph: graph,
+                linkingParameters: .init(
+                    linkerDeadStrip: true,
+                    shouldLinkStaticSwiftStdlib: true
+                ),
+                fileSystem: fs,
+                observabilityScope: observabilityScope
+            )
+        )
         let buildPath = result.plan.productsBuildPath
 
         let appBuildDescription = try result.buildProduct(for: "app")
@@ -142,15 +148,17 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
 
         let (graph, fs, observabilityScope) = try trivialPackageGraph()
 
-        let result = try await BuildPlanResult(plan: mockBuildPlan(
-            triple: .wasi,
-            graph: graph,
-            linkingParameters: .init(
-                shouldLinkStaticSwiftStdlib: true
-            ),
-            fileSystem: fs,
-            observabilityScope: observabilityScope
-        ))
+        let result = try await BuildPlanResult(
+            plan: mockBuildPlan(
+                triple: .wasi,
+                graph: graph,
+                linkingParameters: .init(
+                    shouldLinkStaticSwiftStdlib: true
+                ),
+                fileSystem: fs,
+                observabilityScope: observabilityScope
+            )
+        )
         result.checkProductsCount(2)
         // There are two additional modules on non-Apple platforms, for test discovery and
         // test entry point
@@ -164,13 +172,16 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
                 .first { $0.destination == .target }
         )
 
-        XCTAssertEqual(try lib.basicArguments(isCXX: false), [
-            "-target", "wasm32-unknown-wasi",
-            "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1",
-            "-fblocks",
-            "-I", pkgPath.appending(components: "Sources", "lib", "include").pathString,
-            "-g",
-        ])
+        XCTAssertEqual(
+            try lib.basicArguments(isCXX: false),
+            [
+                "-target", "wasm32-unknown-wasi",
+                "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1",
+                "-fblocks",
+                "-I", pkgPath.appending(components: "Sources", "lib", "include").pathString,
+                "-g",
+            ]
+        )
         XCTAssertEqual(try lib.objects, [buildPath.appending(components: "lib.build", "lib.c.o")])
         XCTAssertEqual(lib.moduleMap, buildPath.appending(components: "lib.build", "module.modulemap"))
 
@@ -248,9 +259,11 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
         result.checkProductsCount(3)
         result.checkTargetsCount(10)
 
-        XCTAssertTrue(try result.allTargets(named: "SwiftSyntax")
-            .map { try $0.swift() }
-            .contains { $0.destination == .host })
+        XCTAssertTrue(
+            try result.allTargets(named: "SwiftSyntax")
+                .map { try $0.swift() }
+                .contains { $0.destination == .host }
+        )
         try result.check(destination: .host, triple: toolsTriple, for: "MMIOMacros")
         try result.check(destination: .target, triple: destinationTriple, for: "MMIO")
         try result.check(destination: .target, triple: destinationTriple, for: "Core")
@@ -272,7 +285,7 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
                 .anySequence,
                 "-Xfrontend", "-load-plugin-executable",
                 // Verify that macros are located in the tools triple directory.
-                "-Xfrontend", .contains(toolsTriple.tripleString)
+                "-Xfrontend", .contains(toolsTriple.tripleString),
             ]
         )
     }
@@ -311,9 +324,11 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
         result.checkProductsCount(3)
         result.checkTargetsCount(20)
 
-        XCTAssertTrue(try result.allTargets(named: "SwiftSyntax")
-            .map { try $0.swift() }
-            .contains { $0.destination == .host })
+        XCTAssertTrue(
+            try result.allTargets(named: "SwiftSyntax")
+                .map { try $0.swift() }
+                .contains { $0.destination == .host }
+        )
 
         try result.check(destination: .host, triple: toolsTriple, for: "swift-mmioPackageTests")
         try result.check(destination: .host, triple: toolsTriple, for: "swift-mmioPackageDiscoveredTests")
@@ -338,7 +353,7 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
                 .anySequence,
                 "-Xfrontend", "-load-plugin-executable",
                 // Verify that macros are located in the tools triple directory.
-                "-Xfrontend", .contains(toolsTriple.tripleString)
+                "-Xfrontend", .contains(toolsTriple.tripleString),
             ]
         )
     }
@@ -369,9 +384,11 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
             result.checkProductsCount(4)
             result.checkTargetsCount(6)
 
-            XCTAssertTrue(try result.allTargets(named: "SwiftSyntax")
-                .map { try $0.swift() }
-                .contains { $0.destination == .host })
+            XCTAssertTrue(
+                try result.allTargets(named: "SwiftSyntax")
+                    .map { try $0.swift() }
+                    .contains { $0.destination == .host }
+            )
 
             try result.check(destination: .host, triple: toolsTriple, for: "swift-mmioPackageTests")
             try result.check(destination: .host, triple: toolsTriple, for: "swift-mmioPackageDiscoveredTests")

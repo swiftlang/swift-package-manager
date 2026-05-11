@@ -96,7 +96,7 @@ public final class InMemoryGitRepository {
     }
 
     /// Copy/clone this repository.
-    fileprivate func copy(at newPath: AbsolutePath? = nil)  throws -> InMemoryGitRepository {
+    fileprivate func copy(at newPath: AbsolutePath? = nil) throws -> InMemoryGitRepository {
         let path = newPath ?? self.path
         try self.fs.createDirectory(path, recursive: true)
         let repo = InMemoryGitRepository(path: path, fs: self.fs)

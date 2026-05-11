@@ -17,11 +17,9 @@ import PackageLoading
 import _InternalBuildTestSupport
 import Build
 
-@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
-@testable import PackageGraph
+@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly) @testable import PackageGraph
 
-@_spi(SwiftPMInternal)
-@testable import PackageModel
+@_spi(SwiftPMInternal) @testable import PackageModel
 
 @testable import SPMBuildCore
 
@@ -39,8 +37,8 @@ import Build
     var pluginIncludeDir: Basics.AbsolutePath { pluginOutputDir.appending("include") }
     var pluginModuleMapFile: Basics.AbsolutePath { pluginIncludeDir.appending("module.modulemap") }
     var pluginModuleMapArg: String { "-fmodule-map-file=\(pluginModuleMapFile.pathString)" }
-    var pluginAPINotesFile: Basics.AbsolutePath { pluginIncludeDir.appending("Gened.apinotes")}
-    var pluginHeaderFile: Basics.AbsolutePath { pluginIncludeDir.appending("Gened.h")}
+    var pluginAPINotesFile: Basics.AbsolutePath { pluginIncludeDir.appending("Gened.apinotes") }
+    var pluginHeaderFile: Basics.AbsolutePath { pluginIncludeDir.appending("Gened.h") }
     var pluginSourceFile: Basics.AbsolutePath { pluginOutputDir.appending("Gened.c") }
 
     func setup(
@@ -50,17 +48,18 @@ import Build
         observability: ObservabilityScope
     ) async throws -> BuildPlanResult {
         let toolsVersion = try toolsVersion ?? #require(ToolsVersion(string: "6.3", experimentalFeatures: [.experimentalCGen]))
-        let sources = switch kind {
-        case .cModule:
-            [
-                "/MyPkg/Sources/MyModule/MyModule.c",
-                "/MyPkg/Sources/MyModule/include/MyModule.h",
-            ]
-        case .swiftModule:
-            [
-                "/MyPkg/Sources/MyModule/MyModule.swift",
-            ]
-        }
+        let sources =
+            switch kind {
+            case .cModule:
+                [
+                    "/MyPkg/Sources/MyModule/MyModule.c",
+                    "/MyPkg/Sources/MyModule/include/MyModule.h",
+                ]
+            case .swiftModule:
+                [
+                    "/MyPkg/Sources/MyModule/MyModule.swift"
+                ]
+            }
 
         let fs = InMemoryFileSystem(
             emptyFiles: [
@@ -69,7 +68,7 @@ import Build
                 "/MyPkg/Sources/MyModule/data.in",
                 "/MyPkg/Sources/MyCModule/include/MyCModule.h",
                 "/MyPkg/Sources/MyCModule/MyCModule.c",
-                "/MyPkg/Sources/MyExe/MyExe.swift"
+                "/MyPkg/Sources/MyExe/MyExe.swift",
             ] + sources
         )
 
@@ -81,7 +80,7 @@ import Build
                     path: "/MyPkg",
                     toolsVersion: toolsVersion,
                     products: [
-                        .init(name: "MyExe", type: .executable, targets: ["MyExe"]),
+                        .init(name: "MyExe", type: .executable, targets: ["MyExe"])
                     ],
                     targets: [
                         .init(name: "MyGenerator", type: .executable),
@@ -93,7 +92,7 @@ import Build
                         ),
                         .init(name: "MyModule", dependencies: ["MyPlugin"]),
                         .init(name: "MyCModule", dependencies: ["MyModule"]),
-                        .init(name: "MyExe", dependencies: ["MyCModule"], type: .executable)
+                        .init(name: "MyExe", dependencies: ["MyCModule"], type: .executable),
                     ]
                 )
             ],
@@ -102,10 +101,11 @@ import Build
 
         // TODO: this should be made a utility
         struct MockPluginScriptRunner: PluginScriptRunner {
-            let genMessages: (
-                _ sourceFiles: [Basics.AbsolutePath],
-                _ workingDirectory: Basics.AbsolutePath,
-            ) -> [PluginToHostMessage]
+            let genMessages:
+                (
+                    _ sourceFiles: [Basics.AbsolutePath],
+                    _ workingDirectory: Basics.AbsolutePath,
+                ) -> [PluginToHostMessage]
 
             func compilePluginScript(
                 sourceFiles: [Basics.AbsolutePath],
@@ -115,8 +115,8 @@ import Build
                 observabilityScope: Basics.ObservabilityScope,
                 callbackQueue: DispatchQueue,
                 delegate: any SPMBuildCore.PluginScriptCompilerDelegate,
-                completion: @escaping (Result<SPMBuildCore.PluginCompilationResult, any Error>) -> Void)
-            {
+                completion: @escaping (Result<SPMBuildCore.PluginCompilationResult, any Error>) -> Void
+            ) {
                 callbackQueue.sync {
                     completion(.failure(StringError("unimplemented")))
                 }
@@ -146,8 +146,8 @@ import Build
                 observabilityScope: Basics.ObservabilityScope,
                 callbackQueue: DispatchQueue,
                 delegate: any SPMBuildCore.PluginScriptCompilerDelegate & SPMBuildCore.PluginScriptRunnerDelegate,
-                completion: @escaping (Result<Int32, any Error>) -> Void)
-            {
+                completion: @escaping (Result<Int32, any Error>) -> Void
+            ) {
                 callbackQueue.sync {
                     do {
                         let decoder = JSONDecoder.makeWithDefaults()
@@ -202,7 +202,7 @@ import Build
         )
 
         let pluginTools: [ResolvedModule.ID: [String: PluginTool]] = [
-            .init(moduleName: "MyPlugin", packageIdentity: .plain("MyPkg")) : [
+            .init(moduleName: "MyPlugin", packageIdentity: .plain("MyPkg")): [
                 "MyGenerator": .init(path: "/Foo", source: .built)
             ]
         ]
@@ -239,7 +239,8 @@ import Build
                 "include/module.modulemap",
                 "include/Gened.apinotes",
                 "Gened.c",
-            ], observability: observability.topScope
+            ],
+            observability: observability.topScope
         )
         #expect(!observability.hasErrorDiagnostics && !observability.hasWarningDiagnostics)
 
@@ -281,7 +282,8 @@ import Build
                 "include/module.modulemap",
                 "include/Gened.apinotes",
                 "Gened.c",
-            ], observability: observability.topScope
+            ],
+            observability: observability.topScope
         )
 
         let warnings = observability.warnings.map(\.message)
@@ -358,7 +360,7 @@ extension HostToPluginMessage.InputContext {
     func url(for id: WireInput.URL.Id) throws -> AbsolutePath {
         // Compose a path based on an optional base path and a subpath.
         let wirePath = paths[id]
-        let basePath = try paths[id].baseURLId.map{ try self.url(for: $0) }
+        let basePath = try paths[id].baseURLId.map { try self.url(for: $0) }
         let path: AbsolutePath
         if let basePath {
             path = basePath.appending(wirePath.subpath)

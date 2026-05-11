@@ -23,15 +23,15 @@ import func TSCBasic.topologicalSort
 import struct Basics.Environment
 
 #if USE_IMPL_ONLY_IMPORTS
-@_implementationOnly import class DriverSupport.SPMSwiftDriverExecutor
-@_implementationOnly import Foundation
-@_implementationOnly import SwiftDriver
-@_implementationOnly import TSCUtility
+    @_implementationOnly import class DriverSupport.SPMSwiftDriverExecutor
+    @_implementationOnly import Foundation
+    @_implementationOnly import SwiftDriver
+    @_implementationOnly import TSCUtility
 #else
-import class DriverSupport.SPMSwiftDriverExecutor
-import Foundation
-import SwiftDriver
-import TSCUtility
+    import class DriverSupport.SPMSwiftDriverExecutor
+    import Foundation
+    import SwiftDriver
+    import TSCUtility
 #endif
 
 import PackageModel
@@ -239,9 +239,7 @@ extension LLBuildManifestBuilder {
                 // and their products to speed up search here, which is inefficient if the plan
                 // contains a lot of products.
                 if let productDescription = try plan.productMap.values.first(where: {
-                    try $0.product.type == .executable &&
-                        $0.product.executableModule.id == module.id &&
-                        $0.destination == description.destination
+                    try $0.product.type == .executable && $0.product.executableModule.id == module.id && $0.destination == description.destination
                 }) {
                     try inputs.append(file: productDescription.binaryPath)
                 }
@@ -319,15 +317,18 @@ extension LLBuildManifestBuilder {
             }
         }
 
-
         let additionalInputs = try self.addBuildToolPlugins(.swift(target))
 
         // Depend on any required macro's output.
         try target.requiredMacros.forEach { macro in
-            inputs.append(.virtual(getLLBuildTargetName(
-                macro: macro,
-                buildParameters: target.macroBuildParameters
-            )))
+            inputs.append(
+                .virtual(
+                    getLLBuildTargetName(
+                        macro: macro,
+                        buildParameters: target.macroBuildParameters
+                    )
+                )
+            )
         }
 
         return inputs + additionalInputs
@@ -411,7 +412,8 @@ extension Driver {
     func checkLDPathOption(commandLine: [String]) throws {
         // `-ld-path` option is only available in recent versions of the compiler: rdar://117049947
         if let option = commandLine.first(where: { $0.hasPrefix("-ld-path") }),
-           !self.supportedFrontendFeatures.contains("ld-path-driver-option") {
+            !self.supportedFrontendFeatures.contains("ld-path-driver-option")
+        {
             throw LLBuildManifestBuilder.Error.ldPathDriverOptionUnavailable(option: option)
         }
     }

@@ -29,11 +29,11 @@ public final class PackageGraphResult {
     }
 
     public func check(roots: PackageIdentity..., sourceLocation: SourceLocation = #_sourceLocation) {
-        #expect(graph.rootPackages.map{$0.identity }.sorted() == roots.sorted(), sourceLocation: sourceLocation)
+        #expect(graph.rootPackages.map { $0.identity }.sorted() == roots.sorted(), sourceLocation: sourceLocation)
     }
 
     public func check(packages: PackageIdentity..., sourceLocation: SourceLocation = #_sourceLocation) {
-        #expect(graph.packages.map {$0.identity }.sorted() == packages.sorted(), sourceLocation: sourceLocation)
+        #expect(graph.packages.map { $0.identity }.sorted() == packages.sorted(), sourceLocation: sourceLocation)
     }
 
     public func check(modules: String..., sourceLocation: SourceLocation = #_sourceLocation) {
@@ -41,7 +41,9 @@ public final class PackageGraphResult {
             graph.allModules
                 .filter { $0.type != .test }
                 .map { $0.name }
-                .sorted() == modules.sorted(), sourceLocation: sourceLocation)
+                .sorted() == modules.sorted(),
+            sourceLocation: sourceLocation
+        )
     }
 
     public func check(products: String..., sourceLocation: SourceLocation = #_sourceLocation) {
@@ -99,7 +101,6 @@ public final class PackageGraphResult {
     ) throws {
         let product = try #require(graph.product(for: name), "Product \(name) not found", sourceLocation: sourceLocation)
 
-
         body(ResolvedProductResult(product))
     }
 
@@ -115,9 +116,11 @@ public final class PackageGraphResult {
     public func check(testModules: String..., sourceLocation: SourceLocation = #_sourceLocation) {
         #expect(
             graph.allModules
-                .filter{ $0.type == .test }
-                .map{ $0.name }
-                .sorted() == testModules.sorted(), sourceLocation: sourceLocation)
+                .filter { $0.type == .test }
+                .map { $0.name }
+                .sorted() == testModules.sorted(),
+            sourceLocation: sourceLocation
+        )
     }
 
     public func find(package: PackageIdentity) -> ResolvedPackage? {
@@ -126,7 +129,8 @@ public final class PackageGraphResult {
 
     private func reachableBuildTargets(in environment: BuildEnvironment) throws -> IdentifiableSet<ResolvedModule> {
         let inputTargets = graph.inputPackages.lazy.flatMap { $0.modules }
-        let recursiveBuildTargetDependencies = try inputTargets
+        let recursiveBuildTargetDependencies =
+            try inputTargets
             .flatMap { try $0.recursiveDependencies(satisfying: environment) }
             .compactMap { $0.module }
         return IdentifiableSet(inputTargets).union(recursiveBuildTargetDependencies)
@@ -183,7 +187,9 @@ public final class ResolvedTargetResult {
 
     public func checkDerivedPlatforms(_ platforms: [String: String], sourceLocation: SourceLocation = #_sourceLocation) {
         let derived = platforms.map {
-            let platform = PlatformRegistry.default.platformByName[$0.key] ?? PackageModel.Platform
+            let platform =
+                PlatformRegistry.default.platformByName[$0.key]
+                ?? PackageModel.Platform
                 .custom(name: $0.key, oldestSupportedVersion: $0.value)
             return self.target.getSupportedPlatform(for: platform, usingXCTest: self.target.type == .test)
         }
@@ -248,8 +254,8 @@ public final class ResolvedTargetDependencyResult {
         body: (ResolvedProductResult) -> Void
     ) {
         guard case let .product(product, _) = self.dependency else {
-             Issue.record("Dependency \(dependency) is not a product", sourceLocation: sourceLocation)
-             return
+            Issue.record("Dependency \(dependency) is not a product", sourceLocation: sourceLocation)
+            return
         }
         body(ResolvedProductResult(product))
     }

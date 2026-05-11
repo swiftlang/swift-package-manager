@@ -16,7 +16,11 @@ let package = Package(
     targets: [
         Target(
             name: "sys",
-            dependencies: [.Target(name: "libc")]),
+            dependencies: [.Target(name: "libc")]
+        ),
         Target(
             name: "dep",
-            dependencies: [.Target(name: "sys"), .Target(name: "libc")])])
+            dependencies: [.Target(name: "sys"), .Target(name: "libc")]
+        ),
+    ]
+)

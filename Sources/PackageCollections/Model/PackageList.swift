@@ -18,10 +18,10 @@ extension PackageCollectionsModel {
 
         /// Offset of the first item in the result
         public let offset: Int
-        
+
         /// The requested page size
         public let limit: Int
-        
+
         /// Total number of packages
         public let total: Int
     }

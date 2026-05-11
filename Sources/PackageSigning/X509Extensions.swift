@@ -13,40 +13,40 @@
 import struct Foundation.Data
 
 #if USE_IMPL_ONLY_IMPORTS
-#if canImport(Security)
-@_implementationOnly import Security
-#endif
+    #if canImport(Security)
+        @_implementationOnly import Security
+    #endif
 
-@_implementationOnly import SwiftASN1
-@_implementationOnly import X509
+    @_implementationOnly import SwiftASN1
+    @_implementationOnly import X509
 #else
-#if canImport(Security)
-import Security
-#endif
+    #if canImport(Security)
+        import Security
+    #endif
 
-import SwiftASN1
-import X509
+    import SwiftASN1
+    import X509
 #endif
 
 import Basics
 import TSCBasic
 
 #if canImport(Security)
-extension Certificate {
-    init(secCertificate: SecCertificate) throws {
-        let data = SecCertificateCopyData(secCertificate) as Data
-        self = try Certificate(Array(data))
-    }
-
-    init(secIdentity: SecIdentity) throws {
-        var secCertificate: SecCertificate?
-        let status = SecIdentityCopyCertificate(secIdentity, &secCertificate)
-        guard status == errSecSuccess, let secCertificate else {
-            throw StringError("failed to get certificate from SecIdentity: status \(status)")
+    extension Certificate {
+        init(secCertificate: SecCertificate) throws {
+            let data = SecCertificateCopyData(secCertificate) as Data
+            self = try Certificate(Array(data))
         }
-        self = try Certificate(secCertificate: secCertificate)
+
+        init(secIdentity: SecIdentity) throws {
+            var secCertificate: SecCertificate?
+            let status = SecIdentityCopyCertificate(secIdentity, &secCertificate)
+            guard status == errSecSuccess, let secCertificate else {
+                throw StringError("failed to get certificate from SecIdentity: status \(status)")
+            }
+            self = try Certificate(secCertificate: secCertificate)
+        }
     }
-}
 #endif
 
 extension Certificate {

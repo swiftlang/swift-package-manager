@@ -93,7 +93,7 @@ extension Workspace {
         ///     - subpath: The subpath inside the editable directory.
         ///     - unmanagedPath: A custom absolute path instead of the subpath.
         public func edited(subpath: Basics.RelativePath, unmanagedPath: Basics.AbsolutePath?) throws -> ManagedDependency {
-            guard case .sourceControlCheckout =  self.state else {
+            guard case .sourceControlCheckout = self.state else {
                 throw InternalError("invalid dependency state: \(self.state)")
             }
             return ManagedDependency(
@@ -187,7 +187,7 @@ extension Workspace {
         init() {
             self.dependencies = [:]
         }
-        
+
         private init(
             _ dependencies: [PackageIdentity: ManagedDependency]
         ) {

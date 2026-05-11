@@ -27,7 +27,8 @@ public func resolveSymlinks(_ path: AbsolutePath) throws -> AbsolutePath {
 }
 
 public func withTemporaryDirectory<Result>(
-    dir: AbsolutePath? = nil, prefix: String = "TemporaryDirectory",
+    dir: AbsolutePath? = nil,
+    prefix: String = "TemporaryDirectory",
     _ body: (AbsolutePath, @escaping (AbsolutePath) -> Void) throws -> Result
 ) throws -> Result {
     try TSCBasic.withTemporaryDirectory(dir: dir?.underlying, prefix: prefix) { path, callback in
@@ -39,7 +40,8 @@ public func withTemporaryDirectory<Result>(
 }
 
 public func withTemporaryDirectory<Result>(
-    dir: AbsolutePath? = nil, prefix: String = "TemporaryDirectory",
+    dir: AbsolutePath? = nil,
+    prefix: String = "TemporaryDirectory",
     _ body: (AbsolutePath, @escaping (AbsolutePath) async -> Void) async throws -> Result
 ) async throws -> Result {
     try await TSCBasic.withTemporaryDirectory(dir: dir?.underlying, prefix: prefix) { path, callback in
@@ -51,7 +53,9 @@ public func withTemporaryDirectory<Result>(
 }
 
 public func withTemporaryDirectory<Result>(
-    dir: AbsolutePath? = nil, prefix: String = "TemporaryDirectory", removeTreeOnDeinit: Bool = false,
+    dir: AbsolutePath? = nil,
+    prefix: String = "TemporaryDirectory",
+    removeTreeOnDeinit: Bool = false,
     _ body: (AbsolutePath) throws -> Result
 ) throws -> Result {
     try TSCBasic.withTemporaryDirectory(dir: dir?.underlying, prefix: prefix, removeTreeOnDeinit: removeTreeOnDeinit) {
@@ -60,7 +64,9 @@ public func withTemporaryDirectory<Result>(
 }
 
 public func withTemporaryDirectory<Result>(
-    dir: AbsolutePath? = nil, prefix: String = "TemporaryDirectory", removeTreeOnDeinit: Bool = false,
+    dir: AbsolutePath? = nil,
+    prefix: String = "TemporaryDirectory",
+    removeTreeOnDeinit: Bool = false,
     _ body: (AbsolutePath) async throws -> Result
 ) async throws -> Result {
     try await TSCBasic.withTemporaryDirectory(

@@ -128,7 +128,7 @@ extension PackageCollectionsModel.Package {
 
         /// Package version description
         public let summary: String?
-        
+
         /// Manifests by tools version
         public let manifests: [ToolsVersion: Manifest]
 
@@ -140,10 +140,10 @@ extension PackageCollectionsModel.Package {
 
         /// The package version's license
         public let license: PackageCollectionsModel.License?
-        
+
         /// The package version's author
         public let author: PackageCollectionsModel.Package.Author?
-        
+
         /// The package version's signer
         public let signer: PackageCollectionsModel.Signer?
 
@@ -231,13 +231,13 @@ extension PackageCollectionsModel {
     public struct Signer: Equatable, Codable {
         /// The signer type.
         public let type: SignerType
-        
+
         /// The common name of the signing certificate's subject.
         public let commonName: String
-        
+
         /// The organizational unit name of the signing certificate's subject.
         public let organizationalUnitName: String
-        
+
         /// The organization name of the signing certificate's subject.
         public let organizationName: String
 
@@ -253,9 +253,9 @@ extension PackageCollectionsModel {
             self.organizationName = organizationName
         }
     }
-    
+
     public enum SignerType: String, Codable {
-        case adp // Apple Developer Program
+        case adp  // Apple Developer Program
     }
 }
 

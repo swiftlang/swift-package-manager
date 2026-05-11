@@ -57,12 +57,12 @@ final class PackageDescription5_7LoadingTests: PackageDescriptionLoadingTests {
         XCTAssertNoDiagnostics(observability.diagnostics)
         XCTAssertNoDiagnostics(validationDiagnostics)
 
-        let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map{ ($0.identity.description, $0) })
-        XCTAssertEqual(deps["x.foo"], .registry(identity: "x.foo", requirement: .range("1.1.1" ..< "2.0.0")))
+        let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map { ($0.identity.description, $0) })
+        XCTAssertEqual(deps["x.foo"], .registry(identity: "x.foo", requirement: .range("1.1.1"..<"2.0.0")))
         XCTAssertEqual(deps["x.bar"], .registry(identity: "x.bar", requirement: .exact("1.1.1")))
-        XCTAssertEqual(deps["x.baz"], .registry(identity: "x.baz", requirement: .range("1.1.1" ..< "2.0.0")))
-        XCTAssertEqual(deps["x.qux"], .registry(identity: "x.qux", requirement: .range("1.1.1" ..< "1.2.0")))
-        XCTAssertEqual(deps["x.quux"], .registry(identity: "x.quux", requirement: .range("1.1.1" ..< "3.0.0")))
+        XCTAssertEqual(deps["x.baz"], .registry(identity: "x.baz", requirement: .range("1.1.1"..<"2.0.0")))
+        XCTAssertEqual(deps["x.qux"], .registry(identity: "x.qux", requirement: .range("1.1.1"..<"1.2.0")))
+        XCTAssertEqual(deps["x.quux"], .registry(identity: "x.quux", requirement: .range("1.1.1"..<"3.0.0")))
     }
 
     func testConditionalTargetDependencies() async throws {
@@ -145,7 +145,7 @@ final class PackageDescription5_7LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testPlatforms() async throws {
-        let content =  """
+        let content = """
             import PackageDescription
             let package = Package(
                name: "Foo",
@@ -162,18 +162,21 @@ final class PackageDescription5_7LoadingTests: PackageDescriptionLoadingTests {
         XCTAssertNoDiagnostics(observability.diagnostics)
         XCTAssertNoDiagnostics(validationDiagnostics)
 
-        XCTAssertEqual(manifest.platforms, [
-            PlatformDescription(name: "macos", version: "13.0"),
-            PlatformDescription(name: "ios", version: "16.0"),
-            PlatformDescription(name: "tvos", version: "16.0"),
-            PlatformDescription(name: "watchos", version: "9.0"),
-            PlatformDescription(name: "maccatalyst", version: "16.0"),
-            PlatformDescription(name: "driverkit", version: "22.0"),
-        ])
+        XCTAssertEqual(
+            manifest.platforms,
+            [
+                PlatformDescription(name: "macos", version: "13.0"),
+                PlatformDescription(name: "ios", version: "16.0"),
+                PlatformDescription(name: "tvos", version: "16.0"),
+                PlatformDescription(name: "watchos", version: "9.0"),
+                PlatformDescription(name: "maccatalyst", version: "16.0"),
+                PlatformDescription(name: "driverkit", version: "22.0"),
+            ]
+        )
     }
 
     func testImportRestrictions() async throws {
-        let content =  """
+        let content = """
             import PackageDescription
             import BestModule
             let package = Package(name: "Foo")

@@ -285,7 +285,7 @@ public struct SupportedPlatform: Equatable, Sendable {
     ///   - versionString: The minimum deployment target as a string representation of two or three dot-separated integers, such as `19.0.1`.
     /// - Returns: A `SupportedPlatform` instance.
     @available(_PackageDescription, introduced: 5.6)
-    public static func custom(_ platformName: String,  versionString: String) -> SupportedPlatform {
+    public static func custom(_ platformName: String, versionString: String) -> SupportedPlatform {
         do {
             try CustomPlatformVersion.validateVersion(versionString)
         } catch {

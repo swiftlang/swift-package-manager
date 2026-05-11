@@ -66,7 +66,8 @@ private struct BasicTests {
 
             // Verify that the app works.
             let dealerOutput = try sh(
-                AbsolutePath(validating: ".build/debug/dealer", relativeTo: packagePath), "10"
+                AbsolutePath(validating: ".build/debug/dealer", relativeTo: packagePath),
+                "10"
             ).stdout
             #expect(dealerOutput.filter(\.isPlayingCardSuit).count == 10)
 
@@ -101,16 +102,16 @@ private struct BasicTests {
                 packagePath.appending(component: "Package.swift"),
                 bytes: ByteString(
                     encodingAsUTF8: """
-                    // swift-tools-version:4.2
-                    import PackageDescription
+                        // swift-tools-version:4.2
+                        import PackageDescription
 
-                    let package = Package(
-                        name: "tool",
-                        targets: [
-                            .target(name: "tool", path: "./"),
-                        ]
-                    )
-                    """
+                        let package = Package(
+                            name: "tool",
+                            targets: [
+                                .target(name: "tool", path: "./"),
+                            ]
+                        )
+                        """
                 )
             )
             try localFileSystem.writeFileContents(
@@ -147,7 +148,7 @@ private struct BasicTests {
             try localFileSystem.createDirectory(packagePath)
             try await executeSwiftPackage(
                 packagePath,
-            extraArgs: ["init", "--type", "executable"],
+                extraArgs: ["init", "--type", "executable"],
                 buildSystem: .native,
             )
             let packageOutput = try await executeSwiftBuild(
@@ -190,26 +191,26 @@ private struct BasicTests {
             // Create a new package with an executable target.
             let packagePath = tempDir.appending(component: "Project")
             try localFileSystem.createDirectory(packagePath)
-                try await executeSwiftPackage(
-                    packagePath,
-                    configuration: config,
-                    extraArgs: ["init", "--type", "library", "--enable-xctest", "--enable-swift-testing"],
-                    buildSystem: buildSystem,
-                )
-                let packageOutput = try await executeSwiftTest(
-                    packagePath,
-                    configuration: config,
-                    extraArgs: ["--vv"],
-                    buildSystem: buildSystem,
-                )
+            try await executeSwiftPackage(
+                packagePath,
+                configuration: config,
+                extraArgs: ["init", "--type", "library", "--enable-xctest", "--enable-swift-testing"],
+                buildSystem: buildSystem,
+            )
+            let packageOutput = try await executeSwiftTest(
+                packagePath,
+                configuration: config,
+                extraArgs: ["--vv"],
+                buildSystem: buildSystem,
+            )
 
-                // Check the test log.
-                #expect(packageOutput.stdout.contains("Executed 1 test"), "stdout: '\(packageOutput.stdout)'\n\n\n stderr:'\(packageOutput.stderr)'")
-                #expect(packageOutput.stdout.contains("Test run with 1 test"), "stdout: '\(packageOutput.stdout)'\n\n\n stderr:'\(packageOutput.stderr)'")
+            // Check the test log.
+            #expect(packageOutput.stdout.contains("Executed 1 test"), "stdout: '\(packageOutput.stdout)'\n\n\n stderr:'\(packageOutput.stderr)'")
+            #expect(packageOutput.stdout.contains("Test run with 1 test"), "stdout: '\(packageOutput.stdout)'\n\n\n stderr:'\(packageOutput.stderr)'")
 
-                // Check there were no compile errors or warnings.
-                #expect(!packageOutput.stdout.contains("error"))
-                #expect(!packageOutput.stdout.contains("warning"))
+            // Check there were no compile errors or warnings.
+            #expect(!packageOutput.stdout.contains("error"))
+            #expect(!packageOutput.stdout.contains("warning"))
         }
     }
 
@@ -243,10 +244,10 @@ private struct BasicTests {
 
             // Check the build log.
             switch buildSystem {
-                case .native:
-                    #expect(try #/Compiling .*Project.*/#.firstMatch(in: buildOutput) != nil)
-                case .swiftbuild, .xcode:
-                    break
+            case .native:
+                #expect(try #/Compiling .*Project.*/#.firstMatch(in: buildOutput) != nil)
+            case .swiftbuild, .xcode:
+                break
             }
             #expect(buildOutput.contains("Build complete"))
 
@@ -309,16 +310,16 @@ private struct BasicTests {
                 packagePath.appending(component: "Package.swift"),
                 bytes: ByteString(
                     encodingAsUTF8: """
-                    // swift-tools-version:4.2
-                    import PackageDescription
+                        // swift-tools-version:4.2
+                        import PackageDescription
 
-                    let package = Package(
-                    name: "special tool",
-                    targets: [
-                        .target(name: "special tool", path: "./"),
-                    ]
-                    )
-                    """
+                        let package = Package(
+                        name: "special tool",
+                        targets: [
+                            .target(name: "special tool", path: "./"),
+                        ]
+                        )
+                        """
                 )
             )
             try localFileSystem.writeFileContents(
@@ -338,14 +339,13 @@ private struct BasicTests {
                 buildSystem: buildSystem,
             ).stdout
             switch (buildSystem, config) {
-                case (.native, .debug) :
-                    let expression = ProcessInfo
-                        .hostOperatingSystem != .windows ?
-                        #/swiftc.* -module-name special_tool .* '@.*/more spaces/special tool/.build/[^/]+/debug/special_tool.build/sources'/# :
-                        #/swiftc.* -module-name special_tool .* "@.*\\more spaces\\special tool\\.build\\[^\\]+\\debug\\special_tool.build\\sources"/#
-                    #expect(try expression.firstMatch(in: buildOutput) != nil)
-                case (.swiftbuild, _), (.xcode, _), (.native, .release):
-                    break
+            case (.native, .debug):
+                let expression =
+                    ProcessInfo
+                        .hostOperatingSystem != .windows ? #/swiftc.* -module-name special_tool .* '@.*/more spaces/special tool/.build/[^/]+/debug/special_tool.build/sources'/# : #/swiftc.* -module-name special_tool .* "@.*\\more spaces\\special tool\\.build\\[^\\]+\\debug\\special_tool.build\\sources"/#
+                #expect(try expression.firstMatch(in: buildOutput) != nil)
+            case (.swiftbuild, _), (.xcode, _), (.native, .release):
+                break
             }
             #expect(buildOutput.contains("Build complete"))
 
@@ -391,29 +391,30 @@ private struct BasicTests {
                 packagePath.appending(components: "Sources", "secho.swift"),
                 bytes: ByteString(
                     encodingAsUTF8: """
-                    import Foundation
-                    print(CommandLine.arguments.dropFirst().joined(separator: " "))
-                    """
+                        import Foundation
+                        print(CommandLine.arguments.dropFirst().joined(separator: " "))
+                        """
                 )
             )
             let result = try await executeSwiftRun(
-                packagePath, "secho",
+                packagePath,
+                "secho",
                 configuration: config,
-                extraArgs: [ "1", #""two""#],
+                extraArgs: ["1", #""two""#],
                 buildSystem: buildSystem,
             )
 
             // Check the run log.
             switch buildSystem {
-                case .native:
-                    let compilingRegex = try Regex("Compiling .*secho.*")
-                    let linkingRegex: Regex<AnyRegexOutput> = try Regex("Linking .*secho")
-                    #expect(result.stdout.contains(compilingRegex), "stdout: '\(result.stdout)'\n stderr:'\(result.stderr)'")
-                    #expect(result.stdout.contains(linkingRegex),  "stdout: '\(result.stdout)'\n stderr:'\(result.stderr)'")
-                case .swiftbuild, .xcode:
+            case .native:
+                let compilingRegex = try Regex("Compiling .*secho.*")
+                let linkingRegex: Regex<AnyRegexOutput> = try Regex("Linking .*secho")
+                #expect(result.stdout.contains(compilingRegex), "stdout: '\(result.stdout)'\n stderr:'\(result.stderr)'")
+                #expect(result.stdout.contains(linkingRegex), "stdout: '\(result.stdout)'\n stderr:'\(result.stderr)'")
+            case .swiftbuild, .xcode:
                 break
             }
-            #expect(result.stdout.contains("Build of product 'secho' complete"),  "stdout: '\(result.stdout)'\n stderr:'\(result.stderr)'")
+            #expect(result.stdout.contains("Build of product 'secho' complete"), "stdout: '\(result.stdout)'\n stderr:'\(result.stderr)'")
 
             #expect(result.stdout == "1 \"two\"\(ProcessInfo.EOL)")
 
@@ -445,18 +446,18 @@ private struct BasicTests {
                 packagePath.appending(components: "Tests", "swiftTestTests", "MyTests.swift"),
                 bytes: ByteString(
                     encodingAsUTF8: """
-                    import XCTest
+                        import XCTest
 
-                    final class MyTests: XCTestCase {
-                        func testFoo() {
-                            XCTAssertTrue(1 == 1)
+                        final class MyTests: XCTestCase {
+                            func testFoo() {
+                                XCTAssertTrue(1 == 1)
+                            }
+                            func testBar() {
+                                XCTAssertFalse(1 == 2)
+                            }
+                            func testBaz() { }
                         }
-                        func testBar() {
-                            XCTAssertFalse(1 == 2)
-                        }
-                        func testBaz() { }
-                    }
-                    """
+                        """
                 )
             )
             let result = try await executeSwiftTest(
@@ -505,7 +506,7 @@ private struct BasicTests {
                 #expect(result.stdout.contains("Test Suite 'MyTests' passed"), "stdout: '\(result.stdout)'\n stderr:'\(result.stderr)'")
                 #expect(result.stdout.contains("Executed 2 tests, with 0 failures"), "stdout: '\(result.stdout)'\n stderr:'\(result.stderr)'")
             } when: {
-                [.linux, .windows].contains(ProcessInfo.hostOperatingSystem) && buildSystem == .swiftbuild // Because the build failed
+                [.linux, .windows].contains(ProcessInfo.hostOperatingSystem) && buildSystem == .swiftbuild  // Because the build failed
             }
         }
     }

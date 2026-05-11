@@ -19,8 +19,7 @@ import _InternalTestSupport
 import TSCBasic
 import XCTest
 import class Basics.ObservabilitySystem
-@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
-import func PackageGraph.loadModulesGraph
+@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly) import func PackageGraph.loadModulesGraph
 import class PackageModel.Manifest
 import struct PackageGraph.ModulesGraph
 import struct PackageModel.TargetDescription
@@ -65,9 +64,11 @@ class PrepareForIndexTests: XCTestCase {
         XCTAssertEqual(toolCommands.count, 1)
         let toolSwiftc = try XCTUnwrap(toolCommands.first?.tool as? SwiftCompilerTool)
         XCTAssertFalse(toolSwiftc.otherArguments.contains("-experimental-skip-all-function-bodies"))
-        XCTAssertTrue(toolSwiftc.outputs.contains(where: {
-            $0.name.hasSuffix(".swift.o")
-        }))
+        XCTAssertTrue(
+            toolSwiftc.outputs.contains(where: {
+                $0.name.hasSuffix(".swift.o")
+            })
+        )
 
         // Make sure only object files for tools are built
         XCTAssertTrue(
@@ -95,10 +96,10 @@ class PrepareForIndexTests: XCTestCase {
         XCTAssertTrue(manifest.targets.keys.contains(name))
     }
 
-    func testEnableTestingSetup() throws-> (fs: InMemoryFileSystem, observability: TestingObservability, graph: ModulesGraph) {
+    func testEnableTestingSetup() throws -> (fs: InMemoryFileSystem, observability: TestingObservability, graph: ModulesGraph) {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/Pkg/Sources/lib/lib.swift",
+                "/Pkg/Sources/lib/lib.swift",
             "/Pkg/Tests/test/TestCase.swift"
         )
 
@@ -114,7 +115,7 @@ class PrepareForIndexTests: XCTestCase {
                         TargetDescription(name: "lib", dependencies: []),
                         TargetDescription(name: "test", dependencies: ["lib"], type: .test),
                     ]
-                ),
+                )
             ],
             observabilityScope: observability.topScope
         )
@@ -139,21 +140,25 @@ class PrepareForIndexTests: XCTestCase {
         let debugBuilder = LLBuildManifestBuilder(debugPlan, fileSystem: fs, observabilityScope: scope)
         let debugManifest = try debugBuilder.generateManifest(at: "/manifest")
 
-        XCTAssertNil(debugManifest.commands.values.first(where: {
-            guard let swiftCommand = $0.tool as? SwiftCompilerTool,
-                swiftCommand.outputs.contains(where: { $0.name.hasSuffix("/lib.swiftmodule")})
-            else {
-                return false
-            }
-            return swiftCommand.otherArguments.contains("-experimental-skip-non-exportable-decls")
-                && !swiftCommand.otherArguments.contains("-enable-testing")
-        }))
+        XCTAssertNil(
+            debugManifest.commands.values.first(where: {
+                guard let swiftCommand = $0.tool as? SwiftCompilerTool,
+                    swiftCommand.outputs.contains(where: { $0.name.hasSuffix("/lib.swiftmodule") })
+                else {
+                    return false
+                }
+                return swiftCommand.otherArguments.contains("-experimental-skip-non-exportable-decls")
+                    && !swiftCommand.otherArguments.contains("-enable-testing")
+            })
+        )
     }
 
     func testEnableTestingReleaseConfiguration() async throws {
-        try XCTSkipOnWindows(because: """
-            Assertion failure.  ("0") is not equal to ("1"). Possibly related to https://github.com/swiftlang/swift-package-manager/issues/8511
-        """)
+        try XCTSkipOnWindows(
+            because: """
+                    Assertion failure.  ("0") is not equal to ("1"). Possibly related to https://github.com/swiftlang/swift-package-manager/issues/8511
+                """
+        )
 
         let (fs, observability, graph) = try self.testEnableTestingSetup()
         let scope = observability.topScope
@@ -171,15 +176,18 @@ class PrepareForIndexTests: XCTestCase {
         let releaseBuilder = LLBuildManifestBuilder(releasePlan, fileSystem: fs, observabilityScope: scope)
         let releaseManifest = try releaseBuilder.generateManifest(at: "/manifest")
 
-        XCTAssertEqual(releaseManifest.commands.values.filter({
-            guard let swiftCommand = $0.tool as? SwiftCompilerTool,
-                swiftCommand.outputs.contains(where: { $0.name.hasSuffix("/lib.swiftmodule")})
-            else {
-                return false
-            }
-            return swiftCommand.otherArguments.contains("-experimental-skip-non-exportable-decls")
-                && !swiftCommand.otherArguments.contains("-enable-testing")
-        }).count, 1)
+        XCTAssertEqual(
+            releaseManifest.commands.values.filter({
+                guard let swiftCommand = $0.tool as? SwiftCompilerTool,
+                    swiftCommand.outputs.contains(where: { $0.name.hasSuffix("/lib.swiftmodule") })
+                else {
+                    return false
+                }
+                return swiftCommand.otherArguments.contains("-experimental-skip-non-exportable-decls")
+                    && !swiftCommand.otherArguments.contains("-enable-testing")
+            }).count,
+            1
+        )
     }
 
     func testPrepareNoLazy() async throws {

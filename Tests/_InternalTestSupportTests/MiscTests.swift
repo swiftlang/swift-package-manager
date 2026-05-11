@@ -37,19 +37,19 @@ struct TestGetNumberOfMatches {
             (
                 matchOn: "",
                 value: """
-                    This is a non-empty string
-                    This is the second line
-                    This is the third line
-                    """,
+                This is a non-empty string
+                This is the second line
+                This is the third line
+                """,
                 expectedNumMatches: 0,
                 id: "Empty string matches on non-empty multiline string using triple double quotes zero times",
             ),
             (
                 matchOn: """
-                    This is a non-empty string
-                    This is the second line
-                    This is the third line
-                    """,
+                This is a non-empty string
+                This is the second line
+                This is the third line
+                """,
                 value: "",
                 expectedNumMatches: 0,
                 id: "non-empty string matches on empty string zero times",
@@ -57,45 +57,45 @@ struct TestGetNumberOfMatches {
             (
                 matchOn: "error: fatalError",
                 value: """
-                    > swift test                                                                                          25/10/24 10:44:14
-                    Building for debugging...
-                    /Users/arandomuser/Documents/personal/repro-swiftpm-6605/Tests/repro-swiftpm-6605Tests/repro_swiftpm_6605Tests.swift:7:19: error: division by zero
-                            let y = 1 / x
-                                    ^
-                    error: fatalError
+                > swift test                                                                                          25/10/24 10:44:14
+                Building for debugging...
+                /Users/arandomuser/Documents/personal/repro-swiftpm-6605/Tests/repro-swiftpm-6605Tests/repro_swiftpm_6605Tests.swift:7:19: error: division by zero
+                        let y = 1 / x
+                                ^
+                error: fatalError
 
-                    error: fatalError
-                    """,
+                error: fatalError
+                """,
                 expectedNumMatches: 2,
                 id: "fatal error matches on multiline with two occurrences returns two",
             ),
             (
                 matchOn: "\nerror: fatalError",
                 value: """
-                    > swift test                                                                                          25/10/24 10:44:14
-                    Building for debugging...
-                    /Users/arandomuser/Documents/personal/repro-swiftpm-6605/Tests/repro-swiftpm-6605Tests/repro_swiftpm_6605Tests.swift:7:19: error: division by zero
-                            let y = 1 / x
-                                    ^
-                    error: fatalError
+                > swift test                                                                                          25/10/24 10:44:14
+                Building for debugging...
+                /Users/arandomuser/Documents/personal/repro-swiftpm-6605/Tests/repro-swiftpm-6605Tests/repro_swiftpm_6605Tests.swift:7:19: error: division by zero
+                        let y = 1 / x
+                                ^
+                error: fatalError
 
-                    error: fatalError
-                    """,
+                error: fatalError
+                """,
                 expectedNumMatches: 2,
                 id: "fatal error with leading new line matches on multi line with two occurences returns two",
             ),
             (
                 matchOn: "\nerror: fatalError\n",
                 value: """
-                    > swift test                                                                                          25/10/24 10:44:14
-                    Building for debugging...
-                    /Users/arandomuser/Documents/personal/repro-swiftpm-6605/Tests/repro-swiftpm-6605Tests/repro_swiftpm_6605Tests.swift:7:19: error: division by zero
-                            let y = 1 / x
-                                    ^
-                    error: fatalError
+                > swift test                                                                                          25/10/24 10:44:14
+                Building for debugging...
+                /Users/arandomuser/Documents/personal/repro-swiftpm-6605/Tests/repro-swiftpm-6605Tests/repro_swiftpm_6605Tests.swift:7:19: error: division by zero
+                        let y = 1 / x
+                                ^
+                error: fatalError
 
-                    error: fatalError
-                    """,
+                error: fatalError
+                """,
                 expectedNumMatches: 1,
                 id: "fatal error with leading and trailing new line matches on multi line with two occurences returns two",
             ),
@@ -117,7 +117,7 @@ struct TestGetBuildSystemArgs {
     @Test
     func nilArgumentReturnsEmptyArray() {
         let expected: [String] = []
-        let inputUnderTest: BuildSystemProvider.Kind?  = nil
+        let inputUnderTest: BuildSystemProvider.Kind? = nil
 
         let actual = getBuildSystemArgs(for: inputUnderTest)
 
@@ -130,7 +130,7 @@ struct TestGetBuildSystemArgs {
     func validArgumentsReturnsCorrectCommandLineArguments(_ inputValue: BuildSystemProvider.Kind) {
         let expected = [
             "--build-system",
-            "\(inputValue)"
+            "\(inputValue)",
         ]
 
         let actual = getBuildSystemArgs(for: inputValue)

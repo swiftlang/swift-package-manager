@@ -25,11 +25,13 @@ extension ProgressAnimation {
         Self.dynamic(
             stream: stream,
             verbose: verbose,
-            ttyTerminalAnimationFactory: { RedrawingPercentProgressAnimation(
-                terminal: $0,
-                header: header,
-                isColorized: isColorized
-            ) },
+            ttyTerminalAnimationFactory: {
+                RedrawingPercentProgressAnimation(
+                    terminal: $0,
+                    header: header,
+                    isColorized: isColorized
+                )
+            },
             dumbTerminalAnimationFactory: { SingleLinePercentProgressAnimation(stream: stream, header: header) },
             defaultAnimationFactory: { MultiLinePercentProgressAnimation(stream: stream, header: header) }
         )
@@ -81,7 +83,9 @@ final class RedrawingPercentProgressAnimation: ProgressAnimationProtocol {
         terminal.clearLine()
         let percentage = step * 100 / total
         let paddedPercentage = percentage < 10 ? " \(percentage)" : "\(percentage)"
-        let prefix = "\(paddedPercentage)% " + terminal
+        let prefix =
+            "\(paddedPercentage)% "
+            + terminal
             .wrap("[", inColor: colorizeText(color: .green), bold: isBold)
         terminal.write(prefix)
 

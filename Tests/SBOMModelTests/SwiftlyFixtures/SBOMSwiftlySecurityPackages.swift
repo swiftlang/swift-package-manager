@@ -147,7 +147,7 @@ extension SBOMTestModulesGraph {
             packageIdentity: identity,
             module: cCryptoBoringSSLShimsModule,
             dependencies: [
-                .module(resolvedCCryptoBoringSSLModule, conditions: []),
+                .module(resolvedCCryptoBoringSSLModule, conditions: [])
             ]
         )
 

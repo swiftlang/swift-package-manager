@@ -26,7 +26,7 @@ public struct DirectedGraph<Node> {
     public mutating func addEdge(source: Int, destination: Int) {
         self.edges[source].append(destination)
     }
-    
+
     /// Checks whether a path via previously created edges between two given nodes exists.
     /// - Parameters:
     ///   - source: `Index` of a node to start traversing edges from.

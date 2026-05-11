@@ -71,8 +71,8 @@ struct EnvironmentKeyTests {
         #expect(key0 != key2)
 
         #if os(Windows)
-        // Test case insensitivity on windows
-        let key3 = EnvironmentKey("teSt")
+            // Test case insensitivity on windows
+            let key3 = EnvironmentKey("teSt")
             #expect(key0 == key3)
         #endif
     }
@@ -106,8 +106,8 @@ struct EnvironmentKeyTests {
         #expect(set.insert(key2).inserted)
 
         #if os(Windows)
-        // Test case insensitivity on windows
-        let key3 = EnvironmentKey("teSt")
+            // Test case insensitivity on windows
+            let key3 = EnvironmentKey("teSt")
             #expect(set.contains(key3))
             #expect(!set.insert(key3).inserted)
         #endif

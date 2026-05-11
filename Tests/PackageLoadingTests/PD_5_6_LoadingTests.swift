@@ -57,13 +57,13 @@ final class PackageDescription5_6LoadingTests: PackageDescriptionLoadingTests {
         XCTAssertFalse(observability.diagnostics.hasErrors)
         XCTAssertNoDiagnostics(validationDiagnostics)
 
-        let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map{ ($0.identity.description, $0) })
-        XCTAssertEqual(deps["foo1"], .remoteSourceControl(identity: .plain("foo1"), deprecatedName: "foo1", url: "http://localhost/foo1", requirement: .range("1.1.1" ..< "2.0.0")))
-        XCTAssertEqual(deps["foo2"], .remoteSourceControl(identity: .plain("foo2"), url: "http://localhost/foo2", requirement: .range("1.1.1" ..< "2.0.0")))
-        XCTAssertEqual(deps["bar1"], .remoteSourceControl(identity: .plain("bar1"), deprecatedName: "bar1", url: "http://localhost/bar1", requirement: .range("1.1.1" ..< "2.0.0")))
-        XCTAssertEqual(deps["bar2"], .remoteSourceControl(identity: .plain("bar2"), url: "http://localhost/bar2", requirement: .range("1.1.1" ..< "2.0.0")))
-        XCTAssertEqual(deps["baz1"], .remoteSourceControl(identity: .plain("baz1"), deprecatedName: "baz1", url: "http://localhost/baz1", requirement: .range("1.1.1" ..< "1.2.0")))
-        XCTAssertEqual(deps["baz2"], .remoteSourceControl(identity: .plain("baz2"), url: "http://localhost/baz2", requirement: .range("1.1.1" ..< "1.2.0")))
+        let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map { ($0.identity.description, $0) })
+        XCTAssertEqual(deps["foo1"], .remoteSourceControl(identity: .plain("foo1"), deprecatedName: "foo1", url: "http://localhost/foo1", requirement: .range("1.1.1"..<"2.0.0")))
+        XCTAssertEqual(deps["foo2"], .remoteSourceControl(identity: .plain("foo2"), url: "http://localhost/foo2", requirement: .range("1.1.1"..<"2.0.0")))
+        XCTAssertEqual(deps["bar1"], .remoteSourceControl(identity: .plain("bar1"), deprecatedName: "bar1", url: "http://localhost/bar1", requirement: .range("1.1.1"..<"2.0.0")))
+        XCTAssertEqual(deps["bar2"], .remoteSourceControl(identity: .plain("bar2"), url: "http://localhost/bar2", requirement: .range("1.1.1"..<"2.0.0")))
+        XCTAssertEqual(deps["baz1"], .remoteSourceControl(identity: .plain("baz1"), deprecatedName: "baz1", url: "http://localhost/baz1", requirement: .range("1.1.1"..<"1.2.0")))
+        XCTAssertEqual(deps["baz2"], .remoteSourceControl(identity: .plain("baz2"), url: "http://localhost/baz2", requirement: .range("1.1.1"..<"1.2.0")))
         XCTAssertEqual(deps["qux1"], .remoteSourceControl(identity: .plain("qux1"), deprecatedName: "qux1", url: "http://localhost/qux1", requirement: .exact("1.1.1")))
         XCTAssertEqual(deps["qux2"], .remoteSourceControl(identity: .plain("qux2"), url: "http://localhost/qux2", requirement: .exact("1.1.1")))
         XCTAssertEqual(deps["qux3"], .remoteSourceControl(identity: .plain("qux3"), url: "http://localhost/qux3", requirement: .exact("1.1.1")))
@@ -100,20 +100,22 @@ final class PackageDescription5_6LoadingTests: PackageDescriptionLoadingTests {
 
     func testPluginTargetRequiresPluginCapability() async throws {
         let content = """
-        import PackageDescription
-        var fwPluginTarget = Target.plugin(
-            name: "quarter",
-            capability: .buildTool
-        )
-        fwPluginTarget.pluginCapability = nil
-        let package = Package(name: "foo", targets: [fwPluginTarget])
-        """
+            import PackageDescription
+            var fwPluginTarget = Target.plugin(
+                name: "quarter",
+                capability: .buildTool
+            )
+            fwPluginTarget.pluginCapability = nil
+            let package = Package(name: "foo", targets: [fwPluginTarget])
+            """
 
         let observability = ObservabilitySystem.makeForTesting()
         await XCTAssertAsyncThrowsError(
             try await loadAndValidateManifest(
-                content, observabilityScope: observability.topScope
-            ), "expected error"
+                content,
+                observabilityScope: observability.topScope
+            ),
+            "expected error"
         ) { error in
             XCTAssertEqual(
                 error.localizedDescription,
@@ -169,9 +171,12 @@ final class PackageDescription5_6LoadingTests: PackageDescriptionLoadingTests {
             XCTAssertNoDiagnostics(observability.diagnostics)
             XCTAssertNoDiagnostics(validationDiagnostics)
 
-            XCTAssertEqual(manifest.platforms, [
-                PlatformDescription(name: "customos", version: "1.0"),
-            ])
+            XCTAssertEqual(
+                manifest.platforms,
+                [
+                    PlatformDescription(name: "customos", version: "1.0")
+                ]
+            )
         }
 
         // Two custom platforms.
@@ -192,10 +197,13 @@ final class PackageDescription5_6LoadingTests: PackageDescriptionLoadingTests {
             XCTAssertNoDiagnostics(observability.diagnostics)
             XCTAssertNoDiagnostics(validationDiagnostics)
 
-            XCTAssertEqual(manifest.platforms, [
-                PlatformDescription(name: "customos", version: "1.0"),
-                PlatformDescription(name: "anothercustomos", version: "2.3"),
-            ])
+            XCTAssertEqual(
+                manifest.platforms,
+                [
+                    PlatformDescription(name: "customos", version: "1.0"),
+                    PlatformDescription(name: "anothercustomos", version: "2.3"),
+                ]
+            )
         }
 
         // Invalid custom platform version.
@@ -212,7 +220,7 @@ final class PackageDescription5_6LoadingTests: PackageDescriptionLoadingTests {
 
             let observability = ObservabilitySystem.makeForTesting()
             do {
-                _  = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
+                _ = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
                 XCTFail("manifest loading unexpectedly did not throw an error")
             } catch ManifestParseError.runtimeManifestErrors(let errors) {
                 XCTAssertEqual(errors, ["invalid custom platform version xx; xx should be a positive integer"])

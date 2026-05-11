@@ -48,16 +48,16 @@ struct BuildParametersTests {
         ),
         arguments: [
             // (build system, platform, test product name, expected relative path)
-            (BuildSystemProvider.Kind.native,     Platform.linux,   "ReproTests",  "ReproTests.xctest"),
-            (BuildSystemProvider.Kind.native,     Platform.macOS,   "ReproTests",  RelativePath("ReproTests.xctest/Contents/MacOS/ReproTests").pathString),
-            (BuildSystemProvider.Kind.native,     Platform.windows, "ReproTests",  "ReproTests.xctest"),
-            (BuildSystemProvider.Kind.swiftbuild, Platform.macOS,   "ReproTests",  RelativePath("ReproTests.xctest/Contents/MacOS/ReproTests").pathString),
+            (BuildSystemProvider.Kind.native, Platform.linux, "ReproTests", "ReproTests.xctest"),
+            (BuildSystemProvider.Kind.native, Platform.macOS, "ReproTests", RelativePath("ReproTests.xctest/Contents/MacOS/ReproTests").pathString),
+            (BuildSystemProvider.Kind.native, Platform.windows, "ReproTests", "ReproTests.xctest"),
+            (BuildSystemProvider.Kind.swiftbuild, Platform.macOS, "ReproTests", RelativePath("ReproTests.xctest/Contents/MacOS/ReproTests").pathString),
             // The originally failing case: on non-Darwin swiftbuild, coverage mapping lives in
             // the shared library, not the `-test-runner` launcher.
-            (BuildSystemProvider.Kind.swiftbuild, Platform.linux,   "ReproTests",  "ReproTests.so"),
-            (BuildSystemProvider.Kind.swiftbuild, Platform.windows, "ReproTests",  "ReproTests.dll"),
+            (BuildSystemProvider.Kind.swiftbuild, Platform.linux, "ReproTests", "ReproTests.so"),
+            (BuildSystemProvider.Kind.swiftbuild, Platform.windows, "ReproTests", "ReproTests.dll"),
             // A differently-named product exercises that the name is not hard-coded anywhere.
-            (BuildSystemProvider.Kind.swiftbuild, Platform.linux,   "MyPkgTests",  "MyPkgTests.so"),
+            (BuildSystemProvider.Kind.swiftbuild, Platform.linux, "MyPkgTests", "MyPkgTests.so"),
         ],
     )
     func testCoverageBinaryRelativePath_returnsArtifactWithInstrumentedCoverage(

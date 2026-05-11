@@ -19,16 +19,16 @@ import Foundation
 /// mechanical editing of package manifests.  Rather, it is intended for such
 /// tasks as manifest creation as part of package instantiation, etc.
 extension Manifest {
-    
+
     /// Generates and returns a string containing the contents of the manifest
     /// in canonical declarative form.
-    /// 
+    ///
     /// - Parameters:
     ///   - packageDirectory: Directory of the manifest's package (for purposes of making strings relative).
     ///   - toolsVersionHeaderComment: Optional string to add to the `swift-tools-version` header (it will be ignored).
     ///   - additionalImportModuleNames: Names of any modules to import besides PackageDescription (would commonly contain custom product type definitions).
     ///   - customProductTypeSourceGenerator: Closure that will be called once for each custom product type in the manifest; it should return a SourceCodeFragment for the product type.
-    /// 
+    ///
     /// Returns: a string containing the full source code for the manifest.
     public func generateManifestFileContents(
         packageDirectory: AbsolutePath,
@@ -38,15 +38,16 @@ extension Manifest {
         overridingToolsVersion: ToolsVersion? = nil
     ) rethrows -> String {
         let toolsVersion = overridingToolsVersion ?? self.toolsVersion
-        
+
         // Generate the source code fragment for the top level of the package
         // expression.
         let packageExprFragment = try SourceCodeFragment(
             from: self,
             packageDirectory: packageDirectory,
             customProductTypeSourceGenerator: customProductTypeSourceGenerator,
-            toolsVersion: toolsVersion)
-        
+            toolsVersion: toolsVersion
+        )
+
         // Generate the source code from the module names and code fragment.
         // We only write out the major and minor (not patch) versions of the
         // tools version, since the patch version doesn't change semantics.
@@ -64,7 +65,6 @@ extension Manifest {
 /// Constructs and returns a SourceCodeFragment that represents the instantiation of a custom product type with the specified identifier and having the given serialized parameters (the contents of whom are a private matter between the serialized form in PackageDescription and the client). The generated source code should, if evaluated as a part of a package manifest, result in the same serialized parameters.
 public typealias ManifestCustomProductTypeSourceGenerator = (ProductDescription) throws -> SourceCodeFragment?
 
-
 /// Convenience initializers for package manifest structures.
 fileprivate extension SourceCodeFragment {
 
@@ -76,29 +76,29 @@ fileprivate extension SourceCodeFragment {
         toolsVersion: ToolsVersion
     ) rethrows {
         var params: [SourceCodeFragment] = []
-        
+
         params.append(SourceCodeFragment(key: "name", string: manifest.displayName))
-        
+
         if let defaultLoc = manifest.defaultLocalization {
             params.append(SourceCodeFragment(key: "defaultLocalization", string: defaultLoc))
         }
-        
+
         if !manifest.platforms.isEmpty {
-            let nodes = manifest.platforms.map{ SourceCodeFragment(from: $0) }
+            let nodes = manifest.platforms.map { SourceCodeFragment(from: $0) }
             params.append(SourceCodeFragment(key: "platforms", subnodes: nodes))
         }
-        
+
         if let pkgConfig = manifest.pkgConfig {
             params.append(SourceCodeFragment(key: "pkgConfig", string: pkgConfig))
         }
-        
+
         if let systemPackageProviders = manifest.providers, !systemPackageProviders.isEmpty {
-            let nodes = systemPackageProviders.map{ SourceCodeFragment(from: $0) }
+            let nodes = systemPackageProviders.map { SourceCodeFragment(from: $0) }
             params.append(SourceCodeFragment(key: "providers", subnodes: nodes))
         }
 
         if !manifest.products.isEmpty {
-            let nodes = try manifest.products.map{ try SourceCodeFragment(from: $0, customProductTypeSourceGenerator: customProductTypeSourceGenerator, toolsVersion: toolsVersion) }
+            let nodes = try manifest.products.map { try SourceCodeFragment(from: $0, customProductTypeSourceGenerator: customProductTypeSourceGenerator, toolsVersion: toolsVersion) }
             params.append(SourceCodeFragment(key: "products", subnodes: nodes))
         }
 
@@ -108,17 +108,17 @@ fileprivate extension SourceCodeFragment {
         }
 
         if !manifest.dependencies.isEmpty {
-            let nodes = manifest.dependencies.map{ SourceCodeFragment(from: $0, pathAnchor: packageDirectory) }
+            let nodes = manifest.dependencies.map { SourceCodeFragment(from: $0, pathAnchor: packageDirectory) }
             params.append(SourceCodeFragment(key: "dependencies", subnodes: nodes))
         }
 
         if !manifest.targets.isEmpty {
-            let nodes = manifest.targets.map{ SourceCodeFragment(from: $0) }
+            let nodes = manifest.targets.map { SourceCodeFragment(from: $0) }
             params.append(SourceCodeFragment(key: "targets", subnodes: nodes))
         }
-        
+
         if let swiftLanguageVersions = manifest.swiftLanguageVersions {
-            let nodes = swiftLanguageVersions.map{ SourceCodeFragment(from: $0) }
+            let nodes = swiftLanguageVersions.map { SourceCodeFragment(from: $0) }
             params.append(SourceCodeFragment(key: "swiftLanguageVersions", subnodes: nodes, multiline: false))
         }
 
@@ -136,7 +136,7 @@ fileprivate extension SourceCodeFragment {
 
         self.init("Package", delimiters: .parentheses, subnodes: params)
     }
-    
+
     /// Instantiates a SourceCodeFragment to represent a single platform.
     init(from platform: PlatformDescription) {
         // NOTE: This could be cleaned up to use the nicer version accessors.
@@ -156,10 +156,10 @@ fileprivate extension SourceCodeFragment {
         case "driverkit":
             self.init(enum: "driverKit", string: platform.version)
         default:
-            self.init(enum: "custom", subnodes: [ .init(string: platform.platformName), .init(key: "versionString", string: platform.version) ])
+            self.init(enum: "custom", subnodes: [.init(string: platform.platformName), .init(key: "versionString", string: platform.version)])
         }
     }
-    
+
     /// Instantiates a SourceCodeFragment to represent a single package dependency.
     init(from dependency: PackageDependency, pathAnchor: AbsolutePath) {
         var params: [SourceCodeFragment] = []
@@ -201,8 +201,7 @@ fileprivate extension SourceCodeFragment {
         if let traits = dependency.traits {
             // If only `.defaults` is specified, do not output `traits:` .
             // This is because `traits:` is not available in toolchains earlier than 6.1.
-            let isDefault = traits.count == 1 &&
-                traits.allSatisfy(\.isDefaultsCase)
+            let isDefault = traits.count == 1 && traits.allSatisfy(\.isDefaultsCase)
 
             if !isDefault {
                 let traits = traits.sorted { a, b in
@@ -236,10 +235,13 @@ fileprivate extension SourceCodeFragment {
             subnode: SourceCodeFragment(from: condition)
         )
 
-        self.init(enum: "trait", subnodes: [
-            SourceCodeFragment(key: "name", string: trait.name),
-            conditionNode
-        ])
+        self.init(
+            enum: "trait",
+            subnodes: [
+                SourceCodeFragment(key: "name", string: trait.name),
+                conditionNode,
+            ]
+        )
     }
 
     init(from condition: PackageDependency.Trait.Condition) {
@@ -309,8 +311,7 @@ fileprivate extension SourceCodeFragment {
                         }
                     }
                     self.init(enum: "iOSApplication", subnodes: params, multiline: true)
-                }
-                else {
+                } else {
                     self.init(enum: "executable", subnodes: params, multiline: true)
                 }
             case .snippet:
@@ -365,14 +366,14 @@ fileprivate extension SourceCodeFragment {
         var params: [SourceCodeFragment] = []
 
         params.append(SourceCodeFragment(key: "name", string: target.name))
-        
+
         if let pluginCapability = target.pluginCapability {
             let node = SourceCodeFragment(from: pluginCapability)
             params.append(SourceCodeFragment(key: "capability", subnode: node))
         }
 
         if !target.dependencies.isEmpty {
-            let nodes = target.dependencies.map{ SourceCodeFragment(from: $0) }
+            let nodes = target.dependencies.map { SourceCodeFragment(from: $0) }
             params.append(SourceCodeFragment(key: "dependencies", subnodes: nodes))
         }
 
@@ -393,7 +394,7 @@ fileprivate extension SourceCodeFragment {
         }
 
         if !target.resources.isEmpty {
-            let nodes = target.resources.map{ SourceCodeFragment(from: $0) }
+            let nodes = target.resources.map { SourceCodeFragment(from: $0) }
             params.append(SourceCodeFragment(key: "resources", subnodes: nodes))
         }
 
@@ -404,40 +405,40 @@ fileprivate extension SourceCodeFragment {
         if let pkgConfig = target.pkgConfig {
             params.append(SourceCodeFragment(key: "pkgConfig", string: pkgConfig))
         }
-        
+
         if let systemPackageProviders = target.providers, !systemPackageProviders.isEmpty {
-            let nodes = systemPackageProviders.map{ SourceCodeFragment(from: $0) }
+            let nodes = systemPackageProviders.map { SourceCodeFragment(from: $0) }
             params.append(SourceCodeFragment(key: "providers", subnodes: nodes))
         }
 
-        let cSettings = target.settings.filter{ $0.tool == .c }
+        let cSettings = target.settings.filter { $0.tool == .c }
         if !cSettings.isEmpty {
-            let nodes = cSettings.map{ SourceCodeFragment(from: $0) }
+            let nodes = cSettings.map { SourceCodeFragment(from: $0) }
             params.append(SourceCodeFragment(key: "cSettings", subnodes: nodes))
         }
 
-        let cxxSettings = target.settings.filter{ $0.tool == .cxx }
+        let cxxSettings = target.settings.filter { $0.tool == .cxx }
         if !cxxSettings.isEmpty {
-            let nodes = cxxSettings.map{ SourceCodeFragment(from: $0) }
+            let nodes = cxxSettings.map { SourceCodeFragment(from: $0) }
             params.append(SourceCodeFragment(key: "cxxSettings", subnodes: nodes))
         }
 
-        let swiftSettings = target.settings.filter{ $0.tool == .swift }
+        let swiftSettings = target.settings.filter { $0.tool == .swift }
         if !swiftSettings.isEmpty {
-            let nodes = swiftSettings.map{ SourceCodeFragment(from: $0) }
+            let nodes = swiftSettings.map { SourceCodeFragment(from: $0) }
             params.append(SourceCodeFragment(key: "swiftSettings", subnodes: nodes))
         }
 
-        let linkerSettings = target.settings.filter{ $0.tool == .linker }
+        let linkerSettings = target.settings.filter { $0.tool == .linker }
         if !linkerSettings.isEmpty {
-            let nodes = linkerSettings.map{ SourceCodeFragment(from: $0) }
+            let nodes = linkerSettings.map { SourceCodeFragment(from: $0) }
             params.append(SourceCodeFragment(key: "linkerSettings", subnodes: nodes))
         }
 
         if let checksum = target.checksum {
             params.append(SourceCodeFragment(key: "checksum", string: checksum))
         }
-        
+
         switch target.type {
         case .regular:
             self.init(enum: "target", subnodes: params, multiline: true)
@@ -467,7 +468,7 @@ fileprivate extension SourceCodeFragment {
                 params.append(SourceCodeFragment(key: "condition", subnode: SourceCodeFragment(from: condition)))
             }
             self.init(enum: "target", subnodes: params)
-            
+
         case .product(name: let name, package: let packageName, moduleAliases: let aliases, condition: let condition):
             params.append(SourceCodeFragment(key: "name", string: name))
             if let packageName {
@@ -481,19 +482,18 @@ fileprivate extension SourceCodeFragment {
                 params.append(SourceCodeFragment(key: "condition", subnode: SourceCodeFragment(from: condition)))
             }
             self.init(enum: "product", subnodes: params)
-            
+
         case .byName(name: let name, condition: let condition):
             if let condition {
                 params.append(SourceCodeFragment(key: "name", string: name))
                 params.append(SourceCodeFragment(key: "condition", subnode: SourceCodeFragment(from: condition)))
                 self.init(enum: "byName", subnodes: params)
-            }
-            else {
+            } else {
                 self.init(name.quotedForPackageManifest)
             }
         }
     }
-    
+
     /// Instantiates a SourceCodeFragment to represent a single package condition.
     init(from condition: PackageConditionDescription) {
         var params: [SourceCodeFragment] = []
@@ -529,9 +529,12 @@ fileprivate extension SourceCodeFragment {
         }
         if let traits = condition.traits {
             params.append(
-                SourceCodeFragment(key: "traits", subnodes: traits.sorted().map { trait in
-                    SourceCodeFragment(string: trait)
-                })
+                SourceCodeFragment(
+                    key: "traits",
+                    subnodes: traits.sorted().map { trait in
+                        SourceCodeFragment(string: trait)
+                    }
+                )
             )
         }
         self.init(enum: "when", subnodes: params)
@@ -600,7 +603,7 @@ fileprivate extension SourceCodeFragment {
             var params: [SourceCodeFragment] = []
             params.append(SourceCodeFragment(key: "intent", subnode: .init(from: intent)))
             if !permissions.isEmpty {
-                params.append(SourceCodeFragment(key: "permissions", subnodes: permissions.map{ .init(from: $0) }))
+                params.append(SourceCodeFragment(key: "permissions", subnodes: permissions.map { .init(from: $0) }))
             }
             self.init(enum: "command", subnodes: params)
         }
@@ -616,7 +619,7 @@ fileprivate extension SourceCodeFragment {
         case .custom(let verb, let description):
             let params = [
                 SourceCodeFragment(key: "verb", string: verb),
-                SourceCodeFragment(key: "description", string: description)
+                SourceCodeFragment(key: "description", string: description),
             ]
             self.init(enum: "custom", subnodes: params)
         }
@@ -664,7 +667,7 @@ fileprivate extension SourceCodeFragment {
             }
             self.init(enum: setting.kind.name, subnodes: params)
         case .strictMemorySafety:
-          self.init(enum: setting.kind.name, subnodes: [])
+            self.init(enum: setting.kind.name, subnodes: [])
         case .define(let value):
             let parts = value.split(separator: "=", maxSplits: 1)
             assert(parts.count == 1 || parts.count == 2)
@@ -756,8 +759,7 @@ fileprivate extension SourceCodeFragment {
             case let .asset(name):
                 if toolsVersion < .v5_6 {
                     params.append(SourceCodeFragment(key: "iconAssetName", string: "\(name)"))
-                }
-                else {
+                } else {
                     params.append(SourceCodeFragment(key: "appIcon", enum: "asset", string: "\(name)"))
                 }
             }
@@ -769,19 +771,29 @@ fileprivate extension SourceCodeFragment {
             case let .asset(name):
                 if toolsVersion < .v5_6 {
                     params.append(SourceCodeFragment(key: "accentColorAssetName", string: "\(name)"))
-                }
-                else {
+                } else {
                     params.append(SourceCodeFragment(key: "accentColor", enum: "asset", string: "\(name)"))
                 }
             }
         }
-        params.append(SourceCodeFragment(key: "supportedDeviceFamilies", subnodes: appInfo.supportedDeviceFamilies.map{
-            SourceCodeFragment(from: $0)
-        }))
-        params.append(SourceCodeFragment(key: "supportedInterfaceOrientations", subnodes: appInfo.supportedInterfaceOrientations.map{ SourceCodeFragment(from: $0)
-        }))
+        params.append(
+            SourceCodeFragment(
+                key: "supportedDeviceFamilies",
+                subnodes: appInfo.supportedDeviceFamilies.map {
+                    SourceCodeFragment(from: $0)
+                }
+            )
+        )
+        params.append(
+            SourceCodeFragment(
+                key: "supportedInterfaceOrientations",
+                subnodes: appInfo.supportedInterfaceOrientations.map {
+                    SourceCodeFragment(from: $0)
+                }
+            )
+        )
         if !appInfo.capabilities.isEmpty {
-            params.append(SourceCodeFragment(key: "capabilities", subnodes: appInfo.capabilities.map{ SourceCodeFragment(from: $0) }))
+            params.append(SourceCodeFragment(key: "capabilities", subnodes: appInfo.capabilities.map { SourceCodeFragment(from: $0) }))
         }
         if let appCategory = appInfo.appCategory {
             params.append(SourceCodeFragment(subnode: SourceCodeFragment(from: appCategory)))
@@ -791,12 +803,12 @@ fileprivate extension SourceCodeFragment {
         }
         self.init(enum: "init", subnodes: params, multiline: true)
     }
-    
+
     /// Instantiates a SourceCodeFragment from a single ProductSetting.IOSAppInfo.AppIcon.PlaceholderIcon.
     init(from placeholderIcon: ProductSetting.IOSAppInfo.AppIcon.PlaceholderIcon) {
         self.init(key: "icon", enum: placeholderIcon.rawValue)
     }
-    
+
     /// Instantiates a SourceCodeFragment from a single ProductSetting.IOSAppInfo.AccentColor.PresetColor.
     init(from presetColor: ProductSetting.IOSAppInfo.AccentColor.PresetColor) {
         self.init(enum: presetColor.rawValue)
@@ -809,7 +821,7 @@ fileprivate extension SourceCodeFragment {
 
     /// Instantiates a SourceCodeFragment from a single ProductSetting.IOSAppInfo.DeviceFamilyCondition.
     init(from deviceFamilyCondition: ProductSetting.IOSAppInfo.DeviceFamilyCondition) {
-        let deviceFamilyNodes = deviceFamilyCondition.deviceFamilies.map{ SourceCodeFragment(from: $0) }
+        let deviceFamilyNodes = deviceFamilyCondition.deviceFamilies.map { SourceCodeFragment(from: $0) }
         let deviceFamiliesList = SourceCodeFragment(key: "deviceFamilies", subnodes: deviceFamilyNodes, multiline: false)
         self.init(enum: "when", subnodes: [deviceFamiliesList])
     }
@@ -818,13 +830,13 @@ fileprivate extension SourceCodeFragment {
     init(from orientation: ProductSetting.IOSAppInfo.InterfaceOrientation) {
         switch orientation {
         case .portrait(let condition):
-            self.init(enum: "portrait", subnodes: condition.map{ [SourceCodeFragment(from: $0)] })
+            self.init(enum: "portrait", subnodes: condition.map { [SourceCodeFragment(from: $0)] })
         case .portraitUpsideDown(let condition):
-            self.init(enum: "portraitUpsideDown", subnodes: condition.map{ [SourceCodeFragment(from: $0)] })
+            self.init(enum: "portraitUpsideDown", subnodes: condition.map { [SourceCodeFragment(from: $0)] })
         case .landscapeLeft(let condition):
-            self.init(enum: "landscapeLeft", subnodes: condition.map{ [SourceCodeFragment(from: $0)] })
+            self.init(enum: "landscapeLeft", subnodes: condition.map { [SourceCodeFragment(from: $0)] })
         case .landscapeRight(let condition):
-            self.init(enum: "landscapeRight", subnodes: condition.map{ [SourceCodeFragment(from: $0)] })
+            self.init(enum: "landscapeRight", subnodes: condition.map { [SourceCodeFragment(from: $0)] })
         }
     }
 
@@ -866,11 +878,11 @@ fileprivate extension SourceCodeFragment {
             params.append(SourceCodeFragment(key: "allowsLocalNetworking", boolean: allowsLocalNetworking))
         }
         if let exceptionDomains = configuration.exceptionDomains {
-            let subnodes = exceptionDomains.map{ SourceCodeFragment(from: $0) }
+            let subnodes = exceptionDomains.map { SourceCodeFragment(from: $0) }
             params.append(SourceCodeFragment(key: "exceptionDomains", subnodes: subnodes))
         }
         if let pinnedDomains = configuration.pinnedDomains {
-            let subnodes = pinnedDomains.map{ SourceCodeFragment(from: $0) }
+            let subnodes = pinnedDomains.map { SourceCodeFragment(from: $0) }
             params.append(SourceCodeFragment(key: "pinnedDomains", subnodes: subnodes))
         }
         self.init(enum: "init", subnodes: params, multiline: true)
@@ -906,16 +918,16 @@ fileprivate extension SourceCodeFragment {
             params.append(SourceCodeFragment(key: "includesSubdomains", boolean: includesSubdomains))
         }
         if let pinnedCAIdentities = domain.pinnedCAIdentities {
-            let subnodes = pinnedCAIdentities.map{ SourceCodeFragment(stringPairs: $0.sorted{ $0.key < $1.key }.map{ ($0.key, $0.value) }) }
+            let subnodes = pinnedCAIdentities.map { SourceCodeFragment(stringPairs: $0.sorted { $0.key < $1.key }.map { ($0.key, $0.value) }) }
             params.append(SourceCodeFragment(key: "pinnedCAIdentities", subnodes: subnodes))
         }
         if let pinnedLeafIdentities = domain.pinnedLeafIdentities {
-            let subnodes = pinnedLeafIdentities.map{ SourceCodeFragment(stringPairs: $0.sorted{ $0.key < $1.key }.map{ ($0.key, $0.value) }) }
+            let subnodes = pinnedLeafIdentities.map { SourceCodeFragment(stringPairs: $0.sorted { $0.key < $1.key }.map { ($0.key, $0.value) }) }
             params.append(SourceCodeFragment(key: "pinnedLeafIdentities", subnodes: subnodes))
         }
         self.init(enum: "init", subnodes: params, multiline: true)
     }
-    
+
     /// Instantiates a SourceCodeFragment from a single ProductSetting.IOSAppInfo.AppCategory.
     init(from appCategory: ProductSetting.IOSAppInfo.AppCategory) {
         switch appCategory.rawValue {
@@ -1005,76 +1017,74 @@ fileprivate extension SourceCodeFragment {
     }
 }
 
-
 /// Convenience initializers for key-value pairs of simple types.  These make
 /// the logic above much simpler.
 public extension SourceCodeFragment {
-    
+
     /// Initializes a SourceCodeFragment for a boolean in a generated manifest.
     init(key: String? = nil, boolean: Bool) {
-        let prefix = key.map{ $0 + ": " } ?? ""
+        let prefix = key.map { $0 + ": " } ?? ""
         self.init(prefix + (boolean ? "true" : "false"))
     }
 
     /// Initializes a SourceCodeFragment for an integer in a generated manifest.
     init(key: String? = nil, integer: Int) {
-        let prefix = key.map{ $0 + ": " } ?? ""
+        let prefix = key.map { $0 + ": " } ?? ""
         self.init(prefix + "\(integer)")
     }
 
     /// Initializes a SourceCodeFragment for a quoted string in a generated manifest.
     init(key: String? = nil, string: String) {
-        let prefix = key.map{ $0 + ": " } ?? ""
+        let prefix = key.map { $0 + ": " } ?? ""
         self.init(prefix + string.quotedForPackageManifest)
     }
 
     /// Initializes a SourceCodeFragment for an enum in a generated manifest.
     init(key: String? = nil, enum: String, string: String) {
-        let prefix = key.map{ $0 + ": " } ?? ""
+        let prefix = key.map { $0 + ": " } ?? ""
         let subnode = SourceCodeFragment(string: string)
         self.init(prefix + "." + `enum`, delimiters: .parentheses, multiline: false, subnodes: [subnode])
     }
 
     /// Initializes a SourceCodeFragment for an enum in a generated manifest.
     init(key: String? = nil, enum: String, strings: [String]) {
-        let prefix = key.map{ $0 + ": " } ?? ""
-        let subnodes = strings.map{ SourceCodeFragment($0.quotedForPackageManifest) }
+        let prefix = key.map { $0 + ": " } ?? ""
+        let subnodes = strings.map { SourceCodeFragment($0.quotedForPackageManifest) }
         self.init(prefix + "." + `enum`, delimiters: .parentheses, multiline: false, subnodes: subnodes)
     }
 
     /// Initializes a SourceCodeFragment for an enum in a generated manifest.
     init(key: String? = nil, enum: String, subnodes: [SourceCodeFragment]? = nil, multiline: Bool = false) {
-        let prefix = key.map{ $0 + ": " } ?? ""
+        let prefix = key.map { $0 + ": " } ?? ""
         self.init(prefix + "." + `enum`, delimiters: .parentheses, multiline: multiline, subnodes: subnodes)
     }
 
     /// Initializes a SourceCodeFragment for a string list in a generated manifest.
     init(key: String? = nil, strings: [String], multiline: Bool = false) {
-        let prefix = key.map{ $0 + ": " } ?? ""
-        let subnodes = strings.map{ SourceCodeFragment($0.quotedForPackageManifest) }
+        let prefix = key.map { $0 + ": " } ?? ""
+        let subnodes = strings.map { SourceCodeFragment($0.quotedForPackageManifest) }
         self.init(prefix, delimiters: .brackets, multiline: multiline, subnodes: subnodes)
     }
 
     /// Initializes a SourceCodeFragment for a string map in a generated manifest.
     init(key: String? = nil, stringPairs: [(String, String)], multiline: Bool = false) {
-        let prefix = key.map{ $0 + ": " } ?? ""
-        let subnodes = stringPairs.isEmpty ? [SourceCodeFragment(":")] : stringPairs.map{ SourceCodeFragment($0.quotedForPackageManifest + ": " + $1.quotedForPackageManifest) }
+        let prefix = key.map { $0 + ": " } ?? ""
+        let subnodes = stringPairs.isEmpty ? [SourceCodeFragment(":")] : stringPairs.map { SourceCodeFragment($0.quotedForPackageManifest + ": " + $1.quotedForPackageManifest) }
         self.init(prefix, delimiters: .brackets, multiline: multiline, subnodes: subnodes)
     }
 
     /// Initializes a SourceCodeFragment for a node in a generated manifest.
     init(key: String? = nil, subnode: SourceCodeFragment) {
-        let prefix = key.map{ $0 + ": " } ?? ""
+        let prefix = key.map { $0 + ": " } ?? ""
         self.init(prefix, delimiters: .none, multiline: false, subnodes: [subnode])
     }
 
     /// Initializes a SourceCodeFragment for a list of nodes in a generated manifest.
     init(key: String? = nil, subnodes: [SourceCodeFragment], multiline: Bool = true) {
-        let prefix = key.map{ $0 + ": " } ?? ""
+        let prefix = key.map { $0 + ": " } ?? ""
         self.init(prefix, delimiters: .brackets, multiline: multiline, subnodes: subnodes)
     }
 }
-
 
 /// Helper type to emit source code.  Represents one node of source code, as an
 /// arbitrary string followed by an optional child list, optionally enclosed in
@@ -1085,31 +1095,35 @@ public extension SourceCodeFragment {
 public struct SourceCodeFragment {
     /// A literal prefix to emit at the start of the source code fragment.
     var literal: String
-    
+
     /// The type of delimiters to use around the subfragments (if any).
     var delimiters: Delimiters
-    
+
     /// Whether or not to emit newlines before the subfragments (if any).
     var multiline: Bool
-    
+
     /// Any subfragments; no delimiters are emitted if none.
     var subnodes: [SourceCodeFragment]?
-    
+
     /// Type of delimiters to emit around any subfragments.
     public enum Delimiters {
         case none
         case brackets
         case parentheses
     }
-    
-    public init(_ literal: String, delimiters: Delimiters = .none,
-         multiline: Bool = true, subnodes: [SourceCodeFragment]? = nil) {
+
+    public init(
+        _ literal: String,
+        delimiters: Delimiters = .none,
+        multiline: Bool = true,
+        subnodes: [SourceCodeFragment]? = nil
+    ) {
         self.literal = literal
         self.delimiters = delimiters
         self.multiline = multiline
         self.subnodes = subnodes
     }
-    
+
     func generateSourceCode(indent: String = "") -> String {
         var string = literal
         if let subnodes {
@@ -1123,7 +1137,7 @@ public struct SourceCodeFragment {
             for (idx, subnode) in subnodes.enumerated() {
                 if multiline { string.append(subindent) }
                 string.append(subnode.generateSourceCode(indent: subindent))
-                if idx < subnodes.count-1 {
+                if idx < subnodes.count - 1 {
                     string.append(multiline ? ",\n" : ", ")
                 }
             }
@@ -1143,7 +1157,8 @@ public struct SourceCodeFragment {
 
 extension Optional {
     fileprivate static func precedes(
-        _ a: Wrapped?, _ b: Wrapped?,
+        _ a: Wrapped?,
+        _ b: Wrapped?,
         compareWrapped: (Wrapped, Wrapped) -> Bool
     ) -> Bool {
         switch (a, b) {
@@ -1221,7 +1236,8 @@ extension TargetBuildSettingDescription.Kind {
 
 extension String {
     fileprivate var quotedForPackageManifest: String {
-        return "\"" + self
+        return "\""
+            + self
             .replacing("\\", with: "\\\\")
             .replacing("\"", with: "\\\"")
             + "\""

@@ -45,7 +45,7 @@ final class PrebuiltsTests: XCTestCase {
                     products: [
                         "SwiftSyntaxMacrosTestSupport",
                         "SwiftCompilerPlugin",
-                        "SwiftSyntaxMacros"
+                        "SwiftSyntaxMacros",
                     ],
                     includePath: [
                         .init("Sources/_SwiftSyntaxCShims/include")
@@ -336,7 +336,10 @@ final class PrebuiltsTests: XCTestCase {
         let artifact = Data()
 
         try await with(fileSystem: fs, artifact: artifact, swiftSyntaxVersion: "600.0.1", swiftSyntaxURL: "git@github.com:swiftlang/swift-syntax.git") {
-            manifest, rootCertPath, rootPackage, swiftSyntax in
+            manifest,
+            rootCertPath,
+            rootPackage,
+            swiftSyntax in
 
             let manifestData = try JSONEncoder().encode(manifest)
 
@@ -398,7 +401,10 @@ final class PrebuiltsTests: XCTestCase {
         let artifact = Data()
 
         try await with(fileSystem: fs, artifact: artifact, swiftSyntaxVersion: "600.0.1", swiftSyntaxURL: "https://github.com/apple/swift-syntax.git") {
-            manifest, rootCertPath, rootPackage, swiftSyntax in
+            manifest,
+            rootCertPath,
+            rootPackage,
+            swiftSyntax in
 
             let manifestData = try JSONEncoder().encode(manifest)
 
@@ -523,7 +529,7 @@ final class PrebuiltsTests: XCTestCase {
 
         try await with(fileSystem: fs, artifact: artifact, swiftSyntaxVersion: "600.0.2") { _, rootCertPath, rootPackage, swiftSyntax in
             let secondFetch = SendableBox(false)
-            
+
             let httpClient = HTTPClient { request, progressHandler in
                 if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.2/\(self.swiftVersion).json" {
                     let secondFetch = await secondFetch.value
@@ -534,12 +540,12 @@ final class PrebuiltsTests: XCTestCase {
                     return .notFound()
                 }
             }
-            
+
             let archiver = MockArchiver(handler: { _, archivePath, destination, completion in
                 XCTFail("Unexpected call to archiver")
                 completion(.success(()))
             })
-            
+
             let workspace = try await MockWorkspace(
                 sandbox: sandbox,
                 fileSystem: fs,
@@ -556,7 +562,7 @@ final class PrebuiltsTests: XCTestCase {
                     rootCertPath: rootCertPath
                 )
             )
-            
+
             try await workspace.checkPackageGraph(roots: ["Foo"]) { modulesGraph, diagnostics in
                 XCTAssertTrue(diagnostics.filter({ $0.severity == .error }).isEmpty)
                 let rootPackage = try XCTUnwrap(modulesGraph.rootPackages.first)
@@ -565,9 +571,9 @@ final class PrebuiltsTests: XCTestCase {
                 try checkSettings(rootPackage, "Foo", usePrebuilt: false)
                 try checkSettings(rootPackage, "FooClient", usePrebuilt: false)
             }
-            
+
             await secondFetch.set(true)
-            
+
             try await workspace.checkPackageGraph(roots: ["Foo"]) { modulesGraph, diagnostics in
                 XCTAssertTrue(diagnostics.filter({ $0.severity == .error }).isEmpty)
                 let rootPackage = try XCTUnwrap(modulesGraph.rootPackages.first)
@@ -938,7 +944,7 @@ final class PrebuiltsTests: XCTestCase {
                     swiftSyntax
                 ]
             )
-            
+
             try await workspace.checkPackageGraph(roots: ["Foo"]) { modulesGraph, diagnostics in
                 XCTAssertTrue(diagnostics.filter({ $0.severity == .error }).isEmpty)
                 let rootPackage = try XCTUnwrap(modulesGraph.rootPackages.first)
@@ -1009,7 +1015,7 @@ final class PrebuiltsTests: XCTestCase {
                             MockTarget(
                                 name: "FooClient",
                                 dependencies: [
-                                    "Foo",
+                                    "Foo"
                                 ],
                                 type: .executable
                             ),
@@ -1026,9 +1032,9 @@ final class PrebuiltsTests: XCTestCase {
                             MockProduct(
                                 name: "Library",
                                 modules: [
-                                    "Foo",
+                                    "Foo"
                                 ]
-                            ),
+                            )
                         ],
                         dependencies: [
                             .sourceControl(
@@ -1050,13 +1056,13 @@ final class PrebuiltsTests: XCTestCase {
                             MockTarget(
                                 name: "Base",
                                 dependencies: [
-                                    .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
+                                    .product(name: "SwiftSyntaxMacros", package: "swift-syntax")
                                 ]
                             ),
                             MockTarget(
                                 name: "Intermediate",
                                 dependencies: [
-                                    "Base",
+                                    "Base"
                                 ]
                             ),
                         ],
@@ -1066,7 +1072,7 @@ final class PrebuiltsTests: XCTestCase {
                                 modules: [
                                     "Intermediate"
                                 ]
-                            ),
+                            )
                         ],
                         dependencies: [
                             .sourceControl(
@@ -1076,7 +1082,7 @@ final class PrebuiltsTests: XCTestCase {
                         ],
                         versions: ["1.0.0"]
                     ),
-                    swiftSyntax
+                    swiftSyntax,
                 ],
                 prebuiltsManager: .init(
                     swiftVersion: swiftVersion,
@@ -1172,18 +1178,18 @@ final class PrebuiltsTests: XCTestCase {
                             MockTarget(
                                 name: "Leaking",
                                 dependencies: [
-                                    .product(name: "Intermediate", package: "Library"),
+                                    .product(name: "Intermediate", package: "Library")
                                 ]
-                            )
+                            ),
                         ],
                         products: [
                             MockProduct(
                                 name: "Library",
                                 modules: [
                                     "Foo",
-                                    "Leaking"
+                                    "Leaking",
                                 ]
-                            ),
+                            )
                         ],
                         dependencies: [
                             .sourceControl(
@@ -1205,13 +1211,13 @@ final class PrebuiltsTests: XCTestCase {
                             MockTarget(
                                 name: "Base",
                                 dependencies: [
-                                    .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
+                                    .product(name: "SwiftSyntaxMacros", package: "swift-syntax")
                                 ]
                             ),
                             MockTarget(
                                 name: "Intermediate",
                                 dependencies: [
-                                    "Base",
+                                    "Base"
                                 ]
                             ),
                             MockTarget(
@@ -1228,7 +1234,7 @@ final class PrebuiltsTests: XCTestCase {
                                 ],
                                 type: .plugin,
                                 pluginCapability: .buildTool
-                            )
+                            ),
                         ],
                         products: [
                             MockProduct(
@@ -1240,7 +1246,7 @@ final class PrebuiltsTests: XCTestCase {
                             MockProduct(
                                 name: "Plugin",
                                 modules: [
-                                    "Plugin",
+                                    "Plugin"
                                 ],
                                 type: .plugin
                             ),
@@ -1253,7 +1259,7 @@ final class PrebuiltsTests: XCTestCase {
                         ],
                         versions: ["1.0.0"]
                     ),
-                    swiftSyntax
+                    swiftSyntax,
                 ],
                 prebuiltsManager: .init(
                     swiftVersion: swiftVersion,
@@ -1350,18 +1356,18 @@ final class PrebuiltsTests: XCTestCase {
                             MockTarget(
                                 name: "Leaking",
                                 dependencies: [
-                                    .product(name: "Intermediate", package: "Library"),
+                                    .product(name: "Intermediate", package: "Library")
                                 ]
-                            )
+                            ),
                         ],
                         products: [
                             MockProduct(
                                 name: "Library",
                                 modules: [
                                     "Foo",
-                                    "Leaking"
+                                    "Leaking",
                                 ]
-                            ),
+                            )
                         ],
                         dependencies: [
                             .sourceControl(
@@ -1382,13 +1388,13 @@ final class PrebuiltsTests: XCTestCase {
                             MockTarget(
                                 name: "Base",
                                 dependencies: [
-                                    .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
+                                    .product(name: "SwiftSyntaxMacros", package: "swift-syntax")
                                 ]
                             ),
                             MockTarget(
                                 name: "Intermediate",
                                 dependencies: [
-                                    "Base",
+                                    "Base"
                                 ]
                             ),
                             MockTarget(
@@ -1405,7 +1411,7 @@ final class PrebuiltsTests: XCTestCase {
                                 ],
                                 type: .plugin,
                                 pluginCapability: .buildTool
-                            )
+                            ),
                         ],
                         products: [
                             MockProduct(
@@ -1417,7 +1423,7 @@ final class PrebuiltsTests: XCTestCase {
                             MockProduct(
                                 name: "Plugin",
                                 modules: [
-                                    "Plugin",
+                                    "Plugin"
                                 ],
                                 type: .plugin
                             ),
@@ -1430,7 +1436,7 @@ final class PrebuiltsTests: XCTestCase {
                         ],
                         versions: ["1.0.0"]
                     ),
-                    swiftSyntax
+                    swiftSyntax,
                 ],
                 prebuiltsManager: .init(
                     swiftVersion: swiftVersion,
@@ -1455,9 +1461,9 @@ final class PrebuiltsTests: XCTestCase {
 extension String {
     var fixwin: String {
         #if os(Windows)
-        return self.replacingOccurrences(of: "/", with: "\\")
+            return self.replacingOccurrences(of: "/", with: "\\")
         #else
-        return self
+            return self
         #endif
     }
 }

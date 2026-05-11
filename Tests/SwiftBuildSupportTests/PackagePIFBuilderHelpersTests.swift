@@ -20,7 +20,7 @@ import SwiftBuildSupport
     )
 )
 struct PackagePIFBuilderHelpersTests {
-    
+
     // MARK: - targetName(forProductName:) Tests
 
     @Test("targetName(forProductName:) converts product names correctly")
@@ -48,11 +48,11 @@ struct PackagePIFBuilderHelpersTests {
         #expect(PackagePIFBuilder.targetName(forModuleName: "ArgumentParser") == "ArgumentParser")
         #expect(PackagePIFBuilder.targetName(forModuleName: "SwiftlyCore") == "SwiftlyCore")
         #expect(PackagePIFBuilder.targetName(forModuleName: "MacOSPlatform") == "MacOSPlatform")
-        
+
         // Modules with leading underscores
         #expect(PackagePIFBuilder.targetName(forModuleName: "_CryptoExtras") == "_CryptoExtras")
         #expect(PackagePIFBuilder.targetName(forModuleName: "__AsyncFileSystem") == "__AsyncFileSystem")
-        
+
         #expect(PackagePIFBuilder.targetName(forModuleName: "") == "")
         #expect(PackagePIFBuilder.targetName(forModuleName: "A") == "A")
     }
@@ -86,23 +86,23 @@ struct PackagePIFBuilderHelpersTests {
         // Test -dynamic suffix removal from PACKAGE-PRODUCT GUIDs
         // PACKAGE-PRODUCT:swift-build_SwiftBuild.SwiftBuild-6FA70E1059D35307-dynamic
         #expect(PackagePIFBuilder.productName(forTargetName: "SwiftBuild-dynamic-product") == "SwiftBuild")
-        
+
         // PACKAGE-PRODUCT:swift-build_SWBProtocol.SWBProtocol-479FEB9464127B49-dynamic
         #expect(PackagePIFBuilder.productName(forTargetName: "SWBProtocol-dynamic-product") == "SWBProtocol")
-        
+
         // Test -testable suffix removal
         // snippet-extract-4D525650E9464C3A-testable
         #expect(PackagePIFBuilder.productName(forTargetName: "snippet-extract-testable-product") == "snippet-extract")
-        
+
         // swift-run--4E81F76B4FDE3E48-testable
         #expect(PackagePIFBuilder.productName(forTargetName: "swift-run-testable-product") == "swift-run")
-        
+
         // swift-experimental-sdk--453A89A57E5CD913-testable
         #expect(PackagePIFBuilder.productName(forTargetName: "swift-experimental-sdk-testable-product") == "swift-experimental-sdk")
-        
+
         // swift-bootstrap-19E6669016298B47-testable
         #expect(PackagePIFBuilder.productName(forTargetName: "swift-bootstrap-testable-product") == "swift-bootstrap")
-        
+
         // Test products without suffixes
         #expect(PackagePIFBuilder.productName(forTargetName: "SwiftBuild-product") == "SwiftBuild")
         #expect(PackagePIFBuilder.productName(forTargetName: "ArgumentParser-product") == "ArgumentParser")
@@ -161,34 +161,34 @@ struct PackagePIFBuilderHelpersTests {
         // Test -dynamic suffix removal from PACKAGE-TARGET GUIDs
         // PACKAGE-TARGET:SWBTaskConstruction--13A05A6A6704C663-dynamic
         #expect(PackagePIFBuilder.moduleName(forTargetName: "SWBTaskConstruction-dynamic") == "SWBTaskConstruction")
-        
+
         // PACKAGE-TARGET:_IntegrationTestSupport-1FB010E086040497-dynamic
         #expect(PackagePIFBuilder.moduleName(forTargetName: "_IntegrationTestSupport-dynamic") == "_IntegrationTestSupport")
-        
+
         // PACKAGE-TARGET:_AsyncFileSystem--4E4E671E738B868E-dynamic
         #expect(PackagePIFBuilder.moduleName(forTargetName: "_AsyncFileSystem-dynamic") == "_AsyncFileSystem")
-        
+
         // PACKAGE-TARGET:PackageSigning--7F242844F5C56277-dynamic
         #expect(PackagePIFBuilder.moduleName(forTargetName: "PackageSigning-dynamic") == "PackageSigning")
-        
+
         // Test -testable suffix removal
         // snippet-extract-4D525650E9464C3A-testable
         #expect(PackagePIFBuilder.moduleName(forTargetName: "snippet-extract-testable") == "snippet-extract")
-        
+
         // swift-run--4E81F76B4FDE3E48-testable
         #expect(PackagePIFBuilder.moduleName(forTargetName: "swift-run-testable") == "swift-run")
-        
+
         // swift-experimental-sdk--453A89A57E5CD913-testable
         #expect(PackagePIFBuilder.moduleName(forTargetName: "swift-experimental-sdk-testable") == "swift-experimental-sdk")
-        
+
         // swift-bootstrap-19E6669016298B47-testable
         #expect(PackagePIFBuilder.moduleName(forTargetName: "swift-bootstrap-testable") == "swift-bootstrap")
-        
+
         // Test modules without suffixes
         #expect(PackagePIFBuilder.moduleName(forTargetName: "SwiftBuild") == "SwiftBuild")
         #expect(PackagePIFBuilder.moduleName(forTargetName: "_AsyncFileSystem") == "_AsyncFileSystem")
         #expect(PackagePIFBuilder.moduleName(forTargetName: "ArgumentParser") == "ArgumentParser")
-        
+
         // Test that product targets still return nil even with suffixes
         #expect(PackagePIFBuilder.moduleName(forTargetName: "SwiftBuild-dynamic-product") == nil)
         #expect(PackagePIFBuilder.moduleName(forTargetName: "swift-run-testable-product") == nil)

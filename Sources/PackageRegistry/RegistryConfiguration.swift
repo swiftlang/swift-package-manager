@@ -364,10 +364,11 @@ extension RegistryConfiguration: Codable {
             }
             self.scopedRegistries = scopedRegistries
 
-            self.registryAuthentication = try container.decodeIfPresent(
-                [String: Authentication].self,
-                forKey: .authentication
-            ) ?? [:]
+            self.registryAuthentication =
+                try container.decodeIfPresent(
+                    [String: Authentication].self,
+                    forKey: .authentication
+                ) ?? [:]
             self.security = try container.decodeIfPresent(Security.self, forKey: .security) ?? nil
         case nil:
             throw DecodingError.dataCorruptedError(
@@ -430,15 +431,17 @@ extension RegistryConfiguration.Security: Codable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
 
         self.default = try container.decodeIfPresent(Global.self, forKey: .default) ?? Global()
-        self.registryOverrides = try container.decodeIfPresent(
-            [String: RegistryOverride].self,
-            forKey: .registryOverrides
-        ) ?? [:]
+        self.registryOverrides =
+            try container.decodeIfPresent(
+                [String: RegistryOverride].self,
+                forKey: .registryOverrides
+            ) ?? [:]
 
-        let scopeOverridesContainer = try container.decodeIfPresent(
-            [String: ScopePackageOverride].self,
-            forKey: .scopeOverrides
-        ) ?? [:]
+        let scopeOverridesContainer =
+            try container.decodeIfPresent(
+                [String: ScopePackageOverride].self,
+                forKey: .scopeOverrides
+            ) ?? [:]
         var scopeOverrides: [PackageIdentity.Scope: ScopePackageOverride] = [:]
         for (key, scopeOverride) in scopeOverridesContainer {
             let scope = try PackageIdentity.Scope(validating: key)
@@ -446,10 +449,11 @@ extension RegistryConfiguration.Security: Codable {
         }
         self.scopeOverrides = scopeOverrides
 
-        let packageOverridesContainer = try container.decodeIfPresent(
-            [String: ScopePackageOverride].self,
-            forKey: .packageOverrides
-        ) ?? [:]
+        let packageOverridesContainer =
+            try container.decodeIfPresent(
+                [String: ScopePackageOverride].self,
+                forKey: .packageOverrides
+            ) ?? [:]
         var packageOverrides: [PackageIdentity.RegistryIdentity: ScopePackageOverride] = [:]
         for (key, packageOverride) in packageOverridesContainer {
             guard let packageIdentity = PackageIdentity.plain(key).registry else {

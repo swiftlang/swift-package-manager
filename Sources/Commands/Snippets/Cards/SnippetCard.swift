@@ -44,15 +44,16 @@ struct SnippetCard: Card {
 
     func render() -> String {
         let isColorized: Bool = swiftCommandState.options.logging.colorDiagnostics
-        var rendered = isColorized ? colorized {
-            brightYellow {
-                "# "
-                snippet.name
-            }
-            "\n\n"
-        }.terminalString()
-            :
-            plain {
+        var rendered =
+            isColorized
+            ? colorized {
+                brightYellow {
+                    "# "
+                    snippet.name
+                }
+                "\n\n"
+            }.terminalString()
+            : plain {
                 plain {
                     "# "
                     snippet.name
@@ -61,18 +62,20 @@ struct SnippetCard: Card {
             }.terminalString()
 
         if !snippet.explanation.isEmpty {
-            rendered += isColorized ? brightBlack {
-                snippet.explanation
-                    .split(separator: "\n", omittingEmptySubsequences: false)
-                    .map { "// " + $0 }
-                    .joined(separator: "\n")
-            }.terminalString()
-            : plain {
-                snippet.explanation
-                    .split(separator: "\n", omittingEmptySubsequences: false)
-                    .map { "// " + $0 }
-                    .joined(separator: "\n")
-            }.terminalString()
+            rendered +=
+                isColorized
+                ? brightBlack {
+                    snippet.explanation
+                        .split(separator: "\n", omittingEmptySubsequences: false)
+                        .map { "// " + $0 }
+                        .joined(separator: "\n")
+                }.terminalString()
+                : plain {
+                    snippet.explanation
+                        .split(separator: "\n", omittingEmptySubsequences: false)
+                        .map { "// " + $0 }
+                        .joined(separator: "\n")
+                }.terminalString()
 
             rendered += "\n\n"
         }
@@ -86,7 +89,7 @@ struct SnippetCard: Card {
         return "\nRun this snippet? [R: run, or press Enter to return]"
     }
 
-    func acceptLineInput<S>(_ line: S) async -> CardEvent? where S : StringProtocol {
+    func acceptLineInput<S>(_ line: S) async -> CardEvent? where S: StringProtocol {
         let trimmed = line.drop { $0.isWhitespace }.prefix { !$0.isWhitespace }.lowercased()
         guard !trimmed.isEmpty else {
             return .pop()

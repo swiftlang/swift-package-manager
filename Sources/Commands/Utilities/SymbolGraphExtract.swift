@@ -18,9 +18,9 @@ import PackageModel
 import SPMBuildCore
 
 #if USE_IMPL_ONLY_IMPORTS
-@_implementationOnly import DriverSupport
+    @_implementationOnly import DriverSupport
 #else
-import DriverSupport
+    import DriverSupport
 #endif
 
 import class Basics.AsyncProcess
@@ -31,7 +31,7 @@ package struct SymbolGraphExtract {
     let fileSystem: FileSystem
     let tool: AbsolutePath
     let observabilityScope: ObservabilityScope
-    
+
     var skipSynthesizedMembers = false
     var minimumAccessLevel = AccessLevel.public
     var skipInheritedDocs = false
@@ -50,7 +50,7 @@ package struct SymbolGraphExtract {
         /// JSON format, optionally "pretty-printed" be more human-readable.
         case json(pretty: Bool)
     }
-    
+
     /// Creates a symbol graph for `module` in `outputDirectory` using the build information from `buildPlan`.
     /// The `outputDirection` determines how the output from the tool subprocess is handled, and `verbosity` specifies
     /// how much console output to ask the tool to emit.
@@ -80,7 +80,7 @@ package struct SymbolGraphExtract {
         if includeSPISymbols {
             commandLine += ["-include-spi-symbols"]
         }
-        
+
         let extensionBlockSymbolsFlag = emitExtensionBlockSymbols ? "-emit-extension-block-symbols" : "-omit-extension-block-symbols"
         if DriverSupport.checkSupportedFrontendFlags(
             flags: [extensionBlockSymbolsFlag.trimmingCharacters(in: ["-"])],
@@ -91,7 +91,7 @@ package struct SymbolGraphExtract {
         } else {
             observabilityScope.emit(warning: "dropped \(extensionBlockSymbolsFlag) flag because it is not supported by this compiler version")
         }
-        
+
         switch outputFormat {
         case .json(let pretty):
             if pretty {

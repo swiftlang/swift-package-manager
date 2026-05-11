@@ -11,12 +11,12 @@
 //===----------------------------------------------------------------------===//
 
 #if canImport(os)
-import os
+    import os
 
-extension os.OSLog {
-    @usableFromInline
-    static let swiftpm = os.OSLog(subsystem: "org.swift.swiftpm", category: "default")
-}
+    extension os.OSLog {
+        @usableFromInline
+        static let swiftpm = os.OSLog(subsystem: "org.swift.swiftpm", category: "default")
+    }
 #endif
 
 /// Emits a signpost.
@@ -26,14 +26,14 @@ extension os.OSLog {
     signpostID: SignpostID = .exclusive
 ) {
     #if canImport(os) && DEBUG
-    if #available(macOS 10.14, iOS 12, tvOS 12, watchOS 5, *) {
-        os.os_signpost(
-            type.underlying,
-            log: .swiftpm,
-            name: name,
-            signpostID: signpostID.underlying
-        )
-    }
+        if #available(macOS 10.14, iOS 12, tvOS 12, watchOS 5, *) {
+            os.os_signpost(
+                type.underlying,
+                log: .swiftpm,
+                name: name,
+                signpostID: signpostID.underlying
+            )
+        }
     #endif
 }
 
@@ -44,18 +44,18 @@ package enum SignpostType {
     case event
 
     #if canImport(os)
-    @available(macOS 10.14, iOS 12, tvOS 12, watchOS 5, *)
-    @usableFromInline
-    var underlying: os.OSSignpostType {
-        switch self {
-        case .begin:
-            return os.OSSignpostType.begin
-        case .end:
-            return os.OSSignpostType.end
-        case .event:
-            return os.OSSignpostType.event
+        @available(macOS 10.14, iOS 12, tvOS 12, watchOS 5, *)
+        @usableFromInline
+        var underlying: os.OSSignpostType {
+            switch self {
+            case .begin:
+                return os.OSSignpostType.begin
+            case .end:
+                return os.OSSignpostType.end
+            case .event:
+                return os.OSSignpostType.event
+            }
         }
-    }
     #endif
 }
 
@@ -64,17 +64,16 @@ package enum SignpostID {
     case exclusive
 
     #if canImport(os)
-    @available(macOS 10.14, iOS 12, tvOS 12, watchOS 5, *)
-    @usableFromInline
-    var underlying: os.OSSignpostID {
-        switch self {
-        case .exclusive:
-            return os.OSSignpostID.exclusive
+        @available(macOS 10.14, iOS 12, tvOS 12, watchOS 5, *)
+        @usableFromInline
+        var underlying: os.OSSignpostID {
+            switch self {
+            case .exclusive:
+                return os.OSSignpostID.exclusive
+            }
         }
-    }
     #endif
 }
-
 
 package enum SignpostName {
     public static let updatingDependencies: StaticString = "updating"

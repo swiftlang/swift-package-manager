@@ -55,12 +55,10 @@ struct PlainTextEncoder {
         for ch in key.stringValue {
             if result.isEmpty {
                 result.append(ch.uppercased())
-            }
-            else if ch.isUppercase {
+            } else if ch.isUppercase {
                 result.append(" ")
                 result.append(ch.lowercased())
-            }
-            else {
+            } else {
                 result.append(ch)
             }
         }
@@ -195,12 +193,14 @@ struct PlainTextEncoder {
             }
 
             mutating func nestedContainer<NestedKey: CodingKey>(keyedBy keyType: NestedKey.Type) -> KeyedEncodingContainer<NestedKey> {
-                KeyedEncodingContainer(PlainTextKeyedEncodingContainer<NestedKey>(
-                    outputStream: outputStream,
-                    formattingOptions: formattingOptions,
-                    userInfo: userInfo,
-                    codingPath: codingPath
-                ))
+                KeyedEncodingContainer(
+                    PlainTextKeyedEncodingContainer<NestedKey>(
+                        outputStream: outputStream,
+                        formattingOptions: formattingOptions,
+                        userInfo: userInfo,
+                        codingPath: codingPath
+                    )
+                )
             }
 
             mutating func nestedUnkeyedContainer() -> UnkeyedEncodingContainer {

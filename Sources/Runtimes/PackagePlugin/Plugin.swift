@@ -12,33 +12,33 @@
 
 import Foundation
 #if os(Windows)
-@_implementationOnly import ucrt
-@_implementationOnly import WinSDK
+    @_implementationOnly import ucrt
+    @_implementationOnly import WinSDK
 
-internal func dup(_ fd: CInt) -> CInt {
-    return _dup(fd)
-}
-internal func dup2(_ fd1: CInt, _ fd2: CInt) -> CInt {
-    return _dup2(fd1, fd2)
-}
-internal func close(_ fd: CInt) -> CInt {
-    return _close(fd)
-}
-internal func fileno(_ fh: UnsafeMutablePointer<FILE>?) -> CInt {
-    return _fileno(fh)
-}
-
-internal func strerror(_ errno: CInt) -> String? {
-    // MSDN indicates that the returned string can have a maximum of 94
-    // characters, so allocate 95 characters.
-    return withUnsafeTemporaryAllocation(of: wchar_t.self, capacity: 95) {
-        let result = _wcserror_s($0.baseAddress, $0.count, errno)
-        guard result == 0, let baseAddress = $0.baseAddress else { return nil }
-        return String(decodingCString: baseAddress, as: UTF16.self)
+    internal func dup(_ fd: CInt) -> CInt {
+        return _dup(fd)
     }
-}
+    internal func dup2(_ fd1: CInt, _ fd2: CInt) -> CInt {
+        return _dup2(fd1, fd2)
+    }
+    internal func close(_ fd: CInt) -> CInt {
+        return _close(fd)
+    }
+    internal func fileno(_ fh: UnsafeMutablePointer<FILE>?) -> CInt {
+        return _fileno(fh)
+    }
+
+    internal func strerror(_ errno: CInt) -> String? {
+        // MSDN indicates that the returned string can have a maximum of 94
+        // characters, so allocate 95 characters.
+        return withUnsafeTemporaryAllocation(of: wchar_t.self, capacity: 95) {
+            let result = _wcserror_s($0.baseAddress, $0.count, errno)
+            guard result == 0, let baseAddress = $0.baseAddress else { return nil }
+            return String(decodingCString: baseAddress, as: UTF16.self)
+        }
+    }
 #elseif canImport(Android)
-import Android
+    import Android
 #endif
 
 //
@@ -78,7 +78,7 @@ import Android
 //
 
 extension Plugin {
-    
+
     /// The main entry point of the plugin.
     ///
     /// This sets up a communication channel with the plugin host and runs the main message loop.
@@ -89,7 +89,7 @@ extension Plugin {
         guard inputFD >= 0 else {
             internalError("Could not duplicate `stdin`: \(describe(errno: errno)).")
         }
-        
+
         // Having duplicated the original standard-input descriptor, we close
         // `stdin` so that attempts by the plugin to read console input (which
         // are usually a mistake) return errors instead of blocking.
@@ -103,36 +103,36 @@ extension Plugin {
         guard outputFD >= 0 else {
             internalError("Could not dup `stdout`: \(describe(errno: errno)).")
         }
-        
+
         // Having duplicated the original standard-output descriptor, redirect
         // `stdout` to `stderr` so that all free-form text output goes there.
         guard dup2(fileno(stderr), fileno(stdout)) >= 0 else {
             internalError("Could not dup2 `stdout` to `stderr`: \(describe(errno: errno)).")
         }
-        
+
         // Turn off full buffering so printed text appears as soon as possible.
         // Windows is much less forgiving than other platforms.  If line
         // buffering is enabled, we must provide a buffer and the size of the
         // buffer.  As a result, on Windows, we completely disable all
         // buffering, which means that partial writes are possible.
-#if os(Windows)
-        setvbuf(stdout, nil, _IONBF, 0)
-#else
-        setvbuf(stdout, nil, _IOLBF, 0)
-#endif
+        #if os(Windows)
+            setvbuf(stdout, nil, _IONBF, 0)
+        #else
+            setvbuf(stdout, nil, _IOLBF, 0)
+        #endif
 
         // Open a message channel for communicating with the plugin host.
         pluginHostConnection = PluginHostConnection(
             inputStream: FileHandle(fileDescriptor: inputFD),
-            outputStream: FileHandle(fileDescriptor: outputFD))
-        
+            outputStream: FileHandle(fileDescriptor: outputFD)
+        )
+
         // Handle messages from the host until the input stream is closed,
         // indicating that we're done.
         while let message = try pluginHostConnection.waitForNextMessage() {
             do {
                 try await handleMessage(message)
-            }
-            catch {
+            } catch {
                 // Emit a diagnostic and indicate failure to the plugin host,
                 // and exit with an error code.
                 Diagnostics.error(String(describing: error))
@@ -140,11 +140,11 @@ extension Plugin {
             }
         }
     }
-    
+
     /// Handles a single message received from the plugin host.
     fileprivate static func handleMessage(_ message: HostToPluginMessage) async throws {
         switch message {
-            
+
         case .createBuildToolCommands(let wireInput, let rootPackageId, let targetId, let generatedSources, let generatedResources):
             // Deserialize the context from the wire input structures. The root
             // package is the one we'll set the context's `package` property to.
@@ -168,7 +168,8 @@ extension Plugin {
                     pluginWorkDirectoryURL: pluginWorkDirectory,
                     accessibleTools: accessibleTools,
                     toolSearchDirectories: toolSearchDirectories.map { try Path(url: $0) },
-                    toolSearchDirectoryURLs: toolSearchDirectories)
+                    toolSearchDirectoryURLs: toolSearchDirectories
+                )
 
                 let pluginGeneratedSources = try generatedSources.map { try deserializer.url(for: $0) }
                 let pluginGeneratedResources = try generatedResources.map { try deserializer.url(for: $0) }
@@ -177,8 +178,7 @@ extension Plugin {
                     pluginGeneratedSources: pluginGeneratedSources,
                     pluginGeneratedResources: pluginGeneratedResources
                 )
-            }
-            catch {
+            } catch {
                 internalError("Couldn’t deserialize input from host: \(error).")
             }
 
@@ -196,10 +196,10 @@ extension Plugin {
             guard let plugin = plugin as? BuildToolPlugin else {
                 throw PluginDeserializationError.missingBuildToolPluginProtocolConformance(protocolName: "BuildToolPlugin")
             }
-            
+
             // Invoke the plugin to create build commands for the target.
             let generatedCommands = try await plugin.createBuildCommands(context: context, target: target)
-            
+
             // Send each of the generated commands to the host.
             for command in generatedCommands {
                 switch command {
@@ -232,7 +232,7 @@ extension Plugin {
                     try pluginHostConnection.sendMessage(message)
                 }
             }
-            
+
             // Exit with a zero exit code to indicate success.
             exit(0)
 
@@ -246,7 +246,7 @@ extension Plugin {
             guard let plugin = plugin as? BuildToolPlugin else {
                 throw PluginDeserializationError.missingBuildToolPluginProtocolConformance(protocolName: "BuildToolPlugin")
             }
-            
+
             // Deserialize the context from the wire input structures, and create a record for us to pass to the XcodeProjectPlugin library.
             let record: XcodeProjectPluginInvocationRecord
             do {
@@ -271,9 +271,9 @@ extension Plugin {
                     xcodeTarget: xcodeTarget,
                     pluginWorkDirectory: pluginWorkDirectory,
                     accessibleTools: accessibleTools,
-                    toolSearchDirectories: toolSearchDirectories)
-            }
-            catch {
+                    toolSearchDirectories: toolSearchDirectories
+                )
+            } catch {
                 internalError("Couldn’t deserialize input from host: \(error).")
             }
 
@@ -289,27 +289,31 @@ extension Plugin {
                         executable: exec,
                         arguments: args,
                         environment: env,
-                        workingDirectory: nil)
+                        workingDirectory: nil
+                    )
                     let message = PluginToHostMessage.defineBuildCommand(
                         configuration: command,
                         inputFiles: inputs,
-                        outputFiles: outputs)
+                        outputFiles: outputs
+                    )
                     try pluginHostConnection.sendMessage(message)
-                    
+
                 case let .prebuildCommand(name, exec, args, env, outdir):
                     let command = PluginToHostMessage.CommandConfiguration(
                         displayName: name,
                         executable: exec,
                         arguments: args,
                         environment: env,
-                        workingDirectory: nil)
+                        workingDirectory: nil
+                    )
                     let message = PluginToHostMessage.definePrebuildCommand(
                         configuration: command,
-                        outputFilesDirectory: outdir)
+                        outputFilesDirectory: outdir
+                    )
                     try pluginHostConnection.sendMessage(message)
                 }
             }
-            
+
             // Exit with a zero exit code to indicate success.
             exit(0)
 
@@ -334,9 +338,9 @@ extension Plugin {
                     pluginWorkDirectoryURL: pluginWorkDirectory,
                     accessibleTools: accessibleTools,
                     toolSearchDirectories: toolSearchDirectories.map { try Path(url: $0) },
-                    toolSearchDirectoryURLs: toolSearchDirectories)
-            }
-            catch {
+                    toolSearchDirectoryURLs: toolSearchDirectories
+                )
+            } catch {
                 internalError("Couldn’t deserialize input from host: \(error).")
             }
 
@@ -349,10 +353,10 @@ extension Plugin {
             guard let plugin = plugin as? CommandPlugin else {
                 throw PluginDeserializationError.missingCommandPluginProtocolConformance(protocolName: "CommandPlugin")
             }
-            
+
             // Invoke the plugin to perform its custom logic.
             try await plugin.performCommand(context: context, arguments: arguments)
-            
+
             // Exit with a zero exit code to indicate success.
             exit(0)
 
@@ -366,7 +370,7 @@ extension Plugin {
             guard let plugin = plugin as? CommandPlugin else {
                 throw PluginDeserializationError.missingCommandPluginProtocolConformance(protocolName: "CommandPlugin")
             }
-            
+
             // Deserialize the context from the wire input structures, and create a record for us to pass to the XcodeProjectPlugin library.
             let record: XcodeProjectPluginInvocationRecord
             do {
@@ -386,9 +390,9 @@ extension Plugin {
                     pluginWorkDirectory: pluginWorkDirectory,
                     accessibleTools: accessibleTools,
                     toolSearchDirectories: toolSearchDirectories,
-                    arguments: arguments)
-            }
-            catch {
+                    arguments: arguments
+                )
+            } catch {
                 internalError("Couldn’t deserialize input from host: \(error).")
             }
 
@@ -407,15 +411,15 @@ extension Plugin {
         fputs("Internal Error: \(message)", stderr)
         exit(1)
     }
-    
+
     // Private function to construct an error message from an `errno` code.
     fileprivate static func describe(errno: Int32) -> String {
-#if os(Windows)
-        return strerror(errno) ?? String(errno)
-#else
-        if let cStr = strerror(errno) { return String(cString: cStr) }
-        return String(describing: errno)
-#endif
+        #if os(Windows)
+            return strerror(errno) ?? String(errno)
+        #else
+            if let cStr = strerror(errno) { return String(cString: cStr) }
+            return String(describing: errno)
+        #endif
     }
 }
 
@@ -511,14 +515,14 @@ internal fileprivate(set) var pluginHostConnection: PluginHostConnection!
 
 typealias PluginHostConnection = MessageConnection<PluginToHostMessage, HostToPluginMessage>
 
-internal struct MessageConnection<TX,RX> where TX: Encodable, RX: Decodable {
+internal struct MessageConnection<TX, RX> where TX: Encodable, RX: Decodable {
     let inputStream: FileHandle
     let outputStream: FileHandle
 
     func sendMessage(_ message: TX) throws {
         // Encode the message as JSON.
         let payload = try JSONEncoder().encode(message)
-        
+
         // Write the header (a 64-bit length field in little endian byte order).
         var count = UInt64(littleEndian: UInt64(payload.count))
         let header = Swift.withUnsafeBytes(of: &count) { Data($0) }
@@ -528,16 +532,16 @@ internal struct MessageConnection<TX,RX> where TX: Encodable, RX: Decodable {
         // Write the payload.
         try outputStream.write(contentsOf: payload)
     }
-    
+
     func waitForNextMessage() throws -> RX? {
         // Read the header (a 64-bit length field in little endian byte order).
         guard let header = try inputStream.read(upToCount: 8) else { return nil }
         guard header.count == 8 else {
             throw PluginMessageError.truncatedHeader
         }
-        
+
         // Decode the count.
-        let count = header.withUnsafeBytes{ $0.loadUnaligned(as: UInt64.self).littleEndian }
+        let count = header.withUnsafeBytes { $0.loadUnaligned(as: UInt64.self).littleEndian }
         guard count >= 2 else {
             throw PluginMessageError.invalidPayloadSize
         }
@@ -560,10 +564,10 @@ internal struct MessageConnection<TX,RX> where TX: Encodable, RX: Decodable {
 
 fileprivate func callEntryPoint(_ record: XcodeProjectPluginInvocationRecord, _ functionName: String) throws {
     #if !canImport(Darwin)
-    // Workaround for a compiler crash presumably related to Objective-C bridging on non-Darwin platforms (rdar://130826719&136043295)
-    typealias CallerFuncType = @convention(c) (UnsafeRawPointer) -> Any
+        // Workaround for a compiler crash presumably related to Objective-C bridging on non-Darwin platforms (rdar://130826719&136043295)
+        typealias CallerFuncType = @convention(c) (UnsafeRawPointer) -> Any
     #else
-    typealias CallerFuncType = @convention(c) (UnsafeRawPointer) -> (any Error)?
+        typealias CallerFuncType = @convention(c) (UnsafeRawPointer) -> (any Error)?
     #endif
 
     // Find the trampoline for the type of custom command (it's expected to be in the add-on library).
@@ -574,15 +578,15 @@ fileprivate func callEntryPoint(_ record: XcodeProjectPluginInvocationRecord, _ 
     // The caller function is expected to take a pointer to a XcodeProjectPluginInvocationRecord. It is expected to return nil on success or an error on failure, as there is no way of throwing form a C function.
     let recordPtr = UnsafeRawPointer(Unmanaged.passUnretained(record).toOpaque())
     #if !canImport(Darwin)
-    // Workaround for a compiler crash presumably related to Objective-C bridging on non-Darwin platforms (rdar://130826719&136043295)
-    /*if let error = callerFunc(recordPtr) as! (any Error)? {
-        throw error
-    }*/
-    fatalError("FIXME: Compiler crashes when trying to compile a call to callerFunc")
+        // Workaround for a compiler crash presumably related to Objective-C bridging on non-Darwin platforms (rdar://130826719&136043295)
+        /*if let error = callerFunc(recordPtr) as! (any Error)? {
+            throw error
+        }*/
+        fatalError("FIXME: Compiler crashes when trying to compile a call to callerFunc")
     #else
-    if let error = callerFunc(recordPtr) {
-        throw error
-    }
+        if let error = callerFunc(recordPtr) {
+            throw error
+        }
     #endif
 }
 
@@ -590,23 +594,23 @@ fileprivate enum Library: Sendable {
     @_alwaysEmitIntoClient
     public static func open() throws -> LibraryHandle {
         #if os(Windows)
-        guard let handle = GetModuleHandleW(nil) else {
-            throw LibraryOpenError(message: "GetModuleHandleW returned \(GetLastError())")
-        }
-        return LibraryHandle(rawValue: handle)
+            guard let handle = GetModuleHandleW(nil) else {
+                throw LibraryOpenError(message: "GetModuleHandleW returned \(GetLastError())")
+            }
+            return LibraryHandle(rawValue: handle)
         #else
-        guard let handle = dlopen(nil, RTLD_NOW | RTLD_LOCAL) else {
-            throw LibraryOpenError(message: String(cString: dlerror()!))
-        }
-        return LibraryHandle(rawValue: handle)
+            guard let handle = dlopen(nil, RTLD_NOW | RTLD_LOCAL) else {
+                throw LibraryOpenError(message: String(cString: dlerror()!))
+            }
+            return LibraryHandle(rawValue: handle)
         #endif
     }
 
     public static func lookup<T>(_ handle: LibraryHandle, _ symbol: String) -> T? {
         #if os(Windows)
-        guard let ptr = GetProcAddress(handle.rawValue, symbol) else { return nil }
+            guard let ptr = GetProcAddress(handle.rawValue, symbol) else { return nil }
         #else
-        guard let ptr = dlsym(handle.rawValue, symbol) else { return nil }
+            guard let ptr = dlsym(handle.rawValue, symbol) else { return nil }
         #endif
         return unsafeBitCast(ptr, to: T.self)
     }
@@ -627,9 +631,9 @@ fileprivate struct LibraryOpenError: Error, CustomStringConvertible, Sendable {
 
 fileprivate struct LibraryHandle: @unchecked Sendable {
     #if os(Windows)
-    @usableFromInline typealias PlatformHandle = HMODULE
+        @usableFromInline typealias PlatformHandle = HMODULE
     #else
-    @usableFromInline typealias PlatformHandle = UnsafeMutableRawPointer
+        @usableFromInline typealias PlatformHandle = UnsafeMutableRawPointer
     #endif
 
     fileprivate let rawValue: PlatformHandle

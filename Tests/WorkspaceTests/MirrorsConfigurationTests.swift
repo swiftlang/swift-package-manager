@@ -28,16 +28,16 @@ fileprivate struct MirrorsConfigurationTests {
         try fs.writeFileContents(
             configFile,
             string: """
-            {
-              "object": [
                 {
-                  "mirror": "\(mirrorURL)",
-                  "original": "\(originalURL)"
+                  "object": [
+                    {
+                      "mirror": "\(mirrorURL)",
+                      "original": "\(originalURL)"
+                    }
+                  ],
+                  "version": 1
                 }
-              ],
-              "version": 1
-            }
-            """
+                """
         )
 
         let config = Workspace.Configuration.MirrorsStorage(path: configFile, fileSystem: fs, deleteWhenEmpty: true)
@@ -68,18 +68,18 @@ fileprivate struct MirrorsConfigurationTests {
 
         let config = Workspace.Configuration.MirrorsStorage(path: configFile, fileSystem: fs, deleteWhenEmpty: true)
 
-        try config.apply{ _ in }
+        try config.apply { _ in }
         #expect(!fs.exists(configFile))
 
         let originalURL = "https://github.com/apple/swift-argument-parser.git"
         let mirrorURL = "https://github.com/mona/swift-argument-parser.git"
 
-        try config.apply{ mirrors in
+        try config.apply { mirrors in
             try mirrors.set(mirror: mirrorURL, for: originalURL)
         }
         #expect(fs.exists(configFile))
 
-        try config.apply{ mirrors in
+        try config.apply { mirrors in
             try mirrors.unset(originalOrMirror: originalURL)
         }
         #expect(!fs.exists(configFile))
@@ -92,18 +92,18 @@ fileprivate struct MirrorsConfigurationTests {
 
         let config = Workspace.Configuration.MirrorsStorage(path: configFile, fileSystem: fs, deleteWhenEmpty: false)
 
-        try config.apply{ _ in }
+        try config.apply { _ in }
         #expect(!fs.exists(configFile))
 
         let originalURL = "https://github.com/apple/swift-argument-parser.git"
         let mirrorURL = "https://github.com/mona/swift-argument-parser.git"
 
-        try config.apply{ mirrors in
+        try config.apply { mirrors in
             try mirrors.set(mirror: mirrorURL, for: originalURL)
         }
         #expect(fs.exists(configFile))
 
-        try config.apply{ mirrors in
+        try config.apply { mirrors in
             try mirrors.unset(originalOrMirror: originalURL)
         }
         #expect(fs.exists(configFile))

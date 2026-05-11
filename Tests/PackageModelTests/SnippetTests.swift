@@ -42,21 +42,21 @@ struct SnippetTests {
     func testBasic() async throws {
         let explanation = "This snippet does a foo. Try it when XYZ."
         let presentationCode = """
-        import Module
+            import Module
 
-        func foo(x: X) {}
-        """
+            func foo(x: X) {}
+            """
 
         let source = """
 
-        //! \(explanation)
+            //! \(explanation)
 
-        \(presentationCode)
+            \(presentationCode)
 
-        // MARK: HIDE
+            // MARK: HIDE
 
-        print(foo(x: x()))
-        """
+            print(foo(x: x()))
+            """
 
         let snippet = Snippet(parsing: source, path: fakeSourceFilePath)
 
@@ -76,34 +76,34 @@ struct SnippetTests {
         let presentationCode = """
 
 
-        import Module
+            import Module
 
 
 
 
-        func foo(x: X) {}
+            func foo(x: X) {}
 
 
-        """
+            """
 
         let source = """
 
-        //!
-        //! \(explanation)
-        //!
+            //!
+            //! \(explanation)
+            //!
 
-        \(presentationCode)
+            \(presentationCode)
 
-        // MARK: HIDE
+            // MARK: HIDE
 
-        print(foo(x: x()))
-        """
+            print(foo(x: x()))
+            """
 
         let expectedPresentationCode = """
-        import Module
+            import Module
 
-        func foo(x: X) {}
-        """
+            func foo(x: X) {}
+            """
 
         let snippet = Snippet(parsing: source, path: fakeSourceFilePath)
         #expect(explanation == snippet.explanation)
@@ -114,28 +114,28 @@ struct SnippetTests {
     /// works as intended.
     func testMarkHideShowToggle() async throws {
         let source = """
-        shown1
+            shown1
 
-        // mark: hide
-        hidden1
+            // mark: hide
+            hidden1
 
-        // mark: show
-        shown2
+            // mark: show
+            shown2
 
-        // mark: hide
-        hidden2
+            // mark: hide
+            hidden2
 
-        // mark: show
-        shown3
-        """
+            // mark: show
+            shown3
+            """
 
         let expectedPresentationCode = """
-        shown1
+            shown1
 
-        shown2
-        
-        shown3
-        """
+            shown2
+
+            shown3
+            """
 
         let snippet = Snippet(parsing: source, path: fakeSourceFilePath)
         #expect(!snippet.presentationCode.contains("hidden"))
@@ -148,21 +148,21 @@ struct SnippetTests {
     @Test
     func testRemoveExtraIndentation() async throws {
         let source = """
-        // mark: hide
-        struct Outer {
-          struct Inner {
-            // mark: show
-            struct InnerInner {
-            }
             // mark: hide
-          }
-        }
-        """
+            struct Outer {
+              struct Inner {
+                // mark: show
+                struct InnerInner {
+                }
+                // mark: hide
+              }
+            }
+            """
 
         let expectedPresentationCode = """
-        struct InnerInner {
-        }
-        """
+            struct InnerInner {
+            }
+            """
         let snippet = Snippet(parsing: source, path: fakeSourceFilePath)
         #expect(expectedPresentationCode == snippet.presentationCode)
     }

@@ -88,13 +88,16 @@ struct GitRepositoryProviderTests {
         let errorString = "\(error)"
         #expect(
             errorString.contains(stdOut),
-            "Error string '\(errorString)' should contain '\(stdOut)'")
+            "Error string '\(errorString)' should contain '\(stdOut)'"
+        )
         #expect(
             errorString.contains(stdErr),
-            "Error string '\(errorString)' should contain '\(stdErr)'")
+            "Error string '\(errorString)' should contain '\(stdErr)'"
+        )
         #expect(
             errorString.contains(command),
-            "Error string '\(errorString)' should contain '\(command)'")
+            "Error string '\(errorString)' should contain '\(command)'"
+        )
     }
 
     @Test(
@@ -114,7 +117,8 @@ struct GitRepositoryProviderTests {
         let errorString = "\(error)"
         #expect(
             errorString.contains(stdErr),
-            "Error string '\(errorString)' should contain '\(stdErr)'")
+            "Error string '\(errorString)' should contain '\(stdErr)'"
+        )
     }
 
     @Test(

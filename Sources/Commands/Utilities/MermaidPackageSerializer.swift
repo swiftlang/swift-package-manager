@@ -22,7 +22,7 @@ struct MermaidPackageSerializer {
     var renderedMarkdown: String {
         var subgraphs = OrderedDictionary<String, [Edge]>()
         subgraphs[package.identity.description] = package.products.productTargetEdges
-        
+
         for edge in package.modules.targetDependencyEdges {
             if let subgraph = edge.to.subgraph {
                 subgraphs[subgraph, default: []].append(edge)
@@ -32,9 +32,9 @@ struct MermaidPackageSerializer {
         }
 
         return """
-        ```mermaid
-        flowchart TB
-            \(
+            ```mermaid
+            flowchart TB
+                \(
                 shouldIncludeLegend ?
                     """
                     subgraph legend
@@ -55,9 +55,9 @@ struct MermaidPackageSerializer {
                     """
                 }.joined(separator: "\n\n    ")
             )
-        ```
+            ```
 
-        """
+            """
     }
 
     fileprivate struct Node {
@@ -162,4 +162,3 @@ extension [Module] {
         }
     }
 }
-

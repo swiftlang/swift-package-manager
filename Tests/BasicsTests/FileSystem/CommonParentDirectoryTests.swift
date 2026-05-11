@@ -15,9 +15,9 @@ import Foundation
 import Testing
 
 #if os(Windows)
-private var windows: Bool { true }
+    private var windows: Bool { true }
 #else
-private var windows: Bool { false }
+    private var windows: Bool { false }
 #endif
 
 @Suite(

@@ -40,7 +40,7 @@ struct ToolsVersionTests {
     ) async throws {
         let configuration = BuildConfiguration.debug
         try await withKnownIssue("https://github.com/swiftlang/swift-build/issues/609", isIntermittent: true) {
-            try await testWithTemporaryDirectory{ path in
+            try await testWithTemporaryDirectory { path in
                 let fs = localFileSystem
 
                 // Create a repo for the dependency to test against.
@@ -129,7 +129,6 @@ struct ToolsVersionTests {
                 // v1 should get selected because v1.0.1 depends on a (way) higher set of tools.
                 let executableActualOutput = try await AsyncProcess.checkNonZeroExit(args: exe).spm_chomp()
                 #expect(executableActualOutput == "foo@1.0")
-
 
                 // Set the tools version to something high.
                 _ = try await executeSwiftPackage(

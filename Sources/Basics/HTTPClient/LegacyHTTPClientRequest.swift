@@ -70,7 +70,8 @@ public struct LegacyHTTPClientRequest: Sendable {
         }
     }
 
-    public typealias FileMoveCompletion = @Sendable (Error?)
+    public typealias FileMoveCompletion =
+        @Sendable (Error?)
         -> Void
 
     public enum Kind: Sendable {

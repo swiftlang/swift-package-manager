@@ -256,7 +256,7 @@ extension AbsolutePath {
             return nil
         }
 
-        var extensions = String(self.basename[firstDot ..< self.basename.endIndex])
+        var extensions = String(self.basename[firstDot..<self.basename.endIndex])
 
         guard extensions.count > 1 else {
             return nil
@@ -271,7 +271,7 @@ extension AbsolutePath {
     public var basenameWithoutAnyExtension: String {
         var basename = self.basename
         if let index = basename.firstIndex(of: ".") {
-            basename.removeSubrange(index ..< basename.endIndex)
+            basename.removeSubrange(index..<basename.endIndex)
         }
         return String(basename)
     }

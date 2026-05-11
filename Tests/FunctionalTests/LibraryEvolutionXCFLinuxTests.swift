@@ -32,9 +32,9 @@ private struct SwiftPMTests {
                 )
 
                 #if arch(arm64)
-                let arch = "aarch64"
+                    let arch = "aarch64"
                 #elseif arch(x86_64)
-                let arch = "x86_64"
+                    let arch = "x86_64"
                 #endif
 
                 let platform = "linux"
@@ -62,41 +62,42 @@ private struct SwiftPMTests {
                 try localFileSystem.writeFileContents(
                     xcframeworkPath.appending(component: "Info.plist"),
                     string: """
-                    <?xml version="1.0" encoding="UTF-8"?>
-                    <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-                    <plist version="1.0">
-                    <dict>
-                        <key>AvailableLibraries</key>
-                        <array>
-                            <dict>
-                                <key>BinaryPath</key>
-                                <string>\(libraryName)</string>
-                                <key>LibraryIdentifier</key>
-                                <string>\(platform)-\(arch)</string>
-                                <key>LibraryPath</key>
-                                <string>\(libraryName)</string>
-                                <key>SupportedArchitectures</key>
-                                <array>
-                                    <string>\(arch)</string>
-                                </array>
-                                <key>SupportedPlatform</key>
-                                <string>\(platform)</string>
-                            </dict>
-                        </array>
-                        <key>CFBundlePackageType</key>
-                        <string>XFWK</string>
-                        <key>XCFrameworkFormatVersion</key>
-                        <string>1.0</string>
-                    </dict>
-                    </plist>
-                    """
+                        <?xml version="1.0" encoding="UTF-8"?>
+                        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+                        <plist version="1.0">
+                        <dict>
+                            <key>AvailableLibraries</key>
+                            <array>
+                                <dict>
+                                    <key>BinaryPath</key>
+                                    <string>\(libraryName)</string>
+                                    <key>LibraryIdentifier</key>
+                                    <string>\(platform)-\(arch)</string>
+                                    <key>LibraryPath</key>
+                                    <string>\(libraryName)</string>
+                                    <key>SupportedArchitectures</key>
+                                    <array>
+                                        <string>\(arch)</string>
+                                    </array>
+                                    <key>SupportedPlatform</key>
+                                    <string>\(platform)</string>
+                                </dict>
+                            </array>
+                            <key>CFBundlePackageType</key>
+                            <string>XFWK</string>
+                            <key>XCFrameworkFormatVersion</key>
+                            <string>1.0</string>
+                        </dict>
+                        </plist>
+                        """
                 )
             }
 
             let packagePath = fixturePath.appending(component: "TestBinary")
             let scratchPath = packagePath.appending(component: ".build-test")
             let runOutput = try await executeSwiftRun(
-                packagePath, "TestBinary",
+                packagePath,
+                "TestBinary",
                 extraArgs: [
                     "--scratch-path", scratchPath.pathString, "--experimental-xcframeworks-on-linux",
                 ],

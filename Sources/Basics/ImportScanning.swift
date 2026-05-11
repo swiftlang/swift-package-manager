@@ -14,8 +14,10 @@ import Dispatch
 
 import class Foundation.JSONDecoder
 
-private let defaultImports = ["Swift", "SwiftOnoneSupport", "_Concurrency",
-                              "_StringProcessing", "_SwiftConcurrencyShims"]
+private let defaultImports = [
+    "Swift", "SwiftOnoneSupport", "_Concurrency",
+    "_StringProcessing", "_SwiftConcurrencyShims",
+]
 
 private struct Imports: Decodable {
     let imports: [String]
@@ -41,9 +43,12 @@ public struct SwiftcImportScanner: ImportScanner {
     }
 
     public func scanImports(_ filePathToScan: AbsolutePath) async throws -> [String] {
-        let cmd = [swiftCompilerPath.pathString,
-                   filePathToScan.pathString,
-                   "-scan-dependencies", "-Xfrontend", "-import-prescan"] + self.swiftCompilerFlags
+        let cmd =
+            [
+                swiftCompilerPath.pathString,
+                filePathToScan.pathString,
+                "-scan-dependencies", "-Xfrontend", "-import-prescan",
+            ] + self.swiftCompilerFlags
 
         let result = try await AsyncProcess.popen(arguments: cmd, environment: self.swiftCompilerEnvironment)
 

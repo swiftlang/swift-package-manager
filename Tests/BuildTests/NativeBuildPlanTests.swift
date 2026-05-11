@@ -11,8 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
-import PackageGraph
+@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly) import PackageGraph
 import PackageLoading
 import PackageModel
 import SPMBuildCore
@@ -28,7 +27,7 @@ struct NativeBuildPlanTests {
         let fs = InMemoryFileSystem(
             emptyFiles:
                 "/Pkg/Sources/lib/file1.swift",
-                "/Pkg/Sources/lib/file2.c"
+            "/Pkg/Sources/lib/file2.c"
         )
         let observability = ObservabilitySystem.makeForTesting()
         let graph = try loadModulesGraph(
@@ -39,9 +38,9 @@ struct NativeBuildPlanTests {
                     path: "/Pkg",
                     toolsVersion: #require(ToolsVersion(string: "6.4.0", experimentalFeatures: [.experimentalMultiLang])),
                     targets: [
-                        TargetDescription(name: "lib"),
+                        TargetDescription(name: "lib")
                     ]
-                ),
+                )
             ],
             observabilityScope: observability.topScope
         )

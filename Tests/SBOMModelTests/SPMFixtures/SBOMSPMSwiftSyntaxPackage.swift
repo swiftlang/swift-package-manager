@@ -62,13 +62,15 @@ extension SBOMTestModulesGraph {
         let swiftSyntaxMacroExpansionModule = self.createSwiftModule(name: "SwiftSyntaxMacroExpansion")
 
         // Compiler/Plugin modules
-        let swiftCompilerPluginMessageHandlingModule = self
+        let swiftCompilerPluginMessageHandlingModule =
+            self
             .createSwiftModule(name: "SwiftCompilerPluginMessageHandling")
         let swiftCompilerPluginModule = self.createSwiftModule(name: "SwiftCompilerPlugin")
         let swiftLibraryPluginProviderModule = self.createSwiftModule(name: "SwiftLibraryPluginProvider")
 
         // Test support modules
-        let swiftSyntaxMacrosGenericTestSupportModule = self
+        let swiftSyntaxMacrosGenericTestSupportModule =
+            self
             .createSwiftModule(name: "SwiftSyntaxMacrosGenericTestSupport")
         let swiftSyntaxMacrosTestSupportModule = self.createSwiftModule(name: "SwiftSyntaxMacrosTestSupport")
 

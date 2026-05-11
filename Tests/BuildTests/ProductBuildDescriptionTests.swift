@@ -10,8 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-@testable
-import Build
+@testable import Build
 
 import class Basics.InMemoryFileSystem
 import class Basics.ObservabilitySystem
@@ -19,11 +18,9 @@ import class Basics.ObservabilitySystem
 import class PackageModel.Manifest
 import struct PackageModel.TargetDescription
 
-@testable
-import struct PackageGraph.ResolvedProduct
+@testable import struct PackageGraph.ResolvedProduct
 
-@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
-import func PackageGraph.loadModulesGraph
+@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly) import func PackageGraph.loadModulesGraph
 
 import func _InternalTestSupport.mockBuildParameters
 import func _InternalTestSupport.XCTAssertNoDiagnostics
@@ -33,7 +30,7 @@ final class ProductBuildDescriptionTests: XCTestCase {
     func testEmbeddedProducts() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/Pkg/Sources/exe/main.swift"
+                "/Pkg/Sources/exe/main.swift"
         )
 
         let observability = ObservabilitySystem.makeForTesting()
@@ -47,9 +44,9 @@ final class ProductBuildDescriptionTests: XCTestCase {
                         TargetDescription(
                             name: "exe",
                             settings: [.init(tool: .swift, kind: .enableExperimentalFeature("Embedded"))]
-                        ),
+                        )
                     ]
-                ),
+                )
             ],
             observabilityScope: observability.topScope
         )

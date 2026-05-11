@@ -21,11 +21,11 @@ public enum Sanitizer: String, Encodable, CaseIterable {
     /// Return an established short name for a sanitizer, e.g. "asan".
     public var shortName: String {
         switch self {
-            case .address: return "asan"
-            case .thread: return "tsan"
-            case .undefined: return "ubsan"
-            case .scudo: return "scudo"
-            case .fuzzer: return "fuzzer"
+        case .address: return "asan"
+        case .thread: return "tsan"
+        case .undefined: return "ubsan"
+        case .scudo: return "scudo"
+        case .fuzzer: return "fuzzer"
         }
     }
 }
@@ -67,6 +67,6 @@ public struct EnabledSanitizers: Encodable {
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(sanitizers.sorted{ $0.rawValue < $1.rawValue }, forKey: .sanitizers)
+        try container.encode(sanitizers.sorted { $0.rawValue < $1.rawValue }, forKey: .sanitizers)
     }
 }

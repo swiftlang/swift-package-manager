@@ -10,8 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-@_spi(ProcessEnvironmentBlockShim)
-import Basics
+@_spi(ProcessEnvironmentBlockShim) import Basics
 @testable import SourceControl
 import _InternalTestSupport
 import XCTest
@@ -43,7 +42,9 @@ class GitRepositoryTests: XCTestCase {
 
         do {
             try await AsyncProcess.checkNonZeroExit(
-                args: Git.tool, "lfs", "version",
+                args: Git.tool,
+                "lfs",
+                "version",
                 environment: .init(Git.environmentBlock)
             )
         } catch {
@@ -57,11 +58,22 @@ class GitRepositoryTests: XCTestCase {
         tag: String = "1.0.0"
     ) async throws -> Data {
         try await AsyncProcess.checkNonZeroExit(
-            args: Git.tool, "-C", repositoryPath.pathString, "lfs", "install", "--local", "--force",
+            args: Git.tool,
+            "-C",
+            repositoryPath.pathString,
+            "lfs",
+            "install",
+            "--local",
+            "--force",
             environment: .init(Git.environmentBlock)
         )
         try await AsyncProcess.checkNonZeroExit(
-            args: Git.tool, "-C", repositoryPath.pathString, "lfs", "track", "*.bin",
+            args: Git.tool,
+            "-C",
+            repositoryPath.pathString,
+            "lfs",
+            "track",
+            "*.bin",
             environment: .init(Git.environmentBlock)
         )
 
@@ -219,11 +231,11 @@ class GitRepositoryTests: XCTestCase {
         try await testWithTemporaryDirectory { path in
             // Unarchive the static test repository.
             let inputArchivePath = AbsolutePath(#file).parentDirectory.appending(components: "Inputs", "TestRepo.tgz")
-#if os(Windows)
-            try await AsyncProcess.checkNonZeroExit(args: "tar.exe", "-x", "-v", "-C", path.pathString, "-f", inputArchivePath.pathString)
-#else
-            try await AsyncProcess.checkNonZeroExit(args: "tar", "--no-same-owner", "-x", "-v", "-C", path.pathString, "-f", inputArchivePath.pathString)
-#endif
+            #if os(Windows)
+                try await AsyncProcess.checkNonZeroExit(args: "tar.exe", "-x", "-v", "-C", path.pathString, "-f", inputArchivePath.pathString)
+            #else
+                try await AsyncProcess.checkNonZeroExit(args: "tar", "--no-same-owner", "-x", "-v", "-C", path.pathString, "-f", inputArchivePath.pathString)
+            #endif
             let testRepoPath = path.appending("TestRepo")
 
             // Check hash resolution.
@@ -263,7 +275,7 @@ class GitRepositoryTests: XCTestCase {
             // paths with special characters.
             let funnyNamesCommit = try repo.readCommit(hash: repo.resolveHash(treeish: "a7b19a7"))
             let funnyNamesRoot = try repo.readTree(hash: funnyNamesCommit.tree)
-            XCTAssertEqual(funnyNamesRoot.contents.map{ $0.name }, ["README.txt", "funny-names", "subdir"])
+            XCTAssertEqual(funnyNamesRoot.contents.map { $0.name }, ["README.txt", "funny-names", "subdir"])
             guard funnyNamesRoot.contents.count == 3 else { return XCTFail() }
 
             // FIXME: This isn't yet supported.
@@ -272,7 +284,7 @@ class GitRepositoryTests: XCTestCase {
             if let _ = try? repo.readTree(location: funnyNamesSubdirEntry.location) {
                 XCTFail("unexpected success reading tree with funny names")
             }
-       }
+        }
     }
 
     func testSubmoduleRead() throws {
@@ -287,7 +299,12 @@ class GitRepositoryTests: XCTestCase {
             initGitRepo(repoPath)
 
             try AsyncProcess.checkNonZeroExit(
-                args: Git.tool, "-C", repoPath.pathString, "submodule", "add", testRepoPath.pathString,
+                args: Git.tool,
+                "-C",
+                repoPath.pathString,
+                "submodule",
+                "add",
+                testRepoPath.pathString,
                 environment: .init(Git.environmentBlock)
             )
             let repo = GitRepository(path: repoPath)
@@ -343,9 +360,9 @@ class GitRepositoryTests: XCTestCase {
             XCTAssert(view.isFile("/test-file-1.txt"))
             XCTAssert(!view.isSymlink("/test-file-1.txt"))
             XCTAssert(!view.isExecutableFile("/does-not-exist"))
-#if !os(Windows)
-            XCTAssert(view.isExecutableFile("/test-file-3.sh"))
-#endif
+            #if !os(Windows)
+                XCTAssert(view.isExecutableFile("/test-file-3.sh"))
+            #endif
 
             // Check read of a directory.
             let subdirPath = AbsolutePath("/subdir")
@@ -535,8 +552,7 @@ class GitRepositoryTests: XCTestCase {
             do {
                 try repo.setURL(remote: "fake", url: "../bar")
                 XCTFail("unexpected success (shouldn’t have been able to set URL of missing remote)")
-            }
-            catch let error as GitRepositoryError {
+            } catch let error as GitRepositoryError {
                 XCTAssertEqual(error.path, testRepoPath)
                 XCTAssertNotNil(error.diagnosticLocation)
             }
@@ -713,7 +729,13 @@ class GitRepositoryTests: XCTestCase {
             // Add submodule to foo and tag it as 1.0.1
             try foo.checkout(newBranch: "submodule")
             try await AsyncProcess.checkNonZeroExit(
-                args: Git.tool, "-C", fooPath.pathString, "submodule", "add", barPath.pathString, "bar",
+                args: Git.tool,
+                "-C",
+                fooPath.pathString,
+                "submodule",
+                "add",
+                barPath.pathString,
+                "bar",
                 environment: .init(Git.environmentBlock)
             )
 
@@ -735,7 +757,13 @@ class GitRepositoryTests: XCTestCase {
             try localFileSystem.writeFileContents(barPath.appending("bar.txt"), bytes: "hello")
             // Add a submodule too to check for recursive submodules.
             try await AsyncProcess.checkNonZeroExit(
-                args: Git.tool, "-C", barPath.pathString, "submodule", "add", bazPath.pathString, "baz",
+                args: Git.tool,
+                "-C",
+                barPath.pathString,
+                "submodule",
+                "add",
+                bazPath.pathString,
+                "baz",
                 environment: .init(Git.environmentBlock)
             )
 
@@ -906,7 +934,7 @@ class GitRepositoryTests: XCTestCase {
             // We consider the directory valid even if the remote does not have the same path extension - in this case we expected '.git'.
             XCTAssertTrue(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(url: SourceControlURL(customRemoteWithoutPathExtension))))
             // We consider the directory valid even if the remote does not have the same path extension - in this case we expected '.git'.
-            XCTAssertTrue(try repositoryManager.isValidDirectory(packageDir, for:  RepositorySpecifier(url: SourceControlURL((customRemote as NSString).deletingPathExtension + "/"))))
+            XCTAssertTrue(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(url: SourceControlURL((customRemote as NSString).deletingPathExtension + "/"))))
 
             // The following ensure that are actually checking the remote's origin.
             XCTAssertFalse(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(path: AbsolutePath(validating: "/"))))
@@ -956,8 +984,8 @@ class GitRepositoryTests: XCTestCase {
             XCTAssertTrue(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(path: try AbsolutePath(validating: customRemotePathWithoutPathExtension))))
             XCTAssertTrue(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(url: SourceControlURL(customRemotePathWithoutPathExtension))))
             // We consider the directory valid even if the remote does not have the same path extension - in this case we expected '.git'.
-            XCTAssertTrue(try repositoryManager.isValidDirectory(packageDir, for:  RepositorySpecifier(path: try AbsolutePath(validating: customRemotePathWithoutPathExtension + "/"))))
-            XCTAssertTrue(try repositoryManager.isValidDirectory(packageDir, for:  RepositorySpecifier(url: SourceControlURL((customRemotePath as NSString).deletingPathExtension + "/"))))
+            XCTAssertTrue(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(path: try AbsolutePath(validating: customRemotePathWithoutPathExtension + "/"))))
+            XCTAssertTrue(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(url: SourceControlURL((customRemotePath as NSString).deletingPathExtension + "/"))))
 
             // The following ensure that are actually checking the remote's origin.
             XCTAssertFalse(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(path: AbsolutePath(validating: "/"))))
@@ -1002,7 +1030,7 @@ class GitRepositoryTests: XCTestCase {
             // We consider the directory valid even if the remote does not have the same path extension - in this case we expected '.git'.
             XCTAssertTrue(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(url: SourceControlURL("https://mycustomdomain/some-package"))))
             // We consider the directory valid even if the remote does not have the same path extension - in this case we expected '.git'.
-            XCTAssertTrue(try repositoryManager.isValidDirectory(packageDir, for:  RepositorySpecifier(url: SourceControlURL("https://mycustomdomain/some-package/"))))
+            XCTAssertTrue(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(url: SourceControlURL("https://mycustomdomain/some-package/"))))
 
             // The following ensure that are actually checking the remote's origin.
             XCTAssertFalse(try repositoryManager.isValidDirectory(packageDir, for: RepositorySpecifier(path: AbsolutePath(validating: "/"))))
@@ -1164,20 +1192,34 @@ class GitRepositoryTests: XCTestCase {
 
             let bareClonePath = path.appending("bare-clone")
             try await AsyncProcess.checkNonZeroExit(
-                args: Git.tool, "clone", "--mirror", lfsRepoPath.pathString, bareClonePath.pathString,
+                args: Git.tool,
+                "clone",
+                "--mirror",
+                lfsRepoPath.pathString,
+                bareClonePath.pathString,
                 environment: .init(Git.environmentBlock)
             )
 
             let checkoutPath = path.appending("checkout")
             try await AsyncProcess.checkNonZeroExit(
-                args: Git.tool, "clone", "--shared", "--no-checkout", bareClonePath.pathString, checkoutPath.pathString,
+                args: Git.tool,
+                "clone",
+                "--shared",
+                "--no-checkout",
+                bareClonePath.pathString,
+                checkoutPath.pathString,
                 environment: .init(Git.environmentBlock)
             )
 
             var skipSmudgeEnvironment = Git.environmentBlock
             skipSmudgeEnvironment["GIT_LFS_SKIP_SMUDGE"] = "1"
             try await AsyncProcess.checkNonZeroExit(
-                args: Git.tool, "-C", checkoutPath.pathString, "checkout", "-f", "1.0.0",
+                args: Git.tool,
+                "-C",
+                checkoutPath.pathString,
+                "checkout",
+                "-f",
+                "1.0.0",
                 environment: .init(skipSmudgeEnvironment)
             )
 

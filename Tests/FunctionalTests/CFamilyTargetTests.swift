@@ -42,23 +42,23 @@ struct CFamilyTargetTestCase {
     func cLibraryWithSpaces(
         data: BuildData,
     ) async throws {
-            try await fixture(name: "CFamilyTargets/CLibraryWithSpaces") { fixturePath in
-                try await executeSwiftBuild(
-                    fixturePath,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
-                )
-                switch data.buildSystem {
-                case .native:
-                    let binPath = try fixturePath.appending(components: data.buildSystem.binPath(for: data.config))
-                    expectDirectoryContainsFile(dir: binPath, filename: "Bar.c.o")
-                    expectDirectoryContainsFile(dir: binPath, filename: "Foo.c.o")
-                case .swiftbuild:
-                    break
-                case .xcode:
-                    Issue.record("Test expectations have not been implemented.")
-                }
+        try await fixture(name: "CFamilyTargets/CLibraryWithSpaces") { fixturePath in
+            try await executeSwiftBuild(
+                fixturePath,
+                configuration: data.config,
+                buildSystem: data.buildSystem,
+            )
+            switch data.buildSystem {
+            case .native:
+                let binPath = try fixturePath.appending(components: data.buildSystem.binPath(for: data.config))
+                expectDirectoryContainsFile(dir: binPath, filename: "Bar.c.o")
+                expectDirectoryContainsFile(dir: binPath, filename: "Foo.c.o")
+            case .swiftbuild:
+                break
+            case .xcode:
+                Issue.record("Test expectations have not been implemented.")
             }
+        }
     }
 
     @Test(
@@ -70,27 +70,27 @@ struct CFamilyTargetTestCase {
     func cUsingCAndSwiftDep(
         data: BuildData,
     ) async throws {
-            try await fixture(name: "DependencyResolution/External/CUsingCDep", createGitRepo: true) { fixturePath in
-                let packageRoot = fixturePath.appending("Bar")
-                try await executeSwiftBuild(
-                    packageRoot,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
-                )
-                switch data.buildSystem {
-                case .native:
-                    let binPath = try packageRoot.appending(components: data.buildSystem.binPath(for: data.config))
-                    expectDirectoryContainsFile(dir: binPath, filename: "Sea.c.o")
-                    expectDirectoryContainsFile(dir: binPath, filename: "Foo.c.o")
-                case .swiftbuild:
-                    break
-                case .xcode:
-                    Issue.record("Test expectation have not been implemented.")
-                }
-                let path = try SwiftPM.packagePath(for: "Foo", packageRoot: packageRoot)
-                let actualTags = try GitRepository(path: path).getTags()
-                #expect(actualTags == ["1.2.3"])
+        try await fixture(name: "DependencyResolution/External/CUsingCDep", createGitRepo: true) { fixturePath in
+            let packageRoot = fixturePath.appending("Bar")
+            try await executeSwiftBuild(
+                packageRoot,
+                configuration: data.config,
+                buildSystem: data.buildSystem,
+            )
+            switch data.buildSystem {
+            case .native:
+                let binPath = try packageRoot.appending(components: data.buildSystem.binPath(for: data.config))
+                expectDirectoryContainsFile(dir: binPath, filename: "Sea.c.o")
+                expectDirectoryContainsFile(dir: binPath, filename: "Foo.c.o")
+            case .swiftbuild:
+                break
+            case .xcode:
+                Issue.record("Test expectation have not been implemented.")
             }
+            let path = try SwiftPM.packagePath(for: "Foo", packageRoot: packageRoot)
+            let actualTags = try GitRepository(path: path).getTags()
+            #expect(actualTags == ["1.2.3"])
+        }
     }
 
     @Test(
@@ -162,23 +162,23 @@ struct CFamilyTargetTestCase {
     func canForwardExtraFlagsToClang(
         data: BuildData,
     ) async throws {
-            try await fixture(name: "CFamilyTargets/CDynamicLookup") { fixturePath in
-                try await executeSwiftBuild(
-                    fixturePath,
-                    configuration: data.config,
-                    Xld: ["-undefined", "dynamic_lookup"],
-                    buildSystem: data.buildSystem,
-                )
-                switch data.buildSystem {
-                case .native:
-                    let binPath = try fixturePath.appending(components: data.buildSystem.binPath(for: data.config))
-                    expectDirectoryContainsFile(dir: binPath, filename: "Foo.c.o")
-                case .swiftbuild:
-                    break
-                case .xcode:
-                    Issue.record("Test expectation ahve not been implemented.")
-                }
+        try await fixture(name: "CFamilyTargets/CDynamicLookup") { fixturePath in
+            try await executeSwiftBuild(
+                fixturePath,
+                configuration: data.config,
+                Xld: ["-undefined", "dynamic_lookup"],
+                buildSystem: data.buildSystem,
+            )
+            switch data.buildSystem {
+            case .native:
+                let binPath = try fixturePath.appending(components: data.buildSystem.binPath(for: data.config))
+                expectDirectoryContainsFile(dir: binPath, filename: "Foo.c.o")
+            case .swiftbuild:
+                break
+            case .xcode:
+                Issue.record("Test expectation ahve not been implemented.")
             }
+        }
     }
 
     @Test(
@@ -228,20 +228,20 @@ struct CFamilyTargetTestCase {
         data: BuildData,
 
     ) async throws {
-            try await fixture(name: "CFamilyTargets/CLibraryParentSearchPath") { fixturePath in
-                try await executeSwiftBuild(
-                    fixturePath,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
-                )
-                switch data.buildSystem {
-                case .native:
-                    let binPath = try fixturePath.appending(components: data.buildSystem.binPath(for: data.config))
-                    expectDirectoryContainsFile(dir: binPath, filename: "HeaderInclude.swiftmodule")
-                case .swiftbuild, .xcode:
-                    // there aren't any specific expectations to look for
-                    break
-                }
+        try await fixture(name: "CFamilyTargets/CLibraryParentSearchPath") { fixturePath in
+            try await executeSwiftBuild(
+                fixturePath,
+                configuration: data.config,
+                buildSystem: data.buildSystem,
+            )
+            switch data.buildSystem {
+            case .native:
+                let binPath = try fixturePath.appending(components: data.buildSystem.binPath(for: data.config))
+                expectDirectoryContainsFile(dir: binPath, filename: "HeaderInclude.swiftmodule")
+            case .swiftbuild, .xcode:
+                // there aren't any specific expectations to look for
+                break
             }
+        }
     }
 }

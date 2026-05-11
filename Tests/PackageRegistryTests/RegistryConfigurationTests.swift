@@ -96,13 +96,13 @@ final class RegistryConfigurationTests: XCTestCase {
 
     func testDecodeEmptyConfiguration() throws {
         let json = #"""
-        {
-            "registries": {},
-            "authentication": {},
-            "security": {},
-            "version": 1
-        }
-        """#
+            {
+                "registries": {},
+                "authentication": {},
+                "security": {},
+                "version": 1
+            }
+            """#
 
         let configuration = try decoder.decode(RegistryConfiguration.self, from: json)
         XCTAssertNil(configuration.defaultRegistry)
@@ -113,11 +113,11 @@ final class RegistryConfigurationTests: XCTestCase {
 
     func testDecodeEmptyConfigurationWithMissingKeys() throws {
         let json = #"""
-        {
-            "registries": {},
-            "version": 1
-        }
-        """#
+            {
+                "registries": {},
+                "version": 1
+            }
+            """#
 
         let configuration = try decoder.decode(RegistryConfiguration.self, from: json)
         XCTAssertNil(configuration.defaultRegistry)
@@ -128,71 +128,71 @@ final class RegistryConfigurationTests: XCTestCase {
 
     func testDecodeExampleConfiguration() throws {
         let json = #"""
-        {
-            "registries": {
-                "[default]": {
-                    "url": "\#(defaultRegistryBaseURL)"
-                },
-                "foo": {
-                    "url": "\#(customRegistryBaseURL)"
-                },
-                "bar": {
-                    "url": "\#(customRegistryBaseURL)"
-                }
-            },
-            "authentication": {
-                "packages.example.com": {
-                    "type": "basic",
-                    "loginAPIPath": "/v1/login"
-                }
-            },
-            "security": {
-                "default": {
-                    "signing": {
-                        "onUnsigned": "error",
-                        "onUntrustedCertificate": "error",
-                        "trustedRootCertificatesPath": "~/.swiftpm/security/trusted-root-certs/",
-                        "includeDefaultTrustedRootCertificates": true,
-                        "validationChecks": {
-                            "certificateExpiration": "disabled",
-                            "certificateRevocation": "disabled"
-                        }
+            {
+                "registries": {
+                    "[default]": {
+                        "url": "\#(defaultRegistryBaseURL)"
+                    },
+                    "foo": {
+                        "url": "\#(customRegistryBaseURL)"
+                    },
+                    "bar": {
+                        "url": "\#(customRegistryBaseURL)"
                     }
                 },
-                "registryOverrides": {
+                "authentication": {
                     "packages.example.com": {
+                        "type": "basic",
+                        "loginAPIPath": "/v1/login"
+                    }
+                },
+                "security": {
+                    "default": {
                         "signing": {
-                            "onUnsigned": "warn",
-                            "onUntrustedCertificate": "warn",
-                            "trustedRootCertificatesPath": "/foo/roots",
-                            "includeDefaultTrustedRootCertificates": false,
+                            "onUnsigned": "error",
+                            "onUntrustedCertificate": "error",
+                            "trustedRootCertificatesPath": "~/.swiftpm/security/trusted-root-certs/",
+                            "includeDefaultTrustedRootCertificates": true,
                             "validationChecks": {
-                                "certificateExpiration": "enabled",
-                                "certificateRevocation": "allowSoftFail"
+                                "certificateExpiration": "disabled",
+                                "certificateRevocation": "disabled"
+                            }
+                        }
+                    },
+                    "registryOverrides": {
+                        "packages.example.com": {
+                            "signing": {
+                                "onUnsigned": "warn",
+                                "onUntrustedCertificate": "warn",
+                                "trustedRootCertificatesPath": "/foo/roots",
+                                "includeDefaultTrustedRootCertificates": false,
+                                "validationChecks": {
+                                    "certificateExpiration": "enabled",
+                                    "certificateRevocation": "allowSoftFail"
+                                }
+                            }
+                        }
+                    },
+                    "scopeOverrides": {
+                        "mona": {
+                            "signing": {
+                                "trustedRootCertificatesPath": "/mona/roots",
+                                "includeDefaultTrustedRootCertificates": false
+                            }
+                        }
+                    },
+                    "packageOverrides": {
+                        "mona.LinkedList": {
+                            "signing": {
+                                "trustedRootCertificatesPath": "/mona/LinkedList/roots",
+                                "includeDefaultTrustedRootCertificates": false
                             }
                         }
                     }
                 },
-                "scopeOverrides": {
-                    "mona": {
-                        "signing": {
-                            "trustedRootCertificatesPath": "/mona/roots",
-                            "includeDefaultTrustedRootCertificates": false
-                        }
-                    }
-                },
-                "packageOverrides": {
-                    "mona.LinkedList": {
-                        "signing": {
-                            "trustedRootCertificatesPath": "/mona/LinkedList/roots",
-                            "includeDefaultTrustedRootCertificates": false
-                        }
-                    }
-                }
-            },
-            "version": 1
-        }
-        """#
+                "version": 1
+            }
+            """#
 
         let configuration = try decoder.decode(RegistryConfiguration.self, from: json)
         XCTAssertEqual(configuration.defaultRegistry?.url, defaultRegistryBaseURL)
@@ -257,115 +257,115 @@ final class RegistryConfigurationTests: XCTestCase {
 
     func testDecodeConfigurationWithInvalidRegistryKey() throws {
         let json = #"""
-        {
-            "registries": {
-                0: "\#(customRegistryBaseURL)"
-            },
-            "version": 1
-        }
-        """#
+            {
+                "registries": {
+                    0: "\#(customRegistryBaseURL)"
+                },
+                "version": 1
+            }
+            """#
 
         XCTAssertThrowsError(try self.decoder.decode(RegistryConfiguration.self, from: json))
     }
 
     func testDecodeConfigurationWithInvalidRegistryValue() throws {
         let json = #"""
-        {
-            "registries": {
-                "[default]": "\#(customRegistryBaseURL)"
-            },
-            "version": 1
-        }
-        """#
+            {
+                "registries": {
+                    "[default]": "\#(customRegistryBaseURL)"
+                },
+                "version": 1
+            }
+            """#
 
         XCTAssertThrowsError(try self.decoder.decode(RegistryConfiguration.self, from: json))
     }
 
     func testDecodeConfigurationWithInvalidAuthenticationType() throws {
         let json = #"""
-        {
-            "registries": {},
-            "authentication": {
-                "packages.example.com": {
-                    "type": "foobar"
-                }
-            },
-            "version": 1
-        }
-        """#
+            {
+                "registries": {},
+                "authentication": {
+                    "packages.example.com": {
+                        "type": "foobar"
+                    }
+                },
+                "version": 1
+            }
+            """#
 
         XCTAssertThrowsError(try self.decoder.decode(RegistryConfiguration.self, from: json))
     }
 
     func testDecodeConfigurationWithMissingVersion() throws {
         let json = #"""
-        {
-            "registries": {}
-        }
-        """#
+            {
+                "registries": {}
+            }
+            """#
 
         XCTAssertThrowsError(try self.decoder.decode(RegistryConfiguration.self, from: json))
     }
 
     func testDecodeSecurityConfigurationWithInvalidScopeKey() throws {
         let json = #"""
-        {
-            "registries": {},
-            "authentication": {
-                "packages.example.com": {
-                    "type": "foobar"
-                }
-            },
-            "security": {
-                "scopeOverrides": {
-                  "mona.": {
-                    "signing": {
-                      "trustedRootCertificatesPath": "/mona/roots",
-                      "includeDefaultTrustedRootCertificates": false
+            {
+                "registries": {},
+                "authentication": {
+                    "packages.example.com": {
+                        "type": "foobar"
                     }
-                  }
-                }
-            },
-            "version": 1
-        }
-        """#
+                },
+                "security": {
+                    "scopeOverrides": {
+                      "mona.": {
+                        "signing": {
+                          "trustedRootCertificatesPath": "/mona/roots",
+                          "includeDefaultTrustedRootCertificates": false
+                        }
+                      }
+                    }
+                },
+                "version": 1
+            }
+            """#
 
         XCTAssertThrowsError(try self.decoder.decode(RegistryConfiguration.self, from: json))
     }
 
     func testDecodeSecurityConfigurationWithInvalidPackageKey() throws {
         let json = #"""
-        {
-            "registries": {},
-            "authentication": {
-                "packages.example.com": {
-                    "type": "foobar"
-                }
-            },
-            "security": {
-                "packageOverrides": {
-                  "LinkedList": {
-                    "signing": {
-                      "trustedRootCertificatesPath": "/mona/LinkedList/roots",
-                      "includeDefaultTrustedRootCertificates": false
+            {
+                "registries": {},
+                "authentication": {
+                    "packages.example.com": {
+                        "type": "foobar"
                     }
-                  }
-                }
-            },
-            "version": 1
-        }
-        """#
+                },
+                "security": {
+                    "packageOverrides": {
+                      "LinkedList": {
+                        "signing": {
+                          "trustedRootCertificatesPath": "/mona/LinkedList/roots",
+                          "includeDefaultTrustedRootCertificates": false
+                        }
+                      }
+                    }
+                },
+                "version": 1
+            }
+            """#
 
         XCTAssertThrowsError(try self.decoder.decode(RegistryConfiguration.self, from: json))
     }
 
     func testDecodeConfigurationWithInvalidVersion() throws {
         let json = #"""
-        {
-            "registries": {},
-            "version": 999
-        }
-        """#
+            {
+                "registries": {},
+                "version": 999
+            }
+            """#
 
         XCTAssertThrowsError(try self.decoder.decode(RegistryConfiguration.self, from: json))
     }
@@ -380,11 +380,11 @@ final class RegistryConfigurationTests: XCTestCase {
 
     func testGetSigning_noOverrides() throws {
         let json = #"""
-        {
-            "registries": {},
-            "version": 1
-        }
-        """#
+            {
+                "registries": {},
+                "version": 1
+            }
+            """#
 
         let configuration = try decoder.decode(RegistryConfiguration.self, from: json)
 
@@ -402,22 +402,22 @@ final class RegistryConfigurationTests: XCTestCase {
 
     func testGetSigning_globalOverride() throws {
         let json = #"""
-        {
-            "registries": {},
-            "security": {
-                "default": {
-                    "signing": {
-                        "onUnsigned": "error",
-                        "trustedRootCertificatesPath": "/custom/roots",
-                        "validationChecks": {
-                            "certificateExpiration": "enabled"
+            {
+                "registries": {},
+                "security": {
+                    "default": {
+                        "signing": {
+                            "onUnsigned": "error",
+                            "trustedRootCertificatesPath": "/custom/roots",
+                            "validationChecks": {
+                                "certificateExpiration": "enabled"
+                            }
                         }
                     }
-                }
-            },
-            "version": 1
-        }
-        """#
+                },
+                "version": 1
+            }
+            """#
 
         let configuration = try decoder.decode(RegistryConfiguration.self, from: json)
 
@@ -435,29 +435,29 @@ final class RegistryConfigurationTests: XCTestCase {
 
     func testGetSigning_registryOverride() throws {
         let json = #"""
-        {
-            "registries": {},
-            "security": {
-                "registryOverrides": {
-                    "packages.example.com": {
-                        "signing": {
-                            "onUntrustedCertificate": "warn",
-                            "trustedRootCertificatesPath": "/foo/roots",
-                            "validationChecks": {
-                                "certificateRevocation": "allowSoftFail"
+            {
+                "registries": {},
+                "security": {
+                    "registryOverrides": {
+                        "packages.example.com": {
+                            "signing": {
+                                "onUntrustedCertificate": "warn",
+                                "trustedRootCertificatesPath": "/foo/roots",
+                                "validationChecks": {
+                                    "certificateRevocation": "allowSoftFail"
+                                }
+                            }
+                        },
+                        "other.example.com": {
+                            "signing": {
+                                "onUntrustedCertificate": "error"
                             }
                         }
-                    },
-                    "other.example.com": {
-                        "signing": {
-                            "onUntrustedCertificate": "error"
-                        }
                     }
-                }
-            },
-            "version": 1
-        }
-        """#
+                },
+                "version": 1
+            }
+            """#
 
         let configuration = try decoder.decode(RegistryConfiguration.self, from: json)
 
@@ -475,25 +475,25 @@ final class RegistryConfigurationTests: XCTestCase {
 
     func testGetSigning_scopeOverride() throws {
         let json = #"""
-        {
-            "registries": {},
-            "security": {
-                "scopeOverrides": {
-                    "mona": {
-                        "signing": {
-                            "trustedRootCertificatesPath": "/mona/roots"
-                        }
-                    },
-                    "foo": {
-                        "signing": {
-                            "trustedRootCertificatesPath": "/foo/roots"
+            {
+                "registries": {},
+                "security": {
+                    "scopeOverrides": {
+                        "mona": {
+                            "signing": {
+                                "trustedRootCertificatesPath": "/mona/roots"
+                            }
+                        },
+                        "foo": {
+                            "signing": {
+                                "trustedRootCertificatesPath": "/foo/roots"
+                            }
                         }
                     }
-                }
-            },
-            "version": 1
-        }
-        """#
+                },
+                "version": 1
+            }
+            """#
 
         let configuration = try decoder.decode(RegistryConfiguration.self, from: json)
 
@@ -511,25 +511,25 @@ final class RegistryConfigurationTests: XCTestCase {
 
     func testGetSigning_packageOverride() throws {
         let json = #"""
-        {
-            "registries": {},
-            "security": {
-                "packageOverrides": {
-                    "mona.LinkedList": {
-                        "signing": {
-                            "trustedRootCertificatesPath": "/mona/linkedlist/roots"
-                        }
-                    },
-                    "foo.bar": {
-                        "signing": {
-                            "trustedRootCertificatesPath": "/foo/bar/roots"
+            {
+                "registries": {},
+                "security": {
+                    "packageOverrides": {
+                        "mona.LinkedList": {
+                            "signing": {
+                                "trustedRootCertificatesPath": "/mona/linkedlist/roots"
+                            }
+                        },
+                        "foo.bar": {
+                            "signing": {
+                                "trustedRootCertificatesPath": "/foo/bar/roots"
+                            }
                         }
                     }
-                }
-            },
-            "version": 1
-        }
-        """#
+                },
+                "version": 1
+            }
+            """#
 
         let configuration = try decoder.decode(RegistryConfiguration.self, from: json)
 
@@ -547,39 +547,39 @@ final class RegistryConfigurationTests: XCTestCase {
 
     func testGetSigning_multipleOverrides() throws {
         let json = #"""
-        {
-            "registries": {},
-            "security": {
-                "default": {
-                    "signing": {
-                        "trustedRootCertificatesPath": "/custom/roots"
-                    }
-                },
-                "registryOverrides": {
-                    "packages.example.com": {
+            {
+                "registries": {},
+                "security": {
+                    "default": {
                         "signing": {
-                            "trustedRootCertificatesPath": "/foo/roots"
+                            "trustedRootCertificatesPath": "/custom/roots"
+                        }
+                    },
+                    "registryOverrides": {
+                        "packages.example.com": {
+                            "signing": {
+                                "trustedRootCertificatesPath": "/foo/roots"
+                            }
+                        }
+                    },
+                    "scopeOverrides": {
+                        "mona": {
+                            "signing": {
+                                "trustedRootCertificatesPath": "/mona/roots"
+                            }
+                        }
+                    },
+                    "packageOverrides": {
+                        "mona.LinkedList": {
+                            "signing": {
+                                "trustedRootCertificatesPath": "/mona/linkedlist/roots"
+                            }
                         }
                     }
                 },
-                "scopeOverrides": {
-                    "mona": {
-                        "signing": {
-                            "trustedRootCertificatesPath": "/mona/roots"
-                        }
-                    }
-                },
-                "packageOverrides": {
-                    "mona.LinkedList": {
-                        "signing": {
-                            "trustedRootCertificatesPath": "/mona/linkedlist/roots"
-                        }
-                    }
-                }
-            },
-            "version": 1
-        }
-        """#
+                "version": 1
+            }
+            """#
 
         let configuration = try decoder.decode(RegistryConfiguration.self, from: json)
 

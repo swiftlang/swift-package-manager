@@ -58,12 +58,13 @@ extension SBOMExtractor {
 
     private func extractDependenciesForProducts(targetProducts: [ResolvedProduct], primaryComponent: SBOMComponent, filter: Filter) async throws -> SBOMDependencies {
         guard let rootPackage = modulesGraph.rootPackages.first else {
-            throw SBOMExtractorError
+            throw
+                SBOMExtractorError
                 .noRootPackage(context: "extract dependencies for the following products: \(targetProducts)")
         }
 
         let filterStrategy = filter.createStrategy()
-        
+
         // Create the appropriate dependency source strategy
         let dependencySource: DependencySourceStrategy
         if let buildGraph = dependencyGraph {
@@ -76,10 +77,10 @@ extension SBOMExtractor {
         } else {
             dependencySource = ModulesGraphDependencySource(modulesGraph: modulesGraph)
         }
-        
+
         var components: Set<SBOMComponent> = []
-        var relationships: [SBOMComponent: Set<SBOMComponent>] = [:] // parent:children
-        
+        var relationships: [SBOMComponent: Set<SBOMComponent>] = [:]  // parent:children
+
         func addComponent(_ component: SBOMComponent) {
             if filterStrategy.shouldIncludeComponent(component, primaryComponent: primaryComponent) {
                 components.insert(component)
@@ -122,7 +123,7 @@ extension SBOMExtractor {
                     }
                 }
             }
-            
+
             return result
         }
 
@@ -134,15 +135,15 @@ extension SBOMExtractor {
             // if this relationship was already seen, return early
             let processedProductComponent = try await extractComponent(product: product)
             let dependentProductComponent = try await extractComponent(product: dependentProduct)
-            
+
             if let productRelationships = relationships[processedProductComponent],
-               productRelationships.contains(dependentProductComponent) {
+                productRelationships.contains(dependentProductComponent)
+            {
                 return dependentProduct
             }
 
             // check if both products are in the same root package
-            let bothInRootPackage = product.packageIdentity == rootPackage.identity &&
-                dependentProduct.packageIdentity == rootPackage.identity
+            let bothInRootPackage = product.packageIdentity == rootPackage.identity && dependentProduct.packageIdentity == rootPackage.identity
 
             // only track dependency if not both in root package
             // this is because circular dependencies can be created in the SBOM
@@ -152,7 +153,8 @@ extension SBOMExtractor {
                 trackRelationship(parent: processedProductComponent, child: dependentProductComponent)
             }
             if let dependentProductPackage = modulesGraph.packages
-                .first(where: { $0.identity == dependentProduct.packageIdentity }) {
+                .first(where: { $0.identity == dependentProduct.packageIdentity })
+            {
                 let dependentProductPackageComponent = try await extractComponent(package: dependentProductPackage)
                 // add dependentProductPackage -> dependentProduct dependency
                 trackRelationship(parent: dependentProductPackageComponent, child: dependentProductComponent)
@@ -176,9 +178,9 @@ extension SBOMExtractor {
 
         func processDependencies(for product: ResolvedProduct) async throws -> [ResolvedProduct] {
             var result = IdentifiableSet<ResolvedProduct>()
-            
+
             let dependencies = try await dependencySource.getDependencies(for: product)
-            
+
             for dependency in dependencies {
                 switch dependency {
                 case .product(let dependentProduct):
@@ -218,7 +220,7 @@ extension SBOMExtractor {
             let targetComponent = try await extractComponent(product: targetProduct)
             trackRelationship(parent: rootPackageComponent, child: targetComponent)
         }
-        
+
         var processedProducts = IdentifiableSet<ResolvedProduct>()
         var productsToProcess: [ResolvedProduct] = targetProducts
 
@@ -227,8 +229,7 @@ extension SBOMExtractor {
             processedProducts.insert(currentProduct)
             let transitiveDeps = try await processDependencies(for: currentProduct)
             for dep in transitiveDeps
-                where !processedProducts.contains(id: dep.id) && !productsToProcess.contains(where: { $0.id == dep.id })
-            {
+            where !processedProducts.contains(id: dep.id) && !productsToProcess.contains(where: { $0.id == dep.id }) {
                 productsToProcess.append(dep)
             }
         }

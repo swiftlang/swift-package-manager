@@ -116,15 +116,15 @@ extension Toolchain {
             switch os {
             case .windows, .macOS, .linux, .android:
                 return compilerPath
-                    .parentDirectory // bin
-                    .parentDirectory // usr
-                    .parentDirectory // <toolchain>
+                    .parentDirectory  // bin
+                    .parentDirectory  // usr
+                    .parentDirectory  // <toolchain>
             case .freebsd, .openbsd:
                 return compilerPath
-                    .parentDirectory // bin
-                    .parentDirectory // local
-                    .parentDirectory // usr
-                    .parentDirectory // <toolchain>
+                    .parentDirectory  // bin
+                    .parentDirectory  // local
+                    .parentDirectory  // usr
+                    .parentDirectory  // <toolchain>
             case .unknown:
                 throw UnknownToolchainLayout(os: os)
             }

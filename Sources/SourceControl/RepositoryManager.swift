@@ -65,7 +65,7 @@ public class RepositoryManager: Cancellable {
         fileSystem: FileSystem,
         path: Basics.AbsolutePath,
         provider: RepositoryProvider,
-        cachePath: Basics.AbsolutePath? =  .none,
+        cachePath: Basics.AbsolutePath? = .none,
         cacheLocalPackages: Bool = false,
         maxConcurrentOperations: Int? = .none,
         initializationWarningHandler: (String) -> Void,
@@ -420,7 +420,8 @@ public class RepositoryManager: Cancellable {
             repository: handle.repository,
             sourcePath: self.path.appending(handle.subpath),
             at: destinationPath,
-            editable: editable)
+            editable: editable
+        )
     }
 
     /// Removes the repository.
@@ -604,7 +605,6 @@ fileprivate actor RepositoryManagerDelegateProxy {
     }
 }
 
-
 extension RepositoryManager.RepositoryHandle: CustomStringConvertible {
     public var description: String {
         return "<\(type(of: self)) subpath:\(subpath)>"
@@ -656,4 +656,3 @@ extension RepositorySpecifier {
 fileprivate func isOffline(_ error: Swift.Error) -> Bool {
     return "\(error)".contains("Could not resolve host")
 }
-

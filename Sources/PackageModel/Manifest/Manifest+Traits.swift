@@ -118,7 +118,7 @@ extension Manifest {
 
         // Validate each trait to assure it's defined in the current package.
         for trait in enabledTraits {
-           try validateTrait(trait)
+            try validateTrait(trait)
         }
 
         let areDefaultsEnabled = enabledTraits.contains("default")
@@ -160,7 +160,6 @@ extension Manifest {
         try validateEnabledTraits(enabledTraits)
     }
 }
-
 
 // MARK: - Traits
 
@@ -307,7 +306,6 @@ extension Manifest {
                 )
             }
 
-
             let appendedList = enabledTraits.union(transitivelyEnabledTraits)
             if appendedList.count == enabledTraits.count {
                 break
@@ -343,9 +341,9 @@ extension Manifest {
     /// Computes the set of package dependencies that are used by targets of this manifest.
     public func usedDependencies(withTraits enabledTraits: EnabledTraits) throws -> (knownPackage: Set<String>, unknownPackage: Set<String>) {
         let deps = try self.usedTargetDependencies(withTraits: enabledTraits)
-        .values
-        .flatMap { $0 }
-        .compactMap(\.package)
+            .values
+            .flatMap { $0 }
+            .compactMap(\.package)
 
         var known: Set<String> = []
         var unknown: Set<String> = []
@@ -420,10 +418,12 @@ extension Manifest {
         // Check if any of the traits guarding this dependency is enabled;
         // if so, the condition is met and the target dependency is considered
         // to be in an enabled state.
-        let isEnabled = try traitsToEnable.contains(where: { try self.isTraitEnabled(
-            .init(stringLiteral: $0),
-            enabledTraits,
-        ) })
+        let isEnabled = try traitsToEnable.contains(where: {
+            try self.isTraitEnabled(
+                .init(stringLiteral: $0),
+                enabledTraits,
+            )
+        })
 
         return traitsToEnable.isEmpty || isEnabled
     }
@@ -451,13 +451,17 @@ extension Manifest {
 
         let targetDependenciesForPackageDependency = self.targets.flatMap({ $0.dependencies })
             .filter({
-            $0.package?.caseInsensitiveCompare(dependency.identity.description) == .orderedSame
-        })
+                $0.package?.caseInsensitiveCompare(dependency.identity.description) == .orderedSame
+            })
 
         // Determine whether the current set of enabled traits still gate the package dependency
         // across targets.
-        let isTraitGuarded = targetDependenciesForPackageDependency.isEmpty ? false : targetDependenciesForPackageDependency.filter({ $0.condition?.traits != nil }).allSatisfy({ self.isTargetDependencyTraitGuarded($0, enabledTraits: enabledTraits)
-        })
+        let isTraitGuarded =
+            targetDependenciesForPackageDependency.isEmpty
+            ? false
+            : targetDependenciesForPackageDependency.filter({ $0.condition?.traits != nil }).allSatisfy({
+                self.isTargetDependencyTraitGuarded($0, enabledTraits: enabledTraits)
+            })
 
         // Since we only omit a package dependency that is only guarded by traits, determine
         // whether this dependency is used elsewhere without traits.
@@ -548,22 +552,22 @@ extension TraitError: CustomStringConvertible {
             if explicitlyEnabledTraits.isEmpty {
                 if let parent = explicitlyEnabledTraits.disabledBy {
                     return """
-            Disabled default traits by \(parent.description) on package \(package) that declares no traits. This is prohibited to allow packages to adopt traits initially without causing an API break.
-            """
+                        Disabled default traits by \(parent.description) on package \(package) that declares no traits. This is prohibited to allow packages to adopt traits initially without causing an API break.
+                        """
                 } else {
                     return """
-            Disabled default traits on package \(package) that declares no traits. This is prohibited to allow packages to adopt traits initially without causing an API break.
-            """
+                        Disabled default traits on package \(package) that declares no traits. This is prohibited to allow packages to adopt traits initially without causing an API break.
+                        """
                 }
             } else {
                 if let parent {
                     return """
-                Package \(parent) enables traits [\(explicitlyEnabledTraits.joined(separator: ", "))] on package \(package) that declares no traits.
-                """
+                        Package \(parent) enables traits [\(explicitlyEnabledTraits.joined(separator: ", "))] on package \(package) that declares no traits.
+                        """
                 } else {
                     return """
-                Traits [\(explicitlyEnabledTraits.joined(separator: ", "))] have been enabled on package \(package) that declares no traits.
-                """
+                        Traits [\(explicitlyEnabledTraits.joined(separator: ", "))] have been enabled on package \(package) that declares no traits.
+                        """
                 }
             }
         }

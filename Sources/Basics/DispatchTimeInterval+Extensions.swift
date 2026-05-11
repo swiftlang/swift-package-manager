@@ -87,8 +87,8 @@ extension DispatchTimeInterval {
         case .never:
             return "n/a"
         #if canImport(Darwin)
-        @unknown default:
-            return "n/a"
+            @unknown default:
+                return "n/a"
         #endif
         }
     }
@@ -96,12 +96,12 @@ extension DispatchTimeInterval {
 
 // remove when available to all platforms
 #if os(Linux) || os(Windows) || os(Android) || os(OpenBSD) || os(FreeBSD)
-extension DispatchTime {
-    public func distance(to: DispatchTime) -> DispatchTimeInterval {
-        let final = to.uptimeNanoseconds
-        let point = self.uptimeNanoseconds
-        let duration = Int64(bitPattern: final.subtractingReportingOverflow(point).partialValue)
-        return .nanoseconds(duration >= Int.max ? Int.max : Int(duration))
+    extension DispatchTime {
+        public func distance(to: DispatchTime) -> DispatchTimeInterval {
+            let final = to.uptimeNanoseconds
+            let point = self.uptimeNanoseconds
+            let duration = Int64(bitPattern: final.subtractingReportingOverflow(point).partialValue)
+            return .nanoseconds(duration >= Int.max ? Int.max : Int(duration))
+        }
     }
-}
 #endif

@@ -109,7 +109,7 @@ final class IncrementalBuildTests: XCTestCase {
             XCTAssertMatch(log1, .contains("Compiling Library"))
 
             // Ensure manifest caching kicks in.
-            let log2 =  try await build()
+            let log2 = try await build()
             XCTAssertMatch(log2, .contains("Planning build"))
 
             // Check that we're not re-planning when nothing has changed.
@@ -153,30 +153,30 @@ final class IncrementalBuildTests: XCTestCase {
     }
     // testing the fix for tracking SDK dependencies to avoid triggering rebuilds when the SDK changes (rdar://115777026)
     func testSDKTracking() async throws {
-#if os(macOS)
-        try XCTSkipIf(!UserToolchain.default.supportsSDKDependentTests(), "skipping because test environment doesn't support this test")
+        #if os(macOS)
+            try XCTSkipIf(!UserToolchain.default.supportsSDKDependentTests(), "skipping because test environment doesn't support this test")
 
-        try await fixtureXCTest(name: "ValidLayouts/SingleModule/Library") { fixturePath in
-            let dummySwiftcPath = SwiftPM.xctestBinaryPath(for: "dummy-swiftc")
-            let swiftCompilerPath = try UserToolchain.default.swiftCompilerPath
-            let environment: Environment = [
-                "SWIFT_EXEC": dummySwiftcPath.pathString,
-                "SWIFT_ORIGINAL_PATH": swiftCompilerPath.pathString
-            ]
-            let sdkPathStr = try await AsyncProcess.checkNonZeroExit(
-                arguments: ["/usr/bin/xcrun", "--sdk", "macosx", "--show-sdk-path"],
-                environment: environment
-            ).spm_chomp()
+            try await fixtureXCTest(name: "ValidLayouts/SingleModule/Library") { fixturePath in
+                let dummySwiftcPath = SwiftPM.xctestBinaryPath(for: "dummy-swiftc")
+                let swiftCompilerPath = try UserToolchain.default.swiftCompilerPath
+                let environment: Environment = [
+                    "SWIFT_EXEC": dummySwiftcPath.pathString,
+                    "SWIFT_ORIGINAL_PATH": swiftCompilerPath.pathString,
+                ]
+                let sdkPathStr = try await AsyncProcess.checkNonZeroExit(
+                    arguments: ["/usr/bin/xcrun", "--sdk", "macosx", "--show-sdk-path"],
+                    environment: environment
+                ).spm_chomp()
 
-            let newSdkPathStr = "/tmp/../\(sdkPathStr)"
-            // Perform a full build again because SDK changed.
-            let log1 = try await executeSwiftBuild(
-                fixturePath,
-                env: ["SDKROOT": newSdkPathStr],
-                buildSystem: .native,
-            ).stdout
-            XCTAssertMatch(log1, .contains("Compiling Library"))
-        }
-#endif
+                let newSdkPathStr = "/tmp/../\(sdkPathStr)"
+                // Perform a full build again because SDK changed.
+                let log1 = try await executeSwiftBuild(
+                    fixturePath,
+                    env: ["SDKROOT": newSdkPathStr],
+                    buildSystem: .native,
+                ).stdout
+                XCTAssertMatch(log1, .contains("Compiling Library"))
+            }
+        #endif
     }
 }

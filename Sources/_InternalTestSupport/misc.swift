@@ -14,12 +14,11 @@ import Foundation
 import Basics
 import struct Foundation.URL
 #if os(macOS)
-import class Foundation.Bundle
+    import class Foundation.Bundle
 #endif
 import OrderedCollections
 
-@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
-import PackageGraph
+@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly) import PackageGraph
 
 import PackageLoading
 import PackageModel
@@ -140,7 +139,7 @@ public func testWithTemporaryDirectory<Result>(
                 fixtureDir: fixtureDir,
                 in: tmpDirPath,
                 copyName: copyName,
-                createGitRepo:createGitRepo
+                createGitRepo: createGitRepo
             )
             return try body(preparedFixture)
         }
@@ -185,7 +184,7 @@ public func testWithTemporaryDirectory<Result>(
                 fixtureDir: fixtureDir,
                 in: tmpDirPath,
                 copyName: copyName,
-                createGitRepo:createGitRepo
+                createGitRepo: createGitRepo
             )
             return try body(preparedFixture)
         }
@@ -228,7 +227,7 @@ public enum TestError: Error {
                 fixtureDir: fixtureDir,
                 in: tmpDirPath,
                 copyName: copyName,
-                createGitRepo:createGitRepo
+                createGitRepo: createGitRepo
             )
             return try await body(preparedFixture)
         }
@@ -273,7 +272,7 @@ public enum TestError: Error {
                 fixtureDir: fixtureDir,
                 in: tmpDirPath,
                 copyName: copyName,
-                createGitRepo:createGitRepo
+                createGitRepo: createGitRepo
             )
             return try await body(preparedFixture)
         }
@@ -346,9 +345,9 @@ fileprivate func setup(
 
                 // Preserve executable permission if the source file is executable
                 #if !os(Windows)
-                if localFileSystem.isExecutableFile(resolvedSource) {
-                    try localFileSystem.chmod(.executable, path: destination, options: [])
-                }
+                    if localFileSystem.isExecutableFile(resolvedSource) {
+                        try localFileSystem.chmod(.executable, path: destination, options: [])
+                    }
                 #endif
             }
         }
@@ -466,7 +465,7 @@ public func getBuildSystemArgs(for buildSystem: BuildSystemProvider.Kind?) -> [S
 
     return [
         "--build-system",
-        "\(system)"
+        "\(system)",
     ]
 }
 
@@ -728,14 +727,14 @@ public extension String {
 }
 
 public func executableName(_ name: String) -> String {
-#if os(Windows)
-  if name.count > 4, name.suffix(from: name.index(name.endIndex, offsetBy: -4)) == ProcessInfo.exeSuffix {
-    return name
-  }
-  return "\(name)\(ProcessInfo.exeSuffix)"
-#else
-  return name
-#endif
+    #if os(Windows)
+        if name.count > 4, name.suffix(from: name.index(name.endIndex, offsetBy: -4)) == ProcessInfo.exeSuffix {
+            return name
+        }
+        return "\(name)\(ProcessInfo.exeSuffix)"
+    #else
+        return name
+    #endif
 }
 
 package func getCoveragePath(
@@ -743,12 +742,12 @@ package func getCoveragePath(
     with buildData: BuildData,
 ) async throws -> String {
     return try await executeSwiftTest(
-            path,
-            configuration: buildData.config,
-            extraArgs: [
-                "--show-coverage-path",
-            ],
-            buildSystem: buildData.buildSystem,
-            throwIfCommandFails: true,
-        ).stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+        path,
+        configuration: buildData.config,
+        extraArgs: [
+            "--show-coverage-path"
+        ],
+        buildSystem: buildData.buildSystem,
+        throwIfCommandFails: true,
+    ).stdout.trimmingCharacters(in: .whitespacesAndNewlines)
 }

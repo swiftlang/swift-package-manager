@@ -13,9 +13,7 @@
 import _Concurrency
 import Testing
 
-@_spi(SwiftPMInternal)
-@testable
-import Basics
+@_spi(SwiftPMInternal) @testable import Basics
 import TSCBasic
 
 struct ProgressAnimationTests {
@@ -36,7 +34,9 @@ struct ProgressAnimationTests {
             let tracking = TrackingProgressAnimation()
             var now = ContinuousClock().now
             let animation = ThrottledProgressAnimation(
-                tracking, now: { now }, interval: .milliseconds(100),
+                tracking,
+                now: { now },
+                interval: .milliseconds(100),
                 clock: ContinuousClock.self
             )
 
@@ -56,7 +56,9 @@ struct ProgressAnimationTests {
             let tracking = TrackingProgressAnimation()
             var now = ContinuousClock().now
             let animation = ThrottledProgressAnimation(
-                tracking, now: { now }, interval: .milliseconds(100),
+                tracking,
+                now: { now },
+                interval: .milliseconds(100),
                 clock: ContinuousClock.self
             )
 

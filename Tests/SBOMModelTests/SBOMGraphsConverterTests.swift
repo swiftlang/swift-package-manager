@@ -23,7 +23,7 @@ import Testing
     )
 )
 struct SBOMGraphsConverterTests {
-    
+
     // MARK: - toProduct and toModule Tests
     // Note: Basic name mapping tests (getTargetName, getProductName, getModuleName) have been
     // moved to Tests/SwiftBuildSupportTests/PackagePIFBuilderHelpersTests.swift to test the

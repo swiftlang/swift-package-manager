@@ -42,26 +42,26 @@ struct CoverageTests {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let config = BuildConfiguration.debug
-            try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { path in
-                _ = try await executeSwiftBuild(
+        try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { path in
+            _ = try await executeSwiftBuild(
+                path,
+                configuration: config,
+                extraArgs: ["--build-tests"],
+                buildSystem: buildSystem,
+            )
+            await #expect(throws: (any Error).self) {
+                try await executeSwiftTest(
                     path,
                     configuration: config,
-                    extraArgs: ["--build-tests"],
+                    extraArgs: [
+                        "--skip-build",
+                        "--enable-code-coverage",
+                    ],
                     buildSystem: buildSystem,
+                    throwIfCommandFails: true,
                 )
-                await #expect(throws: (any Error).self ) {
-                    try await executeSwiftTest(
-                        path,
-                        configuration: config,
-                        extraArgs: [
-                            "--skip-build",
-                            "--enable-code-coverage",
-                        ],
-                        buildSystem: buildSystem,
-                        throwIfCommandFails: true,
-                    )
-                }
             }
+        }
     }
 
     @Test(
@@ -87,30 +87,30 @@ struct CoverageTests {
             let codeCovPath = try AbsolutePath(validating: codeCovPathString)
 
             // WHEN we build with coverage enabled
-                try await executeSwiftBuild(
-                    path,
-                    configuration: config,
-                    extraArgs: ["--build-tests", "--enable-code-coverage"],
-                    buildSystem: buildSystem,
-                )
+            try await executeSwiftBuild(
+                path,
+                configuration: config,
+                extraArgs: ["--build-tests", "--enable-code-coverage"],
+                buildSystem: buildSystem,
+            )
 
-                // AND we test with coverag enabled and skip the build
-                try await executeSwiftTest(
-                    path,
-                    configuration: config,
-                    extraArgs: [
-                        "--skip-build",
-                        "--enable-code-coverage",
-                    ],
-                    buildSystem: buildSystem,
-                )
+            // AND we test with coverag enabled and skip the build
+            try await executeSwiftTest(
+                path,
+                configuration: config,
+                extraArgs: [
+                    "--skip-build",
+                    "--enable-code-coverage",
+                ],
+                buildSystem: buildSystem,
+            )
 
-                // THEN we expect the file to exists
-                expectFileExists(at: codeCovPath)
+            // THEN we expect the file to exists
+            expectFileExists(at: codeCovPath)
 
-                // AND the parent directory is non empty
-                let codeCovFiles = try localFileSystem.getDirectoryContents(codeCovPath.parentDirectory)
-                #expect(codeCovFiles.count > 0)
+            // AND the parent directory is non empty
+            let codeCovFiles = try localFileSystem.getDirectoryContents(codeCovPath.parentDirectory)
+            #expect(codeCovFiles.count > 0)
         }
     }
 
@@ -120,7 +120,8 @@ struct CoverageTests {
         ),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/9588", relationship: .defect),
         .IssueWindowsPathNoEntry,
-        arguments: SupportedBuildSystemOnAllPlatforms, [
+        arguments: SupportedBuildSystemOnAllPlatforms,
+        [
             "Coverage/Simple",
             "Miscellaneous/TestDiscovery/Simple",
         ],
@@ -139,18 +140,18 @@ struct CoverageTests {
             try #require(!localFileSystem.exists(coveragePath))
 
             // WHEN we test with coverage enabled
-                try await executeSwiftTest(
-                    path,
-                    configuration: config,
-                    extraArgs: [
-                        "--enable-code-coverage",
-                    ],
-                    buildSystem: buildSystem,
-                    throwIfCommandFails: true,
-                )
+            try await executeSwiftTest(
+                path,
+                configuration: config,
+                extraArgs: [
+                    "--enable-code-coverage"
+                ],
+                buildSystem: buildSystem,
+                throwIfCommandFails: true,
+            )
 
-                // THEN we expect the file to exists
-                #expect(localFileSystem.exists(coveragePath))
+            // THEN we expect the file to exists
+            #expect(localFileSystem.exists(coveragePath))
         }
     }
 

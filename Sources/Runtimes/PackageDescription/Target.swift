@@ -200,7 +200,7 @@ public final class Target {
     /// The target's linker settings.
     @available(_PackageDescription, introduced: 5)
     public var linkerSettings: [LinkerSetting]?
- 
+
     /// The checksum for the archive file that contains the referenced binary
     /// artifact.
     ///
@@ -217,7 +217,7 @@ public final class Target {
     /// The uses of package plug-ins by the target.
     @available(_PackageDescription, introduced: 5.5)
     public var plugins: [PluginUsage]?
-    
+
     /// A plug-in used in a target.
     @available(_PackageDescription, introduced: 5.5)
     public enum PluginUsage {
@@ -275,68 +275,23 @@ public final class Target {
         switch type {
         case .regular, .executable, .test:
             precondition(
-                url == nil &&
-                pkgConfig == nil &&
-                providers == nil &&
-                pluginCapability == nil &&
-                checksum == nil
+                url == nil && pkgConfig == nil && providers == nil && pluginCapability == nil && checksum == nil
             )
         case .system:
             precondition(
-                url == nil &&
-                dependencies.isEmpty &&
-                exclude.isEmpty &&
-                sources == nil &&
-                resources == nil &&
-                publicHeadersPath == nil &&
-                pluginCapability == nil &&
-                cSettings == nil &&
-                cxxSettings == nil &&
-                swiftSettings == nil &&
-                linkerSettings == nil &&
-                checksum == nil &&
-                plugins == nil
+                url == nil && dependencies.isEmpty && exclude.isEmpty && sources == nil && resources == nil && publicHeadersPath == nil && pluginCapability == nil && cSettings == nil && cxxSettings == nil && swiftSettings == nil && linkerSettings == nil && checksum == nil && plugins == nil
             )
         case .binary:
             precondition(
-                dependencies.isEmpty &&
-                exclude.isEmpty &&
-                sources == nil &&
-                resources == nil &&
-                publicHeadersPath == nil &&
-                pkgConfig == nil &&
-                providers == nil &&
-                pluginCapability == nil &&
-                cSettings == nil &&
-                cxxSettings == nil &&
-                swiftSettings == nil &&
-                linkerSettings == nil &&
-                plugins == nil
+                dependencies.isEmpty && exclude.isEmpty && sources == nil && resources == nil && publicHeadersPath == nil && pkgConfig == nil && providers == nil && pluginCapability == nil && cSettings == nil && cxxSettings == nil && swiftSettings == nil && linkerSettings == nil && plugins == nil
             )
         case .plugin:
             precondition(
-                url == nil &&
-                resources == nil &&
-                publicHeadersPath == nil &&
-                pkgConfig == nil &&
-                providers == nil &&
-                pluginCapability != nil &&
-                cSettings == nil &&
-                cxxSettings == nil &&
-                swiftSettings == nil &&
-                linkerSettings == nil &&
-                plugins == nil
+                url == nil && resources == nil && publicHeadersPath == nil && pkgConfig == nil && providers == nil && pluginCapability != nil && cSettings == nil && cxxSettings == nil && swiftSettings == nil && linkerSettings == nil && plugins == nil
             )
         case .macro:
             precondition(
-                url == nil &&
-                resources == nil &&
-                publicHeadersPath == nil &&
-                pkgConfig == nil &&
-                providers == nil &&
-                pluginCapability == nil &&
-                cSettings == nil &&
-                cxxSettings == nil
+                url == nil && resources == nil && publicHeadersPath == nil && pkgConfig == nil && providers == nil && pluginCapability == nil && cSettings == nil && cxxSettings == nil
             )
         }
     }
@@ -1050,7 +1005,8 @@ public final class Target {
             type: .system,
             packageAccess: false,
             pkgConfig: pkgConfig,
-            providers: providers)
+            providers: providers
+        )
     }
 
     /// Creates a binary target that references a remote artifact.
@@ -1079,7 +1035,8 @@ public final class Target {
             publicHeadersPath: nil,
             type: .binary,
             packageAccess: false,
-            checksum: checksum)
+            checksum: checksum
+        )
     }
 
     /// Creates a binary target that references an artifact on disk.
@@ -1104,9 +1061,10 @@ public final class Target {
             sources: nil,
             publicHeadersPath: nil,
             type: .binary,
-            packageAccess: false)
+            packageAccess: false
+        )
     }
-    
+
     /// Defines a new package plugin target.
     ///
     /// A plugin target provides custom build commands to SwiftPM (and to
@@ -1167,7 +1125,8 @@ public final class Target {
             publicHeadersPath: nil,
             type: .plugin,
             packageAccess: false,
-            pluginCapability: capability)
+            pluginCapability: capability
+        )
     }
 
     /// Defines a new package plug-in target.
@@ -1232,7 +1191,8 @@ public final class Target {
             publicHeadersPath: nil,
             type: .plugin,
             packageAccess: packageAccess,
-            pluginCapability: capability)
+            pluginCapability: capability
+        )
     }
 }
 
@@ -1257,7 +1217,7 @@ extension Target.Dependency {
     ///   - name: The name of the product.
     ///   - package: The name of the package.
     /// - Returns: A `Target.Dependency` instance.
-@available(_PackageDescription, obsoleted: 5.2, message: "the 'package' argument is mandatory as of tools version 5.2")
+    @available(_PackageDescription, obsoleted: 5.2, message: "the 'package' argument is mandatory as of tools version 5.2")
     public static func product(name: String, package: String? = nil) -> Target.Dependency {
         return .productItem(name: name, package: package, moduleAliases: nil, condition: nil)
     }
@@ -1267,7 +1227,7 @@ extension Target.Dependency {
     /// - Parameter name: The name of the dependency, either a target or a product.
     /// - Returns: A `Target.Dependency` instance.
     /// The Swift Package Manager creates the by-name dependency after it has loaded the package graph.
-@available(_PackageDescription, obsoleted: 5.3)
+    @available(_PackageDescription, obsoleted: 5.3)
     public static func byName(name: String) -> Target.Dependency {
         return .byNameItem(name: name, condition: nil)
     }
@@ -1278,7 +1238,7 @@ extension Target.Dependency {
     ///   - name: The name of the product.
     ///   - package: The name of the package.
     /// - Returns: A `Target.Dependency` instance.
-@available(_PackageDescription, introduced: 5.2, obsoleted: 5.3)
+    @available(_PackageDescription, introduced: 5.2, obsoleted: 5.3)
     public static func product(
         name: String,
         package: String
@@ -1294,7 +1254,7 @@ extension Target.Dependency {
     ///     dependency. For example, only apply a dependency for a specific
     ///     platform.
     /// - Returns: A `Target.Dependency` instance.
-@available(_PackageDescription, introduced: 5.3)
+    @available(_PackageDescription, introduced: 5.3)
     public static func target(name: String, condition: TargetDependencyCondition? = nil) -> Target.Dependency {
         return .targetItem(name: name, condition: condition)
     }
@@ -1308,7 +1268,7 @@ extension Target.Dependency {
     ///     dependency. For example, only apply a dependency for a specific
     ///     platform.
     /// - Returns: A `Target.Dependency` instance.
-@_disfavoredOverload
+    @_disfavoredOverload
     @available(_PackageDescription, introduced: 5.3, obsoleted: 5.7)
     public static func product(
         name: String,
@@ -1327,12 +1287,12 @@ extension Target.Dependency {
     ///   - condition: A condition that limits the application of the target dependency. For example, only apply a
     ///       dependency for a specific platform.
     /// - Returns: A `Target.Dependency` instance.
-@available(_PackageDescription, introduced: 5.7)
+    @available(_PackageDescription, introduced: 5.7)
     public static func product(
-      name: String,
-      package: String,
-      moduleAliases: [String: String]? = nil,
-      condition: TargetDependencyCondition? = nil
+        name: String,
+        package: String,
+        moduleAliases: [String: String]? = nil,
+        condition: TargetDependencyCondition? = nil
     ) -> Target.Dependency {
         return .productItem(name: name, package: package, moduleAliases: moduleAliases, condition: condition)
     }
@@ -1349,7 +1309,7 @@ extension Target.Dependency {
     ///     dependency. For example, only apply a dependency for a specific
     ///     platform.
     /// - Returns: A `Target.Dependency` instance.
-@available(_PackageDescription, introduced: 5.3)
+    @available(_PackageDescription, introduced: 5.3)
     public static func byName(name: String, condition: TargetDependencyCondition? = nil) -> Target.Dependency {
         return .byNameItem(name: name, condition: condition)
     }
@@ -1412,7 +1372,7 @@ public struct TargetDependencyCondition: Sendable {
 }
 
 extension Target.PluginCapability {
-    
+
     /// The plug-in is a build tool.
     ///
     /// The plug-in to apply to each target that uses it, and creates commands
@@ -1535,7 +1495,6 @@ extension Target.PluginUsage {
     }
 }
 
-
 // MARK: ExpressibleByStringLiteral
 
 /// `ExpressibleByStringLiteral` conformance.
@@ -1561,4 +1520,3 @@ extension Target.PluginUsage: ExpressibleByStringLiteral {
         self = .plugin(name: value, package: nil)
     }
 }
-

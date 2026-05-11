@@ -10,20 +10,19 @@
 //
 //===----------------------------------------------------------------------===//
 
-
 import Basics
 import Dispatch
 import Foundation
 import SwiftASN1
 
 #if USE_IMPL_ONLY_IMPORTS
-@_implementationOnly import _CryptoExtras
-@_implementationOnly import Crypto
-@_implementationOnly import X509
+    @_implementationOnly import _CryptoExtras
+    @_implementationOnly import Crypto
+    @_implementationOnly import X509
 #else
-import _CryptoExtras
-import Crypto
-import X509
+    import _CryptoExtras
+    import Crypto
+    import X509
 #endif
 
 public struct ManifestSignature: Equatable, Codable {
@@ -66,10 +65,12 @@ public struct ManifestSignature: Equatable, Codable {
             public let organization: String?
 
             /// Creates a `Name`
-            public init(userID: String?,
-                        commonName: String?,
-                        organizationalUnit: String?,
-                        organization: String?) {
+            public init(
+                userID: String?,
+                commonName: String?,
+                organizationalUnit: String?,
+                organization: String?
+            ) {
                 self.userID = userID
                 self.commonName = commonName
                 self.organizationalUnit = organizationalUnit
@@ -162,21 +163,23 @@ public actor ManifestSigning: ManifestSigner, ManifestSignatureValidator {
         observabilityScope: ObservabilityScope
     ) {
         self.trustedRootCertsDir = trustedRootCertsDir
-        self.additionalTrustedRootCerts = additionalTrustedRootCerts.map { $0.compactMap {
-            guard let data = Data(base64Encoded: $0) else {
-                observabilityScope.emit(error: "The certificate \($0) is not in valid base64 encoding")
-                return nil
+        self.additionalTrustedRootCerts = additionalTrustedRootCerts.map {
+            $0.compactMap {
+                guard let data = Data(base64Encoded: $0) else {
+                    observabilityScope.emit(error: "The certificate \($0) is not in valid base64 encoding")
+                    return nil
+                }
+                do {
+                    return try Certificate(derEncoded: Array(data))
+                } catch {
+                    observabilityScope.emit(
+                        error: "The certificate \($0) is not in valid DER format",
+                        underlyingError: error
+                    )
+                    return nil
+                }
             }
-            do {
-                return try Certificate(derEncoded: Array(data))
-            } catch {
-                observabilityScope.emit(
-                    error: "The certificate \($0) is not in valid DER format",
-                    underlyingError: error
-                )
-                return nil
-            }
-        } }
+        }
 
         self.certPolicies = [:]
         self.encoder = JSONEncoder.makeWithDefaults()
@@ -291,7 +294,7 @@ public actor ManifestSigning: ManifestSigner, ManifestSignatureValidator {
             throw ManifestSigningError.invalidSignature
         }
 
-        let certificate = certChain.first! // !-safe because certChain cannot be empty at this point
+        let certificate = certChain.first!  // !-safe because certChain cannot be empty at this point
         return ManifestSignature(
             signature: signature,
             certificate: ManifestSignature.Certificate(

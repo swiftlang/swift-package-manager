@@ -40,11 +40,13 @@ struct StaticBinaryLibraryTests {
                 extraArgs: ["--experimental-prune-unused-dependencies"],
                 buildSystem: buildSystem,
             )
-            #expect(stdout == """
-            42
-            42
+            #expect(
+                stdout == """
+                    42
+                    42
 
-            """)
+                    """
+            )
         }
     }
 }

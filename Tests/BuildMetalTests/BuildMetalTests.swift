@@ -17,7 +17,7 @@ import Foundation
 import struct SPMBuildCore.BuildSystemProvider
 import enum PackageModel.BuildConfiguration
 #if os(macOS)
-import Metal
+    import Metal
 #endif
 
 @Suite(
@@ -63,19 +63,19 @@ struct BuildMetalTests {
             let binPath = try AbsolutePath(validating: binPathOutput.trimmingCharacters(in: .whitespacesAndNewlines))
 
             // Check that default.metallib exists
-            let metallibPath = binPath.appending(components:["MyRenderer_MyRenderer.bundle", "Contents", "Resources", "default.metallib"])
+            let metallibPath = binPath.appending(components: ["MyRenderer_MyRenderer.bundle", "Contents", "Resources", "default.metallib"])
             #expect(
                 localFileSystem.exists(metallibPath),
                 "Expected default.metallib to exist at \(metallibPath)"
             )
 
-#if os(macOS)
-            // Verify we can load the metal library
-            let device = try #require(MTLCreateSystemDefaultDevice())
-            let library = try device.makeLibrary(URL: URL(fileURLWithPath: metallibPath.pathString))
+            #if os(macOS)
+                // Verify we can load the metal library
+                let device = try #require(MTLCreateSystemDefaultDevice())
+                let library = try device.makeLibrary(URL: URL(fileURLWithPath: metallibPath.pathString))
 
-            #expect(library.functionNames.contains("simpleVertexShader"))
-#endif
+                #expect(library.functionNames.contains("simpleVertexShader"))
+            #endif
         }
     }
 }

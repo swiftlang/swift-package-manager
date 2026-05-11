@@ -99,7 +99,7 @@ enum SBOMTestStore {
             url: "https://github.com/example/myapp.git",
             revision: "abc123def456abc123def456abc123def456abc1",
             dependencies: [
-                ("Utils", "https://github.com/example/utils.git", "1.0.0"),
+                ("Utils", "https://github.com/example/utils.git", "1.0.0")
             ]
         )
     }
@@ -175,11 +175,11 @@ extension ResolvedPackagesStore {
     /// Get the repository URL for a given package name from the store
     package func getRepositoryURL(for packageName: String) throws -> String {
         let identity = PackageIdentity.plain(packageName)
-        
+
         guard let resolvedPackage = self.resolvedPackages[identity] else {
             throw SBOMTestStoreError.packageNotFound(packageName)
         }
-        
+
         switch resolvedPackage.packageRef.kind {
         case .remoteSourceControl(let url):
             return url.absoluteString

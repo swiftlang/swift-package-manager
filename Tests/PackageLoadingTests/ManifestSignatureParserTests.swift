@@ -25,32 +25,37 @@ class ManifestSignatureParserTests: XCTestCase {
             try localFileSystem.writeFileContents(
                 manifestPath,
                 string: """
-                // swift-tools-version: 5.7
+                    // swift-tools-version: 5.7
 
-                import PackageDescription
-                let package = Package(
-                    name: "library",
-                    products: [ .library(name: "library", targets: ["library"]) ],
-                    targets: [ .target(name: "library") ]
-                )
+                    import PackageDescription
+                    let package = Package(
+                        name: "library",
+                        products: [ .library(name: "library", targets: ["library"]) ],
+                        targets: [ .target(name: "library") ]
+                    )
 
-                // signature: cms-1.0.0;\(Data(signatureBytes).base64EncodedString())
-                """
+                    // signature: cms-1.0.0;\(Data(signatureBytes).base64EncodedString())
+                    """
             )
 
             let components = try ManifestSignatureParser.parse(manifestPath: manifestPath, fileSystem: localFileSystem)
             XCTAssertNotNil(components)
-            XCTAssertEqual(components?.contents, Array("""
-            // swift-tools-version: 5.7
+            XCTAssertEqual(
+                components?.contents,
+                Array(
+                    """
+                    // swift-tools-version: 5.7
 
-            import PackageDescription
-            let package = Package(
-                name: "library",
-                products: [ .library(name: "library", targets: ["library"]) ],
-                targets: [ .target(name: "library") ]
+                    import PackageDescription
+                    let package = Package(
+                        name: "library",
+                        products: [ .library(name: "library", targets: ["library"]) ],
+                        targets: [ .target(name: "library") ]
+                    )
+
+                    """.utf8
+                )
             )
-
-            """.utf8))
             XCTAssertEqual(components?.signatureFormat, "cms-1.0.0")
             XCTAssertEqual(components?.signature, signatureBytes)
         }
@@ -64,34 +69,39 @@ class ManifestSignatureParserTests: XCTestCase {
             try localFileSystem.writeFileContents(
                 manifestPath,
                 string: """
-                // swift-tools-version: 5.7
+                    // swift-tools-version: 5.7
 
-                import PackageDescription
-                let package = Package(
-                    name: "library",
-                    products: [ .library(name: "library", targets: ["library"]) ],
-                    targets: [ .target(name: "library") ]
-                )
+                    import PackageDescription
+                    let package = Package(
+                        name: "library",
+                        products: [ .library(name: "library", targets: ["library"]) ],
+                        targets: [ .target(name: "library") ]
+                    )
 
-                   // signature: cms-1.0.0;\(Data(signatureBytes).base64EncodedString())
+                       // signature: cms-1.0.0;\(Data(signatureBytes).base64EncodedString())
 
 
-                """
+                    """
             )
 
             let components = try ManifestSignatureParser.parse(manifestPath: manifestPath, fileSystem: localFileSystem)
             XCTAssertNotNil(components)
-            XCTAssertEqual(components?.contents, Array("""
-            // swift-tools-version: 5.7
+            XCTAssertEqual(
+                components?.contents,
+                Array(
+                    """
+                    // swift-tools-version: 5.7
 
-            import PackageDescription
-            let package = Package(
-                name: "library",
-                products: [ .library(name: "library", targets: ["library"]) ],
-                targets: [ .target(name: "library") ]
+                    import PackageDescription
+                    let package = Package(
+                        name: "library",
+                        products: [ .library(name: "library", targets: ["library"]) ],
+                        targets: [ .target(name: "library") ]
+                    )
+
+                    """.utf8
+                )
             )
-
-            """.utf8))
             XCTAssertEqual(components?.signatureFormat, "cms-1.0.0")
             XCTAssertEqual(components?.signature, signatureBytes)
         }
@@ -103,16 +113,16 @@ class ManifestSignatureParserTests: XCTestCase {
             try localFileSystem.writeFileContents(
                 manifestPath,
                 string: """
-                // swift-tools-version: 5.7
+                    // swift-tools-version: 5.7
 
-                import PackageDescription
-                let package = Package(
-                    name: "library",
-                    products: [ .library(name: "library", targets: ["library"]) ],
-                    targets: [ .target(name: "library") ]
-                )
+                    import PackageDescription
+                    let package = Package(
+                        name: "library",
+                        products: [ .library(name: "library", targets: ["library"]) ],
+                        targets: [ .target(name: "library") ]
+                    )
 
-                """
+                    """
             )
 
             let components = try ManifestSignatureParser.parse(manifestPath: manifestPath, fileSystem: localFileSystem)
@@ -126,17 +136,17 @@ class ManifestSignatureParserTests: XCTestCase {
             try localFileSystem.writeFileContents(
                 manifestPath,
                 string: """
-                // swift-tools-version: 5.7
+                    // swift-tools-version: 5.7
 
-                import PackageDescription
-                let package = Package(
-                    name: "library",
-                    products: [ .library(name: "library", targets: ["library"]) ],
-                    targets: [ .target(name: "library") ]
-                )
+                    import PackageDescription
+                    let package = Package(
+                        name: "library",
+                        products: [ .library(name: "library", targets: ["library"]) ],
+                        targets: [ .target(name: "library") ]
+                    )
 
-                // xxx
-                """
+                    // xxx
+                    """
             )
 
             let components = try ManifestSignatureParser.parse(manifestPath: manifestPath, fileSystem: localFileSystem)
@@ -150,17 +160,17 @@ class ManifestSignatureParserTests: XCTestCase {
             try localFileSystem.writeFileContents(
                 manifestPath,
                 string: """
-                // swift-tools-version: 5.7
+                    // swift-tools-version: 5.7
 
-                import PackageDescription
-                let package = Package(
-                    name: "library",
-                    products: [ .library(name: "library", targets: ["library"]) ],
-                    targets: [ .target(name: "library") ]
-                )
+                    import PackageDescription
+                    let package = Package(
+                        name: "library",
+                        products: [ .library(name: "library", targets: ["library"]) ],
+                        targets: [ .target(name: "library") ]
+                    )
 
-                // signature
-                """
+                    // signature
+                    """
             )
 
             let components = try ManifestSignatureParser.parse(manifestPath: manifestPath, fileSystem: localFileSystem)
@@ -174,17 +184,17 @@ class ManifestSignatureParserTests: XCTestCase {
             try localFileSystem.writeFileContents(
                 manifestPath,
                 string: """
-                // swift-tools-version: 5.7
+                    // swift-tools-version: 5.7
 
-                import PackageDescription
-                let package = Package(
-                    name: "library",
-                    products: [ .library(name: "library", targets: ["library"]) ],
-                    targets: [ .target(name: "library") ]
-                )
+                    import PackageDescription
+                    let package = Package(
+                        name: "library",
+                        products: [ .library(name: "library", targets: ["library"]) ],
+                        targets: [ .target(name: "library") ]
+                    )
 
-                // signature:
-                """
+                    // signature:
+                    """
             )
 
             let components = try ManifestSignatureParser.parse(manifestPath: manifestPath, fileSystem: localFileSystem)
@@ -198,17 +208,17 @@ class ManifestSignatureParserTests: XCTestCase {
             try localFileSystem.writeFileContents(
                 manifestPath,
                 string: """
-                // swift-tools-version: 5.7
+                    // swift-tools-version: 5.7
 
-                import PackageDescription
-                let package = Package(
-                    name: "library",
-                    products: [ .library(name: "library", targets: ["library"]) ],
-                    targets: [ .target(name: "library") ]
-                )
+                    import PackageDescription
+                    let package = Package(
+                        name: "library",
+                        products: [ .library(name: "library", targets: ["library"]) ],
+                        targets: [ .target(name: "library") ]
+                    )
 
-                    // signature: cms
-                """
+                        // signature: cms
+                    """
             )
 
             let components = try ManifestSignatureParser.parse(manifestPath: manifestPath, fileSystem: localFileSystem)
@@ -222,17 +232,17 @@ class ManifestSignatureParserTests: XCTestCase {
             try localFileSystem.writeFileContents(
                 manifestPath,
                 string: """
-                // swift-tools-version: 5.7
+                    // swift-tools-version: 5.7
 
-                import PackageDescription
-                let package = Package(
-                    name: "library",
-                    products: [ .library(name: "library", targets: ["library"]) ],
-                    targets: [ .target(name: "library") ]
-                )
+                    import PackageDescription
+                    let package = Package(
+                        name: "library",
+                        products: [ .library(name: "library", targets: ["library"]) ],
+                        targets: [ .target(name: "library") ]
+                    )
 
-                    // signature: cms;
-                """
+                        // signature: cms;
+                    """
             )
 
             let components = try ManifestSignatureParser.parse(manifestPath: manifestPath, fileSystem: localFileSystem)
@@ -246,17 +256,17 @@ class ManifestSignatureParserTests: XCTestCase {
             try localFileSystem.writeFileContents(
                 manifestPath,
                 string: """
-                // swift-tools-version: 5.7
+                    // swift-tools-version: 5.7
 
-                import PackageDescription
-                let package = Package(
-                    name: "library",
-                    products: [ .library(name: "library", targets: ["library"]) ],
-                    targets: [ .target(name: "library") ]
-                )
+                    import PackageDescription
+                    let package = Package(
+                        name: "library",
+                        products: [ .library(name: "library", targets: ["library"]) ],
+                        targets: [ .target(name: "library") ]
+                    )
 
-                    // signature: cms-1.0.0;signature-not-base64-encoded
-                """
+                        // signature: cms-1.0.0;signature-not-base64-encoded
+                    """
             )
 
             XCTAssertThrowsError(

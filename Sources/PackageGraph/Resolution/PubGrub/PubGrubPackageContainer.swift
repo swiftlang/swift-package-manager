@@ -146,7 +146,7 @@ final class PubGrubPackageContainer {
             // Use the next patch since the upper bound needs to be inclusive here.
             upperBound = upperBound.nextPatch()
         }
-        return .range(lowerBound ..< upperBound.nextPatch())
+        return .range(lowerBound..<upperBound.nextPatch())
     }
 
     /// Returns the incompatibilities of a package at the given version.
@@ -160,11 +160,13 @@ final class PubGrubPackageContainer {
         if await !self.underlying.isToolsVersionCompatible(at: version) {
             let requirement = try await self.computeIncompatibleToolsVersionBounds(fromVersion: version)
             let toolsVersion = try await self.underlying.toolsVersion(for: version)
-            return try [Incompatibility(
-                Term(node, requirement),
-                root: root,
-                cause: .incompatibleToolsVersion(toolsVersion)
-            )]
+            return try [
+                Incompatibility(
+                    Term(node, requirement),
+                    root: root,
+                    cause: .incompatibleToolsVersion(toolsVersion)
+                )
+            ]
         }
 
         var unprocessedDependencies = try await self.underlying.getDependencies(

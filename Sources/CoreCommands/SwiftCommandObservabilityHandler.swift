@@ -10,8 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-@_spi(SwiftPMInternal)
-import Basics
+@_spi(SwiftPMInternal) import Basics
 import Dispatch
 import PackageModel
 
@@ -39,8 +38,7 @@ public struct SwiftCommandObservabilityHandler: ObservabilityHandlerProvider {
     ///   emitted below this level will be ignored.
 
     public init(outputStream: OutputByteStream, logLevel: Basics.Diagnostic.Severity, colorDiagnostics: Bool = true) {
-        let threadSafeOutputByteStream = outputStream as? ThreadSafeOutputByteStream ??
-            ThreadSafeOutputByteStream(outputStream)
+        let threadSafeOutputByteStream = outputStream as? ThreadSafeOutputByteStream ?? ThreadSafeOutputByteStream(outputStream)
         self.outputHandler = OutputHandler(
             logLevel: logLevel,
             outputStream: threadSafeOutputByteStream,

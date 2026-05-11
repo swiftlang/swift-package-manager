@@ -88,8 +88,7 @@ extension PackagePIFProjectBuilder {
             let mainModuleTarget = self.project[keyPath: mainModuleTargetKeyPath]
             log(
                 .debug,
-                "Created target '\(mainModuleTarget.id)' of type '\(mainModuleTarget.productType)' " +
-                "with name '\(mainModuleTarget.name)' and product name '\(mainModuleTarget.productName)'"
+                "Created target '\(mainModuleTarget.id)' of type '\(mainModuleTarget.productType)' " + "with name '\(mainModuleTarget.name)' and product name '\(mainModuleTarget.productName)'"
             )
         }
 
@@ -139,7 +138,7 @@ extension PackagePIFProjectBuilder {
                 settings[.LD_RUNPATH_SEARCH_PATHS] = [
                     "$(RPATH_ORIGIN)/Frameworks",
                     "$(RPATH_ORIGIN)/../Frameworks",
-                    "$(inherited)"
+                    "$(inherited)",
                 ]
             }
             settings[.GENERATE_INFOPLIST_FILE] = "YES"
@@ -410,7 +409,8 @@ extension PackagePIFProjectBuilder {
                     let dependencyId = moduleDependency.pifTargetGUID
                     self.project[keyPath: mainModuleTargetKeyPath].common.addDependency(
                         on: dependencyId,
-                        platformFilters: packageConditions
+                        platformFilters:
+                            packageConditions
                             .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
                         linkProduct: false
                     )
@@ -420,7 +420,8 @@ extension PackagePIFProjectBuilder {
                     let dependencyId = moduleDependency.pifTargetGUID
                     self.project[keyPath: mainModuleTargetKeyPath].common.addDependency(
                         on: dependencyId,
-                        platformFilters: packageConditions
+                        platformFilters:
+                            packageConditions
                             .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
                         linkProduct: false
                     )
@@ -430,7 +431,8 @@ extension PackagePIFProjectBuilder {
                     if product.type == .test {
                         self.project[keyPath: mainModuleTargetKeyPath].common.addDependency(
                             on: moduleDependency.pifTargetGUID(suffix: .testable),
-                            platformFilters: packageConditions
+                            platformFilters:
+                                packageConditions
                                 .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
                             linkProduct: true
                         )
@@ -466,7 +468,8 @@ extension PackagePIFProjectBuilder {
                         let productDependencyGUID = productDependency.pifTargetGUID
                         self.project[keyPath: mainModuleTargetKeyPath].common.addDependency(
                             on: productDependencyGUID,
-                            platformFilters: packageConditions
+                            platformFilters:
+                                packageConditions
                                 .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
                             linkProduct: false
                         )
@@ -479,7 +482,8 @@ extension PackagePIFProjectBuilder {
                         let moduleDependencyGUID = moduleDependency.pifTargetGUID(suffix: .testable)
                         self.project[keyPath: mainModuleTargetKeyPath].common.addDependency(
                             on: moduleDependencyGUID,
-                            platformFilters: packageConditions
+                            platformFilters:
+                                packageConditions
                                 .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
                             // Only link the testable version of executables which use Swift, as we do not currently support renaming entrypoints written in other languages.
                             linkProduct: moduleDependency.usesSwift
@@ -492,7 +496,8 @@ extension PackagePIFProjectBuilder {
                     let dependencyGUID = moduleDependency.pifTargetGUID
                     self.project[keyPath: mainModuleTargetKeyPath].common.addDependency(
                         on: dependencyGUID,
-                        platformFilters: packageConditions
+                        platformFilters:
+                            packageConditions
                             .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
                         linkProduct: shouldLinkProduct
                     )
@@ -619,8 +624,8 @@ extension PackagePIFProjectBuilder {
             self.builtModulesAndProducts.append(dynamicLibraryVariant)
 
             guard let pifTarget = library.pifTarget,
-                  let pifTargetKeyPath = self.project.findTarget(id: pifTarget.id),
-                  let dynamicPifTarget = dynamicLibraryVariant.pifTarget
+                let pifTargetKeyPath = self.project.findTarget(id: pifTarget.id),
+                let dynamicPifTarget = dynamicLibraryVariant.pifTarget
             else {
                 fatalError("Could not assign dynamic PIF target")
             }
@@ -675,8 +680,7 @@ extension PackagePIFProjectBuilder {
             let librayTarget = self.project[keyPath: libraryUmbrellaTargetKeyPath]
             log(
                 .debug,
-                "Created target '\(librayTarget.id)' of type '\(librayTarget.productType)' with " +
-                "name '\(librayTarget.name)' and product name '\(librayTarget.productName)'"
+                "Created target '\(librayTarget.id)' of type '\(librayTarget.productType)' with " + "name '\(librayTarget.name)' and product name '\(librayTarget.productName)'"
             )
         }
 
@@ -780,8 +784,7 @@ extension PackagePIFProjectBuilder {
         )
 
         // If the given package is a root package or it is used via a branch/revision, we allow unsafe flags.
-        let implicitlyAllowAllUnsafeFlags = pifBuilder.delegate.isBranchOrRevisionBased ||
-            pifBuilder.delegate.isUserManaged
+        let implicitlyAllowAllUnsafeFlags = pifBuilder.delegate.isBranchOrRevisionBased || pifBuilder.delegate.isUserManaged
         let recordUsesUnsafeFlags = try !implicitlyAllowAllUnsafeFlags && product.usesUnsafeFlags
         settings[.USES_SWIFTPM_UNSAFE_FLAGS] = recordUsesUnsafeFlags ? "YES" : "NO"
 
@@ -822,7 +825,8 @@ extension PackagePIFProjectBuilder {
                     let dependencyId = moduleDependency.pifTargetGUID
                     self.project[keyPath: libraryUmbrellaTargetKeyPath].common.addDependency(
                         on: dependencyId,
-                        platformFilters: packageConditions
+                        platformFilters:
+                            packageConditions
                             .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
                         linkProduct: false
                     )
@@ -838,12 +842,14 @@ extension PackagePIFProjectBuilder {
                 if moduleDependency.isExecutable {
                     let mainModuleProducts = package.products.filter(\.isMainModuleProduct)
 
-                    if let product = moduleDependency
+                    if let product =
+                        moduleDependency
                         .productRepresentingDependencyOfBuildPlugin(in: mainModuleProducts)
                     {
                         self.project[keyPath: libraryUmbrellaTargetKeyPath].common.addDependency(
                             on: product.pifTargetGUID,
-                            platformFilters: packageConditions
+                            platformFilters:
+                                packageConditions
                                 .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
                             linkProduct: false
                         )
@@ -878,7 +884,8 @@ extension PackagePIFProjectBuilder {
                     let shouldLinkProduct = productDependency.isLinkable
                     self.project[keyPath: libraryUmbrellaTargetKeyPath].common.addDependency(
                         on: productDependency.pifTargetGUID,
-                        platformFilters: packageConditions
+                        platformFilters:
+                            packageConditions
                             .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
                         linkProduct: shouldLinkProduct
                     )
@@ -893,9 +900,9 @@ extension PackagePIFProjectBuilder {
 
         // For *registry* packages, vend any registry release metadata to the build system.
         if let metadata = package.registryMetadata,
-           let signature = metadata.signature,
-           let version = pifBuilder.packageDisplayVersion,
-           case RegistryReleaseMetadata.Source.registry(let url) = metadata.source
+            let signature = metadata.signature,
+            let version = pifBuilder.packageDisplayVersion,
+            case RegistryReleaseMetadata.Source.registry(let url) = metadata.source
         {
             let signatureData = PackageRegistrySignature(
                 packageIdentity: package.identity.description,
@@ -923,12 +930,13 @@ extension PackagePIFProjectBuilder {
             PackagePIFBuilder.LinkedPackageBinary(module: $0)
         }
 
-        let moduleOrProductType: PackagePIFBuilder.ModuleOrProductType = switch product.libraryType {
-        case .dynamic:
-            pifBuilder.createDylibForDynamicProducts ? .dynamicLibrary : .framework
-        default:
-            .staticArchive
-        }
+        let moduleOrProductType: PackagePIFBuilder.ModuleOrProductType =
+            switch product.libraryType {
+            case .dynamic:
+                pifBuilder.createDylibForDynamicProducts ? .dynamicLibrary : .framework
+            default:
+                .staticArchive
+            }
 
         return PackagePIFBuilder.ModuleOrProduct(
             type: moduleOrProductType,
@@ -962,8 +970,7 @@ extension PackagePIFProjectBuilder {
             let systemLibraryTarget = self.project[keyPath: systemLibraryTargetKeyPath]
             log(
                 .debug,
-                "Created target '\(systemLibraryTarget.id)' of type '\(systemLibraryTarget.productType)' " +
-                "with name '\(systemLibraryTarget.name)' and product name '\(systemLibraryTarget.productName)'"
+                "Created target '\(systemLibraryTarget.id)' of type '\(systemLibraryTarget.productType)' " + "with name '\(systemLibraryTarget.name)' and product name '\(systemLibraryTarget.productName)'"
             )
         }
 
@@ -1078,7 +1085,7 @@ extension PackagePIFProjectBuilder {
         let guid = PackagePIFBuilder.targetGUID(forModuleName: moduleName)
 
         let testRunnerTargetKeyPath = try self.project.addTarget { _ in
-            ProjectModel.Target (
+            ProjectModel.Target(
                 id: guid,
                 productType: .swiftpmTestRunner,
                 name: name,
@@ -1105,7 +1112,7 @@ extension PackagePIFProjectBuilder {
         if pifBuilder.addLocalRpaths {
             settings[.LD_RUNPATH_SEARCH_PATHS] = [
                 "$(inherited)",
-                "$(RPATH_ORIGIN)"
+                "$(RPATH_ORIGIN)",
             ]
         }
 

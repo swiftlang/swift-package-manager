@@ -108,7 +108,7 @@ extension SBOMTestModulesGraph {
             packageIdentity: identity,
             module: llvmSupportModule,
             dependencies: [
-                .module(resolvedLLVMDemangleModule, conditions: []),
+                .module(resolvedLLVMDemangleModule, conditions: [])
             ]
         )
 
@@ -116,7 +116,7 @@ extension SBOMTestModulesGraph {
             packageIdentity: identity,
             module: llbuildBasicModule,
             dependencies: [
-                .module(resolvedLLVMSupportModule, conditions: []),
+                .module(resolvedLLVMSupportModule, conditions: [])
             ]
         )
 
@@ -133,7 +133,7 @@ extension SBOMTestModulesGraph {
             packageIdentity: identity,
             module: llbuildNinjaModule,
             dependencies: [
-                .module(resolvedLLBuildBasicModule, conditions: []),
+                .module(resolvedLLBuildBasicModule, conditions: [])
             ]
         )
 
@@ -141,7 +141,7 @@ extension SBOMTestModulesGraph {
             packageIdentity: identity,
             module: llbuildBuildSystemModule,
             dependencies: [
-                .module(resolvedLLBuildCoreModule, conditions: []),
+                .module(resolvedLLBuildCoreModule, conditions: [])
             ]
         )
 
@@ -169,7 +169,7 @@ extension SBOMTestModulesGraph {
             packageIdentity: identity,
             module: llbuildSwiftModule,
             dependencies: [
-                .module(resolvedLibllbuildModule, conditions: []),
+                .module(resolvedLibllbuildModule, conditions: [])
             ]
         )
 
@@ -177,7 +177,7 @@ extension SBOMTestModulesGraph {
             packageIdentity: identity,
             module: llbuildAnalysisModule,
             dependencies: [
-                .module(resolvedLLBuildSwiftModule, conditions: []),
+                .module(resolvedLLBuildSwiftModule, conditions: [])
             ]
         )
 
@@ -185,7 +185,7 @@ extension SBOMTestModulesGraph {
             packageIdentity: identity,
             module: llbuildExecModule,
             dependencies: [
-                .module(resolvedLLBuildCommandsModule, conditions: []),
+                .module(resolvedLLBuildCommandsModule, conditions: [])
             ]
         )
 
@@ -529,7 +529,7 @@ extension SBOMTestModulesGraph {
             packageIdentity: identity,
             module: swiftOptionsModule,
             dependencies: [
-                .product(swiftToolsSupportAutoProduct, conditions: []),
+                .product(swiftToolsSupportAutoProduct, conditions: [])
             ]
         )
 

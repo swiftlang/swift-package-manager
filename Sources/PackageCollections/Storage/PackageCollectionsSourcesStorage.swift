@@ -22,8 +22,10 @@ public protocol PackageCollectionsSourcesStorage {
     ///   - source: The `PackageCollectionSource` to add
     ///   - order: Optional. The order that the source should take after being added.
     ///            By default the new source is appended to the end (i.e., the least relevant order).
-    func add(source: PackageCollectionsModel.CollectionSource,
-             order: Int?) async throws
+    func add(
+        source: PackageCollectionsModel.CollectionSource,
+        order: Int?
+    ) async throws
 
     /// Removes the given source.
     ///

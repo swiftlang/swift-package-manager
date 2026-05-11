@@ -38,12 +38,12 @@ struct SPDXValidator: SBOMValidatorProtocol {
             )
         }
         guard let contextString = rootDict[SPDXKeys.context] as? String,
-              !contextString.isEmpty
+            !contextString.isEmpty
         else {
             throw SBOMValidatorError.invalidValue(path: "$", message: "@context must be a non-empty string")
         }
         guard let graph = rootDict[SPDXKeys.graph] as? [Any],
-              !graph.isEmpty
+            !graph.isEmpty
         else {
             throw SBOMValidatorError.invalidValue(path: "$", message: "@graph must be a non-empty array")
         }

@@ -21,8 +21,7 @@ import SPMBuildCore
 import Workspace
 
 extension SwiftPackageCommand {
-    
-    
+
     struct GenerateSbom: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(
             abstract: "Generate a Software Bill of Materials (SBOM).",

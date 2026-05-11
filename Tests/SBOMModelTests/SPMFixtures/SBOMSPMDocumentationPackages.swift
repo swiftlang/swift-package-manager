@@ -159,7 +159,7 @@ extension SBOMTestModulesGraph {
             packageIdentity: identity,
             module: swiftDoccModule,
             dependencies: [
-                .module(resolvedSnippetExtractModule, conditions: []),
+                .module(resolvedSnippetExtractModule, conditions: [])
             ]
         )
 
@@ -167,7 +167,7 @@ extension SBOMTestModulesGraph {
             packageIdentity: identity,
             module: swiftDoccPreviewModule,
             dependencies: [
-                .module(resolvedSnippetExtractModule, conditions: []),
+                .module(resolvedSnippetExtractModule, conditions: [])
             ]
         )
 

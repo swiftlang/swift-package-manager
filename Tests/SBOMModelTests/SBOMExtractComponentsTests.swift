@@ -44,7 +44,7 @@ struct SBOMExtractComponentsTests {
         verifyRootProducts(components, expectations: expectations, filter: filter, product: product)
         verifyComponentProperties(components, filter: filter)
     }
-    
+
     private func verifyComponentCounts(
         _ components: [SBOMComponent],
         expectations: SBOMTestCase.TestExpectations,
@@ -57,16 +57,18 @@ struct SBOMExtractComponentsTests {
             #expect(components.count <= expectations.totalComponentCount, sourceLocation: sourceLocation)
         }
     }
-    
+
     private func verifyPackageIds(
         _ components: [SBOMComponent],
         expectations: SBOMTestCase.TestExpectations,
         isFullExtraction: Bool,
         sourceLocation: SourceLocation = #_sourceLocation
     ) {
-        let componentPackageIds = Set(components.compactMap { component in
-            component.id.value.components(separatedBy: ":").first
-        })
+        let componentPackageIds = Set(
+            components.compactMap { component in
+                component.id.value.components(separatedBy: ":").first
+            }
+        )
         if isFullExtraction {
             #expect(componentPackageIds == expectations.expectedPackageIds, "Package IDs did not match", sourceLocation: sourceLocation)
         } else {
@@ -88,10 +90,10 @@ struct SBOMExtractComponentsTests {
                 #expect(rootPackageComponent == nil, "Root package should not be included when filter is .product and primary component '\(productName)' is a product", sourceLocation: sourceLocation)
                 return
             }
-        } // else it's always included
-         #expect(rootPackageComponent != nil, "Root package should be included", sourceLocation: sourceLocation)
+        }  // else it's always included
+        #expect(rootPackageComponent != nil, "Root package should be included", sourceLocation: sourceLocation)
     }
-    
+
     private func verifyRootProducts(
         _ components: [SBOMComponent],
         expectations: SBOMTestCase.TestExpectations,
@@ -118,7 +120,7 @@ struct SBOMExtractComponentsTests {
             }
         }
     }
-    
+
     private func verifyComponentProperties(_ components: [SBOMComponent], filter: Filter, sourceLocation: SourceLocation = #_sourceLocation) {
         for component in components {
             #expect(!component.id.value.isEmpty, "Component ID should not be empty", sourceLocation: sourceLocation)
@@ -190,7 +192,7 @@ struct SBOMExtractComponentsTests {
 
         let commit = commits[0]
         #expect(!commit.sha.isEmpty, "Commit SHA should not be empty")
-        
+
         let expectedRepository = try testCase.store.getRepositoryURL(for: "swift-llbuild")
         #expect(commit.repository == expectedRepository, "Repository URL should match")
 
@@ -222,7 +224,7 @@ struct SBOMExtractComponentsTests {
 
         let commit = commits[0]
         #expect(!commit.sha.isEmpty, "Commit SHA should not be empty")
-        
+
         let expectedRepository = try testCase.store.getRepositoryURL(for: "swift-system")
         #expect(
             commit.repository == expectedRepository,
@@ -360,7 +362,7 @@ struct SBOMExtractComponentsTests {
         let testCase = try SBOMTestCase.createSimpleTestCase()
         let extractor = SBOMExtractor(modulesGraph: testCase.graph, dependencyGraph: nil, store: testCase.store)
         let dependencies = try await extractor.extractDependencies(filter: .all)
-        
+
         self.verifyComponents(
             components: dependencies.components,
             graph: testCase.graph,
@@ -368,14 +370,14 @@ struct SBOMExtractComponentsTests {
             filter: .all
         )
     }
-    
+
     @Test("Filter.product includes only product components and primary component")
     func filterProductIncludesOnlyProductsAndPrimaryComponent() async throws {
         let testCase = try SBOMTestCase.createSPMTestCase()
         let extractor = SBOMExtractor(modulesGraph: testCase.graph, dependencyGraph: nil, store: testCase.store)
-        
+
         let dependencies = try await extractor.extractDependencies(filter: .product)
-        
+
         self.verifyComponents(
             components: dependencies.components,
             graph: testCase.graph,
@@ -383,7 +385,7 @@ struct SBOMExtractComponentsTests {
             filter: .product
         )
     }
-    
+
     @Test("Filter.package includes only package components")
     func filterPackageIncludesOnlyPackages() async throws {
         let testCase = try SBOMTestCase.createSPMTestCase()
@@ -409,13 +411,12 @@ struct SBOMExtractComponentsTests {
             filter: .all
         )
     }
-    
 
     @Test("Filter.product with specific product contains only product components")
     func filterProductWithSpecificProduct() async throws {
         let testCase = try SBOMTestCase.createSPMTestCase()
         let extractor = SBOMExtractor(modulesGraph: testCase.graph, dependencyGraph: nil, store: testCase.store)
-        
+
         let productName = "SwiftPMPackageCollections"
         let dependencies = try await extractor.extractDependencies(product: productName, filter: .product)
         self.verifyComponents(
@@ -426,12 +427,12 @@ struct SBOMExtractComponentsTests {
             product: productName
         )
     }
-    
+
     @Test("Filter.package with specific product contains only package components and product primary component")
     func filterPackageWithSpecificProduct() async throws {
         let testCase = try SBOMTestCase.createSPMTestCase()
         let extractor = SBOMExtractor(modulesGraph: testCase.graph, dependencyGraph: nil, store: testCase.store)
-        
+
         let productName = "SwiftPMPackageCollections"
         let dependencies = try await extractor.extractDependencies(product: productName, filter: .package)
         self.verifyComponents(
@@ -444,11 +445,11 @@ struct SBOMExtractComponentsTests {
     }
 
     // MARK: - Mock Registry Tests
-    
+
     @Test("extractComponents from mock registry package")
     func extractComponentsFromMockRegistryPackage() async throws {
         let fs = InMemoryFileSystem()
-        
+
         // Create mock registry
         let registry = MockRegistry(
             filesystem: fs,
@@ -457,7 +458,7 @@ struct SBOMExtractComponentsTests {
             fingerprintStorage: MockPackageFingerprintStorage(),
             signingEntityStorage: MockPackageSigningEntityStorage()
         )
-        
+
         // Setup registry package
         let registryPackageIdentity: PackageIdentity = .plain("example.TestLibrary")
         let registryPackageVersion: Version = "1.0.0"
@@ -469,7 +470,7 @@ struct SBOMExtractComponentsTests {
             targets: ["TestLibrary"],
             toolsVersion: .v5_9
         )
-        
+
         // Add package to registry
         registry.addPackage(
             identity: registryPackageIdentity,
@@ -477,7 +478,7 @@ struct SBOMExtractComponentsTests {
             sourceControlURLs: [URL("https://github.com/example/TestLibrary")],
             source: registryPackageSource
         )
-        
+
         // Create registry dependency package first
         let registryModule = SBOMTestModulesGraph.createSwiftModule(
             name: "TestLibrary",
@@ -496,7 +497,7 @@ struct SBOMExtractComponentsTests {
             modules: [registryModule],
             products: [registryProduct]
         )
-        
+
         // Create resolved modules and products for registry package
         let registryResolvedModule = SBOMTestModulesGraph.createResolvedModule(
             packageIdentity: registryPackageIdentity,
@@ -507,7 +508,7 @@ struct SBOMExtractComponentsTests {
             product: registryProduct,
             modules: IdentifiableSet([registryResolvedModule])
         )
-        
+
         // Create a root package that depends on the registry package
         let rootPackageIdentity = PackageIdentity.plain("MyApp")
         let rootModule = SBOMTestModulesGraph.createSwiftModule(
@@ -527,7 +528,7 @@ struct SBOMExtractComponentsTests {
             modules: [rootModule],
             products: [rootProduct]
         )
-        
+
         // Create resolved modules with dependency on registry product
         let rootResolvedModule = SBOMTestModulesGraph.createResolvedModule(
             packageIdentity: rootPackageIdentity,
@@ -541,7 +542,7 @@ struct SBOMExtractComponentsTests {
             product: rootProduct,
             modules: IdentifiableSet([rootResolvedModule])
         )
-        
+
         // Create resolved packages with registry metadata
         let registryURL = URL("http://localhost/registry/mock")
         let registryMetadata = RegistryReleaseMetadata(
@@ -555,14 +556,14 @@ struct SBOMExtractComponentsTests {
             ),
             signature: nil
         )
-        
+
         let rootResolvedPackage = SBOMTestModulesGraph.createResolvedPackage(
             package: rootPackage,
             modules: IdentifiableSet([rootResolvedModule]),
             products: [rootResolvedProduct],
             dependencies: [registryPackageIdentity]
         )
-        
+
         let registryResolvedPackage = ResolvedPackage(
             underlying: registryPackage,
             defaultLocalization: nil,
@@ -574,7 +575,7 @@ struct SBOMExtractComponentsTests {
             registryMetadata: registryMetadata,
             platformVersionProvider: PlatformVersionProvider(implementation: .minimumDeploymentTargetDefault)
         )
-        
+
         // Create package references
         let registryPackageRef = PackageReference.registry(identity: registryPackageIdentity)
 
@@ -586,43 +587,43 @@ struct SBOMExtractComponentsTests {
             dependencies: [registryPackageRef],
             binaryArtifacts: [:]
         )
-        
+
         // Create store with registry package
         let store = try SBOMTestStore.createSimpleResolvedPackagesStore()
         store.track(
             packageRef: registryPackageRef,
             state: .version(registryPackageVersion, revision: "abc123")
         )
-        
+
         // Extract components
         let extractor = SBOMExtractor(modulesGraph: graph, dependencyGraph: nil, store: store)
         let components = try await extractor.extractDependencies().components
-        
+
         // Verify components - should have root package, root product, registry package, and registry product
         #expect(components.count >= 3, "Should have at least root package, root product, and registry product")
-        
+
         // Find registry product component (not package - products are what get extracted as dependencies)
         let registryProductComponent = components.first {
             $0.id.value.contains("TestLibrary") && $0.entity == .product
         }
         let foundRegistryProduct = try #require(registryProductComponent, "Registry product component should be found. Available: \(components.map { "\($0.id.value) (\($0.entity))" }.joined(separator: ", "))")
-        
+
         // Verify registry product properties
         #expect(foundRegistryProduct.name == "TestLibrary")
         #expect(foundRegistryProduct.version.revision == "1.0.0")
         #expect(foundRegistryProduct.entity == .product)
-        
+
         // Find registry package component
         let registryPackageComponent = components.first {
             $0.id.value == registryPackageIdentity.description && $0.entity == .package
         }
         let foundRegistryPackage = try #require(registryPackageComponent, "Registry package component should be found")
-        
+
         // Verify registry package properties
         #expect(foundRegistryPackage.name == "example.TestLibrary")
         #expect(foundRegistryPackage.version.revision == "1.0.0")
         #expect(foundRegistryPackage.entity == .package)
-        
+
         // Verify registry entry in version
         let registryEntry = try #require(
             foundRegistryPackage.version.entry,
@@ -632,14 +633,14 @@ struct SBOMExtractComponentsTests {
         #expect(registryEntry.scope == "example")
         #expect(registryEntry.name == "TestLibrary")
         #expect(registryEntry.version == "1.0.0")
-        
+
         // Verify registry entry in originator
         let originatorEntries = try #require(
             foundRegistryPackage.originator.entries,
             "Registry package should have originator entries"
         )
         #expect(originatorEntries[0].url == registryURL)
-        
+
         // Verify PURL is correct for registry package
         let expectedPURL = PURL(
             scheme: "pkg",

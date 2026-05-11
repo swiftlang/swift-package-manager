@@ -137,14 +137,18 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         )
 
         let signingEntityStorage = MockPackageSigningEntityStorage(
-            [package.underlying: PackageSigners(
-                expectedSigner: .none,
-                signers: [signingEntity: PackageSigner(
-                    signingEntity: signingEntity,
-                    origins: [.registry(registry.url)],
-                    versions: [version]
-                )]
-            )]
+            [
+                package.underlying: PackageSigners(
+                    expectedSigner: .none,
+                    signers: [
+                        signingEntity: PackageSigner(
+                            signingEntity: signingEntity,
+                            origins: [.registry(registry.url)],
+                            versions: [version]
+                        )
+                    ]
+                )
+            ]
         )
         let signingEntityCheckingMode = SigningEntityCheckingMode.strict
 
@@ -181,16 +185,20 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         )
 
         let signingEntityStorage = MockPackageSigningEntityStorage(
-            [package.underlying: PackageSigners(
-                expectedSigner: .none,
-                signers: [existingSigningEntity: PackageSigner(
-                    signingEntity: existingSigningEntity,
-                    origins: [.registry(registry.url)],
-                    versions: [version]
-                )]
-            )]
+            [
+                package.underlying: PackageSigners(
+                    expectedSigner: .none,
+                    signers: [
+                        existingSigningEntity: PackageSigner(
+                            signingEntity: existingSigningEntity,
+                            origins: [.registry(registry.url)],
+                            versions: [version]
+                        )
+                    ]
+                )
+            ]
         )
-        let signingEntityCheckingMode = SigningEntityCheckingMode.strict // intended for this test; don't change
+        let signingEntityCheckingMode = SigningEntityCheckingMode.strict  // intended for this test; don't change
 
         let tofu = PackageSigningEntityTOFU(
             signingEntityStorage: signingEntityStorage,
@@ -241,16 +249,20 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         )
 
         let signingEntityStorage = MockPackageSigningEntityStorage(
-            [package.underlying: PackageSigners(
-                expectedSigner: .none,
-                signers: [existingSigningEntity: PackageSigner(
-                    signingEntity: existingSigningEntity,
-                    origins: [.registry(registry.url)],
-                    versions: [version]
-                )]
-            )]
+            [
+                package.underlying: PackageSigners(
+                    expectedSigner: .none,
+                    signers: [
+                        existingSigningEntity: PackageSigner(
+                            signingEntity: existingSigningEntity,
+                            origins: [.registry(registry.url)],
+                            versions: [version]
+                        )
+                    ]
+                )
+            ]
         )
-        let signingEntityCheckingMode = SigningEntityCheckingMode.warn // intended for this test; don't change
+        let signingEntityCheckingMode = SigningEntityCheckingMode.warn  // intended for this test; don't change
 
         let tofu = PackageSigningEntityTOFU(
             signingEntityStorage: signingEntityStorage,
@@ -296,16 +308,20 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         )
 
         let signingEntityStorage = MockPackageSigningEntityStorage(
-            [package.underlying: PackageSigners(
-                expectedSigner: .none,
-                signers: [existingSigningEntity: PackageSigner(
-                    signingEntity: existingSigningEntity,
-                    origins: [.registry(registry.url)],
-                    versions: [version]
-                )]
-            )]
+            [
+                package.underlying: PackageSigners(
+                    expectedSigner: .none,
+                    signers: [
+                        existingSigningEntity: PackageSigner(
+                            signingEntity: existingSigningEntity,
+                            origins: [.registry(registry.url)],
+                            versions: [version]
+                        )
+                    ]
+                )
+            ]
         )
-        let signingEntityCheckingMode = SigningEntityCheckingMode.strict // intended for this test; don't change
+        let signingEntityCheckingMode = SigningEntityCheckingMode.strict  // intended for this test; don't change
 
         let tofu = PackageSigningEntityTOFU(
             signingEntityStorage: signingEntityStorage,
@@ -351,14 +367,18 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         )
 
         let signingEntityStorage = MockPackageSigningEntityStorage(
-            [package.underlying: PackageSigners(
-                expectedSigner: .none,
-                signers: [signingEntity: PackageSigner(
-                    signingEntity: signingEntity,
-                    origins: [.registry(registry.url)],
-                    versions: [existingVersion]
-                )]
-            )]
+            [
+                package.underlying: PackageSigners(
+                    expectedSigner: .none,
+                    signers: [
+                        signingEntity: PackageSigner(
+                            signingEntity: signingEntity,
+                            origins: [.registry(registry.url)],
+                            versions: [existingVersion]
+                        )
+                    ]
+                )
+            ]
         )
         let signingEntityCheckingMode = SigningEntityCheckingMode.strict
 
@@ -404,16 +424,20 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         )
 
         let signingEntityStorage = MockPackageSigningEntityStorage(
-            [package.underlying: PackageSigners(
-                expectedSigner: .none,
-                signers: [existingSigningEntity: PackageSigner(
-                    signingEntity: existingSigningEntity,
-                    origins: [.registry(registry.url)],
-                    versions: [existingVersion]
-                )]
-            )]
+            [
+                package.underlying: PackageSigners(
+                    expectedSigner: .none,
+                    signers: [
+                        existingSigningEntity: PackageSigner(
+                            signingEntity: existingSigningEntity,
+                            origins: [.registry(registry.url)],
+                            versions: [existingVersion]
+                        )
+                    ]
+                )
+            ]
         )
-        let signingEntityCheckingMode = SigningEntityCheckingMode.strict // intended for this test; don't change
+        let signingEntityCheckingMode = SigningEntityCheckingMode.strict  // intended for this test; don't change
 
         let tofu = PackageSigningEntityTOFU(
             signingEntityStorage: signingEntityStorage,
@@ -430,14 +454,16 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
                 signingEntity: signingEntity
             )
         ) { error in
-            guard case RegistryError.signingEntityForPackageChanged(
-                _,
-                _,
-                _,
-                let latest,
-                let previous,
-                let previousVersion
-            ) = error else {
+            guard
+                case RegistryError.signingEntityForPackageChanged(
+                    _,
+                    _,
+                    _,
+                    let latest,
+                    let previous,
+                    let previousVersion
+                ) = error
+            else {
                 return XCTFail("Expected RegistryError.signingEntityForPackageChanged, got '\(error)'")
             }
             XCTAssertEqual(latest, signingEntity)
@@ -473,16 +499,20 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         )
 
         let signingEntityStorage = MockPackageSigningEntityStorage(
-            [package.underlying: PackageSigners(
-                expectedSigner: .none,
-                signers: [existingSigningEntity: PackageSigner(
-                    signingEntity: existingSigningEntity,
-                    origins: [.registry(registry.url)],
-                    versions: [existingVersion]
-                )]
-            )]
+            [
+                package.underlying: PackageSigners(
+                    expectedSigner: .none,
+                    signers: [
+                        existingSigningEntity: PackageSigner(
+                            signingEntity: existingSigningEntity,
+                            origins: [.registry(registry.url)],
+                            versions: [existingVersion]
+                        )
+                    ]
+                )
+            ]
         )
-        let signingEntityCheckingMode = SigningEntityCheckingMode.warn // intended for this test; don't change
+        let signingEntityCheckingMode = SigningEntityCheckingMode.warn  // intended for this test; don't change
 
         let tofu = PackageSigningEntityTOFU(
             signingEntityStorage: signingEntityStorage,
@@ -529,14 +559,18 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         )
 
         let signingEntityStorage = MockPackageSigningEntityStorage(
-            [package.underlying: PackageSigners(
-                expectedSigner: .none,
-                signers: [existingSigningEntity: PackageSigner(
-                    signingEntity: existingSigningEntity,
-                    origins: [.registry(registry.url)],
-                    versions: existingVersions
-                )]
-            )]
+            [
+                package.underlying: PackageSigners(
+                    expectedSigner: .none,
+                    signers: [
+                        existingSigningEntity: PackageSigner(
+                            signingEntity: existingSigningEntity,
+                            origins: [.registry(registry.url)],
+                            versions: existingVersions
+                        )
+                    ]
+                )
+            ]
         )
         let signingEntityCheckingMode = SigningEntityCheckingMode.strict
 
@@ -577,16 +611,20 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         )
 
         let signingEntityStorage = MockPackageSigningEntityStorage(
-            [package.underlying: PackageSigners(
-                expectedSigner: .none,
-                signers: [existingSigningEntity: PackageSigner(
-                    signingEntity: existingSigningEntity,
-                    origins: [.registry(registry.url)],
-                    versions: existingVersions
-                )]
-            )]
+            [
+                package.underlying: PackageSigners(
+                    expectedSigner: .none,
+                    signers: [
+                        existingSigningEntity: PackageSigner(
+                            signingEntity: existingSigningEntity,
+                            origins: [.registry(registry.url)],
+                            versions: existingVersions
+                        )
+                    ]
+                )
+            ]
         )
-        let signingEntityCheckingMode = SigningEntityCheckingMode.strict // intended for this test; don't change
+        let signingEntityCheckingMode = SigningEntityCheckingMode.strict  // intended for this test; don't change
 
         let tofu = PackageSigningEntityTOFU(
             signingEntityStorage: signingEntityStorage,
@@ -604,14 +642,16 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
                 signingEntity: .none
             )
         ) { error in
-            guard case RegistryError.signingEntityForPackageChanged(
-                _,
-                _,
-                _,
-                let latest,
-                let previous,
-                let previousVersion
-            ) = error else {
+            guard
+                case RegistryError.signingEntityForPackageChanged(
+                    _,
+                    _,
+                    _,
+                    let latest,
+                    let previous,
+                    let previousVersion
+                ) = error
+            else {
                 return XCTFail("Expected RegistryError.signingEntityForPackageChanged, got '\(error)'")
             }
             XCTAssertNil(latest)
@@ -641,16 +681,20 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         )
 
         let signingEntityStorage = MockPackageSigningEntityStorage(
-            [package.underlying: PackageSigners(
-                expectedSigner: .none,
-                signers: [existingSigningEntity: PackageSigner(
-                    signingEntity: existingSigningEntity,
-                    origins: [.registry(registry.url)],
-                    versions: existingVersions
-                )]
-            )]
+            [
+                package.underlying: PackageSigners(
+                    expectedSigner: .none,
+                    signers: [
+                        existingSigningEntity: PackageSigner(
+                            signingEntity: existingSigningEntity,
+                            origins: [.registry(registry.url)],
+                            versions: existingVersions
+                        )
+                    ]
+                )
+            ]
         )
-        let signingEntityCheckingMode = SigningEntityCheckingMode.warn // intended for this test; don't change
+        let signingEntityCheckingMode = SigningEntityCheckingMode.warn  // intended for this test; don't change
 
         let tofu = PackageSigningEntityTOFU(
             signingEntityStorage: signingEntityStorage,
@@ -698,14 +742,18 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         )
 
         let signingEntityStorage = MockPackageSigningEntityStorage(
-            [package.underlying: PackageSigners(
-                expectedSigner: .none,
-                signers: [existingSigningEntity: PackageSigner(
-                    signingEntity: existingSigningEntity,
-                    origins: [.registry(registry.url)],
-                    versions: existingVersions
-                )]
-            )]
+            [
+                package.underlying: PackageSigners(
+                    expectedSigner: .none,
+                    signers: [
+                        existingSigningEntity: PackageSigner(
+                            signingEntity: existingSigningEntity,
+                            origins: [.registry(registry.url)],
+                            versions: existingVersions
+                        )
+                    ]
+                )
+            ]
         )
         let signingEntityCheckingMode = SigningEntityCheckingMode.strict
 
@@ -748,14 +796,18 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         let expectedFromVersion = Version("1.5.0")
 
         let signingEntityStorage = MockPackageSigningEntityStorage(
-            [package.underlying: PackageSigners(
-                expectedSigner: (signingEntity: expectedSigningEntity, fromVersion: expectedFromVersion),
-                signers: [expectedSigningEntity: PackageSigner(
-                    signingEntity: expectedSigningEntity,
-                    origins: [.registry(registry.url)],
-                    versions: [expectedFromVersion]
-                )]
-            )]
+            [
+                package.underlying: PackageSigners(
+                    expectedSigner: (signingEntity: expectedSigningEntity, fromVersion: expectedFromVersion),
+                    signers: [
+                        expectedSigningEntity: PackageSigner(
+                            signingEntity: expectedSigningEntity,
+                            origins: [.registry(registry.url)],
+                            versions: [expectedFromVersion]
+                        )
+                    ]
+                )
+            ]
         )
         let signingEntityCheckingMode = SigningEntityCheckingMode.strict
 
@@ -803,21 +855,23 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         let expectedFromVersion = Version("1.5.0")
 
         let signingEntityStorage = MockPackageSigningEntityStorage(
-            [package.underlying: PackageSigners(
-                expectedSigner: (signingEntity: expectedSigningEntity, fromVersion: expectedFromVersion),
-                signers: [
-                    expectedSigningEntity: PackageSigner(
-                        signingEntity: expectedSigningEntity,
-                        origins: [.registry(registry.url)],
-                        versions: [expectedFromVersion]
-                    ),
-                    signingEntity: PackageSigner(
-                        signingEntity: signingEntity,
-                        origins: [.registry(registry.url)],
-                        versions: [existingVersion]
-                    ),
-                ]
-            )]
+            [
+                package.underlying: PackageSigners(
+                    expectedSigner: (signingEntity: expectedSigningEntity, fromVersion: expectedFromVersion),
+                    signers: [
+                        expectedSigningEntity: PackageSigner(
+                            signingEntity: expectedSigningEntity,
+                            origins: [.registry(registry.url)],
+                            versions: [expectedFromVersion]
+                        ),
+                        signingEntity: PackageSigner(
+                            signingEntity: signingEntity,
+                            origins: [.registry(registry.url)],
+                            versions: [existingVersion]
+                        ),
+                    ]
+                )
+            ]
         )
         let signingEntityCheckingMode = SigningEntityCheckingMode.strict
 
@@ -867,21 +921,23 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         let expectedFromVersion = Version("1.5.0")
 
         let signingEntityStorage = MockPackageSigningEntityStorage(
-            [package.underlying: PackageSigners(
-                expectedSigner: (signingEntity: expectedSigningEntity, fromVersion: expectedFromVersion),
-                signers: [
-                    expectedSigningEntity: PackageSigner(
-                        signingEntity: expectedSigningEntity,
-                        origins: [.registry(registry.url)],
-                        versions: [expectedFromVersion]
-                    ),
-                    signingEntity: PackageSigner(
-                        signingEntity: signingEntity,
-                        origins: [.registry(registry.url)],
-                        versions: [existingVersion]
-                    ),
-                ]
-            )]
+            [
+                package.underlying: PackageSigners(
+                    expectedSigner: (signingEntity: expectedSigningEntity, fromVersion: expectedFromVersion),
+                    signers: [
+                        expectedSigningEntity: PackageSigner(
+                            signingEntity: expectedSigningEntity,
+                            origins: [.registry(registry.url)],
+                            versions: [expectedFromVersion]
+                        ),
+                        signingEntity: PackageSigner(
+                            signingEntity: signingEntity,
+                            origins: [.registry(registry.url)],
+                            versions: [existingVersion]
+                        ),
+                    ]
+                )
+            ]
         )
         let signingEntityCheckingMode = SigningEntityCheckingMode.strict
 
@@ -902,14 +958,16 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
                 signingEntity: signingEntity
             )
         ) { error in
-            guard case RegistryError.signingEntityForPackageChanged(
-                _,
-                _,
-                _,
-                let latest,
-                let previous,
-                let previousVersion
-            ) = error else {
+            guard
+                case RegistryError.signingEntityForPackageChanged(
+                    _,
+                    _,
+                    _,
+                    let latest,
+                    let previous,
+                    let previousVersion
+                ) = error
+            else {
                 return XCTFail("Expected RegistryError.signingEntityForPackageChanged, got '\(error)'")
             }
             XCTAssertEqual(latest, signingEntity)
@@ -939,7 +997,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         )
 
         let signingEntityStorage = WriteConflictSigningEntityStorage()
-        let signingEntityCheckingMode = SigningEntityCheckingMode.strict // intended for this test; don't change
+        let signingEntityCheckingMode = SigningEntityCheckingMode.strict  // intended for this test; don't change
 
         let tofu = PackageSigningEntityTOFU(
             signingEntityStorage: signingEntityStorage,
@@ -973,7 +1031,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         )
 
         let signingEntityStorage = WriteConflictSigningEntityStorage()
-        let signingEntityCheckingMode = SigningEntityCheckingMode.warn // intended for this test; don't change
+        let signingEntityCheckingMode = SigningEntityCheckingMode.warn  // intended for this test; don't change
 
         let tofu = PackageSigningEntityTOFU(
             signingEntityStorage: signingEntityStorage,

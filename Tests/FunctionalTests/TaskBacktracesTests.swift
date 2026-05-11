@@ -51,9 +51,11 @@ struct TaskBacktraceTests {
                 CiEnvironment.runningInSmokeTestPipeline && ProcessInfo.hostOperatingSystem == .linux
             }
             withKnownIssue(isIntermittent: true) {
-            #expect(incrementalStderr.split(separator: "\n").contains(where: {
-                $0.contains("Foo.swift' changed")
-            }))
+                #expect(
+                    incrementalStderr.split(separator: "\n").contains(where: {
+                        $0.contains("Foo.swift' changed")
+                    })
+                )
             } when: {
                 ProcessInfo.hostOperatingSystem == .linux && CiEnvironment.runningInSmokeTestPipeline
             }

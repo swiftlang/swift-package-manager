@@ -5,11 +5,12 @@ import PackageDescription
 let package = Package(
     name: "ExtraTests",
     dependencies: [
-        .package(path: "../../"),
+        .package(path: "../../")
     ],
     targets: [
         .testTarget(
             name: "ExtraTests",
-            dependencies: ["SPMUtility"]),
+            dependencies: ["SPMUtility"]
+        )
     ]
 )

@@ -26,82 +26,82 @@ final class ToolsVersionParserTests: XCTestCase {
     func testValidVersions() throws {
         let manifestsSnippetWithValidVersionSpecification = [
             // No spacing surrounding the label for Swift ≥ 5.4:
-            "//swift-tools-version:5.4.0"              : (5, 4, 0, "5.4.0"),
-            "//swift-tools-version:5.4-dev"            : (5, 4, 0, "5.4.0"),
-            "//swift-tools-version:5.8.0"              : (5, 8, 0, "5.8.0"),
-            "//swift-tools-version:5.8.0-dev.al+sha.x" : (5, 8, 0, "5.8.0"),
-            "//swift-tools-version:6.1.2"              : (6, 1, 2, "6.1.2"),
-            "//swift-tools-version:6.1.2;"             : (6, 1, 2, "6.1.2"),
-            "//swift-tools-vErsion:6.1.2;;;;;"         : (6, 1, 2, "6.1.2"),
-            "//swift-tools-version:6.1.2;x;x;x;x;x;"   : (6, 1, 2, "6.1.2"),
-            "//swift-toolS-version:5.5.2;hello"        : (5, 5, 2, "5.5.2"),
-            "//sWiFt-tOoLs-vErSiOn:5.5.2\nkkk\n"       : (5, 5, 2, "5.5.2"),
+            "//swift-tools-version:5.4.0": (5, 4, 0, "5.4.0"),
+            "//swift-tools-version:5.4-dev": (5, 4, 0, "5.4.0"),
+            "//swift-tools-version:5.8.0": (5, 8, 0, "5.8.0"),
+            "//swift-tools-version:5.8.0-dev.al+sha.x": (5, 8, 0, "5.8.0"),
+            "//swift-tools-version:6.1.2": (6, 1, 2, "6.1.2"),
+            "//swift-tools-version:6.1.2;": (6, 1, 2, "6.1.2"),
+            "//swift-tools-vErsion:6.1.2;;;;;": (6, 1, 2, "6.1.2"),
+            "//swift-tools-version:6.1.2;x;x;x;x;x;": (6, 1, 2, "6.1.2"),
+            "//swift-toolS-version:5.5.2;hello": (5, 5, 2, "5.5.2"),
+            "//sWiFt-tOoLs-vErSiOn:5.5.2\nkkk\n": (5, 5, 2, "5.5.2"),
             // No spacing before, and 1 space (U+0020) after the label for Swift ≥ 5.4:
-            "//swift-tools-version: 5.4.0"              : (5, 4, 0, "5.4.0"),
-            "//swift-tools-version: 5.4-dev"            : (5, 4, 0, "5.4.0"),
-            "//swift-tools-version: 5.8.0"              : (5, 8, 0, "5.8.0"),
-            "//swift-tools-version: 5.8.0-dev.al+sha.x" : (5, 8, 0, "5.8.0"),
-            "//swift-tools-version: 6.1.2"              : (6, 1, 2, "6.1.2"),
-            "//swift-tools-version: 6.1.2;"             : (6, 1, 2, "6.1.2"),
-            "//swift-tools-vErsion: 6.1.2;;;;;"         : (6, 1, 2, "6.1.2"),
-            "//swift-tools-version: 6.1.2;x;x;x;x;x;"   : (6, 1, 2, "6.1.2"),
-            "//swift-toolS-version: 5.5.2;hello"        : (5, 5, 2, "5.5.2"),
-            "//sWiFt-tOoLs-vErSiOn: 5.5.2\nkkk\n"       : (5, 5, 2, "5.5.2"),
+            "//swift-tools-version: 5.4.0": (5, 4, 0, "5.4.0"),
+            "//swift-tools-version: 5.4-dev": (5, 4, 0, "5.4.0"),
+            "//swift-tools-version: 5.8.0": (5, 8, 0, "5.8.0"),
+            "//swift-tools-version: 5.8.0-dev.al+sha.x": (5, 8, 0, "5.8.0"),
+            "//swift-tools-version: 6.1.2": (6, 1, 2, "6.1.2"),
+            "//swift-tools-version: 6.1.2;": (6, 1, 2, "6.1.2"),
+            "//swift-tools-vErsion: 6.1.2;;;;;": (6, 1, 2, "6.1.2"),
+            "//swift-tools-version: 6.1.2;x;x;x;x;x;": (6, 1, 2, "6.1.2"),
+            "//swift-toolS-version: 5.5.2;hello": (5, 5, 2, "5.5.2"),
+            "//sWiFt-tOoLs-vErSiOn: 5.5.2\nkkk\n": (5, 5, 2, "5.5.2"),
             // 1 space (U+0020) before, and no spacing after the label:
-            "// swift-tools-version:3.1"                : (3, 1, 0, "3.1.0"),
-            "// swift-tools-version:3.1-dev"            : (3, 1, 0, "3.1.0"),
-            "// swift-tools-version:5.8.0"              : (5, 8, 0, "5.8.0"),
-            "// swift-tools-version:5.8.0-dev.al+sha.x" : (5, 8, 0, "5.8.0"),
-            "// swift-tools-version:3.1.2"              : (3, 1, 2, "3.1.2"),
-            "// swift-tools-version:3.1.2;"             : (3, 1, 2, "3.1.2"),
-            "// swift-tools-vErsion:3.1.2;;;;;"         : (3, 1, 2, "3.1.2"),
-            "// swift-tools-version:3.1.2;x;x;x;x;x;"   : (3, 1, 2, "3.1.2"),
-            "// swift-toolS-version:3.5.2;hello"        : (3, 5, 2, "3.5.2"),
-            "// sWiFt-tOoLs-vErSiOn:3.5.2\nkkk\n"       : (3, 5, 2, "3.5.2"),
+            "// swift-tools-version:3.1": (3, 1, 0, "3.1.0"),
+            "// swift-tools-version:3.1-dev": (3, 1, 0, "3.1.0"),
+            "// swift-tools-version:5.8.0": (5, 8, 0, "5.8.0"),
+            "// swift-tools-version:5.8.0-dev.al+sha.x": (5, 8, 0, "5.8.0"),
+            "// swift-tools-version:3.1.2": (3, 1, 2, "3.1.2"),
+            "// swift-tools-version:3.1.2;": (3, 1, 2, "3.1.2"),
+            "// swift-tools-vErsion:3.1.2;;;;;": (3, 1, 2, "3.1.2"),
+            "// swift-tools-version:3.1.2;x;x;x;x;x;": (3, 1, 2, "3.1.2"),
+            "// swift-toolS-version:3.5.2;hello": (3, 5, 2, "3.5.2"),
+            "// sWiFt-tOoLs-vErSiOn:3.5.2\nkkk\n": (3, 5, 2, "3.5.2"),
             // leading line feeds (U+000A) before the specification, and 1 space (U+0020) before and no space after the label for Swift ≥ 5.4:
-            "\n// swift-tools-version:6.1"                            : (6, 1, 0, "6.1.0"),
-            "\n\n// swift-tools-version:6.2-dev"                      : (6, 2, 0, "6.2.0"),
-            "\n\n\n// swift-tools-version:5.8.0"                      : (5, 8, 0, "5.8.0"),
-            "\n\n\n\n// swift-tools-version:6.8.0-dev.al+sha.x"       : (6, 8, 0, "6.8.0"),
-            "\n\n\n\n\n// swift-tools-version:7.1.2"                  : (7, 1, 2, "7.1.2"),
-            "\n\n\n\n\n\n// swift-tools-version:8.1.2;"               : (8, 1, 2, "8.1.2"),
-            "\n\n\n\n\n\n\n// swift-tools-vErsion:9.1.2;;;;;"         : (9, 1, 2, "9.1.2"),
-            "\n\n\n\n\n\n\n\n// swift-tools-version:6.1.2;x;x;x;x;x;" : (6, 1, 2, "6.1.2"),
-            "\n\n\n\n\n\n\n\n\n// swift-toolS-version:5.5.2;hello"    : (5, 5, 2, "5.5.2"),
-            "\n\n\n\n\n\n\n\n\n\n// sWiFt-tOoLs-vErSiOn:6.5.2\nkkk\n" : (6, 5, 2, "6.5.2"),
+            "\n// swift-tools-version:6.1": (6, 1, 0, "6.1.0"),
+            "\n\n// swift-tools-version:6.2-dev": (6, 2, 0, "6.2.0"),
+            "\n\n\n// swift-tools-version:5.8.0": (5, 8, 0, "5.8.0"),
+            "\n\n\n\n// swift-tools-version:6.8.0-dev.al+sha.x": (6, 8, 0, "6.8.0"),
+            "\n\n\n\n\n// swift-tools-version:7.1.2": (7, 1, 2, "7.1.2"),
+            "\n\n\n\n\n\n// swift-tools-version:8.1.2;": (8, 1, 2, "8.1.2"),
+            "\n\n\n\n\n\n\n// swift-tools-vErsion:9.1.2;;;;;": (9, 1, 2, "9.1.2"),
+            "\n\n\n\n\n\n\n\n// swift-tools-version:6.1.2;x;x;x;x;x;": (6, 1, 2, "6.1.2"),
+            "\n\n\n\n\n\n\n\n\n// swift-toolS-version:5.5.2;hello": (5, 5, 2, "5.5.2"),
+            "\n\n\n\n\n\n\n\n\n\n// sWiFt-tOoLs-vErSiOn:6.5.2\nkkk\n": (6, 5, 2, "6.5.2"),
             // An assortment of horizontal whitespace characters surrounding the label for Swift ≥ 5.4:
-            "//swift-tools-version:\u{2002}\u{202F}\u{3000}\u{A0}\u{1680}\t\u{2000}\u{2001}5.4.0"              : (5, 4, 0, "5.4.0"),
-            "//\u{2001}swift-tools-version:\u{2002}\u{202F}\u{3000}\u{A0}\u{1680}\t\u{2000}5.4-dev"            : (5, 4, 0, "5.4.0"),
-            "//\t\u{2000}\u{2001}swift-tools-version:\u{2002}\u{202F}\u{3000}\u{A0}\u{1680}5.8.0"              : (5, 8, 0, "5.8.0"),
-            "//\u{1680}\t\u{2000}\u{2001}swift-tools-version:\u{2002}\u{202F}\u{3000}\u{A0}5.8.0-dev.al+sha.x" : (5, 8, 0, "5.8.0"),
-            "//\u{A0}\u{1680}\t\u{2000}\u{2001}swift-tools-version:\u{2002}\u{202F}\u{3000}6.1.2"              : (6, 1, 2, "6.1.2"),
-            "//\u{3000}\u{A0}\u{1680}\t\u{2000}\u{2001}swift-tools-version:\u{2002}\u{202F}6.1.2;"             : (6, 1, 2, "6.1.2"),
-            "//\u{202F}\u{3000}\u{A0}\u{1680}\t\u{2000}\u{2001}swift-tools-vErsion:\u{2002}6.1.2;;;;;"         : (6, 1, 2, "6.1.2"),
-            "//\u{2002}\u{202F}\u{3000}\u{A0}\u{1680}\t\u{2000}\u{2001}swift-tools-version:6.1.2;x;x;x;x;x;"   : (6, 1, 2, "6.1.2"),
-            "//\u{2000}\u{2002}\u{202F}\u{3000}\t\u{2001}swift-toolS-version:\u{A0}\u{1680}5.5.2;hello"        : (5, 5, 2, "5.5.2"),
-            "//\u{2000}\u{2001}\u{2002}\u{202F}\u{3000}\tsWiFt-tOoLs-vErSiOn:\u{A0}\u{1680}5.5.2\nkkk\n"       : (5, 5, 2, "5.5.2"),
+            "//swift-tools-version:\u{2002}\u{202F}\u{3000}\u{A0}\u{1680}\t\u{2000}\u{2001}5.4.0": (5, 4, 0, "5.4.0"),
+            "//\u{2001}swift-tools-version:\u{2002}\u{202F}\u{3000}\u{A0}\u{1680}\t\u{2000}5.4-dev": (5, 4, 0, "5.4.0"),
+            "//\t\u{2000}\u{2001}swift-tools-version:\u{2002}\u{202F}\u{3000}\u{A0}\u{1680}5.8.0": (5, 8, 0, "5.8.0"),
+            "//\u{1680}\t\u{2000}\u{2001}swift-tools-version:\u{2002}\u{202F}\u{3000}\u{A0}5.8.0-dev.al+sha.x": (5, 8, 0, "5.8.0"),
+            "//\u{A0}\u{1680}\t\u{2000}\u{2001}swift-tools-version:\u{2002}\u{202F}\u{3000}6.1.2": (6, 1, 2, "6.1.2"),
+            "//\u{3000}\u{A0}\u{1680}\t\u{2000}\u{2001}swift-tools-version:\u{2002}\u{202F}6.1.2;": (6, 1, 2, "6.1.2"),
+            "//\u{202F}\u{3000}\u{A0}\u{1680}\t\u{2000}\u{2001}swift-tools-vErsion:\u{2002}6.1.2;;;;;": (6, 1, 2, "6.1.2"),
+            "//\u{2002}\u{202F}\u{3000}\u{A0}\u{1680}\t\u{2000}\u{2001}swift-tools-version:6.1.2;x;x;x;x;x;": (6, 1, 2, "6.1.2"),
+            "//\u{2000}\u{2002}\u{202F}\u{3000}\t\u{2001}swift-toolS-version:\u{A0}\u{1680}5.5.2;hello": (5, 5, 2, "5.5.2"),
+            "//\u{2000}\u{2001}\u{2002}\u{202F}\u{3000}\tsWiFt-tOoLs-vErSiOn:\u{A0}\u{1680}5.5.2\nkkk\n": (5, 5, 2, "5.5.2"),
             // Some leading whitespace characters, and no spacing surrounding the label for Swift ≥ 5.4:
-            "\u{A} //swift-tools-version:5.4.0"                             : (5, 4, 0, "5.4.0"),
-            "\u{B}\t\u{A}//swift-tools-version:5.4-dev"                     : (5, 4, 0, "5.4.0"),
-            "\u{3000}\u{A0}\u{C}//swift-tools-version:5.8.0"                : (5, 8, 0, "5.8.0"),
-            "\u{2002}\u{D}\u{2001}//swift-tools-version:5.8.0-dev.al+sha.x" : (5, 8, 0, "5.8.0"),
-            "\u{D}\u{A}\u{A0}\u{1680}//swift-tools-version:6.1.2"           : (6, 1, 2, "6.1.2"),
-            "   \u{85}//swift-tools-version:6.1.2;"                         : (6, 1, 2, "6.1.2"),
-            "\u{2028}//swift-tools-vErsion:6.1.2;;;;;"                      : (6, 1, 2, "6.1.2"),
-            "\u{202F}\u{2029}//swift-tools-version:6.1.2;x;x;x;x;x;"        : (6, 1, 2, "6.1.2"),
-            "\u{A}\u{B}\u{C}\u{D}\u{A}\u{D}\u{85}\u{202F}\u{2029}\u{2001}\u{2002}\u{205F}\u{85}\u{2028}//swift-toolS-version:5.5.2;hello" : (5, 5, 2, "5.5.2"),
-            "\u{B}  \u{200A}\u{D}\u{A}\t\u{85}\u{85}\u{A}\u{2028}\u{2009}\u{2001}\u{C}//sWiFt-tOoLs-vErSiOn:5.5.2\nkkk\n"                 : (5, 5, 2, "5.5.2"),
+            "\u{A} //swift-tools-version:5.4.0": (5, 4, 0, "5.4.0"),
+            "\u{B}\t\u{A}//swift-tools-version:5.4-dev": (5, 4, 0, "5.4.0"),
+            "\u{3000}\u{A0}\u{C}//swift-tools-version:5.8.0": (5, 8, 0, "5.8.0"),
+            "\u{2002}\u{D}\u{2001}//swift-tools-version:5.8.0-dev.al+sha.x": (5, 8, 0, "5.8.0"),
+            "\u{D}\u{A}\u{A0}\u{1680}//swift-tools-version:6.1.2": (6, 1, 2, "6.1.2"),
+            "   \u{85}//swift-tools-version:6.1.2;": (6, 1, 2, "6.1.2"),
+            "\u{2028}//swift-tools-vErsion:6.1.2;;;;;": (6, 1, 2, "6.1.2"),
+            "\u{202F}\u{2029}//swift-tools-version:6.1.2;x;x;x;x;x;": (6, 1, 2, "6.1.2"),
+            "\u{A}\u{B}\u{C}\u{D}\u{A}\u{D}\u{85}\u{202F}\u{2029}\u{2001}\u{2002}\u{205F}\u{85}\u{2028}//swift-toolS-version:5.5.2;hello": (5, 5, 2, "5.5.2"),
+            "\u{B}  \u{200A}\u{D}\u{A}\t\u{85}\u{85}\u{A}\u{2028}\u{2009}\u{2001}\u{C}//sWiFt-tOoLs-vErSiOn:5.5.2\nkkk\n": (5, 5, 2, "5.5.2"),
             // Some leading whitespace characters, and an assortment of horizontal whitespace characters surrounding the label for Swift ≥ 5.4:
-            "\u{2002}\u{202F}\u{A}//\u{A0}\u{1680}\t\u{2004}\u{2001} \u{2002}swift-tools-version:\u{3000}5.4.0"       : (5, 4, 0, "5.4.0"),
-            "\u{B}//\u{A0}\u{1680}\t\u{2000}\u{2001} \u{2002}swift-tools-version:\u{202F}\u{3000}5.4-dev"             : (5, 4, 0, "5.4.0"),
-            "\u{C}//\u{A0}\u{1680}\t\u{2000}\u{2001} swift-tools-version:\u{2002}\u{202F}\u{3000}5.8.0"               : (5, 8, 0, "5.8.0"),
-            "\u{D}//\u{A0}\u{1680}\t\u{2005} \u{202F}\u{3000}swift-tools-version:\u{2001}5.8.0-dev.al+sha.x"          : (5, 8, 0, "5.8.0"),
-            "\u{D}\u{A}//\u{A0}\u{2001} \u{2002}\u{202F}\u{3000}swift-tools-version:\u{1680}\t\u{2000}6.1.2"          : (6, 1, 2, "6.1.2"),
-            "\u{85}//\u{2000}\u{2001} \u{2006}\u{202F}\u{3000}swift-tools-version:\u{A0}\u{1680}\t6.1.2;"             : (6, 1, 2, "6.1.2"),
-            "\u{2028}//\u{2001} \u{2002}\u{2007}\u{3000}swift-tools-vErsion:\u{A0}\u{1680}\t\u{2000}6.1.2;;;;;"       : (6, 1, 2, "6.1.2"),
-            "\u{2029}//\u{202F}\u{3000}swift-tools-version:\u{A0}\u{1680}\t\u{2000}\u{2001} \u{2002}6.1.2;x;x;x;x;x;" : (6, 1, 2, "6.1.2"),
-            "\u{A}\u{D}\u{85}\u{202F}\u{2029}\u{A}\u{2028}//\u{2000}\u{2001}\u{9}swift-toolS-version:\u{A0}\u{1680}\t\u{2000}\u{2009} \u{2002}\u{202F}5.5.2;hello" : (5, 5, 2, "5.5.2"),
-            "\u{D}\u{A}\t\u{85}\u{85}\u{A}\u{2028}\u{2029}//\u{2001}\u{2002}\u{202F}sWiFt-tOoLs-vErSiOn:\u{1680}\t\u{2000}\u{200A} \u{2002}\u{202F}5.5.2\nkkk\n"   : (5, 5, 2, "5.5.2"),
+            "\u{2002}\u{202F}\u{A}//\u{A0}\u{1680}\t\u{2004}\u{2001} \u{2002}swift-tools-version:\u{3000}5.4.0": (5, 4, 0, "5.4.0"),
+            "\u{B}//\u{A0}\u{1680}\t\u{2000}\u{2001} \u{2002}swift-tools-version:\u{202F}\u{3000}5.4-dev": (5, 4, 0, "5.4.0"),
+            "\u{C}//\u{A0}\u{1680}\t\u{2000}\u{2001} swift-tools-version:\u{2002}\u{202F}\u{3000}5.8.0": (5, 8, 0, "5.8.0"),
+            "\u{D}//\u{A0}\u{1680}\t\u{2005} \u{202F}\u{3000}swift-tools-version:\u{2001}5.8.0-dev.al+sha.x": (5, 8, 0, "5.8.0"),
+            "\u{D}\u{A}//\u{A0}\u{2001} \u{2002}\u{202F}\u{3000}swift-tools-version:\u{1680}\t\u{2000}6.1.2": (6, 1, 2, "6.1.2"),
+            "\u{85}//\u{2000}\u{2001} \u{2006}\u{202F}\u{3000}swift-tools-version:\u{A0}\u{1680}\t6.1.2;": (6, 1, 2, "6.1.2"),
+            "\u{2028}//\u{2001} \u{2002}\u{2007}\u{3000}swift-tools-vErsion:\u{A0}\u{1680}\t\u{2000}6.1.2;;;;;": (6, 1, 2, "6.1.2"),
+            "\u{2029}//\u{202F}\u{3000}swift-tools-version:\u{A0}\u{1680}\t\u{2000}\u{2001} \u{2002}6.1.2;x;x;x;x;x;": (6, 1, 2, "6.1.2"),
+            "\u{A}\u{D}\u{85}\u{202F}\u{2029}\u{A}\u{2028}//\u{2000}\u{2001}\u{9}swift-toolS-version:\u{A0}\u{1680}\t\u{2000}\u{2009} \u{2002}\u{202F}5.5.2;hello": (5, 5, 2, "5.5.2"),
+            "\u{D}\u{A}\t\u{85}\u{85}\u{A}\u{2028}\u{2029}//\u{2001}\u{2002}\u{202F}sWiFt-tOoLs-vErSiOn:\u{1680}\t\u{2000}\u{200A} \u{2002}\u{202F}5.5.2\nkkk\n": (5, 5, 2, "5.5.2"),
         ]
 
         for (snippet, result) in manifestsSnippetWithValidVersionSpecification {
@@ -112,7 +112,6 @@ final class ToolsVersionParserTests: XCTestCase {
                 XCTAssertEqual(toolsVersion.description, result.3)
             }
         }
-
 
         do {
             try self.parse(
@@ -148,26 +147,26 @@ final class ToolsVersionParserTests: XCTestCase {
 
     func testToolsVersionAllowsComments() throws {
         try self.parse(
-        """
-        // comment 1
-        // comment 2
-        // swift-tools-version: 6.0
-        // comment
-        let package = ..
-        """
+            """
+            // comment 1
+            // comment 2
+            // swift-tools-version: 6.0
+            // comment
+            let package = ..
+            """
         ) { toolsVersion in
             XCTAssertEqual(toolsVersion.description, "6.0.0")
         }
 
         do {
             try self.parse(
-            """
-            // comment 1
-            // comment 2
-            // swift-tools-version:5.0
-            // comment
-            let package = ..
-            """
+                """
+                // comment 1
+                // comment 2
+                // swift-tools-version:5.0
+                // comment
+                let package = ..
+                """
             ) { _ in
                 XCTFail("expected an error to be thrown")
             }
@@ -179,11 +178,11 @@ final class ToolsVersionParserTests: XCTestCase {
 
         do {
             try self.parse(
-            """
-            // comment 1
-            // comment 2
-            let package = ..
-            """
+                """
+                // comment 1
+                // comment 2
+                let package = ..
+                """
             ) { _ in
                 XCTFail("expected an error to be thrown")
             }
@@ -194,14 +193,14 @@ final class ToolsVersionParserTests: XCTestCase {
         }
 
         try self.parse(
-        """
-        /*
-        this is a multiline comment
-        */
-        // swift-tools-version: 6.0
-        // comment
-        let package = ..
-        """
+            """
+            /*
+            this is a multiline comment
+            */
+            // swift-tools-version: 6.0
+            // comment
+            let package = ..
+            """
         ) { toolsVersion in
             XCTAssertEqual(toolsVersion.description, "6.0.0")
         }
@@ -211,27 +210,28 @@ final class ToolsVersionParserTests: XCTestCase {
     func testEmptyManifest() throws {
         let fs = InMemoryFileSystem()
 
-		let packageRoot = AbsolutePath("/lorem/ipsum/dolor")
-		try fs.createDirectory(packageRoot, recursive: true)
+        let packageRoot = AbsolutePath("/lorem/ipsum/dolor")
+        try fs.createDirectory(packageRoot, recursive: true)
 
-		let manifestPath = packageRoot.appending("Package.swift")
+        let manifestPath = packageRoot.appending("Package.swift")
         try fs.writeFileContents(manifestPath, bytes: "")
 
         XCTAssertThrowsError(
             try ToolsVersionParser.parse(manifestPath: manifestPath, fileSystem: fs),
-            "empty manifest '\(manifestPath.pathString)'") { error in
-                guard let error = error as? ManifestParseError, case .emptyManifest(let errorPath) = error else {
-                    XCTFail("'ManifestParseError.emptyManifest' should've been thrown, but a different error is thrown")
-                    return
-                }
-
-                guard errorPath == manifestPath else {
-                    XCTFail("error is in '\(manifestPath)', but '\(errorPath)' is given for the error message")
-                    return
-                }
-
-                XCTAssertEqual(error.description, "'\(manifestPath._nativePathString(escaped: false))' is empty")
+            "empty manifest '\(manifestPath.pathString)'"
+        ) { error in
+            guard let error = error as? ManifestParseError, case .emptyManifest(let errorPath) = error else {
+                XCTFail("'ManifestParseError.emptyManifest' should've been thrown, but a different error is thrown")
+                return
             }
+
+            guard errorPath == manifestPath else {
+                XCTFail("error is in '\(manifestPath)', but '\(errorPath)' is given for the error message")
+                return
+            }
+
+            XCTAssertEqual(error.description, "'\(manifestPath._nativePathString(escaped: false))' is empty")
+        }
     }
 
     /// Verifies that the correct error is thrown for each non-empty manifest missing its Swift tools version specification.
@@ -472,19 +472,19 @@ final class ToolsVersionParserTests: XCTestCase {
         // MARK: 1 leading u+000D
 
         let manifestSnippetWith1LeadingCarriageReturn = [
-            "\u{D}//swift-tools-version:3.1"                : "3.1.0",
-            "\u{D}//swift-tools-version:3.1-dev"            : "3.1.0",
-            "\u{D}//swift-tools-version:5.3"                : "5.3.0",
-            "\u{D}//swift-tools-version:5.3.0"              : "5.3.0",
-            "\u{D}//swift-tools-version:5.3-dev"            : "5.3.0",
-            "\u{D}//swift-tools-version:4.8.0"              : "4.8.0",
-            "\u{D}//swift-tools-version:4.8.0-dev.al+sha.x" : "4.8.0",
-            "\u{D}//swift-tools-version:3.1.2"              : "3.1.2",
-            "\u{D}//swift-tools-version:3.1.2;"             : "3.1.2",
-            "\u{D}//swift-tools-vErsion:3.1.2;;;;;"         : "3.1.2",
-            "\u{D}//swift-tools-version:3.1.2;x;x;x;x;x;"   : "3.1.2",
-            "\u{D}//swift-toolS-version:3.5.2;hello"        : "3.5.2",
-            "\u{D}//sWiFt-tOoLs-vErSiOn:3.5.2\nkkk\n"       : "3.5.2",
+            "\u{D}//swift-tools-version:3.1": "3.1.0",
+            "\u{D}//swift-tools-version:3.1-dev": "3.1.0",
+            "\u{D}//swift-tools-version:5.3": "5.3.0",
+            "\u{D}//swift-tools-version:5.3.0": "5.3.0",
+            "\u{D}//swift-tools-version:5.3-dev": "5.3.0",
+            "\u{D}//swift-tools-version:4.8.0": "4.8.0",
+            "\u{D}//swift-tools-version:4.8.0-dev.al+sha.x": "4.8.0",
+            "\u{D}//swift-tools-version:3.1.2": "3.1.2",
+            "\u{D}//swift-tools-version:3.1.2;": "3.1.2",
+            "\u{D}//swift-tools-vErsion:3.1.2;;;;;": "3.1.2",
+            "\u{D}//swift-tools-version:3.1.2;x;x;x;x;x;": "3.1.2",
+            "\u{D}//swift-toolS-version:3.5.2;hello": "3.5.2",
+            "\u{D}//sWiFt-tOoLs-vErSiOn:3.5.2\nkkk\n": "3.5.2",
         ]
 
         for (specification, toolsVersionString) in manifestSnippetWith1LeadingCarriageReturn {
@@ -506,19 +506,19 @@ final class ToolsVersionParserTests: XCTestCase {
         // MARK: 1 U+0020
 
         let manifestSnippetWith1LeadingSpace = [
-            "\u{20}//swift-tools-version:3.1"                : "3.1.0",
-            "\u{20}//swift-tools-version:3.1-dev"            : "3.1.0",
-            "\u{20}//swift-tools-version:5.3"                : "5.3.0",
-            "\u{20}//swift-tools-version:5.3.0"              : "5.3.0",
-            "\u{20}//swift-tools-version:5.3-dev"            : "5.3.0",
-            "\u{20}//swift-tools-version:4.8.0"              : "4.8.0",
-            "\u{20}//swift-tools-version:4.8.0-dev.al+sha.x" : "4.8.0",
-            "\u{20}//swift-tools-version:3.1.2"              : "3.1.2",
-            "\u{20}//swift-tools-version:3.1.2;"             : "3.1.2",
-            "\u{20}//swift-tools-vErsion:3.1.2;;;;;"         : "3.1.2",
-            "\u{20}//swift-tools-version:3.1.2;x;x;x;x;x;"   : "3.1.2",
-            "\u{20}//swift-toolS-version:3.5.2;hello"        : "3.5.2",
-            "\u{20}//sWiFt-tOoLs-vErSiOn:3.5.2\nkkk\n"       : "3.5.2",
+            "\u{20}//swift-tools-version:3.1": "3.1.0",
+            "\u{20}//swift-tools-version:3.1-dev": "3.1.0",
+            "\u{20}//swift-tools-version:5.3": "5.3.0",
+            "\u{20}//swift-tools-version:5.3.0": "5.3.0",
+            "\u{20}//swift-tools-version:5.3-dev": "5.3.0",
+            "\u{20}//swift-tools-version:4.8.0": "4.8.0",
+            "\u{20}//swift-tools-version:4.8.0-dev.al+sha.x": "4.8.0",
+            "\u{20}//swift-tools-version:3.1.2": "3.1.2",
+            "\u{20}//swift-tools-version:3.1.2;": "3.1.2",
+            "\u{20}//swift-tools-vErsion:3.1.2;;;;;": "3.1.2",
+            "\u{20}//swift-tools-version:3.1.2;x;x;x;x;x;": "3.1.2",
+            "\u{20}//swift-toolS-version:3.5.2;hello": "3.5.2",
+            "\u{20}//sWiFt-tOoLs-vErSiOn:3.5.2\nkkk\n": "3.5.2",
         ]
 
         for (specification, toolsVersionString) in manifestSnippetWith1LeadingSpace {
@@ -540,19 +540,19 @@ final class ToolsVersionParserTests: XCTestCase {
         // MARK: An assortment of leading whitespace characters
 
         let manifestSnippetWithAnAssortmentOfLeadingWhitespaceCharacters = [
-            "\u{A}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}\u{D}\u{D}\u{A}\u{85}\u{2001}\u{2028}\u{2002}\u{202F}\u{2029}\u{3000}//swift-tools-version:3.1"                : "3.1.0",
-            "\u{A}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}\u{D}\u{D}\u{A}\u{85}\u{2001}\u{2028}\u{2002}\u{202F}\u{2029}\u{3000}//swift-tools-version:3.1-dev"            : "3.1.0",
-            "\u{A}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}\u{D}\u{D}\u{A}\u{85}\u{2001}\u{2028}\u{2002}\u{202F}\u{2029}\u{3000}//swift-tools-version:5.3"                : "5.3.0",
-            "\u{A}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}\u{D}\u{D}\u{A}\u{85}\u{2001}\u{2028}\u{2002}\u{202F}\u{2029}\u{3000}//swift-tools-version:5.3.0"              : "5.3.0",
-            "\u{A}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}\u{D}\u{D}\u{A}\u{85}\u{2001}\u{2028}\u{2002}\u{202F}\u{2029}\u{3000}//swift-tools-version:5.3-dev"            : "5.3.0",
-            "\u{A}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}\u{D}\u{D}\u{A}\u{85}\u{2001}\u{2028}\u{2002}\u{202F}\u{2029}\u{3000}//swift-tools-version:4.8.0"              : "4.8.0",
-            "\u{A}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}\u{D}\u{D}\u{A}\u{85}\u{2001}\u{2028}\u{2002}\u{202F}\u{2029}\u{3000}//swift-tools-version:4.8.0-dev.al+sha.x" : "4.8.0",
-            "\u{A}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}\u{D}\u{D}\u{A}\u{85}\u{2001}\u{2028}\u{2002}\u{202F}\u{2029}\u{3000}//swift-tools-version:3.1.2"              : "3.1.2",
-            "\u{A}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}\u{D}\u{D}\u{A}\u{85}\u{2001}\u{2028}\u{2002}\u{202F}\u{2029}\u{3000}//swift-tools-version:3.1.2;"             : "3.1.2",
-            "\u{A}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}\u{D}\u{D}\u{A}\u{85}\u{2001}\u{2028}\u{2002}\u{202F}\u{2029}\u{3000}//swift-tools-vErsion:3.1.2;;;;;"         : "3.1.2",
-            "\u{A}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}\u{D}\u{D}\u{A}\u{85}\u{2001}\u{2028}\u{2002}\u{202F}\u{2029}\u{3000}//swift-tools-version:3.1.2;x;x;x;x;x;"   : "3.1.2",
-            "\u{A}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}\u{D}\u{D}\u{A}\u{85}\u{2001}\u{2028}\u{2002}\u{202F}\u{2029}\u{3000}//swift-toolS-version:3.5.2;hello"        : "3.5.2",
-            "\u{A}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}\u{D}\u{D}\u{A}\u{85}\u{2001}\u{2028}\u{2002}\u{202F}\u{2029}\u{3000}//sWiFt-tOoLs-vErSiOn:3.5.2\nkkk\n"       : "3.5.2",
+            "\u{A}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}\u{D}\u{D}\u{A}\u{85}\u{2001}\u{2028}\u{2002}\u{202F}\u{2029}\u{3000}//swift-tools-version:3.1": "3.1.0",
+            "\u{A}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}\u{D}\u{D}\u{A}\u{85}\u{2001}\u{2028}\u{2002}\u{202F}\u{2029}\u{3000}//swift-tools-version:3.1-dev": "3.1.0",
+            "\u{A}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}\u{D}\u{D}\u{A}\u{85}\u{2001}\u{2028}\u{2002}\u{202F}\u{2029}\u{3000}//swift-tools-version:5.3": "5.3.0",
+            "\u{A}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}\u{D}\u{D}\u{A}\u{85}\u{2001}\u{2028}\u{2002}\u{202F}\u{2029}\u{3000}//swift-tools-version:5.3.0": "5.3.0",
+            "\u{A}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}\u{D}\u{D}\u{A}\u{85}\u{2001}\u{2028}\u{2002}\u{202F}\u{2029}\u{3000}//swift-tools-version:5.3-dev": "5.3.0",
+            "\u{A}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}\u{D}\u{D}\u{A}\u{85}\u{2001}\u{2028}\u{2002}\u{202F}\u{2029}\u{3000}//swift-tools-version:4.8.0": "4.8.0",
+            "\u{A}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}\u{D}\u{D}\u{A}\u{85}\u{2001}\u{2028}\u{2002}\u{202F}\u{2029}\u{3000}//swift-tools-version:4.8.0-dev.al+sha.x": "4.8.0",
+            "\u{A}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}\u{D}\u{D}\u{A}\u{85}\u{2001}\u{2028}\u{2002}\u{202F}\u{2029}\u{3000}//swift-tools-version:3.1.2": "3.1.2",
+            "\u{A}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}\u{D}\u{D}\u{A}\u{85}\u{2001}\u{2028}\u{2002}\u{202F}\u{2029}\u{3000}//swift-tools-version:3.1.2;": "3.1.2",
+            "\u{A}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}\u{D}\u{D}\u{A}\u{85}\u{2001}\u{2028}\u{2002}\u{202F}\u{2029}\u{3000}//swift-tools-vErsion:3.1.2;;;;;": "3.1.2",
+            "\u{A}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}\u{D}\u{D}\u{A}\u{85}\u{2001}\u{2028}\u{2002}\u{202F}\u{2029}\u{3000}//swift-tools-version:3.1.2;x;x;x;x;x;": "3.1.2",
+            "\u{A}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}\u{D}\u{D}\u{A}\u{85}\u{2001}\u{2028}\u{2002}\u{202F}\u{2029}\u{3000}//swift-toolS-version:3.5.2;hello": "3.5.2",
+            "\u{A}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}\u{D}\u{D}\u{A}\u{85}\u{2001}\u{2028}\u{2002}\u{202F}\u{2029}\u{3000}//sWiFt-tOoLs-vErSiOn:3.5.2\nkkk\n": "3.5.2",
         ]
 
         for (specification, toolsVersionString) in manifestSnippetWithAnAssortmentOfLeadingWhitespaceCharacters {
@@ -574,19 +574,19 @@ final class ToolsVersionParserTests: XCTestCase {
         // MARK: An assortment of leading whitespace characters and an assortment of horizontal whitespace characters surrounding the label
 
         let manifestSnippetWithAnAssortmentOfLeadingWhitespaceCharactersAndAnAssortmentOfWhitespacesSurroundingLabel = [
-            "\u{D}\u{202F}\u{2029}\u{85}\u{2001}\u{2028}\u{3000}\u{A}\u{D}\u{A}\u{2002}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-version:\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}3.1"                : "3.1.0",
-            "\u{D}\u{202F}\u{2029}\u{85}\u{2001}\u{2028}\u{3000}\u{A}\u{D}\u{A}\u{2002}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-version:\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}3.1-dev"            : "3.1.0",
-            "\u{D}\u{202F}\u{2029}\u{85}\u{2001}\u{2028}\u{3000}\u{A}\u{D}\u{A}\u{2002}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-version:\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}5.3"                : "5.3.0",
-            "\u{D}\u{202F}\u{2029}\u{85}\u{2001}\u{2028}\u{3000}\u{A}\u{D}\u{A}\u{2002}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-version:\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}5.3.0"              : "5.3.0",
-            "\u{D}\u{202F}\u{2029}\u{85}\u{2001}\u{2028}\u{3000}\u{A}\u{D}\u{A}\u{2002}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-version:\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}5.3-dev"            : "5.3.0",
-            "\u{D}\u{202F}\u{2029}\u{85}\u{2001}\u{2028}\u{3000}\u{A}\u{D}\u{A}\u{2002}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-version:\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}4.8.0"              : "4.8.0",
-            "\u{D}\u{202F}\u{2029}\u{85}\u{2001}\u{2028}\u{3000}\u{A}\u{D}\u{A}\u{2002}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-version:\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}4.8.0-dev.al+sha.x" : "4.8.0",
-            "\u{D}\u{202F}\u{2029}\u{85}\u{2001}\u{2028}\u{3000}\u{A}\u{D}\u{A}\u{2002}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-version:\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}3.1.2"              : "3.1.2",
-            "\u{D}\u{202F}\u{2029}\u{85}\u{2001}\u{2028}\u{3000}\u{A}\u{D}\u{A}\u{2002}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-version:\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}3.1.2;"             : "3.1.2",
-            "\u{D}\u{202F}\u{2029}\u{85}\u{2001}\u{2028}\u{3000}\u{A}\u{D}\u{A}\u{2002}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-vErsion:\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}3.1.2;;;;;"         : "3.1.2",
-            "\u{D}\u{202F}\u{2029}\u{85}\u{2001}\u{2028}\u{3000}\u{A}\u{D}\u{A}\u{2002}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-version:\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}3.1.2;x;x;x;x;x;"   : "3.1.2",
-            "\u{D}\u{202F}\u{2029}\u{85}\u{2001}\u{2028}\u{3000}\u{A}\u{D}\u{A}\u{2002}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-toolS-version:\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}3.5.2;hello"        : "3.5.2",
-            "\u{D}\u{202F}\u{2029}\u{85}\u{2001}\u{2028}\u{3000}\u{A}\u{D}\u{A}\u{2002}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}sWiFt-tOoLs-vErSiOn:\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}3.5.2\nkkk\n"       : "3.5.2",
+            "\u{D}\u{202F}\u{2029}\u{85}\u{2001}\u{2028}\u{3000}\u{A}\u{D}\u{A}\u{2002}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-version:\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}3.1": "3.1.0",
+            "\u{D}\u{202F}\u{2029}\u{85}\u{2001}\u{2028}\u{3000}\u{A}\u{D}\u{A}\u{2002}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-version:\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}3.1-dev": "3.1.0",
+            "\u{D}\u{202F}\u{2029}\u{85}\u{2001}\u{2028}\u{3000}\u{A}\u{D}\u{A}\u{2002}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-version:\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}5.3": "5.3.0",
+            "\u{D}\u{202F}\u{2029}\u{85}\u{2001}\u{2028}\u{3000}\u{A}\u{D}\u{A}\u{2002}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-version:\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}5.3.0": "5.3.0",
+            "\u{D}\u{202F}\u{2029}\u{85}\u{2001}\u{2028}\u{3000}\u{A}\u{D}\u{A}\u{2002}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-version:\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}5.3-dev": "5.3.0",
+            "\u{D}\u{202F}\u{2029}\u{85}\u{2001}\u{2028}\u{3000}\u{A}\u{D}\u{A}\u{2002}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-version:\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}4.8.0": "4.8.0",
+            "\u{D}\u{202F}\u{2029}\u{85}\u{2001}\u{2028}\u{3000}\u{A}\u{D}\u{A}\u{2002}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-version:\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}4.8.0-dev.al+sha.x": "4.8.0",
+            "\u{D}\u{202F}\u{2029}\u{85}\u{2001}\u{2028}\u{3000}\u{A}\u{D}\u{A}\u{2002}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-version:\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}3.1.2": "3.1.2",
+            "\u{D}\u{202F}\u{2029}\u{85}\u{2001}\u{2028}\u{3000}\u{A}\u{D}\u{A}\u{2002}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-version:\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}3.1.2;": "3.1.2",
+            "\u{D}\u{202F}\u{2029}\u{85}\u{2001}\u{2028}\u{3000}\u{A}\u{D}\u{A}\u{2002}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-vErsion:\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}3.1.2;;;;;": "3.1.2",
+            "\u{D}\u{202F}\u{2029}\u{85}\u{2001}\u{2028}\u{3000}\u{A}\u{D}\u{A}\u{2002}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-version:\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}3.1.2;x;x;x;x;x;": "3.1.2",
+            "\u{D}\u{202F}\u{2029}\u{85}\u{2001}\u{2028}\u{3000}\u{A}\u{D}\u{A}\u{2002}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-toolS-version:\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}3.5.2;hello": "3.5.2",
+            "\u{D}\u{202F}\u{2029}\u{85}\u{2001}\u{2028}\u{3000}\u{A}\u{D}\u{A}\u{2002}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}sWiFt-tOoLs-vErSiOn:\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}3.5.2\nkkk\n": "3.5.2",
         ]
 
         // Backward-incompatible leading whitespace is diagnosed before backward-incompatible spacings surrounding the label.
@@ -610,19 +610,19 @@ final class ToolsVersionParserTests: XCTestCase {
         // MARK: No spacing surrounding the label
 
         let specificationsWithZeroSpacing = [
-            "//swift-tools-version:3.1"                : "3.1.0",
-            "//swift-tools-version:3.1-dev"            : "3.1.0",
-            "//swift-tools-version:5.3"                : "5.3.0",
-            "//swift-tools-version:5.3.0"              : "5.3.0",
-            "//swift-tools-version:5.3-dev"            : "5.3.0",
-            "//swift-tools-version:4.8.0"              : "4.8.0",
-            "//swift-tools-version:4.8.0-dev.al+sha.x" : "4.8.0",
-            "//swift-tools-version:3.1.2"              : "3.1.2",
-            "//swift-tools-version:3.1.2;"             : "3.1.2",
-            "//swift-tools-vErsion:3.1.2;;;;;"         : "3.1.2",
-            "//swift-tools-version:3.1.2;x;x;x;x;x;"   : "3.1.2",
-            "//swift-toolS-version:3.5.2;hello"        : "3.5.2",
-            "//sWiFt-tOoLs-vErSiOn:3.5.2\nkkk\n"       : "3.5.2",
+            "//swift-tools-version:3.1": "3.1.0",
+            "//swift-tools-version:3.1-dev": "3.1.0",
+            "//swift-tools-version:5.3": "5.3.0",
+            "//swift-tools-version:5.3.0": "5.3.0",
+            "//swift-tools-version:5.3-dev": "5.3.0",
+            "//swift-tools-version:4.8.0": "4.8.0",
+            "//swift-tools-version:4.8.0-dev.al+sha.x": "4.8.0",
+            "//swift-tools-version:3.1.2": "3.1.2",
+            "//swift-tools-version:3.1.2;": "3.1.2",
+            "//swift-tools-vErsion:3.1.2;;;;;": "3.1.2",
+            "//swift-tools-version:3.1.2;x;x;x;x;x;": "3.1.2",
+            "//swift-toolS-version:3.5.2;hello": "3.5.2",
+            "//sWiFt-tOoLs-vErSiOn:3.5.2\nkkk\n": "3.5.2",
         ]
 
         for (specification, toolsVersionString) in specificationsWithZeroSpacing {
@@ -644,19 +644,19 @@ final class ToolsVersionParserTests: XCTestCase {
         // MARK: An assortment of horizontal whitespace characters before the label
 
         let specificationsWithAnAssortmentOfWhitespacesBeforeLabel = [
-            "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-version:3.1"                : "3.1.0",
-            "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-version:3.1-dev"            : "3.1.0",
-            "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-version:5.3"                : "5.3.0",
-            "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-version:5.3.0"              : "5.3.0",
-            "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-version:5.3-dev"            : "5.3.0",
-            "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-version:4.8.0"              : "4.8.0",
-            "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-version:4.8.0-dev.al+sha.x" : "4.8.0",
-            "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-version:3.1.2"              : "3.1.2",
-            "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-version:3.1.2;"             : "3.1.2",
-            "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-vErsion:3.1.2;;;;;"         : "3.1.2",
-            "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-version:3.1.2;x;x;x;x;x;"   : "3.1.2",
-            "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-toolS-version:3.5.2;hello"        : "3.5.2",
-            "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}sWiFt-tOoLs-vErSiOn:3.5.2\nkkk\n"       : "3.5.2",
+            "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-version:3.1": "3.1.0",
+            "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-version:3.1-dev": "3.1.0",
+            "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-version:5.3": "5.3.0",
+            "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-version:5.3.0": "5.3.0",
+            "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-version:5.3-dev": "5.3.0",
+            "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-version:4.8.0": "4.8.0",
+            "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-version:4.8.0-dev.al+sha.x": "4.8.0",
+            "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-version:3.1.2": "3.1.2",
+            "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-version:3.1.2;": "3.1.2",
+            "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-vErsion:3.1.2;;;;;": "3.1.2",
+            "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-version:3.1.2;x;x;x;x;x;": "3.1.2",
+            "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-toolS-version:3.5.2;hello": "3.5.2",
+            "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}sWiFt-tOoLs-vErSiOn:3.5.2\nkkk\n": "3.5.2",
         ]
 
         for (specification, toolsVersionString) in specificationsWithAnAssortmentOfWhitespacesBeforeLabel {
@@ -678,19 +678,19 @@ final class ToolsVersionParserTests: XCTestCase {
         // MARK: An assortment of horizontal whitespace characters surrounding the label
 
         let specificationsWithAnAssortmentOfWhitespacesBeforeAndAfterLabel = [
-            "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}swift-tools-version:\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}3.1"                : "3.1.0",
-            "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}swift-tools-version:\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}3.1-dev"            : "3.1.0",
-            "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}swift-tools-version:\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}5.3"                : "5.3.0",
-            "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}swift-tools-version:\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}5.3.0"              : "5.3.0",
-            "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}swift-tools-version:\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}5.3-dev"            : "5.3.0",
-            "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}swift-tools-version:\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}4.8.0"              : "4.8.0",
-            "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}swift-tools-version:\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}4.8.0-dev.al+sha.x" : "4.8.0",
-            "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}swift-tools-version:\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}3.1.2"              : "3.1.2",
-            "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}swift-tools-version:\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}3.1.2;"             : "3.1.2",
-            "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}swift-tools-vErsion:\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}3.1.2;;;;;"         : "3.1.2",
-            "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}swift-tools-version:\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}3.1.2;x;x;x;x;x;"   : "3.1.2",
-            "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}swift-toolS-version:\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}3.5.2;hello"        : "3.5.2",
-            "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}sWiFt-tOoLs-vErSiOn:\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}3.5.2\nkkk\n"       : "3.5.2",
+            "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}swift-tools-version:\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}3.1": "3.1.0",
+            "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}swift-tools-version:\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}3.1-dev": "3.1.0",
+            "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}swift-tools-version:\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}5.3": "5.3.0",
+            "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}swift-tools-version:\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}5.3.0": "5.3.0",
+            "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}swift-tools-version:\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}5.3-dev": "5.3.0",
+            "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}swift-tools-version:\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}4.8.0": "4.8.0",
+            "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}swift-tools-version:\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}4.8.0-dev.al+sha.x": "4.8.0",
+            "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}swift-tools-version:\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}3.1.2": "3.1.2",
+            "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}swift-tools-version:\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}3.1.2;": "3.1.2",
+            "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}swift-tools-vErsion:\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}3.1.2;;;;;": "3.1.2",
+            "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}swift-tools-version:\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}3.1.2;x;x;x;x;x;": "3.1.2",
+            "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}swift-toolS-version:\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}3.5.2;hello": "3.5.2",
+            "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}sWiFt-tOoLs-vErSiOn:\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}3.5.2\nkkk\n": "3.5.2",
         ]
 
         // Backward-incompatible spacings after the comment marker is diagnosed before backward-incompatible spacings after the label.
@@ -714,19 +714,19 @@ final class ToolsVersionParserTests: XCTestCase {
         // MARK: 1 U+0020 before the label and an assortment of horizontal whitespace characters after the label
 
         let specificationsWithAnAssortmentOfWhitespacesAfterLabel = [
-            "// swift-tools-version:\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}3.1"                : "3.1.0",
-            "// swift-tools-version:\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}3.1-dev"            : "3.1.0",
-            "// swift-tools-version:\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}5.3"                : "5.3.0",
-            "// swift-tools-version:\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}5.3.0"              : "5.3.0",
-            "// swift-tools-version:\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}5.3-dev"            : "5.3.0",
-            "// swift-tools-version:\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}4.8.0"              : "4.8.0",
-            "// swift-tools-version:\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}4.8.0-dev.al+sha.x" : "4.8.0",
-            "// swift-tools-version:\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}3.1.2"              : "3.1.2",
-            "// swift-tools-version:\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}3.1.2;"             : "3.1.2",
-            "// swift-tools-vErsion:\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}3.1.2;;;;;"         : "3.1.2",
-            "// swift-tools-version:\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}3.1.2;x;x;x;x;x;"   : "3.1.2",
-            "// swift-toolS-version:\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}3.5.2;hello"        : "3.5.2",
-            "// sWiFt-tOoLs-vErSiOn:\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}3.5.2\nkkk\n"       : "3.5.2",
+            "// swift-tools-version:\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}3.1": "3.1.0",
+            "// swift-tools-version:\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}3.1-dev": "3.1.0",
+            "// swift-tools-version:\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}5.3": "5.3.0",
+            "// swift-tools-version:\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}5.3.0": "5.3.0",
+            "// swift-tools-version:\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}5.3-dev": "5.3.0",
+            "// swift-tools-version:\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}4.8.0": "4.8.0",
+            "// swift-tools-version:\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}4.8.0-dev.al+sha.x": "4.8.0",
+            "// swift-tools-version:\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}3.1.2": "3.1.2",
+            "// swift-tools-version:\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}3.1.2;": "3.1.2",
+            "// swift-tools-vErsion:\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}3.1.2;;;;;": "3.1.2",
+            "// swift-tools-version:\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}3.1.2;x;x;x;x;x;": "3.1.2",
+            "// swift-toolS-version:\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}3.5.2;hello": "3.5.2",
+            "// sWiFt-tOoLs-vErSiOn:\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}3.5.2\nkkk\n": "3.5.2",
         ]
 
         for (specification, toolsVersionString) in specificationsWithAnAssortmentOfWhitespacesAfterLabel {
@@ -789,8 +789,9 @@ final class ToolsVersionParserTests: XCTestCase {
     }
 
     func testVersionSpecificManifestFallbacks() throws {
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/pkg/foo"
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                "/pkg/foo"
         )
         let root = AbsolutePath("/pkg")
 
@@ -823,8 +824,9 @@ final class ToolsVersionParserTests: XCTestCase {
     }
 
     func testVersionSpecificManifestMostCompatibleIfLower() throws {
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/pkg/foo"
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                "/pkg/foo"
         )
         let root = AbsolutePath("/pkg")
 

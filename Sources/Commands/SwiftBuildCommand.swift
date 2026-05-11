@@ -15,8 +15,7 @@ import Basics
 
 import Build
 
-@_spi(SwiftPMInternal)
-import CoreCommands
+@_spi(SwiftPMInternal) import CoreCommands
 
 import PackageGraph
 
@@ -68,7 +67,7 @@ struct BuildCommandOptions: ParsableArguments {
         }
 
         guard allSubsets.count < 2 else {
-            observabilityScope.emit(.mutuallyExclusiveArgumentsError(arguments: allSubsets.map{ $0.argumentName }))
+            observabilityScope.emit(.mutuallyExclusiveArgumentsError(arguments: allSubsets.map { $0.argumentName }))
             return nil
         }
 
@@ -80,9 +79,11 @@ struct BuildCommandOptions: ParsableArguments {
     var buildTests: Bool = false
 
     /// Whether to enable code coverage.
-    @Flag(name: .customLong("code-coverage"),
-          inversion: .prefixedEnableDisable,
-          help: "Determines whether the build measures code coverage.")
+    @Flag(
+        name: .customLong("code-coverage"),
+        inversion: .prefixedEnableDisable,
+        help: "Determines whether the build measures code coverage."
+    )
     var enableCodeCoverage: Bool = false
 
     /// If the binary output path should be printed.
@@ -90,13 +91,17 @@ struct BuildCommandOptions: ParsableArguments {
     var shouldPrintBinPath: Bool = false
 
     /// Whether to output a graphviz file visualization of the combined job graph for all targets
-    @Flag(name: .customLong("print-manifest-job-graph"),
-          help: "Write the command graph for the build manifest as a Graphviz file.")
+    @Flag(
+        name: .customLong("print-manifest-job-graph"),
+        help: "Write the command graph for the build manifest as a Graphviz file."
+    )
     var printManifestGraphviz: Bool = false
 
     /// Whether to output a graphviz file visualization of the PIF JSON sent to Swift Build.
-    @Flag(name: .customLong("print-pif-manifest-graph"),
-          help: "Write the PIF JSON sent to Swift Build as a Graphviz file.")
+    @Flag(
+        name: .customLong("print-pif-manifest-graph"),
+        help: "Write the PIF JSON sent to Swift Build as a Graphviz file."
+    )
     var printPIFManifestGraphviz: Bool = false
 
     /// Specific target to build.
@@ -130,7 +135,8 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
         abstract: "Build sources into binary products.",
         discussion: "SEE ALSO: swift run, swift package, swift test",
         version: SwiftVersion.current.completeDisplayString,
-        helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
+        helpNames: [.short, .long, .customLong("help", withSingleDash: true)]
+    )
 
     @OptionGroup()
     public var globalOptions: GlobalOptions
@@ -145,9 +151,11 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
 
         if options.printManifestGraphviz {
             // FIXME: Doesn't seem ideal that we need an explicit build operation, but this concretely uses the `LLBuildManifest`.
-            guard let buildOperation = try await swiftCommandState.createBuildSystem(
-                explicitBuildSystem: .native,
-            ) as? BuildOperation else {
+            guard
+                let buildOperation = try await swiftCommandState.createBuildSystem(
+                    explicitBuildSystem: .native,
+                ) as? BuildOperation
+            else {
                 throw StringError("asked for native build system but did not get it")
             }
             let buildManifest = try await buildOperation.getBuildManifest()
@@ -232,7 +240,8 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
     private func processBuildResult(
         _ swiftCommandState: SwiftCommandState,
         buildSystem: any BuildSystem,
-        buildResult: BuildResult) async throws {
+        buildResult: BuildResult
+    ) async throws {
         if try !self.options.sbom.sbomSpecs.isEmpty {
             try await generateSBOMs(swiftCommandState, buildSystem, buildResult)
         }
@@ -241,7 +250,8 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
     private func generateSBOMs(
         _ swiftCommandState: SwiftCommandState,
         _ buildSystem: any BuildSystem,
-        _ buildResult: BuildResult) async throws {
+        _ buildResult: BuildResult
+    ) async throws {
         do {
             guard try self.options.sbom.sbomSpecs.isEmpty || options.target == nil else {
                 throw SBOMModel.SBOMCommandError.targetFlagNotSupported

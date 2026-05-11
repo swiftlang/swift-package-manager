@@ -15,15 +15,13 @@ import Basics
 @testable import Build
 import LLBuildManifest
 
-@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
-import PackageGraph
+@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly) import PackageGraph
 
 import PackageModel
 import struct SPMBuildCore.BuildParameters
 
 import _InternalBuildTestSupport
-@_spi(SwiftPMInternal)
-import _InternalTestSupport
+@_spi(SwiftPMInternal) import _InternalTestSupport
 
 import Testing
 
@@ -44,9 +42,9 @@ struct LLBuildManifestBuilderTests {
                     displayName: "Pkg",
                     path: .init(validating: pkg.pathString),
                     targets: [
-                        TargetDescription(name: "exe"),
+                        TargetDescription(name: "exe")
                     ]
-                ),
+                )
             ],
             observabilityScope: observability.topScope
         )
@@ -106,23 +104,30 @@ struct LLBuildManifestBuilderTests {
             "C.exe-\(plan.destinationBuildParameters.triple)-debug.exe",
         ]
 
-        #expect(llbuild.manifest.commands.map(\.key).sorted() == (basicDebugCommandNames + [
-            AbsolutePath("/path/to/build/\(plan.destinationBuildParameters.triple)/debug/exe-entitlement.plist").pathString,
-            entitlementsCommandName,
-        ]).sorted())
+        #expect(
+            llbuild.manifest.commands.map(\.key).sorted()
+                == (basicDebugCommandNames + [
+                    AbsolutePath("/path/to/build/\(plan.destinationBuildParameters.triple)/debug/exe-entitlement.plist").pathString,
+                    entitlementsCommandName,
+                ]).sorted()
+        )
 
         let entitlementsCommand = try #require(
             llbuild.manifest.commands[entitlementsCommandName]?.tool as? ShellTool,
             "unexpected entitlements command type"
         )
 
-        #expect(entitlementsCommand.inputs == [
-            .file("/path/to/build/\(plan.destinationBuildParameters.triple)/debug/exe", isMutated: true),
-            .file("/path/to/build/\(plan.destinationBuildParameters.triple)/debug/exe-entitlement.plist"),
-        ])
-        #expect(entitlementsCommand.outputs == [
-            .virtual("exe-\(plan.destinationBuildParameters.triple)-debug.exe-CodeSigning"),
-        ])
+        #expect(
+            entitlementsCommand.inputs == [
+                .file("/path/to/build/\(plan.destinationBuildParameters.triple)/debug/exe", isMutated: true),
+                .file("/path/to/build/\(plan.destinationBuildParameters.triple)/debug/exe-entitlement.plist"),
+            ]
+        )
+        #expect(
+            entitlementsCommand.outputs == [
+                .virtual("exe-\(plan.destinationBuildParameters.triple)-debug.exe-CodeSigning")
+            ]
+        )
 
         // Linux, release build
 
@@ -217,53 +222,56 @@ struct LLBuildManifestBuilderTests {
             ]
         )
 
-        try fs.writeFileContents("/MyPkg/my.artifactbundle/info.json", string: """
-            {
-              "schemaVersion": "1.0",
-              "artifacts": {
-                "MyBinaryLib": {
-                  "version": "1",
-                  "type": "staticLibrary",
-                  "variants": [
-                    {
-                      "path": "x86_64-unknown-windows-msvc/MyBinaryLib.lib",
-                      "staticLibraryMetadata": {
-                        "headerPaths": [
-                          "include"
-                        ]
-                      },
-                      "supportedTriples": [
-                        "x86_64-unknown-windows-msvc"
+        try fs.writeFileContents(
+            "/MyPkg/my.artifactbundle/info.json",
+            string: """
+                {
+                  "schemaVersion": "1.0",
+                  "artifacts": {
+                    "MyBinaryLib": {
+                      "version": "1",
+                      "type": "staticLibrary",
+                      "variants": [
+                        {
+                          "path": "x86_64-unknown-windows-msvc/MyBinaryLib.lib",
+                          "staticLibraryMetadata": {
+                            "headerPaths": [
+                              "include"
+                            ]
+                          },
+                          "supportedTriples": [
+                            "x86_64-unknown-windows-msvc"
+                          ]
+                        },
+                        {
+                          "path": "arm64-apple-macosx/libMyBinaryLib.a",
+                          "staticLibraryMetadata": {
+                            "headerPaths": [
+                              "include"
+                            ]
+                          },
+                          "supportedTriples": [
+                            "arm64-apple-macosx"
+                          ]
+                        },
                       ]
                     },
-                    {
-                      "path": "arm64-apple-macosx/libMyBinaryLib.a",
-                      "staticLibraryMetadata": {
-                        "headerPaths": [
-                          "include"
-                        ]
-                      },
-                      "supportedTriples": [
-                        "arm64-apple-macosx"
-                      ]
-                    },
-                  ]
-                },
-                "MyBinaryLib.DLL": {
-                  "type": "experimentalWindowsDLL",
-                  "version": "1.0.0",
-                  "variants": [
-                    {
-                      "path": "x86_64-unknown-windows-msvc/MyBinaryLib.dll",
-                      "supportedTriples": [
-                        "x86_64-unknown-windows-msvc"
+                    "MyBinaryLib.DLL": {
+                      "type": "experimentalWindowsDLL",
+                      "version": "1.0.0",
+                      "variants": [
+                        {
+                          "path": "x86_64-unknown-windows-msvc/MyBinaryLib.dll",
+                          "supportedTriples": [
+                            "x86_64-unknown-windows-msvc"
+                          ]
+                        }
                       ]
                     }
-                  ]
+                  }
                 }
-              }
-            }
-            """)
+                """
+        )
 
         let observability = ObservabilitySystem.makeForTesting()
         let graph = try loadModulesGraph(
@@ -288,7 +296,9 @@ struct LLBuildManifestBuilderTests {
                             .staticLibrary,
                             .executable,
                         ]),
-                        originURL: nil, path: "/MyPkg/my.artifactbundle")
+                        originURL: nil,
+                        path: "/MyPkg/my.artifactbundle"
+                    )
                 ]
             ],
             observabilityScope: observability.topScope
@@ -317,7 +327,7 @@ struct LLBuildManifestBuilderTests {
         let windowsDLLOutput: Node = .file("/path/to/build/x86_64-unknown-windows-msvc/debug/MyBinaryLib.dll")
         #expect(
             windowsDLLCopyTool.inputs == [.file("/MyPkg/my.artifactbundle/x86_64-unknown-windows-msvc/MyBinaryLib.dll")]
-            && windowsDLLCopyTool.outputs == [windowsDLLOutput]
+                && windowsDLLCopyTool.outputs == [windowsDLLOutput]
         )
 
         // Make sure the copy command is consumed in the build graph
@@ -340,8 +350,10 @@ struct LLBuildManifestBuilderTests {
         let macosLinkTool = try #require(macosLink.tool as? ShellTool)
         #expect(macosLinkTool.arguments.contains("-lMyBinaryLib"))
 
-        #expect(!macosManifest.commands.contains(where: {
-            $0.value.tool.inputs.contains(.file("/MyPkg/my.artifactbundle/x86_64-unknown-windows-msvc/MyBinaryLib.dll"))
-        }))
+        #expect(
+            !macosManifest.commands.contains(where: {
+                $0.value.tool.inputs.contains(.file("/MyPkg/my.artifactbundle/x86_64-unknown-windows-msvc/MyBinaryLib.dll"))
+            })
+        )
     }
 }

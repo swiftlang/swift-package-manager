@@ -90,11 +90,11 @@ struct PluginsBuildPlanTests {
             }
             let pluginToolName: String
             switch buildSystem {
-                case .native:
+            case .native:
                 pluginToolName = "plugintool-tool"
-                case .swiftbuild:
+            case .swiftbuild:
                 pluginToolName = "plugintool"
-                case .xcode:
+            case .xcode:
                 pluginToolName = ""
                 Issue.record("Test has not been updated for this build system")
             }
@@ -161,13 +161,13 @@ struct PluginsBuildPlanTests {
             let pluginToolName: String
             let pluginToolBinPath: AbsolutePath
             switch buildSystem {
-                case .native:
+            case .native:
                 pluginToolName = "plugintool-tool"
                 pluginToolBinPath = hostBinPath
-                case .swiftbuild:
+            case .swiftbuild:
                 pluginToolName = "plugintool"
                 pluginToolBinPath = targetBinPath
-                case .xcode:
+            case .xcode:
                 pluginToolName = ""
                 pluginToolBinPath = AbsolutePath("/")
                 Issue.record("Test has not been updated for this build system")

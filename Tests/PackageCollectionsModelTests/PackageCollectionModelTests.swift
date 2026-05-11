@@ -37,7 +37,7 @@ class PackageCollectionModelTests: XCTestCase {
                                 targets: [.init(name: "Foo", moduleName: "Foo")],
                                 products: [.init(name: "Bar", type: .library(.automatic), targets: ["Foo"])],
                                 minimumPlatformVersions: [.init(name: "macOS", version: "10.15")]
-                            ),
+                            )
                         ],
                         defaultToolsVersion: "5.2",
                         verifiedCompatibility: [Model.Compatibility(platform: Model.Platform(name: "macOS"), swiftVersion: "5.2")],
@@ -50,11 +50,11 @@ class PackageCollectionModelTests: XCTestCase {
                             organizationName: "Appleseed Inc."
                         ),
                         createdAt: Date()
-                    ),
+                    )
                 ],
                 readmeURL: "https://package-collection-tests.com/repos/foobar/README",
                 license: .init(name: "Apache-2.0", url: "https://package-collection-tests.com/repos/foobar/LICENSE")
-            ),
+            )
         ]
         let collection = Model.Collection(
             name: "Test Package Collection",
@@ -90,7 +90,7 @@ class PackageCollectionModelTests: XCTestCase {
                                 targets: [.init(name: "Foo", moduleName: "Foo")],
                                 products: [.init(name: "Bar", type: .library(.automatic), targets: ["Foo"])],
                                 minimumPlatformVersions: [.init(name: "macOS", version: "10.15")]
-                            ),
+                            )
                         ],
                         defaultToolsVersion: "5.2",
                         verifiedCompatibility: [Model.Compatibility(platform: Model.Platform(name: "macOS"), swiftVersion: "5.2")],
@@ -103,11 +103,11 @@ class PackageCollectionModelTests: XCTestCase {
                             organizationName: "Appleseed Inc."
                         ),
                         createdAt: Date()
-                    ),
+                    )
                 ],
                 readmeURL: "https://package-collection-tests.com/repos/foobar/README",
                 license: .init(name: "Apache-2.0", url: "https://package-collection-tests.com/repos/foobar/LICENSE")
-            ),
+            )
         ]
         let collection = Model.Collection(
             name: "Test Package Collection",

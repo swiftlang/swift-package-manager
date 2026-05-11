@@ -18,11 +18,11 @@ import SPMLLBuild
 import PackageModel
 
 #if USE_IMPL_ONLY_IMPORTS
-@_implementationOnly import SwiftDriver
-@_implementationOnly import SwiftOptions
+    @_implementationOnly import SwiftDriver
+    @_implementationOnly import SwiftOptions
 #else
-import SwiftDriver
-import SwiftOptions
+    import SwiftDriver
+    import SwiftOptions
 #endif
 
 import class TSCBasic.LocalFileOutputByteStream
@@ -126,15 +126,18 @@ final class TestDiscoveryCommand: CustomLLBuildCommand, TestBuildCommand {
         let store = try IndexStore.open(store: TSCAbsolutePath(index), api: api)
 
         // FIXME: We can speed this up by having one llbuild command per object file.
-        let tests = try store
+        let tests =
+            try store
             .listTests(in: tool.inputs.map { try TSCAbsolutePath(AbsolutePath(validating: $0.name)) })
 
         let testsByModule = Dictionary(grouping: tests, by: { $0.module.spm_mangledToC99ExtendedIdentifier() })
 
         // Find the main file path.
-        guard let mainFile = outputs.first(where: { path in
-            path.basename == TestDiscoveryTool.mainFileName
-        }) else {
+        guard
+            let mainFile = outputs.first(where: { path in
+                path.basename == TestDiscoveryTool.mainFileName
+            })
+        else {
             throw InternalError("main output (\(TestDiscoveryTool.mainFileName)) not found")
         }
 
@@ -210,9 +213,11 @@ final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
 
         // Find the main output file
         let mainFileName = TestEntryPointTool.mainFileName
-        guard let mainFile = outputs.first(where: { path in
-            path.basename == mainFileName
-        }) else {
+        guard
+            let mainFile = outputs.first(where: { path in
+                path.basename == mainFileName
+            })
+        else {
             throw InternalError("main file output (\(mainFileName)) not found")
         }
 
@@ -231,19 +236,21 @@ final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
             testObservabilitySetup = ""
         }
 
-        let isXCTMainAvailable: String = switch buildParameters.testProductStyle {
-        case .entryPointExecutable:
-            "canImport(XCTest)"
-        case .loadableBundle:
-            "false"
-        }
+        let isXCTMainAvailable: String =
+            switch buildParameters.testProductStyle {
+            case .entryPointExecutable:
+                "canImport(XCTest)"
+            case .loadableBundle:
+                "false"
+            }
 
         /// On WASI, we can't block the main thread, so XCTestMain is defined as async.
-        let awaitXCTMainKeyword = if buildParameters.triple.isWASI() {
-            "await"
-        } else {
-            ""
-        }
+        let awaitXCTMainKeyword =
+            if buildParameters.triple.isWASI() {
+                "await"
+            } else {
+                ""
+            }
 
         var needsAsyncMainWorkaround = false
         if buildParameters.triple.isLinux() {
@@ -396,7 +403,7 @@ final class WriteAuxiliaryFileCommand: CustomLLBuildCommand {
 
     func getFileContents(tool: WriteAuxiliaryFile) throws -> String {
         guard tool.inputs.first?.kind == .virtual,
-              let generatedFileType = tool.inputs.first?.name.dropFirst().dropLast()
+            let generatedFileType = tool.inputs.first?.name.dropFirst().dropLast()
         else {
             throw StringError("invalid inputs")
         }

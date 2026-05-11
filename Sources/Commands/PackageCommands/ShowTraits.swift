@@ -36,15 +36,16 @@ struct ShowTraits: AsyncSwiftCommand {
     func run(_ swiftCommandState: SwiftCommandState) async throws {
         let packageGraph = try await swiftCommandState.loadPackageGraph()
 
-        let traits = if let packageId {
-            packageGraph.packages.filter({ $0.identity.description == packageId }).flatMap( { $0.manifest.traits } ).sorted(by: {$0.name < $1.name} )
-        } else {
-            packageGraph.rootPackages.flatMap( { $0.manifest.traits } ).sorted(by: {$0.name < $1.name} )
-        }
+        let traits =
+            if let packageId {
+                packageGraph.packages.filter({ $0.identity.description == packageId }).flatMap({ $0.manifest.traits }).sorted(by: { $0.name < $1.name })
+            } else {
+                packageGraph.rootPackages.flatMap({ $0.manifest.traits }).sorted(by: { $0.name < $1.name })
+            }
 
         switch self.format {
         case .text:
-            let defaultTraits = traits.filter( { $0.isDefault } ).flatMap( { $0.enabledTraits })
+            let defaultTraits = traits.filter({ $0.isDefault }).flatMap({ $0.enabledTraits })
 
             for trait in traits {
                 guard !trait.isDefault else {

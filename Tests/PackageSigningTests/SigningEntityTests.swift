@@ -39,7 +39,7 @@ struct SigningEntityTests {
             organizationalUnit: "SwiftPM Test Unit Y",
             organization: "C"
         )
-        #expect(adp1 == adp2) // Only team ID (org unit) needs to match
+        #expect(adp1 == adp2)  // Only team ID (org unit) needs to match
         #expect(adp1 != adp3)
     }
 
@@ -47,7 +47,7 @@ struct SigningEntityTests {
         "From certificate key",
         arguments: [
             (certificateFilename: "Test_ec.cer", id: "EC Key"),
-            (certificateFilename: "Test_rsa.cer", id: "RSA Key")
+            (certificateFilename: "Test_rsa.cer", id: "RSA Key"),
         ]
     )
     func fromCertificate(certificateFilename: String, id: String) throws {
@@ -73,31 +73,31 @@ struct SigningEntityTests {
 
 final class SigningEntityXCTests: XCTestCase {
     #if os(macOS)
-    func testFromKeychainCertificate() async throws {
-        #if ENABLE_REAL_SIGNING_IDENTITY_TEST
-        #else
-        try XCTSkipIf(true)
-        #endif
+        func testFromKeychainCertificate() async throws {
+            #if ENABLE_REAL_SIGNING_IDENTITY_TEST
+            #else
+                try XCTSkipIf(true)
+            #endif
 
-        guard let label = Environment.current["REAL_SIGNING_IDENTITY_LABEL"] else {
-            throw XCTSkip("Skipping because 'REAL_SIGNING_IDENTITY_LABEL' env var is not set")
-        }
-        let identityStore = SigningIdentityStore(observabilityScope: ObservabilitySystem.NOOP)
-        let matches = identityStore.find(by: label)
-        XCTAssertTrue(!matches.isEmpty)
+            guard let label = Environment.current["REAL_SIGNING_IDENTITY_LABEL"] else {
+                throw XCTSkip("Skipping because 'REAL_SIGNING_IDENTITY_LABEL' env var is not set")
+            }
+            let identityStore = SigningIdentityStore(observabilityScope: ObservabilitySystem.NOOP)
+            let matches = identityStore.find(by: label)
+            XCTAssertTrue(!matches.isEmpty)
 
-        let certificate = try Certificate(secIdentity: matches[0] as! SecIdentity)
-        let signingEntity = SigningEntity.from(certificate: certificate)
-        switch signingEntity {
-        case .recognized(_, let name, let organizationalUnit, let organization):
-            XCTAssertEqual(name, certificate.subject.commonName)
-            XCTAssertEqual(organizationalUnit, certificate.subject.organizationalUnitName)
-            XCTAssertEqual(organization, certificate.subject.organizationName)
-        case .unrecognized(let name, let organizationalUnit, let organization):
-            XCTAssertEqual(name, certificate.subject.commonName)
-            XCTAssertEqual(organizationalUnit, certificate.subject.organizationalUnitName)
-            XCTAssertEqual(organization, certificate.subject.organizationName)
+            let certificate = try Certificate(secIdentity: matches[0] as! SecIdentity)
+            let signingEntity = SigningEntity.from(certificate: certificate)
+            switch signingEntity {
+            case .recognized(_, let name, let organizationalUnit, let organization):
+                XCTAssertEqual(name, certificate.subject.commonName)
+                XCTAssertEqual(organizationalUnit, certificate.subject.organizationalUnitName)
+                XCTAssertEqual(organization, certificate.subject.organizationName)
+            case .unrecognized(let name, let organizationalUnit, let organization):
+                XCTAssertEqual(name, certificate.subject.commonName)
+                XCTAssertEqual(organizationalUnit, certificate.subject.organizationalUnitName)
+                XCTAssertEqual(organization, certificate.subject.organizationName)
+            }
         }
-    }
     #endif
 }

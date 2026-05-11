@@ -70,7 +70,7 @@ extension SBOMTestModulesGraph {
             packageIdentity: identity,
             module: dequeModule,
             dependencies: [
-                .module(resolvedInternalCollectionsUtilitiesModule, conditions: []),
+                .module(resolvedInternalCollectionsUtilitiesModule, conditions: [])
             ]
         )
 
@@ -78,7 +78,7 @@ extension SBOMTestModulesGraph {
             packageIdentity: identity,
             module: orderedCollectionsModule,
             dependencies: [
-                .module(resolvedInternalCollectionsUtilitiesModule, conditions: []),
+                .module(resolvedInternalCollectionsUtilitiesModule, conditions: [])
             ]
         )
 
@@ -171,7 +171,7 @@ extension SBOMTestModulesGraph {
             packageIdentity: identity,
             module: realModule,
             dependencies: [
-                .module(resolvedNumericsShimsModule, conditions: []),
+                .module(resolvedNumericsShimsModule, conditions: [])
             ]
         )
 
@@ -246,7 +246,7 @@ extension SBOMTestModulesGraph {
             packageIdentity: identity,
             module: algorithmsModule,
             dependencies: [
-                .product(realModuleProduct, conditions: []),
+                .product(realModuleProduct, conditions: [])
             ]
         )
 
@@ -326,7 +326,7 @@ extension SBOMTestModulesGraph {
             packageIdentity: identity,
             module: atomicsModule,
             dependencies: [
-                .module(resolvedAtomicsShimsModule, conditions: []),
+                .module(resolvedAtomicsShimsModule, conditions: [])
             ]
         )
 

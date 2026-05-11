@@ -379,8 +379,10 @@ extension FileSystem {
                 let configurationFiles = try self.getDirectoryContents(oldConfigDirectory)
                     .map { oldConfigDirectory.appending(component: $0) }
                     .filter {
-                        self.isFile($0) && !self.isSymlink($0) && $0
-                            .extension != "lock" && ((try? self.readFileContents($0)) ?? []).count > 0
+                        self.isFile($0) && !self.isSymlink($0)
+                            && $0
+                                .extension != "lock"
+                            && ((try? self.readFileContents($0)) ?? []).count > 0
                     }
                 try handleExistingFiles(configurationFiles)
             }
@@ -393,8 +395,10 @@ extension FileSystem {
                 let configurationFiles = try self.getDirectoryContents(oldConfigDirectory)
                     .map { oldConfigDirectory.appending(component: $0) }
                     .filter {
-                        self.isFile($0) && !self.isSymlink($0) && $0
-                            .extension != "lock" && ((try? self.readFileContents($0)) ?? []).count > 0
+                        self.isFile($0) && !self.isSymlink($0)
+                            && $0
+                                .extension != "lock"
+                            && ((try? self.readFileContents($0)) ?? []).count > 0
                     }
                 try handleExistingFiles(configurationFiles)
             }
@@ -452,10 +456,7 @@ extension FileSystem {
 
         // temporary 5.6, remove on next version: transition from ~/.swiftpm/security to idiomatic location + symbolic
         // link
-        if try idiomaticSecurityDirectory != self.dotSwiftPMSecurityDirectory &&
-            self.exists(try self.dotSwiftPMSecurityDirectory) &&
-            self.isDirectory(try self.dotSwiftPMSecurityDirectory)
-        {
+        if try idiomaticSecurityDirectory != self.dotSwiftPMSecurityDirectory && self.exists(try self.dotSwiftPMSecurityDirectory) && self.isDirectory(try self.dotSwiftPMSecurityDirectory) {
             try self.removeFileTree(self.dotSwiftPMSecurityDirectory)
         }
         // ~temporary 5.6 migration

@@ -40,7 +40,7 @@ internal struct SBOMRelationship: Codable, Equatable, Hashable, Comparable {
         self.parentID = parentID
         self.childrenID = childrenID
     }
-    
+
     // Comparable implementation for deterministic ordering
     internal static func < (lhs: SBOMRelationship, rhs: SBOMRelationship) -> Bool {
         lhs.id.value < rhs.id.value

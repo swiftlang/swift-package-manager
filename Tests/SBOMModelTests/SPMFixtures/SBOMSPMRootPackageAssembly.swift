@@ -90,7 +90,9 @@ extension SBOMTestModulesGraph {
 
         // Combine all modules
         let allModules = coreResult.modules + commandResult.modules + executableResult.modules
-        let allResolvedModules = coreResult.resolvedModules + commandResult.resolvedModules + executableResult
+        let allResolvedModules =
+            coreResult.resolvedModules + commandResult.resolvedModules
+            + executableResult
             .resolvedModules
 
         // Extract specific resolved modules for products
@@ -332,11 +334,12 @@ extension SBOMTestModulesGraph {
             ),
         ]
 
-        let allProducts = [
-            appleProductTypesProduct, packageDescriptionProduct, packagePluginProduct,
-            swiftPMProduct, swiftPMDataModelProduct, swiftPMAutoProduct, swiftPMDataModelAutoProduct,
-            packageCollectionsModelProduct, swiftPMPackageCollectionsProduct, xcBuildSupportProduct,
-        ] + executableProducts
+        let allProducts =
+            [
+                appleProductTypesProduct, packageDescriptionProduct, packagePluginProduct,
+                swiftPMProduct, swiftPMDataModelProduct, swiftPMAutoProduct, swiftPMDataModelAutoProduct,
+                packageCollectionsModelProduct, swiftPMPackageCollectionsProduct, xcBuildSupportProduct,
+            ] + executableProducts
 
         // MARK: - Create Package
 
@@ -440,12 +443,13 @@ extension SBOMTestModulesGraph {
             )
         }
 
-        let allResolvedProducts = [
-            resolvedAppleProductTypesProduct, resolvedPackageDescriptionProduct, resolvedPackagePluginProduct,
-            resolvedSwiftPMProduct, resolvedSwiftPMDataModelProduct, resolvedSwiftPMAutoProduct,
-            resolvedSwiftPMDataModelAutoProduct, resolvedPackageCollectionsModelProduct,
-            resolvedSwiftPMPackageCollectionsProduct, resolvedXCBuildSupportProduct,
-        ] + resolvedExecutableProducts
+        let allResolvedProducts =
+            [
+                resolvedAppleProductTypesProduct, resolvedPackageDescriptionProduct, resolvedPackagePluginProduct,
+                resolvedSwiftPMProduct, resolvedSwiftPMDataModelProduct, resolvedSwiftPMAutoProduct,
+                resolvedSwiftPMDataModelAutoProduct, resolvedPackageCollectionsModelProduct,
+                resolvedSwiftPMPackageCollectionsProduct, resolvedXCBuildSupportProduct,
+            ] + resolvedExecutableProducts
 
         // MARK: - Create Resolved Package
 

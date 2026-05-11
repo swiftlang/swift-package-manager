@@ -94,7 +94,7 @@ public struct Version: Sendable {
 
 extension Version: Comparable {
     // Although `Comparable` inherits from `Equatable`, it does not provide a new default implementation of `==`, but instead uses `Equatable`'s default synthesised implementation. The compiler-synthesised `==`` is composed of [member-wise comparisons](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0185-synthesize-equatable-hashable.md#implementation-details), which leads to a false `false` when 2 semantic versions differ by only their build metadata identifiers, contradicting SemVer 2.0.0's [comparison rules](https://semver.org/#spec-item-10).
-    
+
     /// Returns a Boolean value indicating whether two values are equal.
     ///
     /// Equality is the inverse of inequality. For any values `a` and `b`, `a ==
@@ -109,7 +109,7 @@ extension Version: Comparable {
     public static func == (lhs: Version, rhs: Version) -> Bool {
         !(lhs < rhs) && !(lhs > rhs)
     }
-    
+
     /// Returns a Boolean value indicating whether the value of the first
     /// argument is less than that of the second argument.
     ///
@@ -127,11 +127,11 @@ extension Version: Comparable {
         }
 
         guard lhs.prereleaseIdentifiers.count > 0 else {
-            return false // Non-prerelease lhs >= potentially prerelease rhs
+            return false  // Non-prerelease lhs >= potentially prerelease rhs
         }
 
         guard rhs.prereleaseIdentifiers.count > 0 else {
-            return true // Prerelease lhs < non-prerelease rhs
+            return true  // Prerelease lhs < non-prerelease rhs
         }
 
         for (lhsPrereleaseIdentifier, rhsPrereleaseIdentifier) in zip(lhs.prereleaseIdentifiers, rhs.prereleaseIdentifiers) {
@@ -144,12 +144,13 @@ extension Version: Comparable {
             let rhsNumericPrereleaseIdentifier = Int(rhsPrereleaseIdentifier)
 
             if let lhsNumericPrereleaseIdentifier,
-               let rhsNumericPrereleaseIdentifier = rhsNumericPrereleaseIdentifier {
+                let rhsNumericPrereleaseIdentifier = rhsNumericPrereleaseIdentifier
+            {
                 return lhsNumericPrereleaseIdentifier < rhsNumericPrereleaseIdentifier
             } else if lhsNumericPrereleaseIdentifier != nil {
-                return true // numeric pre-release < non-numeric pre-release
+                return true  // numeric pre-release < non-numeric pre-release
             } else if rhsNumericPrereleaseIdentifier != nil {
-                return false // non-numeric pre-release > numeric pre-release
+                return false  // non-numeric pre-release > numeric pre-release
             } else {
                 return lhsPrereleaseIdentifier < rhsPrereleaseIdentifier
             }

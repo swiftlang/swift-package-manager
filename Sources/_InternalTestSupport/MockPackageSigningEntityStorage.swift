@@ -26,7 +26,7 @@ public class MockPackageSigningEntityStorage: PackageSigningEntityStorage {
     public init(_ packageSigners: [PackageIdentity: PackageSigners] = [:]) {
         self.packageSigners = packageSigners
     }
-    
+
     public func get(
         package: PackageIdentity,
         observabilityScope: ObservabilityScope
@@ -45,7 +45,8 @@ public class MockPackageSigningEntityStorage: PackageSigningEntityStorage {
         observabilityScope: ObservabilityScope
     ) throws {
         try self.lock.withLock {
-            let otherSigningEntities = self.packageSigners[package]?.signingEntities(of: version)
+            let otherSigningEntities =
+                self.packageSigners[package]?.signingEntities(of: version)
                 .filter { $0 != signingEntity } ?? []
             // Error if we try to write a different signing entity for a version
             guard otherSigningEntities.isEmpty else {
@@ -53,7 +54,7 @@ public class MockPackageSigningEntityStorage: PackageSigningEntityStorage {
                     package: package,
                     version: version,
                     given: signingEntity,
-                    existing: otherSigningEntities.first! // !-safe because otherSigningEntities is not empty
+                    existing: otherSigningEntities.first!  // !-safe because otherSigningEntities is not empty
                 )
             }
 

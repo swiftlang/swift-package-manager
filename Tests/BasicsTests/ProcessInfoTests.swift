@@ -15,13 +15,13 @@ import Testing
 @testable import struct _InternalTestSupport.CombinationsWithRepetition
 
 fileprivate let d = [
-            [],
-            [""],
-            ["line1"],
-            ["line1", "line2"],
-            ["line1", "line2", "line3"],
-        ]
-fileprivate let prefixAndSuffixData = CombinationsWithRepetition(of: d, length: 2).map( {data in
+    [],
+    [""],
+    ["line1"],
+    ["line1", "line2"],
+    ["line1", "line2", "line3"],
+]
+fileprivate let prefixAndSuffixData = CombinationsWithRepetition(of: d, length: 2).map({ data in
     // Content(prefix: data.0, suffix: data.1)
     Content(prefix: data[0], suffix: data[1])
 })
@@ -60,62 +60,62 @@ struct ProcessInfoExtensionTests {
                 (contentUT: "PRETTY_NAME=\"Amazon Linux 2 (something else)\"", expected: false),
                 (
                     contentUT: """
-                        NAME="Amazon Linux"
-                        VERSION="2"
-                        ID="amzn"
-                        ID_LIKE="centos rhel fedora"
-                        VERSION_ID="2"
-                        PRETTY_NAME="Amazon Linux 2"
-                        ANSI_COLOR="0;33"
-                        CPE_NAME="cpe:2.3:o:amazon:amazon_linux:2"
-                        HOME_URL="https://amazonlinux.com/"
-                        SUPPORT_END="2026-06-30"
-                        """,
+                    NAME="Amazon Linux"
+                    VERSION="2"
+                    ID="amzn"
+                    ID_LIKE="centos rhel fedora"
+                    VERSION_ID="2"
+                    PRETTY_NAME="Amazon Linux 2"
+                    ANSI_COLOR="0;33"
+                    CPE_NAME="cpe:2.3:o:amazon:amazon_linux:2"
+                    HOME_URL="https://amazonlinux.com/"
+                    SUPPORT_END="2026-06-30"
+                    """,
                     expected: true
                 ),
                 (
                     contentUT: """
-                        NAME="Amazon Linux"
-                        VERSION="2"
-                        ID="amzn"
-                        ID_LIKE="centos rhel fedora"
-                        VERSION_ID="2"
-                        PRETTY_NAME="Amazon Linux 2 (something else)"
-                        ANSI_COLOR="0;33"
-                        CPE_NAME="cpe:2.3:o:amazon:amazon_linux:2"
-                        HOME_URL="https://amazonlinux.com/"
-                        SUPPORT_END="2026-06-30"
-                        """,
+                    NAME="Amazon Linux"
+                    VERSION="2"
+                    ID="amzn"
+                    ID_LIKE="centos rhel fedora"
+                    VERSION_ID="2"
+                    PRETTY_NAME="Amazon Linux 2 (something else)"
+                    ANSI_COLOR="0;33"
+                    CPE_NAME="cpe:2.3:o:amazon:amazon_linux:2"
+                    HOME_URL="https://amazonlinux.com/"
+                    SUPPORT_END="2026-06-30"
+                    """,
                     expected: false
                 ),
                 (
                     contentUT: """
-                        NAME="Amazon Linux"
-                        VERSION="2"
-                        ID="amzn"
-                        ID_LIKE="centos rhel fedora"
-                        VERSION_ID="2"
-                        PRETTY_NAME=Amazon Linux 2 (something else)
-                        ANSI_COLOR="0;33"
-                        CPE_NAME="cpe:2.3:o:amazon:amazon_linux:2"
-                        HOME_URL="https://amazonlinux.com/"
-                        SUPPORT_END="2026-06-30"
-                        """,
+                    NAME="Amazon Linux"
+                    VERSION="2"
+                    ID="amzn"
+                    ID_LIKE="centos rhel fedora"
+                    VERSION_ID="2"
+                    PRETTY_NAME=Amazon Linux 2 (something else)
+                    ANSI_COLOR="0;33"
+                    CPE_NAME="cpe:2.3:o:amazon:amazon_linux:2"
+                    HOME_URL="https://amazonlinux.com/"
+                    SUPPORT_END="2026-06-30"
+                    """,
                     expected: false
                 ),
                 (
                     contentUT: """
-                        NAME="Amazon Linux"
-                        VERSION="2"
-                        ID="amzn"
-                        ID_LIKE="centos rhel fedora"
-                        VERSION_ID="2"
-                        PRETTY_NAME=Amazon Linux 2
-                        ANSI_COLOR="0;33"
-                        CPE_NAME="cpe:2.3:o:amazon:amazon_linux:2"
-                        HOME_URL="https://amazonlinux.com/"
-                        SUPPORT_END="2026-06-30"
-                        """,
+                    NAME="Amazon Linux"
+                    VERSION="2"
+                    ID="amzn"
+                    ID_LIKE="centos rhel fedora"
+                    VERSION_ID="2"
+                    PRETTY_NAME=Amazon Linux 2
+                    ANSI_COLOR="0;33"
+                    CPE_NAME="cpe:2.3:o:amazon:amazon_linux:2"
+                    HOME_URL="https://amazonlinux.com/"
+                    SUPPORT_END="2026-06-30"
+                    """,
                     expected: false
                 ),
                 (
@@ -138,8 +138,9 @@ struct ProcessInfoExtensionTests {
                     SUPPORT_END="2028-03-15"
                     """,
                     expected: false,
-                )
-            ], prefixAndSuffixData,
+                ),
+            ],
+            prefixAndSuffixData,
         )
         fileprivate func isAmazonLinux2ReturnsExpectedValue(
             data: (contentUT: String, expected: Bool),

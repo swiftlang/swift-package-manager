@@ -108,8 +108,7 @@ public struct ModuleMapGenerator {
         let entries: Set<Basics.AbsolutePath>
         do {
             entries = try Set(fileSystem.getDirectoryContents(publicHeadersDir).map({ publicHeadersDir.appending(component: $0) }))
-        }
-        catch {
+        } catch {
             // This might fail because of a file system error, etc.
             diagnosticsEmitter.emit(.inaccessiblePublicHeadersDirectory(targetName: targetName, publicHeadersDir: publicHeadersDir, fileSystemError: error))
             return .none
@@ -142,7 +141,7 @@ public struct ModuleMapGenerator {
         if fileSystem.isFile(nestedUmbrellaHeader) {
             // In this case, 'PublicHeadersDir' is expected to contain no subdirectories other than 'ModuleName'.
             if directories.count != 1 {
-                diagnosticsEmitter.emit(.umbrellaHeaderParentDirHasSiblingDirectories(targetName: targetName, umbrellaHeader: nestedUmbrellaHeader, siblingDirs: directories.filter{ $0.basename != moduleName }))
+                diagnosticsEmitter.emit(.umbrellaHeaderParentDirHasSiblingDirectories(targetName: targetName, umbrellaHeader: nestedUmbrellaHeader, siblingDirs: directories.filter { $0.basename != moduleName }))
                 return .none
             }
             // In this case, 'PublicHeadersDir' is also expected to contain no header files.
@@ -196,7 +195,6 @@ public struct ModuleMapGenerator {
         try fileSystem.writeFileContents(path, string: moduleMap)
     }
 }
-
 
 /// A type of module map to generate.
 public enum GeneratedModuleMapType {

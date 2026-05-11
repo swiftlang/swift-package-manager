@@ -19,7 +19,7 @@ import PackageModel
 import Testing
 
 struct SBOMTestTraits {
-    
+
     private func extractSBOM(from graph: ModulesGraph) async throws -> SBOMDependencies {
         // doesn't matter which store is used, so just the simple one
         let store = try SBOMTestStore.createSimpleResolvedPackagesStore()
@@ -30,50 +30,50 @@ struct SBOMTestTraits {
         )
         return try await extractor.extractDependencies()
     }
-    
+
     // MARK: - Tests
-    
+
     @Test("SBOM extraction with PackageConditionalDeps fixture - default traits")
     func extractSBOMwithConditionalDepsFixtureDefaultTraits() async throws {
         let graph = try await SBOMTestModulesGraph.createConditionalModulesGraph(
             traitConfiguration: .default
         )
         let dependencies = try await extractSBOM(from: graph)
-        
+
         // Verify: Package1 should be included (default trait enables it)
         #expect(dependencies.components.contains(where: { $0.name == "package1" }))
-        
+
         // Verify: Package2 should NOT be included (trait not enabled by default)
         #expect(!dependencies.components.contains(where: { $0.name == "package2" }))
-        
+
         // Verify: Root package is included
         #expect(dependencies.components.contains(where: { $0.name == "packageconditionaldeps" }))
     }
-    
+
     @Test("SBOM extraction with PackageConditionalDeps fixture - all traits enabled")
     func extractSBOMwithConditionalDepsFixtureAllTraits() async throws {
         let graph = try await SBOMTestModulesGraph.createConditionalModulesGraph(
             traitConfiguration: .enabledTraits(["EnablePackage1Dep", "EnablePackage2Dep"])
         )
         let dependencies = try await extractSBOM(from: graph)
-        
+
         // Verify: Both packages should be included (both traits enabled)
         #expect(dependencies.components.contains(where: { $0.name == "package1" }))
         #expect(dependencies.components.contains(where: { $0.name == "package2" }))
         #expect(dependencies.components.contains(where: { $0.name == "packageconditionaldeps" }))
     }
-    
+
     @Test("SBOM extraction with PackageConditionalDeps fixture - no traits enabled")
     func extractSBOMwithConditionalDepsFixtureNoTraits() async throws {
         let graph = try await SBOMTestModulesGraph.createConditionalModulesGraph(
             traitConfiguration: .disableAllTraits
         )
         let dependencies = try await extractSBOM(from: graph)
-        
+
         // Verify: Neither dependency package should be included (no traits enabled)
         #expect(!dependencies.components.contains(where: { $0.name == "package1" }))
         #expect(!dependencies.components.contains(where: { $0.name == "package2" }))
-        
+
         // Verify: Root package is still included
         #expect(dependencies.components.contains(where: { $0.name == "packageconditionaldeps" }))
     }

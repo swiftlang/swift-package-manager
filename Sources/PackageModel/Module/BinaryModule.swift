@@ -21,7 +21,7 @@ public final class BinaryModule: Module {
 
     /// The kind of binary artifact.
     public let kind: Kind
-    
+
     /// The original source of the binary artifact.
     public let origin: Origin
 
@@ -63,7 +63,7 @@ public final class BinaryModule: Module {
         /// Artifact bundles containing static libraries.
         case artifactsArchive(types: [ArtifactsArchiveMetadata.ArtifactType])
 
-        case unknown // for non-downloaded artifacts
+        case unknown  // for non-downloaded artifacts
 
         public var fileExtension: String {
             switch self {

@@ -20,8 +20,10 @@ final class ThrottledProgressAnimation: ProgressAnimationProtocol {
     private var pendingUpdate: (Int, Int, String)?
 
     init<C: Clock>(
-      _ animation: ProgressAnimationProtocol,
-      now: @escaping () -> C.Instant, interval: C.Duration, clock: C.Type = C.self
+        _ animation: ProgressAnimationProtocol,
+        now: @escaping () -> C.Instant,
+        interval: C.Duration,
+        clock: C.Type = C.self
     ) {
         self.animation = animation
         var lastUpdate: C.Instant?
@@ -79,7 +81,7 @@ extension ProgressAnimationProtocol {
     @_spi(SwiftPMInternal)
     public func throttled(
         interval: ContinuousClock.Duration
-    )  -> some ProgressAnimationProtocol  {
+    ) -> some ProgressAnimationProtocol {
         self.throttled(clock: ContinuousClock(), interval: interval)
     }
 }

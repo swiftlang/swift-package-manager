@@ -36,9 +36,9 @@ extension Trait where Self == Testing.ConditionTrait {
     public static func requireCompiledWith6_3OrLater(_ comment: Comment? = nil) -> Self {
         enabled(comment ?? "This needs to have been compiled with Swift 6.3 or later.") {
             #if compiler(>=6.3)
-            true
+                true
             #else
-            false
+                false
             #endif
         }
     }

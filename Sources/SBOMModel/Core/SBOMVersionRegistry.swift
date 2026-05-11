@@ -15,23 +15,23 @@
 /// See `Sources/SBOMModel/README.md` for detailed documentation on version management.
 internal struct SBOMVersionRegistry {
     // MARK: - CycloneDX Versions
-    
+
     /// Latest minor version of CycloneDX v1.x
     internal static let cycloneDX1LatestMinor = "1.7"
-    
+
     // Future major versions (uncomment when released):
     // internal static let cycloneDX2LatestMinor = "2.0"
-    
+
     // MARK: - SPDX Versions
-    
+
     /// Latest minor version of SPDX v3.x
     internal static let spdx3LatestMinor = "3.0.1"
-    
+
     // Future major versions (uncomment when released):
     // internal static let spdx4LatestMinor = "4.0"
-    
+
     // MARK: - Version Resolution
-    
+
     /// Returns the latest supported version for a given spec type.
     internal static func getLatestVersion(for spec: SBOMSpec) -> String {
         switch spec.concreteSpec {

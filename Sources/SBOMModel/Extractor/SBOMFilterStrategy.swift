@@ -14,7 +14,7 @@
 protocol SBOMFilterStrategy {
     /// Determines whether a component should be included based on the filter criteria
     func shouldIncludeComponent(_ component: SBOMComponent, primaryComponent: SBOMComponent) -> Bool
-    
+
     /// Determines whether a relationship should be tracked based on the filter criteria
     func shouldTrackRelationship(
         parent: SBOMComponent,
@@ -26,15 +26,15 @@ protocol SBOMFilterStrategy {
 /// Filter strategy that includes all components and relationships
 struct AllFilterStrategy: SBOMFilterStrategy {
     func shouldIncludeComponent(_ component: SBOMComponent, primaryComponent: SBOMComponent) -> Bool {
-        return true // All filter includes everything
+        return true  // All filter includes everything
     }
-    
+
     func shouldTrackRelationship(
         parent: SBOMComponent,
         child: SBOMComponent,
         primaryComponent: SBOMComponent
     ) -> Bool {
-        return parent != child // prevent self-referential dependencies
+        return parent != child  // prevent self-referential dependencies
     }
 }
 
@@ -51,14 +51,14 @@ struct ProductFilterStrategy: SBOMFilterStrategy {
         }
         return false
     }
-    
+
     func shouldTrackRelationship(
         parent: SBOMComponent,
         child: SBOMComponent,
         primaryComponent: SBOMComponent
     ) -> Bool {
         // prevent self-referential dependencies
-        guard parent != child else { return false } 
+        guard parent != child else { return false }
         if child.entity == .product {
             // if the primary component is a product, then include product-product relationships
             if parent.entity == .product {
@@ -87,14 +87,14 @@ struct PackageFilterStrategy: SBOMFilterStrategy {
         }
         return false
     }
-    
+
     func shouldTrackRelationship(
         parent: SBOMComponent,
         child: SBOMComponent,
         primaryComponent: SBOMComponent
     ) -> Bool {
         // prevent self-referential dependencies
-        guard parent != child else { return false } 
+        guard parent != child else { return false }
         if parent.entity == .package {
             // always include package-to-package relationships
             if child.entity == .package {

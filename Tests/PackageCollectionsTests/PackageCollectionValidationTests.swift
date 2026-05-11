@@ -37,7 +37,7 @@ class PackageCollectionValidationTests: XCTestCase {
                                 targets: [.init(name: "Foo", moduleName: "Foo")],
                                 products: [.init(name: "Bar", type: .library(.automatic), targets: ["Foo"])],
                                 minimumPlatformVersions: nil
-                            ),
+                            )
                         ],
                         defaultToolsVersion: "5.2",
                         verifiedCompatibility: nil,
@@ -56,7 +56,7 @@ class PackageCollectionValidationTests: XCTestCase {
                                 targets: [.init(name: "Foo", moduleName: "Foo")],
                                 products: [.init(name: "Bar", type: .library(.automatic), targets: ["Foo"])],
                                 minimumPlatformVersions: nil
-                            ),
+                            )
                         ],
                         defaultToolsVersion: "5.2",
                         verifiedCompatibility: nil,
@@ -68,7 +68,7 @@ class PackageCollectionValidationTests: XCTestCase {
                 ],
                 readmeURL: nil,
                 license: nil
-            ),
+            )
         ]
         let collection = Model.Collection(
             name: "Test Package Collection",
@@ -124,7 +124,7 @@ class PackageCollectionValidationTests: XCTestCase {
                                 targets: [.init(name: "Foo", moduleName: "Foo")],
                                 products: [.init(name: "Bar", type: .library(.automatic), targets: ["Foo"])],
                                 minimumPlatformVersions: nil
-                            ),
+                            )
                         ],
                         defaultToolsVersion: "5.2",
                         verifiedCompatibility: nil,
@@ -132,7 +132,7 @@ class PackageCollectionValidationTests: XCTestCase {
                         author: nil,
                         signer: nil,
                         createdAt: nil
-                    ),
+                    )
                 ],
                 readmeURL: nil,
                 license: nil
@@ -152,7 +152,7 @@ class PackageCollectionValidationTests: XCTestCase {
                                 targets: [.init(name: "Foo", moduleName: "Foo")],
                                 products: [.init(name: "Baz", type: .library(.automatic), targets: ["Foo"])],
                                 minimumPlatformVersions: nil
-                            ),
+                            )
                         ],
                         defaultToolsVersion: "5.2",
                         verifiedCompatibility: nil,
@@ -160,7 +160,7 @@ class PackageCollectionValidationTests: XCTestCase {
                         author: nil,
                         signer: nil,
                         createdAt: nil
-                    ),
+                    )
                 ],
                 readmeURL: nil,
                 license: nil
@@ -196,7 +196,7 @@ class PackageCollectionValidationTests: XCTestCase {
                 versions: [],
                 readmeURL: nil,
                 license: nil
-            ),
+            )
         ]
         let collection = Model.Collection(
             name: "Test Package Collection",
@@ -236,7 +236,7 @@ class PackageCollectionValidationTests: XCTestCase {
                                 targets: [],
                                 products: [],
                                 minimumPlatformVersions: nil
-                            ),
+                            )
                         ],
                         defaultToolsVersion: "5.2",
                         verifiedCompatibility: nil,
@@ -255,7 +255,7 @@ class PackageCollectionValidationTests: XCTestCase {
                                 targets: [.init(name: "Foo", moduleName: "Foo")],
                                 products: [.init(name: "Bar", type: .library(.automatic), targets: ["Foo"])],
                                 minimumPlatformVersions: nil
-                            ),
+                            )
                         ],
                         defaultToolsVersion: "5.2",
                         verifiedCompatibility: nil,
@@ -267,7 +267,7 @@ class PackageCollectionValidationTests: XCTestCase {
                 ],
                 readmeURL: nil,
                 license: nil
-            ),
+            )
         ]
         let collection = Model.Collection(
             name: "Test Package Collection",
@@ -317,7 +317,7 @@ class PackageCollectionValidationTests: XCTestCase {
                                 targets: [.init(name: "Foo", moduleName: "Foo")],
                                 products: [.init(name: "Bar", type: .library(.automatic), targets: ["Foo"])],
                                 minimumPlatformVersions: nil
-                            ),
+                            )
                         ],
                         defaultToolsVersion: "5.2",
                         verifiedCompatibility: nil,
@@ -325,11 +325,11 @@ class PackageCollectionValidationTests: XCTestCase {
                         author: nil,
                         signer: nil,
                         createdAt: nil
-                    ),
+                    )
                 ],
                 readmeURL: nil,
                 license: nil
-            ),
+            )
         ]
         let collection = Model.Collection(
             name: "Test Package Collection",
@@ -369,7 +369,7 @@ class PackageCollectionValidationTests: XCTestCase {
                                 targets: [.init(name: "Foo", moduleName: "Foo")],
                                 products: [.init(name: "Bar", type: .library(.automatic), targets: ["Foo"])],
                                 minimumPlatformVersions: nil
-                            ),
+                            )
                         ],
                         defaultToolsVersion: "5.2",
                         verifiedCompatibility: nil,
@@ -388,7 +388,7 @@ class PackageCollectionValidationTests: XCTestCase {
                                 targets: [.init(name: "Foo", moduleName: "Foo")],
                                 products: [.init(name: "Bar", type: .library(.automatic), targets: ["Foo"])],
                                 minimumPlatformVersions: nil
-                            ),
+                            )
                         ],
                         defaultToolsVersion: "5.2",
                         verifiedCompatibility: nil,
@@ -416,7 +416,7 @@ class PackageCollectionValidationTests: XCTestCase {
                                 targets: [.init(name: "Foo", moduleName: "Foo")],
                                 products: [.init(name: "Baz", type: .library(.automatic), targets: ["Foo"])],
                                 minimumPlatformVersions: nil
-                            ),
+                            )
                         ],
                         defaultToolsVersion: "5.2",
                         verifiedCompatibility: nil,
@@ -435,7 +435,7 @@ class PackageCollectionValidationTests: XCTestCase {
                                 targets: [.init(name: "Foo", moduleName: "Foo")],
                                 products: [.init(name: "Baz", type: .library(.automatic), targets: ["Foo"])],
                                 minimumPlatformVersions: nil
-                            ),
+                            )
                         ],
                         defaultToolsVersion: "5.2",
                         verifiedCompatibility: nil,
@@ -492,11 +492,11 @@ class PackageCollectionValidationTests: XCTestCase {
                         author: nil,
                         signer: nil,
                         createdAt: nil
-                    ),
+                    )
                 ],
                 readmeURL: nil,
                 license: nil
-            ),
+            )
         ]
         let collection = Model.Collection(
             name: "Test Package Collection",
@@ -536,7 +536,7 @@ class PackageCollectionValidationTests: XCTestCase {
                                 targets: [.init(name: "Foo", moduleName: "Foo")],
                                 products: [.init(name: "Bar", type: .library(.automatic), targets: [])],
                                 minimumPlatformVersions: nil
-                            ),
+                            )
                         ],
                         defaultToolsVersion: "5.2",
                         verifiedCompatibility: nil,
@@ -544,11 +544,11 @@ class PackageCollectionValidationTests: XCTestCase {
                         author: nil,
                         signer: nil,
                         createdAt: nil
-                    ),
+                    )
                 ],
                 readmeURL: nil,
                 license: nil
-            ),
+            )
         ]
         let collection = Model.Collection(
             name: "Test Package Collection",
@@ -588,7 +588,7 @@ class PackageCollectionValidationTests: XCTestCase {
                                 targets: [.init(name: "Foo", moduleName: "Foo")],
                                 products: [.init(name: "Bar", type: .library(.automatic), targets: ["Foo"])],
                                 minimumPlatformVersions: nil
-                            ),
+                            )
                         ],
                         defaultToolsVersion: "5.1",
                         verifiedCompatibility: nil,
@@ -596,11 +596,11 @@ class PackageCollectionValidationTests: XCTestCase {
                         author: nil,
                         signer: nil,
                         createdAt: nil
-                    ),
+                    )
                 ],
                 readmeURL: nil,
                 license: nil
-            ),
+            )
         ]
         let collection = Model.Collection(
             name: "Test Package Collection",
@@ -640,7 +640,7 @@ class PackageCollectionValidationTests: XCTestCase {
                                 targets: [.init(name: "Foo", moduleName: "Foo")],
                                 products: [.init(name: "Bar", type: .library(.automatic), targets: ["Foo"])],
                                 minimumPlatformVersions: nil
-                            ),
+                            )
                         ],
                         defaultToolsVersion: "5.1",
                         verifiedCompatibility: nil,
@@ -648,11 +648,11 @@ class PackageCollectionValidationTests: XCTestCase {
                         author: nil,
                         signer: nil,
                         createdAt: nil
-                    ),
+                    )
                 ],
                 readmeURL: nil,
                 license: nil
-            ),
+            )
         ]
         let collection = Model.Collection(
             name: "Test Package Collection",

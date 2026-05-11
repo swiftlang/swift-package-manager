@@ -44,10 +44,11 @@ public struct PubGrubDependencyResolver {
 
         private let lock = NSLock()
 
-        init(root: DependencyResolutionNode,
-             overriddenPackages: [PackageReference: (version: BoundVersion, products: ProductFilter)] = [:],
-             solution: PartialSolution = PartialSolution())
-        {
+        init(
+            root: DependencyResolutionNode,
+            overriddenPackages: [PackageReference: (version: BoundVersion, products: ProductFilter)] = [:],
+            solution: PartialSolution = PartialSolution()
+        ) {
             self.root = root
             self.overriddenPackages = overriddenPackages
             self.solution = solution
@@ -119,7 +120,8 @@ public struct PubGrubDependencyResolver {
     /// Resolver delegate
     private let delegate: DependencyResolverDelegate?
 
-    @available(*,
+    @available(
+        *,
         deprecated,
         renamed: "init(provider:resolvedPackages:skipDependenciesUpdates:prefetchBasedOnResolvedFile:observabilityScope:delegate:)",
         message: "Renamed for consistency with the actual name of the feature"
@@ -275,25 +277,29 @@ public struct PubGrubDependencyResolver {
                 flattenedAssignments[updatePackage] = (binding: boundVersion, products: products)
             }
         }
-        var finalAssignments: [DependencyResolverBinding]
-            = flattenedAssignments.keys.sorted(by: { $0.deprecatedName < $1.deprecatedName }).map { package in
-                let details = flattenedAssignments[package]!
-                return .init(package: package, boundVersion: details.binding, products: details.products)
-            }
+        var finalAssignments: [DependencyResolverBinding] = flattenedAssignments.keys.sorted(by: { $0.deprecatedName < $1.deprecatedName }).map { package in
+            let details = flattenedAssignments[package]!
+            return .init(package: package, boundVersion: details.binding, products: details.products)
+        }
 
         // Add overridden packages to the result.
         for (package, override) in state.overriddenPackages {
             let container = try await withCheckedThrowingContinuation { continuation in
-                self.provider.getContainer(for: package, completion: {
-                    continuation.resume(with: $0)
-                })
+                self.provider.getContainer(
+                    for: package,
+                    completion: {
+                        continuation.resume(with: $0)
+                    }
+                )
             }
             let updatePackage = try await container.underlying.loadPackageReference(at: override.version)
-            finalAssignments.append(.init(
+            finalAssignments.append(
+                .init(
                     package: updatePackage,
                     boundVersion: override.version,
                     products: override.products
-            ))
+                )
+            )
         }
 
         self.delegate?.solved(result: finalAssignments)
@@ -405,9 +411,12 @@ public struct PubGrubDependencyResolver {
             // Process dependencies of this package, similar to the first phase but branch-based dependencies
             // are not allowed to contain local/unversioned packages.
             let container = try await withCheckedThrowingContinuation { continuation in
-                self.provider.getContainer(for: package, completion: {
-                    continuation.resume(with: $0)
-                })
+                self.provider.getContainer(
+                    for: package,
+                    completion: {
+                        continuation.resume(with: $0)
+                    }
+                )
             }
 
             // If there is a pin for this revision-based dependency, get
@@ -525,11 +534,13 @@ public struct PubGrubDependencyResolver {
                     let rootCauseResult = self.propagate(state: state, incompatibility: rootCause)
 
                     guard case .almostSatisfied(let pkg) = rootCauseResult else {
-                        throw InternalError("""
-                        Expected root cause \(rootCause) to almost satisfy the \
-                        current partial solution:
-                        \(state.solution.assignments.map { " * \($0.description)" }.joined(separator: "\n"))\n
-                        """)
+                        throw InternalError(
+                            """
+                            Expected root cause \(rootCause) to almost satisfy the \
+                            current partial solution:
+                            \(state.solution.assignments.map { " * \($0.description)" }.joined(separator: "\n"))\n
+                            """
+                        )
                     }
 
                     changed.removeAll(keepingCapacity: false)
@@ -565,7 +576,6 @@ public struct PubGrubDependencyResolver {
         guard let unsatisfiedTerm = unsatisfied else {
             return .conflict
         }
-
 
         state.derive(unsatisfiedTerm.inverse, cause: incompatibility)
         self.delegate?.derived(term: unsatisfiedTerm.inverse)
@@ -689,9 +699,12 @@ public struct PubGrubDependencyResolver {
             for term in terms {
                 group.addTask {
                     let container = try await withCheckedThrowingContinuation { continuation in
-                        self.provider.getContainer(for: term.node.package, completion: {
-                            continuation.resume(with: $0)
-                        })
+                        self.provider.getContainer(
+                            for: term.node.package,
+                            completion: {
+                                continuation.resume(with: $0)
+                            }
+                        )
                     }
                     return try await (term, container.versionCount(term.requirement))
                 }
@@ -752,13 +765,15 @@ public struct PubGrubDependencyResolver {
             state.addIncompatibility(incompatibility, at: .decisionMaking)
 
             // Check if this incompatibility will satisfy the solution.
-            haveConflict = haveConflict || incompatibility.terms.allSatisfy {
-                // We only need to check if the terms other than this package
-                // are satisfied because we _know_ that the terms matching
-                // this package will be satisfied if we make this version
-                // as a decision.
-                $0.node == pkgTerm.node || state.solution.satisfies($0)
-            }
+            haveConflict =
+                haveConflict
+                || incompatibility.terms.allSatisfy {
+                    // We only need to check if the terms other than this package
+                    // are satisfied because we _know_ that the terms matching
+                    // this package will be satisfied if we make this version
+                    // as a decision.
+                    $0.node == pkgTerm.node || state.solution.satisfies($0)
+                }
         }
 
         // Decide this version if there was no conflict with its dependencies.

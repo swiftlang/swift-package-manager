@@ -14,8 +14,7 @@ import Basics
 import Foundation
 import struct SWBUtil.AbsolutePath
 import Testing
-@_spi(Testing)
-import SwiftBuild
+@_spi(Testing) import SwiftBuild
 import SwiftBuildSupport
 
 import TSCBasic
@@ -98,7 +97,7 @@ struct SwiftBuildSystemMessageHandlerTests {
         let events: [SwiftBuildMessage] = [
             .taskStartedInfo(),
             .taskCompleteInfo(),
-            .buildCompletedInfo()
+            .buildCompletedInfo(),
         ]
 
         for event in events {
@@ -120,7 +119,7 @@ struct SwiftBuildSystemMessageHandlerTests {
         let events: [SwiftBuildMessage] = [
             .taskStartedInfo(taskSignature: "simple-diagnostic"),
             .diagnostic(locationContext2: .init(taskSignature: "simple-diagnostic"), message: "Simple diagnostic", appendToOutputStream: true),
-            .taskCompleteInfo(taskSignature: "simple-diagnostic", result: .failed) // Handler only emits when a task is completed.
+            .taskCompleteInfo(taskSignature: "simple-diagnostic", result: .failed),  // Handler only emits when a task is completed.
         ]
 
         for event in events {
@@ -154,7 +153,7 @@ struct SwiftBuildSystemMessageHandlerTests {
                 message: "Second diagnostic",
                 appendToOutputStream: true
             ),
-            .taskCompleteInfo(taskSignature: "diagnostics", result: .failed) // Handler only emits when a task is completed.
+            .taskCompleteInfo(taskSignature: "diagnostics", result: .failed),  // Handler only emits when a task is completed.
         ]
 
         for event in events {
@@ -202,7 +201,7 @@ struct SwiftBuildSystemMessageHandlerTests {
                 message: "Another diagnostic",
                 appendToOutputStream: true
             ),
-            .taskCompleteInfo(taskID: 2, taskSignature: "another-diagnostic", result: .failed)
+            .taskCompleteInfo(taskID: 2, taskSignature: "another-diagnostic", result: .failed),
         ]
 
         for event in events {
@@ -284,7 +283,7 @@ struct SwiftBuildSystemMessageHandlerTests {
                 appendToOutputStream: true
             ),
             anotherOutputInfo,
-            .taskCompleteInfo(taskID: 2, taskSignature: "another-diagnostic")
+            .taskCompleteInfo(taskID: 2, taskSignature: "another-diagnostic"),
         ]
 
         for event in events {
@@ -307,7 +306,7 @@ struct SwiftBuildSystemMessageHandlerTests {
                 message: "Simple warning diagnostic",
                 appendToOutputStream: true
             ),
-            .taskCompleteInfo(taskID: 1, taskSignature: "simple-warning-diagnostic", result: .success)
+            .taskCompleteInfo(taskID: 1, taskSignature: "simple-warning-diagnostic", result: .success),
         ]
 
         for event in events {
@@ -329,13 +328,13 @@ struct SwiftBuildSystemMessageHandlerTests {
                 message: "Simple note diagnostic",
                 appendToOutputStream: true
             ),
-            .taskCompleteInfo(taskID: 1, taskSignature: "simple-note-diagnostic", result: .success)
+            .taskCompleteInfo(taskID: 1, taskSignature: "simple-note-diagnostic", result: .success),
         ]
 
         for event in events {
             _ = try messageHandler.emitEvent(event)
         }
-        
+
         #expect(!self.observability.hasWarningDiagnostics)
         #expect(!self.observability.hasErrorDiagnostics)
         #expect(self.observability.diagnostics.count == 1)
@@ -356,7 +355,7 @@ struct SwiftBuildSystemMessageHandlerTests {
                 message: "Simple debug diagnostic",
                 appendToOutputStream: true
             ),
-            .taskCompleteInfo(taskID: 1, taskSignature: "simple-debug-diagnostic", result: .success)
+            .taskCompleteInfo(taskID: 1, taskSignature: "simple-debug-diagnostic", result: .success),
         ]
 
         for event in events {
@@ -377,7 +376,7 @@ struct SwiftBuildSystemMessageHandlerTests {
 
         let events: [SwiftBuildMessage] = [
             .planningOperationStartedInfo(),
-            .planningOperationCompletedInfo()
+            .planningOperationCompletedInfo(),
         ]
 
         for event in events {
@@ -400,7 +399,7 @@ struct SwiftBuildSystemMessageHandlerTests {
 
         let events: [SwiftBuildMessage] = [
             .planningOperationStartedInfo(),
-            .planningOperationCompletedInfo()
+            .planningOperationCompletedInfo(),
         ]
 
         for event in events {
@@ -423,7 +422,7 @@ struct SwiftBuildSystemMessageHandlerTests {
 
         let events: [SwiftBuildMessage] = [
             .planningOperationStartedInfo(),
-            .planningOperationCompletedInfo()
+            .planningOperationCompletedInfo(),
         ]
 
         for event in events {
@@ -468,7 +467,7 @@ struct SwiftBuildSystemMessageHandlerTests {
             .progress(message: "Weird percent", percentComplete: -1),
             .progress(message: "12 / 32", percentComplete: 0),
             .progress(message: "Something useful", percentComplete: 12),
-            .progress(message: "Complete", percentComplete: 100)
+            .progress(message: "Complete", percentComplete: 100),
         ]
 
         for event in events {

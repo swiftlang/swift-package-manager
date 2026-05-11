@@ -21,9 +21,15 @@ final class PackageCollectionsModelTests: XCTestCase {
         let targets = [PackageCollectionsModel.Target(name: "Foo", moduleName: "Foo")]
         let products = [PackageCollectionsModel.Product(name: "Foo", type: .library(.automatic), targets: targets)]
         let toolsVersion = ToolsVersion(string: "5.2")!
-        let manifests = [toolsVersion: PackageCollectionsModel.Package.Version.Manifest(
-            toolsVersion: toolsVersion, packageName: "FooBar", targets: targets, products: products, minimumPlatformVersions: nil
-        )]
+        let manifests = [
+            toolsVersion: PackageCollectionsModel.Package.Version.Manifest(
+                toolsVersion: toolsVersion,
+                packageName: "FooBar",
+                targets: targets,
+                products: products,
+                minimumPlatformVersions: nil
+            )
+        ]
         let versions: [PackageCollectionsModel.Package.Version] = [
             .init(version: .init(stringLiteral: "1.2.0"), title: nil, summary: nil, manifests: manifests, defaultToolsVersion: toolsVersion, verifiedCompatibility: nil, license: nil, author: nil, signer: nil, createdAt: nil),
             .init(version: .init(stringLiteral: "2.0.1"), title: nil, summary: nil, manifests: manifests, defaultToolsVersion: toolsVersion, verifiedCompatibility: nil, license: nil, author: nil, signer: nil, createdAt: nil),
@@ -40,9 +46,15 @@ final class PackageCollectionsModelTests: XCTestCase {
         let targets = [PackageCollectionsModel.Target(name: "Foo", moduleName: "Foo")]
         let products = [PackageCollectionsModel.Product(name: "Foo", type: .library(.automatic), targets: targets)]
         let toolsVersion = ToolsVersion(string: "5.2")!
-        let manifests = [toolsVersion: PackageCollectionsModel.Package.Version.Manifest(
-            toolsVersion: toolsVersion, packageName: "FooBar", targets: targets, products: products, minimumPlatformVersions: nil
-        )]
+        let manifests = [
+            toolsVersion: PackageCollectionsModel.Package.Version.Manifest(
+                toolsVersion: toolsVersion,
+                packageName: "FooBar",
+                targets: targets,
+                products: products,
+                minimumPlatformVersions: nil
+            )
+        ]
         let versions: [PackageCollectionsModel.Package.Version] = [
             .init(version: .init(stringLiteral: "2.1.0-beta.3"), title: nil, summary: nil, manifests: manifests, defaultToolsVersion: toolsVersion, verifiedCompatibility: nil, license: nil, author: nil, signer: nil, createdAt: nil),
             .init(version: .init(stringLiteral: "3.0.0-beta.1"), title: nil, summary: nil, manifests: manifests, defaultToolsVersion: toolsVersion, verifiedCompatibility: nil, license: nil, author: nil, signer: nil, createdAt: nil),
@@ -56,9 +68,15 @@ final class PackageCollectionsModelTests: XCTestCase {
         let targets = [PackageCollectionsModel.Target(name: "Foo", moduleName: "Foo")]
         let products = [PackageCollectionsModel.Product(name: "Foo", type: .library(.automatic), targets: targets)]
         let toolsVersion = ToolsVersion(string: "5.2")!
-        let manifests = [toolsVersion: PackageCollectionsModel.Package.Version.Manifest(
-            toolsVersion: toolsVersion, packageName: "FooBar", targets: targets, products: products, minimumPlatformVersions: nil
-        )]
+        let manifests = [
+            toolsVersion: PackageCollectionsModel.Package.Version.Manifest(
+                toolsVersion: toolsVersion,
+                packageName: "FooBar",
+                targets: targets,
+                products: products,
+                minimumPlatformVersions: nil
+            )
+        ]
         let versions: [PackageCollectionsModel.Package.Version] = [
             .init(version: .init(stringLiteral: "1.2.0"), title: nil, summary: nil, manifests: manifests, defaultToolsVersion: toolsVersion, verifiedCompatibility: nil, license: nil, author: nil, signer: nil, createdAt: nil),
             .init(version: .init(stringLiteral: "2.0.1"), title: nil, summary: nil, manifests: manifests, defaultToolsVersion: toolsVersion, verifiedCompatibility: nil, license: nil, author: nil, signer: nil, createdAt: nil),

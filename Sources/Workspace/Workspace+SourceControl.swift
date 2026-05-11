@@ -104,7 +104,7 @@ extension Workspace {
         case .version(let version, revision: let revision) where revision != nil:
             return try await self.checkoutRepository(
                 package: package,
-                at: .version(version, revision: .init(identifier: revision!)), // nil checked above
+                at: .version(version, revision: .init(identifier: revision!)),  // nil checked above
                 observabilityScope: observabilityScope
             )
         case .branch(let branch, revision: let revision):

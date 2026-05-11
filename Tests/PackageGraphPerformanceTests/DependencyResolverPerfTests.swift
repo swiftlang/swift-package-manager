@@ -30,33 +30,33 @@ import struct TSCUtility.Version
 import class TSCTestSupport.XCTestCasePerf
 
 private let v1: Version = "1.0.0"
-private let v1Range: VersionSetSpecifier = .range("1.0.0" ..< "2.0.0")
+private let v1Range: VersionSetSpecifier = .range("1.0.0"..<"2.0.0")
 
 class DependencyResolverRealWorldPerfTests: XCTestCasePerf {
     func testKituraPubGrub_X100() async throws {
         #if !os(macOS)
-        try XCTSkipIf(true, "test is only supported on macOS")
+            try XCTSkipIf(true, "test is only supported on macOS")
         #endif
         try await runPackageTestPubGrub(name: "kitura.json", N: 100)
     }
 
     func testZewoPubGrub_X100() async throws {
         #if !os(macOS)
-        try XCTSkipIf(true, "test is only supported on macOS")
+            try XCTSkipIf(true, "test is only supported on macOS")
         #endif
         try await runPackageTestPubGrub(name: "ZewoHTTPServer.json", N: 100)
     }
 
     func testPerfectPubGrub_X100() async throws {
         #if !os(macOS)
-        try XCTSkipIf(true, "test is only supported on macOS")
+            try XCTSkipIf(true, "test is only supported on macOS")
         #endif
         try await runPackageTestPubGrub(name: "PerfectHTTPServer.json", N: 100)
     }
 
     func testSourceKittenPubGrub_X100() async throws {
         #if !os(macOS)
-        try XCTSkipIf(true, "test is only supported on macOS")
+            try XCTSkipIf(true, "test is only supported on macOS")
         #endif
         try await runPackageTestPubGrub(name: "SourceKitten.json", N: 100)
     }
@@ -67,7 +67,7 @@ class DependencyResolverRealWorldPerfTests: XCTestCasePerf {
 
         self.startMeasuring()
 
-        for _ in 0 ..< N {
+        for _ in 0..<N {
             let resolver = PubGrubDependencyResolver(provider: provider, observabilityScope: ObservabilitySystem.NOOP)
             switch await resolver.solve(constraints: graph.constraints) {
             case .success(let result):
@@ -96,7 +96,6 @@ class DependencyResolverRealWorldPerfTests: XCTestCasePerf {
     }
 }
 
-
 // MARK: - JSON
 
 public extension MockDependencyGraph {
@@ -111,12 +110,14 @@ public extension MockDependencyGraph {
             name: name,
             constraints: constraints.map(PackageContainerConstraint.init(json:)),
             containers: containers.map(MockPackageContainer.init(json:)),
-            result: Dictionary(uniqueKeysWithValues: try! result.map { value in
-                let (container, version) = value
-                guard case .string(let str) = version else { fatalError() }
-                let package = PackageReference.localSourceControl(identity: .plain(container.lowercased()), path: try .init(validating: "/\(container)"))
-                return (package, Version(str)!)
-            })
+            result: Dictionary(
+                uniqueKeysWithValues: try! result.map { value in
+                    let (container, version) = value
+                    guard case .string(let str) = version else { fatalError() }
+                    let package = PackageReference.localSourceControl(identity: .plain(container.lowercased()), path: try .init(validating: "/\(container)"))
+                    return (package, Version(str)!)
+                }
+            )
         )
     }
 }
@@ -130,7 +131,8 @@ private extension MockPackageContainer {
         var depByVersion: [Version: [(container: String, versionRequirement: VersionSetSpecifier)]] = [:]
         for (version, deps) in versions {
             guard case .array(let depArray) = deps else { fatalError() }
-            depByVersion[Version(version)!] = depArray
+            depByVersion[Version(version)!] =
+                depArray
                 .map(PackageContainerConstraint.init(json:))
                 .map { constraint in
                     switch constraint.requirement {
@@ -178,7 +180,7 @@ private extension VersionSetSpecifier {
                     guard case .string(let str) = json else { fatalError() }
                     return Version(str)!
                 }
-                self = .range(versions[0] ..< versions[1])
+                self = .range(versions[0]..<versions[1])
             default: fatalError()
             }
         default: fatalError()

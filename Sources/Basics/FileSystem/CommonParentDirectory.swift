@@ -24,7 +24,7 @@
 /// - `["/usr/local/bin", "/usr/local/lib"]` → `"/usr/local"`
 /// - `["/a/b", "/x/y"]` → `"/"`
 /// - `[]` → `"/"`
-public func getCommonParentDirectory(paths: [AbsolutePath]) throws-> AbsolutePath {
+public func getCommonParentDirectory(paths: [AbsolutePath]) throws -> AbsolutePath {
     // Handle empty array case
     guard !paths.isEmpty else {
         return AbsolutePath.root

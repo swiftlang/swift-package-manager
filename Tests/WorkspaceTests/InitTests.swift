@@ -68,7 +68,7 @@ struct InitTests {
     }
 
     @Suite(
-        .serialized, // Crash occurred when executed in parallel.  Needs investigation
+        .serialized,  // Crash occurred when executed in parallel.  Needs investigation
         .tags(
             .TestSize.large,
         ),
@@ -82,7 +82,7 @@ struct InitTests {
         )
         func initPackageExecutable(
             buildSystem: BuildSystemProvider.Kind,
-        ) async throws  {
+        ) async throws {
             let configuration = BuildConfiguration.debug
             try await testWithTemporaryDirectory { tmpPath in
                 let fs = localFileSystem
@@ -125,11 +125,11 @@ struct InitTests {
                 expectFileExists(at: binPath.appending(executableName("Foo")))
                 let expectedOutput: [String]
                 switch buildSystem {
-                    case .native:
+                case .native:
                     expectedOutput = ["Modules", "Foo.swiftmodule"]
-                    case .swiftbuild:
+                case .swiftbuild:
                     expectedOutput = ["Foo.swiftmodule"]
-                    case .xcode:
+                case .xcode:
                     expectedOutput = ["Foo.swiftmodule"]
                     Issue.record("Test expectation is not implemented")
                 }
@@ -209,7 +209,7 @@ struct InitTests {
 
                 // Verify basic file system content that we expect in the package
                 let manifest = path.appending("Package.swift")
-                try requireFileExists(at:  manifest)
+                try requireFileExists(at: manifest)
                 let manifestContents: String = try localFileSystem.readFileContents(manifest)
                 let version = InitPackage.newPackageToolsVersion
                 let versionSpecifier = "\(version.major).\(version.minor)"
@@ -222,10 +222,13 @@ struct InitTests {
 
                 let testFile = tests.appending("FooTests").appending("FooTests.swift")
                 let testFileContents: String = try localFileSystem.readFileContents(testFile)
-                #expect(testFileContents.hasPrefix("import XCTest"), """
-                            Validates formatting of XCTest source file, in particular that it does not contain leading whitespace:
-                            \(testFileContents)
-                            """)
+                #expect(
+                    testFileContents.hasPrefix("import XCTest"),
+                    """
+                    Validates formatting of XCTest source file, in particular that it does not contain leading whitespace:
+                    \(testFileContents)
+                    """
+                )
                 #expect(testFileContents.contains("func testExample() throws"))
 
                 // Try building it
@@ -236,11 +239,11 @@ struct InitTests {
                 )
                 let expectedOutput: [String]
                 switch buildSystem {
-                    case .native:
+                case .native:
                     expectedOutput = ["Modules", "Foo.swiftmodule"]
-                    case .swiftbuild:
+                case .swiftbuild:
                     expectedOutput = ["Foo.swiftmodule"]
-                    case .xcode:
+                case .xcode:
                     expectedOutput = ["Foo.swiftmodule"]
                     Issue.record("Test expectation is not implemented")
                 }
@@ -257,7 +260,7 @@ struct InitTests {
         )
         func initPackageLibraryWithSwiftTestingOnly(
             buildSystem: BuildSystemProvider.Kind,
-        ) async throws  {
+        ) async throws {
             let configuration = BuildConfiguration.debug
             try withTemporaryDirectory { tmpPath in
                 let fs = localFileSystem
@@ -286,16 +289,16 @@ struct InitTests {
                 #expect(testFileContents.contains(#"@Test func example() async throws"#))
                 #expect(!testFileContents.contains("func testExample() throws"))
 
-    #if canImport(TestingDisabled)
-                // Try building it
-                try await executeSwiftBuild(
-                    path,
-                    configuration: configuration,
-                    buildSystem: buildSystem,
-                )
-                let triple = try UserToolchain.default.targetTriple
-                expectFileExists(at: path.appending(components: buildSystem.binPath(for: configuration) + ["Modules", "Foo.swiftmodule"]))
-    #endif
+                #if canImport(TestingDisabled)
+                    // Try building it
+                    try await executeSwiftBuild(
+                        path,
+                        configuration: configuration,
+                        buildSystem: buildSystem,
+                    )
+                    let triple = try UserToolchain.default.targetTriple
+                    expectFileExists(at: path.appending(components: buildSystem.binPath(for: configuration) + ["Modules", "Foo.swiftmodule"]))
+                #endif
             }
         }
 
@@ -307,7 +310,7 @@ struct InitTests {
         )
         func initPackageLibraryWithBothSwiftTestingAndXCTest(
             buildSystem: BuildSystemProvider.Kind,
-        ) async throws  {
+        ) async throws {
             let configuration = BuildConfiguration.debug
             try withTemporaryDirectory { tmpPath in
                 let fs = localFileSystem
@@ -336,16 +339,16 @@ struct InitTests {
                 #expect(testFileContents.contains(#"@Test func example() async throws"#))
                 #expect(testFileContents.contains("func testExample() throws"))
 
-    #if canImport(TestingDisabled)
-                // Try building it
-                try await executeSwiftBuild(
-                    path,
-                    configuration: configuration,
-                    buildSystem: buildSystem,
-                )
-                let triple = try UserToolchain.default.targetTriple
-                expectFileExists(at: path.appending(components: buildSystem.binPath(for: configuration) + ["Modules", "Foo.swiftmodule"]))
-    #endif
+                #if canImport(TestingDisabled)
+                    // Try building it
+                    try await executeSwiftBuild(
+                        path,
+                        configuration: configuration,
+                        buildSystem: buildSystem,
+                    )
+                    let triple = try UserToolchain.default.targetTriple
+                    expectFileExists(at: path.appending(components: buildSystem.binPath(for: configuration) + ["Modules", "Foo.swiftmodule"]))
+                #endif
             }
         }
 
@@ -384,16 +387,16 @@ struct InitTests {
 
                 expectFileDoesNotExists(at: path.appending("Tests"))
 
-    #if canImport(TestingDisabled)
-                // Try building it
-                try await executeSwiftBuild(
-                    path,
-                    configuration: configuration,
-                    buildSystem: buildSystem,
-                )
-                let triple = try UserToolchain.default.targetTriple
-                expectFileExists(at: path.appending(components: ".build", triple.platformBuildPathComponent, configuration.dirname, "Modules", "Foo.swiftmodule"))
-    #endif
+                #if canImport(TestingDisabled)
+                    // Try building it
+                    try await executeSwiftBuild(
+                        path,
+                        configuration: configuration,
+                        buildSystem: buildSystem,
+                    )
+                    let triple = try UserToolchain.default.targetTriple
+                    expectFileExists(at: path.appending(components: ".build", triple.platformBuildPathComponent, configuration.dirname, "Modules", "Foo.swiftmodule"))
+                #endif
             }
         }
 
@@ -437,12 +440,12 @@ struct InitTests {
 
                 let expectedFile: AbsolutePath
                 switch buildSystem {
-                    case .native:
+                case .native:
                     expectedFile = try packageRoot.appending(components: buildSystem.binPath(for: configuration) + ["Modules", "some_package.swiftmodule"])
-                    case .swiftbuild:
-                    expectedFile = try packageRoot.appending(components: buildSystem.binPath(for: configuration) + [ "some_package.swiftmodule"])
-                    case .xcode:
-                    expectedFile = try packageRoot.appending(components: buildSystem.binPath(for: configuration) + [ "some_package.swiftmodule"])
+                case .swiftbuild:
+                    expectedFile = try packageRoot.appending(components: buildSystem.binPath(for: configuration) + ["some_package.swiftmodule"])
+                case .xcode:
+                    expectedFile = try packageRoot.appending(components: buildSystem.binPath(for: configuration) + ["some_package.swiftmodule"])
                     Issue.record("Test expectation is not implemented")
                 }
 
@@ -585,9 +588,7 @@ struct InitTests {
 
             let manifestContents: String = try localFileSystem.readFileContents(manifest)
             #expect(manifestContents.contains(".plugin(") && manifestContents.contains("targets: [\"MyCommandPlugin\"]"))
-            #expect(manifestContents.contains(".plugin(") &&
-                   manifestContents.contains("capability: .command(intent: .custom(") &&
-                   manifestContents.contains("verb: \"MyCommandPlugin\""))
+            #expect(manifestContents.contains(".plugin(") && manifestContents.contains("capability: .command(intent: .custom(") && manifestContents.contains("verb: \"MyCommandPlugin\""))
 
             // Check basic content that we expect in the plugin source file
             let source = path.appending("Plugins", "MyCommandPlugin.swift")
@@ -706,21 +707,21 @@ struct InitTests {
 
     private func packageWithNameOnly(named name: String) -> String {
         return """
-        let package = Package(
-            name: "\(name)"
-        )
-        """
+            let package = Package(
+                name: "\(name)"
+            )
+            """
     }
 
     private func packageWithNameAndDependencies(with name: String) -> String {
         return """
-let package = Package(
-    name: "\(name)",
-    dependencies: [
-        // Dependencies declare other packages that this package depends on.
-        // .package(url: /* package url */, from: "1.0.0"),
-    ]
-)
-"""
+            let package = Package(
+                name: "\(name)",
+                dependencies: [
+                    // Dependencies declare other packages that this package depends on.
+                    // .package(url: /* package url */, from: "1.0.0"),
+                ]
+            )
+            """
     }
 }

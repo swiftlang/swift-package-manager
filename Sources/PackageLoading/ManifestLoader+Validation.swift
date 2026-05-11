@@ -63,9 +63,9 @@ public struct ManifestValidator {
         return diagnostics
     }
 
-    private func validateProducts()  -> [Basics.Diagnostic] {
+    private func validateProducts() -> [Basics.Diagnostic] {
         var diagnostics = [Basics.Diagnostic]()
-        
+
         for product in self.manifest.products {
             // Check that the product contains targets.
             guard !product.targets.isEmpty else {
@@ -169,10 +169,12 @@ public struct ManifestValidator {
 
                 let validExtensions = Self.supportedLocalBinaryDependencyExtensions
                 guard let fileExtension = relativePath.extension, validExtensions.contains(fileExtension) else {
-                    diagnostics.append(.unsupportedBinaryLocationExtension(
-                        targetName: target.name,
-                        validExtensions: validExtensions
-                    ))
+                    diagnostics.append(
+                        .unsupportedBinaryLocationExtension(
+                            targetName: target.name,
+                            validExtensions: validExtensions
+                        )
+                    )
                     continue
                 }
             } else if target.isRemote {
@@ -193,18 +195,22 @@ public struct ManifestValidator {
 
                 let validSchemes = ["https"]
                 guard url.scheme.map({ validSchemes.contains($0) }) ?? false else {
-                    diagnostics.append(.invalidBinaryURLScheme(
-                        targetName: target.name,
-                        validSchemes: validSchemes
-                    ))
+                    diagnostics.append(
+                        .invalidBinaryURLScheme(
+                            targetName: target.name,
+                            validSchemes: validSchemes
+                        )
+                    )
                     continue
                 }
 
                 guard Self.supportedRemoteBinaryDependencyExtensions.contains(url.pathExtension) else {
-                    diagnostics.append(.unsupportedBinaryLocationExtension(
-                        targetName: target.name,
-                        validExtensions: Self.supportedRemoteBinaryDependencyExtensions
-                    ))
+                    diagnostics.append(
+                        .unsupportedBinaryLocationExtension(
+                            targetName: target.name,
+                            validExtensions: Self.supportedRemoteBinaryDependencyExtensions
+                        )
+                    )
                     continue
                 }
 
@@ -229,23 +235,24 @@ public struct ManifestValidator {
                     break
                 case .product(_, let packageName, _, _):
                     if self.manifest.packageDependency(referencedBy: targetDependency) == nil {
-                        diagnostics.append(.unknownTargetPackageDependency(
-                            packageName: packageName,
-                            targetName: target.name,
-                            validPackages: self.manifest.dependencies
-                        ))
+                        diagnostics.append(
+                            .unknownTargetPackageDependency(
+                                packageName: packageName,
+                                targetName: target.name,
+                                validPackages: self.manifest.dependencies
+                            )
+                        )
                     }
                 case .byName(let name, _):
                     // Don't diagnose root manifests so we can emit a better diagnostic during package loading.
-                    if !self.manifest.packageKind.isRoot &&
-                        !self.manifest.targetMap.keys.contains(name) &&
-                        self.manifest.packageDependency(referencedBy: targetDependency) == nil
-                    {
-                        diagnostics.append(.unknownTargetDependency(
-                            dependency: name,
-                            targetName: target.name,
-                            validDependencies: self.manifest.dependencies
-                        ))
+                    if !self.manifest.packageKind.isRoot && !self.manifest.targetMap.keys.contains(name) && self.manifest.packageDependency(referencedBy: targetDependency) == nil {
+                        diagnostics.append(
+                            .unknownTargetDependency(
+                                dependency: name,
+                                targetName: target.name,
+                                validDependencies: self.manifest.dependencies
+                            )
+                        )
                     }
                 }
             }
@@ -338,10 +345,12 @@ extension Basics.Diagnostic {
     }
 
     static func invalidLanguageTag(_ languageTag: String) -> Self {
-        .error("""
+        .error(
+            """
             invalid language tag '\(languageTag)'; the pattern for language tags is groups of latin characters and \
             digits separated by hyphens
-            """)
+            """
+        )
     }
 
     static func errorSuffix(_ error: Error?) -> String {

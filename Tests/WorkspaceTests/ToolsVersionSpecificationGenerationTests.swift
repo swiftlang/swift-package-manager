@@ -31,13 +31,13 @@ fileprivate struct ToolsVersionSpecificationGenerationTests {
         #expect(versionWithNonZeroPatch.specification(roundedTo: .minor) == "// swift-tools-version:4.3")
         #expect(versionWithNonZeroPatch.specification(roundedTo: .patch) == "// swift-tools-version:4.3.2")
 
-        let versionWithZeroPatch = ToolsVersion.v5_3 // 5.3.0
+        let versionWithZeroPatch = ToolsVersion.v5_3  // 5.3.0
         #expect(versionWithZeroPatch.specification() == "// swift-tools-version:5.3")
         #expect(versionWithZeroPatch.specification(roundedTo: .automatic) == "// swift-tools-version:5.3")
         #expect(versionWithZeroPatch.specification(roundedTo: .minor) == "// swift-tools-version:5.3")
         #expect(versionWithZeroPatch.specification(roundedTo: .patch) == "// swift-tools-version:5.3.0")
 
-        let newMajorVersion = ToolsVersion.v5 // 5.0.0
+        let newMajorVersion = ToolsVersion.v5  // 5.0.0
         #expect(newMajorVersion.specification() == "// swift-tools-version:5.0")
         #expect(newMajorVersion.specification(roundedTo: .automatic) == "// swift-tools-version:5.0")
         #expect(newMajorVersion.specification(roundedTo: .minor) == "// swift-tools-version:5.0")

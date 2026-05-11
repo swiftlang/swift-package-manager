@@ -21,7 +21,7 @@ public struct Diagnostics {
     public enum Severity: String, Encodable {
         case error, warning, remark
     }
-    
+
     /// Emits an error with a specified severity and message, and optional file path and line number.
     /// - Parameters:
     ///   - severity: The severity of the diagnostic.

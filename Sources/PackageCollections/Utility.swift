@@ -15,7 +15,7 @@ import SourceControl
 
 struct MultipleErrors: Error, CustomStringConvertible {
     let errors: [Error]
-    
+
     init(_ errors: [Error]) {
         self.errors = errors
     }

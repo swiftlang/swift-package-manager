@@ -46,7 +46,7 @@ extension Data {
     ///
     /// https://tools.ietf.org/html/rfc4648#page-7
     mutating func base64URLUnescape() {
-        for i in 0 ..< self.count {
+        for i in 0..<self.count {
             switch self[i] {
             case 0x2D: self[self.index(self.startIndex, offsetBy: i)] = 0x2B
             case 0x5F: self[self.index(self.startIndex, offsetBy: i)] = 0x2F
@@ -64,7 +64,7 @@ extension Data {
     ///
     /// https://tools.ietf.org/html/rfc4648#page-7
     mutating func base64URLEscape() {
-        for i in 0 ..< self.count {
+        for i in 0..<self.count {
             switch self[i] {
             case 0x2B: self[self.index(self.startIndex, offsetBy: i)] = 0x2D
             case 0x2F: self[self.index(self.startIndex, offsetBy: i)] = 0x5F

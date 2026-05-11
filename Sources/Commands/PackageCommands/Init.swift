@@ -13,8 +13,7 @@
 import ArgumentParser
 import Basics
 
-@_spi(SwiftPMInternal)
-import CoreCommands
+@_spi(SwiftPMInternal) import CoreCommands
 
 import PackageModel
 import Workspace
@@ -29,20 +28,24 @@ extension SwiftPackageCommand {
 
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
-        
+
         @Option(
             name: .customLong("type"),
-            help: ArgumentHelp("Package type:", discussion: """
-                library           - A package with a library.
-                executable        - A package with an executable.
-                tool              - A package with an executable that uses
-                                    Swift Argument Parser. Use this template if you
-                                    plan to have a rich set of command-line arguments.
-                build-tool-plugin - A package that vends a build tool plugin.
-                command-plugin    - A package that vends a command plugin.
-                macro             - A package that vends a macro.
-                empty             - An empty package with a Package.swift manifest.
-                """))
+            help: ArgumentHelp(
+                "Package type:",
+                discussion: """
+                    library           - A package with a library.
+                    executable        - A package with an executable.
+                    tool              - A package with an executable that uses
+                                        Swift Argument Parser. Use this template if you
+                                        plan to have a rich set of command-line arguments.
+                    build-tool-plugin - A package that vends a build tool plugin.
+                    command-plugin    - A package that vends a command plugin.
+                    macro             - A package that vends a macro.
+                    empty             - An empty package with a Package.swift manifest.
+                    """
+            )
+        )
         var initMode: InitPackage.PackageType = .library
 
         /// Which testing libraries to use (and any related options.)
@@ -66,12 +69,10 @@ extension SwiftPackageCommand {
             // For macros this is reversed, since we don't support testing
             // macros with Swift Testing yet.
             var supportedTestingLibraries = Set<TestingLibrary>()
-            if testLibraryOptions.isExplicitlyEnabled(.xctest, swiftCommandState: swiftCommandState) ||
-                (initMode == .macro && testLibraryOptions.isEnabled(.xctest, swiftCommandState: swiftCommandState)) {
+            if testLibraryOptions.isExplicitlyEnabled(.xctest, swiftCommandState: swiftCommandState) || (initMode == .macro && testLibraryOptions.isEnabled(.xctest, swiftCommandState: swiftCommandState)) {
                 supportedTestingLibraries.insert(.xctest)
             }
-            if testLibraryOptions.isExplicitlyEnabled(.swiftTesting, swiftCommandState: swiftCommandState) ||
-                (initMode != .macro && testLibraryOptions.isEnabled(.swiftTesting, swiftCommandState: swiftCommandState)) {
+            if testLibraryOptions.isExplicitlyEnabled(.swiftTesting, swiftCommandState: swiftCommandState) || (initMode != .macro && testLibraryOptions.isEnabled(.swiftTesting, swiftCommandState: swiftCommandState)) {
                 supportedTestingLibraries.insert(.swiftTesting)
             }
 

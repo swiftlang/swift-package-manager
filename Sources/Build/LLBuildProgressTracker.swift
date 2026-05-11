@@ -10,8 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-@_spi(SwiftPMInternal)
-import Basics
+@_spi(SwiftPMInternal) import Basics
 import Dispatch
 import Foundation
 import LLBuildManifest
@@ -26,9 +25,9 @@ import class TSCBasic.ThreadSafeOutputByteStream
 import class TSCUtility.IndexStoreAPI
 
 #if canImport(llbuildSwift)
-typealias LLBuildBuildSystemDelegate = llbuildSwift.BuildSystemDelegate
+    typealias LLBuildBuildSystemDelegate = llbuildSwift.BuildSystemDelegate
 #else
-typealias LLBuildBuildSystemDelegate = llbuild.BuildSystemDelegate
+    typealias LLBuildBuildSystemDelegate = llbuild.BuildSystemDelegate
 #endif
 
 private final class InProcessTool: Tool {
@@ -103,24 +102,24 @@ public final class BuildExecutionContext {
         self.indexStoreAPICache.memoize {
             do {
                 #if os(Windows)
-                // The library's runtime component is in the `bin` directory on
-                // Windows rather than the `lib` directory as on Unix.  The `lib`
-                // directory contains the import library (and possibly static
-                // archives) which are used for linking.  The runtime component is
-                // not (necessarily) part of the SDK distributions.
-                //
-                // NOTE: the library name here `libIndexStore.dll` is technically
-                // incorrect as per the Windows naming convention.  However, the
-                // library is currently installed as `libIndexStore.dll` rather than
-                // `IndexStore.dll`.  In the future, this may require a fallback
-                // search, preferring `IndexStore.dll` over `libIndexStore.dll`.
-                let indexStoreLib = self.toolsBuildParameters.toolchain.swiftCompilerPath
-                    .parentDirectory
-                    .appending("libIndexStore.dll")
+                    // The library's runtime component is in the `bin` directory on
+                    // Windows rather than the `lib` directory as on Unix.  The `lib`
+                    // directory contains the import library (and possibly static
+                    // archives) which are used for linking.  The runtime component is
+                    // not (necessarily) part of the SDK distributions.
+                    //
+                    // NOTE: the library name here `libIndexStore.dll` is technically
+                    // incorrect as per the Windows naming convention.  However, the
+                    // library is currently installed as `libIndexStore.dll` rather than
+                    // `IndexStore.dll`.  In the future, this may require a fallback
+                    // search, preferring `IndexStore.dll` over `libIndexStore.dll`.
+                    let indexStoreLib = self.toolsBuildParameters.toolchain.swiftCompilerPath
+                        .parentDirectory
+                        .appending("libIndexStore.dll")
                 #else
-                let ext = self.toolsBuildParameters.triple.dynamicLibraryExtension
-                let indexStoreLib = try toolsBuildParameters.toolchain.toolchainLibDir
-                    .appending("libIndexStore" + ext)
+                    let ext = self.toolsBuildParameters.triple.dynamicLibraryExtension
+                    let indexStoreLib = try toolsBuildParameters.toolchain.toolchainLibDir
+                        .appending("libIndexStore" + ext)
                 #endif
                 return try .success(IndexStoreAPI(dylib: TSCAbsolutePath(indexStoreLib)))
             } catch {
@@ -175,9 +174,10 @@ final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOut
         self.observabilityScope = observabilityScope
         self.delegate = delegate
 
-        let swiftParsers = buildExecutionContext.buildDescription?.swiftCommands.mapValues { tool in
-            SwiftCompilerOutputParser(targetName: tool.moduleName, delegate: self)
-        } ?? [:]
+        let swiftParsers =
+            buildExecutionContext.buildDescription?.swiftCommands.mapValues { tool in
+                SwiftCompilerOutputParser(targetName: tool.moduleName, delegate: self)
+            } ?? [:]
         self.swiftParsers = swiftParsers
 
         self.taskTracker.onTaskProgressUpdateText = { [weak self] progressText, _ in
@@ -242,7 +242,7 @@ final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOut
 
     func commandStatusChanged(_ command: SPMLLBuild.Command, kind: CommandStatusKind) {
         guard !self.logLevel.isVerbose,
-              !self.logLevel.isQuiet
+            !self.logLevel.isQuiet
         else { return }
         guard command.shouldShowStatus else { return }
         guard !self.swiftParsers.keys.contains(command.name) else { return }
@@ -346,8 +346,10 @@ final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOut
         result: CommandExtendedResult
     ) {
         // FIXME: This should really happen at the command-level and is just a stopgap measure.
-        let shouldFilterOutput = !self.logLevel.isVerbose && command.verboseDescription.hasPrefix("codesign ") && result
-            .result != .failed
+        let shouldFilterOutput =
+            !self.logLevel.isVerbose && command.verboseDescription.hasPrefix("codesign ")
+            && result
+                .result != .failed
 
         let commandName = command.name
 
@@ -461,9 +463,7 @@ final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOut
                 if output.utf8.count < 1024 * 10 {
                     let regex = try! RegEx(pattern: #".*(error:[^\n]*)\n.*"#, options: .dotMatchesLineSeparators)
                     for match in regex.matchGroups(in: output) {
-                        self.errorMessagesByTarget[parser.targetName] = (
-                            self.errorMessagesByTarget[parser.targetName] ?? []
-                        ) + [match[0]]
+                        self.errorMessagesByTarget[parser.targetName] = (self.errorMessagesByTarget[parser.targetName] ?? []) + [match[0]]
                     }
                 }
             }
@@ -486,11 +486,12 @@ final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOut
     }
 
     func buildComplete(success: Bool, duration: DispatchTimeInterval, subsetDescriptor: String? = nil) {
-        let subsetString = if let subsetDescriptor {
-            "of \(subsetDescriptor) "
-        } else {
-            ""
-        }
+        let subsetString =
+            if let subsetDescriptor {
+                "of \(subsetDescriptor) "
+            } else {
+                ""
+            }
 
         self.queue.sync {
             self.progressAnimation.complete(success: success)
@@ -571,14 +572,14 @@ private struct CommandTaskTracker {
     }
 
     private func progressText(of commandDescription: String, targetName: String?) -> String {
-#if os(Windows)
-    let pathSep: Character = "\\"
-#else
-    let pathSep: Character = "/"
-#endif
+        #if os(Windows)
+            let pathSep: Character = "\\"
+        #else
+            let pathSep: Character = "/"
+        #endif
         // Transforms descriptions like "Linking ./.build/x86_64-apple-macosx/debug/foo" into "Linking foo".
         if let firstSpaceIndex = commandDescription.firstIndex(of: " "),
-           let lastDirectorySeparatorIndex = commandDescription.lastIndex(of: pathSep)
+            let lastDirectorySeparatorIndex = commandDescription.lastIndex(of: pathSep)
         {
             let action = commandDescription[..<firstSpaceIndex]
             let fileNameStartIndex = commandDescription.index(after: lastDirectorySeparatorIndex)
@@ -643,8 +644,8 @@ extension SwiftCompilerMessage {
     fileprivate var standardOutput: String? {
         switch kind {
         case .finished(let info),
-             .abnormal(let info),
-             .signalled(let info):
+            .abnormal(let info),
+            .signalled(let info):
             info.output
         case .unparsableOutput(let output):
             output

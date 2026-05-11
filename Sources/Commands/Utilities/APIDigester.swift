@@ -79,7 +79,7 @@ struct APIDigesterBaselineDumper {
         var modulesToDiff = modulesToDiff
         let apiDiffDir = productsBuildParameters.apiDiff
         let baselineDir = (baselineDir ?? apiDiffDir).appending(component: baselineRevision.identifier)
-        let baselinePath: (String)->AbsolutePath = { module in
+        let baselinePath: (String) -> AbsolutePath = { module in
             baselineDir.appending(component: module + ".json")
         }
 
@@ -215,8 +215,8 @@ public struct SwiftAPIDigester {
         }
 
         try self.fileSystem.readFileContents(outputPath).withData { data in
-            if let jsonObject = try JSONSerialization.jsonObject(with: data, options: []) as? [String:Any] {
-                guard let abiRoot = jsonObject["ABIRoot"] as? [String:Any] else {
+            if let jsonObject = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any] {
+                guard let abiRoot = jsonObject["ABIRoot"] as? [String: Any] else {
                     throw Error.failedToValidateBaseline(module: module)
                 }
 
@@ -238,7 +238,7 @@ public struct SwiftAPIDigester {
         var args = [
             "-diagnose-sdk",
             "-baseline-path", baselinePath.pathString,
-            "-module", module
+            "-module", module,
         ]
         args.append(contentsOf: try buildPlan.createAPIToolCommonArgs(includeLibrarySearchPaths: false))
         if let breakageAllowlistPath {
@@ -256,9 +256,11 @@ public struct SwiftAPIDigester {
             let apiDigesterCategory = "api-digester-breaking-change"
             let apiBreakingChanges = serializedDiagnostics.diagnostics.filter { $0.category == apiDigesterCategory }
             let otherDiagnostics = serializedDiagnostics.diagnostics.filter { $0.category != apiDigesterCategory }
-            return ComparisonResult(moduleName: module,
-                                    apiBreakingChanges: apiBreakingChanges,
-                                    otherDiagnostics: otherDiagnostics)
+            return ComparisonResult(
+                moduleName: module,
+                apiBreakingChanges: apiBreakingChanges,
+                otherDiagnostics: otherDiagnostics
+            )
         }
     }
 

@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-
 import Basics
 import _IntegrationTestSupport
 import _InternalTestSupport
@@ -216,7 +215,7 @@ private struct XCBuildTests {
             try await executeSwiftBuild(
                 fooPath,
                 extraArgs: [
-                    "--build-tests",
+                    "--build-tests"
                 ],
                 buildSystem: .xcode,
             )
@@ -230,7 +229,7 @@ private struct XCBuildTests {
                 fooPath,
                 configuration: .release,
                 extraArgs: [
-                    "--build-tests",
+                    "--build-tests"
                 ],
                 buildSystem: .xcode,
             )

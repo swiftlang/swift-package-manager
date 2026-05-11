@@ -96,52 +96,63 @@ final class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
         let foo1 = targets["Foo1"]!
         let foo2 = targets["Foo2"]!
         let foo3 = targets["Foo3"]
-        XCTAssertEqual(foo1, try? TargetDescription(
-            name: "Foo1",
-            dependencies: [],
-            path: "../Foo1.xcframework",
-            url: nil,
-            exclude: [],
-            sources: nil,
-            resources: [],
-            publicHeadersPath: nil,
-            type: .binary,
-            packageAccess: false,
-            pkgConfig: nil,
-            providers: nil,
-            settings: [],
-            checksum: nil))
-        XCTAssertEqual(foo2, try? TargetDescription(
-            name: "Foo2",
-            dependencies: [],
-            path: nil,
-            url: "https://foo.com/Foo2-1.0.0.zip",
-            exclude: [],
-            sources: nil,
-            resources: [],
-            publicHeadersPath: nil,
-            type: .binary,
-            packageAccess: false,
-            pkgConfig: nil,
-            providers: nil,
-            settings: [],
-            checksum: "839F9F30DC13C30795666DD8F6FB77DD0E097B83D06954073E34FE5154481F7A"))
-        XCTAssertEqual(foo3, try? TargetDescription(
-            name: "Foo3",
-            dependencies: [],
-            path: "./Foo3.zip",
-            url: nil,
-            exclude: [],
-            sources: nil,
-            resources: [],
-            publicHeadersPath: nil,
-            type: .binary,
-            packageAccess: false,
-            pkgConfig: nil,
-            providers: nil,
-            settings: [],
-            checksum: nil
-        ))
+        XCTAssertEqual(
+            foo1,
+            try? TargetDescription(
+                name: "Foo1",
+                dependencies: [],
+                path: "../Foo1.xcframework",
+                url: nil,
+                exclude: [],
+                sources: nil,
+                resources: [],
+                publicHeadersPath: nil,
+                type: .binary,
+                packageAccess: false,
+                pkgConfig: nil,
+                providers: nil,
+                settings: [],
+                checksum: nil
+            )
+        )
+        XCTAssertEqual(
+            foo2,
+            try? TargetDescription(
+                name: "Foo2",
+                dependencies: [],
+                path: nil,
+                url: "https://foo.com/Foo2-1.0.0.zip",
+                exclude: [],
+                sources: nil,
+                resources: [],
+                publicHeadersPath: nil,
+                type: .binary,
+                packageAccess: false,
+                pkgConfig: nil,
+                providers: nil,
+                settings: [],
+                checksum: "839F9F30DC13C30795666DD8F6FB77DD0E097B83D06954073E34FE5154481F7A"
+            )
+        )
+        XCTAssertEqual(
+            foo3,
+            try? TargetDescription(
+                name: "Foo3",
+                dependencies: [],
+                path: "./Foo3.zip",
+                url: nil,
+                exclude: [],
+                sources: nil,
+                resources: [],
+                publicHeadersPath: nil,
+                type: .binary,
+                packageAccess: false,
+                pkgConfig: nil,
+                providers: nil,
+                settings: [],
+                checksum: nil
+            )
+        )
     }
 
     func testBinaryTargetsDisallowedProperties() async throws {
@@ -158,33 +169,32 @@ final class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
 
         let observability = ObservabilitySystem.makeForTesting()
         await XCTAssertAsyncThrowsError(try await loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") { error in
-            XCTAssertEqual(error.localizedDescription,
-                "target 'Foo' is assigned a property 'settings' which is not accepted for the binary target type. " +
-                "The current property value has the following representation: " +
-                "[PackageModel.TargetBuildSettingDescription.Setting(" +
-                "tool: PackageModel.TargetBuildSettingDescription.Tool.linker, " +
-                "kind: PackageModel.TargetBuildSettingDescription.Kind.linkedFramework(\"AVFoundation\"), " +
-                "condition: nil)].")
+            XCTAssertEqual(
+                error.localizedDescription,
+                "target 'Foo' is assigned a property 'settings' which is not accepted for the binary target type. " + "The current property value has the following representation: " + "[PackageModel.TargetBuildSettingDescription.Setting(" + "tool: PackageModel.TargetBuildSettingDescription.Tool.linker, " + "kind: PackageModel.TargetBuildSettingDescription.Kind.linkedFramework(\"AVFoundation\"), " + "condition: nil)]."
+            )
         }
     }
 
     func testBinaryTargetRequiresPathOrUrl() async throws {
         let content = """
-        import PackageDescription
-        var fwBinaryTarget = Target.binaryTarget(
-            name: "nickel",
-            url: "https://example.com/foo.git",
-            checksum: "bee"
-        )
-        fwBinaryTarget.url = nil
-        let package = Package(name: "foo", targets: [fwBinaryTarget])
-        """
+            import PackageDescription
+            var fwBinaryTarget = Target.binaryTarget(
+                name: "nickel",
+                url: "https://example.com/foo.git",
+                checksum: "bee"
+            )
+            fwBinaryTarget.url = nil
+            let package = Package(name: "foo", targets: [fwBinaryTarget])
+            """
 
         let observability = ObservabilitySystem.makeForTesting()
         await XCTAssertAsyncThrowsError(
             try await loadAndValidateManifest(
-                content, observabilityScope: observability.topScope
-            ), "expected error"
+                content,
+                observabilityScope: observability.topScope
+            ),
+            "expected error"
         ) { error in
             XCTAssertEqual(
                 error.localizedDescription,
@@ -548,8 +558,8 @@ final class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
 
     func testManifestLoadingIsSandboxed() async throws {
         #if !os(macOS)
-        // Sandboxing is only done on macOS today.
-        try XCTSkipIf(true, "test is only supported on macOS")
+            // Sandboxing is only done on macOS today.
+            try XCTSkipIf(true, "test is only supported on macOS")
         #endif
         let content = """
             import Foundation

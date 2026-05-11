@@ -19,8 +19,7 @@ import PackageCollectionsCommand
 import PackageRegistryCommand
 
 let firstArg = CommandLine.arguments[0]
-let baseNameWithoutExtension = (try? AbsolutePath(validating: firstArg).basenameWithoutExt) ??
-    (try? RelativePath(validating: firstArg).basenameWithoutExt)
+let baseNameWithoutExtension = (try? AbsolutePath(validating: firstArg).basenameWithoutExt) ?? (try? RelativePath(validating: firstArg).basenameWithoutExt)
 
 @main
 struct SwiftPM {

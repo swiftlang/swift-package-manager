@@ -172,9 +172,11 @@ extension PackageCollectionModel.V1 {
             public var maximumMajorVersionCount: Int
             public var maximumMinorVersionCount: Int
 
-            public init(maximumPackageCount: Int? = nil,
-                        maximumMajorVersionCount: Int? = nil,
-                        maximumMinorVersionCount: Int? = nil) {
+            public init(
+                maximumPackageCount: Int? = nil,
+                maximumMajorVersionCount: Int? = nil,
+                maximumMinorVersionCount: Int? = nil
+            ) {
                 // TODO: where should we read defaults from?
                 self.maximumPackageCount = maximumPackageCount ?? 50
                 self.maximumMajorVersionCount = maximumMajorVersionCount ?? 2
@@ -234,7 +236,7 @@ extension Array where Element == ValidationMessage {
 public enum ValidationError: Error, Equatable, CustomStringConvertible {
     case property(name: String, message: String)
     case other(message: String)
-    
+
     public var message: String {
         switch self {
         case .property(_, let message):

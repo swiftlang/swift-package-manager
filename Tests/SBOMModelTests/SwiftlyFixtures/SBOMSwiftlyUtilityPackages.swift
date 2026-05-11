@@ -199,7 +199,7 @@ extension SBOMTestModulesGraph {
             packageIdentity: identity,
             module: instrumentationModule,
             dependencies: [
-                .product(serviceContextProduct, conditions: []),
+                .product(serviceContextProduct, conditions: [])
             ]
         )
 
@@ -288,7 +288,7 @@ extension SBOMTestModulesGraph {
             packageIdentity: identity,
             module: yamsModule,
             dependencies: [
-                .module(resolvedCYamlModule, conditions: []),
+                .module(resolvedCYamlModule, conditions: [])
             ]
         )
 
@@ -383,7 +383,7 @@ extension SBOMTestModulesGraph {
             packageIdentity: identity,
             module: openAPIKitModule,
             dependencies: [
-                .module(resolvedOpenAPIKitCoreModule, conditions: []),
+                .module(resolvedOpenAPIKitCoreModule, conditions: [])
             ]
         )
 
@@ -391,7 +391,7 @@ extension SBOMTestModulesGraph {
             packageIdentity: identity,
             module: openAPIKit30Module,
             dependencies: [
-                .module(resolvedOpenAPIKitCoreModule, conditions: []),
+                .module(resolvedOpenAPIKitCoreModule, conditions: [])
             ]
         )
 

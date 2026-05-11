@@ -75,7 +75,8 @@ extension Workspace {
             )
 
             guard dependency.packageRef.canonicalLocation == manifest.canonicalPackageLocation else {
-                return observabilityScope
+                return
+                    observabilityScope
                     .emit(
                         error: "package at '\(destination)' is \(dependency.packageRef.identity) but was expecting \(packageIdentity)"
                     )
@@ -83,16 +84,20 @@ extension Workspace {
 
             // Emit warnings for branch and revision, if they're present.
             if let checkoutBranch {
-                observabilityScope.emit(.editBranchNotCheckedOut(
-                    packageName: packageIdentity,
-                    branchName: checkoutBranch
-                ))
+                observabilityScope.emit(
+                    .editBranchNotCheckedOut(
+                        packageName: packageIdentity,
+                        branchName: checkoutBranch
+                    )
+                )
             }
             if let revision {
-                observabilityScope.emit(.editRevisionNotUsed(
-                    packageName: packageIdentity,
-                    revisionIdentifier: revision.identifier
-                ))
+                observabilityScope.emit(
+                    .editRevisionNotUsed(
+                        packageName: packageIdentity,
+                        revisionIdentifier: revision.identifier
+                    )
+                )
             }
         } else {
             // Otherwise, create a checkout at the destination from our repository store.
@@ -169,7 +174,8 @@ extension Workspace {
 
         // If the dependency isn't in edit mode, we can't unedit it.
         guard case .edited(_, let unmanagedPath) = dependency.state else {
-            throw WorkspaceDiagnostics
+            throw
+                WorkspaceDiagnostics
                 .DependencyNotInEditMode(dependencyName: dependency.packageRef.identity.description)
         }
 
@@ -198,13 +204,13 @@ extension Workspace {
         }
         // If this was the last editable dependency, remove the editables directory too.
         if fileSystem.exists(self.location.editsDirectory),
-           try fileSystem.getDirectoryContents(self.location.editsDirectory).isEmpty
+            try fileSystem.getDirectoryContents(self.location.editsDirectory).isEmpty
         {
             try fileSystem.removeFileTree(self.location.editsDirectory)
         }
 
         if case .edited(let basedOn, _) = dependency.state,
-           case .sourceControlCheckout(let checkoutState) = basedOn?.state
+            case .sourceControlCheckout(let checkoutState) = basedOn?.state
         {
             // Restore the original checkout.
             //

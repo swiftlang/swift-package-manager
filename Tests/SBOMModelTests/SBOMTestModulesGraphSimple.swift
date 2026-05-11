@@ -75,11 +75,14 @@ extension SBOMTestModulesGraph {
             packageIdentity: appIdentity,
             module: appModule,
             dependencies: [
-                .product(self.createResolvedProduct(
-                    packageIdentity: utilsIdentity,
-                    product: utilsProduct,
-                    modules: IdentifiableSet([resolvedUtilsModule])
-                ), conditions: []),
+                .product(
+                    self.createResolvedProduct(
+                        packageIdentity: utilsIdentity,
+                        product: utilsProduct,
+                        modules: IdentifiableSet([resolvedUtilsModule])
+                    ),
+                    conditions: []
+                )
             ]
         )
 

@@ -16,7 +16,7 @@ import PackageDescription
 let package = Package(
     name: "SwiftPMBenchmarks",
     platforms: [
-        .macOS("14"),
+        .macOS("14")
     ],
     dependencies: [
         .package(path: "../"),
@@ -31,8 +31,8 @@ let package = Package(
             ],
             path: "Benchmarks/PackageGraphBenchmarks",
             plugins: [
-                .plugin(name: "BenchmarkPlugin", package: "package-benchmark"),
+                .plugin(name: "BenchmarkPlugin", package: "package-benchmark")
             ]
-        ),
+        )
     ]
 )

@@ -37,21 +37,21 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+json")
 
                 let data = """
-                {
-                    "id": "mona.LinkedList",
-                    "version": "1.1.1",
-                    "resources": [
-                        {
-                            "name": "source-archive",
-                            "type": "application/zip",
-                            "checksum": "\(checksum)"
+                    {
+                        "id": "mona.LinkedList",
+                        "version": "1.1.1",
+                        "resources": [
+                            {
+                                "name": "source-archive",
+                                "type": "application/zip",
+                                "checksum": "\(checksum)"
+                            }
+                        ],
+                        "metadata": {
+                            "description": "One thing links to another."
                         }
-                    ],
-                    "metadata": {
-                        "description": "One thing links to another."
                     }
-                }
-                """.data(using: .utf8)!
+                    """.data(using: .utf8)!
 
                 return .init(
                     statusCode: 200,
@@ -124,21 +124,21 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+json")
 
                 let data = """
-                {
-                    "id": "mona.LinkedList",
-                    "version": "1.1.1",
-                    "resources": [
-                        {
-                            "name": "source-archive",
-                            "type": "application/zip",
-                            "checksum": "\(checksum)"
+                    {
+                        "id": "mona.LinkedList",
+                        "version": "1.1.1",
+                        "resources": [
+                            {
+                                "name": "source-archive",
+                                "type": "application/zip",
+                                "checksum": "\(checksum)"
+                            }
+                        ],
+                        "metadata": {
+                            "description": "One thing links to another."
                         }
-                    ],
-                    "metadata": {
-                        "description": "One thing links to another."
                     }
-                }
-                """.data(using: .utf8)!
+                    """.data(using: .utf8)!
 
                 return .init(
                     statusCode: 200,
@@ -160,7 +160,7 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
         configuration.defaultRegistry = registry
 
         let fingerprintStorage = WriteConflictFingerprintStorage()
-        let fingerprintCheckingMode = FingerprintCheckingMode.strict // intended for this test, don't change
+        let fingerprintCheckingMode = FingerprintCheckingMode.strict  // intended for this test, don't change
 
         let registryClient = makeRegistryClient(
             configuration: configuration,
@@ -206,21 +206,21 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+json")
 
                 let data = """
-                {
-                    "id": "mona.LinkedList",
-                    "version": "1.1.1",
-                    "resources": [
-                        {
-                            "name": "source-archive",
-                            "type": "application/zip",
-                            "checksum": "\(checksum)"
+                    {
+                        "id": "mona.LinkedList",
+                        "version": "1.1.1",
+                        "resources": [
+                            {
+                                "name": "source-archive",
+                                "type": "application/zip",
+                                "checksum": "\(checksum)"
+                            }
+                        ],
+                        "metadata": {
+                            "description": "One thing links to another."
                         }
-                    ],
-                    "metadata": {
-                        "description": "One thing links to another."
                     }
-                }
-                """.data(using: .utf8)!
+                    """.data(using: .utf8)!
 
                 return .init(
                     statusCode: 200,
@@ -242,7 +242,7 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
         configuration.defaultRegistry = registry
 
         let fingerprintStorage = WriteConflictFingerprintStorage()
-        let fingerprintCheckingMode = FingerprintCheckingMode.warn // intended for this test, don't change
+        let fingerprintCheckingMode = FingerprintCheckingMode.warn  // intended for this test, don't change
 
         let registryClient = makeRegistryClient(
             configuration: configuration,
@@ -445,10 +445,10 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
                             origin: .registry(registryURL),
                             value: checksum,
                             contentType: .sourceCode
-                        ),
-                    ],
-                ],
-            ],
+                        )
+                    ]
+                ]
+            ]
         ])
         let fingerprintCheckingMode = FingerprintCheckingMode.strict
 
@@ -500,12 +500,12 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
                             origin: .registry(registryURL),
                             value: "non-matching checksum",
                             contentType: .sourceCode
-                        ),
-                    ],
-                ],
-            ],
+                        )
+                    ]
+                ]
+            ]
         ])
-        let fingerprintCheckingMode = FingerprintCheckingMode.strict // intended for this test; don't change
+        let fingerprintCheckingMode = FingerprintCheckingMode.strict  // intended for this test; don't change
 
         let registryClient = makeRegistryClient(
             configuration: configuration,
@@ -563,12 +563,12 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
                             origin: .registry(registryURL),
                             value: "non-matching checksum",
                             contentType: .sourceCode
-                        ),
-                    ],
-                ],
-            ],
+                        )
+                    ]
+                ]
+            ]
         ])
-        let fingerprintCheckingMode = FingerprintCheckingMode.warn // intended for this test; don't change
+        let fingerprintCheckingMode = FingerprintCheckingMode.warn  // intended for this test; don't change
 
         let registryClient = makeRegistryClient(
             configuration: configuration,
@@ -641,7 +641,7 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
             registry: registry,
             package: package,
             version: version,
-            toolsVersion: .v5_6, // Version specific manifest
+            toolsVersion: .v5_6,  // Version specific manifest
             checksum: "Package@swift-5.6.swift checksum"
         )
 
@@ -649,7 +649,7 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
             registry: registry,
             package: package,
             version: version,
-            toolsVersion: .none, // default manifest
+            toolsVersion: .none,  // default manifest
             checksum: "Package.swift checksum"
         )
 
@@ -704,10 +704,10 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
                             origin: .registry(registryURL),
                             value: checksum,
                             contentType: contentType
-                        ),
-                    ],
-                ],
-            ],
+                        )
+                    ]
+                ]
+            ]
         ])
         let fingerprintCheckingMode = FingerprintCheckingMode.strict
 
@@ -761,12 +761,12 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
                             origin: .registry(registryURL),
                             value: "non-matching checksum",
                             contentType: contentType
-                        ),
-                    ],
-                ],
-            ],
+                        )
+                    ]
+                ]
+            ]
         ])
-        let fingerprintCheckingMode = FingerprintCheckingMode.strict // intended for this test; don't change
+        let fingerprintCheckingMode = FingerprintCheckingMode.strict  // intended for this test; don't change
 
         let registryClient = makeRegistryClient(
             configuration: configuration,
@@ -826,12 +826,12 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
                             origin: .registry(registryURL),
                             value: "non-matching checksum",
                             contentType: contentType
-                        ),
-                    ],
-                ],
-            ],
+                        )
+                    ]
+                ]
+            ]
         ])
-        let fingerprintCheckingMode = FingerprintCheckingMode.warn // intended for this test; don't change
+        let fingerprintCheckingMode = FingerprintCheckingMode.warn  // intended for this test; don't change
 
         let registryClient = makeRegistryClient(
             configuration: configuration,
@@ -933,7 +933,7 @@ private class WriteConflictFingerprintStorage: PackageFingerprintStorage {
         package: PackageReference,
         version: Version,
         observabilityScope: ObservabilityScope
-    ) throws -> [Fingerprint.Kind: [Fingerprint.ContentType: Fingerprint]]{
+    ) throws -> [Fingerprint.Kind: [Fingerprint.ContentType: Fingerprint]] {
         try self.get(
             package: package.identity,
             version: version,

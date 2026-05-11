@@ -18,11 +18,11 @@ import struct Foundation.URL
 import Basics
 
 #if USE_IMPL_ONLY_IMPORTS
-@_implementationOnly import SwiftASN1
-@_implementationOnly @_spi(DisableValidityCheck) import X509
+    @_implementationOnly import SwiftASN1
+    @_implementationOnly @_spi(DisableValidityCheck) import X509
 #else
-import SwiftASN1
-@_spi(DisableValidityCheck) import X509
+    import SwiftASN1
+    @_spi(DisableValidityCheck) import X509
 #endif
 
 extension SignatureProviderProtocol {
@@ -80,10 +80,7 @@ struct _CodeSigningPolicy: VerifierPolicy {
     ]
 
     func chainMeetsPolicyRequirements(chain: UnverifiedCertificateChain) async -> PolicyEvaluationResult {
-        let isCodeSigning = (
-            try? chain.leaf.extensions.extendedKeyUsage?.contains(ExtendedKeyUsage.Usage.codeSigning)
-        ) ??
-            false
+        let isCodeSigning = (try? chain.leaf.extensions.extendedKeyUsage?.contains(ExtendedKeyUsage.Usage.codeSigning)) ?? false
         guard isCodeSigning else {
             return .failsToMeetPolicy(reason: "Certificate \(chain.leaf) does not have code signing extended key usage")
         }
@@ -95,13 +92,14 @@ struct _CodeSigningPolicy: VerifierPolicy {
 struct _ADPCertificatePolicy: VerifierPolicy {
     /// Include custom marker extensions (which can be critical) so they would not
     /// be considered unhandled and cause certificate chain validation to fail.
-    let verifyingCriticalExtensions: [ASN1ObjectIdentifier] = Self.swiftPackageMarkers
+    let verifyingCriticalExtensions: [ASN1ObjectIdentifier] =
+        Self.swiftPackageMarkers
         + Self.developmentMarkers
 
     // Marker extensions for Swift Package certificate
     private static let swiftPackageMarkers: [ASN1ObjectIdentifier] = [
         // This is not a critical extension but including it just in case
-        ASN1ObjectIdentifier.NameAttributes.adpSwiftPackageMarker,
+        ASN1ObjectIdentifier.NameAttributes.adpSwiftPackageMarker
     ]
 
     // Marker extensions for Development certificate (included for testing)

@@ -19,12 +19,12 @@ public struct LLBuildManifestWriter {
     // FIXME: since JSON is a superset of YAML and we don't need to parse these manifests,
     // we should just use `JSONEncoder` instead.
     private var buffer = """
-    client:
-      name: basic
-      file-system: device-agnostic
-    tools: {}
+        client:
+          name: basic
+          file-system: device-agnostic
+        tools: {}
 
-    """
+        """
 
     private init(manifest: LLBuildManifest) {
         self.manifest = manifest
@@ -79,27 +79,27 @@ public struct LLBuildManifestWriter {
 
     private mutating func render(directoryStructure node: Node) {
         self.buffer += """
-          \(node.asJSON):
-            is-directory-structure: true
-            content-exclusion-patterns: \(namesToExclude.asJSON)
+              \(node.asJSON):
+                is-directory-structure: true
+                content-exclusion-patterns: \(namesToExclude.asJSON)
 
-        """
+            """
     }
 
     private mutating func render(isCommandTimestamp node: Node) {
         self.buffer += """
-          \(node.asJSON):
-            is-command-timestamp: true
+              \(node.asJSON):
+                is-command-timestamp: true
 
-        """
+            """
     }
 
     private mutating func render(isMutated node: Node) {
         self.buffer += """
-          \(node.asJSON):
-            is-mutated: true
+              \(node.asJSON):
+                is-mutated: true
 
-        """
+            """
     }
 
     private mutating func render(commands: [LLBuildManifest.CmdName: Command]) {
@@ -237,62 +237,65 @@ extension String {
 
     private var jsonEscaped: String {
         // See RFC7159 for reference: https://tools.ietf.org/html/rfc7159
-        String(decoding: self.utf8.flatMap { character -> [UInt8] in
-            // Handle string escapes; we use constants here to directly match the RFC.
-            switch character {
-            // Literal characters.
-            case 0x20 ... 0x21, 0x23 ... 0x5B, 0x5D ... 0xFF:
-                return [character]
+        String(
+            decoding: self.utf8.flatMap { character -> [UInt8] in
+                // Handle string escapes; we use constants here to directly match the RFC.
+                switch character {
+                // Literal characters.
+                case 0x20...0x21, 0x23...0x5B, 0x5D...0xFF:
+                    return [character]
 
-            // Single-character escaped characters.
-            case 0x22: // '"'
-                return [
-                    0x5C, // '\'
-                    0x22, // '"'
-                ]
-            case 0x5C: // '\\'
-                return [
-                    0x5C, // '\'
-                    0x5C, // '\'
-                ]
-            case 0x08: // '\b'
-                return [
-                    0x5C, // '\'
-                    0x62, // 'b'
-                ]
-            case 0x0C: // '\f'
-                return [
-                    0x5C, // '\'
-                    0x66, // 'b'
-                ]
-            case 0x0A: // '\n'
-                return [
-                    0x5C, // '\'
-                    0x6E, // 'n'
-                ]
-            case 0x0D: // '\r'
-                return [
-                    0x5C, // '\'
-                    0x72, // 'r'
-                ]
-            case 0x09: // '\t'
-                return [
-                    0x5C, // '\'
-                    0x74, // 't'
-                ]
+                // Single-character escaped characters.
+                case 0x22:  // '"'
+                    return [
+                        0x5C,  // '\'
+                        0x22,  // '"'
+                    ]
+                case 0x5C:  // '\\'
+                    return [
+                        0x5C,  // '\'
+                        0x5C,  // '\'
+                    ]
+                case 0x08:  // '\b'
+                    return [
+                        0x5C,  // '\'
+                        0x62,  // 'b'
+                    ]
+                case 0x0C:  // '\f'
+                    return [
+                        0x5C,  // '\'
+                        0x66,  // 'b'
+                    ]
+                case 0x0A:  // '\n'
+                    return [
+                        0x5C,  // '\'
+                        0x6E,  // 'n'
+                    ]
+                case 0x0D:  // '\r'
+                    return [
+                        0x5C,  // '\'
+                        0x72,  // 'r'
+                    ]
+                case 0x09:  // '\t'
+                    return [
+                        0x5C,  // '\'
+                        0x74,  // 't'
+                    ]
 
-            // Multi-character escaped characters.
-            default:
-                return [
-                    0x5C, // '\'
-                    0x75, // 'u'
-                    hexdigit(0),
-                    hexdigit(0),
-                    hexdigit(character >> 4),
-                    hexdigit(character & 0xF),
-                ]
-            }
-        }, as: UTF8.self)
+                // Multi-character escaped characters.
+                default:
+                    return [
+                        0x5C,  // '\'
+                        0x75,  // 'u'
+                        hexdigit(0),
+                        hexdigit(0),
+                        hexdigit(character >> 4),
+                        hexdigit(character & 0xF),
+                    ]
+                }
+            },
+            as: UTF8.self
+        )
     }
 }
 

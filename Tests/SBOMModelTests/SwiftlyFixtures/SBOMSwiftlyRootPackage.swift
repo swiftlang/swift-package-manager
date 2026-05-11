@@ -149,7 +149,7 @@ extension SBOMTestModulesGraph {
             packageIdentity: identity,
             module: generateCommandModelsModule,
             dependencies: [
-                .module(resolvedGenerateCommandModelsExecModule, conditions: []),
+                .module(resolvedGenerateCommandModelsExecModule, conditions: [])
             ]
         )
 
@@ -157,7 +157,7 @@ extension SBOMTestModulesGraph {
             packageIdentity: identity,
             module: generateDocsReferenceExecModule,
             dependencies: [
-                .product(argumentParserProduct, conditions: []),
+                .product(argumentParserProduct, conditions: [])
             ]
         )
 
@@ -165,7 +165,7 @@ extension SBOMTestModulesGraph {
             packageIdentity: identity,
             module: generateDocsReferenceModule,
             dependencies: [
-                .module(resolvedGenerateDocsReferenceExecModule, conditions: []),
+                .module(resolvedGenerateDocsReferenceExecModule, conditions: [])
             ]
         )
 
@@ -320,7 +320,7 @@ extension SBOMTestModulesGraph {
             packageIdentity: identity,
             module: swiftlyTestsModule,
             dependencies: [
-                .product(systemPackageProduct, conditions: []),
+                .product(systemPackageProduct, conditions: [])
             ]
         )
 

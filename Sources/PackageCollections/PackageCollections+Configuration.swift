@@ -18,10 +18,10 @@ extension PackageCollections {
         // TODO: add configuration including:
         // JSONPackageCollectionProvider: maximumSizeInBytes
         // JSONPackageCollectionValidator: maximumPackageCount, maximumMajorVersionCount, maximumMinorVersionCount
-        
+
         /// Path of the parent directory for collections-related configuration files
         public var configurationDirectory: AbsolutePath?
-        
+
         /// Path of the parent directory for collections-related cache(s)
         public var cacheDirectory: AbsolutePath?
 

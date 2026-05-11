@@ -145,8 +145,6 @@ public struct PackageSearchClient {
         baseURL.appendingPathComponent("raw").appendingPathComponent(defaultBranch).appendingPathComponent("README.md")
     }
 
-
-
     private func guessReadMeURL(alternateLocations: [SourceControlURL]?) -> URL? {
         if let alternateURL = alternateLocations?.first {
             // FIXME: This is pretty crude, we should let the registry metadata provide the value instead.
@@ -240,10 +238,12 @@ public struct PackageSearchClient {
                         to: tempPath,
                         progressHandler: nil
                     )
-                    guard try self.repositoryProvider.isValidDirectory(tempPath), let repository = try await self.repositoryProvider.open(
-                        repository: repositorySpecifier,
-                        at: tempPath
-                    ) as? GitRepository else {
+                    guard try self.repositoryProvider.isValidDirectory(tempPath),
+                        let repository = try await self.repositoryProvider.open(
+                            repository: repositorySpecifier,
+                            at: tempPath
+                        ) as? GitRepository
+                    else {
                         return []
                     }
 
@@ -298,30 +298,34 @@ public struct PackageSearchClient {
         // See if the latest package version has readmeURL set
         guard let version = versions.first else {
             let readmeURL: URL? = self.guessReadMeURL(alternateLocations: metadata.alternateLocations)
-            return [Package(
-                identity: identity,
-                versions: versions,
-                readmeURL: readmeURL,
-                // this only makes sense in connection with providing versioned metadata
-                source: .registry(url: metadata.registry.url)
-            )]
+            return [
+                Package(
+                    identity: identity,
+                    versions: versions,
+                    readmeURL: readmeURL,
+                    // this only makes sense in connection with providing versioned metadata
+                    source: .registry(url: metadata.registry.url)
+                )
+            ]
         }
 
         let versionMetadata = try? await self.getVersionMetadata(package: identity, version: version)
-        return [Package(
-            identity: identity,
-            versions: versions,
-            licenseURL: versionMetadata?.licenseURL,
-            readmeURL: versionMetadata?.readmeURL,
-            repositoryURLs: versionMetadata?.repositoryURLs,
-            resources: versionMetadata?.resources ?? [],
-            author: versionMetadata?.author,
-            description: versionMetadata?.description,
-            publishedAt: versionMetadata?.publishedAt,
-            signingEntity: versionMetadata?.signingEntity,
-            latestVersion: version,
-            source: .registry(url: metadata.registry.url)
-        )]
+        return [
+            Package(
+                identity: identity,
+                versions: versions,
+                licenseURL: versionMetadata?.licenseURL,
+                readmeURL: versionMetadata?.readmeURL,
+                repositoryURLs: versionMetadata?.repositoryURLs,
+                resources: versionMetadata?.resources ?? [],
+                author: versionMetadata?.author,
+                description: versionMetadata?.description,
+                publishedAt: versionMetadata?.publishedAt,
+                signingEntity: versionMetadata?.signingEntity,
+                latestVersion: version,
+                source: .registry(url: metadata.registry.url)
+            )
+        ]
     }
 
     public func lookupIdentities(

@@ -11,16 +11,16 @@
 //===----------------------------------------------------------------------===//
 
 #if USE_IMPL_ONLY_IMPORTS
-@_implementationOnly import Foundation
+    @_implementationOnly import Foundation
 #else
-import Foundation
+    import Foundation
 #endif
 
 struct ContextModel {
-    let packageDirectory : String
+    let packageDirectory: String
     let gitInformation: GitInformation?
-    
-    var environment : [String : String] {
+
+    var environment: [String: String] {
         ProcessInfo.processInfo.environment
     }
 
@@ -31,7 +31,7 @@ struct ContextModel {
     }
 }
 
-extension ContextModel : Codable {
+extension ContextModel: Codable {
     func encode() throws -> String {
         let encoder = JSONEncoder()
         let data = try encoder.encode(self)

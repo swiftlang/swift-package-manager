@@ -55,7 +55,7 @@ public struct MockTarget {
         case .regular:
             return try TargetDescription(
                 name: self.name,
-                dependencies: self.dependencies.map{ try $0.convert(identityResolver: identityResolver) },
+                dependencies: self.dependencies.map { try $0.convert(identityResolver: identityResolver) },
                 path: self.path,
                 exclude: [],
                 sources: nil,
@@ -67,7 +67,7 @@ public struct MockTarget {
         case .test:
             return try TargetDescription(
                 name: self.name,
-                dependencies: self.dependencies.map{ try $0.convert(identityResolver: identityResolver) },
+                dependencies: self.dependencies.map { try $0.convert(identityResolver: identityResolver) },
                 path: self.path,
                 exclude: [],
                 sources: nil,
@@ -79,7 +79,7 @@ public struct MockTarget {
         case .binary:
             return try TargetDescription(
                 name: self.name,
-                dependencies: self.dependencies.map{ try $0.convert(identityResolver: identityResolver) },
+                dependencies: self.dependencies.map { try $0.convert(identityResolver: identityResolver) },
                 path: self.path,
                 url: self.url,
                 exclude: [],
@@ -93,7 +93,7 @@ public struct MockTarget {
         case .macro:
             return try TargetDescription(
                 name: self.name,
-                dependencies: self.dependencies.map{ try $0.convert(identityResolver: identityResolver) },
+                dependencies: self.dependencies.map { try $0.convert(identityResolver: identityResolver) },
                 path: self.path,
                 exclude: [],
                 sources: nil,
@@ -105,7 +105,7 @@ public struct MockTarget {
         case .executable:
             return try TargetDescription(
                 name: self.name,
-                dependencies: self.dependencies.map{ try $0.convert(identityResolver: identityResolver) },
+                dependencies: self.dependencies.map { try $0.convert(identityResolver: identityResolver) },
                 path: self.path,
                 exclude: [],
                 sources: nil,
@@ -117,7 +117,7 @@ public struct MockTarget {
         case .plugin:
             return try TargetDescription(
                 name: self.name,
-                dependencies: self.dependencies.map{ try $0.convert(identityResolver: identityResolver) },
+                dependencies: self.dependencies.map { try $0.convert(identityResolver: identityResolver) },
                 path: self.path,
                 exclude: [],
                 sources: nil,

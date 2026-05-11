@@ -11,8 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-@_spi(SwiftPMInternal)
-@testable import PackageModel
+@_spi(SwiftPMInternal) @testable import PackageModel
 import _InternalTestSupport
 import XCTest
 
@@ -30,10 +29,11 @@ private func generateBundleFiles(bundle: MockBundle) throws -> [(String, ByteStr
     return try [
         (
             "\(bundle.path)/info.json",
-            ByteString(json: """
-            {
-                "artifacts" : {
-                    \(bundle.artifacts.map {
+            ByteString(
+                json: """
+                    {
+                        "artifacts" : {
+                            \(bundle.artifacts.map {
                             let path = if let metadataPath = $0.metadataPath {
                                 metadataPath.pathString
                             } else {
@@ -54,41 +54,48 @@ private func generateBundleFiles(bundle: MockBundle) throws -> [(String, ByteStr
                             """
                         }.joined(separator: ",\n")
                     )
-                },
-                "schemaVersion" : "1.0"
-            }
-            """)
-        ),
-
-    ] + bundle.artifacts.map {
-        let path = if let metadataPath = $0.metadataPath {
-            "\(bundle.path)/\(metadataPath.pathString)"
-        } else {
-            "\(bundle.path)/\($0.id)/\(targetTriple.triple)/swift-sdk.json"
-        }
-
-        return (
-            path,
-            ByteString(json: try generateSwiftSDKMetadata(jsonEncoder, createToolset: $0.toolsetRootPath != nil))
+                        },
+                        "schemaVersion" : "1.0"
+                    }
+                    """
+            )
         )
-    } + bundle.artifacts.compactMap { artifact in
-        let toolsetPath = if artifact.metadataPath != nil {
-            "\(bundle.path)/toolset.json"
-        } else {
-            "\(bundle.path)/\(artifact.id)/\(targetTriple.triple)/toolset.json"
-        }
-        return artifact.toolsetRootPath.map { path in
-            (
-                "\(toolsetPath)",
-                ByteString(json: """
-                {
-                    "schemaVersion": "1.0",
-                    "rootPath": "\(path)"
+
+    ]
+        + bundle.artifacts.map {
+            let path =
+                if let metadataPath = $0.metadataPath {
+                    "\(bundle.path)/\(metadataPath.pathString)"
+                } else {
+                    "\(bundle.path)/\($0.id)/\(targetTriple.triple)/swift-sdk.json"
                 }
-                """)
+
+            return (
+                path,
+                ByteString(json: try generateSwiftSDKMetadata(jsonEncoder, createToolset: $0.toolsetRootPath != nil))
             )
         }
-    }
+        + bundle.artifacts.compactMap { artifact in
+            let toolsetPath =
+                if artifact.metadataPath != nil {
+                    "\(bundle.path)/toolset.json"
+                } else {
+                    "\(bundle.path)/\(artifact.id)/\(targetTriple.triple)/toolset.json"
+                }
+            return artifact.toolsetRootPath.map { path in
+                (
+                    "\(toolsetPath)",
+                    ByteString(
+                        json: """
+                            {
+                                "schemaVersion": "1.0",
+                                "rootPath": "\(path)"
+                            }
+                            """
+                    )
+                )
+            }
+        }
 }
 
 private func generateSwiftSDKMetadata(_ encoder: JSONEncoder, createToolset: Bool) throws -> SerializedJSON {
@@ -157,7 +164,7 @@ private let fixtureSDKsPath = try! AbsolutePath(validating: #file)
 final class SwiftSDKBundleTests: XCTestCase {
     func testInstallRemote() async throws {
         #if canImport(Darwin) && !os(macOS)
-        try XCTSkipIf(true, "skipping test because process launching is not available")
+            try XCTSkipIf(true, "skipping test because process launching is not available")
         #endif
 
         let system = ObservabilitySystem.makeForTesting()
@@ -198,17 +205,20 @@ final class SwiftSDKBundleTests: XCTestCase {
                 }
 
                 let bundleURL = URL(string: bundleURLString)!
-                XCTAssertEqual(output, [
-                    .downloadStarted(bundleURL),
-                    .downloadFinishedSuccessfully(bundleURL),
-                    .verifyingChecksum,
-                    .checksumValid,
-                    .unpackingArchive(bundlePathOrURL: bundleURLString),
-                    .installationSuccessful(
-                        bundlePathOrURL: bundleURLString,
-                        bundleName: "test-sdk.artifactbundle"
-                    ),
-                ])
+                XCTAssertEqual(
+                    output,
+                    [
+                        .downloadStarted(bundleURL),
+                        .downloadFinishedSuccessfully(bundleURL),
+                        .verifyingChecksum,
+                        .checksumValid,
+                        .unpackingArchive(bundlePathOrURL: bundleURLString),
+                        .installationSuccessful(
+                            bundlePathOrURL: bundleURLString,
+                            bundleName: "test-sdk.artifactbundle"
+                        ),
+                    ]
+                )
             }.value
         }
     }
@@ -219,7 +229,7 @@ final class SwiftSDKBundleTests: XCTestCase {
         let (fileSystem, bundles, swiftSDKsDirectory) = try generateTestFileSystem(
             bundleArtifacts: [
                 .init(id: testArtifactID, supportedTriples: [arm64Triple]),
-                .init(id: testArtifactID, supportedTriples: [arm64Triple])
+                .init(id: testArtifactID, supportedTriples: [arm64Triple]),
             ]
         )
 
@@ -282,8 +292,8 @@ final class SwiftSDKBundleTests: XCTestCase {
         do {
             try await store.install(bundlePathOrURL: bundles[1].path, archiver)
 
-             XCTFail("Function expected to throw")
-         } catch {
+            XCTFail("Function expected to throw")
+        } catch {
             guard let error = error as? SwiftSDKError else {
                 XCTFail("Unexpected error type")
                 return
@@ -299,13 +309,16 @@ final class SwiftSDKBundleTests: XCTestCase {
             }
         }
 
-        XCTAssertEqual(output, [
-            .installationSuccessful(
-                bundlePathOrURL: bundles[0].path,
-                bundleName: AbsolutePath(bundles[0].path).components.last!
-            ),
-            .unpackingArchive(bundlePathOrURL: invalidPath),
-        ])
+        XCTAssertEqual(
+            output,
+            [
+                .installationSuccessful(
+                    bundlePathOrURL: bundles[0].path,
+                    bundleName: AbsolutePath(bundles[0].path).components.last!
+                ),
+                .unpackingArchive(bundlePathOrURL: invalidPath),
+            ]
+        )
     }
 
     func testList() async throws {
@@ -338,23 +351,26 @@ final class SwiftSDKBundleTests: XCTestCase {
         XCTAssertEqual(validBundles.count, bundles.count)
 
         XCTAssertEqual(validBundles.sortedArtifactIDs, ["\(testArtifactID)1", "\(testArtifactID)2"])
-        XCTAssertEqual(output, [
-            .installationSuccessful(
-                bundlePathOrURL: bundles[0].path,
-                bundleName: AbsolutePath(bundles[0].path).components.last!
-            ),
-            .installationSuccessful(
-                bundlePathOrURL: bundles[1].path,
-                bundleName: AbsolutePath(bundles[1].path).components.last!
-            ),
-        ])
+        XCTAssertEqual(
+            output,
+            [
+                .installationSuccessful(
+                    bundlePathOrURL: bundles[0].path,
+                    bundleName: AbsolutePath(bundles[0].path).components.last!
+                ),
+                .installationSuccessful(
+                    bundlePathOrURL: bundles[1].path,
+                    bundleName: AbsolutePath(bundles[1].path).components.last!
+                ),
+            ]
+        )
     }
 
     func testBundleSelection() async throws {
         let (fileSystem, bundles, swiftSDKsDirectory) = try generateTestFileSystem(
             bundleArtifacts: [
                 .init(id: "\(testArtifactID)1", supportedTriples: [arm64Triple]),
-                .init(id: "\(testArtifactID)2", supportedTriples: [i686Triple])
+                .init(id: "\(testArtifactID)2", supportedTriples: [i686Triple]),
             ]
         )
         let system = ObservabilitySystem.makeForTesting()
@@ -382,16 +398,19 @@ final class SwiftSDKBundleTests: XCTestCase {
 
         XCTAssertEqual(sdk.targetTriple, targetTriple)
         XCTAssertEqual(id, "\(testArtifactID)1")
-        XCTAssertEqual(output, [
-            .installationSuccessful(
-                bundlePathOrURL: bundles[0].path,
-                bundleName: AbsolutePath(bundles[0].path).components.last!
-            ),
-            .installationSuccessful(
-                bundlePathOrURL: bundles[1].path,
-                bundleName: AbsolutePath(bundles[1].path).components.last!
-            ),
-        ])
+        XCTAssertEqual(
+            output,
+            [
+                .installationSuccessful(
+                    bundlePathOrURL: bundles[0].path,
+                    bundleName: AbsolutePath(bundles[0].path).components.last!
+                ),
+                .installationSuccessful(
+                    bundlePathOrURL: bundles[1].path,
+                    bundleName: AbsolutePath(bundles[1].path).components.last!
+                ),
+            ]
+        )
 
         let (name, tripleSDK) = try store.selectBundle(
             matching: "\(testArtifactID)1",
@@ -416,7 +435,7 @@ final class SwiftSDKBundleTests: XCTestCase {
             bundleArtifacts: [
                 .init(id: "\(testArtifactID)1", supportedTriples: [arm64Triple]),
                 .init(id: "\(testArtifactID)2", supportedTriples: [arm64Triple]),
-                .init(id: "\(targetTriple.tripleString)", supportedTriples: [i686Triple])
+                .init(id: "\(targetTriple.tripleString)", supportedTriples: [i686Triple]),
             ]
         )
         let system = ObservabilitySystem.makeForTesting()
@@ -437,11 +456,13 @@ final class SwiftSDKBundleTests: XCTestCase {
             try await store.install(bundlePathOrURL: bundle.path, archiver)
         }
 
-        XCTAssertThrowsError(try store.selectBundle(
-            matching: "\(testArtifactID)3",
-            hostTriple: Triple("arm64-apple-macosx14.0"),
-            targetTriple: targetTriple
-        )) { error in
+        XCTAssertThrowsError(
+            try store.selectBundle(
+                matching: "\(testArtifactID)3",
+                hostTriple: Triple("arm64-apple-macosx14.0"),
+                targetTriple: targetTriple
+            )
+        ) { error in
             XCTAssertEqual(
                 "\(error)",
                 """
@@ -452,10 +473,12 @@ final class SwiftSDKBundleTests: XCTestCase {
             )
         }
 
-        XCTAssertThrowsError(try store.selectBundle(
-            matching: targetTriple.tripleString,
-            hostTriple: Triple("arm64-apple-macosx14.0")
-        )) { error in
+        XCTAssertThrowsError(
+            try store.selectBundle(
+                matching: targetTriple.tripleString,
+                hostTriple: Triple("arm64-apple-macosx14.0")
+            )
+        ) { error in
             XCTAssertEqual(
                 "\(error)",
                 """
@@ -467,10 +490,12 @@ final class SwiftSDKBundleTests: XCTestCase {
             )
         }
 
-        XCTAssertThrowsError(try store.selectBundle(
-            matching: "\(targetTriple.tripleString)",
-            hostTriple: Triple("i686-apple-macosx14.0")
-        )) { error in
+        XCTAssertThrowsError(
+            try store.selectBundle(
+                matching: "\(targetTriple.tripleString)",
+                hostTriple: Triple("i686-apple-macosx14.0")
+            )
+        ) { error in
             XCTAssertEqual(
                 "\(error)",
                 """
@@ -481,10 +506,12 @@ final class SwiftSDKBundleTests: XCTestCase {
             )
         }
 
-        XCTAssertThrowsError(try store.selectBundle(
-            matching: "armv7-unknown-linux",
-            hostTriple: Triple("arm64-apple-macosx14.0")
-        )) { error in
+        XCTAssertThrowsError(
+            try store.selectBundle(
+                matching: "armv7-unknown-linux",
+                hostTriple: Triple("arm64-apple-macosx14.0")
+            )
+        ) { error in
             XCTAssertEqual(
                 "\(error)",
                 """
@@ -516,7 +543,7 @@ final class SwiftSDKBundleTests: XCTestCase {
             observabilityScope: system.topScope,
             outputHandler: { _ in }
         )
-        
+
         for bundle in bundles {
             try await store.install(bundlePathOrURL: bundle.path, archiver)
         }
@@ -623,7 +650,7 @@ final class SwiftSDKBundleTests: XCTestCase {
         )
         let system = ObservabilitySystem.makeForTesting()
         let archiver = MockArchiver()
-        
+
         var output = [SwiftSDKBundleStore.Output]()
         let store = SwiftSDKBundleStore(
             swiftSDKsDirectory: swiftSDKsDirectory,
@@ -643,23 +670,26 @@ final class SwiftSDKBundleTests: XCTestCase {
 
         XCTAssertEqual(validBundles.sortedArtifactIDs, ["\(testArtifactID)1", "\(testArtifactID)2"])
         XCTAssertEqual(output.count, 2)
-        XCTAssertEqual(output, [
-            .installationSuccessful(
-                bundlePathOrURL: bundles[0].path,
-                bundleName: AbsolutePath(bundles[0].path).components.last!
-            ),
-            .installationSuccessful(
-                bundlePathOrURL: bundles[1].path,
-                bundleName: AbsolutePath(bundles[1].path).components.last!
-            ),
-        ])
+        XCTAssertEqual(
+            output,
+            [
+                .installationSuccessful(
+                    bundlePathOrURL: bundles[0].path,
+                    bundleName: AbsolutePath(bundles[0].path).components.last!
+                ),
+                .installationSuccessful(
+                    bundlePathOrURL: bundles[1].path,
+                    bundleName: AbsolutePath(bundles[1].path).components.last!
+                ),
+            ]
+        )
     }
 
     func testConfigureSDKRootPath() async throws {
         func createConfigurationStore() async throws -> (SwiftSDKBundleStore, SwiftSDKConfigurationStore, FileSystem, TestingObservability) {
             let (fileSystem, bundles, swiftSDKsDirectory) = try generateTestFileSystem(
                 bundleArtifacts: [
-                    .init(id: testArtifactID, supportedTriples: [arm64Triple, i686Triple]),
+                    .init(id: testArtifactID, supportedTriples: [arm64Triple, i686Triple])
                 ]
             )
             let system = ObservabilitySystem.makeForTesting()
@@ -688,12 +718,15 @@ final class SwiftSDKBundleTests: XCTestCase {
 
             XCTAssertEqual(sdk.targetTriple, targetTriple)
             XCTAssertEqual(id, testArtifactID)
-            XCTAssertEqual(output, [
-                .installationSuccessful(
-                    bundlePathOrURL: bundles[0].path,
-                    bundleName: AbsolutePath(bundles[0].path).components.last!
-                )
-            ])
+            XCTAssertEqual(
+                output,
+                [
+                    .installationSuccessful(
+                        bundlePathOrURL: bundles[0].path,
+                        bundleName: AbsolutePath(bundles[0].path).components.last!
+                    )
+                ]
+            )
 
             let config = try SwiftSDKConfigurationStore(
                 hostTimeTriple: hostTriple,
@@ -719,9 +752,9 @@ final class SwiftSDKBundleTests: XCTestCase {
         let targetTripleConfigPath = AbsolutePath("/sdks/configuration/\(testArtifactID)_\(targetTriple.tripleString).json")
 
         #if os(Windows)
-        let sdkRootPath = "C:\\some\\sdk\\root\\path"
+            let sdkRootPath = "C:\\some\\sdk\\root\\path"
         #else
-        let sdkRootPath = "/some/sdk/root/path"
+            let sdkRootPath = "/some/sdk/root/path"
         #endif
 
         do {
@@ -741,9 +774,11 @@ final class SwiftSDKBundleTests: XCTestCase {
 
             let validBundles = try bundleStore.allValidBundles
             let hostTriple = try! Triple("arm64-apple-macosx14.0")
-            var swiftSDK = validBundles.selectSwiftSDK(id: testArtifactID,
-                                                       hostTriple: hostTriple,
-                                                       targetTriple: targetTriple)!
+            var swiftSDK = validBundles.selectSwiftSDK(
+                id: testArtifactID,
+                hostTriple: hostTriple,
+                targetTriple: targetTriple
+            )!
             try config.readConfiguration(sdkID: testArtifactID, sdk: &swiftSDK)
             XCTAssertEqual(swiftSDK.pathsConfiguration.sdkRootPath?.pathString, args.sdkRootPath)
 

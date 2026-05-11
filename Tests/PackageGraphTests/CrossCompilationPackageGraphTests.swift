@@ -10,12 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-@testable
-@_spi(SwiftPMInternal)
-import _InternalTestSupport
+@testable @_spi(SwiftPMInternal) import _InternalTestSupport
 
-@testable
-import PackageGraph
+@testable import PackageGraph
 
 import PackageModel
 import XCTest

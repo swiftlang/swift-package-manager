@@ -189,7 +189,7 @@ extension SBOMTestModulesGraph {
             packageIdentity: identity,
             module: nioConcurrencyHelpersModule,
             dependencies: [
-                .module(resolvedCNIOAtomicsModule, conditions: []),
+                .module(resolvedCNIOAtomicsModule, conditions: [])
             ]
         )
 
@@ -296,7 +296,7 @@ extension SBOMTestModulesGraph {
             packageIdentity: identity,
             module: nioFileSystemPublicModule,
             dependencies: [
-                .module(resolvedNIOFileSystemModule, conditions: []),
+                .module(resolvedNIOFileSystemModule, conditions: [])
             ]
         )
 
@@ -461,7 +461,7 @@ extension SBOMTestModulesGraph {
             packageIdentity: identity,
             module: cnioBoringSSLShimsModule,
             dependencies: [
-                .module(resolvedCNIOBoringSSLModule, conditions: []),
+                .module(resolvedCNIOBoringSSLModule, conditions: [])
             ]
         )
 

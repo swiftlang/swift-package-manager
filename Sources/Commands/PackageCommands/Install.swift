@@ -42,9 +42,9 @@ extension SwiftPackageCommand {
             if let path = env[.path], !path.contains(swiftpmBinDir.pathString), !globalOptions.logging.quiet {
                 commandState.observabilityScope.emit(
                     warning: """
-                    PATH doesn't include \(swiftpmBinDir.pathString)! This means you won't be able to access \
-                    the installed executables by default, and will need to specify the full path.
-                    """
+                        PATH doesn't include \(swiftpmBinDir.pathString)! This means you won't be able to access \
+                        the installed executables by default, and will need to specify the full path.
+                        """
                 )
             }
 

@@ -16,11 +16,9 @@ import PackageLoading
 import _InternalBuildTestSupport
 import Build
 
-@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
-@testable import PackageGraph
+@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly) @testable import PackageGraph
 
-@_spi(SwiftPMInternal)
-@testable import PackageModel
+@_spi(SwiftPMInternal) @testable import PackageModel
 
 class PrebuiltsBuildPlanTests: XCTestCase {
     func testPrebuiltsFlags() async throws {
@@ -49,7 +47,7 @@ class PrebuiltsBuildPlanTests: XCTestCase {
                 "SwiftSyntaxMacrosTestSupport",
                 "SwiftSyntaxMacrosGenericTestSupport",
                 "_SwiftCompilerPluginMessageHandling",
-                "_SwiftLibraryPluginProvider"
+                "_SwiftLibraryPluginProvider",
             ],
             cModules: ["_SwiftSyntaxCShims"]
         )
@@ -72,7 +70,7 @@ class PrebuiltsBuildPlanTests: XCTestCase {
                     displayName: "MyPackage",
                     path: "/MyPackage",
                     dependencies: [
-                        .remoteSourceControl(url: "https://github.com/swiftlang/swift-syntax", requirement: .exact("600.0.1")),
+                        .remoteSourceControl(url: "https://github.com/swiftlang/swift-syntax", requirement: .exact("600.0.1"))
                     ],
                     products: [
                         ProductDescription(
@@ -88,11 +86,12 @@ class PrebuiltsBuildPlanTests: XCTestCase {
                                 .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
                                 .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
                             ],
-                            type: .macro),
+                            type: .macro
+                        ),
                         TargetDescription(
                             name: "MyMacros",
                             dependencies: [
-                                "MyMacroMacros",
+                                "MyMacroMacros"
                             ]
                         ),
                         TargetDescription(
@@ -102,7 +101,7 @@ class PrebuiltsBuildPlanTests: XCTestCase {
                                 .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax"),
                             ],
                             type: .test
-                        )
+                        ),
                     ]
                 ),
                 Manifest.createRemoteSourceControlManifest(
@@ -131,11 +130,13 @@ class PrebuiltsBuildPlanTests: XCTestCase {
                         TargetDescription(name: "SwiftSyntaxMacrosTestSupport"),
                         TargetDescription(name: "SwiftCompilerPlugin"),
                     ]
-                )
+                ),
             ],
-            prebuilts: [prebuiltLibrary.identity: prebuiltLibrary.products.reduce(into: [:]) {
-                $0[$1] = prebuiltLibrary
-            }],
+            prebuilts: [
+                prebuiltLibrary.identity: prebuiltLibrary.products.reduce(into: [:]) {
+                    $0[$1] = prebuiltLibrary
+                }
+            ],
             observabilityScope: observability.topScope
         )
 
@@ -149,11 +150,11 @@ class PrebuiltsBuildPlanTests: XCTestCase {
                 )
             )
 
-#if os(Windows)
-            let modulesDir = "\(prebuiltLibrary.path.pathString)\\Modules"
-#else
-            let modulesDir = "\(prebuiltLibrary.path.pathString)/Modules"
-#endif
+            #if os(Windows)
+                let modulesDir = "\(prebuiltLibrary.path.pathString)\\Modules"
+            #else
+                let modulesDir = "\(prebuiltLibrary.path.pathString)/Modules"
+            #endif
             let mytest = try XCTUnwrap(result.allTargets(named: "MyMacroTests").first)
             XCTAssert(try mytest.swift().compileArguments().contains(modulesDir))
             let entryPoint = try XCTUnwrap(result.allTargets(named: "MyPackagePackageTests").first)
@@ -188,7 +189,7 @@ class PrebuiltsBuildPlanTests: XCTestCase {
             "SwiftSyntaxMacrosTestSupport",
             "SwiftSyntaxMacrosGenericTestSupport",
             "_SwiftCompilerPluginMessageHandling",
-            "_SwiftLibraryPluginProvider"
+            "_SwiftLibraryPluginProvider",
         ],
         includePath: [
             "Sources/_SwiftSyntaxCShims/include"
@@ -219,7 +220,7 @@ class PrebuiltsBuildPlanTests: XCTestCase {
                     displayName: "MyPackage",
                     path: "/MyPackage",
                     dependencies: [
-                        .remoteSourceControl(url: "https://github.com/swiftlang/swift-syntax", requirement: .exact("600.0.1")),
+                        .remoteSourceControl(url: "https://github.com/swiftlang/swift-syntax", requirement: .exact("600.0.1"))
                     ],
                     products: [
                         ProductDescription(
@@ -232,7 +233,7 @@ class PrebuiltsBuildPlanTests: XCTestCase {
                         TargetDescription(
                             name: "MyMacroLibrary",
                             dependencies: [
-                                .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
+                                .product(name: "SwiftSyntaxMacros", package: "swift-syntax")
                             ]
                         ),
                         TargetDescription(
@@ -247,7 +248,7 @@ class PrebuiltsBuildPlanTests: XCTestCase {
                         TargetDescription(
                             name: "MyMacros",
                             dependencies: [
-                                "MyMacroMacros",
+                                "MyMacroMacros"
                             ]
                         ),
                         TargetDescription(
@@ -257,7 +258,7 @@ class PrebuiltsBuildPlanTests: XCTestCase {
                                 .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax"),
                             ],
                             type: .test
-                        )
+                        ),
                     ]
                 ),
                 Manifest.createRemoteSourceControlManifest(
@@ -286,11 +287,13 @@ class PrebuiltsBuildPlanTests: XCTestCase {
                         TargetDescription(name: "SwiftSyntaxMacrosTestSupport"),
                         TargetDescription(name: "SwiftCompilerPlugin"),
                     ]
-                )
+                ),
             ],
-            prebuilts: [prebuiltLibrary.identity: prebuiltLibrary.products.reduce(into: [:]) {
-                $0[$1] = prebuiltLibrary
-            }],
+            prebuilts: [
+                prebuiltLibrary.identity: prebuiltLibrary.products.reduce(into: [:]) {
+                    $0[$1] = prebuiltLibrary
+                }
+            ],
             observabilityScope: observability.topScope
         )
 
@@ -358,23 +361,23 @@ class PrebuiltsBuildPlanTests: XCTestCase {
                             name: "MyApp",
                             type: .executable,
                             targets: ["MyApp"]
-                        ),
+                        )
                     ],
                     targets: [
                         TargetDescription(
                             name: "MyApp",
                             dependencies: [
-                                .product(name: "MacroLib", package: "MyPackage"),
+                                .product(name: "MacroLib", package: "MyPackage")
                             ],
                             type: .executable
-                        ),
+                        )
                     ],
                 ),
                 Manifest.createFileSystemManifest(
                     displayName: "MyPackage",
                     path: "/MyPackage",
                     dependencies: [
-                        .remoteSourceControl(url: "https://github.com/swiftlang/swift-syntax", requirement: .exact("600.0.1")),
+                        .remoteSourceControl(url: "https://github.com/swiftlang/swift-syntax", requirement: .exact("600.0.1"))
                     ],
                     products: [
                         ProductDescription(
@@ -383,13 +386,13 @@ class PrebuiltsBuildPlanTests: XCTestCase {
                             targets: [
                                 "MacroLib"
                             ]
-                        ),
+                        )
                     ],
                     targets: [
                         TargetDescription(
                             name: "Base",
                             dependencies: [
-                                .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
+                                .product(name: "SwiftSyntaxMacros", package: "swift-syntax")
                             ]
                         ),
                         TargetDescription(
@@ -428,11 +431,13 @@ class PrebuiltsBuildPlanTests: XCTestCase {
                     targets: [
                         TargetDescription(name: "SwiftSyntaxMacros")
                     ]
-                )
+                ),
             ],
-            prebuilts: [prebuiltLibrary.identity: prebuiltLibrary.products.reduce(into: [:]) {
-                $0[$1] = prebuiltLibrary
-            }],
+            prebuilts: [
+                prebuiltLibrary.identity: prebuiltLibrary.products.reduce(into: [:]) {
+                    $0[$1] = prebuiltLibrary
+                }
+            ],
             observabilityScope: observability.topScope
         )
 
@@ -518,7 +523,7 @@ class PrebuiltsBuildPlanTests: XCTestCase {
                         TargetDescription(
                             name: "MyApp",
                             dependencies: [
-                                .product(name: "MacroLib", package: "MyPackage"),
+                                .product(name: "MacroLib", package: "MyPackage")
                             ],
                             type: .executable,
                             pluginUsages: [
@@ -528,16 +533,16 @@ class PrebuiltsBuildPlanTests: XCTestCase {
                         TargetDescription(
                             name: "LeakyLib",
                             dependencies: [
-                                .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
+                                .product(name: "SwiftSyntaxMacros", package: "swift-syntax")
                             ]
-                        )
+                        ),
                     ],
                 ),
                 Manifest.createFileSystemManifest(
                     displayName: "MyPackage",
                     path: "/MyPackage",
                     dependencies: [
-                        .remoteSourceControl(url: "https://github.com/swiftlang/swift-syntax", requirement: .exact("600.0.1")),
+                        .remoteSourceControl(url: "https://github.com/swiftlang/swift-syntax", requirement: .exact("600.0.1"))
                     ],
                     products: [
                         ProductDescription(
@@ -559,7 +564,7 @@ class PrebuiltsBuildPlanTests: XCTestCase {
                         TargetDescription(
                             name: "Base",
                             dependencies: [
-                                .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
+                                .product(name: "SwiftSyntaxMacros", package: "swift-syntax")
                             ]
                         ),
                         TargetDescription(
@@ -613,11 +618,13 @@ class PrebuiltsBuildPlanTests: XCTestCase {
                     targets: [
                         TargetDescription(name: "SwiftSyntaxMacros")
                     ]
-                )
+                ),
             ],
-            prebuilts: [prebuiltLibrary.identity: prebuiltLibrary.products.reduce(into: [:]) {
-                $0[$1] = prebuiltLibrary
-            }],
+            prebuilts: [
+                prebuiltLibrary.identity: prebuiltLibrary.products.reduce(into: [:]) {
+                    $0[$1] = prebuiltLibrary
+                }
+            ],
             observabilityScope: observability.topScope
         )
 
@@ -648,7 +655,7 @@ class PrebuiltsBuildPlanTests: XCTestCase {
         let prebuiltUsers = Set([
             "LeakyLib",
             "Base",
-            "Macros"
+            "Macros",
         ])
         for target in result.targetMap where prebuiltUsers.contains(target.module.name) {
             XCTAssert(target.module.dependencies.contains(where: { $0.product?.packageIdentity == .plain("swift-syntax") }))

@@ -12,10 +12,10 @@
 
 // We either export the llbuildSwift shared library or the llbuild framework.
 #if canImport(llbuildSwift)
-@_exported import llbuildSwift
-@_exported import llbuild
+    @_exported import llbuildSwift
+    @_exported import llbuild
 #else
-@_exported import llbuild
+    @_exported import llbuild
 #endif
 
 import Basics
@@ -62,7 +62,9 @@ public final class LLBuildEngine {
         func lookupRule(_ key: Key) -> Rule {
             let ruleKey = try! RuleKey(key)
             return delegate.lookupRule(
-                rule: ruleKey.rule, key: Key(ruleKey.data))
+                rule: ruleKey.rule,
+                key: Key(ruleKey.data)
+            )
         }
 
         func error(_ message: String) {
@@ -87,7 +89,9 @@ public final class LLBuildEngine {
         delegate.errors.removeAll()
 
         let encodedKey = try RuleKey(
-            rule: T.BuildRule.ruleName, data: try key.toKey().data).toKey()
+            rule: T.BuildRule.ruleName,
+            data: try key.toKey().data
+        ).toKey()
         let value = engine.build(key: encodedKey)
 
         // Throw if the engine encountered any fatal error during the build.
@@ -118,7 +122,9 @@ public class LLTaskBuildEngine {
 
     public func taskNeedsInput<T: LLBuildKey>(_ key: T, inputID: Int) throws {
         let encodedKey = try RuleKey(
-            rule: T.BuildRule.ruleName, data: try key.toKey().data).toKey()
+            rule: T.BuildRule.ruleName,
+            data: try key.toKey().data
+        ).toKey()
         engine.taskNeedsInput(encodedKey, inputID: inputID)
     }
 

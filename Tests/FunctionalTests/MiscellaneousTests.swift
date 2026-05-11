@@ -194,8 +194,8 @@ struct MiscellaneousTestCase {
             await #expect(throws: SwiftPMError.self) {
                 try await executeSwiftBuild(
                     fixturePath,
-                        configuration: configuration,
-                        buildSystem: buildSystem,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
                 )
             }
             try await withKnownIssue(isIntermittent: true) {
@@ -228,35 +228,35 @@ struct MiscellaneousTestCase {
     ) async throws {
         let configuration = BuildConfiguration.debug
         try await withKnownIssue(isIntermittent: true) {
-        try await fixture(name: "Miscellaneous/DependencyEdges/Internal") { fixturePath in
-            let binPath = try fixturePath.appending(components: buildSystem.binPath(for: configuration))
-            let executable = binPath.appending(components: executableName("Foo"))
-            let execPath = executable.pathString
+            try await fixture(name: "Miscellaneous/DependencyEdges/Internal") { fixturePath in
+                let binPath = try fixturePath.appending(components: buildSystem.binPath(for: configuration))
+                let executable = binPath.appending(components: executableName("Foo"))
+                let execPath = executable.pathString
 
-            try await executeSwiftBuild(
-                fixturePath,
-                configuration: configuration,
-                buildSystem: buildSystem,
-            )
-            try requireFileExists(at: executable)
-            let output = try await AsyncProcess.checkNonZeroExit(args: execPath)
-            #expect(output == "Hello\(ProcessInfo.EOL)")
+                try await executeSwiftBuild(
+                    fixturePath,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                )
+                try requireFileExists(at: executable)
+                let output = try await AsyncProcess.checkNonZeroExit(args: execPath)
+                #expect(output == "Hello\(ProcessInfo.EOL)")
 
-            // we need to sleep at least one second otherwise
-            // llbuild does not realize the file has changed
-            try await Task.sleep(for: .seconds(1))
+                // we need to sleep at least one second otherwise
+                // llbuild does not realize the file has changed
+                try await Task.sleep(for: .seconds(1))
 
-            try localFileSystem.writeFileContents(fixturePath.appending(components: "Bar", "Bar.swift"), bytes: "public let bar = \"Goodbye\"\n")
+                try localFileSystem.writeFileContents(fixturePath.appending(components: "Bar", "Bar.swift"), bytes: "public let bar = \"Goodbye\"\n")
 
-            try await executeSwiftBuild(
-                fixturePath,
-                configuration: configuration,
-                buildSystem: buildSystem,
-            )
-            try requireFileExists(at: executable)
-            let output2 = try await AsyncProcess.checkNonZeroExit(args: execPath)
-            #expect(output2 == "Goodbye\(ProcessInfo.EOL)")
-        }
+                try await executeSwiftBuild(
+                    fixturePath,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                )
+                try requireFileExists(at: executable)
+                let output2 = try await AsyncProcess.checkNonZeroExit(args: execPath)
+                #expect(output2 == "Goodbye\(ProcessInfo.EOL)")
+            }
         } when: {
             ProcessInfo.hostOperatingSystem == .windows
         }
@@ -336,26 +336,26 @@ struct MiscellaneousTestCase {
                 configuration: configuration,
                 buildSystem: buildSystem,
             )
-                try requireFileExists(at: executable)
-                let output = try await AsyncProcess.checkNonZeroExit(arguments: execpath)
-                #expect(output == "Hello\(ProcessInfo.EOL)")
+            try requireFileExists(at: executable)
+            let output = try await AsyncProcess.checkNonZeroExit(arguments: execpath)
+            #expect(output == "Hello\(ProcessInfo.EOL)")
 
-                // we need to sleep at least one second otherwise
-                // llbuild does not realize the file has changed
-                try await Task.sleep(for: .seconds(1))
+            // we need to sleep at least one second otherwise
+            // llbuild does not realize the file has changed
+            try await Task.sleep(for: .seconds(1))
 
-                let path = try SwiftPM.packagePath(for: "dep1", packageRoot: packageRoot)
-                try localFileSystem.chmod(.userWritable, path: path, options: [.recursive])
-                try localFileSystem.writeFileContents(path.appending(components: "Foo.swift"), bytes: "public let foo = \"Goodbye\"")
+            let path = try SwiftPM.packagePath(for: "dep1", packageRoot: packageRoot)
+            try localFileSystem.chmod(.userWritable, path: path, options: [.recursive])
+            try localFileSystem.writeFileContents(path.appending(components: "Foo.swift"), bytes: "public let foo = \"Goodbye\"")
 
-                try await executeSwiftBuild(
-                    packageRoot,
-                    configuration: configuration,
-                    buildSystem: buildSystem,
-                )
-                try requireFileExists(at: executable)
-                let output2 = try await AsyncProcess.checkNonZeroExit(arguments: execpath)
-                #expect(output2 == "Goodbye\(ProcessInfo.EOL)")
+            try await executeSwiftBuild(
+                packageRoot,
+                configuration: configuration,
+                buildSystem: buildSystem,
+            )
+            try requireFileExists(at: executable)
+            let output2 = try await AsyncProcess.checkNonZeroExit(arguments: execpath)
+            #expect(output2 == "Goodbye\(ProcessInfo.EOL)")
         }
     }
 
@@ -369,7 +369,7 @@ struct MiscellaneousTestCase {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let configuration = BuildConfiguration.debug
-        try await withKnownIssue(isIntermittent: true) { // might no longer be withKnownIssue, but leaving for now.
+        try await withKnownIssue(isIntermittent: true) {  // might no longer be withKnownIssue, but leaving for now.
             try await fixture(name: "Miscellaneous/Spaces Fixture") { fixturePath in
                 await #expect(throws: Never.self) {
                     try await executeSwiftBuild(
@@ -380,10 +380,10 @@ struct MiscellaneousTestCase {
                 }
                 let binPath = try fixturePath.appending(components: buildSystem.binPath(for: configuration))
                 switch buildSystem {
-                    case .native:
-                        expectFileExists(at: binPath.appending(components: "Module_Name_1.build", "Foo.swift.o"))
-                    case .xcode, .swiftbuild:
-                        break
+                case .native:
+                    expectFileExists(at: binPath.appending(components: "Module_Name_1.build", "Foo.swift.o"))
+                case .xcode, .swiftbuild:
+                    break
                 }
             }
         } when: {
@@ -449,7 +449,7 @@ struct MiscellaneousTestCase {
     }
 
     @Test(
-        .serialized, // Because the tests set the environment variable
+        .serialized,  // Because the tests set the environment variable
         // TODO: raise a GitHub issue .  the second `swift-build` command fails.
         .tags(
             .Feature.Command.Build,
@@ -462,75 +462,77 @@ struct MiscellaneousTestCase {
     ) async throws {
         let configuration = BuildConfiguration.debug
         try await withKnownIssue {
-        try await fixture(name: "Miscellaneous/PkgConfig", createGitRepo: true) { fixturePath in
-            let systemModule = fixturePath.appending("SystemModule")
-            // Create a shared library.
-            let input = systemModule.appending(components: "Sources", "SystemModule.c")
-            let triple = try UserToolchain.default.targetTriple
-            let output = systemModule.appending("libSystemModule\(triple.dynamicLibraryExtension)")
-            try await AsyncProcess.checkNonZeroExit(args: executableName("clang"), "-shared", input.pathString, "-o", output.pathString)
+            try await fixture(name: "Miscellaneous/PkgConfig", createGitRepo: true) { fixturePath in
+                let systemModule = fixturePath.appending("SystemModule")
+                // Create a shared library.
+                let input = systemModule.appending(components: "Sources", "SystemModule.c")
+                let triple = try UserToolchain.default.targetTriple
+                let output = systemModule.appending("libSystemModule\(triple.dynamicLibraryExtension)")
+                try await AsyncProcess.checkNonZeroExit(args: executableName("clang"), "-shared", input.pathString, "-o", output.pathString)
 
-            let pcFile = fixturePath.appending("libSystemModule.pc")
+                let pcFile = fixturePath.appending("libSystemModule.pc")
 
-            try localFileSystem.writeFileContents(pcFile, string: """
-                prefix=\(systemModule.pathString)
-                exec_prefix=${prefix}
-                libdir=${exec_prefix}
-                includedir=${prefix}/Sources/include
-                Name: SystemModule
-                URL: http://127.0.0.1/
-                Description: The one and only SystemModule
-                Version: 1.10.0
-                Cflags: -I${includedir}
-                Libs: -L${libdir} -lSystemModule
+                try localFileSystem.writeFileContents(
+                    pcFile,
+                    string: """
+                        prefix=\(systemModule.pathString)
+                        exec_prefix=${prefix}
+                        libdir=${exec_prefix}
+                        includedir=${prefix}/Sources/include
+                        Name: SystemModule
+                        URL: http://127.0.0.1/
+                        Description: The one and only SystemModule
+                        Version: 1.10.0
+                        Cflags: -I${includedir}
+                        Libs: -L${libdir} -lSystemModule
 
-                """
-            )
+                        """
+                )
 
-            let moduleUser = fixturePath.appending("SystemModuleUserClang")
-            let env: Environment = ["PKG_CONFIG_PATH": fixturePath.pathString]
-            let binPath = try moduleUser.appending(components: buildSystem.binPath(for: configuration))
-            await withKnownIssue(isIntermittent: true) {
-                await #expect(throws: Never.self) {
-                    _ = try await executeSwiftBuild(
-                        moduleUser,
-                        configuration: configuration,
-                        env: env,
-                        buildSystem: buildSystem,
-                    )
-                }
-                expectFileExists(at: binPath.appending(component: "SystemModuleUserClang"))
-            } when:{
-                buildSystem == .swiftbuild && configuration == .release && ProcessInfo.hostOperatingSystem != .linux
-            }
-
-            // Clean up the build directory before re-running the build with
-            // different arguments.
-            _ = try await executeSwiftPackage(
-                moduleUser,
-                configuration: configuration,
-                extraArgs: ["clean"],
-                buildSystem: buildSystem,
-            )
-
-            await withKnownIssue(isIntermittent: true) {
-                await #expect(throws: Never.self) {
-                    _ = try await executeSwiftBuild(
-                        moduleUser,
-                        configuration: configuration,
-                        extraArgs: ["--pkg-config-path", fixturePath.pathString],
-                        buildSystem: buildSystem,
-                    )
+                let moduleUser = fixturePath.appending("SystemModuleUserClang")
+                let env: Environment = ["PKG_CONFIG_PATH": fixturePath.pathString]
+                let binPath = try moduleUser.appending(components: buildSystem.binPath(for: configuration))
+                await withKnownIssue(isIntermittent: true) {
+                    await #expect(throws: Never.self) {
+                        _ = try await executeSwiftBuild(
+                            moduleUser,
+                            configuration: configuration,
+                            env: env,
+                            buildSystem: buildSystem,
+                        )
+                    }
+                    expectFileExists(at: binPath.appending(component: "SystemModuleUserClang"))
+                } when: {
+                    buildSystem == .swiftbuild && configuration == .release && ProcessInfo.hostOperatingSystem != .linux
                 }
 
-                expectFileExists(at: binPath.appending(component: "SystemModuleUserClang"))
-            } when: {
-                buildSystem == .swiftbuild
+                // Clean up the build directory before re-running the build with
+                // different arguments.
+                _ = try await executeSwiftPackage(
+                    moduleUser,
+                    configuration: configuration,
+                    extraArgs: ["clean"],
+                    buildSystem: buildSystem,
+                )
+
+                await withKnownIssue(isIntermittent: true) {
+                    await #expect(throws: Never.self) {
+                        _ = try await executeSwiftBuild(
+                            moduleUser,
+                            configuration: configuration,
+                            extraArgs: ["--pkg-config-path", fixturePath.pathString],
+                            buildSystem: buildSystem,
+                        )
+                    }
+
+                    expectFileExists(at: binPath.appending(component: "SystemModuleUserClang"))
+                } when: {
+                    buildSystem == .swiftbuild
+                }
             }
-        }
         } when: {
             (ProcessInfo.hostOperatingSystem == .windows && buildSystem == .native)
-            || (ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild && configuration == .debug)
+                || (ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild && configuration == .debug)
         }
     }
 
@@ -541,57 +543,59 @@ struct MiscellaneousTestCase {
         ),
     )
     func canKillSubprocessOnSigInt() throws {
-#if false
-        try fixture(name: "DependencyResolution/External/Simple") { fixturePath in
+        #if false
+            try fixture(name: "DependencyResolution/External/Simple") { fixturePath in
 
-            let fakeGit = fixturePath.appending(components: "bin", "git")
-            let waitFile = fixturePath.appending(components: "waitfile")
+                let fakeGit = fixturePath.appending(components: "bin", "git")
+                let waitFile = fixturePath.appending(components: "waitfile")
 
-            try localFileSystem.createDirectory(fakeGit.parentDirectory)
+                try localFileSystem.createDirectory(fakeGit.parentDirectory)
 
-            // Write out fake git.
-            try localFileSystem.writeFileContents(fakeGit, string:
-                """
-                    #!/bin/sh
-                    set -e
-                    printf "$$" >> \(waitFile)
-                    while true; do sleep 1; done
-                """
-            )
+                // Write out fake git.
+                try localFileSystem.writeFileContents(
+                    fakeGit,
+                    string:
+                        """
+                            #!/bin/sh
+                            set -e
+                            printf "$$" >> \(waitFile)
+                            while true; do sleep 1; done
+                        """
+                )
 
-            // Make it executable.
-            _ = try AsyncProcess.popen(args: "chmod", "+x", fakeGit.description)
+                // Make it executable.
+                _ = try AsyncProcess.popen(args: "chmod", "+x", fakeGit.description)
 
-            // Put fake git in PATH.
-            var env = ProcessInfo.processInfo.environment
-            let oldPath = env["PATH"]
-            env["PATH"] = fakeGit.parentDirectory.description
-            if let oldPath {
-                env["PATH"] = env["PATH"]! + ":" + oldPath
+                // Put fake git in PATH.
+                var env = ProcessInfo.processInfo.environment
+                let oldPath = env["PATH"]
+                env["PATH"] = fakeGit.parentDirectory.description
+                if let oldPath {
+                    env["PATH"] = env["PATH"]! + ":" + oldPath
+                }
+
+                // Launch swift-build.
+                let app = fixturePath.appending("Bar")
+                let process = AsyncProcess(args: SwiftPM.Build.path.pathString, "--package-path", app.pathString, environment: env)
+                try process.launch()
+
+                guard waitForFile(waitFile) else {
+                    Issue.record("Couldn't launch the process")
+                    return
+                }
+                // Interrupt the process.
+                process.signal(SIGINT)
+                let result = try process.waitUntilExit()
+
+                // We should not have exited with zero.
+                #expect(result.exitStatus != .terminated(code: 0))
+
+                // Process and subprocesses should be dead.
+                let contents: String = try localFileSystem.readFileContents(waitFile)
+                try #expect(!AsyncProcess.running(process.processID))
+                try #expect(!AsyncProcess.running(ProcessID(contents)!))
             }
-
-            // Launch swift-build.
-            let app = fixturePath.appending("Bar")
-            let process = AsyncProcess(args: SwiftPM.Build.path.pathString, "--package-path", app.pathString, environment: env)
-            try process.launch()
-
-            guard waitForFile(waitFile) else {
-                Issue.record("Couldn't launch the process")
-                return
-            }
-            // Interrupt the process.
-            process.signal(SIGINT)
-            let result = try process.waitUntilExit()
-
-            // We should not have exited with zero.
-            #expect(result.exitStatus != .terminated(code: 0))
-
-            // Process and subprocesses should be dead.
-            let contents: String = try localFileSystem.readFileContents(waitFile)
-            try #expect(!AsyncProcess.running(process.processID))
-            try #expect(!AsyncProcess.running(ProcessID(contents)!))
-        }
-#endif
+        #endif
     }
 
     @Test(
@@ -662,28 +666,28 @@ struct MiscellaneousTestCase {
         .disabled("No longer works with newer toolchains"),
     )
     func lTO() async throws {
-#if os(macOS)
-        // FIXME: this test requires swift-driver to be installed
-        // Currently swift-ci does not build/install swift-driver before running
-        // swift-package-manager tests which results in this test failing.
-        // See the following additional discussion:
-        // - https://github.com/swiftlang/swift/pull/69696
-        // - https://github.com/swiftlang/swift/pull/61766
-        // - https://github.com/swiftlang/swift-package-manager/pull/5842#issuecomment-1301632685
-        try await fixture(name: "Miscellaneous/LTO/SwiftAndCTargets") { fixturePath in
-            /*let output =*/
-            try await executeSwiftBuild(
-                fixturePath,
-                extraArgs: ["--experimental-lto-mode=full", "--verbose"],
-                buildSystem: .native,
+        #if os(macOS)
+            // FIXME: this test requires swift-driver to be installed
+            // Currently swift-ci does not build/install swift-driver before running
+            // swift-package-manager tests which results in this test failing.
+            // See the following additional discussion:
+            // - https://github.com/swiftlang/swift/pull/69696
+            // - https://github.com/swiftlang/swift/pull/61766
+            // - https://github.com/swiftlang/swift-package-manager/pull/5842#issuecomment-1301632685
+            try await fixture(name: "Miscellaneous/LTO/SwiftAndCTargets") { fixturePath in
+                /*let output =*/
+                try await executeSwiftBuild(
+                    fixturePath,
+                    extraArgs: ["--experimental-lto-mode=full", "--verbose"],
+                    buildSystem: .native,
 
-            )
-            // FIXME: On macOS dsymutil cannot find temporary .o files? (#6890)
-            // Ensure warnings like the following are not present in build output
-            // warning: (arm64) /var/folders/ym/6l_0x8vj0b70sz_4h9d70p440000gn/T/main-e120de.o unable to open object file: No such file or directory
-            // XCTAssertNoMatch(output.stdout, .contains("unable to open object file"))
-        }
-#endif
+                )
+                // FIXME: On macOS dsymutil cannot find temporary .o files? (#6890)
+                // Ensure warnings like the following are not present in build output
+                // warning: (arm64) /var/folders/ym/6l_0x8vj0b70sz_4h9d70p440000gn/T/main-e120de.o unable to open object file: No such file or directory
+                // XCTAssertNoMatch(output.stdout, .contains("unable to open object file"))
+            }
+        #endif
     }
 
     @Test(
@@ -721,7 +725,8 @@ struct MiscellaneousTestCase {
                 defer { try? FileManager.default.removeItem(atPath: dependencyDestination.pathString) }
                 try FileManager.default.copyItem(
                     atPath: dependencyOrigin.pathString,
-                    toPath: dependencyDestination.pathString)
+                    toPath: dependencyDestination.pathString
+                )
                 let dependency = GitRepository(path: dependencyDestination)
                 try dependency.create()
                 try dependency.stageEverything()
@@ -752,7 +757,7 @@ struct MiscellaneousTestCase {
     }
 
     @Test(
-        .skipHostOS(.linux), // TODO: raise GitHub issue.. crashed on Linux
+        .skipHostOS(.linux),  // TODO: raise GitHub issue.. crashed on Linux
         // TODO: raise GitHub issue for issue on Windows
         .tags(
             .Feature.Command.Test,
@@ -773,12 +778,12 @@ struct MiscellaneousTestCase {
                 )
                 // in "swift test" build output goes to stderr
                 switch buildSystem {
-                    case .native:
-                        #expect(stderr.contains("Linking TestableExe1"))
-                        #expect(stderr.contains("Linking TestableExe2"))
-                        #expect(stderr.contains("Linking TestableExePackageTests"))
-                    case .swiftbuild, .xcode:
-                        break
+                case .native:
+                    #expect(stderr.contains("Linking TestableExe1"))
+                    #expect(stderr.contains("Linking TestableExe2"))
+                    #expect(stderr.contains("Linking TestableExePackageTests"))
+                case .swiftbuild, .xcode:
+                    break
                 }
                 #expect(stderr.contains("Build complete!"))
                 // in "swift test" test output goes to stdout
@@ -786,24 +791,24 @@ struct MiscellaneousTestCase {
                 #expect(stdout.contains("Hello, world"))
                 #expect(stdout.contains("Hello, planet"))
             } catch {
-#if os(macOS) && arch(arm64)
-                // Add some logging but ignore the failure for an environment being investigated.
-                let (stdout, stderr) = try await executeSwiftTest(
-                    fixturePath,
-                    configuration: configuration,
-                    extraArgs: ["-v"],
-                    buildSystem: buildSystem,
-                )
-                print("\(String(describing: Test.current?.name)) failed")
-                print("ENV:\n")
-                for (k, v) in Environment.current.sorted(by: { $0.key < $1.key }) {
-                    print("  \(k)=\(v)")
-                }
-                print("STDOUT:\n\(stdout)")
-                print("STDERR:\n\(stderr)")
-#else
-                Issue.record("\(error)")
-#endif
+                #if os(macOS) && arch(arm64)
+                    // Add some logging but ignore the failure for an environment being investigated.
+                    let (stdout, stderr) = try await executeSwiftTest(
+                        fixturePath,
+                        configuration: configuration,
+                        extraArgs: ["-v"],
+                        buildSystem: buildSystem,
+                    )
+                    print("\(String(describing: Test.current?.name)) failed")
+                    print("ENV:\n")
+                    for (k, v) in Environment.current.sorted(by: { $0.key < $1.key }) {
+                        print("  \(k)=\(v)")
+                    }
+                    print("STDOUT:\n\(stdout)")
+                    print("STDERR:\n\(stderr)")
+                #else
+                    Issue.record("\(error)")
+                #endif
             }
         }
     }
@@ -820,15 +825,15 @@ struct MiscellaneousTestCase {
     ) async throws {
         let configuration = BuildConfiguration.debug
         try await withKnownIssue {
-        try await fixture(name: "Miscellaneous/TestableAsyncExe") { fixturePath in
-            let (stdout, stderr) = try await executeSwiftTest(
-                fixturePath,
-                configuration: configuration,
-                buildSystem: buildSystem,
-                throwIfCommandFails: true,
-            )
-            // in "swift test" build output goes to stderr
-            switch buildSystem {
+            try await fixture(name: "Miscellaneous/TestableAsyncExe") { fixturePath in
+                let (stdout, stderr) = try await executeSwiftTest(
+                    fixturePath,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                    throwIfCommandFails: true,
+                )
+                // in "swift test" build output goes to stderr
+                switch buildSystem {
                 case .native:
                     #expect(stderr.contains("Linking TestableAsyncExe1"))
                     #expect(stderr.contains("Linking TestableAsyncExe2"))
@@ -837,15 +842,15 @@ struct MiscellaneousTestCase {
                     #expect(stderr.contains("Linking TestableAsyncExePackageTests"))
                 case .swiftbuild, .xcode:
                     break
+                }
+                #expect(stderr.contains("Build complete!"))
+                // in "swift test" test output goes to stdout
+                #expect(stdout.contains("Executed 1 test"), "stderr: \(stderr)")
+                #expect(stdout.contains("Hello, async world"), "stderr: \(stderr)")
+                #expect(stdout.contains("Hello, async planet"), "stderr: \(stderr)")
+                #expect(stdout.contains("Hello, async galaxy"), "stderr: \(stderr)")
+                #expect(stdout.contains("Hello, async universe"), "stderr: \(stderr)")
             }
-            #expect(stderr.contains("Build complete!"))
-            // in "swift test" test output goes to stdout
-            #expect(stdout.contains("Executed 1 test"), "stderr: \(stderr)")
-            #expect(stdout.contains("Hello, async world"), "stderr: \(stderr)")
-            #expect(stdout.contains("Hello, async planet"), "stderr: \(stderr)")
-            #expect(stdout.contains("Hello, async galaxy"), "stderr: \(stderr)")
-            #expect(stdout.contains("Hello, async universe"), "stderr: \(stderr)")
-        }
         } when: {
             // error: FileSystemError(kind: TSCBasic.FileSystemError.Kind.noEntry, path: Optional(<AbsolutePath:"C:\Users\ContainerAdministrator\AppData\Local\Temp\Miscellaneous_TestableAsyncExe.74Koc7\Miscellaneous_TestableAsyncExe\.build\out\Intermediates.noindex\TestableAsyncExe.build\Debug-windows\TestableAsyncExe4.build\Objects-normal\x86_64\TestableAsyncExe4.LinkFileList">))
             ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild
@@ -863,18 +868,18 @@ struct MiscellaneousTestCase {
     ) async throws {
         let configuration = BuildConfiguration.debug
         try await withKnownIssue(isIntermittent: true) {
-        try await fixture(name: "Miscellaneous/TargetMismatch") { path in
-            let (stdout, stderr) = try await executeSwiftBuild(
-                path,
-                configuration: configuration,
-                buildSystem: buildSystem,
-            )
-            // in "swift build" build output goes to stdout
-            if buildSystem == .native {
-                #expect(stdout.contains("Compiling Sample main.swift"))
+            try await fixture(name: "Miscellaneous/TargetMismatch") { path in
+                let (stdout, stderr) = try await executeSwiftBuild(
+                    path,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                )
+                // in "swift build" build output goes to stdout
+                if buildSystem == .native {
+                    #expect(stdout.contains("Compiling Sample main.swift"))
+                }
+                #expect(stderr.contains("The target named 'Sample' was identified as an executable target but a non-executable product with this name already exists."))
             }
-            #expect(stderr.contains("The target named 'Sample' was identified as an executable target but a non-executable product with this name already exists."))
-        }
         } when: {
             // error: Unable to resolve build file: BuildFile<PACKAGE-PRODUCT:miscellaneous_targetmismatch_Sample.Sample::BUILDPHASE_0::0> (The workspace has a reference to a missing target with GUID 'PACKAGE-TARGET:Sample')
             buildSystem == .swiftbuild
@@ -909,7 +914,7 @@ struct MiscellaneousTestCase {
         }
     }
 
-     @Test(
+    @Test(
         .tags(
             .Feature.Command.Build,
             .Feature.Command.Package.Edit,
@@ -922,11 +927,11 @@ struct MiscellaneousTestCase {
     ) async throws {
         let configuration = BuildConfiguration.debug
         try await fixture(name: "Miscellaneous/Edit", createGitRepo: true) { fixturePath in
-#if os(Windows)
-            let prefix = fixturePath
-#else
-            let prefix = try resolveSymlinks(fixturePath)
-#endif
+            #if os(Windows)
+                let prefix = fixturePath
+            #else
+                let prefix = try resolveSymlinks(fixturePath)
+            #endif
             let appPath = fixturePath.appending("App")
 
             // prepare the dependencies as git repos
@@ -1004,7 +1009,7 @@ struct MiscellaneousTestCase {
             .Feature.Command.Build,
         ),
         arguments: SupportedBuildSystemOnAllPlatforms,
-        [ "cache-path", "config-path", "security-path"],
+        ["cache-path", "config-path", "security-path"],
     )
     func customCachePath(
         buildSystem: BuildSystemProvider.Kind,
@@ -1032,7 +1037,7 @@ struct MiscellaneousTestCase {
             .Feature.Command.Build,
         ),
         arguments: SupportedBuildSystemOnAllPlatforms,
-        [ "cache-path", "config-path", "security-path"],
+        ["cache-path", "config-path", "security-path"],
     )
     func customPathUserUnwritableGeneratesPermissionError(
         buildSystem: BuildSystemProvider.Kind,
@@ -1067,11 +1072,10 @@ struct MiscellaneousTestCase {
                 expectFileDoesNotExists(at: customPath)
                 expectDirectoryDoesNotExist(at: customPath)
             } when: {
-                ProcessInfo.hostOperatingSystem != .macOS // `FileSystem` many not support `chmod` on this host OS
+                ProcessInfo.hostOperatingSystem != .macOS  // `FileSystem` many not support `chmod` on this host OS
             }
         }
     }
-
 
     @Test(
         .IssueWindowsRelativePathAssert,
@@ -1101,10 +1105,10 @@ struct MiscellaneousTestCase {
                 #expect(result.stdout == "Hello, World!\n")
                 #expect(result.stderr.contains("Copying best.txt\n"), "build log is missing message about copying resource file")
             }
-        }when: {
+        } when: {
             (buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .linux)
-            || (buildSystem == .swiftbuild)
-            || (ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline)
+                || (buildSystem == .swiftbuild)
+                || (ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline)
         }
     }
 
@@ -1142,29 +1146,29 @@ struct MiscellaneousTestCase {
     ) async throws {
         let configuration = BuildConfiguration.debug
         try await withKnownIssue(isIntermittent: true) {
-        try await fixture(name: "Miscellaneous/FlatPackage") { packagePath in
-            // First build, make sure we got the `.build` directory where we expect it, and that there is no JSON output (by looking for known output).
-            let (stdout1, stderr1) = try await executeSwiftBuild(
-                packagePath,
-                configuration: configuration,
-                buildSystem: buildSystem,
-            )
-            let buildOutput = try packagePath.appending(components: buildSystem.binPath(for: configuration))
-            expectDirectoryExists(at: buildOutput)
-            #expect(!stdout1.contains("command_arguments"))
-            #expect(!stderr1.contains("command_arguments"))
+            try await fixture(name: "Miscellaneous/FlatPackage") { packagePath in
+                // First build, make sure we got the `.build` directory where we expect it, and that there is no JSON output (by looking for known output).
+                let (stdout1, stderr1) = try await executeSwiftBuild(
+                    packagePath,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                )
+                let buildOutput = try packagePath.appending(components: buildSystem.binPath(for: configuration))
+                expectDirectoryExists(at: buildOutput)
+                #expect(!stdout1.contains("command_arguments"))
+                #expect(!stderr1.contains("command_arguments"))
 
-            // Now test, make sure we got the `.build` directory where we expect it, and that there is no JSON output (by looking for known output).
-            let (stdout2, stderr2) = try await executeSwiftTest(
-                packagePath,
-                configuration: configuration,
-                buildSystem: buildSystem,
-            )
-            let testOutput = try packagePath.appending(components: buildSystem.binPath(for: configuration))
-            expectDirectoryExists(at: testOutput)
-            #expect(!stdout2.contains("command_arguments"))
-            #expect(!stderr2.contains("command_arguments"))
-        }
+                // Now test, make sure we got the `.build` directory where we expect it, and that there is no JSON output (by looking for known output).
+                let (stdout2, stderr2) = try await executeSwiftTest(
+                    packagePath,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                )
+                let testOutput = try packagePath.appending(components: buildSystem.binPath(for: configuration))
+                expectDirectoryExists(at: testOutput)
+                #expect(!stdout2.contains("command_arguments"))
+                #expect(!stderr2.contains("command_arguments"))
+            }
         } when: {
             ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild
         }
@@ -1203,26 +1207,26 @@ struct MiscellaneousTestCase {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         try await withKnownIssue(isIntermittent: true) {
-        let configuration = BuildConfiguration.debug
-        try await fixture(name: "Miscellaneous/DependenciesWarnings") { path in
-            // prepare the deps as git sources
-            let dependency1Path = path.appending("dep1")
-            initGitRepo(dependency1Path, tag: "1.0.0")
-            let dependency2Path = path.appending("dep2")
-            initGitRepo(dependency2Path, tag: "1.0.0")
+            let configuration = BuildConfiguration.debug
+            try await fixture(name: "Miscellaneous/DependenciesWarnings") { path in
+                // prepare the deps as git sources
+                let dependency1Path = path.appending("dep1")
+                initGitRepo(dependency1Path, tag: "1.0.0")
+                let dependency2Path = path.appending("dep2")
+                initGitRepo(dependency2Path, tag: "1.0.0")
 
-            let appPath = path.appending("app")
-            let (stdout, stderr) = try await executeSwiftBuild(
-                appPath,
-                configuration: configuration,
-                buildSystem: buildSystem,
-            )
-            let buildOutput = try appPath.appending(components: buildSystem.binPath(for: configuration))
-            expectDirectoryExists(at: buildOutput)
-            #expect((stdout + stderr).contains("'DeprecatedApp' is deprecated"))
-            #expect(!(stdout + stderr).contains("'Deprecated1' is deprecated"))
-            #expect(!(stdout + stderr).contains("'Deprecated2' is deprecated"))
-        }
+                let appPath = path.appending("app")
+                let (stdout, stderr) = try await executeSwiftBuild(
+                    appPath,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                )
+                let buildOutput = try appPath.appending(components: buildSystem.binPath(for: configuration))
+                expectDirectoryExists(at: buildOutput)
+                #expect((stdout + stderr).contains("'DeprecatedApp' is deprecated"))
+                #expect(!(stdout + stderr).contains("'Deprecated1' is deprecated"))
+                #expect(!(stdout + stderr).contains("'Deprecated2' is deprecated"))
+            }
         } when: {
             buildSystem == .swiftbuild
         }
@@ -1280,19 +1284,19 @@ struct MiscellaneousTestCase {
                 let (_, stderr) = try await executeSwiftBuild(
                     path,
                     configuration: configuration,
-                    env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"],
+                    env: ["SWIFT_DRIVER_SWIFTSCAN_LIB": "/this/is/a/bad/path"],
                     buildSystem: buildSystem,
                 )
                 switch buildSystem {
-                    case .native:
-                        let errors = stderr.components(separatedBy: .newlines).filter { !$0.contains("[logging] misuse") && !$0.isEmpty }
-                                                                        .filter { !$0.contains("Unable to locate libSwiftScan") }
-                        #expect(errors == ["warning: \(Basics.Diagnostic.deprecatedBuildSystem(buildSystem: buildSystem).message)"])
-                    case  .xcode:
-                        let errors = stderr.components(separatedBy: .newlines)
-                        #expect(errors == ["warning: \(Basics.Diagnostic.deprecatedBuildSystem(buildSystem: buildSystem).message)"])
-                    case .swiftbuild:
-                        break
+                case .native:
+                    let errors = stderr.components(separatedBy: .newlines).filter { !$0.contains("[logging] misuse") && !$0.isEmpty }
+                        .filter { !$0.contains("Unable to locate libSwiftScan") }
+                    #expect(errors == ["warning: \(Basics.Diagnostic.deprecatedBuildSystem(buildSystem: buildSystem).message)"])
+                case .xcode:
+                    let errors = stderr.components(separatedBy: .newlines)
+                    #expect(errors == ["warning: \(Basics.Diagnostic.deprecatedBuildSystem(buildSystem: buildSystem).message)"])
+                case .swiftbuild:
+                    break
                 }
             }
         } when: {
@@ -1321,7 +1325,7 @@ struct MiscellaneousTestCase {
                 #expect(!stdout.contains("regular main called"))
             }
         } when: {
-            ProcessInfo.isHostAmazonLinux2() // libFuzzer link issues occur on AL2
+            ProcessInfo.isHostAmazonLinux2()  // libFuzzer link issues occur on AL2
         }
     }
 }
@@ -1340,19 +1344,21 @@ struct MiscellaneousSwiftTestingTests {
 
             let pcFile = fixturePath.appending("libSystemModule.pc")
 
-            try localFileSystem.writeFileContents(pcFile, string: """
-                prefix=\(systemModule.pathString)
-                exec_prefix=${prefix}
-                libdir=${exec_prefix}
-                includedir=${prefix}/Sources/include
-                Name: SystemModule
-                URL: http://127.0.0.1/
-                Description: The one and only SystemModule
-                Version: 1.10.0
-                Cflags: -I${includedir}
-                Libs: -L${libdir} -lSystemModule
+            try localFileSystem.writeFileContents(
+                pcFile,
+                string: """
+                    prefix=\(systemModule.pathString)
+                    exec_prefix=${prefix}
+                    libdir=${exec_prefix}
+                    includedir=${prefix}/Sources/include
+                    Name: SystemModule
+                    URL: http://127.0.0.1/
+                    Description: The one and only SystemModule
+                    Version: 1.10.0
+                    Cflags: -I${includedir}
+                    Libs: -L${libdir} -lSystemModule
 
-                """
+                    """
             )
 
             let moduleUser = fixturePath.appending("SystemModuleUserClang")

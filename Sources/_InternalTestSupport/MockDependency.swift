@@ -129,7 +129,7 @@ public struct MockDependency {
                 )
             }
         }
-        
+
     }
 
     public static func fileSystem(path: String, products: ProductFilter = .everything, traits: Set<PackageDependency.Trait> = ["default"]) -> MockDependency {

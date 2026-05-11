@@ -35,8 +35,7 @@ internal struct SBOMGraphsConverter {
         return PackagePIFBuilder.productName(forTargetName: name)
     }
 
-    internal static func getModuleName(fromTarget name: String) -> String?
-    {
+    internal static func getModuleName(fromTarget name: String) -> String? {
         return PackagePIFBuilder.moduleName(forTargetName: name)
     }
 

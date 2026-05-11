@@ -52,13 +52,18 @@ struct SBOMExtractTests {
         )
         #expect(componentIDs.contains("swift-package-manager"), "should contain root package")
 
-        let swiftPMDependency = try #require(sbom.dependencies.relationships?
-            .first(where: { $0.parentID.value == "swift-package-manager" }))
-        #expect(Set(swiftPMDependency.childrenID.map(\.value)) == Set([
-            "swift-certificates", "swift-tools-support-core", "swift-collections", "swift-crypto",
-            "swift-toolchain-sqlite",
-            "swift-system", "swift-package-manager:SwiftPMPackageCollections",
-        ]))
+        let swiftPMDependency = try #require(
+            sbom.dependencies.relationships?
+                .first(where: { $0.parentID.value == "swift-package-manager" })
+        )
+        #expect(
+            Set(swiftPMDependency.childrenID.map(\.value))
+                == Set([
+                    "swift-certificates", "swift-tools-support-core", "swift-collections", "swift-crypto",
+                    "swift-toolchain-sqlite",
+                    "swift-system", "swift-package-manager:SwiftPMPackageCollections",
+                ])
+        )
     }
 
     @Test("extractSBOM with product filter for Swiftly")
@@ -91,50 +96,64 @@ struct SBOMExtractTests {
             "should contain a dependency product"
         )
 
-        let swiftlyDependency = try #require(sbom.dependencies.relationships?
-            .first(where: { $0.parentID.value == "swiftly" }))
-        #expect(Set(swiftlyDependency.childrenID.map(\.value)) == Set([
-            "swiftly:swiftly",
-            "swift-tools-support-core",
-            "swift-argument-parser",
-            "swift-system",
-            "async-http-client",
-            "swift-openapi-async-http-client",
-            "swift-nio",
-            "swift-openapi-runtime",
-            "swift-algorithms",
-            "swift-nio-transport-services",
-            "swift-nio-ssl",
-            "swift-openapi-generator",
-            "swift-nio-http2",
-            "swift-distributed-tracing",
-            "swift-nio-extras",
-            "swift-subprocess",
-        ]))
-        let swiftlyProductDependency = try #require(sbom.dependencies.relationships?
-            .first(where: { $0.parentID.value == "swiftly:swiftly" }))
-        #expect(Set(swiftlyProductDependency.childrenID.map(\.value)) == Set([
-            "async-http-client:AsyncHTTPClient",
-            "swift-openapi-async-http-client:OpenAPIAsyncHTTPClient",
-            "swift-openapi-runtime:OpenAPIRuntime",
-            "swift-tools-support-core:SwiftToolsSupport-auto",
-            "swift-argument-parser:ArgumentParser",
-            "swift-nio:NIOFoundationCompat",
-            "swift-system:SystemPackage",
-            "swift-subprocess:Subprocess",
-            "swift-openapi-generator:OpenAPIGenerator",
-        ]))
-        let swiftSystemDependency = try #require(sbom.dependencies.relationships?
-            .first(where: { $0.parentID.value == "swift-system" }))
+        let swiftlyDependency = try #require(
+            sbom.dependencies.relationships?
+                .first(where: { $0.parentID.value == "swiftly" })
+        )
+        #expect(
+            Set(swiftlyDependency.childrenID.map(\.value))
+                == Set([
+                    "swiftly:swiftly",
+                    "swift-tools-support-core",
+                    "swift-argument-parser",
+                    "swift-system",
+                    "async-http-client",
+                    "swift-openapi-async-http-client",
+                    "swift-nio",
+                    "swift-openapi-runtime",
+                    "swift-algorithms",
+                    "swift-nio-transport-services",
+                    "swift-nio-ssl",
+                    "swift-openapi-generator",
+                    "swift-nio-http2",
+                    "swift-distributed-tracing",
+                    "swift-nio-extras",
+                    "swift-subprocess",
+                ])
+        )
+        let swiftlyProductDependency = try #require(
+            sbom.dependencies.relationships?
+                .first(where: { $0.parentID.value == "swiftly:swiftly" })
+        )
+        #expect(
+            Set(swiftlyProductDependency.childrenID.map(\.value))
+                == Set([
+                    "async-http-client:AsyncHTTPClient",
+                    "swift-openapi-async-http-client:OpenAPIAsyncHTTPClient",
+                    "swift-openapi-runtime:OpenAPIRuntime",
+                    "swift-tools-support-core:SwiftToolsSupport-auto",
+                    "swift-argument-parser:ArgumentParser",
+                    "swift-nio:NIOFoundationCompat",
+                    "swift-system:SystemPackage",
+                    "swift-subprocess:Subprocess",
+                    "swift-openapi-generator:OpenAPIGenerator",
+                ])
+        )
+        let swiftSystemDependency = try #require(
+            sbom.dependencies.relationships?
+                .first(where: { $0.parentID.value == "swift-system" })
+        )
         #expect(Set(swiftSystemDependency.childrenID.map(\.value)) == Set(["swift-system:SystemPackage"]))
-        let swiftArgumentParserDependency = try #require(sbom.dependencies.relationships?
-            .first(where: { $0.parentID.value == "swift-argument-parser" }))
-        #expect(Set(swiftArgumentParserDependency.childrenID.map(\.value)) ==
-            Set(["swift-argument-parser:ArgumentParser"]))
-        let swiftToolsSupportDependency = try #require(sbom.dependencies.relationships?
-            .first(where: { $0.parentID.value == "swift-tools-support-core" }))
-        #expect(Set(swiftToolsSupportDependency.childrenID.map(\.value)) ==
-            Set(["swift-tools-support-core:SwiftToolsSupport-auto"]))
+        let swiftArgumentParserDependency = try #require(
+            sbom.dependencies.relationships?
+                .first(where: { $0.parentID.value == "swift-argument-parser" })
+        )
+        #expect(Set(swiftArgumentParserDependency.childrenID.map(\.value)) == Set(["swift-argument-parser:ArgumentParser"]))
+        let swiftToolsSupportDependency = try #require(
+            sbom.dependencies.relationships?
+                .first(where: { $0.parentID.value == "swift-tools-support-core" })
+        )
+        #expect(Set(swiftToolsSupportDependency.childrenID.map(\.value)) == Set(["swift-tools-support-core:SwiftToolsSupport-auto"]))
     }
 
     @Test("extractSBOM with invalid product name throws error")

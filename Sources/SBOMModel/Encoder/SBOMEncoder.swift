@@ -46,16 +46,17 @@ internal struct SBOMEncoder {
     }
 
     internal func encodeSBOMData(spec: SBOMSpec) async throws -> Data {
-        let data: any Encodable = switch spec.concreteSpec {
-        case .cyclonedx1:
-            try await CycloneDXConverter.convertToDocument(from: self.sbom, spec: spec)
-        case .spdx3:
-            try await SPDXConverter.convertToGraph(from: self.sbom, spec: spec)
+        let data: any Encodable =
+            switch spec.concreteSpec {
+            case .cyclonedx1:
+                try await CycloneDXConverter.convertToDocument(from: self.sbom, spec: spec)
+            case .spdx3:
+                try await SPDXConverter.convertToGraph(from: self.sbom, spec: spec)
             // case .cyclonedx, .cyclonedx2:
             //     data = try await convertToCycloneDX2Document(from: sbom, spec: spec)
             // case .spdx, .spdx4:
             //     data = try await convertToSPDX4Graph(from: sbom, spec: spec)
-        }
+            }
 
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
@@ -69,7 +70,8 @@ internal struct SBOMEncoder {
 
     internal func validateSBOM(from encoded: Foundation.Data, spec: SBOMSpec, bundleName: String = "SwiftPM_SBOMModel") async throws {
         guard let sbomJSONObject = try (JSONSerialization.jsonObject(with: encoded)) as? [String: Any] else {
-            throw SBOMEncoderError
+            throw
+                SBOMEncoderError
                 .jsonConversionFailed(message: "Could not convert generated SBOM file into JSON object for validation")
         }
 
@@ -85,4 +87,3 @@ internal struct SBOMEncoder {
         }
     }
 }
-

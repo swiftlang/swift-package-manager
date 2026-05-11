@@ -63,7 +63,7 @@ struct SPDXConverterTests {
         )
 
         let result = await SPDXConverter.convertToAgent(from: metadata)
-        #expect(result.count == 4) // CreationInfo + Agent + LicenseExpression + Relationship
+        #expect(result.count == 4)  // CreationInfo + Agent + LicenseExpression + Relationship
 
         let relationship = result[0] as? SPDXRelationship
         let relationshipUnwrapped = try #require(relationship)
@@ -120,7 +120,7 @@ struct SPDXConverterTests {
         )
 
         let result = await SPDXConverter.convertToAgent(from: metadata)
-        #expect(result.count == 8) // 2 * (Relationship + LicenseExpression + CreationInfo + Agent)
+        #expect(result.count == 8)  // 2 * (Relationship + LicenseExpression + CreationInfo + Agent)
 
         // First creator's license relationship
         let relationship1 = result[0] as? SPDXRelationship
@@ -484,10 +484,10 @@ struct SPDXConverterTests {
 
         let externalIdentifiers = result.compactMap { $0 as? SPDXExternalIdentifier }
         let relationships = result.compactMap { $0 as? SPDXRelationship }
-        
+
         #expect(externalIdentifiers.count == 1)
         #expect(relationships.count == 1)
-        
+
         let externalIdentifier = externalIdentifiers[0]
         #expect(externalIdentifier.identifier == "urn:spdx:abc123")
         #expect(externalIdentifier.identifierLocator == ["https://github.com/swiftlang/swift-package-manager"])
@@ -527,7 +527,7 @@ struct SPDXConverterTests {
         )
 
         let result = await SPDXConverter.convertToExternalIdentifiers(from: [component])
-        #expect(result.count == 4) // 2 ExternalIdentifiers and 2 Relationships
+        #expect(result.count == 4)  // 2 ExternalIdentifiers and 2 Relationships
 
         let externalIdentifiers = result.compactMap { $0 as? SPDXExternalIdentifier }
         let relationships = result.compactMap { $0 as? SPDXRelationship }
@@ -577,14 +577,14 @@ struct SPDXConverterTests {
         )
 
         let result = await SPDXConverter.convertToExternalIdentifiers(from: [component1, component2])
-        #expect(result.count == 2) // 1 ExternalIdentifier and 1 Relationship
+        #expect(result.count == 2)  // 1 ExternalIdentifier and 1 Relationship
 
         let externalIdentifiers = result.compactMap { $0 as? SPDXExternalIdentifier }
         let relationships = result.compactMap { $0 as? SPDXRelationship }
-        
+
         #expect(externalIdentifiers.count == 1)
         #expect(relationships.count == 1)
-        
+
         let externalIdentifier = externalIdentifiers[0]
         #expect(externalIdentifier.identifier == "urn:spdx:abc123")
         #expect(externalIdentifier.identifierLocator == ["https://github.com/swiftlang/swift-package-manager"])
@@ -621,14 +621,14 @@ struct SPDXConverterTests {
         )
 
         let result = await SPDXConverter.convertToExternalIdentifiers(from: [component])
-        #expect(result.count == 2) // 1 ExternalIdentifier + 1 Relationship
+        #expect(result.count == 2)  // 1 ExternalIdentifier + 1 Relationship
 
         let externalIdentifiers = result.compactMap { $0 as? SPDXExternalIdentifier }
         let relationships = result.compactMap { $0 as? SPDXRelationship }
-        
+
         #expect(externalIdentifiers.count == 1)
         #expect(relationships.count == 1)
-        
+
         let externalIdentifier = externalIdentifiers[0]
         #expect(externalIdentifier.identifier == "urn:spdx:https://registry.example.com/package/1.0.0")
         #expect(externalIdentifier.identifierLocator == ["https://registry.example.com/package/1.0.0"])
@@ -670,7 +670,7 @@ struct SPDXConverterTests {
         )
 
         let result = await SPDXConverter.convertToExternalIdentifiers(from: [component])
-        #expect(result.count == 4) // 2 ExternalIdentifiers + 2 Relationships
+        #expect(result.count == 4)  // 2 ExternalIdentifiers + 2 Relationships
 
         let externalIdentifiers = result.compactMap { $0 as? SPDXExternalIdentifier }
         let relationships = result.compactMap { $0 as? SPDXRelationship }
@@ -710,7 +710,7 @@ struct SPDXConverterTests {
         )
 
         let result = await SPDXConverter.convertToExternalIdentifiers(from: [component])
-        #expect(result.isEmpty) // Registry entry without URL should be skipped
+        #expect(result.isEmpty)  // Registry entry without URL should be skipped
     }
 
     @Test("convertToExternalIdentifiers with both commits and registry entries")
@@ -738,7 +738,7 @@ struct SPDXConverterTests {
         )
 
         let result = await SPDXConverter.convertToExternalIdentifiers(from: [component])
-        #expect(result.count == 4) // 1 commit ExternalIdentifier + 1 commit Relationship + 1 registry ExternalIdentifier + 1 registry Relationship
+        #expect(result.count == 4)  // 1 commit ExternalIdentifier + 1 commit Relationship + 1 registry ExternalIdentifier + 1 registry Relationship
 
         let externalIdentifiers = result.compactMap { $0 as? SPDXExternalIdentifier }
         let relationships = result.compactMap { $0 as? SPDXRelationship }
@@ -807,7 +807,7 @@ struct SPDXConverterTests {
         )
 
         let result = await SPDXConverter.convertToExternalIdentifiers(from: [component1, component2])
-        #expect(result.count == 4) // 2 ExternalIdentifiers + 2 Relationships
+        #expect(result.count == 4)  // 2 ExternalIdentifiers + 2 Relationships
 
         let externalIdentifiers = result.compactMap { $0 as? SPDXExternalIdentifier }
         let relationships = result.compactMap { $0 as? SPDXRelationship }
@@ -826,7 +826,6 @@ struct SPDXConverterTests {
         }
     }
 
-
     @Test("convertToRelationships with nil dependencies")
     func convertToRelationshipsWithNilDependencies() async throws {
         let result = await SPDXConverter.convertToRelationships(from: nil)
@@ -835,10 +834,12 @@ struct SPDXConverterTests {
 
     @Test("convertToRelationships with empty dependencies")
     func convertToRelationshipsWithEmptyDependencies() async throws {
-        let result = await SPDXConverter.convertToRelationships(from: SBOMDependencies(
-            components: [],
-            relationships: []
-        ))
+        let result = await SPDXConverter.convertToRelationships(
+            from: SBOMDependencies(
+                components: [],
+                relationships: []
+            )
+        )
         #expect(result.isEmpty)
     }
 
@@ -850,10 +851,12 @@ struct SPDXConverterTests {
             childrenID: [SBOMIdentifier(value: "child1"), SBOMIdentifier(value: "child2")]
         )
 
-        let result = await SPDXConverter.convertToRelationships(from: SBOMDependencies(
-            components: [],
-            relationships: [dependency]
-        ))
+        let result = await SPDXConverter.convertToRelationships(
+            from: SBOMDependencies(
+                components: [],
+                relationships: [dependency]
+            )
+        )
         #expect(result.count == 1)
 
         let relationship = result[0] as? SPDXRelationship
@@ -879,10 +882,12 @@ struct SPDXConverterTests {
             childrenID: [SBOMIdentifier(value: "child2"), SBOMIdentifier(value: "child3")]
         )
 
-        let result = await SPDXConverter.convertToRelationships(from: SBOMDependencies(
-            components: [],
-            relationships: [dependency1, dependency2]
-        ))
+        let result = await SPDXConverter.convertToRelationships(
+            from: SBOMDependencies(
+                components: [],
+                relationships: [dependency1, dependency2]
+            )
+        )
         #expect(result.count == 2)
 
         let relationship1 = result[0] as? SPDXRelationship
@@ -943,11 +948,13 @@ struct SPDXConverterTests {
             childrenID: [SBOMIdentifier(value: "test-id"), SBOMIdentifier(value: "test-id2")]
         )
 
-        let result = await SPDXConverter.convertToRelationships(from: SBOMDependencies(
-            components: [parent, component, component2],
-            relationships: [dependency1]
-        ))
-        #expect(result.count == 3) // 1 dependsOn, 1 hasOptionalDependency, 1 hasTest
+        let result = await SPDXConverter.convertToRelationships(
+            from: SBOMDependencies(
+                components: [parent, component, component2],
+                relationships: [dependency1]
+            )
+        )
+        #expect(result.count == 3)  // 1 dependsOn, 1 hasOptionalDependency, 1 hasTest
 
         let relationship2 = result[1] as? SPDXRelationship
         let relationship2Unwrapped = try #require(relationship2)
@@ -1026,9 +1033,10 @@ struct SPDXConverterTests {
         let result = try await SPDXConverter.convertToGraph(from: document, spec: spec)
 
         #expect(result.context == SPDXConstants.spdx3Context)
-        #expect(result.graph
-            .count ==
-            6) // 1 agent CreationInfo + 1 agent + 4 document elements + 0 packages + 0 relationships + 0 commits
+        #expect(
+            result.graph
+                .count == 6
+        )  // 1 agent CreationInfo + 1 agent + 4 document elements + 0 packages + 0 relationships + 0 commits
     }
 
     @Test("convertToGraph with components and dependencies")
@@ -1079,22 +1087,23 @@ struct SPDXConverterTests {
         let result = try await SPDXConverter.convertToGraph(from: document, spec: spec)
 
         #expect(result.context == SPDXConstants.spdx3Context)
-        #expect(result.graph
-            .count ==
-            8) // 1 agent CreationInfo + 1 agent + 4 document elements + 1 package + 1 relationship + 0 commits
+        #expect(
+            result.graph
+                .count == 8
+        )  // 1 agent CreationInfo + 1 agent + 4 document elements + 1 package + 1 relationship + 0 commits
 
         let agents = result.graph.compactMap { $0.getValue() as SPDXAgent? }
         #expect(agents.count == 1)
 
         let creationInfos = result.graph.compactMap { $0.getValue() as SPDXCreationInfo? }
-        #expect(creationInfos.count == 2) // 1 from agent + 1 from document
+        #expect(creationInfos.count == 2)  // 1 from agent + 1 from document
 
         let packages = result.graph.compactMap { $0.getValue() as SPDXPackage? }
         #expect(packages.count == 1)
         #expect(packages[0].id == "urn:spdx:lib1-id")
 
         let relationships = result.graph.compactMap { $0.getValue() as SPDXRelationship? }
-        #expect(relationships.count == 2) // 1 describes + 1 dependsOn relationship
+        #expect(relationships.count == 2)  // 1 describes + 1 dependsOn relationship
 
         let sboms = result.graph.compactMap { $0.getValue() as SPDXSBOM? }
         #expect(sboms.count == 1)

@@ -10,66 +10,66 @@
 //
 //===----------------------------------------------------------------------===//
 #if canImport(LanguageServerProtocolTransport)
-import ArgumentParser
-import TSCBasic
-import SwiftBuild
-import BuildServerProtocol
-import LanguageServerProtocol
-import LanguageServerProtocolTransport
-import CoreCommands
-import Foundation
-import PackageGraph
-import SwiftPMBuildServer
-import SwiftBuildSupport
-import SystemPackage
-import SPMBuildCore
+    import ArgumentParser
+    import TSCBasic
+    import SwiftBuild
+    import BuildServerProtocol
+    import LanguageServerProtocol
+    import LanguageServerProtocolTransport
+    import CoreCommands
+    import Foundation
+    import PackageGraph
+    import SwiftPMBuildServer
+    import SwiftBuildSupport
+    import SystemPackage
+    import SPMBuildCore
 
-struct BuildServer: AsyncSwiftCommand {
-    static let configuration = CommandConfiguration(
-        commandName: "experimental-build-server",
-        abstract: "Launch a build server for Swift Packages",
-        shouldDisplay: false
-    )
-
-    @OptionGroup(visibility: .hidden)
-    var globalOptions: GlobalOptions
-
-    func run(_ swiftCommandState: SwiftCommandState) async throws {
-        // Dup stdout and redirect the fd to stderr so that a careless print()
-        // will not break our connection stream.
-        let realStdout = try FileDescriptor.standardOutput.duplicate()
-        _ = try FileDescriptor.standardError.duplicate(as: FileDescriptor.standardOutput)
-
-        let realStdoutHandle = FileHandle(fileDescriptor: realStdout.rawValue, closeOnDealloc: false)
-
-        let clientConnection = JSONRPCConnection(
-            name: "client",
-            protocol: MessageRegistry.bspProtocol,
-            receiveFD: FileHandle.standardInput,
-            sendFD: realStdoutHandle,
-            receiveMirrorFile: nil,
-            sendMirrorFile: nil
+    struct BuildServer: AsyncSwiftCommand {
+        static let configuration = CommandConfiguration(
+            commandName: "experimental-build-server",
+            abstract: "Launch a build server for Swift Packages",
+            shouldDisplay: false
         )
 
-        let buildSystem = try await swiftCommandState.createBuildSystem(explicitBuildSystem: .swiftbuild)
-        guard let swiftBuildSystem = buildSystem as? SwiftBuildSystem else {
-            throw ArgumentParser.ValidationError("Failed to initialize the '--build-system swiftbuild' backend; expected a 'SwiftBuildSystem' but got '\(buildSystem)'")
-        }
+        @OptionGroup(visibility: .hidden)
+        var globalOptions: GlobalOptions
 
-        guard let packagePath = try swiftCommandState.getWorkspaceRoot().packages.first else {
-            throw ArgumentParser.ValidationError("unknown package")
-        }
+        func run(_ swiftCommandState: SwiftCommandState) async throws {
+            // Dup stdout and redirect the fd to stderr so that a careless print()
+            // will not break our connection stream.
+            let realStdout = try FileDescriptor.standardOutput.duplicate()
+            _ = try FileDescriptor.standardError.duplicate(as: FileDescriptor.standardOutput)
 
-        let server = try await SwiftPMBuildServer(
-            packageRoot: packagePath,
-            buildSystem: swiftBuildSystem,
-            workspace: swiftCommandState.getActiveWorkspace(),
-            connectionToClient: clientConnection,
-            exitHandler: {_ in clientConnection.close() }
-        )
-        await withCheckedContinuation {continuation in
-            clientConnection.start(receiveHandler: server, closeHandler: { continuation.resume() })
+            let realStdoutHandle = FileHandle(fileDescriptor: realStdout.rawValue, closeOnDealloc: false)
+
+            let clientConnection = JSONRPCConnection(
+                name: "client",
+                protocol: MessageRegistry.bspProtocol,
+                receiveFD: FileHandle.standardInput,
+                sendFD: realStdoutHandle,
+                receiveMirrorFile: nil,
+                sendMirrorFile: nil
+            )
+
+            let buildSystem = try await swiftCommandState.createBuildSystem(explicitBuildSystem: .swiftbuild)
+            guard let swiftBuildSystem = buildSystem as? SwiftBuildSystem else {
+                throw ArgumentParser.ValidationError("Failed to initialize the '--build-system swiftbuild' backend; expected a 'SwiftBuildSystem' but got '\(buildSystem)'")
+            }
+
+            guard let packagePath = try swiftCommandState.getWorkspaceRoot().packages.first else {
+                throw ArgumentParser.ValidationError("unknown package")
+            }
+
+            let server = try await SwiftPMBuildServer(
+                packageRoot: packagePath,
+                buildSystem: swiftBuildSystem,
+                workspace: swiftCommandState.getActiveWorkspace(),
+                connectionToClient: clientConnection,
+                exitHandler: { _ in clientConnection.close() }
+            )
+            await withCheckedContinuation { continuation in
+                clientConnection.start(receiveHandler: server, closeHandler: { continuation.resume() })
+            }
         }
     }
-}
 #endif

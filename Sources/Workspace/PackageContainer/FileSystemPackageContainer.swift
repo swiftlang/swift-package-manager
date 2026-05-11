@@ -64,7 +64,8 @@ public struct FileSystemPackageContainer: PackageContainer {
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope.makeChildScope(
             description: "FileSystemPackageContainer",
-            metadata: package.diagnosticsMetadata)
+            metadata: package.diagnosticsMetadata
+        )
     }
 
     private func loadManifest() async throws -> Manifest {
@@ -130,7 +131,7 @@ public struct FileSystemPackageContainer: PackageContainer {
     }
 }
 
-extension FileSystemPackageContainer: CustomStringConvertible  {
+extension FileSystemPackageContainer: CustomStringConvertible {
     public var description: String {
         return "FileSystemPackageContainer(\(self.package.identity))"
     }

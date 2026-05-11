@@ -17,8 +17,8 @@ public enum BuildConfiguration: String, CaseIterable, Encodable, Sendable {
 
     public var dirname: String {
         switch self {
-            case .debug: return "debug"
-            case .release: return "release"
+        case .debug: return "debug"
+        case .release: return "release"
         }
     }
 }

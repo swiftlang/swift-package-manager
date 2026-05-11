@@ -95,7 +95,7 @@ public enum PIF {
         public var projects: [Project]
         var signature: String?
 
-        public init(guid: GUID,  name: String, path: AbsolutePath, projects: [Project]) {
+        public init(guid: GUID, name: String, path: AbsolutePath, projects: [Project]) {
             precondition(!guid.isEmpty)
             precondition(!name.isEmpty)
             precondition(Set(projects.map({ $0.guid })).count == projects.count)
@@ -207,7 +207,7 @@ public enum PIF {
                     throw InternalError("Expected to have project signature when encoding for XCBuild")
                 }
                 try container.encode(signature, forKey: "signature")
-                try contents.encode(targets.map{ $0.signature }, forKey: .targets)
+                try contents.encode(targets.map { $0.signature }, forKey: .targets)
             } else {
                 try contents.encode(targets, forKey: .targets)
             }
@@ -413,7 +413,7 @@ public enum PIF {
         /// The platform filters for this target dependency.
         public var platformFilters: [PlatformFilter]
 
-        public init(targetGUID: String, platformFilters: [PlatformFilter] = [])  {
+        public init(targetGUID: String, platformFilters: [PlatformFilter] = []) {
             self.targetGUID = targetGUID
             self.platformFilters = platformFilters
         }
@@ -657,7 +657,7 @@ public enum PIF {
                 self.productType = .packageProduct
                 self.productName = ""
                 let fwkBuildPhase = try container.decodeIfPresent(FrameworksBuildPhase.self, forKey: .frameworksBuildPhase)
-                buildPhases = fwkBuildPhase.map{ [$0] } ?? []
+                buildPhases = fwkBuildPhase.map { [$0] } ?? []
                 impartedBuildProperties = ImpartedBuildProperties(settings: BuildSettings())
             } else if type == "standard" {
                 self.productType = try container.decode(ProductType.self, forKey: .productTypeIdentifier)
@@ -1240,7 +1240,7 @@ extension PIF.FileReference {
 
         default:
             return pathExtension.flatMap({ pathExtension in
-                XCBuildFileType.allCases.first(where:{ $0.fileTypes.contains(pathExtension) })
+                XCBuildFileType.allCases.first(where: { $0.fileTypes.contains(pathExtension) })
             })?.fileTypeIdentifier ?? "file"
         }
     }
@@ -1279,7 +1279,7 @@ extension PIF {
         }
 
         let projects = workspace.projects
-        try projects.flatMap{ $0.targets }.forEach(sign)
+        try projects.flatMap { $0.targets }.forEach(sign)
         try projects.forEach(sign)
         try sign(workspace)
     }

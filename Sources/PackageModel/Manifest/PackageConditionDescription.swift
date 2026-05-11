@@ -121,7 +121,6 @@ public struct ConfigurationCondition: Hashable, Sendable {
     }
 }
 
-
 /// A configuration condition implies that an assignment is valid on
 /// a particular build configuration.
 public struct TraitCondition: Hashable, Sendable {
@@ -135,4 +134,3 @@ public struct TraitCondition: Hashable, Sendable {
         return true
     }
 }
-

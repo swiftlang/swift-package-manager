@@ -34,10 +34,10 @@ private struct SwiftPMTests {
                 #expect(!runOutput.stderr.contains("error:"))
                 #expect(
                     runOutput.stdout == """
-                            SwiftFramework()
-                            Library(framework: SwiftFramework.SwiftFramework())
+                        SwiftFramework()
+                        Library(framework: SwiftFramework.SwiftFramework())
 
-                            """
+                        """
                 )
             }
 
@@ -73,7 +73,7 @@ private struct SwiftPMTests {
                 )
                 #expect(
                     packageOutput.stdout.spm_chomp()
-                    == "d1f202b1bfe04dea30b2bc4038f8059dcd75a5a176f1d81fcaedb6d3597d1158"
+                        == "d1f202b1bfe04dea30b2bc4038f8059dcd75a5a176f1d81fcaedb6d3597d1158"
                 )
             }
         }
@@ -145,7 +145,7 @@ private struct SwiftPMTests {
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func testArchCustomization(buildSystem: BuildSystemProvider.Kind) async throws {
-        try await  withTemporaryDirectory { tmpDir in
+        try await withTemporaryDirectory { tmpDir in
             let packagePath = tmpDir.appending(component: "foo")
             try localFileSystem.createDirectory(packagePath)
             try await executeSwiftPackage(
@@ -203,16 +203,17 @@ private struct SwiftPMTests {
             let fooPath: AbsolutePath
             let hostArch: String
             #if arch(x86_64)
-            hostArch = "x86_64"
+                hostArch = "x86_64"
             #elseif arch(arm64)
-            hostArch = "arm64"
+                hostArch = "arm64"
             #else
-            precondition("Unsupported platform or host arch for test")
+                precondition("Unsupported platform or host arch for test")
             #endif
             switch buildSystem {
             case .native:
                 fooPath = try AbsolutePath(
-                    validating: ".build/out/Products/Debug/foo", relativeTo: packagePath
+                    validating: ".build/out/Products/Debug/foo",
+                    relativeTo: packagePath
                 )
             case .swiftbuild:
                 fooPath = try AbsolutePath(
@@ -252,94 +253,94 @@ private struct SwiftPMTests {
     ) async throws {
         let config = BuildConfiguration.debug
         try await withKnownIssue(isIntermittent: true) {
-        try await withTemporaryDirectory(removeTreeOnDeinit: false) { tmpDir in
-            let packagePath = tmpDir.appending(component: "test-package-coverage")
-            try localFileSystem.createDirectory(packagePath)
-            try await executeSwiftPackage(
-                packagePath,
-                configuration: config,
-                extraArgs: ["init", "--type", "empty"],
-                buildSystem: buildSystem,
-            )
-            try await executeSwiftPackage(
-                packagePath,
-                configuration: config,
-                extraArgs: ["add-target", "--type", "test", "ReproTests"],
-                buildSystem: buildSystem,
-            )
-            try localFileSystem.writeFileContents(
-                AbsolutePath(validating: "Tests/ReproTests/Subject.swift", relativeTo: packagePath),
-                string: """
-                struct Subject {
-                    static func a() { _ = "a" }
-                    static func b() { _ = "b" }
-                }
-                """
-            )
-            try localFileSystem.writeFileContents(
-                AbsolutePath(validating: "Tests/ReproTests/ReproTests.swift", relativeTo: packagePath),
-                string: """
-                import Testing
-                import class Foundation.ProcessInfo
-                @Suite struct Suite {
-                    @Test func testProfilePathCanary() throws {
-                        let pattern = try #require(ProcessInfo.processInfo.environment["LLVM_PROFILE_FILE"])
-                        #expect(pattern.hasSuffix(".%p.profraw"))
-                    }
-                    @Test func testA() async { await #expect(processExitsWith: .success) { Subject.a() } }
-                    @Test func testB() async { await #expect(processExitsWith: .success) { Subject.b() } }
-                }
-                """
-            )
-            let expectedCoveragePath = try await getCoveragePath(
-                packagePath,
-                with: BuildData(buildSystem: buildSystem, config: config),
-            )
+            try await withTemporaryDirectory(removeTreeOnDeinit: false) { tmpDir in
+                let packagePath = tmpDir.appending(component: "test-package-coverage")
+                try localFileSystem.createDirectory(packagePath)
+                try await executeSwiftPackage(
+                    packagePath,
+                    configuration: config,
+                    extraArgs: ["init", "--type", "empty"],
+                    buildSystem: buildSystem,
+                )
+                try await executeSwiftPackage(
+                    packagePath,
+                    configuration: config,
+                    extraArgs: ["add-target", "--type", "test", "ReproTests"],
+                    buildSystem: buildSystem,
+                )
+                try localFileSystem.writeFileContents(
+                    AbsolutePath(validating: "Tests/ReproTests/Subject.swift", relativeTo: packagePath),
+                    string: """
+                        struct Subject {
+                            static func a() { _ = "a" }
+                            static func b() { _ = "b" }
+                        }
+                        """
+                )
+                try localFileSystem.writeFileContents(
+                    AbsolutePath(validating: "Tests/ReproTests/ReproTests.swift", relativeTo: packagePath),
+                    string: """
+                        import Testing
+                        import class Foundation.ProcessInfo
+                        @Suite struct Suite {
+                            @Test func testProfilePathCanary() throws {
+                                let pattern = try #require(ProcessInfo.processInfo.environment["LLVM_PROFILE_FILE"])
+                                #expect(pattern.hasSuffix(".%p.profraw"))
+                            }
+                            @Test func testA() async { await #expect(processExitsWith: .success) { Subject.a() } }
+                            @Test func testB() async { await #expect(processExitsWith: .success) { Subject.b() } }
+                        }
+                        """
+                )
+                let expectedCoveragePath = try await getCoveragePath(
+                    packagePath,
+                    with: BuildData(buildSystem: buildSystem, config: config),
+                )
 
-            try await executeSwiftTest(
-                packagePath,
-                configuration: config,
-                extraArgs: ["--enable-code-coverage", "--disable-xctest"],
-                buildSystem: buildSystem,
-                throwIfCommandFails: true,
-            )
-            let coveragePath = try AbsolutePath(validating: expectedCoveragePath)
+                try await executeSwiftTest(
+                    packagePath,
+                    configuration: config,
+                    extraArgs: ["--enable-code-coverage", "--disable-xctest"],
+                    buildSystem: buildSystem,
+                    throwIfCommandFails: true,
+                )
+                let coveragePath = try AbsolutePath(validating: expectedCoveragePath)
 
-            // Check the coverage path exists.
-            // the CoveragePath file does not exists in Linux platform build
-            expectFileExists(at: coveragePath)
+                // Check the coverage path exists.
+                // the CoveragePath file does not exists in Linux platform build
+                expectFileExists(at: coveragePath)
 
-            // This resulting coverage file should be merged JSON, with a schema that valiades against this subset.
-            struct Coverage: Codable {
-                var data: [Entry]
-                struct Entry: Codable {
-                    var files: [File]
-                    struct File: Codable {
-                        var filename: String
-                        var summary: Summary
-                        struct Summary: Codable {
-                            var functions: Functions
-                            struct Functions: Codable {
-                                var count, covered: Int
-                                var percent: Double
+                // This resulting coverage file should be merged JSON, with a schema that valiades against this subset.
+                struct Coverage: Codable {
+                    var data: [Entry]
+                    struct Entry: Codable {
+                        var files: [File]
+                        struct File: Codable {
+                            var filename: String
+                            var summary: Summary
+                            struct Summary: Codable {
+                                var functions: Functions
+                                struct Functions: Codable {
+                                    var count, covered: Int
+                                    var percent: Double
+                                }
                             }
                         }
                     }
                 }
-            }
-            let coverageJSON = try localFileSystem.readFileContents(coveragePath)
-            let coverage = try JSONDecoder().decode(Coverage.self, from: Data(coverageJSON.contents))
+                let coverageJSON = try localFileSystem.readFileContents(coveragePath)
+                let coverage = try JSONDecoder().decode(Coverage.self, from: Data(coverageJSON.contents))
 
-            // Check for 100% coverage for Subject.swift, which should happen because the per-PID files got merged.
-            try withKnownIssue(isIntermittent: true) {
-                let data = try #require(coverage.data.first, "coverage JSON = \(coverage)")
-                let subjectCoverage = try #require(data.files.first(where: { $0.filename.hasSuffix("Subject.swift") }), "coverage data files JSON = \(data.files)")
-                #expect(subjectCoverage.summary.functions.count == 2)
-                #expect(subjectCoverage.summary.functions.covered == 2)
-                #expect(subjectCoverage.summary.functions.percent == 100)
-            } when: {
-                [.windows, .linux].contains(ProcessInfo.hostOperatingSystem) && buildSystem == .swiftbuild
-            }
+                // Check for 100% coverage for Subject.swift, which should happen because the per-PID files got merged.
+                try withKnownIssue(isIntermittent: true) {
+                    let data = try #require(coverage.data.first, "coverage JSON = \(coverage)")
+                    let subjectCoverage = try #require(data.files.first(where: { $0.filename.hasSuffix("Subject.swift") }), "coverage data files JSON = \(data.files)")
+                    #expect(subjectCoverage.summary.functions.count == 2)
+                    #expect(subjectCoverage.summary.functions.covered == 2)
+                    #expect(subjectCoverage.summary.functions.percent == 100)
+                } when: {
+                    [.windows, .linux].contains(ProcessInfo.hostOperatingSystem) && buildSystem == .swiftbuild
+                }
 
                 // Check the directory with the coverage path contains the profraw files.
                 let coverageDirectory = coveragePath.parentDirectory
@@ -368,7 +369,7 @@ private struct SwiftPMTests {
                         "Binary Specific profraw files are: \(binarySpecificProfrawFiles)"
                     )
                 }
-        }
+            }
         } when: {
             ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild
         }

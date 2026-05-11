@@ -11,9 +11,9 @@
 //===----------------------------------------------------------------------===//
 
 #if canImport(Darwin)
-import Darwin.C
+    import Darwin.C
 #elseif canImport(Android)
-import Android
+    import Android
 #endif
 
 @main
@@ -23,14 +23,15 @@ struct Entrypoint {
         if args.count >= 3, args[1] == "--test-bundle-path" {
             let bundlePath = args[2]
             #if canImport(Darwin)
-            let flags = RTLD_LAZY | RTLD_FIRST
+                let flags = RTLD_LAZY | RTLD_FIRST
             #else
-            let flags = RTLD_LAZY
+                let flags = RTLD_LAZY
             #endif
             guard let image = dlopen(bundlePath, flags) else {
-                let errorMessage: String = dlerror().flatMap {
-                    String(validatingCString: $0)
-                } ?? "An unknown error occurred."
+                let errorMessage: String =
+                    dlerror().flatMap {
+                        String(validatingCString: $0)
+                    } ?? "An unknown error occurred."
                 fatalError("Failed to open test bundle at path \(bundlePath): \(errorMessage)")
             }
             defer {

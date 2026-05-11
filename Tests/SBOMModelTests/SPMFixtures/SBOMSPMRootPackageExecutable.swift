@@ -45,7 +45,8 @@ extension SBOMTestModulesGraph {
         let resolvedXCBuildSupportModule = commandResolvedModules.first { $0.name == "XCBuildSupport" }!
         let resolvedSwiftBuildSupportModule = commandResolvedModules.first { $0.name == "SwiftBuildSupport" }!
         let resolvedSwiftSDKCommandModule = commandResolvedModules.first { $0.name == "SwiftSDKCommand" }!
-        let resolvedPackageCollectionsCommandModule = commandResolvedModules
+        let resolvedPackageCollectionsCommandModule =
+            commandResolvedModules
             .first { $0.name == "PackageCollectionsCommand" }!
         let resolvedPackageRegistryCommandModule = commandResolvedModules.first { $0.name == "PackageRegistryCommand" }!
 

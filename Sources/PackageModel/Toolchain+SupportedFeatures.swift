@@ -44,8 +44,8 @@ public enum SwiftCompilerFeature {
     public var name: String {
         switch self {
         case .optional(name: let name, migratable: _, categories: _, flagName: _),
-                .upcoming(name: let name, migratable: _, categories: _, enabledIn: _),
-                .experimental(name: let name, migratable: _, categories: _):
+            .upcoming(name: let name, migratable: _, categories: _, enabledIn: _),
+            .experimental(name: let name, migratable: _, categories: _):
             name
         }
     }
@@ -53,8 +53,8 @@ public enum SwiftCompilerFeature {
     public var migratable: Bool {
         switch self {
         case .optional(name: _, migratable: let migratable, categories: _, flagName: _),
-             .upcoming(name: _, migratable: let migratable, categories: _, enabledIn: _),
-             .experimental(name: _, migratable: let migratable, categories: _):
+            .upcoming(name: _, migratable: let migratable, categories: _, enabledIn: _),
+            .experimental(name: _, migratable: let migratable, categories: _):
             migratable
         }
     }
@@ -62,8 +62,8 @@ public enum SwiftCompilerFeature {
     public var categories: [String] {
         switch self {
         case .optional(name: _, migratable: _, categories: let categories, flagName: _),
-             .upcoming(name: _, migratable: _, categories: let categories, enabledIn: _),
-             .experimental(name: _, migratable: _, categories: let categories):
+            .upcoming(name: _, migratable: _, categories: let categories, enabledIn: _),
+            .experimental(name: _, migratable: _, categories: let categories):
             categories
         }
     }

@@ -42,16 +42,15 @@ internal struct SPDXConverter {
             creationInfoID: creationInfoID,
         )
     }
-    
 
     internal static func convertToAgent(from metadata: SBOMMetadata?) async -> [any SPDXObject] {
         guard let metadata,
-              let creators = metadata.creators,
-              !creators.isEmpty
+            let creators = metadata.creators,
+            !creators.isEmpty
         else {
             return []
         }
-                
+
         var agents: [any SPDXObject] = []
         for creator in creators {
             let creatorID = self.generateSPDXID(creator.id.value)
@@ -84,7 +83,7 @@ internal struct SPDXConverter {
                     agents.append(spdxLicense)
                 }
             }
-            
+
             agents.append(toolCreationInfo)
             agents.append(tool)
         }
@@ -96,8 +95,8 @@ internal struct SPDXConverter {
         spec: SBOMSpec
     ) async throws -> [any SPDXObject] {
         guard let timestamp = document.metadata.timestamp,
-              let creators = document.metadata.creators,
-              !creators.isEmpty
+            let creators = document.metadata.creators,
+            !creators.isEmpty
         else {
             throw SBOMConverterError.missingRequiredMetadata(
                 message: "timestamp or creators are missing from SBOM document metadata, required for SPDX format"

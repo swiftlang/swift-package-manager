@@ -466,19 +466,23 @@ public class Workspace {
         )
 
         let currentToolsVersion = customToolsVersion ?? ToolsVersion.current
-        let hostToolchain = try customHostToolchain ?? UserToolchain(
-            swiftSDK: .hostSwiftSDK(
-                environment: environment
-            ),
-            environment: environment,
-            fileSystem: fileSystem
-        )
-        var manifestLoader = customManifestLoader ?? ManifestLoader(
-            toolchain: hostToolchain,
-            cacheDir: location.sharedManifestsCacheDirectory,
-            importRestrictions: configuration?.manifestImportRestrictions,
-            pruneDependencies: configuration?.pruneDependencies ?? false
-        )
+        let hostToolchain =
+            try customHostToolchain
+            ?? UserToolchain(
+                swiftSDK: .hostSwiftSDK(
+                    environment: environment
+                ),
+                environment: environment,
+                fileSystem: fileSystem
+            )
+        var manifestLoader =
+            customManifestLoader
+            ?? ManifestLoader(
+                toolchain: hostToolchain,
+                cacheDir: location.sharedManifestsCacheDirectory,
+                importRestrictions: configuration?.manifestImportRestrictions,
+                pruneDependencies: configuration?.pruneDependencies ?? false
+            )
         // set delegate if not set
         if let manifestLoader = manifestLoader as? ManifestLoader, manifestLoader.delegate == nil {
             manifestLoader.delegate = delegate.map(WorkspaceManifestLoaderDelegate.init(workspaceDelegate:))
@@ -486,62 +490,76 @@ public class Workspace {
 
         let configuration = configuration ?? .default
 
-        let mirrors = try customMirrors ?? Workspace.Configuration.Mirrors(
-            fileSystem: fileSystem,
-            localMirrorsFile: location.localMirrorsConfigurationFile,
-            sharedMirrorsFile: location.sharedMirrorsConfigurationFile
-        ).mirrors
+        let mirrors =
+            try customMirrors
+            ?? Workspace.Configuration.Mirrors(
+                fileSystem: fileSystem,
+                localMirrorsFile: location.localMirrorsConfigurationFile,
+                sharedMirrorsFile: location.sharedMirrorsConfigurationFile
+            ).mirrors
 
-        let identityResolver = customIdentityResolver ?? DefaultIdentityResolver(
-            locationMapper: mirrors.effective(for:),
-            identityMapper: mirrors.effectiveIdentity(for:)
-        )
+        let identityResolver =
+            customIdentityResolver
+            ?? DefaultIdentityResolver(
+                locationMapper: mirrors.effective(for:),
+                identityMapper: mirrors.effectiveIdentity(for:)
+            )
         let dependencyMapper = customDependencyMapper ?? DefaultDependencyMapper(identityResolver: identityResolver)
         let checksumAlgorithm = customChecksumAlgorithm ?? SHA256()
 
         let repositoryProvider = customRepositoryProvider ?? GitRepositoryProvider()
-        let repositoryManager = customRepositoryManager ?? RepositoryManager(
-            fileSystem: fileSystem,
-            path: location.repositoriesDirectory,
-            provider: repositoryProvider,
-            cachePath: configuration.sharedDependenciesCacheEnabled ? location.sharedRepositoriesCacheDirectory : .none,
-            initializationWarningHandler: initializationWarningHandler,
-            delegate: delegate.map(WorkspaceRepositoryManagerDelegate.init(workspaceDelegate:))
-        )
+        let repositoryManager =
+            customRepositoryManager
+            ?? RepositoryManager(
+                fileSystem: fileSystem,
+                path: location.repositoriesDirectory,
+                provider: repositoryProvider,
+                cachePath: configuration.sharedDependenciesCacheEnabled ? location.sharedRepositoriesCacheDirectory : .none,
+                initializationWarningHandler: initializationWarningHandler,
+                delegate: delegate.map(WorkspaceRepositoryManagerDelegate.init(workspaceDelegate:))
+            )
         // register the source control dependencies fetcher with the cancellation handler
         cancellator?.register(name: "repository fetching", handler: repositoryManager)
 
-        let fingerprints = customFingerprints ?? location.sharedFingerprintsDirectory.map {
-            FilePackageFingerprintStorage(
+        let fingerprints =
+            customFingerprints
+            ?? location.sharedFingerprintsDirectory.map {
+                FilePackageFingerprintStorage(
+                    fileSystem: fileSystem,
+                    directoryPath: $0
+                )
+            }
+
+        let signingEntities =
+            customSigningEntities
+            ?? location.sharedSigningEntitiesDirectory.map {
+                FilePackageSigningEntityStorage(
+                    fileSystem: fileSystem,
+                    directoryPath: $0
+                )
+            }
+
+        let registriesConfiguration =
+            try customRegistriesConfiguration
+            ?? Workspace.Configuration.Registries(
                 fileSystem: fileSystem,
-                directoryPath: $0
+                localRegistriesFile: location.localRegistriesConfigurationFile,
+                sharedRegistriesFile: location.sharedRegistriesConfigurationFile
+            ).configuration
+
+        let registryClient =
+            customRegistryClient
+            ?? RegistryClient(
+                configuration: registriesConfiguration,
+                fingerprintStorage: fingerprints,
+                fingerprintCheckingMode: FingerprintCheckingMode.map(configuration.fingerprintCheckingMode),
+                skipSignatureValidation: skipSignatureValidation,
+                signingEntityStorage: signingEntities,
+                signingEntityCheckingMode: SigningEntityCheckingMode.map(configuration.signingEntityCheckingMode),
+                authorizationProvider: registryAuthorizationProvider,
+                delegate: WorkspaceRegistryClientDelegate(workspaceDelegate: delegate),
+                checksumAlgorithm: checksumAlgorithm
             )
-        }
-
-        let signingEntities = customSigningEntities ?? location.sharedSigningEntitiesDirectory.map {
-            FilePackageSigningEntityStorage(
-                fileSystem: fileSystem,
-                directoryPath: $0
-            )
-        }
-
-        let registriesConfiguration = try customRegistriesConfiguration ?? Workspace.Configuration.Registries(
-            fileSystem: fileSystem,
-            localRegistriesFile: location.localRegistriesConfigurationFile,
-            sharedRegistriesFile: location.sharedRegistriesConfigurationFile
-        ).configuration
-
-        let registryClient = customRegistryClient ?? RegistryClient(
-            configuration: registriesConfiguration,
-            fingerprintStorage: fingerprints,
-            fingerprintCheckingMode: FingerprintCheckingMode.map(configuration.fingerprintCheckingMode),
-            skipSignatureValidation: skipSignatureValidation,
-            signingEntityStorage: signingEntities,
-            signingEntityCheckingMode: SigningEntityCheckingMode.map(configuration.signingEntityCheckingMode),
-            authorizationProvider: registryAuthorizationProvider,
-            delegate: WorkspaceRegistryClientDelegate(workspaceDelegate: delegate),
-            checksumAlgorithm: checksumAlgorithm
-        )
 
         // set default registry if not already set by configuration
         if registryClient.defaultRegistry == nil, let defaultRegistry = configuration.defaultRegistry {
@@ -551,8 +569,9 @@ public class Workspace {
         let registryDownloadsManager = RegistryDownloadsManager(
             fileSystem: fileSystem,
             path: location.registryDownloadDirectory,
-            cachePath: configuration.sharedDependenciesCacheEnabled ? location
-                .sharedRegistryDownloadsCacheDirectory : .none,
+            cachePath: configuration.sharedDependenciesCacheEnabled
+                ? location
+                    .sharedRegistryDownloadsCacheDirectory : .none,
             registryClient: registryClient,
             delegate: delegate.map(WorkspaceRegistryDownloadsManagerDelegate.init(workspaceDelegate:))
         )
@@ -561,7 +580,8 @@ public class Workspace {
 
         let identityLookupCache: IdentityLookupCache = .init()
 
-        if let transformationMode = RegistryAwareManifestLoader
+        if let transformationMode =
+            RegistryAwareManifestLoader
             .TransformationMode(configuration.sourceControlToRegistryDependencyTransformation)
         {
             manifestLoader = RegistryAwareManifestLoader(
@@ -577,8 +597,10 @@ public class Workspace {
             authorizationProvider: authorizationProvider,
             hostToolchain: hostToolchain,
             checksumAlgorithm: checksumAlgorithm,
-            cachePath: customBinaryArtifactsManager?.useCache == false || !configuration
-                .sharedDependenciesCacheEnabled ? .none : location.sharedBinaryArtifactsCacheDirectory,
+            cachePath: customBinaryArtifactsManager?.useCache == false
+                || !configuration
+                    .sharedDependenciesCacheEnabled
+                ? .none : location.sharedBinaryArtifactsCacheDirectory,
             customHTTPClient: customBinaryArtifactsManager?.httpClient,
             customArchiver: customBinaryArtifactsManager?.archiver,
             delegate: delegate.map(WorkspaceBinaryArtifactsManagerDelegate.init(workspaceDelegate:))
@@ -588,7 +610,7 @@ public class Workspace {
 
         var prebuiltsManager: PrebuiltsManager?
         if configuration.usePrebuilts,
-           let hostPlatform = customPrebuiltsManager?.hostPlatform ?? PrebuiltsPlatform.hostPlatform
+            let hostPlatform = customPrebuiltsManager?.hostPlatform ?? PrebuiltsPlatform.hostPlatform
         {
             let rootCertPath: AbsolutePath?
             if let path = configuration.prebuiltsRootCertPath {
@@ -791,8 +813,7 @@ extension Workspace {
         try await self._resolve(
             root: root,
             explicitProduct: explicitProduct,
-            resolvedFileStrategy: forceResolvedVersions ? .lockFile : forceResolution ? .update(forceResolution: true) :
-                .bestEffort,
+            resolvedFileStrategy: forceResolvedVersions ? .lockFile : forceResolution ? .update(forceResolution: true) : .bestEffort,
             observabilityScope: observabilityScope
         )
     }
@@ -841,15 +862,16 @@ extension Workspace {
         }
 
         // Compute the custom or extra constraint we need to impose.
-        let requirement: PackageRequirement = if let version {
-            .versionSet(.exact(version))
-        } else if let branch {
-            .revision(branch)
-        } else if let revision {
-            .revision(revision)
-        } else {
-            defaultRequirement
-        }
+        let requirement: PackageRequirement =
+            if let version {
+                .versionSet(.exact(version))
+            } else if let branch {
+                .revision(branch)
+            } else if let revision {
+                .revision(revision)
+            } else {
+                defaultRequirement
+            }
 
         // If any products are required, the rest of the package graph will supply those constraints.
         let constraint = PackageContainerConstraint(
@@ -905,8 +927,10 @@ extension Workspace {
             return
         }
 
-        guard let contents = observabilityScope
-            .trap({ try fileSystem.getDirectoryContents(self.location.scratchDirectory) })
+        guard
+            let contents =
+                observabilityScope
+                .trap({ try fileSystem.getDirectoryContents(self.location.scratchDirectory) })
         else {
             return
         }
@@ -914,10 +938,12 @@ extension Workspace {
         // Remove all but protected paths.
         let contentsToRemove = Set(contents).subtracting(protectedAssets)
         for name in contentsToRemove {
-            try? self.fileSystem.removeFileTree(AbsolutePath(
-                validating: name,
-                relativeTo: self.location.scratchDirectory
-            ))
+            try? self.fileSystem.removeFileTree(
+                AbsolutePath(
+                    validating: name,
+                    relativeTo: self.location.scratchDirectory
+                )
+            )
         }
     }
 
@@ -1030,7 +1056,8 @@ extension Workspace {
                 checkoutPath: $1.checkoutPath,
                 products: $1.products,
                 includePath: $1.includePath,
-                cModules: $1.cModules)
+                cModules: $1.cModules
+            )
             for product in $1.products {
                 $0[$1.identity, default: [:]][product] = prebuilt
             }
@@ -1128,8 +1155,6 @@ extension Workspace {
                 }
             }
 
-
-
             // Check for duplicate root packages after all manifests are loaded.
             let duplicateRoots = rootManifests.values.spm_findDuplicateElements(by: \.displayName)
             if let firstDuplicateSet = duplicateRoots.first, let firstDuplicate = firstDuplicateSet.first {
@@ -1178,19 +1203,21 @@ extension Workspace {
         completion: @escaping (Result<Manifest, Error>) -> Void
     ) {
         self.loadRootManifests(packages: [path], observabilityScope: observabilityScope) { result in
-            completion(result.tryMap {
-                // normally, we call loadRootManifests which attempts to load any manifest it can and report errors via
-                // diagnostics
-                // in this case, we want to load a specific manifest, so if the diagnostics contains an error we want to
-                // throw
-                guard !observabilityScope.errorsReported else {
-                    throw Diagnostics.fatalError
+            completion(
+                result.tryMap {
+                    // normally, we call loadRootManifests which attempts to load any manifest it can and report errors via
+                    // diagnostics
+                    // in this case, we want to load a specific manifest, so if the diagnostics contains an error we want to
+                    // throw
+                    guard !observabilityScope.errorsReported else {
+                        throw Diagnostics.fatalError
+                    }
+                    guard let manifest = $0[path] else {
+                        throw InternalError("Unknown manifest for '\(path)'")
+                    }
+                    return manifest
                 }
-                guard let manifest = $0[path] else {
-                    throw InternalError("Unknown manifest for '\(path)'")
-                }
-                return manifest
-            })
+            )
         }
     }
 
@@ -1418,9 +1445,9 @@ extension Workspace {
 
         switch package.kind {
         case .root, .fileSystem:
-            break // NOOP
+            break  // NOOP
         case .localSourceControl:
-            break // NOOP
+            break  // NOOP
         case .remoteSourceControl:
             try await self.removeRepository(dependency: dependencyToRemove)
         case .registry:
@@ -1432,7 +1459,6 @@ extension Workspace {
     }
 }
 
-
 // MARK: - Utility extensions
 
 extension Workspace {
@@ -1442,7 +1468,7 @@ extension Workspace {
     public func updateConfiguration(with traitConfiguration: TraitConfiguration) -> Workspace {
         var newConfig = self.configuration
         newConfig.traitConfiguration = traitConfiguration
-        
+
         return Workspace(
             fileSystem: self.fileSystem,
             configuration: newConfig,

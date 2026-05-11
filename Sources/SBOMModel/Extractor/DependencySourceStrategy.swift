@@ -18,7 +18,7 @@ import SwiftBuildSupport
 protocol DependencySourceStrategy {
     /// Get dependencies for a module
     func getDependencies(for module: ResolvedModule) async throws -> [SBOMExtractor.DependencyReference]
-    
+
     /// Get dependencies for a product
     func getDependencies(for product: ResolvedProduct) async throws -> [SBOMExtractor.DependencyReference]
 }
@@ -28,19 +28,20 @@ final class BuildGraphDependencySource: DependencySourceStrategy {
     private let dependencyGraph: [String: [String]]
     private let modulesGraph: ModulesGraph
     private let caches: SBOMCaches
-    
+
     init(dependencyGraph: [String: [String]], modulesGraph: ModulesGraph, caches: SBOMCaches) {
         self.dependencyGraph = dependencyGraph
         self.modulesGraph = modulesGraph
         self.caches = caches
     }
-    
+
     func getDependencies(for module: ResolvedModule) async throws -> [SBOMExtractor.DependencyReference] {
         guard let targetName = await caches.targetName.get(module.id),
-              let targetDeps = dependencyGraph[targetName] else {
+            let targetDeps = dependencyGraph[targetName]
+        else {
             return []
         }
-        
+
         return targetDeps.compactMap { targetDep in
             if let product = SBOMGraphsConverter.toProduct(fromTarget: targetDep, modulesGraph: modulesGraph) {
                 return .product(product)
@@ -51,12 +52,12 @@ final class BuildGraphDependencySource: DependencySourceStrategy {
             return nil
         }
     }
-    
+
     func getDependencies(for product: ResolvedProduct) async throws -> [SBOMExtractor.DependencyReference] {
         guard let targetDeps = dependencyGraph[SBOMGraphsConverter.getTargetName(fromProduct: product.name)] else {
             return []
         }
-        
+
         return targetDeps.compactMap { targetDep in
             if let product = SBOMGraphsConverter.toProduct(fromTarget: targetDep, modulesGraph: modulesGraph) {
                 return .product(product)
@@ -72,11 +73,11 @@ final class BuildGraphDependencySource: DependencySourceStrategy {
 /// Strategy for extracting dependencies from the modules graph
 final class ModulesGraphDependencySource: DependencySourceStrategy {
     private let modulesGraph: ModulesGraph
-    
+
     init(modulesGraph: ModulesGraph) {
         self.modulesGraph = modulesGraph
     }
-    
+
     func getDependencies(for module: ResolvedModule) async throws -> [SBOMExtractor.DependencyReference] {
         return module.dependencies.map { dependency in
             switch dependency {
@@ -87,7 +88,7 @@ final class ModulesGraphDependencySource: DependencySourceStrategy {
             }
         }
     }
-    
+
     func getDependencies(for product: ResolvedProduct) async throws -> [SBOMExtractor.DependencyReference] {
         return product.modules.flatMap { module in
             module.dependencies.map { dependency in

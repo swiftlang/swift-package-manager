@@ -10,16 +10,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-@_spi(SwiftPMInternal)
-import Basics
+@_spi(SwiftPMInternal) import Basics
 import Foundation
-@_spi(SwiftPMInternal)
-import SPMBuildCore
+@_spi(SwiftPMInternal) import SPMBuildCore
 import enum TSCUtility.Diagnostics
 import SWBBuildService
 import SwiftBuild
 import protocol TSCBasic.OutputByteStream
-
 
 /// Handler for SwiftBuildMessage events sent by the SWBBuildOperation.
 public final class SwiftBuildSystemMessageHandler {
@@ -59,8 +56,7 @@ public final class SwiftBuildSystemMessageHandler {
         enableBacktraces: Bool = false,
         buildDelegate: SPMBuildCore.BuildSystemDelegate? = nil,
         traceEventsFilePath: Basics.AbsolutePath? = nil
-    )
-    {
+    ) {
         self.observabilityScope = observabilityScope
         self.outputStream = outputStream
         self.logLevel = logLevel
@@ -84,22 +80,25 @@ public final class SwiftBuildSystemMessageHandler {
     }
 
     private func emitInfoAsDiagnostic(info: SwiftBuildMessage.DiagnosticInfo) {
-        let fixItsDescription = if info.fixIts.hasContent {
-            ": " + info.fixIts.map { String(describing: $0) }.joined(separator: ", ")
-        } else {
-            ""
-        }
-        let message = if let locationDescription = info.location.userDescription {
-            "\(locationDescription) \(info.message)\(fixItsDescription)"
-        } else {
-            "\(info.message)\(fixItsDescription)"
-        }
-        let severity: Diagnostic.Severity = switch info.kind {
-        case .error: .error
-        case .warning: .warning
-        case .note: .info
-        case .remark: .debug
-        }
+        let fixItsDescription =
+            if info.fixIts.hasContent {
+                ": " + info.fixIts.map { String(describing: $0) }.joined(separator: ", ")
+            } else {
+                ""
+            }
+        let message =
+            if let locationDescription = info.location.userDescription {
+                "\(locationDescription) \(info.message)\(fixItsDescription)"
+            } else {
+                "\(info.message)\(fixItsDescription)"
+            }
+        let severity: Diagnostic.Severity =
+            switch info.kind {
+            case .error: .error
+            case .warning: .warning
+            case .note: .info
+            case .remark: .debug
+            }
         self.observabilityScope.emit(severity: severity, message: "\(message)\n")
 
         for childDiagnostic in info.childDiagnostics {
@@ -243,11 +242,12 @@ public final class SwiftBuildSystemMessageHandler {
             }
         case .didUpdateProgress(let progressInfo):
             let step = Int(progressInfo.percentComplete)
-            let message = if let targetName = progressInfo.targetName {
-                "\(targetName) \(progressInfo.message)"
-            } else {
-                "\(progressInfo.message)"
-            }
+            let message =
+                if let targetName = progressInfo.targetName {
+                    "\(targetName) \(progressInfo.message)"
+                } else {
+                    "\(progressInfo.message)"
+                }
 
             // Skip if message doesn't contain anything useful to display.
             // TODO: To file an issue for SwiftBuild here.
@@ -285,7 +285,8 @@ public final class SwiftBuildSystemMessageHandler {
         case .taskComplete(let info):
             let startedInfo = try buildState.completed(task: info)
 
-            let renderedBacktrace = self.enableBacktraces
+            let renderedBacktrace =
+                self.enableBacktraces
                 ? self.renderTaskBacktrace(for: startedInfo)
                 : nil
 
@@ -303,9 +304,11 @@ public final class SwiftBuildSystemMessageHandler {
                 self?.buildDelegate?.buildSystem(buildSystem, didFinishCommand: BuildSystemCommand(startedInfo, targetInfo: targetInfo))
             }
             if let targetID = targetInfo?.targetID {
-                try serializedDiagnosticPathsByTargetID[targetID, default: []].append(contentsOf: startedInfo.serializedDiagnosticsPaths.compactMap {
-                    try Basics.AbsolutePath(validating: $0.pathString)
-                })
+                try serializedDiagnosticPathsByTargetID[targetID, default: []].append(
+                    contentsOf: startedInfo.serializedDiagnosticsPaths.compactMap {
+                        try Basics.AbsolutePath(validating: $0.pathString)
+                    }
+                )
             }
         case .targetStarted(let info):
             try buildState.started(target: info)
@@ -334,9 +337,9 @@ public final class SwiftBuildSystemMessageHandler {
         case .reportBuildDescription, .reportPathMap, .preparedForIndex, .buildStarted, .preparationComplete, .taskUpToDate:
             break
         case .buildDiagnostic, .targetDiagnostic, .taskDiagnostic:
-            break // deprecated
+            break  // deprecated
         case .buildOutput, .targetOutput, .taskOutput:
-            break // deprecated
+            break  // deprecated
         @unknown default:
             break
         }
@@ -380,11 +383,12 @@ extension SwiftBuildSystemMessageHandler {
             taskIDToSignature[task.taskID] = task.taskSignature
 
             // Track relevant task info to emit to user.
-            let output = if let cmdLineDisplayStr = task.commandLineDisplayString, logLevel.isVerbose {
-                "\(task.executionDescription)\n\(cmdLineDisplayStr)"
-            } else {
-                task.executionDescription
-            }
+            let output =
+                if let cmdLineDisplayStr = task.commandLineDisplayString, logLevel.isVerbose {
+                    "\(task.executionDescription)\n\(cmdLineDisplayStr)"
+                } else {
+                    task.executionDescription
+                }
             taskDataBuffer.setTaskStartedInfo(task, output)
         }
 
@@ -497,7 +501,8 @@ extension SwiftBuildSystemMessageHandler.BuildState {
                 // If unable to get a non-nil result, then follow through to the
                 // next check.
                 if let taskID = key.taskID,
-                   let result = self.taskIDBuffer[taskID] {
+                    let result = self.taskIDBuffer[taskID]
+                {
                     return result
                 } else {
                     return defaultValue
@@ -572,7 +577,8 @@ extension SwiftBuildSystemMessageHandler.BuildState {
             // If this fails to find an associated task signature, track
             // relevant IDs from the location context in the task buffer.
             if let taskID = info.locationContext.taskID,
-               let taskSignature = self.taskSignature(for: taskID) {
+                let taskSignature = self.taskSignature(for: taskID)
+            {
                 self.taskDataBuffer[taskSignature, default: .init()].append(info.data)
             }
 
@@ -728,7 +734,7 @@ extension SwiftBuildSystemMessageHandler {
 
         private var storage: Set<TaskInfo> = []
 
-        public init() { }
+        public init() {}
 
         /// Inserts a task info into the emitted tasks collection.
         /// - Parameter task: The task information to mark as emitted
@@ -791,7 +797,7 @@ extension SwiftBuildSystemMessageHandler {
         ///   - lhs: The TaskInfo instance
         ///   - rhs: The task signature string to compare
         /// - Returns: True if the TaskInfo's signature matches the string
-        public static func ==(lhs: Self, rhs: String) -> Bool {
+        public static func == (lhs: Self, rhs: String) -> Bool {
             return lhs.taskSignature == rhs
         }
 
@@ -800,7 +806,7 @@ extension SwiftBuildSystemMessageHandler {
         ///   - lhs: The TaskInfo instance
         ///   - rhs: The task ID integer to compare
         /// - Returns: True if the TaskInfo's ID matches the integer
-        public static func ==(lhs: Self, rhs: Int) -> Bool {
+        public static func == (lhs: Self, rhs: Int) -> Bool {
             return lhs.taskID == rhs
         }
     }

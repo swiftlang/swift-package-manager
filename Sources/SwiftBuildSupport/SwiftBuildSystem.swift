@@ -10,8 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-@_spi(SwiftPMInternal)
-import Basics
+@_spi(SwiftPMInternal) import Basics
 import Dispatch
 import class Foundation.FileManager
 import class Foundation.JSONEncoder
@@ -21,8 +20,7 @@ import PackageGraph
 import PackageModel
 import PackageLoading
 
-@_spi(SwiftPMInternal)
-import SPMBuildCore
+@_spi(SwiftPMInternal) import SPMBuildCore
 
 import class Basics.AsyncProcess
 import func TSCBasic.memoize
@@ -81,9 +79,9 @@ func toolchainDeveloperPathInfo(toolchain: Toolchain) throws -> (toolchainPath: 
     }
 
     let xcodeVersionPlistPath = toolchainPath
-        .parentDirectory // Remove 'XcodeDefault.xctoolchain'
-        .parentDirectory // Remove 'Toolchains'
-        .parentDirectory // Remove 'Developer'
+        .parentDirectory  // Remove 'XcodeDefault.xctoolchain'
+        .parentDirectory  // Remove 'Toolchains'
+        .parentDirectory  // Remove 'Developer'
         .appending(component: "version.plist")
     let isEmbeddedInXcode = (try? XcodeVersionInfo.versionInfo(versionPath: SWBUtil.Path(xcodeVersionPlistPath.pathString))) != nil
     return (toolchainPath, isEmbeddedInXcode)
@@ -94,7 +92,7 @@ public func createSession(
     name: String,
     toolchain: Toolchain,
     packageManagerResourcesDirectory: Basics.AbsolutePath?
-) async throws-> (SWBBuildServiceSession, [SwiftBuildMessage.DiagnosticInfo]) {
+) async throws -> (SWBBuildServiceSession, [SwiftBuildMessage.DiagnosticInfo]) {
 
     var buildSessionEnv: [String: String]? = nil
     if let metalToolchainPath = toolchain.metalToolchainPath {
@@ -103,13 +101,14 @@ public func createSession(
     let (toolchainPath, toolchainIsEmbeddedInXcode) = try toolchainDeveloperPathInfo(toolchain: toolchain)
 
     // SWIFT_EXEC and SWIFT_EXEC_MANIFEST may need to be overridden in debug scenarios in order to pick up Open Source toolchains
-    let sessionResult = if toolchainIsEmbeddedInXcode {
-        // If this toolchain is bundled with Xcode.app, let the build service handle toolchain registration.
-        await service.createSession(name: name, developerPath: nil, resourceSearchPaths: packageManagerResourcesDirectory.map { [$0.pathString] } ?? [], cachePath: nil, inferiorProductsPath: nil, environment: buildSessionEnv)
-    } else {
-        // Otherwise, treat this toolchain as standalone when initializing the build service.
-        await service.createSession(name: name, swiftToolchainPath: toolchainPath.pathString, resourceSearchPaths: packageManagerResourcesDirectory.map { [$0.pathString] } ?? [], cachePath: nil, inferiorProductsPath: nil, environment: buildSessionEnv)
-    }
+    let sessionResult =
+        if toolchainIsEmbeddedInXcode {
+            // If this toolchain is bundled with Xcode.app, let the build service handle toolchain registration.
+            await service.createSession(name: name, developerPath: nil, resourceSearchPaths: packageManagerResourcesDirectory.map { [$0.pathString] } ?? [], cachePath: nil, inferiorProductsPath: nil, environment: buildSessionEnv)
+        } else {
+            // Otherwise, treat this toolchain as standalone when initializing the build service.
+            await service.createSession(name: name, swiftToolchainPath: toolchainPath.pathString, resourceSearchPaths: packageManagerResourcesDirectory.map { [$0.pathString] } ?? [], cachePath: nil, inferiorProductsPath: nil, environment: buildSessionEnv)
+        }
     switch sessionResult {
     case (.success(let session), let diagnostics):
         return (session, diagnostics)
@@ -123,10 +122,11 @@ func withSession(
     name: String,
     toolchain: Toolchain,
     packageManagerResourcesDirectory: Basics.AbsolutePath?,
-    body: @escaping (
-        _ session: SWBBuildServiceSession,
-        _ diagnostics: [SwiftBuild.SwiftBuildMessage.DiagnosticInfo]
-    ) async throws -> Void
+    body:
+        @escaping (
+            _ session: SWBBuildServiceSession,
+            _ diagnostics: [SwiftBuild.SwiftBuildMessage.DiagnosticInfo]
+        ) async throws -> Void
 ) async throws {
     let (session, diagnostics) = try await createSession(service: service, name: name, toolchain: toolchain, packageManagerResourcesDirectory: packageManagerResourcesDirectory)
     do {
@@ -159,18 +159,20 @@ package final class SwiftBuildSystemPlanningOperationDelegate: SWBPlanningOperat
         targetGUID: String,
         provisioningSourceData: SWBProvisioningTaskInputsSourceData
     ) async -> SWBProvisioningTaskInputs {
-        let identity = if provisioningSourceData.signingCertificateIdentifier.isEmpty && shouldEnableDebuggingEntitlement {
-            "-"
-        } else {
-            provisioningSourceData.signingCertificateIdentifier
-        }
+        let identity =
+            if provisioningSourceData.signingCertificateIdentifier.isEmpty && shouldEnableDebuggingEntitlement {
+                "-"
+            } else {
+                provisioningSourceData.signingCertificateIdentifier
+            }
 
         if identity == "-" {
             let getTaskAllowEntitlementKey: String
             let applicationIdentifierEntitlementKey: String
 
-            if provisioningSourceData.sdkRoot.contains("macos") || provisioningSourceData.sdkRoot
-                .contains("simulator")
+            if provisioningSourceData.sdkRoot.contains("macos")
+                || provisioningSourceData.sdkRoot
+                    .contains("simulator")
             {
                 getTaskAllowEntitlementKey = "com.apple.security.get-task-allow"
                 applicationIdentifierEntitlementKey = "com.apple.application-identifier"
@@ -179,14 +181,17 @@ package final class SwiftBuildSystemPlanningOperationDelegate: SWBPlanningOperat
                 applicationIdentifierEntitlementKey = "application-identifier"
             }
 
-            let signedEntitlements = provisioningSourceData
-                .entitlementsDestination == "Signature" ? provisioningSourceData.productTypeEntitlements.merging(
+            let signedEntitlements =
+                provisioningSourceData
+                    .entitlementsDestination == "Signature"
+                ? provisioningSourceData.productTypeEntitlements.merging(
                     [applicationIdentifierEntitlementKey: .plString(provisioningSourceData.bundleIdentifier)],
                     uniquingKeysWith: { _, new in new }
                 ).merging(provisioningSourceData.projectEntitlements ?? [:], uniquingKeysWith: { _, new in new })
                 : [:]
 
-            let simulatedEntitlements = provisioningSourceData.entitlementsDestination == "__entitlements"
+            let simulatedEntitlements =
+                provisioningSourceData.entitlementsDestination == "__entitlements"
                 ? provisioningSourceData.productTypeEntitlements.merging(
                     ["application-identifier": .plString(provisioningSourceData.bundleIdentifier)],
                     uniquingKeysWith: { _, new in new }
@@ -225,8 +230,8 @@ package final class SwiftBuildSystemPlanningOperationDelegate: SWBPlanningOperat
                 identityHash: "-",
                 errors: [
                     [
-                        "description": "unable to supply accurate provisioning inputs for CODE_SIGN_IDENTITY=\(identity)\"",
-                    ],
+                        "description": "unable to supply accurate provisioning inputs for CODE_SIGN_IDENTITY=\(identity)\""
+                    ]
                 ]
             )
         }
@@ -323,7 +328,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         observabilityScope: ObservabilityScope,
         pluginConfiguration: PluginConfiguration,
         delegate: BuildSystemDelegate?,
-        scratchDirectory: Basics.AbsolutePath, // currently used to create the symbolic links
+        scratchDirectory: Basics.AbsolutePath,  // currently used to create the symbolic links
     ) throws {
         self.buildParameters = buildParameters
         self.hostBuildParameters = hostBuildParameters
@@ -348,7 +353,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
         func getUniqueBuildSettingsIncludingDependencies(of targetGuid: [SWBConfiguredTarget], buildSettings: [String]) async throws -> Set<String> {
             let dependencyGraph = try await session.computeDependencyGraph(
-                targetGUIDs: request.configuredTargets.map { SWBTargetGUID(rawValue: $0.guid)},
+                targetGUIDs: request.configuredTargets.map { SWBTargetGUID(rawValue: $0.guid) },
                 buildParameters: request.parameters,
                 includeImplicitDependencies: true,
             )
@@ -391,9 +396,11 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         // The graph should have the REPL product.
         assert(graph.product(for: replProductName) != nil)
 
-        let arguments = ["repl", "-l\(replProductName)"] + includePaths.map {
-            "-I\($0)"
-        }
+        let arguments =
+            ["repl", "-l\(replProductName)"]
+            + includePaths.map {
+                "-I\($0)"
+            }
 
         self.outputStream.send("Done.\n")
         return arguments
@@ -512,13 +519,15 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
             let pluginProducts = package.products.filter { $0.modules.contains(id: pluginModule.id) }
 
-            allPlugins.append(try PluginBuildDescription(
-                module: pluginModule,
-                products: pluginProducts,
-                package: package,
-                toolsVersion: toolsVersion,
-                fileSystem: fileSystem
-            ))
+            allPlugins.append(
+                try PluginBuildDescription(
+                    module: pluginModule,
+                    products: pluginProducts,
+                    package: package,
+                    toolsVersion: toolsVersion,
+                    fileSystem: fileSystem
+                )
+            )
         }
 
         let pluginsToCompile: [PluginBuildDescription]
@@ -528,10 +537,10 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             pluginsToCompile = allPlugins
             continueBuilding = true
         case .product(let productName, _):
-            pluginsToCompile = allPlugins.filter{ $0.productNames.contains(productName) }
+            pluginsToCompile = allPlugins.filter { $0.productNames.contains(productName) }
             continueBuilding = pluginsToCompile.isEmpty
         case .target(let targetName, _):
-            pluginsToCompile = allPlugins.filter{ $0.moduleName == targetName }
+            pluginsToCompile = allPlugins.filter { $0.moduleName == targetName }
             continueBuilding = pluginsToCompile.isEmpty
         }
 
@@ -543,7 +552,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                 self.observabilityScope = observabilityScope
             }
 
-            func willCompilePlugin(commandLine: [String], environment: [String: String]) { }
+            func willCompilePlugin(commandLine: [String], environment: [String: String]) {}
 
             func didCompilePlugin(result: PluginCompilationResult) {
                 if !result.compilerOutput.isEmpty && !result.succeeded {
@@ -555,7 +564,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                 failed = !result.succeeded
             }
 
-            func skippedCompilingPlugin(cachedResult: PluginCompilationResult) { }
+            func skippedCompilingPlugin(cachedResult: PluginCompilationResult) {}
         }
 
         // Compile any plugins we ended up with. If any of them fails, it will
@@ -653,8 +662,9 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
                     let operation = try await session.createBuildOperation(
                         request: request,
-                        delegate: SwiftBuildSystemPlanningOperationDelegate(shouldEnableDebuggingEntitlement: self.buildParameters
-                            .debuggingParameters.shouldEnableDebuggingEntitlement
+                        delegate: SwiftBuildSystemPlanningOperationDelegate(
+                            shouldEnableDebuggingEntitlement: self.buildParameters
+                                .debuggingParameters.shouldEnableDebuggingEntitlement
                         ),
                         retainBuildDescription: true
                     )
@@ -724,26 +734,30 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                                 guard let artifactInfo = target.artifactInfo else {
                                     return nil
                                 }
-                                let kind: PluginInvocationBuildResult.BuiltArtifact.Kind = switch artifactInfo.kind {
-                                case .executable:
-                                    .executable
-                                case .staticLibrary:
-                                    .staticLibrary
-                                case .dynamicLibrary:
-                                    .dynamicLibrary
-                                case .framework:
-                                    // We treat frameworks as dylibs here, but the plugin API should grow to accomodate more product types
-                                    .dynamicLibrary
-                                }
+                                let kind: PluginInvocationBuildResult.BuiltArtifact.Kind =
+                                    switch artifactInfo.kind {
+                                    case .executable:
+                                        .executable
+                                    case .staticLibrary:
+                                        .staticLibrary
+                                    case .dynamicLibrary:
+                                        .dynamicLibrary
+                                    case .framework:
+                                        // We treat frameworks as dylibs here, but the plugin API should grow to accomodate more product types
+                                        .dynamicLibrary
+                                    }
                                 var name = target.name
                                 // FIXME: We need a better way to map between SwiftPM target/product names and PIF target names
                                 if pifTargetName.hasSuffix("-product") {
                                     name = String(name.dropLast(8))
                                 }
-                                return (name, .init(
-                                    path: artifactInfo.path,
-                                    kind: kind
-                                ))
+                                return (
+                                    name,
+                                    .init(
+                                        path: artifactInfo.path,
+                                        kind: kind
+                                    )
+                                )
                             }
                         } else {
                             self.observabilityScope.emit(error: "failed to compute built artifacts list")
@@ -813,7 +827,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
         var verboseFlag: [String] = []
         if self.logLevel == .debug {
-            verboseFlag = ["-v"] // Clang's verbose flag
+            verboseFlag = ["-v"]  // Clang's verbose flag
         }
 
         // Generate a table of any overriding build settings.
@@ -839,18 +853,18 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         }
 
         for sanitizer in buildParameters.sanitizers.sanitizers {
-            self.observabilityScope.emit(debug:"Enabling \(sanitizer) sanitizer")
+            self.observabilityScope.emit(debug: "Enabling \(sanitizer) sanitizer")
             switch sanitizer {
-                case .address:
-                    settings["ENABLE_ADDRESS_SANITIZER"] = "YES"
-                case .thread:
-                    settings["ENABLE_THREAD_SANITIZER"] = "YES"
-                case .undefined:
-                    settings["ENABLE_UNDEFINED_BEHAVIOR_SANITIZER"] = "YES"
-                case .scudo:
-                    settings["ENABLE_SCUDO_SANITIZER"] = "YES"
-                case .fuzzer:
-                    settings["ENABLE_LIBFUZZER"] = "YES"
+            case .address:
+                settings["ENABLE_ADDRESS_SANITIZER"] = "YES"
+            case .thread:
+                settings["ENABLE_THREAD_SANITIZER"] = "YES"
+            case .undefined:
+                settings["ENABLE_UNDEFINED_BEHAVIOR_SANITIZER"] = "YES"
+            case .scudo:
+                settings["ENABLE_SCUDO_SANITIZER"] = "YES"
+            case .fuzzer:
+                settings["ENABLE_LIBFUZZER"] = "YES"
             }
         }
 
@@ -1032,7 +1046,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         derivedDataPath: Basics.AbsolutePath,
         symbolGraphOptions: BuildOutput.SymbolGraphOptions?,
         setToolchainSetting: Bool = true,
-        ) async throws -> SWBBuildRequest {
+    ) async throws -> SWBBuildRequest {
         var request = SWBBuildRequest()
         request.parameters = try await makeBuildParameters(
             service: service,
@@ -1055,9 +1069,9 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         // up earlier in this method.
 
         #if os(Windows)
-        let ddPathPrefix = derivedDataPath.pathString.replacingOccurrences(of: "\\", with: "/")
+            let ddPathPrefix = derivedDataPath.pathString.replacingOccurrences(of: "\\", with: "/")
         #else
-        let ddPathPrefix = derivedDataPath.pathString
+            let ddPathPrefix = derivedDataPath.pathString
         #endif
 
         let arenaInfo = SWBArenaInfo(
@@ -1167,7 +1181,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         // Set DEBUG_INFORMATION_FORMAT based on debugInfoFormat
         switch parameters.debugInfoFormat {
         case .dwarf:
-            settings["DEBUG_INFORMATION_FORMAT"] =  configuration == .debug ? "dwarf" : "dwarf-with-dsym"
+            settings["DEBUG_INFORMATION_FORMAT"] = configuration == .debug ? "dwarf" : "dwarf-with-dsym"
         case .codeview:
             settings["DEBUG_INFORMATION_FORMAT"] = "codeview"
         case .none?:
@@ -1373,9 +1387,9 @@ extension String {
     /// back-slashes.
     fileprivate func shellEscaped() -> String {
         #if os(Windows)
-        return self.spm_shellEscaped().replacingOccurrences(of: "\\", with: "/")
+            return self.spm_shellEscaped().replacingOccurrences(of: "\\", with: "/")
         #else
-        return self.spm_shellEscaped()
+            return self.spm_shellEscaped()
         #endif
     }
 }
@@ -1386,9 +1400,9 @@ extension Basics.AbsolutePath {
     /// This is necessary for some cases where tools may treat the `\` character as part of an escape sequence rather than a path separator even on Windows. Use sparingly.
     public var pathStringWithPosixSlashes: String {
         #if os(Windows)
-        pathString.replacingOccurrences(of: "\\", with: "/")
+            pathString.replacingOccurrences(of: "\\", with: "/")
         #else
-        pathString
+            pathString
         #endif
     }
 }

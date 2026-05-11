@@ -16,21 +16,21 @@ import Foundation
 public struct WindowsSDKSettings {
     public struct DefaultProperties {
         public enum Runtime: String, Decodable {
-        /// MultiThreadedDebugDLL
-        /// Use the debug variant of the C runtime with shared linking.
-        case multithreadedDebugDLL = "MDd"
+            /// MultiThreadedDebugDLL
+            /// Use the debug variant of the C runtime with shared linking.
+            case multithreadedDebugDLL = "MDd"
 
-        /// MultiThreadedDLL
-        /// Use the release variant of the C runtime with shared linking.
-        case multithreadedDLL = "MD"
+            /// MultiThreadedDLL
+            /// Use the release variant of the C runtime with shared linking.
+            case multithreadedDLL = "MD"
 
-        /// MultiThreadedDebug
-        /// Use the debug variant of the C runtime with static linking.
-        case multithreadedDebug = "MTd"
+            /// MultiThreadedDebug
+            /// Use the debug variant of the C runtime with static linking.
+            case multithreadedDebug = "MTd"
 
-        /// MultiThreaded
-        /// Use the release variant of the C runtime with static linking.
-        case multithreaded = "MT"
+            /// MultiThreaded
+            /// Use the release variant of the C runtime with static linking.
+            case multithreaded = "MT"
         }
 
         /// DEFAULT_USE_RUNTIME - specifies the C runtime variant to use
@@ -42,13 +42,13 @@ public struct WindowsSDKSettings {
 
 extension WindowsSDKSettings.DefaultProperties: Decodable {
     enum CodingKeys: String, CodingKey {
-    case runtime = "DEFAULT_USE_RUNTIME"
+        case runtime = "DEFAULT_USE_RUNTIME"
     }
 }
 
 extension WindowsSDKSettings: Decodable {
     enum CodingKeys: String, CodingKey {
-    case defaults = "DefaultProperties"
+        case defaults = "DefaultProperties"
     }
 }
 
@@ -92,15 +92,15 @@ public struct WindowsPlatformInfo {
 
 extension WindowsPlatformInfo.DefaultProperties: Decodable {
     enum CodingKeys: String, CodingKey {
-    case xctestVersion = "XCTEST_VERSION"
-    case swiftTestingVersion = "SWIFT_TESTING_VERSION"
-    case extraSwiftCFlags = "SWIFTC_FLAGS"
+        case xctestVersion = "XCTEST_VERSION"
+        case swiftTestingVersion = "SWIFT_TESTING_VERSION"
+        case extraSwiftCFlags = "SWIFTC_FLAGS"
     }
 }
 
 extension WindowsPlatformInfo: Decodable {
     enum CodingKeys: String, CodingKey {
-    case defaults = "DefaultProperties"
+        case defaults = "DefaultProperties"
     }
 }
 

@@ -26,13 +26,13 @@
 import Foundation
 
 #if USE_IMPL_ONLY_IMPORTS
-@_implementationOnly import _CryptoExtras
-@_implementationOnly import Crypto
-@_implementationOnly import X509
+    @_implementationOnly import _CryptoExtras
+    @_implementationOnly import Crypto
+    @_implementationOnly import X509
 #else
-import _CryptoExtras
-import Crypto
-import X509
+    import _CryptoExtras
+    import Crypto
+    import X509
 #endif
 
 // The logic in this source file loosely follows https://www.rfc-editor.org/rfc/rfc7515.html
@@ -46,8 +46,8 @@ struct Signature {
 
 extension Signature {
     enum Algorithm: String, Codable {
-        case RS256 // RSASSA-PKCS1-v1_5 using SHA-256
-        case ES256 // ECDSA using P-256 and SHA-256
+        case RS256  // RSASSA-PKCS1-v1_5 using SHA-256
+        case ES256  // ECDSA using P-256 and SHA-256
     }
 
     struct Header: Equatable, Codable {
@@ -91,7 +91,8 @@ extension Signature {
         let encodedSignature = signatureData.base64URLEncodedBytes()
 
         // Result: header.payload.signature
-        let bytes = encodedHeader
+        let bytes =
+            encodedHeader
             + .period
             + encodedPayload
             + .period
@@ -128,7 +129,7 @@ extension Signature {
         let encodedSignature = parts[2]
 
         guard let headerBytes = encodedHeader.base64URLDecodedBytes(),
-              let header = try? jsonDecoder.decode(Header.self, from: headerBytes)
+            let header = try? jsonDecoder.decode(Header.self, from: headerBytes)
         else {
             throw SignatureError.malformedSignature
         }
@@ -143,13 +144,13 @@ extension Signature {
         let certChain = try await certChainValidate(certChainData)
 
         guard let payloadBytes = encodedPayload.base64URLDecodedBytes(),
-              let signatureBytes = encodedSignature.base64URLDecodedBytes()
+            let signatureBytes = encodedSignature.base64URLDecodedBytes()
         else {
             throw SignatureError.malformedSignature
         }
 
         // Extract public key from the certificate
-        let certificate = certChain.first! // !-safe because certChain is not empty at this point
+        let certificate = certChain.first!  // !-safe because certChain is not empty at this point
         // Verify the key was used to generate the signature
         let message = Data(encodedHeader) + .period + Data(encodedPayload)
         let digest = SHA256.hash(data: message)
@@ -167,11 +168,13 @@ extension Signature {
             guard let publicKey = _RSA.Signing.PublicKey(certificate.publicKey) else {
                 throw SignatureError.invalidPublicKey
             }
-            guard publicKey.isValidSignature(
-                .init(rawRepresentation: signatureBytes),
-                for: digest,
-                padding: .insecurePKCS1v1_5
-            ) else {
+            guard
+                publicKey.isValidSignature(
+                    .init(rawRepresentation: signatureBytes),
+                    for: digest,
+                    padding: .insecurePKCS1v1_5
+                )
+            else {
                 throw SignatureError.invalidSignature
             }
         }

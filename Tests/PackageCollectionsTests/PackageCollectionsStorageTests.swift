@@ -25,9 +25,13 @@ class PackageCollectionsStorageTests: XCTestCase {
 
             let mockSources = makeMockSources()
             for source in mockSources {
-                await XCTAssertAsyncThrowsError(try await storage.get(identifier: .init(from: source)), "expected error", { error in
-                    XCTAssert(error is NotFoundError, "Expected NotFoundError")
-                })
+                await XCTAssertAsyncThrowsError(
+                    try await storage.get(identifier: .init(from: source)),
+                    "expected error",
+                    { error in
+                        XCTAssert(error is NotFoundError, "Expected NotFoundError")
+                    }
+                )
             }
 
             let mockCollections = makeMockCollections(count: 50)
@@ -46,7 +50,7 @@ class PackageCollectionsStorageTests: XCTestCase {
             }
 
             do {
-                let count = Int.random(in: 1 ..< mockCollections.count)
+                let count = Int.random(in: 1..<mockCollections.count)
                 let list = try await storage.list(identifiers: mockCollections.prefix(count).map { $0.identifier })
                 XCTAssertEqual(list.count, count)
             }
@@ -57,9 +61,13 @@ class PackageCollectionsStorageTests: XCTestCase {
                 XCTAssertEqual(list.count, mockCollections.count - 1)
             }
 
-            await XCTAssertAsyncThrowsError(try await storage.get(identifier: mockCollections.first!.identifier), "expected error", { error in
-                XCTAssert(error is NotFoundError, "Expected NotFoundError")
-            })
+            await XCTAssertAsyncThrowsError(
+                try await storage.get(identifier: mockCollections.first!.identifier),
+                "expected error",
+                { error in
+                    XCTAssert(error is NotFoundError, "Expected NotFoundError")
+                }
+            )
 
             guard case .path(let storagePath) = storage.location else {
                 return XCTFail("invalid location \(storage.location)")
@@ -97,9 +105,13 @@ class PackageCollectionsStorageTests: XCTestCase {
             try storage.fileSystem.removeFileTree(storagePath)
             storage.resetCache()
 
-            await XCTAssertAsyncThrowsError(try await storage.get(identifier: mockCollections.first!.identifier), "expected error", { error in
-                XCTAssert(error is NotFoundError, "Expected NotFoundError")
-            })
+            await XCTAssertAsyncThrowsError(
+                try await storage.get(identifier: mockCollections.first!.identifier),
+                "expected error",
+                { error in
+                    XCTAssert(error is NotFoundError, "Expected NotFoundError")
+                }
+            )
 
             _ = try await storage.put(collection: mockCollections.first!)
             let retVal = try await storage.get(identifier: mockCollections.first!.identifier)
@@ -139,13 +151,21 @@ class PackageCollectionsStorageTests: XCTestCase {
 
             let storage2 = SQLitePackageCollectionsStorage(path: path)
             defer { XCTAssertNoThrow(try storage2.close()) }
-            await XCTAssertAsyncThrowsError(try await storage2.get(identifier: mockCollections.first!.identifier), "expected error", { error in
-                XCTAssert("\(error)".contains("is not a database"), "Expected file is not a database error")
-            })
+            await XCTAssertAsyncThrowsError(
+                try await storage2.get(identifier: mockCollections.first!.identifier),
+                "expected error",
+                { error in
+                    XCTAssert("\(error)".contains("is not a database"), "Expected file is not a database error")
+                }
+            )
 
-            await XCTAssertAsyncThrowsError(try await storage2.put(collection: mockCollections.first!), "expected error", { error in
-                XCTAssert("\(error)".contains("is not a database"), "Expected file is not a database error")
-            })
+            await XCTAssertAsyncThrowsError(
+                try await storage2.put(collection: mockCollections.first!),
+                "expected error",
+                { error in
+                    XCTAssert("\(error)".contains("is not a database"), "Expected file is not a database error")
+                }
+            )
         }
     }
 

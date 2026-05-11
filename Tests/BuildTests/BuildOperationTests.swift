@@ -15,11 +15,9 @@
 
 import Basics
 import LLBuildManifest
-@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
-import PackageGraph
+@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly) import PackageGraph
 import SPMBuildCore
-@_spi(SwiftPMInternal)
-import _InternalTestSupport
+@_spi(SwiftPMInternal) import _InternalTestSupport
 import XCTest
 
 import class TSCBasic.BufferedOutputByteStream
@@ -61,10 +59,10 @@ final class BuildOperationTests: XCTestCase {
                     displayName: "SwitchTriple",
                     path: "/Pkg",
                     targets: [
-                        TargetDescription(name: "ATarget"),
+                        TargetDescription(name: "ATarget")
                     ],
                     traits: []
-                ),
+                )
             ],
             observabilityScope: observability.topScope
         )
@@ -89,7 +87,8 @@ final class BuildOperationTests: XCTestCase {
                     cacheBuildManifest: false,
                     packageGraphLoader: { packageGraph },
                     scratchDirectory: scratchDirectory,
-                    fs: fs, observabilityScope: observability.topScope
+                    fs: fs,
+                    observabilityScope: observability.topScope
                 )
                 // Generate initial llbuild manifest
                 let _ = try await buildOp.getBuildDescription()
@@ -123,7 +122,8 @@ final class BuildOperationTests: XCTestCase {
                         cacheBuildManifest: true,
                         packageGraphLoader: { packageGraph },
                         scratchDirectory: scratchDirectory,
-                        fs: fs, observabilityScope: observability.topScope
+                        fs: fs,
+                        observabilityScope: observability.topScope
                     )
                     // Generate llbuild manifest
                     let _ = try await buildOp.getBuildDescription()
@@ -138,7 +138,7 @@ final class BuildOperationTests: XCTestCase {
     }
 
     func testHostProductsAndTargetsWithoutExplicitDestination() async throws {
-        let mock  = try macrosTestsPackageGraph()
+        let mock = try macrosTestsPackageGraph()
 
         let hostParameters = mockBuildParameters(destination: .host, buildSystemKind: .native)
         let targetParameters = mockBuildParameters(destination: .target, buildSystemKind: .native)

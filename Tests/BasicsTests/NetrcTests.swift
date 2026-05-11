@@ -39,10 +39,10 @@ struct NetrcTests {
     @Test
     func loadMachinesMultiLine() throws {
         let content = """
-                    machine example.com
-                    login anonymous
-                    password qwerty
-                    """
+            machine example.com
+            login anonymous
+            password qwerty
+            """
 
         let netrc = try NetrcParser.parse(content)
         #expect(netrc.machines.count == 1)
@@ -63,14 +63,14 @@ struct NetrcTests {
     @Test
     func loadDefaultMachine() throws {
         let content = """
-                    machine example.com
-                    login anonymous
-                    password qwerty
+            machine example.com
+            login anonymous
+            password qwerty
 
-                    default
-                    login id
-                    password secret
-                    """
+            default
+            login id
+            password secret
+            """
 
         let netrc = try NetrcParser.parse(content)
         #expect(netrc.machines.count == 2)
@@ -92,26 +92,26 @@ struct NetrcTests {
     @Test
     func regexParsing() throws {
         let content = """
-                    machine machine
-                    login login
-                    password password
+            machine machine
+            login login
+            password password
 
-                    machine login
-                    password machine
-                    login password
+            machine login
+            password machine
+            login password
 
-                    default machine
-                    login id
-                    password secret
+            default machine
+            login id
+            password secret
 
-                    machinemachine machine
-                    loginlogin id
-                    passwordpassword secret
+            machinemachine machine
+            loginlogin id
+            passwordpassword secret
 
-                    default
-                    login id
-                    password secret
-                    """
+            default
+            login id
+            password secret
+            """
 
         let netrc = try NetrcParser.parse(content)
         #expect(netrc.machines.count == 3)
@@ -135,22 +135,22 @@ struct NetrcTests {
     @Test
     func outOfOrderDefault() {
         let content = """
-                    machine machine
-                    login login
-                    password password
+            machine machine
+            login login
+            password password
 
-                    machine login
-                    password machine
-                    login password
+            machine login
+            password machine
+            login password
 
-                    default
-                    login id
-                    password secret
+            default
+            login id
+            password secret
 
-                    machine machine
-                    login id
-                    password secret
-                    """
+            machine machine
+            login id
+            password secret
+            """
 
         #expect(throws: NetrcError.invalidDefaultMachinePosition) {
             try NetrcParser.parse(content)
@@ -160,26 +160,26 @@ struct NetrcTests {
     @Test
     func errorOnMultipleDefault() {
         let content = """
-                    machine machine
-                    login login
-                    password password
+            machine machine
+            login login
+            password password
 
-                    machine login
-                    password machine
-                    login password
+            machine login
+            password machine
+            login password
 
-                    default
-                    login id
-                    password secret
+            default
+            login id
+            password secret
 
-                    machine machine
-                    login id
-                    password secret
+            machine machine
+            login id
+            password secret
 
-                    default
-                    login di
-                    password terces
-                    """
+            default
+            login di
+            password terces
+            """
 
         #expect(throws: NetrcError.invalidDefaultMachinePosition) {
             try NetrcParser.parse(content)
@@ -190,12 +190,12 @@ struct NetrcTests {
     @Test
     func loadMachinesMultilineComments() throws {
         let content = """
-                    ## This is a comment
-                    # This is another comment
-                    machine example.com # This is an inline comment
-                    login anonymous
-                    password qwerty # and # another #one
-                    """
+            ## This is a comment
+            # This is another comment
+            machine example.com # This is an inline comment
+            login anonymous
+            password qwerty # and # another #one
+            """
 
         let machines = try NetrcParser.parse(content).machines
         #expect(machines.count == 1)
@@ -210,9 +210,9 @@ struct NetrcTests {
     @Test
     func loadMachinesMultilineWhitespaces() throws {
         let content = """
-                    machine  example.com login     anonymous
-                    password                  qwerty
-                    """
+            machine  example.com login     anonymous
+            password                  qwerty
+            """
 
         let machines = try NetrcParser.parse(content).machines
         #expect(machines.count == 1)
@@ -244,12 +244,12 @@ struct NetrcTests {
     @Test
     func loadMultipleMachinesMultiline() throws {
         let content = """
-                    machine  example.com login     anonymous
-                    password                  qwerty
-                    machine example2.com
-                    login anonymous2
-                    password qwerty2
-                    """
+            machine  example.com login     anonymous
+            password                  qwerty
+            machine example2.com
+            login anonymous2
+            password qwerty2
+            """
 
         let machines = try NetrcParser.parse(content).machines
         #expect(machines.count == 2)
@@ -476,7 +476,7 @@ struct NetrcTests {
             (testCase: "qwe#rty", expected: "qwe#rty"),
             (testCase: "\"qwe#rty\"", expected: "qwe#rty"),
             (testCase: "\"qwe #rty\"", expected: "qwe #rty"),
-            (testCase: "\"qwe# rty\"", expected: "qwe# rty")
+            (testCase: "\"qwe# rty\"", expected: "qwe# rty"),
         ]
     )
     func allHashQuotingPermutations(testCase: String, expected: String) throws {
@@ -499,7 +499,7 @@ struct NetrcTests {
             (testCase: "qwe#rty   # a comment", expected: "qwe#rty"),
             (testCase: "\"qwe#rty\"   # a comment", expected: "qwe#rty"),
             (testCase: "\"qwe #rty\"   # a comment", expected: "qwe #rty"),
-            (testCase: "\"qwe# rty\"   # a comment", expected: "qwe# rty")
+            (testCase: "\"qwe# rty\"   # a comment", expected: "qwe# rty"),
         ]
     )
     func allCommentPermutations(testCase: String, expected: String) throws {

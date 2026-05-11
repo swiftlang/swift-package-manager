@@ -70,8 +70,10 @@ struct FilePackageSigningEntityStorageTests {
 
         // A data file should have been created for each package
         #expect(mockFileSystem.exists(storage.directoryPath.appending(component: package.signedVersionsFilename)))
-        #expect(mockFileSystem
-            .exists(storage.directoryPath.appending(component: otherPackage.signedVersionsFilename)))
+        #expect(
+            mockFileSystem
+                .exists(storage.directoryPath.appending(component: otherPackage.signedVersionsFilename))
+        )
 
         // Signed versions should be saved
         do {
@@ -163,7 +165,7 @@ struct FilePackageSigningEntityStorageTests {
             package: package,
             version: version,
             signingEntity: appleseed,
-            origin: .registry(URL("http://bar.com")) // origin is different and should be added
+            origin: .registry(URL("http://bar.com"))  // origin is different and should be added
         )
 
         let packageSigners = try storage.get(package: package)
@@ -188,7 +190,7 @@ struct FilePackageSigningEntityStorageTests {
                 package: package,
                 version: version,
                 signingEntity: appleseed,
-                origin: .registry(URL("http://bar.com")) // origin is different and should be added
+                origin: .registry(URL("http://bar.com"))  // origin is different and should be added
             )
         } throws: { error in
             guard case PackageSigningEntityStorageError.unrecognizedSigningEntity = error else {

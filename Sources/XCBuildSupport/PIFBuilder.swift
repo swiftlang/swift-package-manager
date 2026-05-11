@@ -17,8 +17,7 @@ import PackageLoading
 import PackageModel
 import TSCUtility
 
-@_spi(SwiftPMInternal)
-import SPMBuildCore
+@_spi(SwiftPMInternal) import SPMBuildCore
 
 import func TSCBasic.memoize
 import func TSCBasic.topologicalSort
@@ -119,7 +118,7 @@ public final class PIFBuilder {
             let rootPackage = self.graph.rootPackages[self.graph.rootPackages.startIndex]
 
             let sortedPackages = self.graph.packages
-                .sorted { $0.manifest.displayName < $1.manifest.displayName } // TODO: use identity instead?
+                .sorted { $0.manifest.displayName < $1.manifest.displayName }  // TODO: use identity instead?
             var projects: [PIFProjectBuilder] = try sortedPackages.map { package in
                 try PackagePIFProjectBuilder(
                     package: package,
@@ -133,7 +132,7 @@ public final class PIFBuilder {
 
             let workspace = try PIF.Workspace(
                 guid: "Workspace:\(rootPackage.path.pathString)",
-                name: rootPackage.manifest.displayName, // TODO: use identity instead?
+                name: rootPackage.manifest.displayName,  // TODO: use identity instead?
                 path: rootPackage.path,
                 projects: projects.map { try $0.construct() }
             )
@@ -189,7 +188,8 @@ class PIFProjectBuilder {
     func addBuildConfiguration(
         name: String,
         settings: PIF.BuildSettings = PIF.BuildSettings(),
-        impartedBuildProperties: PIF.ImpartedBuildProperties = PIF
+        impartedBuildProperties: PIF.ImpartedBuildProperties =
+            PIF
             .ImpartedBuildProperties(settings: PIF.BuildSettings())
     ) -> PIFBuildConfigurationBuilder {
         let builder = PIFBuildConfigurationBuilder(
@@ -281,7 +281,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         super.init()
 
         self.guid = package.pifProjectGUID
-        self.name = package.manifest.displayName // TODO: use identity instead?
+        self.name = package.manifest.displayName  // TODO: use identity instead?
         self.path = package.path
         self.projectDirectory = package.path
         self.developmentRegion = package.manifest.defaultLocalization ?? "en"
@@ -618,8 +618,8 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
                 // Set the project and marketing version for the framework because the app store requires these to be
                 // present. The AppStore requires bumping the project version when ingesting new builds but that's for
                 // top-level apps and not frameworks embedded inside it.
-                settings[.MARKETING_VERSION] = "1.0" // Version
-                settings[.CURRENT_PROJECT_VERSION] = "1" // Build
+                settings[.MARKETING_VERSION] = "1.0"  // Version
+                settings[.CURRENT_PROJECT_VERSION] = "1"  // Build
             }
 
             pifTarget.addSourcesBuildPhase()
@@ -677,11 +677,11 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
                     ["-Xcc", "-fmodule-map-file=\(moduleMapFile)"]
 
                 moduleMapFileContents = """
-                module \(target.c99name) {
-                    umbrella "\(clangTarget.includeDir.pathString)"
-                    export *
-                }
-                """
+                    module \(target.c99name) {
+                        umbrella "\(clangTarget.includeDir.pathString)"
+                        export *
+                    }
+                    """
 
                 shouldImpartModuleMap = true
             } else {
@@ -699,11 +699,11 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
             settings.addCommonSwiftSettings(package: self.package, target: target, parameters: self.parameters)
 
             moduleMapFileContents = """
-            module \(target.c99name) {
-                header "\(target.name)-Swift.h"
-                export *
-            }
-            """
+                module \(target.c99name) {
+                    header "\(target.name)-Swift.h"
+                    export *
+                }
+                """
 
             shouldImpartModuleMap = true
         } else {
@@ -900,7 +900,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
             return nil
         }
 
-        let bundleName = "\(package.manifest.displayName)_\(target.name)" // TODO: use identity instead?
+        let bundleName = "\(package.manifest.displayName)_\(target.name)"  // TODO: use identity instead?
         let resourcesTarget = self.addTarget(
             guid: target.pifResourceTargetGUID,
             name: bundleName,
@@ -919,7 +919,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         settings[.PRODUCT_NAME] = "$(TARGET_NAME)"
         settings[.PRODUCT_MODULE_NAME] = bundleName
         let bundleIdentifier = "\(package.manifest.displayName).\(target.name).resources"
-            .spm_mangledToBundleIdentifier() // TODO: use identity instead?
+            .spm_mangledToBundleIdentifier()  // TODO: use identity instead?
         settings[.PRODUCT_BUNDLE_IDENTIFIER] = bundleIdentifier
         settings[.GENERATE_INFOPLIST_FILE] = "YES"
         settings[.PACKAGE_RESOURCE_TARGET_KIND] = "resource"
@@ -955,10 +955,12 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         }
 
         let targetGroup = groupTree.addGroup(path: "/", sourceTree: .group)
-        pifTarget.addResourceFile(targetGroup.addFileReference(
-            path: "\(bundleName)\(parameters.triple.nsbundleExtension)",
-            sourceTree: .builtProductsDir
-        ))
+        pifTarget.addResourceFile(
+            targetGroup.addFileReference(
+                path: "\(bundleName)\(parameters.triple.nsbundleExtension)",
+                sourceTree: .builtProductsDir
+            )
+        )
 
         return bundleName
     }
@@ -989,7 +991,8 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
             for assignment in assignments {
                 var value = assignment.value
                 if setting == .HEADER_SEARCH_PATHS {
-                    value = try value
+                    value =
+                        try value
                         .map { try AbsolutePath(validating: $0, relativeTo: target.sources.root).pathString }
                 }
 
@@ -1226,7 +1229,8 @@ class PIFBaseTargetBuilder {
     public func addBuildConfiguration(
         name: String,
         settings: PIF.BuildSettings = PIF.BuildSettings(),
-        impartedBuildProperties: PIF.ImpartedBuildProperties = PIF
+        impartedBuildProperties: PIF.ImpartedBuildProperties =
+            PIF
             .ImpartedBuildProperties(settings: PIF.BuildSettings())
     ) -> PIFBuildConfigurationBuilder {
         let builder = PIFBuildConfigurationBuilder(
@@ -1283,7 +1287,8 @@ class PIFBaseTargetBuilder {
     func addDependency(toTargetWithGUID targetGUID: String, platformFilters: [PIF.PlatformFilter], linkProduct: Bool) {
         self.dependencies.append(.init(targetGUID: targetGUID, platformFilters: platformFilters))
         if linkProduct {
-            let frameworksPhase = self.buildPhases.first { $0 is PIFFrameworksBuildPhaseBuilder }
+            let frameworksPhase =
+                self.buildPhases.first { $0 is PIFFrameworksBuildPhaseBuilder }
                 ?? self.addFrameworksBuildPhase()
             frameworksPhase.addBuildFile(toTargetWithGUID: targetGUID, platformFilters: platformFilters)
         }
@@ -1312,14 +1317,18 @@ class PIFBaseTargetBuilder {
         _ fileReference: PIFFileReferenceBuilder,
         platformFilters: [PIF.PlatformFilter]
     ) -> PIFBuildFileBuilder {
-        let frameworksPhase = self.buildPhases.first { $0 is PIFFrameworksBuildPhaseBuilder } ?? self
+        let frameworksPhase =
+            self.buildPhases.first { $0 is PIFFrameworksBuildPhaseBuilder }
+            ?? self
             .addFrameworksBuildPhase()
         return frameworksPhase.addBuildFile(to: fileReference, platformFilters: platformFilters)
     }
 
     @discardableResult
     public func addResourceFile(_ fileReference: PIFFileReferenceBuilder) -> PIFBuildFileBuilder {
-        let resourcesPhase = self.buildPhases.first { $0 is PIFResourcesBuildPhaseBuilder } ?? self
+        let resourcesPhase =
+            self.buildPhases.first { $0 is PIFResourcesBuildPhaseBuilder }
+            ?? self
             .addResourcesBuildPhase()
         return resourcesPhase.addBuildFile(to: fileReference, platformFilters: [])
     }
@@ -1771,7 +1780,7 @@ extension PIF.PlatformFilter {
 
     /// Mac Catalyst platform filters.
     public static let macCatalystFilters: [PIF.PlatformFilter] = [
-        .init(platform: "ios", environment: "maccatalyst"),
+        .init(platform: "ios", environment: "maccatalyst")
     ]
 
     /// iOS platform filters.
@@ -1794,7 +1803,7 @@ extension PIF.PlatformFilter {
 
     /// DriverKit platform filters.
     public static let driverKitFilters: [PIF.PlatformFilter] = [
-        .init(platform: "driverkit"),
+        .init(platform: "driverkit")
     ]
 
     /// Windows platform filters.
@@ -1816,17 +1825,17 @@ extension PIF.PlatformFilter {
 
     /// OpenBSD filters.
     public static let openBSDFilters: [PIF.PlatformFilter] = [
-        .init(platform: "openbsd"),
+        .init(platform: "openbsd")
     ]
 
     /// FreeBSD filters.
     public static let freeBSDFilters: [PIF.PlatformFilter] = [
-        .init(platform: "freebsd"),
+        .init(platform: "freebsd")
     ]
 
     /// WebAssembly platform filters.
     public static let webAssemblyFilters: [PIF.PlatformFilter] = [
-        .init(platform: "wasi"),
+        .init(platform: "wasi")
     ]
 
     /// VisionOS platform filters.
@@ -1904,9 +1913,11 @@ extension PIF.BuildSettings {
 
             // We have to normalize to two component strings to match the results from XCBuild w.r.t. to hashing of
             // `SwiftLanguageVersion` instances.
-            let normalizedDeclaredVersions = Set(target.declaredSwiftVersions.compactMap {
-                SwiftLanguageVersion(string: "\($0.major).\($0.minor)")
-            })
+            let normalizedDeclaredVersions = Set(
+                target.declaredSwiftVersions.compactMap {
+                    SwiftLanguageVersion(string: "\($0.major).\($0.minor)")
+                }
+            )
 
             let declaredSwiftVersions = Array(
                 normalizedDeclaredVersions

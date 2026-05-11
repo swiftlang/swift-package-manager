@@ -60,7 +60,7 @@ public enum PluginCapability: Hashable {
         case .buildTool:
             self = .buildTool
         case .command(let intent, let permissions):
-            self = .command(intent: .init(from: intent), permissions: permissions.map{ .init(from: $0) })
+            self = .command(intent: .init(from: intent), permissions: permissions.map { .init(from: $0) })
         }
     }
 }
