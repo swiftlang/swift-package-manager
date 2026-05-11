@@ -435,6 +435,10 @@ final class AsyncProcessTests: XCTestCase {
     func testAsyncStream() async throws {
         // rdar://133548796
         try XCTSkipIfPlatformCI()
+        #if compiler(<6.3)
+        try XCTSkipOnUbuntu22_04_jammy(because: "The XCTest binary crashes in GitHub Actions")
+        try XCTSkipOnAmazonLinux2(because: "The XCTest binary crashes in GitHub Actions")
+        #endif
         try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8547: 'swift test' was stalled.")
 
         let (stdoutStream, stdoutContinuation) = AsyncProcess.ReadableStream.makeStream()
