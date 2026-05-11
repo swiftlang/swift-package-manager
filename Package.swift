@@ -135,9 +135,9 @@ if shouldUseSwiftBuildFramework {
 let package = Package(
     name: "SwiftPM",
     platforms: [
-        .macOS(.v14),
-        .iOS(.v17),
-        .macCatalyst(.v17),
+        .macOS(.v15),
+        .iOS(.v18),
+        .macCatalyst(.v18),
     ],
     products:
     autoProducts.flatMap {
