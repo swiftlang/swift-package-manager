@@ -403,6 +403,9 @@ extension Serialization.Package {
         self.defaultLocalization = package.defaultLocalization.map { .init($0) }
         // TODO: hmmm
         self.defaultSwiftSettings = []
+        self.defaultCSettings = []
+        self.defaultCXXSettings = []
+        self.defaultLinkerSettings = []
         self.pkgConfig = package.pkgConfig
         self.providers = package.providers?.map { .init($0) }
         self.targets = package.targets.map { Serialization.Target.init($0) }

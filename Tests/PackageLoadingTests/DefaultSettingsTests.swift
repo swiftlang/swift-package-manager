@@ -42,29 +42,41 @@ struct DefaultLoadingTests {
                 defaultSwiftSettings: [
                     .swiftLanguageMode(.v5),
                 ],
+                defaultCSettings: [
+                    .headerSearchPath("foo"),
+                ],
+                defaultCXXSettings: [
+                    .headerSearchPath("foo"),
+                ],
+                defaultLinkerSettings: [
+                    .linkedLibrary("mylib"),
+                ],
             )
             """
 
         let observability = ObservabilitySystem.makeForTesting()
-            let (manifest, validationDiagnostics) = try await PackageDescriptionLoadingTests
-                .loadAndValidateManifest(
-                    content,
-                    toolsVersion: .v6_2,
-                    packageKind: .fileSystem(.root),
-                    manifestLoader: ManifestLoader(
-                        toolchain: try! UserToolchain.default
-                    ),
-                    observabilityScope: observability.topScope
-                )
-            try expectDiagnostics(validationDiagnostics) { results in
-                results.checkIsEmpty()
-            }
-            try expectDiagnostics(observability.diagnostics) { results in
-                results.checkIsEmpty()
-            }
+        let (manifest, validationDiagnostics) = try await PackageDescriptionLoadingTests
+            .loadAndValidateManifest(
+                content,
+                toolsVersion: .v6_2,
+                packageKind: .fileSystem(.root),
+                manifestLoader: ManifestLoader(
+                    toolchain: try! UserToolchain.default
+                ),
+                observabilityScope: observability.topScope
+            )
+        try expectDiagnostics(validationDiagnostics) { results in
+            results.checkIsEmpty()
+        }
+        try expectDiagnostics(observability.diagnostics) { results in
+            results.checkIsEmpty()
+        }
 
-        print(manifest.targets[0].settings)
-        print(manifest.targets[1].settings)
+        let expected: [TargetBuildSettingDescription.Setting] = [
+            .init(tool: .swift, kind: .swiftLanguageMode(.v5))
+        ]
+
+        #expect(manifest.defaultSettings == expected)
     }
 
     @Test
@@ -394,16 +406,13 @@ struct DefaultLoadingTests {
             targets: [
                 try TargetDescription(
                     name: "A",
-                    publicHeadersPath: "."
                 ),
                 try TargetDescription(
                     name: "B",
-                    publicHeadersPath: ".",
                     settings: [],
                 ),
                 try TargetDescription(
                     name: "C",
-                    publicHeadersPath: ".",
                     settings: [
                         .init(tool: .swift, kind: .interoperabilityMode(.Cxx)),
                     ]
@@ -455,16 +464,13 @@ struct DefaultLoadingTests {
             targets: [
                 try TargetDescription(
                     name: "A",
-                    publicHeadersPath: "."
                 ),
                 try TargetDescription(
                     name: "B",
-                    publicHeadersPath: ".",
                     settings: [],
                 ),
                 try TargetDescription(
                     name: "C",
-                    publicHeadersPath: ".",
                     settings: [
                         .init(tool: .swift, kind: .enableUpcomingFeature("bar")),
                     ]
@@ -520,16 +526,13 @@ struct DefaultLoadingTests {
             targets: [
                 try TargetDescription(
                     name: "A",
-                    publicHeadersPath: "."
                 ),
                 try TargetDescription(
                     name: "B",
-                    publicHeadersPath: ".",
                     settings: [],
                 ),
                 try TargetDescription(
                     name: "C",
-                    publicHeadersPath: ".",
                     settings: [
                         .init(tool: .swift, kind: .enableExperimentalFeature("bar")),
                     ]
@@ -584,11 +587,9 @@ struct DefaultLoadingTests {
             targets: [
                 try TargetDescription(
                     name: "A",
-                    publicHeadersPath: "."
                 ),
                 try TargetDescription(
                     name: "B",
-                    publicHeadersPath: ".",
                     settings: [],
                 ),
             ]
