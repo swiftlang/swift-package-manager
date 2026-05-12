@@ -789,4 +789,83 @@ struct DefaultLoadingTests {
         }
     }
 
+    @Test
+    func treatWarningResolution() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/A/a.swift",
+            "/Sources/B/b.swift",
+            "/Sources/C/c.swift",
+            "/Sources/D/d.swift",
+        )
+
+        let manifest = Manifest.createRootManifest(
+            displayName: "pkg",
+            defaultSettings: [
+                .init(tool: .swift, kind: .treatWarning("foo", .error))
+            ],
+            toolsVersion: .v6_2,
+            targets: [
+                try TargetDescription(
+                    name: "A",
+                ),
+                try TargetDescription(
+                    name: "B",
+                    settings: [],
+                ),
+                try TargetDescription(
+                    name: "C",
+                    settings: [
+                        .init(tool: .swift, kind: .treatWarning("foo", .warning))
+                    ]
+                ),
+                try TargetDescription(
+                    name: "D",
+                    settings: [
+                        .init(tool: .swift, kind: .treatWarning("bar", .error))
+                    ]
+                ),
+            ]
+        )
+
+        try PackageBuilderTester(manifest, in: fs) { package, _ in
+            try package.checkModule("A") { package in
+                let macosDebugScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                )
+                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("-Werror"))
+                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("foo"))
+            }
+
+            try package.checkModule("B") { package in
+                let macosDebugScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                )
+                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("-Werror"))
+                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("foo"))
+            }
+
+            try package.checkModule("C") { package in
+                let macosDebugScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                )
+                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("-Wwarning"))
+                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("foo"))
+            }
+
+            try package.checkModule("D") { package in
+                let macosDebugScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                )
+                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("-Werror"))
+                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("foo"))
+                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("-Wwarning") == false)
+                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("bar"))
+            }
+        }
+    }
+
 }
