@@ -730,4 +730,63 @@ struct DefaultLoadingTests {
             }
         }
     }
+
+    @Test
+    func treatAllWarningsResolution() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/A/a.swift",
+            "/Sources/B/b.swift",
+            "/Sources/C/c.swift",
+        )
+
+        let manifest = Manifest.createRootManifest(
+            displayName: "pkg",
+            defaultSettings: [
+                .init(tool: .swift, kind: .treatAllWarnings(.error))
+            ],
+            toolsVersion: .v6_2,
+            targets: [
+                try TargetDescription(
+                    name: "A",
+                ),
+                try TargetDescription(
+                    name: "B",
+                    settings: [],
+                ),
+                try TargetDescription(
+                    name: "C",
+                    settings: [
+                        .init(tool: .swift, kind: .treatAllWarnings(.warning)),
+                    ]
+                ),
+            ]
+        )
+
+        try PackageBuilderTester(manifest, in: fs) { package, _ in
+            try package.checkModule("A") { package in
+                let macosDebugScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                )
+                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("-warnings-as-errors"))
+            }
+
+            try package.checkModule("B") { package in
+                let macosDebugScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                )
+                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("-warnings-as-errors"))
+            }
+
+            try package.checkModule("C") { package in
+                let macosDebugScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                )
+                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("-warnings-as-errors") == false)
+            }
+        }
+    }
+
 }
