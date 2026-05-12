@@ -27,9 +27,6 @@ struct DefaultLoadingTests {
             import PackageDescription
             let package = Package(
                 name: "Foo",
-                defaultSwiftSettings: [
-                    .swiftLanguageMode(.v5),
-                ],
                 products: [],
                 targets: [
                     .target(
@@ -41,7 +38,10 @@ struct DefaultLoadingTests {
                             .swiftLanguageMode(.v6),
                         ]
                     )
-                ]
+                ],
+                defaultSwiftSettings: [
+                    .swiftLanguageMode(.v5),
+                ],
             )
             """
 
@@ -77,7 +77,7 @@ struct DefaultLoadingTests {
 
         let manifest = Manifest.createRootManifest(
             displayName: "pkg",
-            defaultSwiftSettings: [
+            defaultSettings: [
                 .init(tool: .swift, kind: .defaultIsolation(.MainActor))
             ],
             toolsVersion: .v6_2,
@@ -139,7 +139,7 @@ struct DefaultLoadingTests {
 
         let manifest = Manifest.createRootManifest(
             displayName: "pkg",
-            defaultSwiftSettings: [
+            defaultSettings: [
                 .init(tool: .c, kind: .headerSearchPath("foo"))
             ],
             toolsVersion: .v6_2,

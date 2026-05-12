@@ -1089,7 +1089,7 @@ public final class PackageBuilder {
     private func resolvedSettings(for target: TargetDescription) -> [TargetBuildSettingDescription.Setting] {
         var resolved = target.settings
 
-        let defaultSettings = manifest.defaultSwiftSettings ?? []
+        let defaultSettings = manifest.defaultSettings ?? []
 
         for defaultSetting in defaultSettings {
             var eligible = true
