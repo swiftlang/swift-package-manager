@@ -71,16 +71,16 @@ public struct EnvironmentAuthorizationProvider: AuthorizationProvider {
     public func authentication(for url: URL) -> (user: String, password: String)? {
         switch kind {
         case .registry:
-            if let token = nonEmpty(environment[.swiftpmRegistryToken]) {
+            if let token = nonEmpty(ConfigurableEnvVar.SWIFTPM_REGISTRY_TOKEN.value(from: self.environment)) {
                 return (user: "token", password: token)
             }
-            if let login = nonEmpty(environment[.swiftpmRegistryLogin]),
-               let password = nonEmpty(environment[.swiftpmRegistryPassword]) {
+            if let login = nonEmpty(ConfigurableEnvVar.SWIFTPM_REGISTRY_LOGIN.value(from: self.environment)),
+               let password = nonEmpty(ConfigurableEnvVar.SWIFTPM_REGISTRY_PASSWORD.value(from: self.environment)) {
                 return (user: login, password: password)
             }
             return nil
         case .sourceControl:
-            if let token = nonEmpty(environment[.swiftpmSourceControlToken]) {
+            if let token = nonEmpty(ConfigurableEnvVar.SWIFTPM_SOURCE_CONTROL_TOKEN.value(from: self.environment)) {
                 return (user: "token", password: token)
             }
             return nil
@@ -328,7 +328,7 @@ public final class KeychainAuthorizationProvider: AuthorizationProvider, Authori
                 throw AuthorizationProviderError
                     .other("Failed to extract credentials for '\(protocolHostPort)' from keychain")
             }
-          
+
             let password = String(decoding: passwordData, as: UTF8.self)
 
             return (user: account, password: password)

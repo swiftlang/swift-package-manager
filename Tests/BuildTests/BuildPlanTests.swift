@@ -5598,7 +5598,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
 
         // Link Product
         let exeLinkArguments = try result.buildProduct(for: "exe").linkArguments()
-        let exeLinkArgumentsPattern: [StringPattern] = ["-L", "\(sdkIncludeSearchPath)"]
+        let exeLinkArgumentsPattern: [StringPattern] = ["-L", "\(sdkLibrarySearchPath)"]
         XCTAssertMatch(exeLinkArguments, exeLinkArgumentsPattern)
     }
 

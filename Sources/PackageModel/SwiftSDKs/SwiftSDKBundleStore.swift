@@ -46,22 +46,43 @@ public final class SwiftSDKBundleStore {
     }
 
     enum Error: Swift.Error, CustomStringConvertible {
+        case matchingBothToSwiftSDK(selector: String, hostTriple: Triple)
+        case multipleSDKMatchesForID(selector: String, hostTriple: Triple)
+        case multipleSDKMatchesForTriple(selector: String, hostTriple: Triple, matches: [String])
         case noMatchingSwiftSDK(selector: String, hostTriple: Triple)
         case noMatchingSwiftSDKWithTriple(selector: String, hostTriple: Triple, targetTriple: Triple)
 
         var description: String {
             switch self {
+            case let .matchingBothToSwiftSDK(selector, hostTriple):
+                return """
+                The query for `\(selector)` and host triple `\(hostTriple.tripleString)` \
+                matched both an SDK and a target triple. Use the `swift sdk list` command \
+                to see available Swift SDKs and remove one of them.
+                """
+            case let .multipleSDKMatchesForID(selector, hostTriple):
+                return """
+                The query for `\(selector)` and host triple `\(hostTriple.tripleString)` \
+                has multiple target triples. Use the `--triple` flag to specify a triple.
+                """
+            case let .multipleSDKMatchesForTriple(selector, hostTriple, matches):
+                return """
+                The query for `\(selector)` and host triple `\(hostTriple.tripleString)` \
+                matched multiple SDKs: \(matches.joined(separator: ", ")). Use the \
+                `swift sdk list` command to see available Swift SDKs and try a different \
+                query like `--swift-sdk \(matches[0]) --triple \(selector)` or remove an SDK.
+                """
             case let .noMatchingSwiftSDK(selector, hostTriple):
                 return """
                 No Swift SDK found matching query `\(selector)` and host triple \
-                `\(hostTriple.tripleString)`. Use `swift sdk list` command to see \
+                `\(hostTriple.tripleString)`. Use the `swift sdk list` command to see \
                 available Swift SDKs.
                 """
             case let .noMatchingSwiftSDKWithTriple(selector, hostTriple, targetTriple):
                 return """
                 No Swift SDK found matching query `\(selector)`, target triple \
                 `\(targetTriple.tripleString)`, and host triple `\(hostTriple.tripleString)`. \
-                Use `swift sdk list` command to see available Swift SDKs.
+                Use the `swift sdk list` command to see available Swift SDKs.
                 """
             }
         }
@@ -128,15 +149,16 @@ public final class SwiftSDKBundleStore {
     /// Select a Swift SDK matching a given query and host triple from all Swift SDKs available in
     /// ``SwiftSDKBundleStore//swiftSDKsDirectory``.
     /// - Parameters:
-    ///   - query: either an artifact ID or target triple to filter with.
+    ///   - selector: either an artifact ID or target triple to filter with.
     ///   - hostTriple: triple of the host building with these Swift SDKs.
     ///   - targetTriple: optional separate target triple to look for
-    /// - Returns: ``SwiftSDK`` value matching `query` either by artifact ID or target triple, `nil` if none found.
+    /// - Returns: tuple with the Artifact ID and ``SwiftSDK`` value that matched `selector` either by
+    ///            artifact ID or target triple, throws if multiple or none found.
     public func selectBundle(
         matching selector: String,
         hostTriple: Triple,
         targetTriple: Triple? = nil
-    ) throws -> SwiftSDK {
+    ) throws -> (String, SwiftSDK) {
         let validBundles = try self.allValidBundles
 
         guard !validBundles.isEmpty else {
@@ -154,20 +176,32 @@ public final class SwiftSDKBundleStore {
                 throw Error.noMatchingSwiftSDKWithTriple(selector: selector, hostTriple: hostTriple, targetTriple: triple)
             }
             selectedSwiftSDK.applyPathCLIOptions()
-            return selectedSwiftSDK
+            return (selector, selectedSwiftSDK)
         }
 
-        guard var selectedSwiftSDKs = validBundles.selectSwiftSDK(
-            matching: selector,
-            hostTriple: hostTriple,
-            observabilityScope: self.observabilityScope
-        ) else {
+        var selectedSwiftSDK: SwiftSDK
+        var id: String
+        let SDKs = validBundles.selectSwiftSDK(matching: selector, hostTriple: hostTriple)
+        if SDKs.tripleMatches.count > 1 {
+            throw Error.multipleSDKMatchesForTriple(selector: selector, hostTriple: hostTriple, matches: Array(SDKs.tripleMatches.keys).sorted())
+        } else if SDKs.idMatches.count > 1 {
+            throw Error.multipleSDKMatchesForID(selector: selector, hostTriple: hostTriple)
+        } else if SDKs.idMatches.count == 1 {
+            guard SDKs.tripleMatches.count == 0 else {
+              throw Error.matchingBothToSwiftSDK(selector: selector, hostTriple: hostTriple)
+            }
+            id = selector
+            selectedSwiftSDK = SDKs.idMatches[0]
+        } else if let match = SDKs.tripleMatches.first {
+            id = match.key
+            selectedSwiftSDK = match.value
+        } else {
             throw Error.noMatchingSwiftSDK(selector: selector, hostTriple: hostTriple)
         }
 
-        selectedSwiftSDKs.applyPathCLIOptions()
+        selectedSwiftSDK.applyPathCLIOptions()
 
-        return selectedSwiftSDKs
+        return (id, selectedSwiftSDK)
     }
 
     /// Installs a Swift SDK bundle from a given path or URL to ``SwiftSDKBundleStore//swiftSDKsDirectory``.

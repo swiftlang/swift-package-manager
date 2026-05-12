@@ -310,11 +310,11 @@ extension Workspace.Configuration {
             var providers = [AuthorizationProvider]()
 
             let env = Environment.current
-            if let token = env[.swiftpmSourceControlToken], !token.isEmpty {
+            if let token = ConfigurableEnvVar.SWIFTPM_SOURCE_CONTROL_TOKEN.value(from: env), !token.isEmpty {
                 providers.append(EnvironmentAuthorizationProvider(kind: .sourceControl))
             }
 
-            if let netrcData = env[.swiftpmNetrcData], !netrcData.isEmpty {
+            if let netrcData = ConfigurableEnvVar.SWIFTPM_NETRC_DATA.value(from: env), !netrcData.isEmpty {
                 do {
                     providers.append(try InMemoryNetrcAuthorizationProvider(content: netrcData))
                 } catch {
@@ -371,22 +371,22 @@ extension Workspace.Configuration {
             observabilityScope: ObservabilityScope
         ) throws -> AuthorizationProvider? {
             let env = Environment.current
-            if let token = env[.swiftpmRegistryToken], !token.isEmpty {
+            if let token = ConfigurableEnvVar.SWIFTPM_REGISTRY_TOKEN.value(from: env), !token.isEmpty {
                 return EnvironmentAuthorizationProvider(kind: .registry)
             }
-            if let login = env[.swiftpmRegistryLogin], !login.isEmpty,
-               let password = env[.swiftpmRegistryPassword], !password.isEmpty {
+            if let login = ConfigurableEnvVar.SWIFTPM_REGISTRY_LOGIN.value(from: env), !login.isEmpty,
+               let password = ConfigurableEnvVar.SWIFTPM_REGISTRY_PASSWORD.value(from: env), !password.isEmpty {
                 return EnvironmentAuthorizationProvider(kind: .registry)
-            } else if let login = env[.swiftpmRegistryLogin], !login.isEmpty {
+            } else if let login = ConfigurableEnvVar.SWIFTPM_REGISTRY_LOGIN.value(from: env), !login.isEmpty {
                 observabilityScope.emit(
                     warning: "SWIFTPM_REGISTRY_LOGIN is set but SWIFTPM_REGISTRY_PASSWORD is not; both are required for login/password authentication"
                 )
-            } else if let password = env[.swiftpmRegistryPassword], !password.isEmpty {
+            } else if let password = ConfigurableEnvVar.SWIFTPM_REGISTRY_PASSWORD.value(from: env), !password.isEmpty {
                 observabilityScope.emit(
                     warning: "SWIFTPM_REGISTRY_PASSWORD is set but SWIFTPM_REGISTRY_LOGIN is not; both are required for login/password authentication"
                 )
             }
-            if let netrcData = env[.swiftpmNetrcData], !netrcData.isEmpty {
+            if let netrcData = ConfigurableEnvVar.SWIFTPM_NETRC_DATA.value(from: env), !netrcData.isEmpty {
                 do {
                     return try InMemoryNetrcAuthorizationProvider(content: netrcData)
                 } catch {
