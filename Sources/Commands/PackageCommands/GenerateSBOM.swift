@@ -50,6 +50,7 @@ extension SwiftPackageCommand {
                 let resolvedPackagesStore = try workspace.resolvedPackagesStore.load()
 
                 let specs = try self.sbom.sbomSpecs
+                let buildSystem = try await swiftCommandState.createBuildSystem()
                 let input = SBOMInput(
                     modulesGraph: packageGraph,
                     dependencyGraph: nil,
@@ -57,7 +58,7 @@ extension SwiftPackageCommand {
                     filter: try self.sbom.sbomFilter,
                     product: self.product,
                     specs: specs.isEmpty ? Spec.allCases : specs,
-                    dir: await SBOMCreator.resolveSBOMDirectory(from: self.sbom.sbomDirectory, withDefault: try swiftCommandState.productsBuildParameters.buildPath),
+                    dir: await SBOMCreator.resolveSBOMDirectory(from: self.sbom.sbomDirectory, withDefault: try buildSystem.buildProductsPath(for: swiftCommandState.productsBuildParameters)),
                     observabilityScope: swiftCommandState.observabilityScope
                 )
 

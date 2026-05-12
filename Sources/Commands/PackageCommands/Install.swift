@@ -89,10 +89,11 @@ extension SwiftPackageCommand {
                 commandState.preferredBuildConfiguration = .release
             }
 
-            try await commandState.createBuildSystem(explicitProduct: productToInstall.name)
-                .build(subset: .product(productToInstall.name), buildOutputs: [])
+            let buildSystem = try await commandState.createBuildSystem(explicitProduct: productToInstall.name)
+            try await buildSystem.build(subset: .product(productToInstall.name), buildOutputs: [])
 
-            let binPath = try commandState.productsBuildParameters.buildPath.appending(component: productToInstall.name)
+            let binPath = try buildSystem.buildProductsPath(for: commandState.productsBuildParameters)
+                .appending(component: productToInstall.name)
             let finalBinPath = swiftpmBinDir.appending(component: binPath.basename)
             try commandState.fileSystem.copy(from: binPath, to: finalBinPath)
 

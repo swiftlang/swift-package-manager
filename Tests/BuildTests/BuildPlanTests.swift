@@ -3867,7 +3867,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             ))
 
             let lib = try result.moduleBuildDescription(for: "lib").clang()
-            let path = StringPattern.equal(result.plan.destinationBuildParameters.indexStore.pathString)
+            let path = StringPattern.equal(BuildOperation.indexStore(for: result.plan.destinationBuildParameters).pathString)
 
             XCTAssertMatch(
                 try lib.basicArguments(isCXX: false),

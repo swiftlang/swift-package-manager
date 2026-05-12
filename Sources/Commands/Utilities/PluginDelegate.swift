@@ -239,7 +239,7 @@ final class PluginDelegate: PluginInvocationDelegate {
         // Clean out the code coverage directory that may contain stale `profraw` files from a previous run of
         // the code coverage tool.
         if parameters.enableCodeCoverage {
-            try swiftCommandState.fileSystem.removeFileTree(toolsBuildParameters.codeCovPath)
+            try swiftCommandState.fileSystem.removeFileTree(buildSystem.codeCovPath(for: toolsBuildParameters))
         }
 
         // Construct the environment we'll pass down to the tests.
@@ -250,7 +250,8 @@ final class PluginDelegate: PluginInvocationDelegate {
             sanitizers: swiftCommandState.options.build.sanitizers,
             library: .xctest, // FIXME: support both libraries
             testProductPaths: buildSystem.builtTestProducts.map(\.bundlePath),
-            interopMode: toolsVersion?.defaultInteropMode
+            interopMode: toolsVersion?.defaultInteropMode,
+            buildSystem: buildSystem
         )
 
         // Iterate over the tests and run those that match the filter.
@@ -264,7 +265,8 @@ final class PluginDelegate: PluginInvocationDelegate {
                 enableCodeCoverage: parameters.enableCodeCoverage,
                 shouldSkipBuilding: false,
                 experimentalTestOutput: false,
-                sanitizers: swiftCommandState.options.build.sanitizers
+                sanitizers: swiftCommandState.options.build.sanitizers,
+                buildSystem: buildSystem
             )
             for testSuite in testSuites {
                 // Each test suite is just a container for test cases (confusingly called "tests",
@@ -334,12 +336,12 @@ final class PluginDelegate: PluginInvocationDelegate {
         let codeCoverageDataFile: AbsolutePath?
         if parameters.enableCodeCoverage {
             // Use `llvm-prof` to merge all the `.profraw` files into a single `.profdata` file.
-            let mergedCovFile = toolsBuildParameters.codeCovDataFile
-            let codeCovFileNames = try swiftCommandState.fileSystem.getDirectoryContents(toolsBuildParameters.codeCovPath)
+            let mergedCovFile = buildSystem.codeCovDataFile(for: toolsBuildParameters)
+            let codeCovFileNames = try swiftCommandState.fileSystem.getDirectoryContents(buildSystem.codeCovPath(for: toolsBuildParameters))
             var llvmProfCommand = [try toolchain.getLLVMProf().pathString]
             llvmProfCommand += ["merge", "-sparse"]
             for fileName in codeCovFileNames where fileName.hasSuffix(".profraw") {
-                let filePath = toolsBuildParameters.codeCovPath.appending(component: fileName)
+                let filePath = buildSystem.codeCovPath(for: toolsBuildParameters).appending(component: fileName)
                 llvmProfCommand.append(filePath.pathString)
             }
             llvmProfCommand += ["-o", mergedCovFile.pathString]
@@ -354,8 +356,8 @@ final class PluginDelegate: PluginInvocationDelegate {
             }
             // We get the output on stdout, and have to write it to a JSON ourselves.
             let jsonOutput = try await AsyncProcess.checkNonZeroExit(arguments: llvmCovCommand)
-            let jsonCovFile = toolsBuildParameters.codeCovDataFile.parentDirectory.appending(
-                component: toolsBuildParameters.codeCovDataFile.basenameWithoutExt + ".json"
+            let jsonCovFile = mergedCovFile.parentDirectory.appending(
+                component: mergedCovFile.basenameWithoutExt + ".json"
             )
             try swiftCommandState.fileSystem.writeFileContents(jsonCovFile, string: jsonOutput)
 
@@ -406,7 +408,7 @@ final class PluginDelegate: PluginInvocationDelegate {
         let buildResult = try await buildSystem.build(subset: .target(targetName), buildOutputs: [.symbolGraph(options), .buildPlan])
 
         if let symbolGraph = buildResult.symbolGraph {
-            let path = (try swiftCommandState.productsBuildParameters.buildPath)
+            let path = try buildSystem.buildProductsPath(for: swiftCommandState.productsBuildParameters)
             return PluginInvocationSymbolGraphResult(directoryPath: "\(path)/\(symbolGraph.outputLocationForTarget(targetName, try swiftCommandState.productsBuildParameters).joined(separator:"/"))")
         } else if let buildPlan = buildResult.buildPlan {
             func lookupDescription(

@@ -78,7 +78,8 @@ enum TestingSupport {
         enableCodeCoverage: Bool,
         shouldSkipBuilding: Bool,
         experimentalTestOutput: Bool,
-        sanitizers: [Sanitizer]
+        sanitizers: [Sanitizer],
+        buildSystem: any BuildSystem
     ) throws -> [BuiltTestProduct: [TestSuite]] {
         let testSuitesByProduct = try testProducts
             .map {(
@@ -89,7 +90,8 @@ enum TestingSupport {
                     enableCodeCoverage: enableCodeCoverage,
                     shouldSkipBuilding: shouldSkipBuilding,
                     experimentalTestOutput: experimentalTestOutput,
-                    sanitizers: sanitizers
+                    sanitizers: sanitizers,
+                    buildSystem: buildSystem
                 )
             )}
         return try Dictionary(throwingUniqueKeysWithValues: testSuitesByProduct)
@@ -111,7 +113,8 @@ enum TestingSupport {
         enableCodeCoverage: Bool,
         shouldSkipBuilding: Bool,
         experimentalTestOutput: Bool,
-        sanitizers: [Sanitizer]
+        sanitizers: [Sanitizer],
+        buildSystem: any BuildSystem
     ) throws -> [TestSuite] {
         // Run the correct tool.
         var args = [String]()
@@ -128,7 +131,8 @@ enum TestingSupport {
                 sanitizers: sanitizers,
                 library: .xctest,
                 testProductPaths: [path],
-                interopMode: nil // Interop not required when listing tests
+                interopMode: nil, // Interop not required when listing tests
+                buildSystem: buildSystem
             )
             try Self.runProcessWithExistenceCheck(
                 path: path,
@@ -150,7 +154,8 @@ enum TestingSupport {
             sanitizers: sanitizers,
             library: .xctest,
             testProductPaths: [path],
-            interopMode: nil // Interop not required when listing tests
+            interopMode: nil, // Interop not required when listing tests
+            buildSystem: buildSystem
         )
         args = [path.description, "--dump-tests-json"]
         let data = try Self.runProcessWithExistenceCheck(
@@ -168,7 +173,8 @@ enum TestingSupport {
         in testProducts: [BuiltTestProduct],
         swiftCommandState: SwiftCommandState,
         shouldSkipBuilding: Bool,
-        sanitizers: [Sanitizer]
+        sanitizers: [Sanitizer],
+        buildSystem: any BuildSystem
     ) throws -> [AbsolutePath: [String]] {
         let suitesByProduct = try testProducts
             .map {(
@@ -177,7 +183,8 @@ enum TestingSupport {
                     testProduct: $0,
                     swiftCommandState: swiftCommandState,
                     shouldSkipBuilding: shouldSkipBuilding,
-                    sanitizers: sanitizers
+                    sanitizers: sanitizers,
+                    buildSystem: buildSystem
                 )
             )}
         return try Dictionary(throwingUniqueKeysWithValues: suitesByProduct)
@@ -197,7 +204,8 @@ enum TestingSupport {
         testProduct: BuiltTestProduct,
         swiftCommandState: SwiftCommandState,
         shouldSkipBuilding: Bool,
-        sanitizers: [Sanitizer]
+        sanitizers: [Sanitizer],
+        buildSystem: any BuildSystem
     ) throws -> [String] {
         let toolchain = try swiftCommandState.getTargetToolchain()
         let env = try Self.constructTestEnvironment(
@@ -213,7 +221,8 @@ enum TestingSupport {
             sanitizers: sanitizers,
             library: .swiftTesting,
             testProductPaths: [testProduct.bundlePath],
-            interopMode: nil // Interop not required when listing tests
+            interopMode: nil, // Interop not required when listing tests
+            buildSystem: buildSystem
         )
 
         var args: [String]
@@ -300,7 +309,8 @@ enum TestingSupport {
         sanitizers: [Sanitizer],
         library: TestingLibrary,
         testProductPaths: [AbsolutePath],
-        interopMode: String?
+        interopMode: String?,
+        buildSystem: any BuildSystem
     ) throws -> Environment {
         var env = Environment.current
 
@@ -341,7 +351,7 @@ enum TestingSupport {
             //
             // These are all merged using `llvm-profdata merge` once the outer test command has
             // completed.
-            let codecovProfile = buildParameters.buildPath.appending(components: "codecov", "\(library)%m.%p.profraw")
+            let codecovProfile = buildSystem.buildProductsPath(for: buildParameters).appending(components: "codecov", "\(library)%m.%p.profraw")
             env["LLVM_PROFILE_FILE"] = codecovProfile.pathString
         }
 

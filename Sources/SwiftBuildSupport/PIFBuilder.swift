@@ -83,7 +83,11 @@ package struct PIFBuilderParameters {
     /// the build products to a different location.
     let addLocalRpaths: Bool
 
-    package init(isPackageAccessModifierSupported: Bool, enableTestability: Bool, shouldCreateDylibForDynamicProducts: Bool, materializeStaticArchiveProductsForRootPackages: Bool, createDynamicVariantsForLibraryProducts: Bool, toolchainLibDir: AbsolutePath, pkgConfigDirectories: [AbsolutePath], supportedSwiftVersions: [SwiftLanguageVersion], pluginScriptRunner: PluginScriptRunner, disableSandbox: Bool, pluginWorkingDirectory: AbsolutePath, additionalFileRules: [FileRuleDescription], addLocalRPaths: Bool) {
+    /// The directory in which host-destination build products (e.g. plugin tools) are placed, as
+    /// reported by the build system for the host `BuildParameters`.
+    let hostBuildProductsPath: AbsolutePath
+
+    package init(isPackageAccessModifierSupported: Bool, enableTestability: Bool, shouldCreateDylibForDynamicProducts: Bool, materializeStaticArchiveProductsForRootPackages: Bool, createDynamicVariantsForLibraryProducts: Bool, toolchainLibDir: AbsolutePath, pkgConfigDirectories: [AbsolutePath], supportedSwiftVersions: [SwiftLanguageVersion], pluginScriptRunner: PluginScriptRunner, disableSandbox: Bool, pluginWorkingDirectory: AbsolutePath, additionalFileRules: [FileRuleDescription], addLocalRPaths: Bool, hostBuildProductsPath: AbsolutePath) {
         self.isPackageAccessModifierSupported = isPackageAccessModifierSupported
         self.enableTestability = enableTestability
         self.shouldCreateDylibForDynamicProducts = shouldCreateDylibForDynamicProducts
@@ -97,6 +101,7 @@ package struct PIFBuilderParameters {
         self.pluginWorkingDirectory = pluginWorkingDirectory
         self.additionalFileRules = additionalFileRules
         self.addLocalRpaths = addLocalRPaths
+        self.hostBuildProductsPath = hostBuildProductsPath
     }
 }
 
@@ -156,8 +161,7 @@ public final class PIFBuilder {
         prettyPrint: Bool = true,
         preservePIFModelStructure: Bool = false,
         printPIFManifestGraphviz: Bool = false,
-        buildParameters: BuildParameters,
-        hostBuildParameters: BuildParameters
+        buildParameters: BuildParameters
     ) async throws -> PIFGenerationResult {
         let encoder = prettyPrint ? JSONEncoder.makeWithDefaults() : JSONEncoder()
 
@@ -165,7 +169,7 @@ public final class PIFBuilder {
             encoder.userInfo[.encodeForSwiftBuild] = true
         }
 
-        let (topLevelObject, modulesAndProducts) = try await self.constructPIF(buildParameters: buildParameters, hostBuildParameters: hostBuildParameters)
+        let (topLevelObject, modulesAndProducts) = try await self.constructPIF(buildParameters: buildParameters)
 
         // Sign the PIF objects before encoding it for Swift Build.
         try PIF.sign(workspace: topLevelObject.workspace)
@@ -192,7 +196,6 @@ public final class PIFBuilder {
     private func availableBuildPluginTools(
         graph: ModulesGraph,
         buildParameters: BuildParameters,
-        hostBuildParameters: BuildParameters,
         pluginsPerModule: [ResolvedModule.ID: [ResolvedModule]],
         hostTriple: Basics.Triple
     ) async throws -> [ResolvedModule.ID: [String: PluginTool]] {
@@ -207,7 +210,7 @@ public final class PIFBuilder {
                     environment: buildParameters.buildEnvironment,
                     for: hostTriple
                 ) { name, path in
-                    return hostBuildParameters.buildPath.appending(path)
+                    return self.parameters.hostBuildProductsPath.appending(path)
                 }
 
                 accessibleToolsPerPlugin[plugin.id] = accessibleTools
@@ -220,8 +223,7 @@ public final class PIFBuilder {
     /// Constructs all `PackagePIFBuilder` objects used by the `constructPIF` function.
     /// In particular, this is useful for unit testing the complex `PIFBuilder` class.
     func makePIFBuilders(
-        buildParameters: BuildParameters,
-        hostBuildParameters: BuildParameters
+        buildParameters: BuildParameters
     ) async throws -> [(ResolvedPackage, PackagePIFBuilder, any PackagePIFBuilder.BuildDelegate)] {
         let pluginScriptRunner = self.parameters.pluginScriptRunner
         let outputDir = self.parameters.pluginWorkingDirectory.appending("outputs")
@@ -233,7 +235,6 @@ public final class PIFBuilder {
         let availablePluginTools = try await availableBuildPluginTools(
             graph: graph,
             buildParameters: buildParameters,
-            hostBuildParameters: hostBuildParameters,
             pluginsPerModule: pluginsPerModule,
             hostTriple: try pluginScriptRunner.hostTriple
         )
@@ -452,8 +453,7 @@ public final class PIFBuilder {
 
     /// Constructs a `PIF.TopLevelObject` representing the package graph.
     package func constructPIF(
-        buildParameters: BuildParameters,
-        hostBuildParameters: BuildParameters
+        buildParameters: BuildParameters
     ) async throws -> (PIF.TopLevelObject, [PackagePIFBuilder.ModuleOrProduct]) {
         return try await memoize(to: &self.cachedPIF) {
             let rootPackages = self.graph.rootPackages
@@ -461,7 +461,7 @@ public final class PIFBuilder {
                 throw PIFGenerationError.rootPackageNotFound
             }
 
-            let packagesAndPIFBuilders = try await makePIFBuilders(buildParameters: buildParameters, hostBuildParameters: hostBuildParameters)
+            let packagesAndPIFBuilders = try await makePIFBuilders(buildParameters: buildParameters)
 
             var modulesAndProducts: [PackagePIFBuilder.ModuleOrProduct] = []
             let packagesAndPIFProjects = try packagesAndPIFBuilders.map { (package, pifBuilder, _) in
@@ -554,7 +554,6 @@ public final class PIFBuilder {
     // Convenience method for generating PIF.
     public static func generatePIF(
         buildParameters: BuildParameters,
-        hostBuildParameters: BuildParameters,
         packageGraph: ModulesGraph,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
@@ -566,7 +565,8 @@ public final class PIFBuilder {
         additionalFileRules: [FileRuleDescription],
         addLocalRpaths: Bool,
         materializeStaticArchiveProductsForRootPackages: Bool,
-        createDynamicVariantsForLibraryProducts: Bool
+        createDynamicVariantsForLibraryProducts: Bool,
+        hostBuildProductsPath: AbsolutePath
     ) async throws -> PIFGenerationResult {
         let parameters = PIFBuilderParameters(
             buildParameters,
@@ -577,8 +577,8 @@ public final class PIFBuilder {
             additionalFileRules: additionalFileRules,
             addLocalRpaths: addLocalRpaths,
             materializeStaticArchiveProductsForRootPackages: materializeStaticArchiveProductsForRootPackages,
-            createDynamicVariantsForLibraryProducts: createDynamicVariantsForLibraryProducts
-
+            createDynamicVariantsForLibraryProducts: createDynamicVariantsForLibraryProducts,
+            hostBuildProductsPath: hostBuildProductsPath
         )
         let builder = Self(
             graph: packageGraph,
@@ -586,7 +586,7 @@ public final class PIFBuilder {
             fileSystem: fileSystem,
             observabilityScope: observabilityScope
         )
-        return try await builder.generatePIF(preservePIFModelStructure: preservePIFModelStructure, buildParameters: buildParameters, hostBuildParameters: hostBuildParameters)
+        return try await builder.generatePIF(preservePIFModelStructure: preservePIFModelStructure, buildParameters: buildParameters)
     }
 }
 
@@ -848,7 +848,8 @@ extension PIFBuilderParameters {
         additionalFileRules: [FileRuleDescription],
         addLocalRpaths: Bool,
         materializeStaticArchiveProductsForRootPackages: Bool,
-        createDynamicVariantsForLibraryProducts: Bool
+        createDynamicVariantsForLibraryProducts: Bool,
+        hostBuildProductsPath: AbsolutePath
     ) {
         self.init(
             isPackageAccessModifierSupported: buildParameters.driverParameters.isPackageAccessModifierSupported,
@@ -864,6 +865,7 @@ extension PIFBuilderParameters {
             pluginWorkingDirectory: pluginWorkingDirectory,
             additionalFileRules: additionalFileRules,
             addLocalRPaths: addLocalRpaths,
+            hostBuildProductsPath: hostBuildProductsPath
         )
     }
 }

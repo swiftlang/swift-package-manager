@@ -274,8 +274,8 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
                 for package in graph.rootPackages {
                     for product in package.products where product.type == .test {
-                        let binaryPath = try buildParameters.binaryPath(for: product)
-                        let coverageBinaryPath = try buildParameters.buildPath.appending(
+                        let binaryPath = try self.binaryPath(for: product, parameters: buildParameters)
+                        let coverageBinaryPath = try self.buildProductsPath(for: buildParameters).appending(
                             buildParameters.testCoverageBinaryRelativePath(forTestProductName: product.name)
                         )
                         builtProducts.append(
@@ -306,6 +306,20 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
     }
 
     public var hasIntegratedAPIDigesterSupport: Bool { true }
+
+    public func buildProductsPath(for parameters: BuildParameters) -> Basics.AbsolutePath {
+        var configDir: String = parameters.configuration.dirname.capitalized
+        if parameters.triple.isMacOSX {
+            // no suffix
+        } else if parameters.triple.isAndroid() {
+            configDir += "-android"
+        } else if parameters.triple.isWasm {
+            configDir += "-webassembly"
+        } else {
+            configDir += "-" + (parameters.triple.darwinPlatform?.platformName ?? parameters.triple.osNameUnversioned)
+        }
+        return parameters.dataPath.appending(components: "Products", configDir)
+    }
 
     public var enableTaskBacktraces: Bool {
         self.buildParameters.outputParameters.enableTaskBacktraces
@@ -414,10 +428,10 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         )
 
         defer {
-            if self.fileSystem.exists(self.buildParameters.buildPath, followSymlink: true) {
+            if self.fileSystem.exists(self.buildProductsPath(for: self.buildParameters), followSymlink: true) {
                 createBuildSymbolicLinks(
                     self.scratchDirectory.appending(component: self.buildParameters.configuration.dirname),
-                    pointingAt: self.buildParameters.buildPath,
+                    pointingAt: self.buildProductsPath(for: self.buildParameters),
                     fileSystem: self.fileSystem,
                     observabilityScope: self.observabilityScope,
                 )
@@ -982,7 +996,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         case .on:
             for setting in indexStoreSettingNames {
                 settings[setting.enableVariableName] = "YES"
-                settings[setting.pathVariable] = self.buildParameters.indexStore.pathStringWithPosixSlashes
+                settings[setting.pathVariable] = self.indexStore(for: self.buildParameters).pathStringWithPosixSlashes
             }
         case .off:
             for setting in indexStoreSettingNames {
@@ -1303,6 +1317,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                     addLocalRpaths: !self.buildParameters.linkingParameters.shouldDisableLocalRpath,
                     materializeStaticArchiveProductsForRootPackages: materializeStaticArchiveProductsForRootPackages,
                     createDynamicVariantsForLibraryProducts: false,
+                    hostBuildProductsPath: self.buildProductsPath(for: self.hostBuildParameters)
                 ),
                 fileSystem: self.fileSystem,
                 observabilityScope: self.observabilityScope,
@@ -1318,8 +1333,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         return try await pifBuilder.generatePIF(
             preservePIFModelStructure: preserveStructure,
             printPIFManifestGraphviz: buildParameters.printPIFManifestGraphviz,
-            buildParameters: buildParameters,
-            hostBuildParameters: hostBuildParameters
+            buildParameters: buildParameters
         )
     }
 
