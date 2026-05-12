@@ -946,4 +946,85 @@ struct DefaultLoadingTests {
             }
         }
     }
+
+    @Test
+    func disableWarningResolution() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/A/a.c",
+            "/Sources/B/b.c",
+            "/Sources/C/c.c",
+            "/Sources/D/d.c",
+        )
+
+        let manifest = Manifest.createRootManifest(
+            displayName: "pkg",
+            defaultSettings: [
+                .init(tool: .c, kind: .disableWarning("foo"))
+            ],
+            toolsVersion: .v6_2,
+            targets: [
+                try TargetDescription(
+                    name: "A",
+                    publicHeadersPath: "."
+                ),
+                try TargetDescription(
+                    name: "B",
+                    publicHeadersPath: ".",
+                    settings: []
+                ),
+                try TargetDescription(
+                    name: "C",
+                    publicHeadersPath: ".",
+                    settings: [
+                        .init(tool: .c, kind: .disableWarning("bar")),
+                    ]
+                ),
+                try TargetDescription(
+                    name: "D",
+                    publicHeadersPath: ".",
+                    settings: [
+                        .init(tool: .c, kind: .enableWarning("foo")),
+                    ]
+                ),
+            ]
+        )
+
+        try PackageBuilderTester(manifest, in: fs) { package, _ in
+            try package.checkModule("A") { package in
+                print(package.target.buildSettings)
+                let macosDebugScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                )
+                #expect(macosDebugScope.evaluate(.OTHER_CFLAGS).contains("-Wno-foo"))
+            }
+
+            try package.checkModule("B") { package in
+                let macosDebugScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                )
+                #expect(macosDebugScope.evaluate(.OTHER_CFLAGS).contains("-Wno-foo"))
+            }
+
+            try package.checkModule("C") { package in
+                let macosDebugScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                )
+                #expect(macosDebugScope.evaluate(.OTHER_CFLAGS).contains("-Wno-foo"))
+                #expect(macosDebugScope.evaluate(.OTHER_CFLAGS).contains("-Wno-bar"))
+            }
+
+            try package.checkModule("D") { package in
+                let macosDebugScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                )
+                #expect(macosDebugScope.evaluate(.OTHER_CFLAGS).contains("-Wfoo"))
+                #expect(macosDebugScope.evaluate(.OTHER_CFLAGS).contains("-Wno-foo") == false)
+            }
+        }
+    }
+
 }
