@@ -119,6 +119,8 @@ public enum TargetBuildSettingDescription {
                 return true
             case (.unsafeFlags, .unsafeFlags):
                 return true
+            case (.define, .define):
+                return true
             case (.treatWarning(let value, _), .treatWarning(let defaultValue, _)):
                 return value == defaultValue
             case (.enableWarning(let value), .disableWarning(let defaultValue)):
