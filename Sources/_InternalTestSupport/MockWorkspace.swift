@@ -457,8 +457,8 @@ public final class MockWorkspace {
         path: AbsolutePath? = nil,
         revision: Revision? = nil,
         checkoutBranch: String? = nil,
-        _ result: ([Basics.Diagnostic]) -> Void
-    ) async {
+        _ result: ([Basics.Diagnostic]) throws -> Void
+    ) async rethrows {
         let observability = ObservabilitySystem.makeForTesting()
         await observability.topScope.trap {
             let ws = try self.getOrCreateWorkspace()
@@ -470,15 +470,15 @@ public final class MockWorkspace {
                 observabilityScope: observability.topScope
             )
         }
-        result(observability.diagnostics)
+        try result(observability.diagnostics)
     }
 
     public func checkUnedit(
         packageIdentity: String,
         roots: [String],
         forceRemove: Bool = false,
-        _ result: ([Basics.Diagnostic]) -> Void
-    ) async {
+        _ result: ([Basics.Diagnostic]) throws -> Void
+    ) async rethrows {
         let observability = ObservabilitySystem.makeForTesting()
         await observability.topScope.trap {
             let rootInput = try PackageGraphRootInput(
@@ -493,15 +493,15 @@ public final class MockWorkspace {
                 observabilityScope: observability.topScope
             )
         }
-        result(observability.diagnostics)
+        try result(observability.diagnostics)
     }
 
     public func checkResolve(
         pkg: String,
         roots: [String],
         version: TSCUtility.Version,
-        _ result: ([Basics.Diagnostic]) -> Void
-    ) async {
+        _ result: ([Basics.Diagnostic]) throws -> Void
+    ) async rethrows {
         let observability = ObservabilitySystem.makeForTesting()
         await observability.topScope.trap {
             let rootInput = try PackageGraphRootInput(
@@ -518,32 +518,32 @@ public final class MockWorkspace {
                 observabilityScope: observability.topScope
             )
         }
-        result(observability.diagnostics)
+        try result(observability.diagnostics)
     }
 
-    public func checkClean(_ result: ([Basics.Diagnostic]) -> Void) {
+    public func checkClean(_ result: ([Basics.Diagnostic]) throws -> Void) rethrows {
         let observability = ObservabilitySystem.makeForTesting()
         observability.topScope.trap {
             let workspace = try self.getOrCreateWorkspace()
             workspace.clean(observabilityScope: observability.topScope)
         }
-        result(observability.diagnostics)
+        try result(observability.diagnostics)
     }
 
-    public func checkReset(_ result: ([Basics.Diagnostic]) -> Void) async {
+    public func checkReset(_ result: ([Basics.Diagnostic]) throws -> Void) async rethrows {
         let observability = ObservabilitySystem.makeForTesting()
         await observability.topScope.trap {
             let workspace = try self.getOrCreateWorkspace()
             await workspace.reset(observabilityScope: observability.topScope)
         }
-        result(observability.diagnostics)
+        try result(observability.diagnostics)
     }
 
     public func checkUpdate(
         roots: [String] = [],
         deps: [MockDependency] = [],
         packages: [String] = [],
-        _ result: ([Basics.Diagnostic]) -> Void
+        _ result: ([Basics.Diagnostic]) throws -> Void
     ) async throws {
         let dependencies = try deps.map { try $0.convert(
             baseURL: self.packagesDir,
@@ -564,13 +564,13 @@ public final class MockWorkspace {
                 observabilityScope: observability.topScope
             )
         }
-        result(observability.diagnostics)
+        try result(observability.diagnostics)
     }
 
     public func checkUpdateDryRun(
         roots: [String] = [],
         deps: [MockDependency] = [],
-        _ result: ([(PackageReference, Workspace.PackageStateChange)]?, [Basics.Diagnostic]) -> Void
+        _ result: ([(PackageReference, Workspace.PackageStateChange)]?, [Basics.Diagnostic]) throws -> Void
     ) async throws {
         let dependencies = try deps.map { try $0.convert(
             baseURL: self.packagesDir,
@@ -591,7 +591,7 @@ public final class MockWorkspace {
                 observabilityScope: observability.topScope
             )
         } ?? nil
-        result(changes, observability.diagnostics)
+        try result(changes, observability.diagnostics)
     }
 
     public func checkPackageGraph(
@@ -638,21 +638,21 @@ public final class MockWorkspace {
     public func checkPackageGraphFailure(
         roots: [String] = [],
         deps: [MockDependency],
-        _ result: ([Basics.Diagnostic]) -> Void
+        _ result: ([Basics.Diagnostic]) throws -> Void
     ) async throws {
         let dependencies = try deps.map { try $0.convert(
             baseURL: self.packagesDir,
             identityResolver: self.identityResolver
         ) }
-        await self.checkPackageGraphFailure(roots: roots, dependencies: dependencies, result)
+        try await self.checkPackageGraphFailure(roots: roots, dependencies: dependencies, result)
     }
 
     public func checkPackageGraphFailure(
         roots: [String] = [],
         dependencies: [PackageDependency] = [],
         forceResolvedVersions: Bool = false,
-        _ result: ([Basics.Diagnostic]) -> Void
-    ) async {
+        _ result: ([Basics.Diagnostic]) throws -> Void
+    ) async rethrows {
         let observability = ObservabilitySystem.makeForTesting()
         await observability.topScope.trap {
             let rootInput = try PackageGraphRootInput(
@@ -667,7 +667,7 @@ public final class MockWorkspace {
                 observabilityScope: observability.topScope
             )
         }
-        result(observability.diagnostics)
+        try result(observability.diagnostics)
     }
 
     public struct ResolutionPrecomputationResult {
@@ -942,7 +942,7 @@ public final class MockWorkspace {
     public func loadDependencyManifests(
         roots: [String] = [],
         deps: [MockDependency] = [],
-        _ result: (Workspace.DependencyManifests, [Basics.Diagnostic]) -> Void
+        _ result: (Workspace.DependencyManifests, [Basics.Diagnostic]) throws -> Void
     ) async throws {
         let observability = ObservabilitySystem.makeForTesting()
         let dependencies = try deps.map { try $0.convert(
@@ -967,7 +967,7 @@ public final class MockWorkspace {
             root: graphRoot,
             observabilityScope: observability.topScope
         )
-        result(manifests, observability.diagnostics)
+        try result(manifests, observability.diagnostics)
     }
 
     public func checkManagedDependencies(
