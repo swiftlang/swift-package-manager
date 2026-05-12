@@ -567,4 +567,49 @@ struct DefaultLoadingTests {
             }
         }
     }
+
+    @Test
+    func strictMemorySafetyResolution() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/A/a.swift",
+            "/Sources/B/b.swift",
+        )
+
+        let manifest = Manifest.createRootManifest(
+            displayName: "pkg",
+            defaultSettings: [
+                .init(tool: .swift, kind: .strictMemorySafety)
+            ],
+            toolsVersion: .v6_2,
+            targets: [
+                try TargetDescription(
+                    name: "A",
+                    publicHeadersPath: "."
+                ),
+                try TargetDescription(
+                    name: "B",
+                    publicHeadersPath: ".",
+                    settings: [],
+                ),
+            ]
+        )
+
+        try PackageBuilderTester(manifest, in: fs) { package, _ in
+            try package.checkModule("A") { package in
+                let macosDebugScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                )
+                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("-strict-memory-safety"))
+            }
+
+            try package.checkModule("B") { package in
+                let macosDebugScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                )
+                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("-strict-memory-safety"))
+            }
+        }
+    }
 }
