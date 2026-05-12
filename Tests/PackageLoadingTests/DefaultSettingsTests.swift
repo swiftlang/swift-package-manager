@@ -192,4 +192,67 @@ struct DefaultLoadingTests {
         }
     }
 
+    @Test
+    func defineResolution() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/A/a.c",
+            "/Sources/B/b.c",
+            "/Sources/C/c.c",
+        )
+
+        let manifest = Manifest.createRootManifest(
+            displayName: "pkg",
+            defaultSettings: [
+                .init(tool: .c, kind: .define("A=B"))
+            ],
+            toolsVersion: .v6_2,
+            targets: [
+                try TargetDescription(
+                    name: "A",
+                    publicHeadersPath: "."
+                ),
+                try TargetDescription(
+                    name: "B",
+                    publicHeadersPath: ".",
+                    settings: [],
+                ),
+                try TargetDescription(
+                    name: "C",
+                    publicHeadersPath: ".",
+                    settings: [
+                        .init(tool: .c, kind: .define("A=C")),
+                    ]
+                ),
+            ]
+        )
+
+        try PackageBuilderTester(manifest, in: fs) { package, _ in
+            try package.checkModule("A") { package in
+                print(package.target.buildSettings)
+                let macosDebugScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                )
+                #expect(macosDebugScope.evaluate(.GCC_PREPROCESSOR_DEFINITIONS).contains("A=B"))
+            }
+
+            try package.checkModule("B") { package in
+                let macosDebugScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                )
+                #expect(macosDebugScope.evaluate(.GCC_PREPROCESSOR_DEFINITIONS).contains("A=B"))
+            }
+
+            try package.checkModule("C") { package in
+                let macosDebugScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                )
+                #expect(macosDebugScope.evaluate(.GCC_PREPROCESSOR_DEFINITIONS).contains("A=B") == false)
+                #expect(macosDebugScope.evaluate(.GCC_PREPROCESSOR_DEFINITIONS).contains("A=C"))
+            }
+        }
+    }
+
 }
