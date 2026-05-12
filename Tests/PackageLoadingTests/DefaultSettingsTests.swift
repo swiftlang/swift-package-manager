@@ -46,7 +46,7 @@ struct DefaultLoadingTests {
                     .headerSearchPath("foo"),
                 ],
                 defaultCXXSettings: [
-                    .headerSearchPath("foo"),
+                    .headerSearchPath("bar"),
                 ],
                 defaultLinkerSettings: [
                     .linkedLibrary("mylib"),
@@ -73,7 +73,10 @@ struct DefaultLoadingTests {
         }
 
         let expected: [TargetBuildSettingDescription.Setting] = [
-            .init(tool: .swift, kind: .swiftLanguageMode(.v5))
+            .init(tool: .swift, kind: .swiftLanguageMode(.v5)),
+            .init(tool: .c, kind: .headerSearchPath("foo")),
+            .init(tool: .cxx, kind: .headerSearchPath("bar")),
+            .init(tool: .linker, kind: .linkedLibrary("mylib")),
         ]
 
         #expect(manifest.defaultSettings == expected)

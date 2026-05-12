@@ -402,7 +402,10 @@ public final class Package {
         self.swiftLanguageModes = swiftLanguageModes
         self.defaultSwiftSettings = defaultSwiftSettings
         self.cLanguageStandard = cLanguageStandard
+        self.defaultCSettings = defaultCSettings
         self.cxxLanguageStandard = cxxLanguageStandard
+        self.defaultCXXSettings = defaultCXXSettings
+        self.defaultLinkerSettings = defaultLinkerSettings
         registerExitHandler()
     }
 

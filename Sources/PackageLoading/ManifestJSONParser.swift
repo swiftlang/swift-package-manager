@@ -111,10 +111,10 @@ enum ManifestJSONParser {
         return Result(
             name: input.package.name,
             defaultLocalization: input.package.defaultLocalization?.tag,
-            defaultSwiftSettings: [], // TODO: map this
-            defaultCSettings: [],
-            defaultCXXSettings: [],
-            defaultLinkerSettings: [],
+            defaultSwiftSettings: try input.package.defaultSwiftSettings?.map { try .init($0) },
+            defaultCSettings: try input.package.defaultCSettings?.map { try .init($0) },
+            defaultCXXSettings: try input.package.defaultCXXSettings?.map { try .init($0) },
+            defaultLinkerSettings: try input.package.defaultLinkerSettings?.map { try .init($0) },
             platforms: try input.package.platforms.map { try Self.parsePlatforms($0) } ?? [],
             targets: try input.package.targets.map { try Self.parseTarget(target: $0, identityResolver: identityResolver) },
             pkgConfig: input.package.pkgConfig,
