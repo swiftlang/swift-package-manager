@@ -146,7 +146,7 @@ extension PackagePIFProjectBuilder {
             settings[.SKIP_INSTALL] = "NO"
             settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS].lazilyInitialize { ["$(inherited)"] }
             // Enable index-while building for Swift compilations to facilitate discovery of XCTest tests.
-            settings[.SWIFT_INDEX_STORE_ENABLE] = "YES"
+            settings[.INDEX_ENABLE_DATA_STORE] = "YES"
 
             if mainModule.platformConstraint == .host {
                 // This is a macro test using prebuilts

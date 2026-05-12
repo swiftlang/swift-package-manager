@@ -68,11 +68,38 @@ public enum TraitConfiguration: Codable, Hashable {
             try nestedContainer.encode(EmptyEncodable())
         case .enabledTraits(let traits):
             var nestedContainer = container.nestedUnkeyedContainer(forKey: .enabledTraits)
-            try nestedContainer.encode(traits.sorted())
+            for trait in traits.sorted() {
+                try nestedContainer.encode(trait)
+            }
         case .default:
             var nestedContainer = container.nestedUnkeyedContainer(forKey: .default)
             try nestedContainer.encode(EmptyEncodable())
         }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        if container.contains(.enableAllTraits) {
+            self = .enableAllTraits
+        } else if container.contains(.disableAllTraits) {
+            self = .disableAllTraits
+        } else if container.contains(.enabledTraits) {
+            var nestedContainer = try container.nestedUnkeyedContainer(forKey: .enabledTraits)
+            var traits: [String] = []
+            while !nestedContainer.isAtEnd {
+                try traits.append(nestedContainer.decode(String.self))
+            }
+            self = .enabledTraits(Set(traits))
+        } else {
+            self = .default
+        }
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case enableAllTraits
+        case disableAllTraits
+        case enabledTraits
+        case `default`
     }
 
     private struct EmptyEncodable: Encodable {}

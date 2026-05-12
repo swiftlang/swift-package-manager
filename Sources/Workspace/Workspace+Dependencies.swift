@@ -351,7 +351,8 @@ extension Workspace {
         do {
             self.identityLookupCache.deriveCache(
                 from: try self.resolvedPackagesStore.load().resolvedPackages,
-                self.configuration.sourceControlToRegistryDependencyTransformation ?? .default
+                self.configuration.sourceControlToRegistryDependencyTransformation ?? .default,
+                mirrors: self.mirrors
             )
         } catch {
             // If we cannot load the resolved file, send log to user and

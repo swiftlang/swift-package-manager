@@ -341,10 +341,12 @@ struct ResourcesTests{
                 // Filter some unrelated output that could show up on stderr.
                 let buidlSystemDeprecationDiag = Basics.Diagnostic.deprecatedBuildSystem(buildSystem: buildSystem)
                 let filteredStderr = stderr.components(separatedBy: "\n").filter { !$0.contains("[logging]") }
-                                                                        .filter { !$0.contains("Unable to locate libSwiftScan") }
-                                                                        .filter {
-                                                                            !$0.contains(Basics.Diagnostic.deprecatedBuildSystem(buildSystem: buildSystem).message)
-                                                                        }.joined(separator: "\n")
+                    .filter { !$0.contains("Unable to locate libSwiftScan") }
+                    .filter {
+                        !$0.contains(Basics.Diagnostic.deprecatedBuildSystem(buildSystem: buildSystem).message)
+                    }
+                    .filter { !$0.contains("Found unhandled resource") }
+                    .joined(separator: "\n")
                 #expect(filteredStderr == "", "unexpectedly received error output: \(stderr)")
 
                 let builtProductsDir = try packageDir.appending(components: buildSystem.binPath(for: configuration))

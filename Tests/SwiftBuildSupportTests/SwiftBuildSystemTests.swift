@@ -316,16 +316,29 @@ struct SwiftBuildSystemTests {
                 case .off: "NO"
                 case .auto: nil
             }
-            let expectedPathValue: String? = switch indexStoreSettingUT {
-                case .on: buildParameters.indexStore.pathString
+            let expectedPathValue: AbsolutePath? = switch indexStoreSettingUT {
+                case .on: buildParameters.indexStore
                 case .off: nil
                 case .auto: nil
             }
 
             #expect(synthesizedArgs.table["SWIFT_INDEX_STORE_ENABLE"] == expectedSettingValue)
             #expect(synthesizedArgs.table["CLANG_INDEX_STORE_ENABLE"] == expectedSettingValue)
-            #expect(synthesizedArgs.table["SWIFT_INDEX_STORE_PATH"] == expectedPathValue)
-            #expect(synthesizedArgs.table["CLANG_INDEX_STORE_PATH"] == expectedPathValue)
+            if let expectedPathValue {
+                let swiftPath = try #require(
+                    synthesizedArgs.table["SWIFT_INDEX_STORE_PATH"],
+                    "SWIFT_INDEX_STORE_PATH is not set",
+                )
+                let clangPath = try #require(
+                    synthesizedArgs.table["CLANG_INDEX_STORE_PATH"],
+                    "CLANG_INDEX_STORE_PATH is not set",
+                )
+                #expect(AbsolutePath(swiftPath) == expectedPathValue)
+                #expect(AbsolutePath(clangPath) == expectedPathValue)
+            } else {
+                #expect(synthesizedArgs.table["SWIFT_INDEX_STORE_PATH"] == nil)
+                #expect(synthesizedArgs.table["CLANG_INDEX_STORE_PATH"] == nil)
+            }
         }
     }
 

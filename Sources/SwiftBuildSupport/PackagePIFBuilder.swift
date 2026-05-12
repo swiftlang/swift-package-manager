@@ -670,6 +670,7 @@ public final class PackagePIFBuilder {
         // Add the build settings that are specific to debug builds, and set those as the "Debug" configuration.
         var debugSettings = settings
         debugSettings[.COPY_PHASE_STRIP] = "NO"
+        //TODO would be nice to have this defaulted by the build systems as we may want different default based on platform (ie codeview for windows)
         debugSettings[.DEBUG_INFORMATION_FORMAT] = "dwarf"
         debugSettings[.ENABLE_NS_ASSERTIONS] = "YES"
         debugSettings[.GCC_OPTIMIZATION_LEVEL] = "0"
@@ -678,12 +679,13 @@ public final class PackagePIFBuilder {
         debugSettings[.ENABLE_TESTABILITY] = "YES"
         debugSettings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS, default: []].append(contentsOf: ["DEBUG"])
         debugSettings[.GCC_PREPROCESSOR_DEFINITIONS, default: ["$(inherited)"]].append(contentsOf: ["DEBUG=1"])
-        debugSettings[.SWIFT_INDEX_STORE_ENABLE] = "YES"
+        debugSettings[.INDEX_ENABLE_DATA_STORE] = "YES"
         builder.project.addBuildConfig { id in BuildConfig(id: id, name: "Debug", settings: debugSettings) }
 
         // Add the build settings that are specific to release builds, and set those as the "Release" configuration.
         var releaseSettings = settings
         releaseSettings[.COPY_PHASE_STRIP] = "YES"
+        //TODO would be nice to have this defaulted by the build systems as we may want different default based on platform (ie codeview for windows)
         releaseSettings[.DEBUG_INFORMATION_FORMAT] = "dwarf-with-dsym"
         releaseSettings[.GCC_OPTIMIZATION_LEVEL] = "s"
         releaseSettings[.SWIFT_OPTIMIZATION_LEVEL] = "-Owholemodule"
