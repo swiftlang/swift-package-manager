@@ -129,5 +129,67 @@ struct DefaultLoadingTests {
         }
     }
 
-}
+    @Test
+    func headerSearchPathResolution() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/A/a.c",
+            "/Sources/B/b.c",
+            "/Sources/C/c.c",
+        )
 
+        let manifest = Manifest.createRootManifest(
+            displayName: "pkg",
+            defaultSwiftSettings: [
+                .init(tool: .c, kind: .headerSearchPath("foo"))
+            ],
+            toolsVersion: .v6_2,
+            targets: [
+                try TargetDescription(
+                    name: "A",
+                    publicHeadersPath: "."
+                ),
+                try TargetDescription(
+                    name: "B",
+                    publicHeadersPath: ".",
+                    settings: [],
+                ),
+                try TargetDescription(
+                    name: "C",
+                    publicHeadersPath: ".",
+                    settings: [
+                        .init(tool: .c, kind: .headerSearchPath("bar")),
+                    ]
+                ),
+            ]
+        )
+
+        try PackageBuilderTester(manifest, in: fs) { package, _ in
+            try package.checkModule("A") { package in
+                print(package.target.buildSettings)
+                let macosDebugScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                )
+                #expect(macosDebugScope.evaluate(.HEADER_SEARCH_PATHS).contains("foo"))
+            }
+
+            try package.checkModule("B") { package in
+                let macosDebugScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                )
+                #expect(macosDebugScope.evaluate(.HEADER_SEARCH_PATHS).contains("foo"))
+            }
+
+            try package.checkModule("C") { package in
+                let macosDebugScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                )
+                #expect(macosDebugScope.evaluate(.HEADER_SEARCH_PATHS).contains("foo"))
+                #expect(macosDebugScope.evaluate(.HEADER_SEARCH_PATHS).contains("bar"))
+            }
+        }
+    }
+
+}
