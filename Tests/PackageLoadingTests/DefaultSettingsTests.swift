@@ -255,4 +255,66 @@ struct DefaultLoadingTests {
         }
     }
 
+    @Test
+    func linkedLibraryResolution() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/A/a.c",
+            "/Sources/B/b.c",
+            "/Sources/C/c.c",
+        )
+
+        let manifest = Manifest.createRootManifest(
+            displayName: "pkg",
+            defaultSettings: [
+                .init(tool: .linker, kind: .linkedLibrary("mylib"))
+            ],
+            toolsVersion: .v6_2,
+            targets: [
+                try TargetDescription(
+                    name: "A",
+                    publicHeadersPath: "."
+                ),
+                try TargetDescription(
+                    name: "B",
+                    publicHeadersPath: ".",
+                    settings: [],
+                ),
+                try TargetDescription(
+                    name: "C",
+                    publicHeadersPath: ".",
+                    settings: [
+                        .init(tool: .linker, kind: .linkedLibrary("yourlib")),
+                    ]
+                ),
+            ]
+        )
+
+        try PackageBuilderTester(manifest, in: fs) { package, _ in
+            try package.checkModule("A") { package in
+                print(package.target.buildSettings)
+                let macosDebugScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                )
+                #expect(macosDebugScope.evaluate(.LINK_LIBRARIES).contains("mylib"))
+            }
+
+            try package.checkModule("B") { package in
+                let macosDebugScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                )
+                #expect(macosDebugScope.evaluate(.LINK_LIBRARIES).contains("mylib"))
+            }
+
+            try package.checkModule("C") { package in
+                let macosDebugScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                )
+                #expect(macosDebugScope.evaluate(.LINK_LIBRARIES).contains("mylib"))
+                #expect(macosDebugScope.evaluate(.LINK_LIBRARIES).contains("yourlib"))
+            }
+        }
+    }
 }
