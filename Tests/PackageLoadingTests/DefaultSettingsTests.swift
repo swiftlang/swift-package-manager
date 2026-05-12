@@ -165,7 +165,6 @@ struct DefaultLoadingTests {
 
         try PackageBuilderTester(manifest, in: fs) { package, _ in
             try package.checkModule("A") { package in
-                print(package.target.buildSettings)
                 let macosDebugScope = BuildSettings.Scope(
                     package.target.buildSettings,
                     environment: BuildEnvironment(platform: .macOS, configuration: .debug)
@@ -228,7 +227,6 @@ struct DefaultLoadingTests {
 
         try PackageBuilderTester(manifest, in: fs) { package, _ in
             try package.checkModule("A") { package in
-                print(package.target.buildSettings)
                 let macosDebugScope = BuildSettings.Scope(
                     package.target.buildSettings,
                     environment: BuildEnvironment(platform: .macOS, configuration: .debug)
@@ -291,7 +289,6 @@ struct DefaultLoadingTests {
 
         try PackageBuilderTester(manifest, in: fs) { package, _ in
             try package.checkModule("A") { package in
-                print(package.target.buildSettings)
                 let macosDebugScope = BuildSettings.Scope(
                     package.target.buildSettings,
                     environment: BuildEnvironment(platform: .macOS, configuration: .debug)
@@ -354,7 +351,6 @@ struct DefaultLoadingTests {
 
         try PackageBuilderTester(manifest, in: fs) { package, _ in
             try package.checkModule("A") { package in
-                print(package.target.buildSettings)
                 let macosDebugScope = BuildSettings.Scope(
                     package.target.buildSettings,
                     environment: BuildEnvironment(platform: .macOS, configuration: .debug)
@@ -417,7 +413,6 @@ struct DefaultLoadingTests {
 
         try PackageBuilderTester(manifest, in: fs) { package, _ in
             try package.checkModule("A") { package in
-                print(package.target.buildSettings)
                 let macosDebugScope = BuildSettings.Scope(
                     package.target.buildSettings,
                     environment: BuildEnvironment(platform: .macOS, configuration: .debug)
