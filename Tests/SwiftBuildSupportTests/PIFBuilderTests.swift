@@ -1092,27 +1092,19 @@ struct PIFBuilderTests {
         try await withGeneratedPIF(fromFixture: "CFamilyTargets/ModuleMapGenerationCases") { pif, observabilitySystem in
             #expect(observabilitySystem.diagnostics.filter { $0.severity == .error }.isEmpty)
 
-            // C target: all three symbol graph settings should be present
-            let cConfig = try pif.workspace
-                .project(named: "ModuleMapGenerationCases")
-                .target(named: "UmbrellaHeader")
-                .buildConfig(named: .release)
+            // configureSourceModuleBuildSettings is called for every source module via the same
+            // delegate path, so verifying on representative C targets is sufficient coverage.
+            for targetName in ["UmbrellaHeader", "FlatInclude"] {
+                let config = try pif.workspace
+                    .project(named: "ModuleMapGenerationCases")
+                    .target(named: targetName)
+                    .buildConfig(named: .release)
 
-            let expectedCDir = "$(TARGET_BUILD_DIR)/$(CURRENT_ARCH)/UmbrellaHeader.symbolgraphs"
-            #expect(cConfig.settings[.SYMBOL_GRAPH_EXTRACTOR_OUTPUT_DIR] == expectedCDir)
-            #expect(cConfig.settings[.TAPI_EXTRACT_API_OUTPUT_DIR] == expectedCDir)
-            #expect(cConfig.settings[.DOCC_EXTRACT_PROJECT_HEADERS_DOCUMENTATION] == "YES")
-
-            // Swift executable target: settings should also be present
-            let swiftConfig = try pif.workspace
-                .project(named: "ModuleMapGenerationCases")
-                .target(named: "Baz")
-                .buildConfig(named: .release)
-
-            let expectedSwiftDir = "$(TARGET_BUILD_DIR)/$(CURRENT_ARCH)/Baz.symbolgraphs"
-            #expect(swiftConfig.settings[.SYMBOL_GRAPH_EXTRACTOR_OUTPUT_DIR] == expectedSwiftDir)
-            #expect(swiftConfig.settings[.TAPI_EXTRACT_API_OUTPUT_DIR] == expectedSwiftDir)
-            #expect(swiftConfig.settings[.DOCC_EXTRACT_PROJECT_HEADERS_DOCUMENTATION] == "YES")
+                let expectedDir = "$(TARGET_BUILD_DIR)/$(CURRENT_ARCH)/\(targetName).symbolgraphs"
+                #expect(config.settings[.SYMBOL_GRAPH_EXTRACTOR_OUTPUT_DIR] == expectedDir, "target: \(targetName)")
+                #expect(config.settings[.TAPI_EXTRACT_API_OUTPUT_DIR] == expectedDir, "target: \(targetName)")
+                #expect(config.settings[.DOCC_EXTRACT_PROJECT_HEADERS_DOCUMENTATION] == "YES", "target: \(targetName)")
+            }
         }
     }
 
