@@ -209,7 +209,7 @@ struct TestCommandOptions: ParsableArguments {
 
     /// The path where the test command generates the xUnit XML file.
     @Option(name: .customLong("xunit-output"),
-            help: "The path where the xUnit XML file generates.")
+            help: "The path where the test command generates the xUnit XML.")
     var xUnitOutput: AbsolutePath?
 
     @Flag(
