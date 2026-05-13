@@ -1686,7 +1686,7 @@ extension TestCommandOptions {
             : .skip(self._testCaseSkip)
     }
 
-    /// Returns the test case specifier if overridden in the env.
+    /// Returns the test case specifier if overridden in the environment. 
     private func skippedTestsOverride(fileSystem: FileSystem) -> TestCaseSpecifier? {
         guard let override = Environment.current["_SWIFTPM_SKIP_TESTS_LIST"] else {
             return nil
