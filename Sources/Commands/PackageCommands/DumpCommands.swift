@@ -86,7 +86,7 @@ struct DumpSymbolGraph: AsyncSwiftCommand {
 
         if let symbolGraph = buildResult.symbolGraph {
             // The build system produced symbol graphs for us, one for each target.
-            let buildPath = try buildSystem.buildProductsPath(for: swiftCommandState.productsBuildParameters)
+            let buildPath = try await buildSystem.buildProductsPath(for: swiftCommandState.productsBuildParameters)
 
             // Copy the symbol graphs from the target-specific locations to the single output directory
             for rootPackage in try await buildSystem.getPackageGraph().rootPackages {

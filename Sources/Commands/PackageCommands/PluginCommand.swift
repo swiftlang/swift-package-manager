@@ -359,7 +359,7 @@ struct PluginCommand: AsyncSwiftCommand {
                     return nil
                 }
             } else {
-                return buildSystem.buildProductsPath(for: buildParameters).appending(path)
+                return try await buildSystem.buildProductsPath(for: buildParameters).appending(path)
             }
         }
 

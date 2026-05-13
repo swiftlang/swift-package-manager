@@ -193,7 +193,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
     public var hasIntegratedAPIDigesterSupport: Bool { false }
 
-    public func buildProductsPath(for parameters: BuildParameters) -> AbsolutePath {
+    public func buildProductsPath(for parameters: BuildParameters) async throws -> AbsolutePath {
         Self.buildProductsPath(for: parameters)
     }
 
@@ -555,7 +555,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         do {
             try self.fileSystem.createSymbolicLink(
                 oldBuildPath,
-                pointingAt: self.buildProductsPath(for: self.config.destinationBuildParameters),
+                pointingAt: Self.buildProductsPath(for: self.config.destinationBuildParameters),
                 relative: true
             )
         } catch {
@@ -1015,7 +1015,7 @@ extension BuildOperation {
         // `buildPackageStructure` to recognize the split.
         config.databasePath = config.scratchDirectory.appending("plugin-tools.db")
 
-        config.buildDescriptionPath = self.buildProductsPath(for: self.config.toolsBuildParameters).appending(
+        config.buildDescriptionPath = Self.buildProductsPath(for: self.config.toolsBuildParameters).appending(
             component: "plugin-tools-description.json"
         )
 
@@ -1065,7 +1065,7 @@ extension BuildOperation {
                     if let result = try await buildToolBuilder(name, path) {
                         return result
                     } else {
-                        return self.buildProductsPath(for: config.toolsBuildParameters).appending(path)
+                        return Self.buildProductsPath(for: config.toolsBuildParameters).appending(path)
                     }
                 }
 

@@ -239,7 +239,7 @@ final class PluginDelegate: PluginInvocationDelegate {
         // Clean out the code coverage directory that may contain stale `profraw` files from a previous run of
         // the code coverage tool.
         if parameters.enableCodeCoverage {
-            try swiftCommandState.fileSystem.removeFileTree(buildSystem.codeCovPath(for: toolsBuildParameters))
+            try swiftCommandState.fileSystem.removeFileTree(try await buildSystem.codeCovPath(for: toolsBuildParameters))
         }
 
         // Construct the environment we'll pass down to the tests.
@@ -259,7 +259,7 @@ final class PluginDelegate: PluginInvocationDelegate {
         var numFailedTests = 0
         for testProduct in await buildSystem.builtTestProducts {
             // Get the test suites in the bundle. Each is just a container for test cases.
-            let testSuites = try TestingSupport.getTestSuites(
+            let testSuites = try await TestingSupport.getTestSuites(
                 fromTestAt: testProduct.bundlePath,
                 swiftCommandState: swiftCommandState,
                 enableCodeCoverage: parameters.enableCodeCoverage,
@@ -336,12 +336,13 @@ final class PluginDelegate: PluginInvocationDelegate {
         let codeCoverageDataFile: AbsolutePath?
         if parameters.enableCodeCoverage {
             // Use `llvm-prof` to merge all the `.profraw` files into a single `.profdata` file.
-            let mergedCovFile = buildSystem.codeCovDataFile(for: toolsBuildParameters)
-            let codeCovFileNames = try swiftCommandState.fileSystem.getDirectoryContents(buildSystem.codeCovPath(for: toolsBuildParameters))
+            let mergedCovFile = try await buildSystem.codeCovDataFile(for: toolsBuildParameters)
+            let codeCovPath = try await buildSystem.codeCovPath(for: toolsBuildParameters)
+            let codeCovFileNames = try swiftCommandState.fileSystem.getDirectoryContents(codeCovPath)
             var llvmProfCommand = [try toolchain.getLLVMProf().pathString]
             llvmProfCommand += ["merge", "-sparse"]
             for fileName in codeCovFileNames where fileName.hasSuffix(".profraw") {
-                let filePath = buildSystem.codeCovPath(for: toolsBuildParameters).appending(component: fileName)
+                let filePath = codeCovPath.appending(component: fileName)
                 llvmProfCommand.append(filePath.pathString)
             }
             llvmProfCommand += ["-o", mergedCovFile.pathString]
@@ -408,7 +409,7 @@ final class PluginDelegate: PluginInvocationDelegate {
         let buildResult = try await buildSystem.build(subset: .target(targetName), buildOutputs: [.symbolGraph(options), .buildPlan])
 
         if let symbolGraph = buildResult.symbolGraph {
-            let path = try buildSystem.buildProductsPath(for: swiftCommandState.productsBuildParameters)
+            let path = try await buildSystem.buildProductsPath(for: swiftCommandState.productsBuildParameters)
             return PluginInvocationSymbolGraphResult(directoryPath: "\(path)/\(symbolGraph.outputLocationForTarget(targetName, try swiftCommandState.productsBuildParameters).joined(separator:"/"))")
         } else if let buildPlan = buildResult.buildPlan {
             func lookupDescription(

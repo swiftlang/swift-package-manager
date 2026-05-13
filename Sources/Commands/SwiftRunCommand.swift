@@ -169,7 +169,7 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
                 }
 
                 let productRelativePath = try swiftCommandState.productsBuildParameters.executablePath(for: productName)
-                let productAbsolutePath = try buildSystem.buildProductsPath(for: swiftCommandState.productsBuildParameters)
+                let productAbsolutePath = try await buildSystem.buildProductsPath(for: swiftCommandState.productsBuildParameters)
                     .appending(productRelativePath)
 
                 // Make sure we are running from the original working directory.
@@ -225,11 +225,11 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
                     try await buildSystem.build(subset: .product(productName), buildOutputs: [])
                 }
 
-                let executablePath = try buildSystem.buildProductsPath(for: swiftCommandState.productsBuildParameters)
+                let executablePath = try await buildSystem.buildProductsPath(for: swiftCommandState.productsBuildParameters)
                     .appending(component: productName)
 
                 let productRelativePath = try swiftCommandState.productsBuildParameters.executablePath(for: productName)
-                let productAbsolutePath = try buildSystem.buildProductsPath(for: swiftCommandState.productsBuildParameters)
+                let productAbsolutePath = try await buildSystem.buildProductsPath(for: swiftCommandState.productsBuildParameters)
                     .appending(productRelativePath)
 
                 let runnerPath: AbsolutePath

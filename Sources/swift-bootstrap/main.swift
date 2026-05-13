@@ -232,7 +232,7 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
                     shouldDisableLocalRpath: self.shouldDisableLocalRpath,
                     logLevel: self.logLevel
                 )
-                return print(buildSystem.buildProductsPath(for: parameters).description)
+                return try await print(buildSystem.buildProductsPath(for: parameters).description)
             }
 
             try await builder.build(

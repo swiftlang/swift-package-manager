@@ -317,7 +317,7 @@ struct SwiftBuildSystemTests {
                 case .auto: nil
             }
             let expectedPathValue: AbsolutePath? = switch indexStoreSettingUT {
-                case .on: swiftBuild.indexStore(for: buildParameters)
+                case .on: try await swiftBuild.indexStore(for: buildParameters)
                 case .off: nil
                 case .auto: nil
             }

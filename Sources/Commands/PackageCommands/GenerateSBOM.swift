@@ -58,7 +58,7 @@ extension SwiftPackageCommand {
                     filter: try self.sbom.sbomFilter,
                     product: self.product,
                     specs: specs.isEmpty ? Spec.allCases : specs,
-                    dir: await SBOMCreator.resolveSBOMDirectory(from: self.sbom.sbomDirectory, withDefault: try buildSystem.buildProductsPath(for: swiftCommandState.productsBuildParameters)),
+                    dir: await SBOMCreator.resolveSBOMDirectory(from: self.sbom.sbomDirectory, withDefault: try await buildSystem.buildProductsPath(for: swiftCommandState.productsBuildParameters)),
                     observabilityScope: swiftCommandState.observabilityScope
                 )
 

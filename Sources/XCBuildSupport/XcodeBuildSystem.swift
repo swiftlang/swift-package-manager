@@ -54,7 +54,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
 
                 for package in graph.rootPackages {
                     for product in package.products where product.type == .test {
-                        let binaryPath = try self.binaryPath(for: product, parameters: buildParameters)
+                        let binaryPath = try await self.binaryPath(for: product, parameters: buildParameters)
                         builtProducts.append(
                             BuiltTestProduct(
                                 productName: product.name,
@@ -83,7 +83,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
 
     public var hasIntegratedAPIDigesterSupport: Bool { false }
 
-    public func buildProductsPath(for parameters: BuildParameters) -> AbsolutePath {
+    public func buildProductsPath(for parameters: BuildParameters) async throws -> AbsolutePath {
         var configDir: String = parameters.configuration.dirname.capitalized
         if parameters.triple.isMacOSX {
             // no suffix

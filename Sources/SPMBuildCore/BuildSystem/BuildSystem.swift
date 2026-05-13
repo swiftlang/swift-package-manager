@@ -99,7 +99,7 @@ public protocol BuildSystem: Cancellable {
     func generatePIF(preserveStructure: Bool) async throws -> String
 
     /// The path to the build directory for the given build parameters.
-    func buildProductsPath(for parameters: BuildParameters) -> AbsolutePath
+    func buildProductsPath(for parameters: BuildParameters) async throws -> AbsolutePath
 }
 
 extension BuildSystem {
@@ -110,29 +110,29 @@ extension BuildSystem {
     }
 
     /// The path to the index store directory for the given build parameters.
-    public func indexStore(for parameters: BuildParameters) -> AbsolutePath {
+    public func indexStore(for parameters: BuildParameters) async throws -> AbsolutePath {
         assert(parameters.indexStoreMode != .off, "index store is disabled")
-        return buildProductsPath(for: parameters).appending(components: "index", "store")
+        return try await buildProductsPath(for: parameters).appending(components: "index", "store")
     }
 
     /// The path to the code coverage directory for the given build parameters.
-    public func codeCovPath(for parameters: BuildParameters) -> AbsolutePath {
-        buildProductsPath(for: parameters).appending("codecov")
+    public func codeCovPath(for parameters: BuildParameters) async throws -> AbsolutePath {
+        try await buildProductsPath(for: parameters).appending("codecov")
     }
 
     /// The path to the code coverage profdata file for the given build parameters.
-    public func codeCovDataFile(for parameters: BuildParameters) -> AbsolutePath {
-        codeCovPath(for: parameters).appending("default.profdata")
+    public func codeCovDataFile(for parameters: BuildParameters) async throws -> AbsolutePath {
+        try await codeCovPath(for: parameters).appending("default.profdata")
     }
 
     /// The path to the test output file for the given build parameters.
-    public func testOutputPath(for parameters: BuildParameters) -> AbsolutePath {
-        buildProductsPath(for: parameters).appending(component: "testOutput.txt")
+    public func testOutputPath(for parameters: BuildParameters) async throws -> AbsolutePath {
+        try await buildProductsPath(for: parameters).appending(component: "testOutput.txt")
     }
 
     /// Returns the path to the binary of a product for the given build parameters.
-    public func binaryPath(for product: ResolvedProduct, parameters: BuildParameters) throws -> AbsolutePath {
-        try buildProductsPath(for: parameters).appending(parameters.binaryRelativePath(for: product))
+    public func binaryPath(for product: ResolvedProduct, parameters: BuildParameters) async throws -> AbsolutePath {
+        try await buildProductsPath(for: parameters).appending(parameters.binaryRelativePath(for: product))
     }
 }
 
