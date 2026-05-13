@@ -152,7 +152,7 @@ struct ConfigureSwiftSDK: AsyncParsableCommand {
             commandError = error
         }
 
-        // wait for all observability items to process
+        // Wait for all observability items to process.
         observabilityHandler.wait(timeout: .now() + 5)
 
         if let commandError {

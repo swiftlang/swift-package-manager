@@ -120,14 +120,14 @@ public struct LocationOptions: ParsableArguments {
     @Option(name: .customLong("multiroot-data-file"), help: .hidden, completion: .directory)
     public var multirootPackageDataFile: AbsolutePath?
 
-    /// Path to the compilation destination describing JSON file.
+    /// The path to the compilation destination describing the JSON file.
     @Option(name: .customLong("destination"), help: .hidden, completion: .directory)
     public var customCompileDestination: AbsolutePath?
 
     @Option(name: .customLong("experimental-swift-sdks-path"), help: .hidden, completion: .directory)
     public var deprecatedSwiftSDKsDirectory: AbsolutePath?
 
-    /// Path to the directory containing installed Swift SDKs.
+    /// The path to the directory containing installed Swift SDKs.
     @Option(
         name: .customLong("swift-sdks-path"),
         help: "Path to the directory containing installed Swift SDKs.",
@@ -184,7 +184,7 @@ public struct CachingOptions: ParsableArguments {
     @Flag(name: .customLong("disable-package-manifest-caching"), help: .hidden)
     public var shouldDisableManifestCaching: Bool = false
 
-    /// Whether to enable llbuild manifest caching.
+    /// Whether to enable `llbuild` manifest caching.
     @Flag(name: .customLong("build-manifest-caching"), inversion: .prefixedEnableDisable)
     public var cacheBuildManifest: Bool = true
 
@@ -205,13 +205,13 @@ public struct CachingOptions: ParsableArguments {
         }
     }
 
-    /// Whether to use prebuilt swift-syntax libraries.
+    /// Whether to use prebuilt `swift-syntax` libraries.
     @Flag(name: .customLong("experimental-prebuilts"),
           inversion: .prefixedEnableDisable,
           help: "Determines whether macros use prebuilt swift-syntax libraries.")
     public var usePrebuilts: Bool = true
 
-    /// A hidden option to override the prebuilt's download location for testing.
+    /// A hidden option to override the prebuilts' download location for testing.
     @Option(
         name: .customLong("experimental-prebuilts-download-url"),
         help: .hidden
@@ -271,7 +271,7 @@ public struct SecurityOptions: ParsableArguments {
     )
     public var netrc: Bool = true
 
-    /// The path to the netrc file used when `netrc` is `true`.
+    /// The path to the .netrc file used when `netrc` is `true`.
     @Option(
         name: .customLong("netrc-file"),
         help: "Specify the netrc file path.",
@@ -315,7 +315,7 @@ public struct SecurityOptions: ParsableArguments {
 public struct ResolverOptions: ParsableArguments {
     public init() {}
 
-    /// Enable prefetching in resolver which will kick off parallel git cloning.
+    /// Enable prefetching in the resolver, which kicks off parallel git cloning.
     @Flag(name: .customLong("prefetching"), inversion: .prefixedEnableDisable)
     public var shouldEnableResolverPrefetching: Bool = true
 
@@ -335,7 +335,7 @@ public struct ResolverOptions: ParsableArguments {
         .disabled
 
     /// Enables pruning unused dependencies to omit redundant calculations during resolution, and each phase thereafter.
-    /// Hidden from the generated help text as this feature is only currently being considered for traits.
+    /// Hidden from the generated help text because this feature is currently only being considered for traits.
     @Flag(
         name: .customLong("experimental-prune-unused-dependencies"),
         help: ArgumentHelp(
@@ -466,11 +466,11 @@ public struct BuildOptions: ParsableArguments {
     @Option(name: .customLong("triple"), transform: Triple.init)
     public var customCompileTriple: Triple?
 
-    /// Path to the compilation destination’s SDK.
+    /// The path to the compilation destination’s SDK.
     @Option(name: .customLong("sdk"))
     public var customCompileSDK: AbsolutePath?
 
-    /// Path to the compilation destination’s toolchain.
+    /// The path to the compilation destination’s toolchain.
     @Option(name: .customLong("toolchain"))
     public var customCompileToolchain: AbsolutePath?
 
@@ -519,11 +519,11 @@ public struct BuildOptions: ParsableArguments {
     ///
     /// This is intended as a workaround if lazy type checking is causing compiler crashes.
     ///
-    /// Only applicable in conjunction with `--experimental-prepare-for-indexing`
+    /// Only applicable in conjunction with `--experimental-prepare-for-indexing`.
     @Flag(name: .customLong("experimental-prepare-for-indexing-no-lazy"), help: .hidden)
     var prepareForIndexingNoLazy: Bool = false
 
-    /// Hidden option to allow XCFrameworks on Linux
+    /// The hidden option to allow XCFrameworks on Linux.
     @Flag(
         name: .customLong("experimental-xcframeworks-on-linux"),
         help: .hidden
@@ -534,18 +534,18 @@ public struct BuildOptions: ParsableArguments {
     @Flag(name: .customLong("enable-parseable-module-interfaces"))
     public var shouldEnableParseableModuleInterfaces: Bool = false
 
-    /// The number of jobs for llbuild to start (aka the number of schedulerLanes)
+    /// The number of jobs for `llbuild` to start (aka the number of `schedulerLanes`).
     @Option(name: .shortAndLong, help: "The number of jobs to spawn in parallel during the build process.")
     public var jobs: UInt32 = UInt32(ProcessInfo.processInfo.activeProcessorCount)
 
     /// Whether to use the integrated Swift driver rather than shelling out
     /// to a separate process.
     @Flag()
-    /// This flag is deprecated but cannot indicate so in Swift Argument Parser until https://github.com/apple/swift-argument-parser/issues/656.
+    // This flag is deprecated but can't indicate so in the Swift Argument Parser until https://github.com/apple/swift-argument-parser/issues/656.
     public var useIntegratedSwiftDriver: Bool = false
 
     /// A flag that indicates this build should check whether targets only import
-    /// their explicitly-declared dependencies
+    /// their explicitly declared dependencies.
     @Option(help: "Check that targets only import their explicitly declared dependencies.")
     public var explicitTargetDependencyImportCheck: TargetDependencyImportCheckingMode = .none
 
@@ -574,16 +574,16 @@ public struct BuildOptions: ParsableArguments {
     @Flag(help: .hidden)
     public var enableTestDiscovery: Bool = false
 
-    /// Path of test entry point file to use, instead of synthesizing one or using `XCTMain.swift` in the package (if
+    /// The path of the test entry point file to use, instead of synthesizing one or using `XCTMain.swift` in the package (if
     /// present).
-    /// This implies `--enable-test-discovery`
+    /// This implies `--enable-test-discovery`.
     @Option(
         name: .customLong("experimental-test-entry-point-path"),
         help: .hidden
     )
     public var testEntryPointPath: AbsolutePath?
 
-    /// The lto mode to use if any.
+    /// The LTO mode to use, if any.
     @Option(
         name: .customLong("experimental-lto-mode"),
         help: .hidden
@@ -614,7 +614,7 @@ public struct BuildOptions: ParsableArguments {
     @Flag(name: .customLong("experimental-enable-codesize-profile"), help: "Generate SIL, LLVM IR, and optimization record files for code size profiling.")
     public var enableCodesizeProfile: Bool = false
 
-    /// Directory for code size profiling output files (SIL, IR, optimization records).
+    /// The directory for code size profiling output files (SIL, IR, optimization records).
     @Option(name: .customLong("experimental-codesize-profile-output-dir"), help: "Directory to store code size profiling output files.")
     public var codesizeProfileOutputDirectory: String?
 
@@ -662,35 +662,35 @@ public struct LinkerOptions: ParsableArguments {
     )
     public var linkerDeadStrip: Bool = true
 
-    /// Disables adding $ORIGIN/@loader_path to the rpath, useful when deploying
+    /// Disables adding `$ORIGIN/@loader_path` to the `rpath`, which is useful when deploying.
     @Flag(name: .customLong("disable-local-rpath"), help: "Disable adding $ORIGIN/@loader_path to the rpath by default.")
     public var shouldDisableLocalRpath: Bool = false
 }
 
-/// Which testing libraries to use (and any related options.)
+/// Which testing libraries to use (and any related options).
 @_spi(SwiftPMInternal)
 public struct TestLibraryOptions: ParsableArguments {
     public init() {}
 
-    /// Whether to enable support for XCTest (as explicitly specified by the user.)
+    /// Whether to enable support for XCTest (as explicitly specified by the user).
     ///
-    /// Callers will generally want to use ``enableXCTestSupport`` since it will
-    /// have the correct default value if the user didn't specify one.
+    /// Callers generally want to use ``enableXCTestSupport`` because it
+    /// has the correct default value if the user doesn't specify one.
     @Flag(name: .customLong("xctest"),
           inversion: .prefixedEnableDisable,
           help: "Determines whether the build includes XCTest support.")
     public var explicitlyEnableXCTestSupport: Bool?
 
-    /// Whether to enable support for Swift Testing (as explicitly specified by the user.)
+    /// Whether to enable support for Swift Testing (as explicitly specified by the user).
     ///
-    /// Callers will generally want to use ``enableSwiftTestingLibrarySupport`` since it will
-    /// have the correct default value if the user didn't specify one.
+    /// Callers generally want to use ``enableSwiftTestingLibrarySupport`` because it
+    /// has the correct default value if the user doesn't specify one.
     @Flag(name: .customLong("swift-testing"),
           inversion: .prefixedEnableDisable,
           help: "Determines whether the build includes Swift Testing support.")
     public var explicitlyEnableSwiftTestingLibrarySupport: Bool?
 
-    /// Legacy experimental equivalent of ``explicitlyEnableSwiftTestingLibrarySupport``.
+    /// The legacy experimental equivalent of ``explicitlyEnableSwiftTestingLibrarySupport``.
     ///
     /// This option will be removed in a future update.
     @Flag(name: .customLong("experimental-swift-testing"),
@@ -700,7 +700,7 @@ public struct TestLibraryOptions: ParsableArguments {
 
     /// The common implementation for `isEnabled()` and `isExplicitlyEnabled()`.
     ///
-    /// It is intentional that `isEnabled()` is not simply this function with a
+    /// It's intentional that `isEnabled()` isn't simply this function with a
     /// default value for the `default` argument. There's no "true" default
     /// value to use; it depends on the semantics the caller is interested in.
     private func isEnabled(_ library: TestingLibrary, `default`: Bool, swiftCommandState: SwiftCommandState) -> Bool {
@@ -801,7 +801,7 @@ public struct SBOMOptions: ParsableArguments {
     )
     package var _sbomFilter: SBOMModel.Filter? = nil
 
-    /// Whether to treat SBOM generation errors as warnings
+    /// Whether to treat SBOM generation errors as warnings.
     @Flag(
         name: .customLong("sbom-warning-only"),
         help: ArgumentHelp("Treat SBOM generation errors as warnings. Must be used with --sbom-spec. (default: false).")
@@ -810,7 +810,7 @@ public struct SBOMOptions: ParsableArguments {
 
     // MARK: - Computed properties with environment variable support
 
-    /// SBOM specifications with environment variable fallback. CLI flag takes precedence.
+    /// The SBOM specifications with environment variable fallback. The CLI flag takes precedence.
     /// Throws an error if the environment variable contains an invalid value.
     package var sbomSpecs: [SBOMModel.Spec] {
         get throws {
@@ -834,7 +834,7 @@ public struct SBOMOptions: ParsableArguments {
         }
     }
 
-    /// SBOM directory with environment variable fallback. CLI flag takes precedence.
+    /// The SBOM directory with environment variable fallback. The CLI flag takes precedence.
     package var sbomDirectory: AbsolutePath? {
         if let cmdLineDir = _sbomDirectory {
             return cmdLineDir
@@ -848,7 +848,7 @@ public struct SBOMOptions: ParsableArguments {
         return nil
     }
 
-    /// SBOM filter with environment variable fallback. CLI flag takes precedence.
+    /// The SBOM filter with environment variable fallback. The CLI flag takes precedence.
     /// Throws an error if the environment variable contains an invalid value.
     package var sbomFilter: SBOMModel.Filter {
         get throws {
@@ -865,7 +865,7 @@ public struct SBOMOptions: ParsableArguments {
         }
     }
 
-    /// SBOM warning-only mode with environment variable fallback. CLI flag takes precedence.
+    /// The SBOM warning-only mode with environment variable fallback. The CLI flag takes precedence.
     package var sbomWarningOnly: Bool {
         if _sbomWarningOnly {
             return true
@@ -929,7 +929,7 @@ extension Sanitizer {
         return nil
     }
 
-    /// All sanitizer options in a comma separated string
+    /// All the sanitizer options in a comma-separated string
     fileprivate static var formattedValues: String {
         Sanitizer.allCases.map(\.rawValue).joined(separator: ", ")
     }
