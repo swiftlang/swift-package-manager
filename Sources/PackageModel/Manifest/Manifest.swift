@@ -75,6 +75,9 @@ public final class Manifest: Sendable {
     public let dependencies: [PackageDependency]
 
     public let defaultSwiftSettings: [TargetBuildSettingDescription.Setting]?
+    public let defaultCSettings: [TargetBuildSettingDescription.Setting]?
+    public let defaultCXXSettings: [TargetBuildSettingDescription.Setting]?
+    public let defaultLinkerSettings: [TargetBuildSettingDescription.Setting]?
 
     /// The targets declared in the manifest.
     public let targets: [TargetDescription]
@@ -126,6 +129,9 @@ public final class Manifest: Sendable {
         packageLocation: String,
         defaultLocalization: String?,
         defaultSwiftSettings: [TargetBuildSettingDescription.Setting] = [],
+        defaultCSettings: [TargetBuildSettingDescription.Setting] = [],
+        defaultCXXSettings: [TargetBuildSettingDescription.Setting] = [],
+        defaultLinkerSettings: [TargetBuildSettingDescription.Setting] = [],
         platforms: [PlatformDescription],
         version: TSCUtility.Version?,
         revision: String?,
@@ -148,6 +154,9 @@ public final class Manifest: Sendable {
         self.packageLocation = packageLocation
         self.defaultLocalization = defaultLocalization
         self.defaultSwiftSettings = defaultSwiftSettings
+        self.defaultCSettings = defaultCSettings
+        self.defaultCXXSettings = defaultCXXSettings
+        self.defaultLinkerSettings = defaultLinkerSettings
         self.platforms = platforms
         self.version = version
         self.revision = revision
@@ -622,7 +631,10 @@ public final class Manifest: Sendable {
     }
 
     public var defaultSettings: [TargetBuildSettingDescription.Setting] {
-        defaultSwiftSettings ?? []
+        (defaultSwiftSettings ?? []) +
+        (defaultCSettings ?? []) +
+        (defaultCXXSettings ?? []) +
+        (defaultLinkerSettings ?? [])
     }
 }
 
