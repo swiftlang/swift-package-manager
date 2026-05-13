@@ -483,6 +483,7 @@ struct SwiftBuildSystemMessageHandlerTests {
         let output = self.outputStream.bytes.description
         #expect(output.contains("Weird percent"))
         #expect(!output.contains("12 / 32"))
+        #expect(output.contains("[123/3241] MyFunTarget: Building things..."))
         #expect(output.contains("Something useful"))
         #expect(output.contains("[12354/12354] Done."))
     }

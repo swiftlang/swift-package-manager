@@ -262,7 +262,7 @@ public final class SwiftBuildSystemMessageHandler {
 
                 // Default to old mechanism if no message has been derived
                 // from the above.
-                if message.isEmpty {
+                if message.isEmpty, progressInfo.message.contains(where: \.isLetter) {
                     message += progressInfo.message
                 }
             }
