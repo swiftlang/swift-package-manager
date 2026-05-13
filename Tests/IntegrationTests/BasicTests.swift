@@ -517,9 +517,9 @@ private struct BasicTests {
             Tag.Feature.PackageType.Library,
         ),
     )
-    func testSwiftPlayList() throws {
+    func testSwiftPlayList() async throws {
         let packageName = "SwiftPlayList"
-        try withTemporaryDirectory { tempDir in
+        try await withTemporaryDirectory { tempDir in
             let packagePath = tempDir.appending(component: packageName)
             try localFileSystem.createDirectory(packagePath)
             try await executeSwiftPackage(
@@ -537,7 +537,7 @@ private struct BasicTests {
 
                     let package = Package(
                         name: "\(packageName)",
-                        platforms: [.macOS(.v10_15)], // min for playgrounds lib
+                        platforms: [.macOS(.v14)], // min for playgrounds lib
                         products: [
                             // Products define the executables and libraries a package produces, making them visible to other packages.
                             .library(
@@ -601,8 +601,8 @@ private struct BasicTests {
             Tag.Feature.PackageType.Library,
         ),
     )
-    func testSwiftPlayExecute() throws {
-        try withTemporaryDirectory { tempDir in
+    func testSwiftPlayExecute() async throws {
+        try await withTemporaryDirectory { tempDir in
             let packagePath = tempDir.appending(component: "swiftPlayExecute")
             try localFileSystem.createDirectory(packagePath)
             try await executeSwiftPackage(
@@ -620,7 +620,7 @@ private struct BasicTests {
 
                     let package = Package(
                         name: "swiftPlayExecute",
-                        platforms: [.macOS(.v10_15)], // min for playgrounds lib
+                        platforms: [.macOS(.v14)], // min for playgrounds lib
                         products: [
                             // Products define the executables and libraries a package produces, making them visible to other packages.
                             .library(
