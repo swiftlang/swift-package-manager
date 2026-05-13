@@ -37,13 +37,13 @@ func withInstantiatedSwiftBuildSystem(
 
     try await fixture(name: fixtureName) { fixturePath  in
         try await withTemporaryDirectory  { tmpDir in
+            let toolchain = try UserToolchain.default
             let buildParameters = if let buildParameters {
                 buildParameters
             } else {
-                mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+                mockBuildParameters(destination: .host, toolchain: toolchain, buildSystemKind: .swiftbuild)
             }
             let observabilitySystem: TestingObservability = ObservabilitySystem.makeForTesting()
-            let toolchain = try UserToolchain.default
             let workspace = try Workspace(
                 fileSystem: fileSystem,
                 forRootPackage: fixturePath,
@@ -299,6 +299,7 @@ struct SwiftBuildSystemTests {
             fromFixture: "PIFBuilder/Simple",
             buildParameters: mockBuildParameters(
                 destination: .host,
+                toolchain: try UserToolchain.default,
                 buildSystemKind: .swiftbuild,
                 indexStoreMode: indexStoreSettingUT,
             ),

@@ -255,6 +255,35 @@ public struct BuildParameters: Encodable {
         self.apiDigesterMode = apiDigesterMode
     }
 
+    /// The path to the build directory (inside the data directory).
+    @available(*, deprecated, message: "Use BuildSystem.buildProductsPath(for:) instead. This is preserved temporarily to support sourcekit-lsp")
+    public var buildPath: Basics.AbsolutePath {
+        // TODO: query the build system for this.
+        switch buildSystemKind {
+        case .xcode, .swiftbuild:
+            var configDir: String = configuration.dirname.capitalized
+            if self.triple.isMacOSX {
+                // no suffix
+            } else if self.triple.isAndroid() {
+                configDir += "-android"
+            } else if self.triple.isWasm {
+                configDir += "-webassembly"
+            } else {
+                configDir += "-" + (self.triple.darwinPlatform?.platformName ?? self.triple.osNameUnversioned)
+            }
+            return dataPath.appending(components: "Products", configDir)
+        case .native:
+            return dataPath.appending(component: configuration.dirname)
+        }
+    }
+
+    /// The path to the index store directory.
+    @available(*, deprecated, message: "Use BuildSystem.indexStore(for:) instead. This is preserved temporarily to support sourcekit-lsp")
+    public var indexStore: Basics.AbsolutePath {
+        assert(indexStoreMode != .off, "index store is disabled")
+        return buildPath.appending(components: "index", "store")
+    }
+
     public var llbuildManifest: Basics.AbsolutePath {
         // FIXME: this path isn't specific to `BuildParameters` due to its use of `..`
         // FIXME: it should be calculated in a different place
