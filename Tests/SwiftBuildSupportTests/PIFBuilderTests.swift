@@ -1244,6 +1244,96 @@ struct PIFBuilderTests {
             #expect(barTestsTarget.productType == .unitTest)
             #expect(barTestsTarget.common.dependencies.map(\.targetId).contains("PACKAGE-TARGET:TestUtils"))
         }
+    } 
+
+    @Test func noHeaderMaps() async throws {
+        try await withGeneratedPIF(fromFixture: "Miscellaneous/Simple") { pif, observabilitySystem in
+            #expect(observabilitySystem.diagnostics.filter { $0.severity == .error }.isEmpty)
+            let project = try pif.workspace.project(named: "Foo")
+            for configName in [BuildConfiguration.debug, .release] {
+                #expect(
+                    try project.buildConfig(named: configName).settings[.USE_HEADERMAP] == "NO",
+                    "config: \(configName)"
+                )
+            }
+        }
+    }
+
+    @Test func symbolGraphExtractorBuildSettings() async throws {
+        try await withGeneratedPIF(fromFixture: "CFamilyTargets/ModuleMapGenerationCases") { pif, observabilitySystem in
+            #expect(observabilitySystem.diagnostics.filter { $0.severity == .error }.isEmpty)
+
+            // configureSourceModuleBuildSettings is called for every source module via the same
+            // delegate path, so verifying on representative C targets is sufficient coverage.
+            for targetName in ["UmbrellaHeader", "FlatInclude"] {
+                let config = try pif.workspace
+                    .project(named: "ModuleMapGenerationCases")
+                    .target(named: targetName)
+                    .buildConfig(named: .release)
+
+                let expectedDir = "$(TARGET_BUILD_DIR)/$(CURRENT_ARCH)/\(targetName).symbolgraphs"
+                #expect(config.settings[.SYMBOL_GRAPH_EXTRACTOR_OUTPUT_DIR] == expectedDir, "target: \(targetName)")
+                #expect(config.settings[.TAPI_EXTRACT_API_OUTPUT_DIR] == expectedDir, "target: \(targetName)")
+                #expect(config.settings[.DOCC_EXTRACT_PROJECT_HEADERS_DOCUMENTATION] == "YES", "target: \(targetName)")
+            }
+        }
+    }
+
+    @Test func cFamilyHeadersAddedToHeadersBuildPhase() async throws {
+        try await withGeneratedPIF(fromFixture: "CFamilyTargets/ModuleMapGenerationCases") { pif, observabilitySystem in
+            #expect(observabilitySystem.diagnostics.filter { $0.severity == .error }.isEmpty)
+
+            let project = try pif.workspace.project(named: "ModuleMapGenerationCases")
+
+            // UmbrellaHeader has include/UmbrellaHeader/UmbrellaHeader.h — expect a headers build phase
+            do {
+                let umbrellaTarget = try project.target(named: "UmbrellaHeader")
+                let umbrellaHeadersPhase: ProjectModel.HeadersBuildPhase = try #require(
+                    umbrellaTarget.common.buildPhases.compactMap({
+                        guard case let .headers(phase) = $0 else { return nil }
+                        return phase
+                    }).only,
+                    "Expected exactly one headers build phase for UmbrellaHeader"
+                )
+
+                let umbrellaHeaderPaths: [AbsolutePath] = umbrellaHeadersPhase.files.compactMap {
+                    guard case .reference(id: let refId) = $0.ref else { return nil }
+                    return try? project.underlying.mainGroup.findSource(ref: refId)
+                }.sorted()
+                #expect(umbrellaHeaderPaths.contains { $0.basename == "UmbrellaHeader.h" })
+                // nil headerVisibility means "project" visibility — what we set for symbol graph extraction
+                #expect(umbrellaHeadersPhase.files.allSatisfy { $0.headerVisibility == nil })
+            }
+
+            // FlatInclude has include/FlatIncludeHeader.h — expect a headers build phase
+            do {
+                let flatIncludeTarget = try project.target(named: "FlatInclude")
+                let flatIncludeHeadersPhase: ProjectModel.HeadersBuildPhase = try #require(
+                    flatIncludeTarget.common.buildPhases.compactMap({
+                        guard case let .headers(phase) = $0 else { return nil }
+                        return phase
+                    }).only,
+                    "Expected exactly one headers build phase for FlatInclude"
+                )
+
+                let flatIncludeHeaderPaths: [AbsolutePath] = flatIncludeHeadersPhase.files.compactMap {
+                    guard case .reference(id: let refId) = $0.ref else { return nil }
+                    return try? project.underlying.mainGroup.findSource(ref: refId)
+                }.sorted()
+                #expect(flatIncludeHeaderPaths.contains { $0.basename == "FlatIncludeHeader.h" })
+                #expect(flatIncludeHeadersPhase.files.allSatisfy { $0.headerVisibility == nil })
+            }
+
+            // NoIncludeDir has no header files — should have no headers build phase
+            do {
+                let noIncludeDirTarget = try project.target(named: "NoIncludeDir")
+                let noHeadersPhases = noIncludeDirTarget.common.buildPhases.filter {
+                    guard case .headers = $0 else { return false }
+                    return true
+                }
+                #expect(noHeadersPhases.isEmpty)
+            }
+        }
     }
 }
 
