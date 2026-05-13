@@ -205,6 +205,13 @@ enum ManifestJSONParser {
 
         let pluginUsages = target.pluginUsages?.map { TargetDescription.PluginUsage.init($0) }
 
+        let explictSettings = TargetDescription.ExplicitSettings(
+            swift: target.swiftSettings != nil,
+            c: target.cSettings != nil,
+            cxx: target.cxxSettings != nil,
+            linker: target.linkerSettings != nil
+        )
+
         return try TargetDescription(
             name: target.name,
             dependencies: dependencies,
@@ -220,6 +227,7 @@ enum ManifestJSONParser {
             providers: providers,
             pluginCapability: pluginCapability,
             settings: try Self.parseBuildSettings(target),
+            explicitSettings: explictSettings,
             checksum: target.checksum,
             pluginUsages: pluginUsages
         )

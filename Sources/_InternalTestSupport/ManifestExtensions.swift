@@ -250,7 +250,7 @@ extension Manifest {
             packageKind: packageKind,
             packageLocation: packageLocation ?? path.pathString,
             defaultLocalization: defaultLocalization,
-            defaultSwiftSettings: defaultSettings,
+            defaultSettings: defaultSettings,
             platforms: platforms,
             version: version,
             revision: .none,

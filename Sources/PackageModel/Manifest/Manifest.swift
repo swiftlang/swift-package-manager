@@ -74,10 +74,7 @@ public final class Manifest: Sendable {
     /// The declared package dependencies.
     public let dependencies: [PackageDependency]
 
-    public let defaultSwiftSettings: [TargetBuildSettingDescription.Setting]?
-    public let defaultCSettings: [TargetBuildSettingDescription.Setting]?
-    public let defaultCXXSettings: [TargetBuildSettingDescription.Setting]?
-    public let defaultLinkerSettings: [TargetBuildSettingDescription.Setting]?
+    public let defaultSettings: [TargetBuildSettingDescription.Setting]?
 
     /// The targets declared in the manifest.
     public let targets: [TargetDescription]
@@ -121,10 +118,7 @@ public final class Manifest: Sendable {
         packageKind: PackageReference.Kind,
         packageLocation: String,
         defaultLocalization: String?,
-        defaultSwiftSettings: [TargetBuildSettingDescription.Setting] = [],
-        defaultCSettings: [TargetBuildSettingDescription.Setting] = [],
-        defaultCXXSettings: [TargetBuildSettingDescription.Setting] = [],
-        defaultLinkerSettings: [TargetBuildSettingDescription.Setting] = [],
+        defaultSettings: [TargetBuildSettingDescription.Setting] = [],
         platforms: [PlatformDescription],
         version: TSCUtility.Version?,
         revision: String?,
@@ -146,10 +140,7 @@ public final class Manifest: Sendable {
         self.packageKind = packageKind
         self.packageLocation = packageLocation
         self.defaultLocalization = defaultLocalization
-        self.defaultSwiftSettings = defaultSwiftSettings
-        self.defaultCSettings = defaultCSettings
-        self.defaultCXXSettings = defaultCXXSettings
-        self.defaultLinkerSettings = defaultLinkerSettings
+        self.defaultSettings = defaultSettings
         self.platforms = platforms
         self.version = version
         self.revision = revision
@@ -623,13 +614,6 @@ public final class Manifest: Sendable {
         }
         return self.targetsWithCommonSourceRoot(type: type).count == 1
     }
-
-    public var defaultSettings: [TargetBuildSettingDescription.Setting] {
-        (defaultSwiftSettings ?? []) +
-        (defaultCSettings ?? []) +
-        (defaultCXXSettings ?? []) +
-        (defaultLinkerSettings ?? [])
-    }
 }
 
 extension Manifest: Hashable {
@@ -653,7 +637,7 @@ extension Manifest: Encodable {
         case name, path, url, version, targetMap, toolsVersion,
              pkgConfig, providers, cLanguageStandard, cxxLanguageStandard, swiftLanguageVersions,
              dependencies, products, targets, traits, platforms, packageKind, revision,
-             defaultLocalization, defaultSwiftSettings
+             defaultLocalization, defaultSettings
     }
 
     /// Coding user info key for dump-package command.
@@ -676,7 +660,7 @@ extension Manifest: Encodable {
 
         try container.encode(self.toolsVersion, forKey: .toolsVersion)
         try container.encode(self.defaultLocalization, forKey: .defaultLocalization)
-        try container.encode(self.defaultSwiftSettings, forKey: .defaultSwiftSettings)
+        try container.encode(self.defaultSettings, forKey: .defaultSettings)
         try container.encode(self.pkgConfig, forKey: .pkgConfig)
         try container.encode(self.providers, forKey: .providers)
         try container.encode(self.cLanguageStandard, forKey: .cLanguageStandard)

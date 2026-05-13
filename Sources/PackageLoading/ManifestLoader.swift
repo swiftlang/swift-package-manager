@@ -361,6 +361,11 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             ))
         }
 
+        let defaultSettings = (parsedManifest.defaultSwiftSettings ?? []) +
+            (parsedManifest.defaultCSettings ?? []) +
+            (parsedManifest.defaultCXXSettings ?? []) +
+            (parsedManifest.defaultLinkerSettings ?? [])
+
         let manifest = Manifest(
             displayName: parsedManifest.name,
             packageIdentity: packageIdentity,
@@ -368,10 +373,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             packageKind: packageKind,
             packageLocation: packageLocation,
             defaultLocalization: parsedManifest.defaultLocalization,
-            defaultSwiftSettings: parsedManifest.defaultSwiftSettings ?? [],
-            defaultCSettings: parsedManifest.defaultCSettings ?? [],
-            defaultCXXSettings: parsedManifest.defaultCXXSettings ?? [],
-            defaultLinkerSettings: parsedManifest.defaultLinkerSettings ?? [],
+            defaultSettings: defaultSettings,
             platforms: parsedManifest.platforms,
             version: packageVersion?.version,
             revision: packageVersion?.revision,

@@ -292,6 +292,7 @@ extension Workspace {
                             providers: target.providers,
                             pluginCapability: target.pluginCapability,
                             settings: target.settings,
+                            explicitSettings: target.explicitSettings,
                             checksum: target.checksum,
                             pluginUsages: target.pluginUsages
                         )

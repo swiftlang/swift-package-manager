@@ -1089,25 +1089,41 @@ public final class PackageBuilder {
     private func resolvedSettings(for target: TargetDescription) -> [TargetBuildSettingDescription.Setting] {
         var resolved = target.settings
 
-        let defaultSettings = manifest.defaultSettings ?? []
-
-        for defaultSetting in defaultSettings {
-            var eligible = true
-
-            // Look for an existing target setting that takes precedence. If none are found,
-            // the default is accepted.
-            for setting in resolved {
-                if setting.overridesDefault(defaultSetting) {
-                    eligible = false
-                    break
-                }
-            }
-
-            if eligible {
-                resolved.append(defaultSetting)
-            }
+        if !target.explicitSettings.swift {
+            resolved.append(contentsOf: manifest.defaultSettings?.filter({ $0.tool == .swift }) ?? [])
         }
 
+        if !target.explicitSettings.c {
+            resolved.append(contentsOf: manifest.defaultSettings?.filter({ $0.tool == .c }) ?? [])
+        }
+
+        if !target.explicitSettings.cxx {
+            resolved.append(contentsOf: manifest.defaultSettings?.filter({ $0.tool == .cxx }) ?? [])
+        }
+
+        if !target.explicitSettings.linker {
+            resolved.append(contentsOf: manifest.defaultSettings?.filter({ $0.tool == .linker }) ?? [])
+        }
+
+//        let defaultSettings = manifest.defaultSettings ?? []
+//
+//        for defaultSetting in defaultSettings {
+//            var eligible = true
+//
+//            // Look for an existing target setting that takes precedence. If none are found,
+//            // the default is accepted.
+//            for setting in resolved {
+//                if setting.overridesDefault(defaultSetting) {
+//                    eligible = false
+//                    break
+//                }
+//            }
+//
+//            if eligible {
+//                resolved.append(defaultSetting)
+//            }
+//        }
+//
         return resolved
     }
 
