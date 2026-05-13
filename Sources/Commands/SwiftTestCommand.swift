@@ -1727,7 +1727,7 @@ private extension Basics.Diagnostic {
 /// tests match the inputs specified by the developer (or, for the case of
 /// `swift test list`, when no tests are found).
 ///
-/// Because Swift Package Manager does not directly link to the testing library,
+/// Because Swift Package Manager doesn't directly link to the testing library,
 /// it duplicates the definition of this constant in its own source. Any changes
 /// to this constant in either package must be mirrored in the other.
 private var EXIT_NO_TESTS_FOUND: CInt {
