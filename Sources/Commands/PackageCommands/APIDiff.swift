@@ -43,7 +43,7 @@ struct APIDiff: AsyncSwiftCommand {
         commandName: "diagnose-api-breaking-changes",
         abstract: "Diagnose API-breaking changes to Swift modules in a package.",
         discussion: """
-        The diagnose-api-breaking-changes command can be used to compare the Swift API of \
+        You can use the `diagnose-api-breaking-changes` command to compare the Swift API of \
         a package to a baseline revision, diagnosing any breaking changes that have \
         been introduced. By default, it compares every Swift module from the baseline \
         revision which is part of a library product. For packages with many targets, this \
