@@ -99,19 +99,22 @@ struct DefaultLoadingTests {
             targets: [
                 try TargetDescription(
                     name: "A",
-                    publicHeadersPath: "."
+                    publicHeadersPath: ".",
+                    explicitSettings: .none
                 ),
                 try TargetDescription(
                     name: "B",
                     publicHeadersPath: ".",
                     settings: [],
+                    explicitSettings: .all
                 ),
                 try TargetDescription(
                     name: "C",
                     publicHeadersPath: ".",
                     settings: [
                         .init(tool: .c, kind: .headerSearchPath("bar")),
-                    ]
+                    ],
+                    explicitSettings: .init(swift: false, c: true, cxx: false, linker: false)
                 ),
             ]
         )
