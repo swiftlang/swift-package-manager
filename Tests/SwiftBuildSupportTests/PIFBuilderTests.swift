@@ -695,12 +695,23 @@ struct PIFBuilderTests {
             }.isEmpty)
 
             do {
+                let debugConfig = try pif.workspace
+                    .project(named: "Foo")
+                    .target(named: "Foo")
+                    .buildConfig(named: .debug)
+
+                #expect(debugConfig.impartedBuildProperties.settings[.LD_RUNPATH_SEARCH_PATHS] == ["$(RPATH_ORIGIN)", "$(BUILT_PRODUCTS_DIR)/PackageFrameworks", "$(inherited)"])
+            }
+
+            do {
                 let releaseConfig = try pif.workspace
                     .project(named: "Foo")
                     .target(named: "Foo")
                     .buildConfig(named: .release)
 
-                #expect(releaseConfig.impartedBuildProperties.settings[.LD_RUNPATH_SEARCH_PATHS] == ["$(RPATH_ORIGIN)", "$(inherited)"])
+                // Release configuration should not inherit rpaths to prevent ambiguity, security, performance
+                // and relocation issues
+                #expect(releaseConfig.impartedBuildProperties.settings[.LD_RUNPATH_SEARCH_PATHS] == nil)
             }
         }
 
@@ -708,6 +719,15 @@ struct PIFBuilderTests {
             #expect(observabilitySystem.diagnostics.filter {
                 $0.severity == .error
             }.isEmpty)
+
+            do {
+                let debugConfig = try pif.workspace
+                    .project(named: "Foo")
+                    .target(named: "Foo")
+                    .buildConfig(named: .debug)
+
+                #expect(debugConfig.impartedBuildProperties.settings[.LD_RUNPATH_SEARCH_PATHS] == nil)
+            }
 
             do {
                 let releaseConfig = try pif.workspace

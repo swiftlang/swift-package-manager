@@ -825,20 +825,15 @@ extension PackagePIFProjectBuilder {
         //
         // An imparted build setting on C will propagate back to both B and A.
         // FIXME: -rpath should not be given if -static is
-        var rpaths: [String] = []
-        if let existingRpaths = impartedSettings[.LD_RUNPATH_SEARCH_PATHS] {
-            rpaths.append(contentsOf: existingRpaths)
-        }
-        if pifBuilder.addLocalRpaths {
-            rpaths.append("$(RPATH_ORIGIN)")
-            impartedSettings[.LD_RUNPATH_SEARCH_PATHS] = rpaths + ["$(inherited)"]
-        }
-
+        // Only add LD_RUNPATH_SEARCH_PATHS to the debug config. rpaths should
+        // not be added when building for release configs, particulary for OS dylibs
+        // as it could create ambiguity, security, performance and relocation issues
         var impartedDebugSettings = impartedSettings
         if pifBuilder.addLocalRpaths {
-            // FIXME: Why is this rpath only added to the debug config? We should investigate reworking this.
-            rpaths.append("$(BUILT_PRODUCTS_DIR)/PackageFrameworks")
-            impartedDebugSettings[.LD_RUNPATH_SEARCH_PATHS] = rpaths + ["$(inherited)"]
+            var debugRpaths = impartedSettings[.LD_RUNPATH_SEARCH_PATHS] ?? []
+            debugRpaths.append("$(RPATH_ORIGIN)")
+            debugRpaths.append("$(BUILT_PRODUCTS_DIR)/PackageFrameworks")
+            impartedDebugSettings[.LD_RUNPATH_SEARCH_PATHS] = debugRpaths + ["$(inherited)"]
         }
 
         self.project[keyPath: sourceModuleTargetKeyPath].common.addBuildConfig { id in
