@@ -207,7 +207,7 @@ struct TestCommandOptions: ParsableArguments {
             help: "Skip test cases that match a regular expression. For example: '--skip PerformanceTests'.")
     var _testCaseSkip: [String] = []
 
-    /// The path where the xUnit XML file generates.
+    /// The path where the test command generates the xUnit XML file.
     @Option(name: .customLong("xunit-output"),
             help: "The path where the xUnit XML file generates.")
     var xUnitOutput: AbsolutePath?
