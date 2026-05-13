@@ -85,7 +85,7 @@ private func readpassword(_ prompt: String) throws -> String {
     #elseif canImport(Android)
     throw StringError("unable to read input - not implemented on this platform")
     #else
-    // GNU C implementation of getpass has no limit on the password length
+    // The GNU C implementation of `getpass` has no limit on the password length.
     // (https://man7.org/linux/man-pages/man3/getpass.3.html)
     password = String(cString: getpass(prompt))
     #endif
@@ -102,7 +102,7 @@ extension PackageRegistryCommand {
     struct Login: AsyncSwiftCommand {
 
         static func loginURL(from registryURL: URL, loginAPIPath: String?) throws -> URL {
-            // Login URL must be HTTPS
+            // The login URL must be HTTPS.
             var loginURLComponents = URLComponents(url: registryURL, resolvingAgainstBaseURL: true)
             loginURLComponents?.scheme = "https"
             loginURLComponents?.path = loginAPIPath ?? "/login"
