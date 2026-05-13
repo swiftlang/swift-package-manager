@@ -17,6 +17,7 @@ import PackageModel
 @testable import PackageRegistry
 @testable import PackageSigning
 import _InternalTestSupport
+import Testing
 import XCTest
 
 import struct TSCUtility.Version

@@ -17,6 +17,7 @@ import PackageFingerprint
 import PackageModel
 @testable import PackageRegistry
 import _InternalTestSupport
+import Testing
 import XCTest
 
 import struct TSCUtility.Version
