@@ -119,9 +119,9 @@ extension PackageRegistryCommand {
         )
 
         static let maxPasswordLength = 512
-        // Define a larger buffer size so we read more than allowed, and
-        // this way we can tell if the entered password is over the length
-        // limit. One space is for \0, another is for the "overflowing" char.
+        // Define a larger buffer size so it reads more than allowed;
+        // this way, you can tell if the entered password is over the length
+        // limit. One space is for \0, and another is for the "overflowing" character.
         static let passwordBufferSize = Self.maxPasswordLength + 2
 
         @OptionGroup(visibility: .hidden)
@@ -155,8 +155,8 @@ extension PackageRegistryCommand {
         private static let PLACEHOLDER_TOKEN_USER = "token"
 
         func run(_ swiftCommandState: SwiftCommandState) async throws {
-            // We need to be able to read/write credentials
-            // Make sure credentials store is available before proceeding
+            // You need to be able to read/write credentials.
+            // Make sure the credentials store is available before proceeding.
             let authorizationProvider: AuthorizationProvider?
             do {
                 authorizationProvider = try swiftCommandState.getRegistryAuthorizationProvider()
@@ -168,10 +168,10 @@ extension PackageRegistryCommand {
                 throw ValidationError.unknownCredentialStore
             }
 
-            // Auth config is in user-level registries config only
+            // The authorization configuration is in the user-level registries configuration only.
             let configuration = try getRegistriesConfig(swiftCommandState, global: true)
 
-            // compute and validate registry URL
+            // Compute and validate the registry URL.
             guard let registryURL = self.registryURL ?? configuration.configuration.defaultRegistry?.url else {
                 throw ValidationError.unknownRegistry
             }
@@ -193,7 +193,7 @@ extension PackageRegistryCommand {
                 } else if let stored = authorizationProvider.authentication(for: registryURL),
                           stored.user == storeUsername
                 {
-                    // Password found in credential store
+                    // The password found in the credential store.
                     storePassword = stored.password
                     saveChanges = false
                 } else {
@@ -203,10 +203,10 @@ extension PackageRegistryCommand {
             } else {
                 authenticationType = .token
 
-                // All token auth accounts have the same placeholder value
+                // All token authentication accounts have the same placeholder value.
                 storeUsername = Self.PLACEHOLDER_TOKEN_USER
                 if let token {
-                    // User provided token
+                    // The user-provided token.
                     storePassword = token
                 } else if let tokenFilePath {
                     print("Reading access token from \(tokenFilePath).")
@@ -215,11 +215,11 @@ extension PackageRegistryCommand {
                 } else if let stored = authorizationProvider.authentication(for: registryURL),
                           stored.user == storeUsername
                 {
-                    // Token found in credential store
+                    // The token found in the credential store.
                     storePassword = stored.password
                     saveChanges = false
                 } else {
-                    // Prompt user for token
+                    // Prompt the user for the token.
                     storePassword = try readpassword("Enter access token: ")
                 }
             }
@@ -229,7 +229,7 @@ extension PackageRegistryCommand {
                 throw StringError("Credential store must be writable")
             }
 
-            // Save in cache so we can try the credentials and persist to storage only if login succeeds
+            // Save in the cache so you can try the credentials and persist to storage only if login succeeds.
             try await authorizationWriter?.addOrUpdate(
                 for: registryURL,
                 user: storeUsername,
@@ -237,7 +237,7 @@ extension PackageRegistryCommand {
                 persist: false
             )
 
-            // `url` can either be base URL of the registry, in which case the login API
+            // The `url` can either be the base URL of the registry, in which case the login API
             // is assumed to be at /login, or the full URL of the login API.
             var loginAPIPath: String?
             if !registryURL.path.isEmpty, registryURL.path != "/" {
@@ -247,11 +247,11 @@ extension PackageRegistryCommand {
             let loginURL = try Self.loginURL(from: registryURL, loginAPIPath: loginAPIPath)
 
 
-            // Build a RegistryConfiguration with the given authentication settings
+            // Build a `RegistryConfiguration` with the given authentication settings.
             var registryConfiguration = configuration.configuration
             try registryConfiguration.add(authentication: .init(type: authenticationType, loginAPIPath: loginAPIPath), for: registryURL)
 
-            // Build a RegistryClient to test login credentials (fingerprints don't matter in this case)
+            // Build a `RegistryClient` to test login credentials (fingerprints aren't applicable in this case).
             let registryClient = RegistryClient(
                 configuration: registryConfiguration,
                 fingerprintStorage: .none,
@@ -264,7 +264,7 @@ extension PackageRegistryCommand {
                 checksumAlgorithm: SHA256()
             )
 
-            // Try logging in
+            // Try logging in.
             try await registryClient.login(
                 loginURL: loginURL,
                 timeout: .seconds(5),
@@ -277,7 +277,7 @@ extension PackageRegistryCommand {
 
             let osStore = !(authorizationWriter is NetrcAuthorizationProvider)
 
-            // Prompt if writing to netrc file and --no-confirm is not set
+            // Prompt if writing to the netrc file and `--no-confirm` isn't set
             if saveChanges, !osStore, !self.noConfirm {
                 if self.globalOptions.security.forceNetrc {
                     print("""
@@ -314,7 +314,7 @@ extension PackageRegistryCommand {
                 }
             }
 
-            // Update user-level registry configuration file
+            // Update the user-level registry configuration file.
             let update: (inout RegistryConfiguration) throws -> Void = { configuration in
                 try configuration.add(authentication: .init(type: authenticationType, loginAPIPath: loginAPIPath), for: registryURL)
             }
@@ -340,17 +340,17 @@ extension PackageRegistryCommand {
         }
 
         func run(_ swiftCommandState: SwiftCommandState) async throws {
-            // Auth config is in user-level registries config only
+            // The authorization configuration is in the user-level registries configuration only.
             let configuration = try getRegistriesConfig(swiftCommandState, global: true)
 
-            // compute and validate registry URL
+            // Compute and validate the registry URL.
             guard let registryURL = self.registryURL ?? configuration.configuration.defaultRegistry?.url else {
                 throw ValidationError.unknownRegistry
             }
 
             try registryURL.validateRegistryURL()
 
-            // We need to be able to read/write credentials
+            // You need to be able to read/write credentials.
             guard let authorizationProvider = try swiftCommandState.getRegistryAuthorizationProvider() else {
                 throw ValidationError.unknownCredentialStore
             }
@@ -358,7 +358,7 @@ extension PackageRegistryCommand {
             let authorizationWriter = authorizationProvider as? AuthorizationWriter
             let osStore = !(authorizationWriter is NetrcAuthorizationProvider)
 
-            // Only OS credential store supports deletion
+            // Only OS credential store supports deletion.
             if osStore {
                 try await authorizationWriter?.remove(for: registryURL)
                 print("Credentials have been removed from operating system's secure credential store.")
@@ -366,7 +366,7 @@ extension PackageRegistryCommand {
                 print("netrc file not updated. Please remove credentials from the file manually.")
             }
 
-            // Update user-level registry configuration file
+            // Update the user-level registry configuration file.
             let update: (inout RegistryConfiguration) throws -> Void = { configuration in
                 configuration.removeAuthentication(for: registryURL)
             }
