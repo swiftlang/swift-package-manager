@@ -1724,7 +1724,7 @@ private extension Basics.Diagnostic {
 }
 
 /// The exit code returned to Swift Package Manager by Swift Testing when no
-/// tests matched the inputs specified by the developer (or, for the case of
+/// tests match the inputs specified by the developer (or, for the case of
 /// `swift test list`, when no tests are found).
 ///
 /// Because Swift Package Manager does not directly link to the testing library,
