@@ -74,6 +74,7 @@ public final class Manifest: Sendable {
     /// The declared package dependencies.
     public let dependencies: [PackageDependency]
 
+    /// The defaults to be used when resolving settings for all targets.
     public let defaultSettings: [TargetBuildSettingDescription.Setting]?
 
     /// The targets declared in the manifest.
