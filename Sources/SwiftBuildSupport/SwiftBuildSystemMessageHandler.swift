@@ -242,17 +242,15 @@ public final class SwiftBuildSystemMessageHandler {
                 }
             }
         case .didUpdateProgress(let progressInfo):
-            let step = Int(progressInfo.percentComplete)
             let message = if let targetName = progressInfo.targetName {
-                "\(targetName) \(progressInfo.message)"
+                "[\(progressInfo.message)] \(targetName)"
             } else {
-                "\(progressInfo.message)"
+                "[\(progressInfo.message)]"
             }
 
             // Skip if message doesn't contain anything useful to display.
-            // TODO: To file an issue for SwiftBuild here.
-            if message.contains(where: \.isLetter) {
-                progressAnimation.update(step: step, total: 100, text: message)
+            if !message.isEmpty {
+                progressAnimation.update(step: -1, total: 100, text: message)
             }
 
             callback = { [weak self] buildSystem in
