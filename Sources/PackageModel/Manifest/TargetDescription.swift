@@ -463,6 +463,43 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
             ) }
         }
 
+        // ensure that settings and settings presense detection are consistent
+        if settings.filter({ $0.tool == .swift}).isEmpty == false && explicitSettings.swift == false {
+            throw Error.disallowedPropertyInTarget(
+                targetName: name,
+                targetType: targetType,
+                propertyName: "explicitSettings",
+                value: "swift"
+            )
+        }
+
+        if settings.filter({ $0.tool == .c}).isEmpty == false && explicitSettings.c == false {
+            throw Error.disallowedPropertyInTarget(
+                targetName: name,
+                targetType: targetType,
+                propertyName: "explicitSettings",
+                value: "c"
+            )
+        }
+
+        if settings.filter({ $0.tool == .cxx}).isEmpty == false && explicitSettings.cxx == false {
+            throw Error.disallowedPropertyInTarget(
+                targetName: name,
+                targetType: targetType,
+                propertyName: "explicitSettings",
+                value: "cxx"
+            )
+        }
+
+        if settings.filter({ $0.tool == .linker}).isEmpty == false && explicitSettings.linker == false {
+            throw Error.disallowedPropertyInTarget(
+                targetName: name,
+                targetType: targetType,
+                propertyName: "explicitSettings",
+                value: "linker"
+            )
+        }
+
         self.name = name
         self.dependencies = dependencies
         self.path = path

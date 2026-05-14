@@ -37,7 +37,22 @@ struct DefaultLoadingTests {
                         swiftSettings: [
                             .swiftLanguageMode(.v6),
                         ]
-                    )
+                    ),
+                    .target(
+                        name: "Baz",
+                        cSettings: [
+                            .inherited()
+                        ],
+                        cxxSettings: [
+                            .inherited()
+                        ],
+                        swiftSettings: [
+                            .inherited()
+                        ],
+                        linkerSettings: [
+                            .inherited()
+                        ],
+                    ),
                 ],
                 defaultSwiftSettings: [
                     .swiftLanguageMode(.v5),
@@ -83,11 +98,96 @@ struct DefaultLoadingTests {
     }
 
     @Test
-    func headerSearchPathResolution() throws {
+    func swiftToolResolution() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/A/a.swift",
+            "/Sources/B/b.swift",
+            "/Sources/C/c.swift",
+            "/Sources/D/d.swift",
+        )
+
+        let manifest = Manifest.createRootManifest(
+            displayName: "pkg",
+            defaultSettings: [
+                .init(tool: .swift, kind: .defaultIsolation(.MainActor))
+            ],
+            toolsVersion: .v6_2,
+            targets: [
+                try TargetDescription(
+                    name: "A",
+                    explicitSettings: .none
+                ),
+                try TargetDescription(
+                    name: "B",
+                    settings: [],
+                    explicitSettings: .all
+                ),
+                try TargetDescription(
+                    name: "C",
+                    settings: [
+                        .init(tool: .swift, kind: .defaultIsolation(.nonisolated))
+                    ],
+                    explicitSettings: .init(swift: true, c: false, cxx: false, linker: false)
+                ),
+                try TargetDescription(
+                    name: "D",
+                    settings: [
+                        .init(tool: .swift, kind: .inherited),
+                        .init(tool: .swift, kind: .defaultIsolation(.nonisolated))
+                    ],
+                    explicitSettings: .init(swift: true, c: false, cxx: false, linker: false)
+                ),
+            ]
+        )
+
+        try PackageBuilderTester(manifest, in: fs) { package, _ in
+            try package.checkModule("A") { package in
+                let macosDebugScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                )
+                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("-default-isolation"))
+                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("MainActor"))
+            }
+
+            try package.checkModule("B") { package in
+                let macosDebugScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                )
+                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("-default-isolation") == false)
+                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("MainActor") == false)
+            }
+
+            try package.checkModule("C") { package in
+                let macosDebugScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                )
+                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("-default-isolation"))
+                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("nonisolated"))
+                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("MainActor") == false)
+            }
+
+            try package.checkModule("D") { package in
+                let macosDebugScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                )
+                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("-default-isolation"))
+                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("nonisolated"))
+                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("MainActor"))
+            }
+        }
+    }
+
+    @Test
+    func cToolResolution() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Sources/A/a.c",
             "/Sources/B/b.c",
             "/Sources/C/c.c",
+            "/Sources/D/d.c",
         )
 
         let manifest = Manifest.createRootManifest(
@@ -116,6 +216,15 @@ struct DefaultLoadingTests {
                     ],
                     explicitSettings: .init(swift: false, c: true, cxx: false, linker: false)
                 ),
+                try TargetDescription(
+                    name: "D",
+                    publicHeadersPath: ".",
+                    settings: [
+                        .init(tool: .c, kind: .inherited),
+                        .init(tool: .c, kind: .headerSearchPath("bar")),
+                    ],
+                    explicitSettings: .init(swift: false, c: true, cxx: false, linker: false)
+                ),
             ]
         )
 
@@ -133,10 +242,19 @@ struct DefaultLoadingTests {
                     package.target.buildSettings,
                     environment: BuildEnvironment(platform: .macOS, configuration: .debug)
                 )
-                #expect(macosDebugScope.evaluate(.HEADER_SEARCH_PATHS).contains("foo"))
+                #expect(macosDebugScope.evaluate(.HEADER_SEARCH_PATHS).contains("foo") == false)
             }
 
             try package.checkModule("C") { package in
+                let macosDebugScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                )
+                #expect(macosDebugScope.evaluate(.HEADER_SEARCH_PATHS).contains("foo") == false)
+                #expect(macosDebugScope.evaluate(.HEADER_SEARCH_PATHS).contains("bar"))
+            }
+
+            try package.checkModule("D") { package in
                 let macosDebugScope = BuildSettings.Scope(
                     package.target.buildSettings,
                     environment: BuildEnvironment(platform: .macOS, configuration: .debug)
@@ -148,35 +266,48 @@ struct DefaultLoadingTests {
     }
 
     @Test
-    func defineResolution() throws {
+    func cxxToolResolution() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Sources/A/a.c",
             "/Sources/B/b.c",
             "/Sources/C/c.c",
+            "/Sources/D/d.c",
         )
 
         let manifest = Manifest.createRootManifest(
             displayName: "pkg",
             defaultSettings: [
-                .init(tool: .c, kind: .define("A=B"))
+                .init(tool: .cxx, kind: .headerSearchPath("foo"))
             ],
             toolsVersion: .v6_2,
             targets: [
                 try TargetDescription(
                     name: "A",
-                    publicHeadersPath: "."
+                    publicHeadersPath: ".",
+                    explicitSettings: .none
                 ),
                 try TargetDescription(
                     name: "B",
                     publicHeadersPath: ".",
                     settings: [],
+                    explicitSettings: .all
                 ),
                 try TargetDescription(
                     name: "C",
                     publicHeadersPath: ".",
                     settings: [
-                        .init(tool: .c, kind: .define("A=C")),
-                    ]
+                        .init(tool: .cxx, kind: .headerSearchPath("bar")),
+                    ],
+                    explicitSettings: .init(swift: false, c: false, cxx: true, linker: false)
+                ),
+                try TargetDescription(
+                    name: "D",
+                    publicHeadersPath: ".",
+                    settings: [
+                        .init(tool: .cxx, kind: .inherited),
+                        .init(tool: .cxx, kind: .headerSearchPath("bar")),
+                    ],
+                    explicitSettings: .init(swift: false, c: false, cxx: true, linker: false)
                 ),
             ]
         )
@@ -187,7 +318,7 @@ struct DefaultLoadingTests {
                     package.target.buildSettings,
                     environment: BuildEnvironment(platform: .macOS, configuration: .debug)
                 )
-                #expect(macosDebugScope.evaluate(.GCC_PREPROCESSOR_DEFINITIONS).contains("A=B"))
+                #expect(macosDebugScope.evaluate(.HEADER_SEARCH_PATHS).contains("foo"))
             }
 
             try package.checkModule("B") { package in
@@ -195,7 +326,7 @@ struct DefaultLoadingTests {
                     package.target.buildSettings,
                     environment: BuildEnvironment(platform: .macOS, configuration: .debug)
                 )
-                #expect(macosDebugScope.evaluate(.GCC_PREPROCESSOR_DEFINITIONS).contains("A=B"))
+                #expect(macosDebugScope.evaluate(.HEADER_SEARCH_PATHS).contains("foo") == false)
             }
 
             try package.checkModule("C") { package in
@@ -203,18 +334,28 @@ struct DefaultLoadingTests {
                     package.target.buildSettings,
                     environment: BuildEnvironment(platform: .macOS, configuration: .debug)
                 )
-                #expect(macosDebugScope.evaluate(.GCC_PREPROCESSOR_DEFINITIONS).contains("A=B") == false)
-                #expect(macosDebugScope.evaluate(.GCC_PREPROCESSOR_DEFINITIONS).contains("A=C"))
+                #expect(macosDebugScope.evaluate(.HEADER_SEARCH_PATHS).contains("foo") == false)
+                #expect(macosDebugScope.evaluate(.HEADER_SEARCH_PATHS).contains("bar"))
+            }
+
+            try package.checkModule("D") { package in
+                let macosDebugScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                )
+                #expect(macosDebugScope.evaluate(.HEADER_SEARCH_PATHS).contains("foo"))
+                #expect(macosDebugScope.evaluate(.HEADER_SEARCH_PATHS).contains("bar"))
             }
         }
     }
 
     @Test
-    func linkedLibraryResolution() throws {
+    func linkerToolResolution() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Sources/A/a.c",
             "/Sources/B/b.c",
             "/Sources/C/c.c",
+            "/Sources/D/d.c",
         )
 
         let manifest = Manifest.createRootManifest(
@@ -226,20 +367,33 @@ struct DefaultLoadingTests {
             targets: [
                 try TargetDescription(
                     name: "A",
-                    publicHeadersPath: "."
+                    publicHeadersPath: ".",
+                    explicitSettings: .none
                 ),
                 try TargetDescription(
                     name: "B",
                     publicHeadersPath: ".",
                     settings: [],
+                    explicitSettings: .all
                 ),
                 try TargetDescription(
                     name: "C",
                     publicHeadersPath: ".",
                     settings: [
                         .init(tool: .linker, kind: .linkedLibrary("yourlib")),
-                    ]
+                    ],
+                    explicitSettings: .init(swift: false, c: false, cxx: false, linker: true)
                 ),
+                try TargetDescription(
+                    name: "D",
+                    publicHeadersPath: ".",
+                    settings: [
+                        .init(tool: .linker, kind: .inherited),
+                        .init(tool: .linker, kind: .linkedLibrary("yourlib")),
+                    ],
+                    explicitSettings: .init(swift: false, c: false, cxx: false, linker: true)
+                ),
+
             ]
         )
 
@@ -257,10 +411,19 @@ struct DefaultLoadingTests {
                     package.target.buildSettings,
                     environment: BuildEnvironment(platform: .macOS, configuration: .debug)
                 )
-                #expect(macosDebugScope.evaluate(.LINK_LIBRARIES).contains("mylib"))
+                #expect(macosDebugScope.evaluate(.LINK_LIBRARIES).contains("mylib") == false)
             }
 
             try package.checkModule("C") { package in
+                let macosDebugScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                )
+                #expect(macosDebugScope.evaluate(.LINK_LIBRARIES).contains("mylib") == false)
+                #expect(macosDebugScope.evaluate(.LINK_LIBRARIES).contains("yourlib"))
+            }
+
+            try package.checkModule("D") { package in
                 let macosDebugScope = BuildSettings.Scope(
                     package.target.buildSettings,
                     environment: BuildEnvironment(platform: .macOS, configuration: .debug)
@@ -272,469 +435,7 @@ struct DefaultLoadingTests {
     }
 
     @Test
-    func linkedFrameworkResolution() throws {
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/Sources/A/a.c",
-            "/Sources/B/b.c",
-            "/Sources/C/c.c",
-        )
-
-        let manifest = Manifest.createRootManifest(
-            displayName: "pkg",
-            defaultSettings: [
-                .init(tool: .linker, kind: .linkedFramework("myframework"))
-            ],
-            toolsVersion: .v6_2,
-            targets: [
-                try TargetDescription(
-                    name: "A",
-                    publicHeadersPath: "."
-                ),
-                try TargetDescription(
-                    name: "B",
-                    publicHeadersPath: ".",
-                    settings: [],
-                ),
-                try TargetDescription(
-                    name: "C",
-                    publicHeadersPath: ".",
-                    settings: [
-                        .init(tool: .linker, kind: .linkedFramework("yourframework")),
-                    ]
-                ),
-            ]
-        )
-
-        try PackageBuilderTester(manifest, in: fs) { package, _ in
-            try package.checkModule("A") { package in
-                let macosDebugScope = BuildSettings.Scope(
-                    package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
-                )
-                #expect(macosDebugScope.evaluate(.LINK_FRAMEWORKS).contains("myframework"))
-            }
-
-            try package.checkModule("B") { package in
-                let macosDebugScope = BuildSettings.Scope(
-                    package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
-                )
-                #expect(macosDebugScope.evaluate(.LINK_FRAMEWORKS).contains("myframework"))
-            }
-
-            try package.checkModule("C") { package in
-                let macosDebugScope = BuildSettings.Scope(
-                    package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
-                )
-                #expect(macosDebugScope.evaluate(.LINK_FRAMEWORKS).contains("myframework"))
-                #expect(macosDebugScope.evaluate(.LINK_FRAMEWORKS).contains("yourframework"))
-            }
-        }
-    }
-
-    @Test
-    func interoperabilityModeResolution() throws {
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/Sources/A/a.swift",
-            "/Sources/B/b.swift",
-            "/Sources/C/c.swift",
-        )
-
-        let manifest = Manifest.createRootManifest(
-            displayName: "pkg",
-            defaultSettings: [
-                .init(tool: .swift, kind: .interoperabilityMode(.C))
-            ],
-            toolsVersion: .v6_2,
-            targets: [
-                try TargetDescription(
-                    name: "A",
-                ),
-                try TargetDescription(
-                    name: "B",
-                    settings: [],
-                ),
-                try TargetDescription(
-                    name: "C",
-                    settings: [
-                        .init(tool: .swift, kind: .interoperabilityMode(.Cxx)),
-                    ]
-                ),
-            ]
-        )
-
-        try PackageBuilderTester(manifest, in: fs) { package, _ in
-            try package.checkModule("A") { package in
-                let macosDebugScope = BuildSettings.Scope(
-                    package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
-                )
-                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("-cxx-interoperability-mode=default") == false)
-            }
-
-            try package.checkModule("B") { package in
-                let macosDebugScope = BuildSettings.Scope(
-                    package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
-                )
-                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("-cxx-interoperability-mode=default") == false)
-            }
-
-            try package.checkModule("C") { package in
-                let macosDebugScope = BuildSettings.Scope(
-                    package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
-                )
-                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("-cxx-interoperability-mode=default"))
-            }
-        }
-    }
-
-    @Test
-    func enableUpcomingFeatureResolution() throws {
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/Sources/A/a.swift",
-            "/Sources/B/b.swift",
-            "/Sources/C/c.swift",
-        )
-
-        let manifest = Manifest.createRootManifest(
-            displayName: "pkg",
-            defaultSettings: [
-                .init(tool: .swift, kind: .enableUpcomingFeature("foo"))
-            ],
-            toolsVersion: .v6_2,
-            targets: [
-                try TargetDescription(
-                    name: "A",
-                ),
-                try TargetDescription(
-                    name: "B",
-                    settings: [],
-                ),
-                try TargetDescription(
-                    name: "C",
-                    settings: [
-                        .init(tool: .swift, kind: .enableUpcomingFeature("bar")),
-                    ]
-                ),
-            ]
-        )
-
-        try PackageBuilderTester(manifest, in: fs) { package, _ in
-            try package.checkModule("A") { package in
-                let macosDebugScope = BuildSettings.Scope(
-                    package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
-                )
-                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("-enable-upcoming-feature"))
-                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("foo"))
-            }
-
-            try package.checkModule("B") { package in
-                let macosDebugScope = BuildSettings.Scope(
-                    package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
-                )
-                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("-enable-upcoming-feature"))
-                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("foo"))
-            }
-
-            try package.checkModule("C") { package in
-                let macosDebugScope = BuildSettings.Scope(
-                    package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
-                )
-                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("-enable-upcoming-feature"))
-                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("foo"))
-                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("bar"))
-            }
-        }
-    }
-
-    @Test
-    func enableExperimentalFeatureResolution() throws {
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/Sources/A/a.swift",
-            "/Sources/B/b.swift",
-            "/Sources/C/c.swift",
-        )
-
-        let manifest = Manifest.createRootManifest(
-            displayName: "pkg",
-            defaultSettings: [
-                .init(tool: .swift, kind: .enableExperimentalFeature("foo"))
-            ],
-            toolsVersion: .v6_2,
-            targets: [
-                try TargetDescription(
-                    name: "A",
-                ),
-                try TargetDescription(
-                    name: "B",
-                    settings: [],
-                ),
-                try TargetDescription(
-                    name: "C",
-                    settings: [
-                        .init(tool: .swift, kind: .enableExperimentalFeature("bar")),
-                    ]
-                ),
-            ]
-        )
-
-        try PackageBuilderTester(manifest, in: fs) { package, _ in
-            try package.checkModule("A") { package in
-                let macosDebugScope = BuildSettings.Scope(
-                    package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
-                )
-                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("-enable-experimental-feature"))
-                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("foo"))
-            }
-
-            try package.checkModule("B") { package in
-                let macosDebugScope = BuildSettings.Scope(
-                    package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
-                )
-                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("-enable-experimental-feature"))
-                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("foo"))
-            }
-
-            try package.checkModule("C") { package in
-                let macosDebugScope = BuildSettings.Scope(
-                    package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
-                )
-                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("-enable-experimental-feature"))
-                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("foo"))
-                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("bar"))
-            }
-        }
-    }
-
-    @Test
-    func strictMemorySafetyResolution() throws {
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/Sources/A/a.swift",
-            "/Sources/B/b.swift",
-        )
-
-        let manifest = Manifest.createRootManifest(
-            displayName: "pkg",
-            defaultSettings: [
-                .init(tool: .swift, kind: .strictMemorySafety)
-            ],
-            toolsVersion: .v6_2,
-            targets: [
-                try TargetDescription(
-                    name: "A",
-                ),
-                try TargetDescription(
-                    name: "B",
-                    settings: [],
-                ),
-            ]
-        )
-
-        try PackageBuilderTester(manifest, in: fs) { package, _ in
-            try package.checkModule("A") { package in
-                let macosDebugScope = BuildSettings.Scope(
-                    package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
-                )
-                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("-strict-memory-safety"))
-            }
-
-            try package.checkModule("B") { package in
-                let macosDebugScope = BuildSettings.Scope(
-                    package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
-                )
-                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("-strict-memory-safety"))
-            }
-        }
-    }
-
-    @Test
-    func unsafeFlagsResolution() throws {
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/Sources/A/a.swift",
-            "/Sources/B/b.swift",
-            "/Sources/C/c.swift",
-        )
-
-        let manifest = Manifest.createRootManifest(
-            displayName: "pkg",
-            defaultSettings: [
-                .init(tool: .swift, kind: .unsafeFlags(["foo"]))
-            ],
-            toolsVersion: .v6_2,
-            targets: [
-                try TargetDescription(
-                    name: "A",
-                ),
-                try TargetDescription(
-                    name: "B",
-                    settings: [],
-                ),
-                try TargetDescription(
-                    name: "C",
-                    settings: [
-                        .init(tool: .swift, kind: .unsafeFlags(["bar"])),
-                    ]
-                ),
-            ]
-        )
-
-        try PackageBuilderTester(manifest, in: fs) { package, _ in
-            try package.checkModule("A") { package in
-                let macosDebugScope = BuildSettings.Scope(
-                    package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
-                )
-                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("foo"))
-            }
-
-            try package.checkModule("B") { package in
-                let macosDebugScope = BuildSettings.Scope(
-                    package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
-                )
-                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("foo"))
-            }
-
-            try package.checkModule("C") { package in
-                let macosDebugScope = BuildSettings.Scope(
-                    package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
-                )
-                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("foo") == false)
-                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("bar"))
-            }
-        }
-    }
-
-    @Test
-    func swiftLanguageModeResolution() throws {
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/Sources/A/a.swift",
-            "/Sources/B/b.swift",
-            "/Sources/C/c.swift",
-        )
-
-        let manifest = Manifest.createRootManifest(
-            displayName: "pkg",
-            defaultSettings: [
-                .init(tool: .swift, kind: .swiftLanguageMode(.v5))
-            ],
-            toolsVersion: .v6_2,
-            targets: [
-                try TargetDescription(
-                    name: "A",
-                ),
-                try TargetDescription(
-                    name: "B",
-                    settings: [],
-                ),
-                try TargetDescription(
-                    name: "C",
-                    settings: [
-                        .init(tool: .swift, kind: .swiftLanguageMode(.v6)),
-                    ]
-                ),
-            ]
-        )
-
-        try PackageBuilderTester(manifest, in: fs) { package, _ in
-            try package.checkModule("A") { package in
-                let macosDebugScope = BuildSettings.Scope(
-                    package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
-                )
-                #expect(macosDebugScope.evaluate(.SWIFT_VERSION).contains("5"))
-            }
-
-            try package.checkModule("B") { package in
-                let macosDebugScope = BuildSettings.Scope(
-                    package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
-                )
-                #expect(macosDebugScope.evaluate(.SWIFT_VERSION).contains("5"))
-            }
-
-            try package.checkModule("C") { package in
-                let macosDebugScope = BuildSettings.Scope(
-                    package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
-                )
-                #expect(macosDebugScope.evaluate(.SWIFT_VERSION).contains("6"))
-            }
-        }
-    }
-
-    @Test
-    func treatAllWarningsResolution() throws {
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/Sources/A/a.swift",
-            "/Sources/B/b.swift",
-            "/Sources/C/c.swift",
-        )
-
-        let manifest = Manifest.createRootManifest(
-            displayName: "pkg",
-            defaultSettings: [
-                .init(tool: .swift, kind: .treatAllWarnings(.error))
-            ],
-            toolsVersion: .v6_2,
-            targets: [
-                try TargetDescription(
-                    name: "A",
-                ),
-                try TargetDescription(
-                    name: "B",
-                    settings: [],
-                ),
-                try TargetDescription(
-                    name: "C",
-                    settings: [
-                        .init(tool: .swift, kind: .treatAllWarnings(.warning)),
-                    ]
-                ),
-            ]
-        )
-
-        try PackageBuilderTester(manifest, in: fs) { package, _ in
-            try package.checkModule("A") { package in
-                let macosDebugScope = BuildSettings.Scope(
-                    package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
-                )
-                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("-warnings-as-errors"))
-            }
-
-            try package.checkModule("B") { package in
-                let macosDebugScope = BuildSettings.Scope(
-                    package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
-                )
-                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("-warnings-as-errors"))
-            }
-
-            try package.checkModule("C") { package in
-                let macosDebugScope = BuildSettings.Scope(
-                    package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
-                )
-                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("-warnings-as-errors") == false)
-            }
-        }
-    }
-
-    @Test
-    func treatWarningResolution() throws {
+    func defaultUnsafeFlagsAreRejected() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Sources/A/a.swift",
             "/Sources/B/b.swift",
@@ -745,291 +446,103 @@ struct DefaultLoadingTests {
         let manifest = Manifest.createRootManifest(
             displayName: "pkg",
             defaultSettings: [
-                .init(tool: .swift, kind: .treatWarning("foo", .error))
+                .init(tool: .swift, kind: .unsafeFlags(["anything"]))
             ],
             toolsVersion: .v6_2,
             targets: [
                 try TargetDescription(
                     name: "A",
+                    publicHeadersPath: ".",
+                    explicitSettings: .none
                 ),
                 try TargetDescription(
                     name: "B",
+                    publicHeadersPath: ".",
                     settings: [],
-                ),
-                try TargetDescription(
-                    name: "C",
-                    settings: [
-                        .init(tool: .swift, kind: .treatWarning("foo", .warning))
-                    ]
-                ),
-                try TargetDescription(
-                    name: "D",
-                    settings: [
-                        .init(tool: .swift, kind: .treatWarning("bar", .error))
-                    ]
-                ),
-            ]
-        )
-
-        try PackageBuilderTester(manifest, in: fs) { package, _ in
-            try package.checkModule("A") { package in
-                let macosDebugScope = BuildSettings.Scope(
-                    package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
-                )
-                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("-Werror"))
-                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("foo"))
-            }
-
-            try package.checkModule("B") { package in
-                let macosDebugScope = BuildSettings.Scope(
-                    package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
-                )
-                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("-Werror"))
-                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("foo"))
-            }
-
-            try package.checkModule("C") { package in
-                let macosDebugScope = BuildSettings.Scope(
-                    package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
-                )
-                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("-Wwarning"))
-                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("foo"))
-            }
-
-            try package.checkModule("D") { package in
-                let macosDebugScope = BuildSettings.Scope(
-                    package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
-                )
-                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("-Werror"))
-                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("foo"))
-                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("-Wwarning") == false)
-                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("bar"))
-            }
-        }
-    }
-
-    @Test
-    func enableWarningResolution() throws {
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/Sources/A/a.c",
-            "/Sources/B/b.c",
-            "/Sources/C/c.c",
-            "/Sources/D/d.c",
-        )
-
-        let manifest = Manifest.createRootManifest(
-            displayName: "pkg",
-            defaultSettings: [
-                .init(tool: .c, kind: .enableWarning("foo"))
-            ],
-            toolsVersion: .v6_2,
-            targets: [
-                try TargetDescription(
-                    name: "A",
-                    publicHeadersPath: "."
-                ),
-                try TargetDescription(
-                    name: "B",
-                    publicHeadersPath: ".",
-                    settings: []
+                    explicitSettings: .all
                 ),
                 try TargetDescription(
                     name: "C",
                     publicHeadersPath: ".",
                     settings: [
-                        .init(tool: .c, kind: .enableWarning("bar")),
-                    ]
+                        .init(tool: .swift, kind: .unsafeFlags(["another"]))
+                    ],
+                    explicitSettings: .init(swift: true, c: false, cxx: false, linker: false)
                 ),
                 try TargetDescription(
                     name: "D",
                     publicHeadersPath: ".",
                     settings: [
-                        .init(tool: .c, kind: .disableWarning("foo")),
-                    ]
+                        .init(tool: .swift, kind: .inherited),
+                        .init(tool: .swift, kind: .unsafeFlags(["another"]))
+                    ],
+                    explicitSettings: .init(swift: true, c: false, cxx: false, linker: false)
                 ),
             ]
         )
 
-        try PackageBuilderTester(manifest, in: fs) { package, _ in
-            try package.checkModule("A") { package in
-                print(package.target.buildSettings)
-                let macosDebugScope = BuildSettings.Scope(
-                    package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
-                )
-                #expect(macosDebugScope.evaluate(.OTHER_CFLAGS).contains("-Wfoo"))
-            }
-
-            try package.checkModule("B") { package in
-                let macosDebugScope = BuildSettings.Scope(
-                    package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
-                )
-                #expect(macosDebugScope.evaluate(.OTHER_CFLAGS).contains("-Wfoo"))
-            }
-
-            try package.checkModule("C") { package in
-                let macosDebugScope = BuildSettings.Scope(
-                    package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
-                )
-                #expect(macosDebugScope.evaluate(.OTHER_CFLAGS).contains("-Wfoo"))
-                #expect(macosDebugScope.evaluate(.OTHER_CFLAGS).contains("-Wbar"))
-            }
-
-            try package.checkModule("D") { package in
-                let macosDebugScope = BuildSettings.Scope(
-                    package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
-                )
-                #expect(macosDebugScope.evaluate(.OTHER_CFLAGS).contains("-Wfoo") == false)
-            }
+        try PackageBuilderTester(manifest, in: fs) { package, diagnostics in
+            diagnostics.check(
+                diagnostic: "configuration of package '\(package.packageIdentity)' is invalid; default settings cannot contain unsafe flags",
+                severity: .error
+            )
         }
     }
 
     @Test
-    func disableWarningResolution() throws {
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/Sources/A/a.c",
-            "/Sources/B/b.c",
-            "/Sources/C/c.c",
-            "/Sources/D/d.c",
-        )
-
-        let manifest = Manifest.createRootManifest(
-            displayName: "pkg",
-            defaultSettings: [
-                .init(tool: .c, kind: .disableWarning("foo"))
-            ],
-            toolsVersion: .v6_2,
-            targets: [
-                try TargetDescription(
-                    name: "A",
-                    publicHeadersPath: "."
-                ),
-                try TargetDescription(
-                    name: "B",
-                    publicHeadersPath: ".",
-                    settings: []
-                ),
-                try TargetDescription(
-                    name: "C",
-                    publicHeadersPath: ".",
-                    settings: [
-                        .init(tool: .c, kind: .disableWarning("bar")),
-                    ]
-                ),
-                try TargetDescription(
-                    name: "D",
-                    publicHeadersPath: ".",
-                    settings: [
-                        .init(tool: .c, kind: .enableWarning("foo")),
-                    ]
-                ),
-            ]
-        )
-
-        try PackageBuilderTester(manifest, in: fs) { package, _ in
-            try package.checkModule("A") { package in
-                print(package.target.buildSettings)
-                let macosDebugScope = BuildSettings.Scope(
-                    package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
-                )
-                #expect(macosDebugScope.evaluate(.OTHER_CFLAGS).contains("-Wno-foo"))
-            }
-
-            try package.checkModule("B") { package in
-                let macosDebugScope = BuildSettings.Scope(
-                    package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
-                )
-                #expect(macosDebugScope.evaluate(.OTHER_CFLAGS).contains("-Wno-foo"))
-            }
-
-            try package.checkModule("C") { package in
-                let macosDebugScope = BuildSettings.Scope(
-                    package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
-                )
-                #expect(macosDebugScope.evaluate(.OTHER_CFLAGS).contains("-Wno-foo"))
-                #expect(macosDebugScope.evaluate(.OTHER_CFLAGS).contains("-Wno-bar"))
-            }
-
-            try package.checkModule("D") { package in
-                let macosDebugScope = BuildSettings.Scope(
-                    package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
-                )
-                #expect(macosDebugScope.evaluate(.OTHER_CFLAGS).contains("-Wfoo"))
-                #expect(macosDebugScope.evaluate(.OTHER_CFLAGS).contains("-Wno-foo") == false)
-            }
-        }
-    }
-
-    @Test
-    func defaultIsolationResolution() throws {
+    func emptyDefaultsAreAccepted() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Sources/A/a.swift",
-            "/Sources/B/b.swift",
-            "/Sources/C/c.swift",
         )
 
         let manifest = Manifest.createRootManifest(
             displayName: "pkg",
             defaultSettings: [
-                .init(tool: .swift, kind: .defaultIsolation(.MainActor))
             ],
             toolsVersion: .v6_2,
             targets: [
                 try TargetDescription(
-                    name: "A"
-                ),
-                try TargetDescription(
-                    name: "B",
-                    settings: []
-                ),
-                try TargetDescription(
-                    name: "C",
+                    name: "A",
                     settings: [
-                        .init(tool: .swift, kind: .defaultIsolation(.nonisolated)),
-                    ]
+                        .init(tool: .swift, kind: .inherited)
+                    ],
+                    explicitSettings: .init(swift: true, c: false, cxx: false, linker: false)
                 ),
             ]
         )
 
-        try PackageBuilderTester(manifest, in: fs) { package, _ in
-            try package.checkModule("A") { package in
-                let macosDebugScope = BuildSettings.Scope(
-                    package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
-                )
-                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("-default-isolation"))
-                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("MainActor"))
-            }
-
-            try package.checkModule("B") { package in
-                let macosDebugScope = BuildSettings.Scope(
-                    package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
-                )
-                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("-default-isolation"))
-                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("MainActor"))
-            }
-
-            try package.checkModule("C") { package in
-                let macosDebugScope = BuildSettings.Scope(
-                    package.target.buildSettings,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
-                )
-                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("-default-isolation"))
-                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("nonisolated"))
-                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("MainActor") == false)
+        try PackageBuilderTester(manifest, in: fs) { package, diagnostics in
+            try package.checkModule("A") { module in
             }
         }
     }
+
+    @Test
+    func inheritanceWithoutSwiftDefaultsIsRejected() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/A/a.swift",
+        )
+
+        let manifest = Manifest.createRootManifest(
+            displayName: "pkg",
+            toolsVersion: .v6_2,
+            targets: [
+                try TargetDescription(
+                    name: "A",
+                    settings: [
+                        .init(tool: .swift, kind: .inherited)
+                    ],
+                    explicitSettings: .init(swift: true, c: false, cxx: false, linker: false)
+                ),
+            ]
+        )
+
+        try PackageBuilderTester(manifest, in: fs) { package, diagnostics in
+            diagnostics.check(
+                diagnostic: "configuration of package '\(package.packageIdentity)' is invalid; inheritance cannot be used without default values",
+                severity: .error
+            )
+        }
+    }
+
 }
