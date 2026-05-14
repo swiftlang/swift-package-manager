@@ -458,7 +458,7 @@ public final class PackagePIFBuilder {
     @discardableResult
     public func build() throws -> [ModuleOrProduct] {
         self.log(
-            .info,
+            .debug,
             "Building PIF project for package '\(self.package.identity)' " +
             "(\(package.products.count) products, \(package.modules.count) modules)"
         )
