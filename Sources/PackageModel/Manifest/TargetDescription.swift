@@ -182,6 +182,8 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
 
     /// The target-specific build settings declared in this target.
     public let settings: [TargetBuildSettingDescription.Setting]
+
+    /// Models the presence of explicitly-defined settings for each tool type.
     public let explicitSettings: ExplicitSettings
 
     public struct ExplicitSettings: Hashable, Codable, Sendable {
