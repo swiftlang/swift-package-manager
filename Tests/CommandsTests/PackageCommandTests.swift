@@ -5081,6 +5081,53 @@ struct PackageCommandTests {
                 }
             }
         }
+
+        @Test(
+            .requiresWorkingDirectorySupport,
+        )
+        func archiveSourceFiltersSensitiveFilesFromNonGitDirectory() async throws {
+            let observability = ObservabilitySystem.makeForTesting()
+
+            try await withTemporaryDirectory { temporaryDirectory in
+                let packageDirectory = temporaryDirectory.appending("MyPackage")
+                try localFileSystem.createDirectory(packageDirectory)
+
+                let initPackage = try InitPackage(
+                    name: "MyPackage",
+                    packageType: .executable,
+                    destinationPath: packageDirectory,
+                    fileSystem: localFileSystem
+                )
+                try initPackage.writePackageStructure()
+
+                for relativePath in [".env", "id_rsa", "credentials.json", "Sources/api.key"] {
+                    let target = packageDirectory.appending(components: relativePath.split(separator: "/").map(String.init))
+                    try localFileSystem.createDirectory(target.parentDirectory, recursive: true)
+                    try localFileSystem.writeFileContents(target, bytes: "SECRET=leak")
+                }
+
+                let archivePath = temporaryDirectory.appending("MyPackage.zip")
+                try await SwiftPackageCommand.archiveSource(
+                    at: packageDirectory,
+                    to: archivePath,
+                    fileSystem: localFileSystem,
+                    cancellator: .none,
+                    observabilityScope: observability.topScope
+                )
+
+                let archiver = UniversalArchiver(localFileSystem)
+                let extractPath = temporaryDirectory.appending("extracted")
+                try localFileSystem.createDirectory(extractPath)
+                try await archiver.extract(from: archivePath, to: extractPath)
+                try localFileSystem.stripFirstLevel(of: extractPath)
+
+                for relativePath in [".env", "id_rsa", "credentials.json", "Sources/api.key"] {
+                    let path = extractPath.appending(components: relativePath.split(separator: "/").map(String.init))
+                    expectFileDoesNotExists(at: path)
+                }
+                expectFileExists(at: extractPath.appending("Package.swift"))
+            }
+        }
     }
 
     @Suite(

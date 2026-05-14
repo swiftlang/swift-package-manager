@@ -14,6 +14,7 @@
 import Basics
 import Dispatch
 import class Foundation.NSLock
+import struct Foundation.UUID
 
 import struct PackageModel.CanonicalPackageURL
 
@@ -527,6 +528,21 @@ public final class GitRepository: Repository, WorkingCheckout {
         failureMessage: String = "",
         progress: FetchProgress.Handler? = nil
     ) throws -> String {
+        try callGit(
+            args.map { $0 },
+            environment: environment,
+            failureMessage: failureMessage,
+            progress: progress
+        )
+    }
+
+    @discardableResult
+    private func callGit(
+        _ args: [String],
+        environment: Environment = .init(Git.environmentBlock),
+        failureMessage: String = "",
+        progress: FetchProgress.Handler? = nil
+    ) throws -> String {
         if let progress {
             var stdoutBytes: [UInt8] = [], stderrBytes: [UInt8] = []
             do {
@@ -916,21 +932,38 @@ public final class GitRepository: Repository, WorkingCheckout {
         }
     }
 
-    public func archive(to path: AbsolutePath) throws {
+    public func archive(
+        to path: AbsolutePath,
+        prefix: String? = nil,
+        exportIgnoring: [String] = []
+    ) throws {
         guard self.isWorkingRepo else {
             throw InternalError("This operation is only valid in a working repository")
         }
 
         try self.lock.withLock {
-            try callGit(
+            let archivePrefix = "\(prefix ?? path.basenameWithoutExt)/"
+            let archiveArgs = [
                 "archive",
-                "--format",
-                "zip",
-                "--prefix",
-                "\(path.basenameWithoutExt)/",
-                "--output",
-                path.pathString,
+                "--format", "zip",
+                "--prefix", archivePrefix,
+                "--output", path.pathString,
                 "HEAD",
+            ]
+
+            if exportIgnoring.isEmpty {
+                try callGit(archiveArgs, failureMessage: "Couldn’t create an archive")
+                return
+            }
+
+            let attributesFile = try localFileSystem.tempDirectory
+                .appending("spm-export-ignore-\(UUID().uuidString).attributes")
+            let content = exportIgnoring.map { "\($0) export-ignore\n" }.joined()
+            try localFileSystem.writeFileContents(attributesFile, string: content)
+            defer { try? localFileSystem.removeFileTree(attributesFile) }
+
+            try callGit(
+                ["-c", "core.attributesFile=\(attributesFile.pathString)"] + archiveArgs,
                 failureMessage: "Couldn’t create an archive"
             )
         }
