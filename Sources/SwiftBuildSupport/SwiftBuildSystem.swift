@@ -779,8 +779,23 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
     private func makeRunDestination(session: SWBBuildServiceSession) async throws -> SwiftBuild.SWBRunDestinationInfo {
         if let sdkManifestPath = self.buildParameters.toolchain.swiftSDK.swiftSDKManifest {
+            let swiftSDK = self.buildParameters.toolchain.swiftSDK
+            let triple = self.buildParameters.triple.tripleString
+            let paths = swiftSDK.pathsConfiguration
+            let tripleProperties = SwiftBuild.SWBSwiftSDK.TripleProperties(
+                sdkRootPath: paths.sdkRootPath?.pathString,
+                swiftResourcesPath: paths.swiftResourcesPath?.pathString,
+                swiftStaticResourcesPath: paths.swiftStaticResourcesPath?.pathString,
+                includeSearchPaths: paths.includeSearchPaths?.map(\.pathString),
+                librarySearchPaths: paths.librarySearchPaths?.map(\.pathString),
+                toolsetPaths: paths.toolsetPaths?.map(\.pathString)
+            )
+            let inMemorySDK = SwiftBuild.SWBSwiftSDK(
+                manifestPath: sdkManifestPath.pathString,
+                targetTriples: [triple: tripleProperties]
+            )
             return SwiftBuild.SWBRunDestinationInfo(
-                buildTarget: .swiftSDK(sdkManifestPath: sdkManifestPath.pathString, triple: self.buildParameters.triple.tripleString),
+                buildTarget: .swiftSDK(swiftSDK: inMemorySDK, triple: triple),
                 targetArchitecture: buildParameters.triple.archName,
                 supportedArchitectures: [],
                 disableOnlyActiveArch: (buildParameters.architectures?.count ?? 1) > 1,
