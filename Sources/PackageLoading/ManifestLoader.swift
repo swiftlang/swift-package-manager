@@ -361,10 +361,13 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             ))
         }
 
-        let defaultSettings = (parsedManifest.defaultSwiftSettings ?? []) +
-            (parsedManifest.defaultCSettings ?? []) +
-            (parsedManifest.defaultCXXSettings ?? []) +
-            (parsedManifest.defaultLinkerSettings ?? [])
+        let defaultSwiftSettings = parsedManifest.defaultSwiftSettings ?? []
+        let defaultCSettings = parsedManifest.defaultCSettings ?? []
+        let defaultCXXSettings = parsedManifest.defaultCXXSettings ?? []
+        let defaultLinkerSettings = parsedManifest.defaultLinkerSettings ?? []
+
+        let defaultSettings: [TargetBuildSettingDescription.Setting] =
+            defaultSwiftSettings + defaultCSettings + defaultCXXSettings + defaultLinkerSettings
 
         let manifest = Manifest(
             displayName: parsedManifest.name,
