@@ -37,8 +37,7 @@ import Foundation
 import SWBBuildService
 import SwiftBuild
 import enum SWBCore.SwiftAPIDigesterMode
-import struct SWBUtil.XcodeVersionInfo
-import struct SWBUtil.Path
+import SWBUtil
 
 struct SessionFailedError: Error {
     var error: Error
@@ -250,6 +249,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
     private let logLevel: Basics.Diagnostic.Severity
     private var packageGraph: AsyncThrowingValueMemoizer<ModulesGraph> = .init()
     private var pifBuilder: AsyncThrowingValueMemoizer<PIFBuilder> = .init()
+    private let buildProductsDirectorySuffixCache = AsyncCache<String, String>()
     private let fileSystem: FileSystem
     private let observabilityScope: ObservabilityScope
 
@@ -274,8 +274,8 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
                 for package in graph.rootPackages {
                     for product in package.products where product.type == .test {
-                        let binaryPath = try buildParameters.binaryPath(for: product)
-                        let coverageBinaryPath = try buildParameters.buildPath.appending(
+                        let binaryPath = try await self.binaryPath(for: product, parameters: buildParameters)
+                        let coverageBinaryPath = try await self.buildProductsPath(for: buildParameters).appending(
                             buildParameters.testCoverageBinaryRelativePath(forTestProductName: product.name)
                         )
                         builtProducts.append(
@@ -306,6 +306,24 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
     }
 
     public var hasIntegratedAPIDigesterSupport: Bool { true }
+
+    public func buildProductsPath(for parameters: BuildParameters) async throws -> Basics.AbsolutePath {
+        let suffix = try await buildProductsDirectorySuffixCache.value(forKey: parameters.triple.tripleString) {
+            try await withService(connectionMode: .inProcessStatic(swiftbuildServiceEntryPoint)) { service in
+                var suffix: String?
+                try await withSession(service: service, name: "swiftpm-build-products-path", toolchain: parameters.toolchain, packageManagerResourcesDirectory: self.packageManagerResourcesDirectory) { session, _ in
+                    let info = try await session.buildTargetInfo(triple: parameters.triple.tripleString)
+                    suffix = info.buildProductsDirectorySuffix
+                }
+                guard let suffix else {
+                    throw StringError("Failed to query build system for build products path suffix")
+                }
+                return suffix
+            }
+        }
+        let configDir = parameters.configuration.dirname.capitalized + suffix
+        return parameters.dataPath.appending(components: "Products", configDir)
+    }
 
     public var enableTaskBacktraces: Bool {
         self.buildParameters.outputParameters.enableTaskBacktraces
@@ -413,11 +431,12 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             replArguments: nil,
         )
 
+        let productsPath = try await self.buildProductsPath(for: self.buildParameters)
         defer {
-            if self.fileSystem.exists(self.buildParameters.buildPath, followSymlink: true) {
+            if self.fileSystem.exists(productsPath, followSymlink: true) {
                 createBuildSymbolicLinks(
                     self.scratchDirectory.appending(component: self.buildParameters.configuration.dirname),
-                    pointingAt: self.buildParameters.buildPath,
+                    pointingAt: productsPath,
                     fileSystem: self.fileSystem,
                     observabilityScope: self.observabilityScope,
                 )
@@ -997,7 +1016,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         case .on:
             for setting in indexStoreSettingNames {
                 settings[setting.enableVariableName] = "YES"
-                settings[setting.pathVariable] = self.buildParameters.indexStore.pathStringWithPosixSlashes
+                settings[setting.pathVariable] = try await self.indexStore(for: self.buildParameters).pathStringWithPosixSlashes
             }
         case .off:
             for setting in indexStoreSettingNames {
@@ -1318,6 +1337,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                     addLocalRpaths: !self.buildParameters.linkingParameters.shouldDisableLocalRpath,
                     materializeStaticArchiveProductsForRootPackages: materializeStaticArchiveProductsForRootPackages,
                     createDynamicVariantsForLibraryProducts: false,
+                    hostBuildProductsPath: try await self.buildProductsPath(for: self.hostBuildParameters)
                 ),
                 fileSystem: self.fileSystem,
                 observabilityScope: self.observabilityScope,
@@ -1333,8 +1353,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         return try await pifBuilder.generatePIF(
             preservePIFModelStructure: preserveStructure,
             printPIFManifestGraphviz: buildParameters.printPIFManifestGraphviz,
-            buildParameters: buildParameters,
-            hostBuildParameters: hostBuildParameters
+            buildParameters: buildParameters
         )
     }
 

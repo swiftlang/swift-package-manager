@@ -74,7 +74,7 @@ package struct LLBuildSystemConfiguration {
         self.traitConfiguration = traitConfiguration
         self.manifestPath = manifestPath ?? destinationBuildParameters.llbuildManifest
         self.databasePath = databasePath ?? scratchDirectory.appending("build.db")
-        self.buildDescriptionPath = buildDescriptionPath ?? destinationBuildParameters.buildDescriptionPath
+        self.buildDescriptionPath = buildDescriptionPath ?? BuildOperation.buildDescriptionPath(for: destinationBuildParameters)
         self.fileSystem = fileSystem
         self.logLevel = logLevel
         self.outputStream = outputStream
@@ -109,13 +109,6 @@ package struct LLBuildSystemConfiguration {
         }
     }
 
-    func buildPath(for description: BuildParameters.Destination) -> AbsolutePath {
-        switch description {
-        case .host: self.toolsBuildParameters.buildPath
-        case .target: self.destinationBuildParameters.buildPath
-        }
-    }
-
     func dataPath(for description: BuildParameters.Destination) -> AbsolutePath {
         switch description {
         case .host: self.toolsBuildParameters.dataPath
@@ -125,8 +118,8 @@ package struct LLBuildSystemConfiguration {
 
     func buildDescriptionPath(for description: BuildParameters.Destination) -> AbsolutePath {
         switch description {
-        case .host: self.toolsBuildParameters.buildDescriptionPath
-        case .target: self.destinationBuildParameters.buildDescriptionPath
+        case .host: BuildOperation.buildDescriptionPath(for: self.toolsBuildParameters)
+        case .target: BuildOperation.buildDescriptionPath(for: self.destinationBuildParameters)
         }
     }
 
@@ -199,6 +192,44 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     private let pkgConfigDirectories: [AbsolutePath]
 
     public var hasIntegratedAPIDigesterSupport: Bool { false }
+
+    public func buildProductsPath(for parameters: BuildParameters) async throws -> AbsolutePath {
+        Self.buildProductsPath(for: parameters)
+    }
+
+    public static func buildProductsPath(for parameters: BuildParameters) -> AbsolutePath {
+        parameters.dataPath.appending(component: parameters.configuration.dirname)
+    }
+
+    /// The path to the index store directory for the given build parameters under the native build system.
+    public static func indexStore(for parameters: BuildParameters) -> AbsolutePath {
+        buildProductsPath(for: parameters).appending(components: "index", "store")
+    }
+
+    /// The path to the build description for the given build parameters under the native build system.
+    public static func buildDescriptionPath(for parameters: BuildParameters) -> AbsolutePath {
+        buildProductsPath(for: parameters).appending(components: "description.json")
+    }
+
+    /// The path to the test output file for the given build parameters under the native build system.
+    public static func testOutputPath(for parameters: BuildParameters) -> AbsolutePath {
+        buildProductsPath(for: parameters).appending(component: "testOutput.txt")
+    }
+
+    /// Returns the path to the binary of a product for the given build parameters under the native build system.
+    public static func binaryPath(for product: ResolvedProduct, parameters: BuildParameters) throws -> AbsolutePath {
+        try buildProductsPath(for: parameters).appending(parameters.binaryRelativePath(for: product))
+    }
+
+    /// Returns the path to the built binary for a macro module under the native build system.
+    public static func macroBinaryPath(for module: ResolvedModule, parameters: BuildParameters) throws -> AbsolutePath {
+        assert(module.type == .macro)
+        #if BUILD_MACROS_AS_DYLIBS
+        return try buildProductsPath(for: parameters).appending(parameters.dynamicLibraryPath(for: module.name))
+        #else
+        return try buildProductsPath(for: parameters).appending(parameters.executablePath(for: module.name))
+        #endif
+    }
 
     public convenience init(
         productsBuildParameters: BuildParameters,
@@ -524,7 +555,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         do {
             try self.fileSystem.createSymbolicLink(
                 oldBuildPath,
-                pointingAt: self.config.buildPath(for: .target),
+                pointingAt: Self.buildProductsPath(for: self.config.destinationBuildParameters),
                 relative: true
             )
         } catch {
@@ -984,7 +1015,7 @@ extension BuildOperation {
         // `buildPackageStructure` to recognize the split.
         config.databasePath = config.scratchDirectory.appending("plugin-tools.db")
 
-        config.buildDescriptionPath = config.buildPath(for: .host).appending(
+        config.buildDescriptionPath = Self.buildProductsPath(for: self.config.toolsBuildParameters).appending(
             component: "plugin-tools-description.json"
         )
 
@@ -1034,7 +1065,7 @@ extension BuildOperation {
                     if let result = try await buildToolBuilder(name, path) {
                         return result
                     } else {
-                        return config.buildPath(for: .host).appending(path)
+                        return Self.buildProductsPath(for: config.toolsBuildParameters).appending(path)
                     }
                 }
 

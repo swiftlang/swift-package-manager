@@ -256,6 +256,7 @@ public struct BuildParameters: Encodable {
     }
 
     /// The path to the build directory (inside the data directory).
+    @available(*, deprecated, message: "Use BuildSystem.buildProductsPath(for:) instead. This is preserved temporarily to support sourcekit-lsp")
     public var buildPath: Basics.AbsolutePath {
         // TODO: query the build system for this.
         switch buildSystemKind {
@@ -277,19 +278,10 @@ public struct BuildParameters: Encodable {
     }
 
     /// The path to the index store directory.
+    @available(*, deprecated, message: "Use BuildSystem.indexStore(for:) instead. This is preserved temporarily to support sourcekit-lsp")
     public var indexStore: Basics.AbsolutePath {
         assert(indexStoreMode != .off, "index store is disabled")
         return buildPath.appending(components: "index", "store")
-    }
-
-    /// The path to the code coverage directory.
-    public var codeCovPath: Basics.AbsolutePath {
-        return buildPath.appending("codecov")
-    }
-
-    /// The path to the code coverage profdata file.
-    public var codeCovDataFile: Basics.AbsolutePath {
-        return codeCovPath.appending("default.profdata")
     }
 
     public var llbuildManifest: Basics.AbsolutePath {
@@ -304,30 +296,8 @@ public struct BuildParameters: Encodable {
         return dataPath.appending(components: "..", "manifest.pif")
     }
 
-    public var buildDescriptionPath: Basics.AbsolutePath {
-        // FIXME: this path isn't specific to `BuildParameters`, should be moved one directory level higher
-        return buildPath.appending(components: "description.json")
-    }
-
-    public var testOutputPath: Basics.AbsolutePath {
-        return buildPath.appending(component: "testOutput.txt")
-    }
-    /// Returns the path to the binary of a product for the current build parameters.
-    public func binaryPath(for product: ResolvedProduct) throws -> Basics.AbsolutePath {
-        return try buildPath.appending(binaryRelativePath(for: product))
-    }
-
-    public func macroBinaryPath(_ module: ResolvedModule) throws -> Basics.AbsolutePath {
-        assert(module.type == .macro)
-        #if BUILD_MACROS_AS_DYLIBS
-        return buildPath.appending(try dynamicLibraryPath(for: module.name))
-        #else
-        return buildPath.appending(try executablePath(for: module.name))
-        #endif
-    }
-
     /// Returns the path to the dynamic library of a product for the current build parameters.
-    private func dynamicLibraryPath(for name: String) throws -> Basics.RelativePath {
+    package func dynamicLibraryPath(for name: String) throws -> Basics.RelativePath {
         try RelativePath(validating: "\(self.triple.dynamicLibraryPrefix)\(name)\(self.suffix)\(self.triple.dynamicLibraryExtension)")
     }
 

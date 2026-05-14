@@ -30,7 +30,8 @@ extension PIFBuilderParameters {
         temporaryDirectory: Basics.AbsolutePath,
         addLocalRpaths: Bool,
         shouldCreateDylibForDynamicProducts: Bool = false,
-        pluginScriptRunner: PluginScriptRunner? = nil
+        pluginScriptRunner: PluginScriptRunner? = nil,
+        hostBuildProductsPath: Basics.AbsolutePath? = nil
     ) throws -> Self {
         try self.init(
             isPackageAccessModifierSupported: true,
@@ -49,7 +50,8 @@ extension PIFBuilderParameters {
             disableSandbox: false,
             pluginWorkingDirectory: temporaryDirectory.appending(component: "plugin-working-dir"),
             additionalFileRules: [],
-            addLocalRPaths: addLocalRpaths
+            addLocalRPaths: addLocalRpaths,
+            hostBuildProductsPath: hostBuildProductsPath ?? temporaryDirectory.appending(component: "host-build-products")
         )
     }
 }
@@ -59,16 +61,11 @@ fileprivate func withGeneratedPIF(
     addLocalRpaths: Bool = true,
     shouldCreateDylibForDynamicProducts: Bool = true,
     buildParameters: BuildParameters? = nil,
-    hostBuildParameters: BuildParameters? = nil,
+    hostBuildProductsPath: AbsolutePath? = nil,
     do doIt: (SwiftBuildSupport.PIF.TopLevelObject, TestingObservability) async throws -> ()
 ) async throws {
     let buildParameters = if let buildParameters {
         buildParameters
-    } else {
-        mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
-    }
-    let hostBuildParameters = if let hostBuildParameters {
-        hostBuildParameters
     } else {
         mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
     }
@@ -94,14 +91,14 @@ fileprivate func withGeneratedPIF(
             parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
                 temporaryDirectory: fixturePath,
                 addLocalRpaths: addLocalRpaths,
-                shouldCreateDylibForDynamicProducts: shouldCreateDylibForDynamicProducts
+                shouldCreateDylibForDynamicProducts: shouldCreateDylibForDynamicProducts,
+                hostBuildProductsPath: hostBuildProductsPath
             ),
             fileSystem: localFileSystem,
             observabilityScope: observabilitySystem.topScope
         )
         let (pif, _) = try await builder.constructPIF(
-            buildParameters: buildParameters,
-            hostBuildParameters: hostBuildParameters
+            buildParameters: buildParameters
         )
         try await doIt(pif, observabilitySystem)
     }
@@ -392,8 +389,7 @@ struct PIFBuilderTests {
 
         // Act
         let (pif, _) = try await pifBuilder.constructPIF(
-            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild),
-            hostBuildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
         )
 
         // Assert
@@ -511,11 +507,6 @@ struct PIFBuilderTests {
     @Test func buildToolPluginCommandLineUsesHostBuildPath() async throws {
         let hostBuildPath = AbsolutePath("/path/to/host/build")
         let destBuildPath = AbsolutePath("/path/to/dest/build")
-        let hostBuildParams = mockBuildParameters(
-            destination: .host,
-            buildPath: hostBuildPath,
-            buildSystemKind: .swiftbuild
-        )
         let destBuildParams = mockBuildParameters(
             destination: .host,
             buildPath: destBuildPath,
@@ -525,7 +516,7 @@ struct PIFBuilderTests {
         try await withGeneratedPIF(
             fromFixture: "Miscellaneous/Plugins/MySourceGenPlugin",
             buildParameters: destBuildParams,
-            hostBuildParameters: hostBuildParams
+            hostBuildProductsPath: hostBuildPath
         ) { pif, observabilitySystem in
             let project = try pif.workspace.project(named: "MySourceGenPlugin")
             let target = try project.target(named: "MyLocalTool-product")
@@ -827,8 +818,7 @@ struct PIFBuilderTests {
             observabilityScope: observability.topScope
         )
         let (pif, _) = try await pifBuilder.constructPIF(
-            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild),
-            hostBuildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
         )
 
         let remoteProject = try pif.workspace.project(named: "remote-pkg")
@@ -966,8 +956,7 @@ struct PIFBuilderTests {
         )
 
         let (pif, _) = try await pifBuilder.constructPIF(
-            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild),
-            hostBuildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
         )
 
         let project = try pif.workspace.project(named: "Root")
@@ -1060,8 +1049,7 @@ struct PIFBuilderTests {
         )
 
         let (pif, _) = try await pifBuilder.constructPIF(
-            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild),
-            hostBuildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
         )
 
         let project = try pif.workspace.project(named: "Pkg")
