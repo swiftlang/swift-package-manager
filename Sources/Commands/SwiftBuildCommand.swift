@@ -80,10 +80,27 @@ struct BuildCommandOptions: ParsableArguments {
     var buildTests: Bool = false
 
     /// Whether to enable code coverage.
-    @Flag(name: .customLong("code-coverage"),
-          inversion: .prefixedEnableDisable,
-          help: "Determines whether the build measures code coverage.")
-    var enableCodeCoverage: Bool = false
+    @Flag(
+        name: [
+            .customLong("enable-coverage"),
+        ],
+        help: "Enable code coverage.",
+    )
+    var _enableCoverage: Bool = false
+
+    /// Whether to enable code coverage.
+    @Flag(
+        name: [
+            .customLong("code-coverage"),
+        ],
+        inversion: .prefixedEnableDisable,
+        help: "Enable code coverage. (deprecated.  use '--enable-coverage' instead)",
+    )
+    var _enableCodeCoverageDeprecated: Bool?
+
+    var enableCodeCoverage: Bool {
+        return self._enableCoverage || (self._enableCodeCoverageDeprecated ?? false)
+    }
 
     /// If the binary output path should be printed.
     @Flag(name: .customLong("show-bin-path"), help: "Print the binary output path.")
@@ -139,6 +156,13 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
     var options: BuildCommandOptions
 
     public func run(_ swiftCommandState: SwiftCommandState) async throws {
+
+        if options._enableCodeCoverageDeprecated != nil {
+            swiftCommandState.observabilityScope.emit(
+                warning: "The '--enable-code-coverage' and '--disable-code-coverage' options have been deprecated.  Use '--enable-coverage' instead."
+            )
+        }
+
         if options.shouldPrintBinPath {
             return try print(swiftCommandState.productsBuildParameters.buildPath.description)
         }

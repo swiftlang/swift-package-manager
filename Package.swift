@@ -806,10 +806,13 @@ let package = Package(
             name: "_InternalTestSupport",
             dependencies: [
                 "Basics",
+                "Commands",
+                "CoreCommands",
                 "DriverSupport",
                 "PackageFingerprint",
                 "PackageGraph",
                 "PackageLoading",
+                "PackageModel",
                 "PackageRegistry",
                 "PackageSigning",
                 "SourceControl",
@@ -1134,7 +1137,8 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         // utils/update_checkout/update-checkout-config.json
         // They are used to build the official swift toolchain.
         .package(url: "https://github.com/swiftlang/swift-syntax.git", branch: relatedDependenciesBranch),
-        .package(url: "https://github.com/apple/swift-argument-parser.git", revision: "1.6.1"),
+        .package(url: "https://github.com/apple/swift-argument-parser.git", branch: relatedDependenciesBranch),
+        // .package(url: "https://github.com/apple/swift-argument-parser.git", revision: "1.6.1"),
         .package(url: "https://github.com/apple/swift-crypto.git", revision: "3.12.5"),
         .package(url: "https://github.com/apple/swift-system.git", revision: "1.5.0"),
         .package(url: "https://github.com/apple/swift-collections.git", revision: "1.1.6"),
@@ -1189,7 +1193,8 @@ if !shouldUseSwiftBuildFramework {
 
     if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         package.dependencies += [
-            .package(url: "https://github.com/swiftlang/swift-build.git", branch: relatedDependenciesBranch),
+            // .package(url: "https://github.com/swiftlang/swift-build.git", branch: relatedDependenciesBranch),
+            .package(path: "../swift-build"),
             .package(url: "https://github.com/swiftlang/swift-tools-protocols.git", branch: relatedDependenciesBranch),
         ]
     } else {

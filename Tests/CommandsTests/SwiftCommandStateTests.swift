@@ -580,38 +580,3 @@ final class SwiftCommandStateTests: XCTestCase {
     }
 
 }
-
-extension SwiftCommandState {
-    static func makeMockState(
-        outputStream: OutputByteStream = stderrStream,
-        options: GlobalOptions,
-        createPackagePath: Bool = false,
-        fileSystem: any FileSystem = localFileSystem,
-        environment: Environment = .current
-    ) throws -> SwiftCommandState {
-        return try SwiftCommandState(
-            outputStream: outputStream,
-            options: options,
-            toolWorkspaceConfiguration: .init(shouldInstallSignalHandlers: false),
-            workspaceDelegateProvider: {
-                CommandWorkspaceDelegate(
-                    observabilityScope: $0,
-                    outputHandler: $1,
-                    progressHandler: $2,
-                    inputHandler: $3
-                )
-            },
-            workspaceLoaderProvider: {
-                XcodeWorkspaceLoader(
-                    fileSystem: $0,
-                    observabilityScope: $1
-                )
-            },
-            createPackagePath: createPackagePath,
-            hostTriple: .arm64Linux,
-            targetInfo: UserToolchain.mockTargetInfo,
-            fileSystem: fileSystem,
-            environment: environment
-        )
-    }
-}
