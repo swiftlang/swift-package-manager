@@ -679,6 +679,90 @@ struct PIFBuilderTests {
         }
     }
 
+    @Test func moduleMapPathAndContents() async throws {
+        try await withGeneratedPIF(fromFixture: "PIFBuilder/Library") { pif, observabilitySystem in
+            #expect(observabilitySystem.diagnostics.filter { $0.severity == .error }.isEmpty)
+
+            let releaseConfig = try pif.workspace
+                .project(named: "Library")
+                .target(named: "Library")
+                .buildConfig(named: .release)
+
+            let expectedPath = try RelativePath(validating: "$(GENERATED_MODULEMAP_DIR)/Library.modulemap").pathString
+            #expect(releaseConfig.settings[.MODULEMAP_PATH] == expectedPath)
+            #expect(releaseConfig.settings[.MODULEMAP_FILE_CONTENTS] == """
+            module Library {
+            header "Library-Swift.h"
+            export *
+            }
+            """)
+        }
+
+        try await withGeneratedPIF(fromFixture: "CFamilyTargets/ModuleMapGenerationCases") { pif, observabilitySystem in
+            #expect(observabilitySystem.diagnostics.filter { $0.severity == .error }.isEmpty)
+
+            let project = try pif.workspace.project(named: "ModuleMapGenerationCases")
+
+            do {
+                let releaseConfig = try project
+                    .target(named: "NoIncludeDir")
+                    .buildConfig(named: .release)
+
+                #expect(releaseConfig.settings[.MODULEMAP_PATH] == nil)
+                #expect(releaseConfig.settings[.MODULEMAP_FILE_CONTENTS] == nil)
+            }
+
+            do {
+                let releaseConfig = try project
+                    .target(named: "CustomModuleMap")
+                    .buildConfig(named: .release)
+
+                let path = try #require(releaseConfig.settings[.MODULEMAP_PATH])
+                #expect(path.hasSuffix(RelativePath("CustomModuleMap")
+                    .appending(components: ["include", "module.modulemap"]).pathString))
+                #expect(!path.contains("$(GENERATED_MODULEMAP_DIR)"))
+                #expect(releaseConfig.settings[.MODULEMAP_FILE_CONTENTS] == nil)
+            }
+
+            do {
+                let releaseConfig = try project
+                    .target(named: "UmbrellaHeader")
+                    .buildConfig(named: .release)
+
+                let expectedPath = try RelativePath(
+                    validating: "$(GENERATED_MODULEMAP_DIR)/UmbrellaHeader.modulemap"
+                ).pathString
+                #expect(releaseConfig.settings[.MODULEMAP_PATH] == expectedPath)
+
+                let contents = try #require(releaseConfig.settings[.MODULEMAP_FILE_CONTENTS])
+                #expect(contents.hasPrefix("module UmbrellaHeader {"))
+                #expect(contents.contains("umbrella header \""))
+                #expect(contents.contains(RelativePath("UmbrellaHeader")
+                    .appending(components: ["include", "UmbrellaHeader", "UmbrellaHeader.h"]).escapedPathString))
+                #expect(contents.contains("export *"))
+            }
+
+            do {
+                let releaseConfig = try project
+                    .target(named: "UmbrellaDirectoryInclude")
+                    .buildConfig(named: .release)
+
+                let expectedPath = try RelativePath(
+                    validating: "$(GENERATED_MODULEMAP_DIR)/UmbrellaDirectoryInclude.modulemap"
+                ).pathString
+                #expect(releaseConfig.settings[.MODULEMAP_PATH] == expectedPath)
+
+                let contents = try #require(releaseConfig.settings[.MODULEMAP_FILE_CONTENTS])
+                #expect(contents.hasPrefix("module UmbrellaDirectoryInclude {"))
+                #expect(contents.contains("umbrella \""))
+                #expect(!contents.contains("umbrella header"))
+                #expect(contents.contains(RelativePath("UmbrellaDirectoryInclude")
+                    .appending(component: "include").escapedPathString))
+                #expect(contents.contains("export *"))
+            }
+        }
+    }
+
     @Test func disablingLocalRpaths() async throws {
         try await withGeneratedPIF(fromFixture: "Miscellaneous/Simple") { pif, observabilitySystem in
             #expect(observabilitySystem.diagnostics.filter {
